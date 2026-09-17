@@ -39,6 +39,7 @@ src/
   features/designer/   GrapesJS + MJML email designer (see its README.md) · /dev/designer playground in development
   features/messaging/  SMS / MMS editor: sms.ts (GSM-7 / UCS-2 part counting, mirrors the server) · MessageWorkspace · /dev/message playground
   features/templates/  StarterGallery: the "Start from" picker fed by GET /template-starters/
+  pages/settings/      Settings area for tenant administrators: Users · Roles · API keys (SetPasswordPage is the public one-time-link page)
   test/         mockApi.ts (in-memory API for component tests)
 ```
 

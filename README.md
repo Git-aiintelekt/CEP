@@ -43,6 +43,19 @@ running: `cd frontend && npm install && npm run dev`, then open `http://localhos
 2 SMS, 1 MMS) and adds the receipt / order personalization tags they use. Safe to re-run; `--only <key ...>` and
 `--activate` are available. The same starters appear under **New template → Start from** for every tenant.
 
+## Administration: two surfaces, two audiences
+
+| | Tenant administrators (your customers) | Platform operators (your staff) |
+|---|---|---|
+| Where | **Settings** in the React app (`/settings`, permission `user.admin`) | Django Admin, themed with django-unfold (`/admin/`, `is_staff`) |
+| Scope | their own workspace only, under row-level security | every tenant, on the BYPASSRLS `platform` connection |
+| Can do | add / deactivate users, one-time password links, roles from the permission catalogue, API keys (shown once, revocable) | register and onboard tenants (partitions, routing row, starting roles on save), suspend / reactivate, users and roles across tenants, revoke API keys, plans, subscriptions, routing, storage, read-only audit trail |
+| Home page | workspace facts and plan limits | **Platform health**: database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, workers, configuration. Also `GET /admin/health.json` (503 when a check fails) |
+
+Passwords are never typed by an administrator on either surface: both create a one-time link (`/set-password`) on
+which the user chooses their own. Nobody can deactivate themselves or remove the last administrator of a workspace.
+`/healthz` stays the unauthenticated liveness probe for load balancers.
+
 ## Logging in
 
 There are two entry points, both served by `python manage.py runserver` from `backend/`:

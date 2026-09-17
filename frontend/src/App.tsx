@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthProvider } from '@/auth/AuthContext'
 import { RequireAuth } from '@/auth/RequireAuth'
@@ -14,6 +14,11 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { CampaignsPage, ContactListsPage, JourneysPage, TemplatesPage } from '@/pages/ListPages'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
+import { SetPasswordPage } from '@/pages/SetPasswordPage'
+import { ApiKeysPage } from '@/pages/settings/ApiKeysPage'
+import { RolesPage } from '@/pages/settings/RolesPage'
+import { SettingsLayout } from '@/pages/settings/SettingsLayout'
+import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
 
 // GrapesJS + the MJML compiler are ~1 MB: loaded only when someone opens the designer.
@@ -52,6 +57,7 @@ export default function App() {
           <ErrorBoundary>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/set-password" element={<SetPasswordPage />} />
             {DesignerPlayground && (
               <Route path="/dev/designer" element={<Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense>} />
             )}
@@ -72,6 +78,12 @@ export default function App() {
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />
+                <Route path="settings" element={<SettingsLayout />}>
+                  <Route index element={<Navigate to="users" replace />} />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="roles" element={<RolesPage />} />
+                  <Route path="api-keys" element={<ApiKeysPage />} />
+                </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Route>

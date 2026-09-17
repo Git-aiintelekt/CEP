@@ -20,7 +20,8 @@ function initials(name: string | undefined): string {
 }
 
 export function AppShell() {
-  const { me, logout } = useAuth()
+  const { me, logout, can } = useAuth()
+  const nav = can('user.admin') ? [...NAV, { to: '/settings', label: 'Settings', end: false }] : NAV
   const name = me?.principal.display_name ?? me?.principal.email
 
   return (
@@ -36,7 +37,7 @@ export function AppShell() {
           </div>
         </div>
         <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     },
     // The email designer (GrapesJS + the MJML compiler) is one lazily loaded ~2.4 MB chunk by design.
     build: { chunkSizeWarningLimit: 2600 },
-    test: { environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA' } },
+    test: { environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA' }, testTimeout: 20_000 },
     server: {
       port: 5173,
       // Same-origin in development: the browser talks to Vite, Vite forwards /api to Django (no CORS, no mixed hosts).

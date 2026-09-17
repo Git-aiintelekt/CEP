@@ -22,6 +22,7 @@ DOMAIN_APPS = [
     "apps.database",                                    # owns the RunSQL migration that applies the DDL
 ]
 INSTALLED_APPS = [
+    "unfold",                                             # Tailwind-based admin theme: must precede django.contrib.admin
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -75,6 +76,7 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["platform"] = env.db("PLATFORM_DATABASE_URL", default=env("DATABASE_URL", default="postgres://cep:cep@127.0.0.1:5432/cep_pool"))
 PLATFORM_ALIAS = "platform"
 PLATFORM_PATH_PREFIXES = ("/admin/",)
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # where one-time password links point
 DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config"}
@@ -91,8 +93,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # ---------------------------------------------------------------- REST framework (API-first)
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "api.auth.ApiKeyAuthentication",   # first: it only claims `Bearer cep_...`; JWT would reject such a key as a bad token
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "api.auth.ApiKeyAuthentication",                    # api_client keys for integrations / services
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -191,3 +193,6 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json"}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
 }
+
+# ---------------------------------------------------------------- platform back-office theme
+from .unfold import UNFOLD  # noqa: E402,F401

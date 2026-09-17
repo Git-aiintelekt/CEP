@@ -1,7 +1,7 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import type { Campaign, ContactList, MediaAsset, Message, PersonalizationTag, SenderProfile, Template, TemplateStarter } from '@/lib/types'
+import type { ApiKey, Campaign, ContactList, MediaAsset, Message, PersonalizationTag, Role, SenderProfile, SettingsUser, Template, TemplateStarter, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -14,7 +14,7 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
-               permissions: ['campaign.edit', 'campaign.publish', 'template.edit'] },
+               permissions: ['campaign.edit', 'campaign.publish', 'template.edit', 'user.admin'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
 }
 
@@ -45,6 +45,29 @@ export const mediaLibrary: MediaAsset[] = [
   { id: 'img-1', file_name: 'lookbook.jpg', mime_type: 'image/jpeg', byte_size: 180_000, width_px: 600, height_px: 400, url: 'http://cdn.test/lookbook.jpg', created_at: '2026-09-01T10:00:00Z' },
   { id: 'img-webp', file_name: 'modern.webp', mime_type: 'image/webp', byte_size: 90_000, width_px: 600, height_px: 400, url: 'http://cdn.test/modern.webp', created_at: '2026-09-01T10:00:00Z' },
 ]
+
+export const roles: Role[] = [
+  { id: 'role-admin', name: 'Marketing Admin', description: 'Everything', permissions: ['campaign.edit', 'user.admin'], user_count: 1, row_version: 1 },
+  { id: 'role-analyst', name: 'Analyst', description: 'Read only', permissions: ['campaign.view'], user_count: 0, row_version: 1 },
+]
+export const permissionCatalogue = [
+  { code: 'campaign.view', description: 'Campaign view' }, { code: 'campaign.edit', description: 'Campaign edit' },
+  { code: 'template.edit', description: 'Template edit' }, { code: 'user.admin', description: 'User admin' },
+]
+const settingsUser = (overrides: Partial<SettingsUser>): SettingsUser => ({
+  id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_active: true, auth_provider: 'LOCAL', mfa_enabled: false,
+  last_login: '2026-09-17T10:00:00Z', created_at: '2026-09-01T10:00:00Z', roles: ['role-admin'], role_names: ['Marketing Admin'], has_password: true, is_self: true, ...overrides,
+})
+export const settingsUsers: SettingsUser[] = [
+  settingsUser({}),
+  settingsUser({ id: 'u2', email: 'devon@example.com', display_name: 'Devon Okafor', roles: ['role-analyst'], role_names: ['Analyst'], has_password: false, is_self: false, last_login: null }),
+]
+export const apiKeys: ApiKey[] = [
+  { id: 'key-1', name: 'POS integration', client_type: 'INTEGRATION', key_prefix: 'cep_in_AbC123', scopes: ['events:ingest'], allowed_ip_cidrs: ['203.0.113.0/24'], rate_limit_per_minute: 600,
+    expires_at: null, revoked_at: null, last_used_at: null, created_at: '2026-09-01T10:00:00Z', status: 'ACTIVE' },
+]
+export const workspace: Workspace = { name: 'Northwind Apparel', code: 'NWA', timezone: 'America/New_York', status: 'ACTIVE', subdomain: 'northwind', region: 'us-east-1',
+                                      plan: 'Growth', max_users: 50, active_users: 2, roles: 2, active_api_keys: 1 }
 
 export const starters: TemplateStarter[] = [
   { key: 'promotion', name: 'Sale announcement', channel: 'EMAIL', category: 'Promotion', description: 'A time-limited offer.', subject_line: '{{first_name}}, a sale',
@@ -89,6 +112,8 @@ interface MockOptions {
   message?: Message
   /** answer for POST /templates/{id}/message/ ; default echoes version n+1 */
   onSaveMessage?: (call: Call) => Response | null
+  /** answer for writes under /users/, /roles/, /api-clients/ and /auth/set-password/ ; default echoes success */
+  onSettingsWrite?: (call: Call) => Response | null
 }
 
 /** Installs a fetch mock; returns the recorded calls. Call signIn() to start authenticated. */
@@ -110,7 +135,23 @@ export function installMockApi(options: MockOptions = {}) {
         ? json({ access: 'access-1', refresh: 'refresh-1' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'No active account' }, 401)
     }
+    if (path.endsWith('/auth/set-password/')) return options.onSettingsWrite?.(call) ?? json(null, 204)
     if (headers.Authorization !== 'Bearer access-1') return json({ title: 'Unauthorized', status: 401 }, 401)
+    if (/\/(users|roles|api-clients)\//.test(path) && method !== 'GET') {
+      const custom = options.onSettingsWrite?.(call)
+      if (custom) return custom
+      if (path.endsWith('/password-link/')) return json({ path: '/set-password?tenant=NWA&uid=dTI&token=abc-123', expires_in_hours: 72 })
+      if (path.endsWith('/revoke/')) return json({ ...apiKeys[0], status: 'REVOKED', revoked_at: '2026-09-18T10:00:00Z' })
+      if (path.endsWith('/api-clients/')) return json({ ...apiKeys[0], ...(body as Partial<ApiKey>), id: 'key-new', key_prefix: 'cep_in_NeW456', key: 'cep_in_NeW456secretsecretsecret' }, 201)
+      if (path.includes('/roles/')) return method === 'DELETE' ? json(null, 204) : json({ ...roles[1], ...(body as Partial<Role>), id: 'role-new' }, method === 'POST' ? 201 : 200)
+      return json({ ...settingsUsers[1], ...(body as Partial<SettingsUser>) }, method === 'POST' ? 201 : 200)
+    }
+    if (path.endsWith('/workspace/')) return json(workspace)
+    if (path.endsWith('/users/')) return json(settingsUsers)
+    if (path.endsWith('/roles/permissions/')) return json(permissionCatalogue)
+    if (path.endsWith('/roles/')) return json(roles)
+    if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
+    if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.endsWith('/me/')) return json(me)
     const message = options.message ?? makeMessage()
     if (path.endsWith('/message/') && method === 'POST') {

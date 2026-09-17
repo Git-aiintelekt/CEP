@@ -269,6 +269,78 @@ export interface Journey extends Audited {
   current_version: string | null
 }
 
+/** GET /users/ (tenant settings; requires user.admin) */
+export interface SettingsUser {
+  id: string
+  email: string
+  display_name: string
+  is_active: boolean
+  auth_provider: 'LOCAL' | 'SAML' | 'OIDC' | string
+  mfa_enabled: boolean
+  last_login: string | null
+  created_at: string
+  /** role ids (writable: sending the array replaces the set) */
+  roles: string[]
+  role_names: string[]
+  has_password: boolean
+  is_self: boolean
+}
+
+export interface Role {
+  id: string
+  name: string
+  description: string | null
+  /** permission codes (writable: replaces the set) */
+  permissions: string[]
+  user_count: number
+  row_version: number
+}
+
+export interface PermissionDef {
+  code: string
+  description: string | null
+}
+
+export interface PasswordLink {
+  /** path of the one-time page; the client prefixes its own origin */
+  path: string
+  expires_in_hours: number
+}
+
+export interface ApiKey {
+  id: string
+  name: string
+  client_type: string
+  key_prefix: string
+  scopes: string[]
+  allowed_ip_cidrs: string[] | null
+  rate_limit_per_minute: number | null
+  expires_at: string | null
+  revoked_at: string | null
+  last_used_at: string | null
+  created_at: string
+  status: 'ACTIVE' | 'EXPIRED' | 'REVOKED'
+}
+
+/** POST /api-clients/ : the only response that ever carries the full key */
+export interface ApiKeyCreated extends ApiKey {
+  key: string
+}
+
+export interface Workspace {
+  name: string
+  code: string
+  timezone: string
+  status: string
+  subdomain: string | null
+  region: string | null
+  plan: string | null
+  max_users: number | null
+  active_users: number
+  roles: number
+  active_api_keys: number
+}
+
 /** Permission codes issued by the API (identity.permission.code). */
 export type PermissionCode =
   | 'campaign.edit'
@@ -276,4 +348,5 @@ export type PermissionCode =
   | 'list.edit'
   | 'template.edit'
   | 'journey.edit'
+  | 'user.admin'
   | (string & {})
