@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { StarterGallery } from '@/features/templates/StarterGallery'
 import { api, ApiError } from '@/lib/api'
+import { channelAllowed } from '@/lib/features'
 import type { Template } from '@/lib/types'
 
 const CHANNELS = [
@@ -19,12 +20,13 @@ const CHANNELS = [
 ]
 
 export function TemplateFormPage() {
-  const { can } = useAuth()
+  const { can, has } = useAuth()
+  const channels = CHANNELS.filter((item) => channelAllowed(has, item.value))
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
   const [name, setName] = useState('')
-  const [channel, setChannel] = useState('EMAIL')
+  const [channel, setChannel] = useState(() => channels[0]?.value ?? 'EMAIL')
   const [description, setDescription] = useState('')
   const [starter, setStarter] = useState('')
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
@@ -75,7 +77,7 @@ export function TemplateFormPage() {
           <Field label="Channel" required error={errors.channel} hint={CHANNELS.find((item) => item.value === channel)?.hint}>
             {(ids) => (
               <Select {...ids} value={channel} onChange={(event) => { setChannel(event.target.value); setStarter('') }}>
-                {CHANNELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                {channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
               </Select>
             )}
           </Field>

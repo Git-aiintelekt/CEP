@@ -2,14 +2,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { api, session, UNAUTHORIZED_EVENT } from '@/lib/api'
-import type { Me, PermissionCode } from '@/lib/types'
+import type { Feature, Me, PermissionCode } from '@/lib/types'
 
 interface AuthValue {
   status: 'loading' | 'anonymous' | 'authenticated'
   me: Me | null
   tenant: string
-  login: (tenant: string, email: string, password: string) => Promise<void>
+  /** Resolves to the MFA token when a second factor is still needed (pass it to verifyMfa), else null: signed in. */
+  login: (tenant: string, email: string, password: string) => Promise<string | null>
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>
+  /** Tokens that arrived another way: the single sign-on redirect, a support session, MFA enrolment. */
+  adopt: (tokens: { access: string; refresh?: string | null }, tenant?: string) => void
   logout: () => void
+  /** Feature switches of the workspace (industry profile + plan). Unknown = on, so an older API hides nothing. */
+  has: (feature: Feature) => boolean
   /** Platform admins hold every permission; everyone else is checked against the codes from GET /me. */
   can: (permission: PermissionCode) => boolean
 }
@@ -40,13 +46,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout)
   }, [logout])
 
+  const signedIn = useCallback(() => {
+    queryClient.clear()
+    setHasToken(true)
+  }, [queryClient])
+
   const login = useCallback(
     async (tenant: string, email: string, password: string) => {
-      await api.login(tenant, email, password)
-      queryClient.clear()
-      setHasToken(true)
+      const result = await api.login(tenant, email, password)
+      if (result.mfa_required && result.mfa_token) return result.mfa_token
+      signedIn()
+      return null
     },
-    [queryClient],
+    [signedIn],
+  )
+
+  const verifyMfa = useCallback(
+    async (mfaToken: string, code: string) => {
+      await api.verifyMfa(mfaToken, code)
+      signedIn()
+    },
+    [signedIn],
+  )
+
+  const adopt = useCallback(
+    (tokens: { access: string; refresh?: string | null }, tenant?: string) => {
+      if (tenant) session.setTenant(tenant)
+      session.setTokens({ access: tokens.access, refresh: tokens.refresh ?? null })
+      signedIn()
+    },
+    [signedIn],
   )
 
   const value = useMemo<AuthValue>(() => {
@@ -58,10 +87,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       me,
       tenant: session.tenant,
       login,
+      verifyMfa,
+      adopt,
       logout,
       can: (permission) => Boolean(me?.principal.is_platform_admin) || permissions.has(permission),
+      has: (feature) => me?.features?.[feature] !== false,
     }
-  }, [hasToken, meQuery.data, meQuery.isError, login, logout])
+  }, [hasToken, meQuery.data, meQuery.isError, login, verifyMfa, adopt, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

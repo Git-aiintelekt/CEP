@@ -1,0 +1,12 @@
+{% extends "email/base.html" %}
+{% block title %}Platform alert{% endblock %}
+{% block content %}
+{% if opened %}<p style="margin:0 0 6px;font-weight:700;color:#0f172a;">New</p>
+<ul style="margin:0 0 14px;padding-left:20px;">{% for name, severity, summary, detail in opened %}<li><strong style="color:{% if severity == 'FAIL' %}#b91c1c{% else %}#b45309{% endif %};">{{ name }}</strong>: {{ summary }}{% if detail %}<br><span style="font-size:13px;color:#64748b;">{{ detail }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+{% if renotified %}<p style="margin:0 0 6px;font-weight:700;color:#0f172a;">Still open</p>
+<ul style="margin:0 0 14px;padding-left:20px;">{% for name, severity, summary, detail in renotified %}<li><strong style="color:{% if severity == 'FAIL' %}#b91c1c{% else %}#b45309{% endif %};">{{ name }}</strong>: {{ summary }}</li>{% endfor %}</ul>{% endif %}
+{% if resolved %}<p style="margin:0 0 6px;font-weight:700;color:#0f172a;">Recovered</p>
+<ul style="margin:0 0 14px;padding-left:20px;">{% for name, severity, summary, detail in resolved %}<li><strong style="color:#047857;">{{ name }}</strong></li>{% endfor %}</ul>{% endif %}
+<p style="margin:20px 0;"><a href="{{ admin_url }}" style="display:inline-block;background:#2753e4;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:8px;">Open platform health</a></p>
+{% endblock %}
+{% block footer %}Sent to the addresses in the global parameter alerts.recipients. An open alert is repeated until it recovers or is acknowledged in the back-office.{% endblock %}

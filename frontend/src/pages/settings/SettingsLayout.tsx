@@ -6,12 +6,14 @@ import { PageHeader } from '@/components/ResourceList'
 import { ErrorState } from '@/components/States'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Workspace } from '@/lib/types'
+import type { Feature, Workspace } from '@/lib/types'
 
-const TABS = [
+const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/users', label: 'Users' },
   { to: '/settings/roles', label: 'Roles' },
-  { to: '/settings/api-keys', label: 'API keys' },
+  { to: '/settings/api-keys', label: 'API keys', feature: 'api_access' },
+  { to: '/settings/plan', label: 'Plan & usage' },
+  { to: '/settings/security', label: 'Security' },
 ]
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -24,7 +26,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 export function SettingsLayout() {
-  const { can } = useAuth()
+  const { can, has } = useAuth()
   const allowed = can('user.admin')
   const workspace = useQuery({ queryKey: ['workspace'], queryFn: ({ signal }) => api.get<Workspace>('/workspace/', undefined, signal), enabled: allowed })
 
@@ -45,8 +47,8 @@ export function SettingsLayout() {
           <Fact label="Active API keys" value={formatNumber(data.active_api_keys)} />
         </dl>
       )}
-      <nav aria-label="Settings sections" className="mb-5 flex gap-1 border-b border-line">
-        {TABS.map((tab) => (
+      <nav aria-label="Settings sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-line whitespace-nowrap">
+        {TABS.filter((tab) => !tab.feature || has(tab.feature)).map((tab) => (
           <NavLink key={tab.to} to={tab.to} className={({ isActive }) =>
             `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-900'}`}>
             {tab.label}

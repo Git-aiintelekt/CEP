@@ -83,7 +83,10 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
 function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   const link = useQuery({ queryKey: ['settings', 'password-link', user.id], queryFn: () => api.post<PasswordLink>(`/users/${user.id}/password-link/`), gcTime: 0, staleTime: Infinity, retry: false })
-  const url = link.data ? `${window.location.origin}${link.data.path}` : ''
+  // a new link each time: emailing makes the one on screen the same one that lands in the inbox
+  const email = useMutation({ mutationFn: () => api.post<PasswordLink>(`/users/${user.id}/password-link/`, { send: true }) })
+  const current = email.data ?? link.data
+  const url = current ? `${window.location.origin}${current.path}` : ''
 
   return (
     <Modal title={`Password link for ${user.display_name}`} onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>Done</button>}>
@@ -91,7 +94,19 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
         : link.isError ? <ErrorState title="Could not create a link" error={link.error} />
         : (
           <div className="space-y-3 text-sm text-ink-700">
-            <p>Send this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
+            {link.data.email_configured !== false && (
+              <div className="rounded-lg border border-line px-3 py-3">
+                {email.data?.emailed ? <p role="status" className="font-medium text-emerald-700">Sent to {user.email}. They choose their own password from the message.</p>
+                  : (<div className="flex flex-wrap items-center justify-between gap-3">
+                      <p>Email the link to <strong>{user.email}</strong>: you never have to handle it.</p>
+                      <button type="button" className={buttonPrimary} disabled={email.isPending} onClick={() => email.mutate()}>
+                        {email.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Email the link
+                      </button>
+                    </div>)}
+                {(email.isError || email.data?.emailed === false) && <p role="alert" className="mt-2 text-xs font-medium text-red-700">The email could not be sent. Copy the link below instead.</p>}
+              </div>
+            )}
+            <p>{link.data.email_configured !== false ? 'Or send' : 'Send'} this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
             <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-time link</label>
             <div className="flex gap-2">
               <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 rounded-lg border border-line bg-slate-50 px-3 py-2 font-mono text-xs" />

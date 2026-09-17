@@ -1,0 +1,11 @@
+{% autoescape off %}Hello {{ name }},
+
+A member of the {{ product }} support team opened a {{ mode }} support session on your account in the {{ workspace }} workspace.
+
+Who:   {{ staff }}
+Why:   {{ reason }}
+Until: {{ expires_at|date:"Y-m-d H:i" }} UTC at the latest
+
+They never see your password, and a support session cannot change users, roles, API keys or sign-in settings.
+Your workspace administrators can see every support session under Settings. If you did not ask for help, tell them.
+{% endautoescape %}

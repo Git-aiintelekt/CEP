@@ -15,3 +15,5 @@ uvicorn[standard]==0.53.0
 mrml==0.2.4
 pillow==12.3.0
 django-unfold==0.107.0
+cryptography==50.0.1
+requests==2.34.2

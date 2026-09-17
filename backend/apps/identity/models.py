@@ -53,6 +53,10 @@ class AppUser(AbstractBaseUser):
     updated_by = models.ForeignKey('self', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     row_version = models.IntegerField(default=1)
+    mfa_secret_enc = models.TextField(null=True, blank=True)  # TOTP secret, encrypted by the application
+    mfa_confirmed_at = models.DateTimeField(null=True, blank=True)
+    mfa_recovery_hashes = ArrayField(models.TextField(), default=list, blank=True)  # SHA-256 of unused recovery codes
+    mfa_last_counter = models.BigIntegerField(null=True, blank=True)  # last accepted TOTP time-step (no replay)
     password = models.CharField(max_length=255, db_column='password_hash', null=True, blank=True)  # Django hasher output; NULL for SSO-only users
     last_login = models.DateTimeField(db_column='last_login_at', null=True, blank=True)
 

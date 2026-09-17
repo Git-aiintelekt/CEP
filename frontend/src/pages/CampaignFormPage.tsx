@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { api, ApiError } from '@/lib/api'
+import { channelAllowed } from '@/lib/features'
 import { formatNumber, fromLocalInput, humanize, toLocalInput } from '@/lib/format'
 import type { Campaign, CampaignInput, ContactList, Page, SenderProfile, Template } from '@/lib/types'
 
@@ -88,7 +89,7 @@ export function CampaignFormPage() {
   const isEdit = Boolean(id)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { me, can } = useAuth()
+  const { me, can, has } = useAuth()
 
   const existing = useQuery({
     queryKey: ['campaigns', 'detail', id],
@@ -302,7 +303,7 @@ export function CampaignFormPage() {
           <Field label="Campaign type" required error={errors.campaign_type} hint={typeHint}>
             {(ids) => (
               <Select {...ids} value={values.campaign_type} onChange={(event) => set('campaign_type', event.target.value)}>
-                {CAMPAIGN_TYPES.map((item) => (
+                {CAMPAIGN_TYPES.filter((item) => item.value !== 'E_RECEIPT' || has('ereceipt') || values.campaign_type === 'E_RECEIPT').map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
@@ -313,7 +314,7 @@ export function CampaignFormPage() {
           <Field label="Channel" required error={errors.channel} hint={isReceipt ? 'E-receipts are sent by email.' : undefined}>
             {(ids) => (
               <Select {...ids} value={values.channel} disabled={isReceipt} onChange={(event) => set('channel', event.target.value)}>
-                {CHANNELS.map((item) => (
+                {CHANNELS.filter((item) => channelAllowed(has, item, values.channel)).map((item) => (
                   <option key={item} value={item}>
                     {item === 'MULTI' ? 'Multiple channels' : item}
                   </option>

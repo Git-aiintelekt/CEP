@@ -143,13 +143,59 @@ def check_configuration():
     return _result("Configuration", OFF if settings.DEBUG else FAIL, "; ".join(problems), "Expected in development. None of these may be true in production.")
 
 
+def check_email():
+    from apps.platform_ops import mail
+    if not mail.is_configured():
+        return _result("Email", OFF if settings.DEBUG else FAIL, "No mail server configured: messages are printed to the server log",
+                       "Set EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL in .env. Test with: python manage.py sendtestemail you@example.com")
+    ok, message = mail.check()
+    return _result("Email", OK if ok else FAIL, message, "" if ok else "Password links and alerts cannot be delivered.")
+
+
+def check_secrets():
+    from apps.platform_ops import crypto
+    if crypto.uses_derived_key():
+        return _result("Secrets at rest", OFF if settings.DEBUG else FAIL, "FIELD_ENCRYPTION_KEY is not set: MFA and SSO secrets use a key derived from SECRET_KEY",
+                       "Generate a Fernet key per environment and keep it out of the database backups.")
+    return _result("Secrets at rest", OK, "MFA and SSO secrets are encrypted with a dedicated key")
+
+
+def check_jobs():
+    from apps.platform_ops import jobs
+    report = jobs.status_report()
+    failed = [j["name"] for j in report if j["state"] == "failed"]
+    overdue = [j["name"] for j in report if j["state"] == "overdue"]
+    never = [j["name"] for j in report if j["state"] == "never"]
+    healthy = len(report) - len(failed) - len(overdue) - len(never)
+    if failed:
+        return _result("Scheduled jobs", FAIL, f"Last run failed: {', '.join(failed)}", "See Operations, Job runs, for the error.")
+    if overdue:
+        return _result("Scheduled jobs", WARN, f"Overdue: {', '.join(overdue)}", "A job has not succeeded within its expected interval. Is Celery beat running?")
+    if never and not healthy:
+        return _result("Scheduled jobs", OFF if settings.DEBUG else FAIL, "No scheduled job has run yet", "Start Celery with beat, or run one by hand: python manage.py run_job --list")
+    if never:
+        return _result("Scheduled jobs", OFF if settings.DEBUG else WARN, f"{healthy} healthy; never run: {', '.join(never)}")
+    return _result("Scheduled jobs", OK, f"All {len(report)} jobs succeeded within their expected interval")
+
+
+def check_operations():
+    failed, waiting = _rows("""SELECT count(*) FILTER (WHERE status = 'FAILED' AND finished_at > now() - interval '7 days'),
+                                      count(*) FILTER (WHERE status IN ('REQUESTED', 'RUNNING') AND requested_at < now() - interval '2 hours') FROM tenant_operation""")[0]
+    if failed or waiting:
+        return _result("Tenant operations", WARN, f"{failed} failed in the last 7 days, {waiting} waiting for more than 2 hours", "See Operations, Tenant operations.")
+    return _result("Tenant operations", OK, "No failed or stuck exports, moves or offboardings")
+
+
 CHECKS = (("Database", check_database), ("Tenant isolation", check_app_role), ("Migrations", check_migrations), ("Partitions", check_partitions),
           ("Event outbox", check_outbox), ("Failed messages", check_dead_letters), ("Cache", check_cache), ("Background workers", check_workers),
-          ("Configuration", check_configuration))
+          ("Configuration", check_configuration), ("Email", check_email), ("Secrets at rest", check_secrets), ("Tenant operations", check_operations))
 
 
-def collect() -> dict:
+def collect(include_jobs: bool = True) -> dict:
+    """include_jobs=False is for the alert evaluator, which reports each job on its own line instead."""
     checks = [_guard(name, fn) for name, fn in CHECKS]
+    if include_jobs:
+        checks.append(_guard("Scheduled jobs", check_jobs))
     worst = FAIL if any(c["status"] == FAIL for c in checks) else WARN if any(c["status"] == WARN for c in checks) else OK
     return {"status": worst, "label": LABEL[worst], "word": WORD[worst], "checked_at": timezone.now(), "checks": checks}
 
@@ -169,7 +215,14 @@ def numbers() -> list[dict]:
 
 def dashboard_callback(request, context):
     """UNFOLD['DASHBOARD_CALLBACK']: adds the health report and headline numbers to the admin index context."""
-    context.update({"health": collect(), "numbers": _guard("numbers", numbers) if True else []})
+    from apps.platform_ops import jobs
+    from apps.platform_ops.models import PlatformAlert
+    context.update({"health": collect(), "numbers": _guard("numbers", numbers)})
+    try:
+        context["jobs"] = jobs.status_report()
+        context["alerts"] = list(PlatformAlert.objects.using(P).filter(resolved_at__isnull=True).order_by("severity", "opened_at")[:20])
+    except Exception:                                      # the layer is not applied yet: the checks above already say so
+        context["jobs"], context["alerts"] = [], []
     if isinstance(context["numbers"], dict):               # the guard returned a failure result instead of a list
         context["numbers"] = []
     return context

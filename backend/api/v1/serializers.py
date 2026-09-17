@@ -279,6 +279,11 @@ class TemplateSerializer(TenantModelSerializer):
         return value
 
     def validate_channel(self, value):
+        from apps.platform_ops import params
+        from apps.tenants import context
+        feature = params.CHANNEL_FEATURE.get(value)
+        if self.instance is None and feature and not params.enabled(context.require().tenant_id, feature):
+            raise serializers.ValidationError(f"{params.FEATURES[feature]['name']} is not part of this workspace.")
         if self.instance is not None and self.instance.channel != value:
             raise serializers.ValidationError("The channel of an existing template cannot be changed. Create a new template instead.")
         return value
@@ -403,6 +408,11 @@ class MeTenantSerializer(serializers.Serializer):
 class MeSerializer(serializers.Serializer):
     principal = MePrincipalSerializer()
     tenant = MeTenantSerializer()
+    industry = serializers.CharField()
+    features = serializers.DictField(child=serializers.BooleanField(), help_text="feature code -> enabled for this workspace")
+    terminology = serializers.DictField(child=serializers.CharField())
+    mfa_setup_required = serializers.BooleanField()
+    support_session = serializers.DictField(allow_null=True)
 
 
 class JourneySerializer(TenantModelSerializer):

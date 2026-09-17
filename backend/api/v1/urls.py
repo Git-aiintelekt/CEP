@@ -1,8 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import settings_api, views
+from . import auth_api, settings_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -21,7 +21,17 @@ router.register("roles", settings_api.RoleViewSet, basename="role")
 router.register("api-clients", settings_api.ApiClientViewSet, basename="api-client")
 
 urlpatterns = [
-    path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("auth/token/", auth_api.LoginView.as_view(), name="token_obtain_pair"),
+    path("auth/mfa/verify/", auth_api.MfaVerifyView.as_view(), name="mfa_verify"),
+    path("auth/mfa/", auth_api.MfaView.as_view(), name="mfa"),
+    path("auth/options/", auth_api.AuthOptionsView.as_view(), name="auth_options"),
+    path("auth/sso/start/", auth_api.SsoStartView.as_view(), name="sso_start"),
+    path("auth/sso/callback/", auth_api.SsoCallbackView.as_view(), name="sso_callback"),
+    path("auth/support-session/end/", auth_api.SupportSessionEndView.as_view(), name="support_session_end"),
+    path("workspace/usage/", workspace_api.UsageView.as_view(), name="workspace_usage"),
+    path("workspace/invoices/", workspace_api.InvoicesView.as_view(), name="workspace_invoices"),
+    path("workspace/security/", workspace_api.SecurityView.as_view(), name="workspace_security"),
+    path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),

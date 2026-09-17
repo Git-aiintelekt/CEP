@@ -2,6 +2,7 @@
 import json
 
 import redis
+from apps.platform_ops.jobs import monitored
 from celery import shared_task
 from django.conf import settings
 from django.db import connections, transaction
@@ -10,6 +11,7 @@ BATCH = 500
 
 
 @shared_task(name="workers.outbox.relay_pending_events")
+@monitored("outbox-relay")
 def relay_pending_events() -> int:
     r = redis.Redis.from_url(settings.REDIS_URL)
     published = 0

@@ -18,7 +18,7 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 DOMAIN_APPS = [
     "apps.tenants", "apps.identity", "apps.customers", "apps.contact_lists", "apps.templates", "apps.campaigns",
     "apps.journeys", "apps.governance", "apps.delivery", "apps.media", "apps.reporting", "apps.audit",
-    "apps.integrations", "apps.tracking", "apps.scoring",
+    "apps.integrations", "apps.tracking", "apps.scoring", "apps.platform_ops",
     "apps.database",                                    # owns the RunSQL migration that applies the DDL
 ]
 INSTALLED_APPS = [
@@ -47,6 +47,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.platform_ops.admin_mfa.AdminMfaMiddleware",     # staff who enrolled an authenticator must pass it for the back-office too
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.tenants.middleware.TenantMiddleware",           # resolves the tenant, opens the request transaction, SET LOCAL app.current_tenant
@@ -77,9 +78,35 @@ DATABASES["platform"] = env.db("PLATFORM_DATABASE_URL", default=env("DATABASE_UR
 PLATFORM_ALIAS = "platform"
 PLATFORM_PATH_PREFIXES = ("/admin/",)
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # where one-time password links point
+API_PUBLIC_URL = env("API_PUBLIC_URL", default="http://localhost:8000")   # the address an identity provider redirects back to
+PLATFORM_ADMIN_URL = env("PLATFORM_ADMIN_URL", default=API_PUBLIC_URL)    # linked from alert emails
+
+# ---------------------------------------------------------------- email sent BY the platform (password links, alerts, notices)
+# Set EMAIL_HOST to use SMTP. Without it messages are printed to the server log, so development needs no mail server.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)        # STARTTLS on 587
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)       # implicit TLS on 465 (use one or the other)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+PASSWORD_RESET_TIMEOUT = 14 * 24 * 3600        # hard ceiling for one-time password links; the effective lifetime is the
+                                                # global parameter security.password_link_hours (apps/platform_ops/links.py)
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend" if EMAIL_HOST else "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="CEP <no-reply@localhost>")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+EMAIL_REPLY_TO = env("EMAIL_REPLY_TO", default="")
+EMAIL_PRODUCT_NAME = env("EMAIL_PRODUCT_NAME", default="Customer Engagement Platform")
+
+# ---------------------------------------------------------------- secrets at rest, tenant operations
+FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")     # Fernet key(s), comma separated; see apps/platform_ops/crypto.py
+OWNER_DATABASE_URL = env("OWNER_DATABASE_URL", default="")         # DDL-owner login: only tenant exports / moves / offboarding use it
+TENANT_EXPORT_DIR = env("TENANT_EXPORT_DIR", default=str(BASE_DIR / "exports"))
 DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
-CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config"}
+CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
+                        "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "tenant_identity_provider",
+                        "platform_setting", "industry_profile"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth
@@ -94,7 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "api.auth.ApiKeyAuthentication",   # first: it only claims `Bearer cep_...`; JWT would reject such a key as a bad token
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "api.auth.CepJWTAuthentication",             # JWT + the rules for support sessions and pending MFA enrolment
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -156,6 +183,10 @@ CELERY_BEAT_SCHEDULE = {
     "outbox-relay": {"task": "workers.outbox.relay_pending_events", "schedule": 1.0},
     "ensure-monthly-partitions": {"task": "workers.maintenance.ensure_monthly_partitions", "schedule": 6 * 3600},
     "apply-partition-retention": {"task": "workers.maintenance.apply_partition_retention", "schedule": 24 * 3600},
+    "rollup-usage": {"task": "workers.platform.rollup_usage", "schedule": 3600},
+    "evaluate-alerts": {"task": "workers.platform.evaluate_alerts", "schedule": 300},
+    "generate-invoices": {"task": "workers.platform.generate_invoices", "schedule": 24 * 3600},          # drafts last month; re-runs only refresh drafts
+    "run-tenant-operations": {"task": "workers.platform.run_tenant_operations", "schedule": 600},
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

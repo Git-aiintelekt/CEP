@@ -21,6 +21,7 @@ from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.models import SenderProfile
 from apps.media.models import MediaAsset
+from apps.platform_ops import billing, params
 from apps.templates import design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
@@ -135,6 +136,7 @@ class CampaignViewSet(BaseTenantViewSet):
                 missing["template"] = "This MMS template has no picture."
         if missing:
             raise ValidationError(missing)
+        billing.assert_can_send(campaign.tenant_id)          # 409 when a hard-capped plan has used its messages this month
         campaign.status = Campaign.Status.PRODUCTION_PUBLISHED
         campaign.save(update_fields=["status"])
         run = CampaignRun.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, run_number=campaign.campaign_runs.count() + 1,
@@ -278,7 +280,9 @@ class TemplateStarterViewSet(viewsets.ViewSet):
 
     @extend_schema(responses=s.TemplateStarterSerializer(many=True), parameters=[OpenApiParameter("channel", str)])
     def list(self, request, version=None):
-        return Response(starters.catalogue(request.query_params.get("channel") or None))
+        features = params.features_for(request.tenant["id"])
+        rows = starters.catalogue(request.query_params.get("channel") or None)
+        return Response([row for row in rows if features.get(params.CHANNEL_FEATURE[row["channel"]], False)])
 
 
 class MediaAssetViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
@@ -288,7 +292,6 @@ class MediaAssetViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets
     permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_("template.edit")]
     parser_classes = [MultiPartParser]
     search_fields = ["file_name"]
-    MAX_BYTES = 5 * 1024 * 1024
     FORMATS = {"PNG": ("image/png", ".png"), "JPEG": ("image/jpeg", ".jpg"), "GIF": ("image/gif", ".gif"), "WEBP": ("image/webp", ".webp")}
 
     def get_queryset(self):
@@ -300,8 +303,9 @@ class MediaAssetViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets
         upload = request.FILES.get("file")
         if upload is None:
             raise ValidationError({"file": "Attach an image in the 'file' field."})
-        if upload.size > self.MAX_BYTES:
-            raise ValidationError({"file": "Images can be at most 5 MB."})
+        limit_mb = max(1, min(int(params.get("messaging.max_upload_mb", 5)), 25))          # global parameter, kept within sane bounds
+        if upload.size > limit_mb * 1024 * 1024:
+            raise ValidationError({"file": f"Images can be at most {limit_mb} MB."})
         data = upload.read()
         try:                                                          # trust the bytes, not the file name or Content-Type
             Image.open(io.BytesIO(data)).verify()
@@ -348,6 +352,7 @@ class JourneyViewSet(BaseTenantViewSet):
     queryset = Journey.objects.all()
     serializer_class = s.JourneySerializer
     permission_code = "journey.edit"
+    permission_classes = [*BaseTenantViewSet.permission_classes, params.RequiresFeature.for_("journeys")]
     filterset_fields = ["status", "population_mode"]
     search_fields = ["name", "code"]
 
@@ -366,4 +371,14 @@ class MeViewSet(viewsets.ViewSet):
             principal = {"kind": "user", "id": str(user.id), "email": user.email, "display_name": user.display_name,
                          "is_staff": user.is_staff, "is_platform_admin": user.is_platform_admin,
                          "permissions": sorted(user.permission_codes())}
-        return Response({"principal": principal, "tenant": request.tenant})
+        workspace = params.context_for(request.tenant["id"])
+        session = getattr(getattr(request, "_request", request), "support_session", None)
+        if principal["kind"] == "user":
+            principal["mfa_enabled"] = user.mfa_enabled
+            principal["auth_provider"] = user.auth_provider
+        token = getattr(request, "auth", None)
+        return Response({"principal": principal, "tenant": request.tenant, "industry": workspace["industry"], "features": workspace["features"],
+                         "terminology": workspace["terminology"],
+                         "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
+                         "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
+                                             "reason": session.reason} if session else None})

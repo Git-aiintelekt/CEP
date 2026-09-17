@@ -10,3 +10,4 @@ frontend/dist/
 .pytest_cache/
 .idea/
 .vscode/
+backend/exports/

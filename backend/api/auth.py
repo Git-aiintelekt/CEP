@@ -68,3 +68,59 @@ try:                                                      # document the scheme 
                     "description": "API key issued to an integration or service (api_client). Send as `Authorization: Bearer cep_…`."}
 except ImportError:                                       # pragma: no cover
     pass
+
+
+# =====================================================================================================================
+# JWT + the two restricted kinds of token (kept here, not in api.v1.auth_api: DRF imports authentication classes while
+# it is still importing rest_framework.views, so this module must not import views)
+# =====================================================================================================================
+from rest_framework_simplejwt.authentication import JWTAuthentication  # noqa: E402
+
+SAFE = ("GET", "HEAD", "OPTIONS")
+SUPPORT_FORBIDDEN = ("/users/", "/roles/", "/api-clients/", "/workspace/security/", "/auth/mfa/")
+MFA_SETUP_ALLOWED = ("/auth/mfa/", "/me/", "/auth/token/refresh/")
+
+
+class CepJWTAuthentication(JWTAuthentication):
+    """* a support session (claim `imp`) is read-only unless opened for writing, never touches users / roles / keys /
+         sign-in security, and stops working the moment it is ended or expires;
+       * a user who must enrol MFA first (claim `mfa_setup`) reaches only the enrolment endpoints and /me."""
+
+    def authenticate(self, request):
+        from django.conf import settings
+        from django.db import connections
+
+        from apps.platform_ops.models import SupportAccessLog
+        result = super().authenticate(request)
+        if result is None:
+            return None
+        user, token = result
+        path = request.path.split("/api/v1", 1)[-1]
+
+        session_id = token.get("imp")
+        if session_id:
+            session = SupportAccessLog.objects.filter(pk=session_id, target_user_id=user.pk, ended_at__isnull=True, expires_at__gt=timezone.now()).first()
+            if session is None:
+                raise exceptions.AuthenticationFailed("This support session has ended.")
+            request._request.support_session = session
+            if any(path.startswith(prefix) for prefix in SUPPORT_FORBIDDEN):
+                raise exceptions.PermissionDenied("Support sessions cannot manage users, roles, API keys or sign-in security.")
+            if request.method not in SAFE and not path.startswith("/auth/support-session/end/"):
+                if session.access_mode != "WRITE":
+                    raise exceptions.PermissionDenied("This support session is read-only.")
+                with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+                    cursor.execute("UPDATE support_access_log SET writes = writes + 1 WHERE id = %s", [str(session.pk)])
+
+        if token.get("mfa_setup") and not user.mfa_enabled and not any(path.startswith(prefix) for prefix in MFA_SETUP_ALLOWED):
+            raise exceptions.PermissionDenied("Set up multi-factor authentication first: your workspace requires it.")
+        return user, token
+
+
+try:                                                      # same bearer scheme as SimpleJWT in the OpenAPI document
+    from drf_spectacular.contrib.rest_framework_simplejwt import SimpleJWTScheme
+
+    class CepJWTScheme(SimpleJWTScheme):
+        target_class = "api.auth.CepJWTAuthentication"
+        name = "jwtAuth"
+except ImportError:                                       # pragma: no cover
+    pass

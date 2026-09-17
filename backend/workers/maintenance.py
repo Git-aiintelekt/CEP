@@ -3,12 +3,15 @@ from celery import shared_task
 from django.conf import settings
 from django.db import connections
 
+from apps.platform_ops.jobs import monitored
+
 
 def _all_aliases():
     return list(settings.DATABASES.keys())
 
 
 @shared_task(name="workers.maintenance.ensure_monthly_partitions")
+@monitored("ensure-monthly-partitions")
 def ensure_monthly_partitions(months_ahead: int = 3) -> dict:
     out = {}
     for alias in _all_aliases():
@@ -19,6 +22,7 @@ def ensure_monthly_partitions(months_ahead: int = 3) -> dict:
 
 
 @shared_task(name="workers.maintenance.apply_partition_retention")
+@monitored("apply-partition-retention")
 def apply_partition_retention() -> dict:
     out = {}
     for alias in _all_aliases():

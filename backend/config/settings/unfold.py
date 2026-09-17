@@ -30,14 +30,27 @@ UNFOLD = {
                 _link("Plans", "sell", "tenants_subscriptionplan"),
                 _link("Database routing", "dns", "tenants_tenantdatabase"),
                 _link("Storage and CDN", "cloud", "tenants_tenantstorageconfig"),
+                _link("Tenant operations", "move_up", "platform_ops_tenantoperation"),
+            ]},
+            {"title": "Billing", "separator": True, "items": [
+                {"title": "Usage against limits", "icon": "monitoring", "link": reverse_lazy("admin:platform_ops_usage")},
+                _link("Invoices", "request_quote", "platform_ops_tenantinvoice"),
             ]},
             {"title": "People and access", "separator": True, "items": [
                 _link("Users", "group", "identity_appuser"),
                 _link("Roles", "shield_person", "identity_role"),
                 _link("Permission catalogue", "key", "identity_permission"),
                 _link("API keys", "vpn_key", "identity_apiclient"),
+                _link("Single sign-on", "passkey", "platform_ops_tenantidentityprovider"),
+                _link("Support access log", "support_agent", "platform_ops_supportaccesslog"),
+            ]},
+            {"title": "Configuration", "separator": True, "items": [
+                _link("Global parameters", "tune", "platform_ops_platformsetting"),
+                _link("Industry profiles", "category", "platform_ops_industryprofile"),
             ]},
             {"title": "Operations", "separator": True, "items": [
+                _link("Alerts", "notifications_active", "platform_ops_platformalert"),
+                _link("Job runs", "schedule", "platform_ops_jobrun"),
                 _link("Change audit trail", "history", "audit_definitionauditlog"),
                 _link("Partition retention", "inventory_2", "tenants_partitionretentionpolicy"),
             ]},

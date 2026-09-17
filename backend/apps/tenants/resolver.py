@@ -26,6 +26,11 @@ def _lookup(key: str, value: str):
 
 
 def resolve_tenant(request):
+    if request.path.startswith("/api/v1/auth/sso/"):         # a browser navigation cannot carry X-Tenant
+        from apps.platform_ops import sso
+        code = request.GET.get("tenant") or sso.tenant_from_state(request.GET.get("state", ""))
+        if code:
+            return _lookup("code", code)
     header = request.headers.get("X-Tenant")
     if header:
         return _lookup("code", header) or _lookup("subdomain", header)

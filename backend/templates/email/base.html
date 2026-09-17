@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{% block title %}{{ product }}{% endblock %}</title></head>
+<body style="margin:0;padding:0;background:#f6f7fb;font-family:Helvetica,Arial,sans-serif;color:#334155;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7fb;padding:32px 12px;"><tr><td align="center">
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #e5e8f0;border-radius:12px;">
+    <tr><td style="padding:24px 28px 8px;font-size:16px;font-weight:700;color:#0f172a;">{{ product }}</td></tr>
+    <tr><td style="padding:8px 28px 28px;font-size:15px;line-height:24px;">{% block content %}{% endblock %}</td></tr>
+  </table>
+  <p style="max-width:560px;margin:16px auto 0;font-size:12px;line-height:18px;color:#64748b;">{% block footer %}This message was sent by {{ product }} because of an action on your account. It is not a marketing email.{% endblock %}</p>
+</td></tr></table>
+</body></html>

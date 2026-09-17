@@ -8,6 +8,7 @@ import { AppShell } from '@/components/AppShell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { FullPageSpinner } from '@/components/States'
 import { ApiError } from '@/lib/api'
+import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
 import { CampaignDetailPage } from '@/pages/CampaignDetailPage'
 import { CampaignFormPage } from '@/pages/CampaignFormPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -16,10 +17,13 @@ import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
 import { ApiKeysPage } from '@/pages/settings/ApiKeysPage'
+import { PlanUsagePage } from '@/pages/settings/PlanUsagePage'
 import { RolesPage } from '@/pages/settings/RolesPage'
+import { SecurityPage } from '@/pages/settings/SecurityPage'
 import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
+import { TokenLandingPage } from '@/pages/TokenLandingPage'
 
 // GrapesJS + the MJML compiler are ~1 MB: loaded only when someone opens the designer.
 const TemplateDesignerPage = lazy(() => import('@/pages/TemplateDesignerPage'))
@@ -58,6 +62,8 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/set-password" element={<SetPasswordPage />} />
+            <Route path="/sso/complete" element={<TokenLandingPage kind="sso" />} />
+            <Route path="/support-session" element={<TokenLandingPage kind="support" />} />
             {DesignerPlayground && (
               <Route path="/dev/designer" element={<Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense>} />
             )}
@@ -78,11 +84,14 @@ export default function App() {
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />
+                <Route path="account/security" element={<AccountSecurityPage />} />
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="users" replace />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="roles" element={<RolesPage />} />
                   <Route path="api-keys" element={<ApiKeysPage />} />
+                  <Route path="plan" element={<PlanUsagePage />} />
+                  <Route path="security" element={<SecurityPage />} />
                 </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

@@ -1,14 +1,35 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { api } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
+import type { Feature } from '@/lib/types'
 
-const NAV = [
+const NAV: { to: string; label: string; end?: boolean; feature?: Feature }[] = [
   { to: '/', label: 'Overview', end: true },
   { to: '/campaigns', label: 'Campaigns' },
   { to: '/contact-lists', label: 'Contact lists' },
   { to: '/templates', label: 'Templates' },
-  { to: '/journeys', label: 'Journeys' },
+  { to: '/journeys', label: 'Journeys', feature: 'journeys' },
 ]
+
+const SECURITY = '/account/security'
+
+/** Shown for as long as platform support is acting as this user: never subtle, and always one click from ending. */
+function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'READ' | 'WRITE'; expiresAt: string; onEnded: () => void }) {
+  const end = useMutation({ mutationFn: () => api.post('/auth/support-session/end/'), onSettled: onEnded })
+  return (
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 bg-amber-400 px-4 py-2 text-sm font-medium text-amber-950 md:px-8">
+      <p>
+        Support session: {by} is acting as this user · {mode === 'WRITE' ? 'changes are allowed and recorded' : 'read-only'} · ends {formatDateTime(expiresAt)}
+      </p>
+      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="rounded-lg bg-amber-950 px-3 py-1 text-xs font-semibold text-amber-50 hover:bg-amber-900 disabled:opacity-60">
+        End session
+      </button>
+    </div>
+  )
+}
 
 function initials(name: string | undefined): string {
   if (!name) return '?'
@@ -20,9 +41,17 @@ function initials(name: string | undefined): string {
 }
 
 export function AppShell() {
-  const { me, logout, can } = useAuth()
-  const nav = can('user.admin') ? [...NAV, { to: '/settings', label: 'Settings', end: false }] : NAV
+  const { me, logout, can, has } = useAuth()
+  const location = useLocation()
+  const support = me?.support_session ?? null
+  const enrolFirst = Boolean(me?.mfa_setup_required)
+  const visible = NAV.filter((item) => !item.feature || has(item.feature))
+  // support never manages users, roles, keys or security: the API refuses, so the menu does not offer it
+  const nav = enrolFirst ? [] : can('user.admin') && !support ? [...visible, { to: '/settings', label: 'Settings', end: false }] : visible
   const name = me?.principal.display_name ?? me?.principal.email
+
+  // the token of someone who must enrol in MFA reaches nothing else: take them there instead of showing a page of errors
+  if (enrolFirst && location.pathname !== SECURITY) return <Navigate to={SECURITY} replace />
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -55,6 +84,7 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-4 py-3 md:px-8">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-ink-500">Tenant</span>
@@ -62,10 +92,10 @@ export function AppShell() {
             <span className="hidden text-ink-500 sm:inline">{me?.tenant.timezone}</span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden text-right leading-tight sm:block">
+            <Link to={SECURITY} title="Account security" className="hidden rounded-lg px-2 py-1 text-right leading-tight hover:bg-slate-50 sm:block">
               <p className="text-sm font-medium text-ink-900">{name}</p>
               <p className="text-xs text-ink-500">{me?.principal.email}</p>
-            </div>
+            </Link>
             <span
               aria-hidden
               className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-700"

@@ -35,6 +35,114 @@ export interface Me {
     scopes?: string[]
   }
   tenant: { id: string; code: string; timezone: string; db_alias: string; db_status: string }
+  /** industry profile of the workspace, e.g. RETAIL */
+  industry?: string
+  /** feature switches resolved from industry profile, workspace overrides and plan; absent = everything on */
+  features?: Partial<Record<Feature, boolean>>
+  /** the industry's words for generic things: { location: 'store' } */
+  terminology?: Record<string, string>
+  /** true while the only thing this session may do is enrol in multi-factor authentication */
+  mfa_setup_required?: boolean
+  /** set when platform support is acting as this user */
+  support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
+}
+
+export type Feature = 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
+
+/** POST /auth/token/ answers tokens, or asks for the second factor */
+export interface LoginResult extends Partial<TokenPair> {
+  mfa_required?: boolean
+  mfa_token?: string
+  mfa_setup_required?: boolean
+}
+
+export interface AuthOptions {
+  workspace: string
+  sso_enabled: boolean
+  sso_enforced: boolean
+  sso_name: string | null
+  mfa_required: boolean
+}
+
+export interface MfaStatus {
+  enabled: boolean
+  required: boolean
+  recovery_codes_left: number
+  sso: boolean
+  confirmed_at: string | null
+}
+
+export interface MfaSetup {
+  secret: string
+  otpauth_uri: string
+}
+
+export interface UsageMeter {
+  label: string
+  used: number
+  limit: number | null
+  percent: number | null
+  state: 'ok' | 'warning' | 'over' | 'blocked'
+  unit: string
+  overage: boolean
+  overage_price_per_1k: number | null
+}
+
+export interface Usage {
+  month: string
+  plan: { code: string; name: string; monthly_price: number; currency: string; status: string } | null
+  meters: UsageMeter[]
+  breakdown: Record<string, number>
+  can_send: boolean
+}
+
+export interface Invoice {
+  id: string
+  invoice_number: string
+  period_month: string
+  plan_code: string
+  currency: string
+  base_amount: string
+  overage_amount: string
+  total_amount: string
+  line_items: { description: string; quantity: number; unit_price: number; amount: number }[]
+  status: 'ISSUED' | 'PAID' | 'VOID' | string
+  issued_at: string | null
+  due_at: string | null
+  paid_at: string | null
+}
+
+export interface IdentityProvider {
+  display_name: string
+  issuer: string
+  client_id: string
+  has_client_secret: boolean
+  scopes: string
+  allowed_email_domains: string[]
+  jit_provisioning: boolean
+  default_role: string | null
+  enforce_sso: boolean
+  is_active: boolean
+}
+
+export interface SecuritySettings {
+  require_mfa: boolean
+  sso_available: boolean
+  redirect_uri: string
+  identity_provider: IdentityProvider | null
+}
+
+export interface SupportAccess {
+  id: string
+  staff: string
+  as_user: string
+  as_email: string
+  reason: string
+  mode: 'READ' | 'WRITE'
+  started_at: string
+  expires_at: string
+  ended_at: string | null
+  writes: number
 }
 
 interface Audited {
@@ -305,6 +413,11 @@ export interface PasswordLink {
   /** path of the one-time page; the client prefixes its own origin */
   path: string
   expires_in_hours: number
+  /** true when the platform emailed the link itself */
+  emailed?: boolean
+  /** false when no mail server is configured: the link can only be copied */
+  email_configured?: boolean
+  email?: string
 }
 
 export interface ApiKey {

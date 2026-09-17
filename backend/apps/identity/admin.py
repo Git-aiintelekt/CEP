@@ -55,7 +55,7 @@ class AppUserAdmin(BaseAdmin):
     autocomplete_fields = ("tenant",)
     readonly_fields = ("last_login", "created_at", "updated_at")
     actions = ("deactivate", "activate")
-    actions_detail = ("password_link",)
+    actions_detail = ("password_link", "support_session")
     fieldsets = (
         ("Person", {"fields": ("tenant", "email", "display_name")}),
         ("Sign-in", {"fields": ("auth_provider", "external_subject_id", "is_active", "mfa_enabled", "last_login"),
@@ -111,10 +111,23 @@ class AppUserAdmin(BaseAdmin):
         if not user.is_active or user.auth_provider != "LOCAL":
             messages.error(request, "Only active users who sign in with a password can get a link.")
         else:
+            from apps.platform_ops import links, mail
             link = (f"{settings.FRONTEND_URL.rstrip('/')}/set-password?tenant={user.tenant.code}"
                     f"&uid={urlsafe_base64_encode(force_bytes(user.pk))}&token={default_token_generator.make_token(user)}")
-            messages.success(request, f"One-time link for {user.email} (valid {settings.PASSWORD_RESET_TIMEOUT // 3600} hours, until first use or sign-in): {link}")
+            hours = links.hours()
+            sent = mail.is_configured() and mail.send("password_link", user.email, subject=f"Choose your password for {user.tenant.code}", context={
+                "name": user.display_name, "workspace": user.tenant.code, "link": link, "hours": hours, "invited": not user.password, "invited_by": "The platform team"})
+            if sent:
+                messages.success(request, f"A one-time password link was emailed to {user.email} (valid {hours} hours, until first use or sign-in).")
+            else:
+                messages.warning(request, f"Email is not configured or failed, so send this one-time link to {user.email} yourself (valid {hours} hours): {link}")
         return redirect("admin:identity_appuser_change", object_id)
+
+
+    @action(description="Sign in as this user (support session)", url_path="support-session")
+    def support_session(self, request, object_id):
+        from apps.platform_ops import support
+        return support.admin_view(self, request, object_id)
 
 
 # ------------------------------------------------------------------------------------------------------------ roles

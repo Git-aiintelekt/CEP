@@ -51,7 +51,8 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   await user.click(await screen.findByRole('button', { name: 'Publish to production' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/campaigns/c1/publish/') && call.method === 'POST')).toBe(true))
 
-  const authed = calls.filter((call) => !call.url.includes('/auth/token/'))
+  // the login call and the public sign-in options lookup carry no token
+  const authed = calls.filter((call) => !call.url.includes('/auth/token/') && !call.url.includes('/auth/options/'))
   expect(authed.length).toBeGreaterThan(0)
   expect(authed.every((call) => call.headers['X-Tenant'] === 'NWA' && call.headers.Authorization === 'Bearer access-1')).toBe(true)
 })

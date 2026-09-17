@@ -30,6 +30,7 @@ from rest_framework.views import APIView
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.identity.models import ApiClient, AppUser, Permission, Role, RolePermission, UserRole
+from apps.platform_ops import links, mail, params
 from apps.tenants import context
 from apps.tenants.models import Tenant, TenantSubscription
 
@@ -162,7 +163,7 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
     @action(detail=True, methods=["post"], url_path="password-link")
     def password_link(self, request, pk=None, version=None):
         """A one-time link on which the user chooses their own password. Administrators never see or set passwords.
-        The link stops working once it is used, after the next sign-in, or after PASSWORD_RESET_TIMEOUT."""
+        The link stops working once it is used, after the next sign-in, or after security.password_link_hours."""
         from django.conf import settings
         user = self.get_object()
         if not user.is_active:
@@ -171,8 +172,14 @@ class UserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.Creat
             raise Conflict("This user signs in through single sign-on and has no password here.")
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        return Response({"path": f"/set-password?tenant={request.tenant['code']}&uid={uid}&token={token}",
-                         "expires_in_hours": settings.PASSWORD_RESET_TIMEOUT // 3600})
+        path = f"/set-password?tenant={request.tenant['code']}&uid={uid}&token={token}"
+        hours = links.hours()
+        emailed = False
+        if request.data.get("send"):                        # {"send": true}: email it; the administrator never has to handle the link
+            emailed = mail.is_configured() & mail.send("password_link", user.email, subject=f"Choose your password for {request.tenant['code']}", context={
+                "name": user.display_name, "workspace": request.tenant["code"], "link": settings.FRONTEND_URL.rstrip("/") + path, "hours": hours,
+                "invited": not user.password, "invited_by": getattr(request.user, "display_name", "An administrator")})
+        return Response({"path": path, "expires_in_hours": hours, "emailed": emailed, "email_configured": mail.is_configured(), "email": user.email})
 
 
 class SetPasswordThrottle(AnonRateThrottle):
@@ -193,7 +200,7 @@ class SetPasswordView(APIView):
             user = AppUser.objects.filter(pk=force_str(urlsafe_base64_decode(uid)), is_active=True, deleted_at__isnull=True, auth_provider="LOCAL").first()
         except (ValueError, TypeError, OverflowError, DjangoValidationError):
             user = None
-        if user is None or not default_token_generator.check_token(user, token):
+        if user is None or not links.check(user, token):
             raise ValidationError({"token": "This link is not valid any more. Ask your administrator for a new one."})
         try:
             validate_password(password, user)
@@ -360,7 +367,7 @@ class ApiClientViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.
     """Keys for integrations. The full key is returned once, on creation; only its SHA-256 hash is stored."""
     queryset = ApiClient.objects.order_by("-created_at")
     serializer_class = ApiClientSerializer
-    permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_(ADMIN)]
+    permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_(ADMIN), params.RequiresFeature.for_("api_access")]
     pagination_class = None
 
     def get_queryset(self):

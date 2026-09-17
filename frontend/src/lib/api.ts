@@ -6,7 +6,7 @@
  *  - lists are cursor-paginated: { next, previous, results }
  */
 import { API_BASE_URL, DEFAULT_TENANT } from './config'
-import type { Page, Problem, TokenPair } from './types'
+import type { AuthOptions, LoginResult, Page, Problem, TokenPair } from './types'
 
 const KEYS = { access: 'cep.access', refresh: 'cep.refresh', tenant: 'cep.tenant' } as const
 
@@ -44,7 +44,8 @@ export const session = {
     memory = { ...memory, tenant }
     write(KEYS.tenant, tenant)
   },
-  setTokens(tokens: Partial<TokenPair>) {
+  /** refresh: null forgets the stored one (a support session has none, and must never refresh into someone else) */
+  setTokens(tokens: { access?: string; refresh?: string | null }) {
     if (tokens.access !== undefined) {
       memory.access = tokens.access
       write(KEYS.access, tokens.access)
@@ -182,6 +183,7 @@ export const api = {
   list: <T>(path: string, query?: Query, signal?: AbortSignal) => request<Page<T>>(path, { query, signal }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body ?? {} }),
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body }),
+  put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body }),
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
   /** multipart upload of one file in the `file` field */
   upload: <T>(path: string, file: File) => {
@@ -190,9 +192,28 @@ export const api = {
     return request<T>(path, { method: 'POST', body: form })
   },
 
-  async login(tenant: string, email: string, password: string): Promise<void> {
+  /** Tokens are stored when the password was enough; otherwise the result carries the `mfa_token` for verifyMfa(). */
+  async login(tenant: string, email: string, password: string): Promise<LoginResult> {
     session.setTenant(tenant)
-    const tokens = await request<TokenPair>('/auth/token/', { method: 'POST', body: { email, password }, auth: false })
-    session.setTokens(tokens)
+    const result = await request<LoginResult>('/auth/token/', { method: 'POST', body: { email, password }, auth: false })
+    if (result.access) session.setTokens(result)
+    return result
   },
+
+  async verifyMfa(mfaToken: string, code: string): Promise<void> {
+    session.setTokens(await request<TokenPair>('/auth/mfa/verify/', { method: 'POST', body: { mfa_token: mfaToken, code }, auth: false }))
+  },
+
+  /** What the login page may offer for a workspace (single sign-on); null when the workspace is unknown. */
+  async authOptions(tenant: string, signal?: AbortSignal): Promise<AuthOptions | null> {
+    try {
+      const response = await fetch(buildUrl('/auth/options/'), { headers: { Accept: 'application/json', 'X-Tenant': tenant }, signal })
+      return response.ok ? ((await response.json()) as AuthOptions) : null
+    } catch {
+      return null
+    }
+  },
+
+  /** Browser navigation, not fetch: the identity provider's page has to open. */
+  ssoStartUrl: (tenant: string, next: string) => buildUrl('/auth/sso/start/', { tenant, next }),
 }

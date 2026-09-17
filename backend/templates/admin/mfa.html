@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ title }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6 max-w-md">
+    {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
+    {% component "unfold/components/card.html" %}
+        <form method="post">{% csrf_token %}
+        {% for field in form %}
+            <div class="mb-4">
+                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+            </div>
+        {% endfor %}
+            <button type="submit" class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white">Continue</button>
+        </form>
+    {% endcomponent %}
+    <a class="text-primary-600 text-sm dark:text-primary-500" href="{% url 'admin:logout' %}">Sign out</a>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% autoescape off %}{% if opened %}NEW
+{% for name, severity, summary, detail in opened %}- [{{ severity }}] {{ name }}: {{ summary }}{% if detail %}
+  {{ detail }}{% endif %}
+{% endfor %}{% endif %}{% if renotified %}
+STILL OPEN
+{% for name, severity, summary, detail in renotified %}- [{{ severity }}] {{ name }}: {{ summary }}
+{% endfor %}{% endif %}{% if resolved %}
+RECOVERED
+{% for name, severity, summary, detail in resolved %}- {{ name }}
+{% endfor %}{% endif %}
+Platform health: {{ admin_url }}
+{% endautoescape %}

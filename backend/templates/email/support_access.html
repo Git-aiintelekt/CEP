@@ -1,0 +1,13 @@
+{% extends "email/base.html" %}
+{% block title %}Support accessed your account{% endblock %}
+{% block content %}
+<p style="margin:0 0 12px;">Hello {{ name }},</p>
+<p style="margin:0 0 12px;">A member of the {{ product }} support team opened a <strong>{{ mode }}</strong> support session on your account in the <strong>{{ workspace }}</strong> workspace.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:22px;margin:0 0 12px;">
+  <tr><td style="color:#64748b;padding-right:16px;">Who</td><td>{{ staff }}</td></tr>
+  <tr><td style="color:#64748b;padding-right:16px;">Why</td><td>{{ reason }}</td></tr>
+  <tr><td style="color:#64748b;padding-right:16px;">Until</td><td>{{ expires_at|date:"Y-m-d H:i" }} UTC at the latest</td></tr>
+</table>
+<p style="margin:0;font-size:13px;line-height:20px;color:#64748b;">They never see your password, and a support session cannot change users, roles, API keys or sign-in settings.
+Your workspace administrators can see every support session under Settings. If you did not ask for help, tell them.</p>
+{% endblock %}

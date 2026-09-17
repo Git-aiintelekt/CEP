@@ -41,6 +41,43 @@
         </div>
     {% endcomponent %}
 
+    {% if alerts %}
+    {% component "unfold/components/card.html" with title="Open alerts" %}
+        <div class="flex flex-col">
+            {% for alert in alerts %}
+                <div class="border-b border-base-200 flex flex-row flex-wrap gap-x-4 gap-y-1 items-start py-3 last:border-b-0 dark:border-base-800">
+                    <div class="w-44 shrink-0 font-semibold text-sm text-font-important-light dark:text-font-important-dark">{{ alert.check_name }}</div>
+                    <div class="w-28 shrink-0">{% if alert.severity == "FAIL" %}{% include "unfold/helpers/label.html" with text="Failing" type="danger" size="md" %}{% else %}{% include "unfold/helpers/label.html" with text="Attention" type="warning" size="md" %}{% endif %}</div>
+                    <div class="grow min-w-0 text-sm">
+                        <div>{{ alert.summary }}</div>
+                        <div class="text-xs">open since {{ alert.opened_at|date:"Y-m-d H:i" }} · notified {{ alert.notifications }} time{{ alert.notifications|pluralize }}{% if alert.acknowledged_at %} · acknowledged{% endif %}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endcomponent %}
+    {% endif %}
+
+    {% component "unfold/components/card.html" with title="Scheduled jobs" %}
+        <div class="flex flex-col">
+            {% for job in jobs %}
+                <div class="border-b border-base-200 flex flex-row flex-wrap gap-x-4 gap-y-1 items-start py-3 last:border-b-0 dark:border-base-800">
+                    <div class="w-44 shrink-0 font-semibold text-sm text-font-important-light dark:text-font-important-dark">{{ job.name }}</div>
+                    <div class="w-28 shrink-0">
+                        {% if job.state == "ok" %}{% include "unfold/helpers/label.html" with text="Healthy" type="success" size="md" %}
+                        {% elif job.state == "failed" %}{% include "unfold/helpers/label.html" with text="Failed" type="danger" size="md" %}
+                        {% elif job.state == "overdue" %}{% include "unfold/helpers/label.html" with text="Overdue" type="warning" size="md" %}
+                        {% else %}{% include "unfold/helpers/label.html" with text="Never run" type="info" size="md" %}{% endif %}
+                    </div>
+                    <div class="grow min-w-0 text-sm">
+                        <div>{{ job.purpose }}</div>
+                        <div class="text-xs">{% if job.last_success %}last success {{ job.last_success|date:"Y-m-d H:i" }}{% if job.duration_ms != None %} · {{ job.duration_ms }} ms{% endif %}{% else %}no successful run recorded{% endif %}{% if job.failures_24h %} · {{ job.failures_24h }} failure{{ job.failures_24h|pluralize }} in 24 h{% endif %}{% if job.last_error %} · {{ job.last_error }}{% endif %}</div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endcomponent %}
+
     <div class="flex flex-col lg:flex-row gap-6">
         <div class="flex flex-col gap-5 grow">
             {% include "unfold/helpers/app_list_default.html" with show_changelinks=True %}

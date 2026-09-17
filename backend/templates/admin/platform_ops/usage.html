@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}Usage | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="flex flex-col gap-6">
+    <div class="flex flex-row flex-wrap items-center gap-3">
+        {% component "unfold/components/title.html" %}Usage against plan limits{% endcomponent %}
+        <span class="text-sm">{{ month|date:"F Y" }} · refreshed hourly by the rollup-usage job</span>
+        <form method="post" class="ml-auto">{% csrf_token %}
+            <button type="submit" class="bg-primary-600 border border-transparent font-medium px-3 py-2 rounded-default text-sm text-white">Recompute now</button>
+        </form>
+    </div>
+    {% for row in rows %}
+        {% component "unfold/components/card.html" %}
+            <div class="flex flex-row flex-wrap items-center gap-3 mb-3">
+                <a class="font-semibold text-primary-600 dark:text-primary-500" href="{% url 'admin:tenants_tenant_change' row.tenant.pk %}">{{ row.tenant.code }}</a>
+                <span class="text-sm">{{ row.tenant.name }}</span>
+                <span class="text-sm">· {% if row.quota.plan %}{{ row.quota.plan.name }} ({{ row.quota.plan.currency }} {{ row.quota.plan.monthly_price }}/month){% else %}no plan{% endif %}</span>
+                {% if not row.quota.can_send %}{% include "unfold/helpers/label.html" with text="Sending blocked" type="danger" size="md" %}{% endif %}
+            </div>
+            {% for meter in row.quota.meters %}
+                <div class="border-b border-base-200 flex flex-row flex-wrap gap-x-4 gap-y-1 items-start py-3 last:border-b-0 dark:border-base-800">
+                    <div class="w-44 shrink-0 text-sm font-semibold text-font-important-light dark:text-font-important-dark">{{ meter.label }}</div>
+                    <div class="w-28 shrink-0">
+                        {% if meter.state == "blocked" %}{% include "unfold/helpers/label.html" with text="At limit" type="danger" size="md" %}
+                        {% elif meter.state == "over" %}{% include "unfold/helpers/label.html" with text="Overage" type="warning" size="md" %}
+                        {% elif meter.state == "warning" %}{% include "unfold/helpers/label.html" with text="Near limit" type="warning" size="md" %}
+                        {% else %}{% include "unfold/helpers/label.html" with text="OK" type="success" size="md" %}{% endif %}
+                    </div>
+                    <div class="grow min-w-0 text-sm">{{ meter.used }}{% if meter.unit %} {{ meter.unit }}{% endif %}
+                        {% if meter.limit %} of {{ meter.limit }}{% if meter.unit %} {{ meter.unit }}{% endif %} ({{ meter.percent }}%){% else %} · unlimited{% endif %}
+                        {% if meter.overage %}<span class="text-xs"> · overage billed at {{ meter.overage_price_per_1k }} per 1,000</span>{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endcomponent %}
+    {% empty %}
+        {% component "unfold/components/text.html" %}No tenants yet.{% endcomponent %}
+    {% endfor %}
+</div>
+{% endblock %}

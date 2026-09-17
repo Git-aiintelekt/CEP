@@ -49,12 +49,90 @@ running: `cd frontend && npm install && npm run dev`, then open `http://localhos
 |---|---|---|
 | Where | **Settings** in the React app (`/settings`, permission `user.admin`) | Django Admin, themed with django-unfold (`/admin/`, `is_staff`) |
 | Scope | their own workspace only, under row-level security | every tenant, on the BYPASSRLS `platform` connection |
-| Can do | add / deactivate users, one-time password links, roles from the permission catalogue, API keys (shown once, revocable) | register and onboard tenants (partitions, routing row, starting roles on save), suspend / reactivate, users and roles across tenants, revoke API keys, plans, subscriptions, routing, storage, read-only audit trail |
+| Can do | add / deactivate users, one-time password links (emailed or copied), roles from the permission catalogue, API keys (shown once, revocable), plan & usage, invoices, require MFA, single sign-on, support-access log | register and onboard tenants (partitions, routing row, starting roles on save), suspend / reactivate, users and roles across tenants, revoke API keys, plans, subscriptions, routing, storage, read-only audit trail |
 | Home page | workspace facts and plan limits | **Platform health**: database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, workers, configuration. Also `GET /admin/health.json` (503 when a check fails) |
 
 Passwords are never typed by an administrator on either surface: both create a one-time link (`/set-password`) on
 which the user chooses their own. Nobody can deactivate themselves or remove the last administrator of a workspace.
 `/healthz` stays the unauthenticated liveness probe for load balancers.
+
+## Platform operations
+
+Layer 5 of the schema (`database/CEP_Database_Schema_Platform_Operations.sql`, patch `0006`) and the `apps/platform_ops` app.
+
+### Email from the platform (do this first)
+
+Password links, alert notifications and support-access notices are sent by the platform itself. Put your SMTP details in
+`.env` (see `.env.example`), restart, then prove it:
+
+```bash
+python manage.py sendtestemail you@example.com
+```
+
+Without `EMAIL_HOST`, messages are printed to the server log and the app says so honestly: **Settings → Users → Password
+link** then offers only "copy", and the back-office health page shows *Email: attention*. This is platform mail, not
+campaign delivery (that goes through each tenant's delivery providers).
+
+### Global parameters and industry profiles
+
+* **Configuration → Global parameters** (`platform_setting`): typed values that take effect within a minute, no deployment:
+  alert recipients and webhook, support-session length, staff MFA, invoice due days, usage warning percent, default
+  industry, export retention. Never a secret: secrets stay in the environment.
+* **Configuration → Industry profiles** (`industry_profile`): what a kind of business gets by default (features) and what
+  it calls things (terminology). Seeded: Generic, Retail, Hospitality, Financial services, Healthcare.
+* A tenant picks its profile and may override single features on its own page. Resolution order:
+  **product default → industry profile → tenant override → plan** (a plan can only take away). The API refuses what is
+  off (`403`, or a field error for a channel), `/api/v1/me/` returns `industry`, `features` and `terminology`, and the
+  React app hides what is off (navigation, settings tabs, channel choices, starter templates).
+
+### Usage and billing
+
+`rollup-usage` (hourly) meters messages, contacts, users and storage from the source tables into `tenant_usage`.
+Tenants see **Settings → Plan & usage**; operators see **Billing → Usage against plan limits**. Publishing is refused
+only when a plan has a message limit and *no* overage price. `generate-invoices` (monthly) drafts one invoice per tenant
+for plans that have a `monthly_price` (set your prices under Plans; plans without one are never invoiced). Drafts are
+the platform's working copy: **Issue** makes one visible to the tenant and starts the due date; **Mark as paid** / **Void**.
+Payment collection is not included: `external_ref` is where your payment provider's id goes.
+
+### Jobs and alerts
+
+Every scheduled job records each run in `job_run` (`@monitored`). The health page lists all jobs: healthy, failed,
+overdue or never run. `evaluate-alerts` (every 5 minutes) turns failing health checks and jobs into `platform_alert`
+rows and notifies `alerts.recipients` by email and `alerts.webhook_url` (Slack-compatible): once when it opens, again
+after `alerts.renotify_minutes` unless acknowledged, and once when it recovers. Run one by hand:
+
+```bash
+python manage.py run_job --list
+python manage.py run_job rollup-usage
+```
+
+### Tenant operations: export, dedicated database, offboarding
+
+Requested under **Operations → Tenant operations**, executed by the `run-tenant-operations` job or
+`python manage.py run_tenant_operation <id>`; every step is appended to the operation's runbook. They copy and erase
+with triggers off, so they need the DDL-owner login: `OWNER_DATABASE_URL` (never used by the web application).
+
+| Operation | What it does |
+|---|---|
+| `EXPORT` | One CSV per tenant table + manifest with row counts and SHA-256, zipped into `TENANT_EXPORT_DIR`. Secret columns are left out. Tables are discovered from the catalog, not hard-coded. |
+| `MOVE_TO_DEDICATED` | Freezes the tenant (API answers 503), copies it into a database that already has the CEP schema, verifies row counts table by table, switches the routing row. The pool copy stays until purged. Parameters: `db_alias`, `db_host`, `db_port`, `db_name`, `db_secret_ref=env:NAME` (`NAME_OWNER_USER` / `NAME_OWNER_PASSWORD`). Add the alias to the app servers and restart them. |
+| `PURGE_SOURCE` | After a successful move only: removes the tenant's data from the pool. |
+| `OFFBOARD` | Exports first, marks the tenant `OFFBOARDED` (sign-in refused), cancels the subscription, erases everything except the tenant tombstone, its invoices and the operation log. Needs `{"confirm": "<TENANT CODE>"}`. |
+
+### Sign-in security
+
+* **MFA (TOTP).** Users enrol under their name → **Account security** (QR code, 10 one-time recovery codes). A workspace
+  can require it (**Settings → Security**): people without it get a token that reaches only enrolment. Staff who enrolled
+  must also pass the code at `/admin/`. `security.mfa_required_for_staff` forces enrolment for all staff.
+* **Single sign-on (OpenID Connect, authorization code + PKCE).** Configured by the tenant under **Settings → Security**
+  (issuer, client id, write-only client secret encrypted with `FIELD_ENCRYPTION_KEY`, allowed email domains, optional
+  account creation on first sign-in with a default role). Register the shown redirect URI (`API_PUBLIC_URL` +
+  `/api/v1/auth/sso/callback/`) with the identity provider. "Require single sign-on" switches passwords off for everyone
+  except workspace administrators (break-glass).
+* **Support access.** A platform administrator opens a user's page in the back-office → **Sign in as this user**: a reason
+  is mandatory, the session is read-only unless opened for writing, lasts `security.support_access_minutes`, can never
+  touch users, roles, API keys or security settings, shows a banner in the app, emails the user, and is listed for the
+  tenant under **Settings → Security → Support access**.
 
 ## Logging in
 

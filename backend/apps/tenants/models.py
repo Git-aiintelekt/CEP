@@ -24,6 +24,7 @@ class Tenant(models.Model):
     class Status(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Active'
         SUSPENDED = 'SUSPENDED', 'Suspended'
+        OFFBOARDED = 'OFFBOARDED', 'Offboarded'
 
     class IsolationMode(models.TextChoices):
         SHARED = 'SHARED', 'Shared'
@@ -109,6 +110,8 @@ class SubscriptionPlan(models.Model):
     max_storage_gb = models.IntegerField(null=True, blank=True)
     features = models.JSONField(default=dict)  # feature flags: journeys, ereceipt, ab_testing, custom_domain ...
     monthly_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    overage_per_1k_messages = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)  # NULL = hard limit: sending stops
+    overage_per_1k_contacts = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     currency = models.CharField(max_length=3, default='USD')
     is_active = models.BooleanField(default=True)
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
