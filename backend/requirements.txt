@@ -1,0 +1,16 @@
+# CEP backend — pinned to the versions installed on 2026-09-17
+Django==6.1.1
+djangorestframework==3.18.1
+djangorestframework-simplejwt
+drf-spectacular==0.30.0
+django-cors-headers==4.9.0
+django-environ==0.14.0
+django-filter==26.1
+django-storages[s3]==1.14.6
+psycopg[binary]==3.3.5
+celery[redis]==5.6.3
+redis==6.4.0
+gunicorn==26.2.0
+uvicorn[standard]==0.53.0
+mrml==0.2.4
+pillow==12.3.0

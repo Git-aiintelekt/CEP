@@ -1,0 +1,144 @@
+/*
+ * GrapesJS draws its own panels, so its base stylesheet (grapesjs/dist/css/grapes.min.css) has to stay: it is the one
+ * vendor stylesheet in the app and it ships only inside the lazily loaded designer chunk.
+ *
+ * Everything here is Tailwind: `@reference` gives this file the app theme, and the GrapesJS skin is mapped onto the
+ * same design tokens the rest of the UI uses (GrapesJS reads its colours from these four custom properties).
+ * Change a token in src/index.css and the designer follows.
+ */
+@reference "../../index.css";
+
+.cep-designer {
+  --gjs-primary-color: var(--color-surface); /* panel background */
+  --gjs-secondary-color: var(--color-ink-700); /* panel text and icons */
+  --gjs-tertiary-color: var(--color-brand-600); /* selected component badge and toolbar */
+  --gjs-quaternary-color: var(--color-brand-600); /* active buttons and highlights */
+  --gjs-font-color: var(--color-ink-700);
+  --gjs-font-color-active: var(--color-brand-700);
+  --gjs-main-dark-color: rgb(15 23 42 / 0.08);
+  --gjs-secondary-dark-color: rgb(15 23 42 / 0.06);
+  --gjs-main-light-color: rgb(15 23 42 / 0.06);
+  --gjs-secondary-light-color: rgb(15 23 42 / 0.45);
+  --gjs-soft-light-color: rgb(15 23 42 / 0.03);
+  --gjs-color-blue: var(--color-brand-500);
+  --gjs-canvas-top: 40px;
+  @apply font-sans;
+}
+
+.cep-designer .gjs-editor {
+  @apply font-sans text-ink-700;
+}
+
+/* panels sit on the app's hairline borders instead of GrapesJS' shadows */
+.cep-designer .gjs-pn-panel {
+  @apply shadow-none;
+}
+.cep-designer .gjs-pn-commands,
+.cep-designer .gjs-pn-options,
+.cep-designer .gjs-pn-devices-c,
+.cep-designer .gjs-pn-views {
+  @apply border-b border-line;
+}
+.cep-designer .gjs-pn-views-container {
+  @apply border-l border-line shadow-none;
+}
+.cep-designer .gjs-cv-canvas {
+  @apply bg-canvas;
+}
+
+/* toolbar buttons */
+.cep-designer .gjs-pn-btn {
+  @apply rounded-md;
+}
+.cep-designer .gjs-pn-btn:hover {
+  @apply bg-slate-100;
+}
+.cep-designer .gjs-pn-btn.gjs-pn-active {
+  @apply bg-brand-50 text-brand-700 shadow-none;
+}
+
+/* block palette */
+.cep-designer .gjs-block {
+  @apply rounded-lg border border-line bg-surface text-ink-700 shadow-none transition-colors;
+}
+.cep-designer .gjs-block:hover {
+  @apply border-brand-500 text-brand-700;
+}
+.cep-designer .gjs-block-category .gjs-title,
+.cep-designer .gjs-sm-sector-title,
+.cep-designer .gjs-layer-title {
+  @apply border-b border-line bg-slate-50 font-semibold text-ink-900;
+}
+
+/* fields in the style and trait managers */
+.cep-designer .gjs-field {
+  @apply rounded-md border border-line bg-surface text-ink-900 shadow-none;
+}
+.cep-designer .gjs-field input,
+.cep-designer .gjs-field select,
+.cep-designer .gjs-field textarea {
+  @apply bg-transparent text-ink-900;
+}
+.cep-designer .gjs-field option,
+.cep-designer .cep-tag-menu option,
+.cep-designer .cep-tag-menu optgroup {
+  @apply bg-surface text-ink-900;
+}
+.cep-designer .gjs-sm-label,
+.cep-designer .gjs-label {
+  @apply text-ink-500;
+}
+
+/* Tailwind's reset (preflight) flattens a few things the GrapesJS UI relies on */
+.cep-designer svg {
+  @apply inline-block align-middle;
+}
+.cep-designer img {
+  @apply max-w-none;
+}
+
+/* the selected-component toolbar and the floating rich-text toolbar stay dark: they sit on top of the email */
+.cep-designer .gjs-toolbar,
+.cep-designer .gjs-badge,
+.gjs-rte-toolbar {
+  @apply bg-ink-900 text-white;
+}
+.gjs-rte-toolbar {
+  @apply rounded-lg border-0 shadow-lg;
+}
+.gjs-rte-action {
+  @apply border-white/10 text-white;
+}
+.gjs-rte-action:hover,
+.gjs-rte-active {
+  @apply bg-white/15;
+}
+
+/* personalization tag menu inside the rich-text toolbar */
+.cep-tag-menu {
+  @apply h-[26px] max-w-[150px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-xs text-slate-100;
+}
+.gjs-rte-toolbar .cep-tag-menu:focus-visible {
+  @apply outline-2 outline-brand-500;
+}
+.gjs-rte-toolbar .cep-tag-menu option,
+.gjs-rte-toolbar .cep-tag-menu optgroup {
+  @apply bg-surface text-ink-900;
+}
+
+/* GrapesJS modals (import / export MJML, asset manager) */
+.gjs-mdl-dialog {
+  @apply rounded-xl bg-surface font-sans text-ink-700 shadow-xl;
+}
+.gjs-mdl-header {
+  @apply border-b border-line font-semibold text-ink-900;
+}
+.gjs-btn-prim {
+  @apply cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700;
+}
+.gjs-am-file-uploader > form {
+  @apply rounded-lg border-2 border-dashed border-ink-300 bg-canvas;
+}
+.gjs-am-assets-cont {
+  @apply bg-surface;
+}

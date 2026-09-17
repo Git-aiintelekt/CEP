@@ -1,0 +1,27 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cep-backend",
+      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "backend/manage.py",
+        "runserver",
+        "8000",
+        "--noreload"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "cep-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
+      "port": 5173
+    }
+  ]
+}
