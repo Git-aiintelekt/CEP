@@ -38,7 +38,7 @@ def open_session(staff, target, reason: str, mode: str, ip: str | None = None) -
     token.set_exp(from_time=timezone.now(), lifetime=timedelta(minutes=minutes))
     token["imp"], token["imp_by"], token["imp_mode"] = str(session.pk), str(staff.pk), mode
     if params.get("security.notify_user_on_support_access", True):
-        mail.send("support_access", target.email, subject="Support accessed your account", context={
+        mail.send("support_access", target.email, tenant_id=target.tenant_id, subject="Support accessed your account", context={
             "name": target.display_name, "workspace": target.tenant.code, "staff": staff.display_name, "reason": reason.strip(),
             "mode": "read-only" if mode == "READ" else "read and write", "expires_at": expires})
     return session, str(token)

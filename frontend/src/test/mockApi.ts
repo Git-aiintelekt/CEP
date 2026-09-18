@@ -1,7 +1,7 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import type { ApiKey, AuthOptions, Campaign, ContactList, Invoice, Me, MediaAsset, Message, PersonalizationTag, Role, SecuritySettings, SenderProfile, SettingsUser, SupportAccess, Template, TemplateStarter,
+import type { ApiKey, AuthOptions, Campaign, ContactList, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, Role, SecuritySettings, SenderProfile, SettingsUser, SupportAccess, Template, TemplateStarter,
               Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -143,6 +143,8 @@ interface MockOptions {
   mfaEnabled?: boolean
   /** answer for PUT /workspace/security/ ; default merges the body into the stored settings */
   onSecurityWrite?: (call: Call) => Response | null
+  /** GET /workspace/mail-server/ starts from this */
+  mailServer?: Partial<MailServerSettings>
 }
 
 /** the code the mock authenticator "shows" */
@@ -154,6 +156,7 @@ export function installMockApi(options: MockOptions = {}) {
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   let securityNow: SecuritySettings = { ...security }
+  let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', ...options.mailServer }
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
@@ -194,6 +197,23 @@ export function installMockApi(options: MockOptions = {}) {
       return json(mfaEnabled ? { enabled: true, recovery_codes: ['aaaa-bbbb-01', 'aaaa-bbbb-02', 'aaaa-bbbb-03'], access: 'access-1', refresh: 'refresh-1' } : { enabled: false })
     }
     if (path.endsWith('/auth/mfa/')) return json({ enabled: mfaEnabled, required: Boolean(options.me?.mfa_setup_required), recovery_codes_left: mfaEnabled ? 10 : 0, sso: false, confirmed_at: mfaEnabled ? '2026-09-18T10:00:00Z' : null })
+    if (path.endsWith('/workspace/mail-server/test/')) {
+      const ok = mailNow.server?.host !== 'smtp.broken.example'
+      mailNow = { ...mailNow, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
+      return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to })
+    }
+    if (path.endsWith('/workspace/mail-server/')) {
+      if (method === 'DELETE') { mailNow = { ...mailNow, server: null, in_use: 'console' }; return json(null, 204) }
+      if (method === 'PUT') {
+        if (body?.from_email === 'bad') return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { from_email: ['Enter a valid email address.'] } }, 400)
+        const { password, ...rest } = body as Record<string, unknown>
+        const shared = Boolean(rest.use_platform_server)
+        mailNow = { ...mailNow, in_use: shared ? 'platform-shared' : 'tenant',
+                    server: { host: '', port: 587, security: 'STARTTLS', username: null, from_name: null, reply_to: null, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null,
+                              ...(mailNow.server ?? {}), ...rest, has_password: Boolean(password) || Boolean(mailNow.server?.has_password) } as MailServerSettings['server'] }
+      }
+      return json(mailNow)
+    }
     if (path.endsWith('/workspace/usage/')) return json(usage)
     if (path.endsWith('/workspace/invoices/')) return json(invoices)
     if (path.endsWith('/workspace/support-access/')) return json(supportAccess)

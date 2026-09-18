@@ -46,6 +46,7 @@ UNFOLD = {
             ]},
             {"title": "Configuration", "separator": True, "items": [
                 _link("Global parameters", "tune", "platform_ops_platformsetting"),
+                _link("Mail server", "outgoing_mail", "platform_ops_mailserver"),
                 _link("Industry profiles", "category", "platform_ops_industryprofile"),
             ]},
             {"title": "Operations", "separator": True, "items": [

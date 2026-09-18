@@ -132,6 +132,33 @@ export interface SecuritySettings {
   identity_provider: IdentityProvider | null
 }
 
+export interface MailServer {
+  host: string
+  port: number
+  security: 'STARTTLS' | 'SSL' | 'NONE'
+  username: string | null
+  /** the password itself is write-only */
+  has_password: boolean
+  from_email: string
+  from_name: string | null
+  reply_to: string | null
+  /** send through the platform's shared server with this workspace's From address */
+  use_platform_server: boolean
+  is_active: boolean
+  last_tested_at: string | null
+  last_test_ok: boolean | null
+  last_test_error: string | null
+}
+
+export interface MailServerSettings {
+  server: MailServer | null
+  /** the platform team shares its server with this workspace */
+  platform_shared: boolean
+  platform_host: string | null
+  /** what messages for this workspace currently go through */
+  in_use: 'tenant' | 'platform-shared' | 'platform' | 'environment' | 'console' | string
+}
+
 export interface SupportAccess {
   id: string
   staff: string

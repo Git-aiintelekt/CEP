@@ -147,7 +147,7 @@ def check_email():
     from apps.platform_ops import mail
     if not mail.is_configured():
         return _result("Email", OFF if settings.DEBUG else FAIL, "No mail server configured: messages are printed to the server log",
-                       "Set EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD and DEFAULT_FROM_EMAIL in .env. Test with: python manage.py sendtestemail you@example.com")
+                       "Enter it under Configuration -> Mail server (or set EMAIL_HOST ... in .env), then use its 'Send a test message to me' action.")
     ok, message = mail.check()
     return _result("Email", OK if ok else FAIL, message, "" if ok else "Password links and alerts cannot be delivered.")
 

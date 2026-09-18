@@ -14,6 +14,7 @@ const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/api-keys', label: 'API keys', feature: 'api_access' },
   { to: '/settings/plan', label: 'Plan & usage' },
   { to: '/settings/security', label: 'Security' },
+  { to: '/settings/email', label: 'Email server' },
 ]
 
 function Fact({ label, value }: { label: string; value: string }) {

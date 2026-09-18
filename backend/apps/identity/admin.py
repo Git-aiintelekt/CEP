@@ -115,7 +115,7 @@ class AppUserAdmin(BaseAdmin):
             link = (f"{settings.FRONTEND_URL.rstrip('/')}/set-password?tenant={user.tenant.code}"
                     f"&uid={urlsafe_base64_encode(force_bytes(user.pk))}&token={default_token_generator.make_token(user)}")
             hours = links.hours()
-            sent = mail.is_configured() and mail.send("password_link", user.email, subject=f"Choose your password for {user.tenant.code}", context={
+            sent = mail.is_configured(user.tenant_id) and mail.send("password_link", user.email, tenant_id=user.tenant_id, subject=f"Choose your password for {user.tenant.code}", context={
                 "name": user.display_name, "workspace": user.tenant.code, "link": link, "hours": hours, "invited": not user.password, "invited_by": "The platform team"})
             if sent:
                 messages.success(request, f"A one-time password link was emailed to {user.email} (valid {hours} hours, until first use or sign-in).")

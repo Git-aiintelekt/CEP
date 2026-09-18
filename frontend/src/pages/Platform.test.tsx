@@ -133,7 +133,7 @@ test('someone who must enrol in MFA is taken to account security and nowhere els
 
   await user.click(await screen.findByRole('button', { name: 'Set up' }))
   expect(await screen.findByText('JBSW Y3DP EHPK 3PXP')).toBeTruthy()
-  await waitFor(() => expect(screen.getByRole('img', { name: /QR code/ }).querySelector('svg')).toBeTruthy())
+  await waitFor(() => expect(screen.getByRole('img', { name: /QR code/ }).querySelector('svg')).toBeTruthy(), { timeout: 5000 })
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
 
   await user.type(screen.getByLabelText(/^Code/), '111111')

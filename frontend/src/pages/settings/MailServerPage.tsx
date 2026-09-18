@@ -1,0 +1,163 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
+
+import { useAuth } from '@/auth/AuthContext'
+import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
+import { ErrorState, Spinner } from '@/components/States'
+import { StatusBadge } from '@/components/StatusBadge'
+import { api, ApiError } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
+import type { MailServer, MailServerSettings } from '@/lib/types'
+
+const KEY = ['workspace', 'mail-server']
+
+const EMPTY: MailServer = { host: '', port: 587, security: 'STARTTLS', username: '', has_password: false, from_email: '', from_name: '', reply_to: '', use_platform_server: false,
+                            is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null }
+
+const IN_USE: Record<string, string> = {
+  tenant: 'Messages for this workspace go out through your own server.',
+  'platform-shared': "Messages for this workspace go out through the platform's server, with your From address.",
+  platform: "Messages for this workspace go out through the platform's server, with the platform's From address.",
+  environment: "Messages for this workspace go out through the platform's server.",
+  console: 'No mail server is available: password links have to be copied and sent by hand.',
+}
+
+export function MailServerPage() {
+  const { me } = useAuth()
+  const queryClient = useQueryClient()
+  const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<MailServerSettings>('/workspace/mail-server/', undefined, signal) })
+
+  if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+  return <MailServerForm data={settings.data} myEmail={me?.principal.email ?? ''}
+    onSaved={(next) => queryClient.setQueryData(KEY, next)} />
+}
+
+function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; myEmail: string; onSaved: (next: MailServerSettings) => void }) {
+  const existing = data.server
+  const [form, setForm] = useState<MailServer>(existing ?? EMPTY)
+  const [password, setPassword] = useState('')
+  const [testTo, setTestTo] = useState(myEmail)
+  const set = <K extends keyof MailServer>(key: K, value: MailServer[K]) => setForm((current) => ({ ...current, [key]: value }))
+  const shared = form.use_platform_server && data.platform_shared
+
+  const save = useMutation({
+    mutationFn: () => api.put<MailServerSettings>('/workspace/mail-server/', {
+      use_platform_server: shared, is_active: form.is_active,
+      from_email: form.from_email.trim(), from_name: form.from_name?.trim() || null, reply_to: form.reply_to?.trim() || null,
+      ...(shared ? {} : { host: form.host.trim(), port: Number(form.port), security: form.security, username: form.username?.trim() || null, ...(password ? { password } : {}) }),
+    }),
+    onSuccess: (next) => { onSaved(next); setPassword(''); if (next.server) setForm(next.server) },
+  })
+  const test = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; error: string | null; to: string }>('/workspace/mail-server/test/', { to: testTo.trim() }),
+    onSuccess: (result) => onSaved({ ...data, server: data.server && { ...data.server, last_tested_at: new Date().toISOString(), last_test_ok: result.ok, last_test_error: result.error } }),
+  })
+  const remove = useMutation({
+    mutationFn: () => api.delete('/workspace/mail-server/'),
+    onSuccess: () => { onSaved({ ...data, server: null, in_use: data.platform_shared ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
+  })
+  const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
+  const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : test.isError ? test.error : null
+  const server = data.server
+
+  return (
+    <form className="max-w-3xl space-y-6" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink-900">Outgoing email</h2>
+        <p className="mt-1 text-sm text-ink-500">
+          The server used for the messages this platform sends to people in your workspace: password links, sign-in notices and support notifications. Campaign email is sent through your delivery provider.
+        </p>
+        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-ink-700'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
+      </section>
+
+      {data.platform_shared && (
+        <section className="rounded-xl border border-line bg-surface p-5">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.use_platform_server} onChange={(event) => set('use_platform_server', event.target.checked)} />
+            <span>
+              <span className="block text-sm font-medium text-ink-900">Use the platform's mail server ({data.platform_host})</span>
+              <span className="block text-xs text-ink-500">Offered to your workspace by the platform team. Messages still carry your From address below, so that address must be allowed to send through it.</span>
+            </span>
+          </label>
+        </section>
+      )}
+
+      {!shared && (
+        <section className="rounded-xl border border-line bg-surface p-5">
+          <h2 className="text-sm font-semibold text-ink-900">Your SMTP server</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Field label="Server" required error={errors.host} hint="e.g. smtp.office365.com, smtp.gmail.com, email-smtp.us-east-1.amazonaws.com">
+              {(ids) => <TextInput {...ids} value={form.host} onChange={(event) => set('host', event.target.value)} autoComplete="off" />}
+            </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Port" required error={errors.port}>
+                {(ids) => <TextInput {...ids} type="number" min={1} max={65535} value={form.port} onChange={(event) => set('port', Number(event.target.value))} />}
+              </Field>
+              <Field label="Security" required error={errors.security}>
+                {(ids) => <Select {...ids} value={form.security} onChange={(event) => set('security', event.target.value as MailServer['security'])}>
+                  <option value="STARTTLS">STARTTLS (587)</option>
+                  <option value="SSL">SSL/TLS (465)</option>
+                  <option value="NONE">None</option>
+                </Select>}
+              </Field>
+            </div>
+            <Field label="Username" error={errors.username} hint="Often the full email address. Leave empty for a server that needs no sign-in.">
+              {(ids) => <TextInput {...ids} value={form.username ?? ''} onChange={(event) => set('username', event.target.value)} autoComplete="off" />}
+            </Field>
+            <Field label="Password" error={errors.password} hint={form.has_password ? 'A password is stored. Leave this empty to keep it.' : 'Stored encrypted; never shown again. Many providers want an app password here, not your account password.'}>
+              {(ids) => <TextInput {...ids} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder={form.has_password ? '••••••••' : ''} />}
+            </Field>
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink-900">Sender</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <Field label="From address" required error={errors.from_email} hint="Must be an address the server is allowed to send as.">
+            {(ids) => <TextInput {...ids} type="email" value={form.from_email} onChange={(event) => set('from_email', event.target.value)} autoComplete="off" />}
+          </Field>
+          <Field label="From name" error={errors.from_name} hint="Shown next to the address, e.g. Northwind Apparel.">
+            {(ids) => <TextInput {...ids} value={form.from_name ?? ''} onChange={(event) => set('from_name', event.target.value)} />}
+          </Field>
+          <Field label="Reply-to address" error={errors.reply_to} hint="Where replies go, if not the From address.">
+            {(ids) => <TextInput {...ids} type="email" value={form.reply_to ?? ''} onChange={(event) => set('reply_to', event.target.value)} autoComplete="off" />}
+          </Field>
+          <label className="flex cursor-pointer items-start gap-3 self-end pb-2">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.is_active} onChange={(event) => set('is_active', event.target.checked)} />
+            <span><span className="block text-sm font-medium text-ink-900">In use</span><span className="block text-xs text-ink-500">Switch off to fall back to the platform's server without losing these settings.</span></span>
+          </label>
+        </div>
+        {errors.use_platform_server && <p className="mt-3 text-xs font-medium text-red-700">{errors.use_platform_server}</p>}
+      </section>
+
+      {other !== null && <ErrorState title="Could not save the mail server" error={other} />}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Save</button>
+        {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
+          onClick={() => window.confirm("Remove your mail server? Messages will go out through the platform's server instead.") && remove.mutate()}>Remove</button>}
+        {save.isSuccess && <span role="status" className="text-sm text-emerald-700">Saved</span>}
+      </div>
+
+      {server && (
+        <section aria-labelledby="mail-test" className="rounded-xl border border-line bg-surface p-5">
+          <h2 id="mail-test" className="text-sm font-semibold text-ink-900">Send a test message</h2>
+          <p className="mt-1 text-sm text-ink-500">Uses the saved settings. Save first if you changed anything above.</p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="w-72"><Field label="To" required>{(ids) => <TextInput {...ids} type="email" value={testTo} onChange={(event) => setTestTo(event.target.value)} />}</Field></div>
+            <button type="button" className={buttonSecondary} disabled={test.isPending || !testTo.trim()} onClick={() => test.mutate()}>
+              {test.isPending && <Spinner className="h-4 w-4" />}Send test
+            </button>
+            {server.last_test_ok !== null && (
+              <span className="flex items-center gap-2 text-sm text-ink-700">
+                <StatusBadge status={server.last_test_ok ? 'ACTIVE' : 'FAILED'} label={server.last_test_ok ? 'Last test passed' : 'Last test failed'} /> {formatDateTime(server.last_tested_at)}
+              </span>
+            )}
+          </div>
+          {server.last_test_ok === false && server.last_test_error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 font-mono text-xs text-red-800">{server.last_test_error}</p>}
+        </section>
+      )}
+    </form>
+  )
+}

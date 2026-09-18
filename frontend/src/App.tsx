@@ -17,6 +17,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
 import { ApiKeysPage } from '@/pages/settings/ApiKeysPage'
+import { MailServerPage } from '@/pages/settings/MailServerPage'
 import { PlanUsagePage } from '@/pages/settings/PlanUsagePage'
 import { RolesPage } from '@/pages/settings/RolesPage'
 import { SecurityPage } from '@/pages/settings/SecurityPage'
@@ -92,6 +93,7 @@ export default function App() {
                   <Route path="api-keys" element={<ApiKeysPage />} />
                   <Route path="plan" element={<PlanUsagePage />} />
                   <Route path="security" element={<SecurityPage />} />
+                  <Route path="email" element={<MailServerPage />} />
                 </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

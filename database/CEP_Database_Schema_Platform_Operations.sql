@@ -270,7 +270,7 @@ BEGIN
     END LOOP;
 END $$;
 
--- credentials never enter the audit trail (identity provider secret joins the password and key hashes)
+-- credentials never enter the audit trail (identity provider secret and SMTP password join the password and key hashes)
 CREATE OR REPLACE FUNCTION fn_definition_audit()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
@@ -278,7 +278,7 @@ DECLARE
     v_new     JSONB;
     v_changed TEXT[];
     v_tenant  UUID;
-    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes'];
+    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes', 'password_enc'];
 BEGIN
     IF TG_OP IN ('UPDATE', 'DELETE') THEN v_old := to_jsonb(OLD); END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN v_new := to_jsonb(NEW); END IF;
@@ -319,6 +319,64 @@ GRANT ALL ON tenant_invoice, tenant_operation, job_run, platform_alert, support_
 REVOKE INSERT, UPDATE, DELETE ON tenant_invoice FROM cep_app;
 -- the tenant reads its support access log; only the platform writes it
 REVOKE INSERT, UPDATE, DELETE ON support_access_log FROM cep_app;
+
+-- -------------------------------------------------------------------------------------
+-- 8. MAIL SERVERS
+--    SMTP details entered in the product: one row per tenant (Settings -> Email server) and one platform row
+--    (tenant_id NULL, back-office -> Configuration -> Mail server). The platform row may be shared with tenants,
+--    who then send with their own From address through it. Passwords are encrypted by the application
+--    (FIELD_ENCRYPTION_KEY) and never enter the audit trail. Row-level security hides the platform row from the
+--    API role (NULL never equals the current tenant).
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS mail_server (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID REFERENCES tenant(id),                      -- NULL: the platform's own server
+    host                VARCHAR(253) NOT NULL DEFAULT '',                -- '' on a tenant row that uses the shared platform server
+    port                INTEGER NOT NULL DEFAULT 587,
+    security            VARCHAR(10) NOT NULL DEFAULT 'STARTTLS',         -- NONE, STARTTLS (587), SSL (465)
+    username            VARCHAR(200),
+    password_enc        TEXT,
+    from_email          CITEXT NOT NULL,
+    from_name           VARCHAR(150),
+    reply_to            CITEXT,
+    use_platform_server BOOLEAN NOT NULL DEFAULT FALSE,                  -- tenant row: send through the shared platform server
+    shared_with_all     BOOLEAN NOT NULL DEFAULT FALSE,                  -- platform row: every tenant may use it
+    shared_tenant_ids   UUID[] NOT NULL DEFAULT '{}',                    -- platform row: or only these tenants
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    last_tested_at      TIMESTAMPTZ,
+    last_test_ok        BOOLEAN,
+    last_test_error     TEXT,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_mail_server_security CHECK (security IN ('NONE', 'STARTTLS', 'SSL')),
+    CONSTRAINT ck_mail_server_port CHECK (port BETWEEN 1 AND 65535),
+    CONSTRAINT ck_mail_server_host CHECK (use_platform_server OR host <> ''),
+    CONSTRAINT ck_mail_server_platform_row CHECK (tenant_id IS NOT NULL OR NOT use_platform_server)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_tenant ON mail_server(tenant_id) WHERE tenant_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_platform ON mail_server((tenant_id IS NULL)) WHERE tenant_id IS NULL;
+COMMENT ON TABLE mail_server IS 'SMTP servers entered in the product: one per tenant, plus the platform''s own (tenant_id NULL), which may be shared with tenants';
+
+DROP TRIGGER IF EXISTS trg_mail_server_touch ON mail_server;
+CREATE TRIGGER trg_mail_server_touch BEFORE UPDATE ON mail_server FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+-- tenant rows are audited under their tenant; the platform row has no tenant and is not
+DROP TRIGGER IF EXISTS trg_mail_server_audit ON mail_server;
+CREATE TRIGGER trg_mail_server_audit AFTER INSERT OR UPDATE ON mail_server FOR EACH ROW
+    WHEN (NEW.tenant_id IS NOT NULL) EXECUTE FUNCTION fn_definition_audit();
+DROP TRIGGER IF EXISTS trg_mail_server_audit_delete ON mail_server;
+CREATE TRIGGER trg_mail_server_audit_delete AFTER DELETE ON mail_server FOR EACH ROW
+    WHEN (OLD.tenant_id IS NOT NULL) EXECUTE FUNCTION fn_definition_audit();
+ALTER TABLE mail_server ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mail_server FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_mail_server_tenant ON mail_server;
+CREATE POLICY rls_mail_server_tenant ON mail_server
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON mail_server TO cep_app;
+GRANT ALL ON mail_server TO cep_admin;
 
 -- =====================================================================================
 -- End of platform operations layer.

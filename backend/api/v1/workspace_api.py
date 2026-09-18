@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode
 from apps.identity.models import Role
-from apps.platform_ops import billing, crypto, params, sso
-from apps.platform_ops.models import SupportAccessLog, TenantIdentityProvider, TenantInvoice
+from apps.platform_ops import billing, crypto, mail, params, sso
+from apps.platform_ops.models import MailServer, SupportAccessLog, TenantIdentityProvider, TenantInvoice
 from apps.tenants import context
 from apps.tenants.models import Tenant
 
@@ -142,3 +142,108 @@ class SupportAccessView(APIView):
         return Response([{"id": str(r.id), "staff": r.staff_name or "Platform support", "as_user": r.target_user.display_name, "as_email": r.target_user.email,
                           "reason": r.reason, "mode": r.access_mode, "started_at": r.started_at, "expires_at": r.expires_at, "ended_at": r.ended_at,
                           "writes": r.writes} for r in rows])
+
+
+# ------------------------------------------------------------------------------------------------------------ email server
+class MailServerSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, help_text="leave blank to keep the stored password")
+    has_password = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MailServer
+        fields = ("host", "port", "security", "username", "password", "has_password", "from_email", "from_name", "reply_to", "use_platform_server", "is_active",
+                  "last_tested_at", "last_test_ok", "last_test_error")
+        read_only_fields = ("last_tested_at", "last_test_ok", "last_test_error")
+        extra_kwargs = {"from_email": {"validators": []}}
+
+    def get_has_password(self, server) -> bool:
+        return bool(server.password_enc)
+
+    def validate_from_email(self, value):
+        value = value.strip().lower()
+        serializers.EmailField().run_validation(value)
+        return value
+
+    def validate_reply_to(self, value):
+        value = (value or "").strip().lower()
+        if value:
+            serializers.EmailField().run_validation(value)
+        return value or None
+
+    def validate_port(self, value):
+        if not 1 <= int(value) <= 65535:
+            raise serializers.ValidationError("Enter a port between 1 and 65535.")
+        return value
+
+    def validate_host(self, value):
+        value = value.strip().lower()
+        if value and (" " in value or "/" in value or "@" in value):
+            raise serializers.ValidationError("Enter the server name only, e.g. smtp.example.com.")
+        return value
+
+    def validate(self, attrs):
+        current = lambda name: attrs.get(name, getattr(self.instance, name, None))          # noqa: E731
+        if current("use_platform_server"):
+            if not mail.shared_with(mail.platform_server(), self.context["tenant_id"]):
+                raise serializers.ValidationError({"use_platform_server": "The platform's mail server is not shared with this workspace."})
+        elif not current("host"):
+            raise serializers.ValidationError({"host": "Enter the SMTP server name, or use the platform's mail server."})
+        port, security = current("port") or 587, current("security")
+        if security == "SSL" and int(port) == 587 or security == "STARTTLS" and int(port) == 465:
+            raise serializers.ValidationError({"port": "Port 587 goes with STARTTLS and port 465 with SSL/TLS. Check your provider's settings."})
+        return attrs
+
+
+class MailServerView(APIView):
+    """The workspace's outgoing mail server: used for the messages the platform sends to this workspace's users, and
+    offered as the From address for campaign email."""
+    permission_classes = ADMIN
+
+    def _payload(self, tenant_id):
+        server = MailServer.objects.filter(tenant_id=tenant_id).first()
+        platform = mail.platform_server()
+        shared = mail.shared_with(platform, tenant_id)
+        return {"server": MailServerSerializer(server).data if server else None,
+                "platform_shared": shared, "platform_host": platform.host if shared else None,
+                "in_use": mail.resolve(tenant_id, own=server).source}
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        return Response(self._payload(_tenant_id()))
+
+    @extend_schema(request=MailServerSerializer, responses={200: None})
+    def put(self, request, version=None):
+        tenant_id = _tenant_id()
+        server = MailServer.objects.filter(tenant_id=tenant_id).first()
+        form = MailServerSerializer(server, data=request.data, partial=server is not None, context={"tenant_id": tenant_id})
+        form.is_valid(raise_exception=True)
+        password = form.validated_data.pop("password", "")
+        extra = {"password_enc": crypto.encrypt(password)} if password else {}
+        if form.validated_data.get("use_platform_server"):
+            extra.update(host="", username=None, password_enc=None)          # nothing of a previous own server lingers
+        if server is None:
+            form.save(tenant_id=tenant_id, created_by_id=request.user.pk, **extra)
+        else:
+            form.save(updated_by_id=request.user.pk, **extra)
+        return Response(self._payload(tenant_id))
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, version=None):
+        MailServer.objects.filter(tenant_id=_tenant_id()).delete()
+        return Response(status=204)
+
+
+class MailServerTestView(APIView):
+    permission_classes = ADMIN
+
+    @extend_schema(request=inline_serializer("MailTest", {"to": serializers.EmailField(required=False)}), responses={200: None})
+    def post(self, request, version=None):
+        tenant_id = _tenant_id()
+        server = MailServer.objects.filter(tenant_id=tenant_id).first()
+        if server is None:
+            raise ValidationError({"detail": "Save the mail server first."})
+        to = str(request.data.get("to") or getattr(request.user, "email", "") or "").strip()
+        if not to:
+            raise ValidationError({"to": "Enter the address the test message should go to."})
+        ok, error = mail.test(server, to, by=getattr(request.user, "display_name", ""))
+        return Response({"ok": ok, "error": error or None, "to": to, "tested_at": server.last_tested_at})

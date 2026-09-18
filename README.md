@@ -62,16 +62,21 @@ Layer 5 of the schema (`database/CEP_Database_Schema_Platform_Operations.sql`, p
 
 ### Email from the platform (do this first)
 
-Password links, alert notifications and support-access notices are sent by the platform itself. Put your SMTP details in
-`.env` (see `.env.example`), restart, then prove it:
+Password links, alert notifications and support-access notices are sent by the platform itself. Where a message goes
+out from is decided per message, first match wins:
 
-```bash
-python manage.py sendtestemail you@example.com
-```
+1. the tenant's own mail server (**Settings → Email server** in the React app: host, port, STARTTLS/SSL, username,
+   password stored encrypted, From address, reply-to, "Send a test message")
+2. the platform's mail server shared with that tenant, using the tenant's From address
+3. the platform's mail server (**back-office → Configuration → Mail server**; the platform administrator may share it
+   with every tenant or with selected ones, and tenants then get a "Use the platform's mail server" switch)
+4. SMTP from the environment (`EMAIL_HOST` … in `.env`)
+5. Django's console backend: the message is printed to the server log and the app says so honestly (a password link
+   can then only be copied; the health page shows *Email: attention*)
 
-Without `EMAIL_HOST`, messages are printed to the server log and the app says so honestly: **Settings → Users → Password
-link** then offers only "copy", and the back-office health page shows *Email: attention*. This is platform mail, not
-campaign delivery (that goes through each tenant's delivery providers).
+Both screens have a real "send a test message" action that records the outcome. This is platform mail, not campaign
+delivery (that goes through each tenant's delivery providers). Passwords are encrypted with `FIELD_ENCRYPTION_KEY` and
+never appear in the audit trail or in any screen. Patch `0007` adds the `mail_server` table.
 
 ### Global parameters and industry profiles
 

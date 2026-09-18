@@ -241,3 +241,42 @@ class IndustryProfile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class MailServer(models.Model):
+    """SMTP details entered in the product: one per tenant, plus the platform's own row (tenant NULL), which may be shared"""
+    class Security(models.TextChoices):
+        NONE = 'NONE', 'None (plain)'
+        STARTTLS = 'STARTTLS', 'STARTTLS (usually port 587)'
+        SSL = 'SSL', 'SSL/TLS (usually port 465)'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+', null=True, blank=True)
+    host = models.CharField(max_length=253, default='', blank=True)
+    port = models.IntegerField(default=587)
+    security = models.CharField(max_length=10, default='STARTTLS', choices=Security.choices)
+    username = models.CharField(max_length=200, null=True, blank=True)
+    password_enc = models.TextField(null=True, blank=True)
+    from_email = models.CharField(max_length=254)
+    from_name = models.CharField(max_length=150, null=True, blank=True)
+    reply_to = models.CharField(max_length=254, null=True, blank=True)
+    use_platform_server = models.BooleanField(default=False)
+    shared_with_all = models.BooleanField(default=False)
+    shared_tenant_ids = ArrayField(models.UUIDField(), default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_tested_at = models.DateTimeField(null=True, blank=True)
+    last_test_ok = models.BooleanField(null=True, blank=True)
+    last_test_error = models.TextField(null=True, blank=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'mail_server'
+        verbose_name = 'mail server'
+
+    def __str__(self):
+        return f"{self.tenant.code if self.tenant_id else 'Platform'}: {self.host or 'shared platform server'}"
