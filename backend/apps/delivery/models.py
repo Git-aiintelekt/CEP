@@ -20,6 +20,7 @@ class DeliveryProvider(models.Model):
         OTHER_SMS = 'OTHER_SMS', 'Other SMS'
         SMTP = 'SMTP', 'SMTP (workspace mail server)'
         SENDGRID = 'SENDGRID', 'SendGrid'
+        SANDBOX_SMS = 'SANDBOX_SMS', 'Sandbox texts (sends nothing)'
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'

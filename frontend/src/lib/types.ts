@@ -140,6 +140,9 @@ export interface ProviderType {
   supports_webhooks: boolean
   /** false: created by another screen (SMTP follows Settings -> Email server) */
   manageable: boolean
+  /** EMAIL, or SMS for text engines (they carry MMS too when supports_mms) */
+  channel?: 'EMAIL' | 'SMS'
+  supports_mms?: boolean
   fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea' }[]
 }
 
@@ -174,9 +177,26 @@ export interface RunResults {
   status: string
   started_at: string | null
   completed_at: string | null
+  /** EMAIL or SMS (texts: SMS and MMS) */
+  family?: 'EMAIL' | 'SMS'
   audience: { members: number; eligible: number; suppressed: Record<string, number> }
-  messages: { queued: number; sent: number; failed: number; delivered: number; opened: number; clicked: number; bounced: number; complained: number }
+  messages: { queued: number; sent: number; failed: number; delivered: number; opened: number; clicked: number; bounced: number; complained: number
+              /** texts only */ replied?: number; opted_out?: number; parts?: number }
   by_status: Record<string, number>
+}
+
+/** What someone texted back: STOP / START / HELP or a free reply */
+export interface SmsReply {
+  id: number
+  from_number: string
+  to_number: string | null
+  body: string
+  keyword: string | null
+  action: 'OPT_OUT' | 'OPT_IN' | 'HELP' | 'NONE'
+  party_id: string | null
+  name: string | null
+  campaign: string | null
+  received_at: string
 }
 
 export interface SendTestResult {

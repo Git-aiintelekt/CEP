@@ -91,12 +91,15 @@ Publishing a campaign creates a run; the send engine (`backend/apps/delivery/eng
 hands it to the sender's **delivery provider adapter** (`backend/apps/delivery/providers`: `SMTP`, `POSTAL`, `SENDGRID`,
 one module each behind one interface). Providers report back to a per-provider callback address; bounces and complaints
 block the address, the unsubscribe link in every marketing email records the opt-out, and the campaign page shows the
-results live. Tenants manage their engines and senders under **Settings → Email engines**. E-receipts are sent one at a time by the point of
+results live. Tenants manage their engines and senders under **Settings → Sending engines**. E-receipts are sent one at a time by the point of
 sale or web shop through `POST /api/v1/receipts/send/` (API key scope `receipts:send`, idempotent on the receipt number, PDF attachments).
+**SMS and MMS** run through the same engine (consent and STOP handling per number, quiet hours for marketing texts, message parts, delivery
+receipts, replies on the campaign page). A sandbox text engine that sends nothing is installed; the Digivize adapter is a skeleton
+waiting for its API specification.
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
 ```bash
-celery -A config worker -Q default,events,maintenance,campaign,email   # campaign = runs, email = batches
+celery -A config worker -Q default,events,maintenance,campaign,email,sms   # campaign = runs, email / sms = batches
 python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)
 ```
 
@@ -203,7 +206,7 @@ Never point `DATABASE_URL` at a superuser: superusers bypass RLS, so tenant isol
   queryset, tenant/created_by stamped on create, permission codes from `identity.permission`, cursor pagination, RFC 9457
   errors, OpenAPI at `/api/v1/schema/` (Swagger UI at `/api/v1/docs/`). JWT for the React app, `cep_…` API keys for integrations.
 * **Workers.** `workers/outbox.py` relays `domain_event` to Redis Streams every second; `workers/maintenance.py` runs the
-  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email` and `celery -A config beat`).
+  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms` and `celery -A config beat`).
 
 ## Development notes
 * Connect as a **non-superuser** database role in development too (`cep` in the compose file is fine): PostgreSQL superusers

@@ -27,7 +27,7 @@ def catalogue() -> list[dict]:
     """What Settings -> Delivery offers: every adapter with the fields its form needs."""
     _load()
     return [{"provider_type": cls.provider_type, "label": cls.label, "description": cls.description, "supports_webhooks": cls.supports_webhooks,
-             "manageable": cls.manageable,
+             "manageable": cls.manageable, "channel": cls.channel, "supports_mms": bool(getattr(cls, "supports_mms", False)),
              "fields": [{"key": f.key, "label": f.label, "required": f.required, "secret": f.secret, "help": f.help, "placeholder": f.placeholder, "kind": f.kind}
                         for f in cls.config_fields]}
             for cls in sorted(_ADAPTERS.values(), key=lambda c: c.label)]
@@ -64,5 +64,5 @@ _loaded = False
 def _load() -> None:
     global _loaded
     if not _loaded:
-        from . import postal, sendgrid, smtp  # noqa: F401  (importing registers them)
+        from . import postal, sandbox_sms, sendgrid, smtp  # noqa: F401  (importing registers them; digivize.py joins once its API is known)
         _loaded = True

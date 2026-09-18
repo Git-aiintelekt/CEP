@@ -10,7 +10,7 @@ as separate tasks so batches go out in parallel.
 import logging
 import time
 
-from . import dispatch, runs, session
+from . import dispatch, dispatch_sms, runs, session
 
 log = logging.getLogger("cep.delivery")
 
@@ -20,18 +20,21 @@ def process_run(tenant_id, run_id, *, max_rounds: int = 5, wait_seconds: float =
     with session.tenant_scope(tenant_id):
         try:
             started = runs.start(tenant_id, run_id)
-        except runs.RunNotStarted:
-            started = {"batches": [], "audience": {}}
+        except runs.RunNotStarted as waiting:
+            started = {"batches": [], "audience": {}, "waiting": str(waiting)}
+        with session.tx():
+            kind = started.get("family") or runs.run_family(tenant_id, run_id)
+        sender = dispatch_sms if kind == "SMS" else dispatch
         pending = started["batches"]
         for round_number in range(max_rounds):
             again = []
             for batch in pending:
                 try:
-                    dispatch.send_batch(tenant_id, run_id, batch)
+                    sender.send_batch(tenant_id, run_id, batch)
                 except dispatch.RetryBatch as retry:
                     again.append(retry.execution_ids)
                 except dispatch.ProviderError as exc:
-                    dispatch.fail_queued(tenant_id, run_id, str(exc))
+                    sender.fail_queued(tenant_id, run_id, str(exc))
                     again = []
                     break
             pending = again
@@ -39,9 +42,9 @@ def process_run(tenant_id, run_id, *, max_rounds: int = 5, wait_seconds: float =
                 break
             time.sleep(wait_seconds * (round_number + 1))
         if pending:                                        # still failing after every round: do not leave the run open forever
-            dispatch.fail_queued(tenant_id, run_id, "The delivery provider kept failing temporarily")
+            sender.fail_queued(tenant_id, run_id, "The delivery provider kept failing temporarily")
         runs.sweep(tenant_id, run_id)
         status = runs.finalize(tenant_id, run_id)
         with session.tx():
             numbers = runs.stats(tenant_id, run_id)["messages"]
-        return {"status": status, **started.get("audience", {}), **numbers}
+        return {"status": status, "family": kind, **({"waiting": started["waiting"]} if started.get("waiting") else {}), **started.get("audience", {}), **numbers}

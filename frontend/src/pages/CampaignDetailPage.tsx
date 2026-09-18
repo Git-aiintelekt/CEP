@@ -8,7 +8,7 @@ import { buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { ReceiptApiPanel, RunResults, SendTestBox } from '@/features/delivery/RunResults'
+import { ReceiptApiPanel, RunResults, SendTestBox, TextReplies } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import type { Campaign, CampaignRun } from '@/lib/types'
@@ -71,6 +71,7 @@ export function CampaignDetailPage() {
   if (campaign.isError) return <ErrorState error={campaign.error} onRetry={() => void campaign.refetch()} />
 
   const data = campaign.data
+  const isText = data.channel === 'SMS' || data.channel === 'MMS'
   const canPublish = can('campaign.publish') && PUBLISHABLE.has(data.status)
   const canEdit = can('campaign.edit') && PUBLISHABLE.has(data.status) && !data.is_journey_generated
   const canDelete = can('campaign.edit') && data.status === 'DRAFT' && data.runs.length === 0
@@ -164,9 +165,9 @@ export function CampaignDetailPage() {
         </>
       )}
 
-      {can('campaign.edit') && ['EMAIL', 'MULTI'].includes(data.channel) && PUBLISHABLE.has(data.status) && (
+      {can('campaign.edit') && PUBLISHABLE.has(data.status) && (
         <div className="mb-6">
-          <SendTestBox campaignId={data.id} defaultTo={me?.principal.email ?? ''}
+          <SendTestBox campaignId={data.id} texts={isText} defaultTo={isText ? '' : (me?.principal.email ?? '')}
             disabledReason={!data.template ? 'Choose a template first.' : !data.sender_profile ? 'Choose a sender first.' : undefined} />
         </div>
       )}
@@ -183,6 +184,7 @@ export function CampaignDetailPage() {
           <DataTable columns={runColumns} rows={data.runs} rowKey={(run) => run.id} caption="Campaign runs" />
           <div className="mt-4 space-y-4">
             {data.runs.filter((run) => !run.test_mode).slice(-3).reverse().map((run) => <RunResults key={run.id} run={run} />)}
+            {isText && <TextReplies campaignId={data.id} />}
           </div>
         </>
       )}

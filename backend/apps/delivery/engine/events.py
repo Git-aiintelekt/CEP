@@ -123,3 +123,60 @@ def _address_bounced(cursor, tenant_id, party_id, email, event: DeliveryEvent, w
                                           OR contact_point_status.soft_bounce_count + EXCLUDED.soft_bounce_count >= %s THEN EXCLUDED.last_bounce_at END)""",
                    [str(tenant_id), email, party_id, 1 if hard else 0, 0 if hard else 1, when, event.reason[:200] or None, hard, "HARD_BOUNCE" if hard else None,
                     "PROVIDER" if hard else None, when if hard else None, SOFT_BOUNCE_BLOCK_AFTER, SOFT_BOUNCE_BLOCK_AFTER, SOFT_BOUNCE_BLOCK_AFTER])
+
+
+# ------------------------------------------------------------------------------------------------------------ texts
+SMS_RANK = {"QUEUED": 0, "SUBMITTED": 1, "DELIVERED": 2, "RESPONDED": 3}
+
+
+def apply_sms(tenant_id, event: DeliveryEvent) -> str:
+    """A delivery receipt for a text. DELIVERED moves the message forward; a failure marks it FAILED, and a permanent one
+    (bounce_type HARD: invalid, landline, deactivated) blocks the number so the next run leaves it out."""
+    with session.connection().cursor() as cursor:
+        found = None
+        for column, value in (("idempotency_key", event.idempotency_key), ("provider_message_id", event.provider_message_id)):
+            if value:
+                cursor.execute(f"""SELECT id, party_id, phone_number, status, created_at FROM sms_execution
+                                    WHERE tenant_id = %s AND {column} = %s ORDER BY created_at DESC LIMIT 1""", [str(tenant_id), value])
+                found = cursor.fetchone()
+                if found:
+                    break
+        if found is None:
+            return "unmatched"
+        execution_id, party_id, phone, status, created_at = found
+        when = _plausible(event.occurred_at)
+        kind = event.event_type
+        if kind is EventType.DELIVERED:
+            if status in ("OPTED_OUT", "FAILED") or SMS_RANK.get(status, 0) >= SMS_RANK["DELIVERED"]:
+                return "ignored"
+            cursor.execute("UPDATE sms_execution SET status = 'DELIVERED', delivered_at = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
+                           [when, str(tenant_id), execution_id, created_at])
+            return "applied"
+        if kind in (EventType.BOUNCED, EventType.DROPPED):
+            if status == "FAILED":
+                return "ignored"
+            cursor.execute("UPDATE sms_execution SET status = 'FAILED', failed_at = %s, status_reason = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
+                           [when, (event.reason or "Not delivered")[:200], str(tenant_id), execution_id, created_at])
+            if kind is EventType.BOUNCED and (event.bounce_type or "HARD") == "HARD":
+                block_number(cursor, tenant_id, phone, party_id, reason="INVALID", source="PROVIDER", detail=event.reason, when=when)
+            return "applied"
+        if kind is EventType.DEFERRED:
+            cursor.execute("UPDATE sms_execution SET status_reason = %s WHERE tenant_id = %s AND id = %s AND created_at = %s",
+                           [("Deferred: " + event.reason)[:200], str(tenant_id), execution_id, created_at])
+            return "applied"
+    return "ignored"
+
+
+def block_number(cursor, tenant_id, phone: str, party_id, *, reason: str, source: str, detail: str = "", when=None) -> None:
+    when = when or timezone.now()
+    cursor.execute("""INSERT INTO contact_point_status (tenant_id, contact_point_type, contact_value, party_id, hard_bounce_count, last_bounce_at, last_bounce_reason,
+                                                        blocked, block_reason, block_source, blocked_at)
+                      VALUES (%s, 'PHONE', %s, %s, %s, %s, %s, TRUE, %s, %s, %s)
+                      ON CONFLICT (tenant_id, contact_point_type, contact_value) DO UPDATE
+                         SET hard_bounce_count = contact_point_status.hard_bounce_count + EXCLUDED.hard_bounce_count,
+                             last_bounce_at = COALESCE(EXCLUDED.last_bounce_at, contact_point_status.last_bounce_at),
+                             last_bounce_reason = COALESCE(EXCLUDED.last_bounce_reason, contact_point_status.last_bounce_reason),
+                             blocked = TRUE, block_reason = EXCLUDED.block_reason, block_source = EXCLUDED.block_source,
+                             blocked_at = COALESCE(contact_point_status.blocked_at, EXCLUDED.blocked_at), unblocked_at = NULL""",
+                   [str(tenant_id), phone, party_id, 1 if reason == "INVALID" else 0, when if reason == "INVALID" else None, (detail or None) and detail[:200],
+                    reason, source, when])

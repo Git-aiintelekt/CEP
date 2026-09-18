@@ -6,4 +6,5 @@
 
 See docs/DELIVERY_PROVIDERS.md for how to add one.
 """
-from .base import Attachment, ConfigField, DeliveryEvent, EmailMessage, EmailProvider, EventType, Outcome, ProviderError, SendResult  # noqa: F401
+from .base import (Attachment, ConfigField, DeliveryEvent, EmailMessage, EmailProvider, EventType, InboundMessage, Outcome, ProviderError,  # noqa: F401
+                   SendResult, SmsMessage, SmsProvider)
