@@ -40,6 +40,7 @@ UNFOLD = {
     "SHOW_BACK_BUTTON": True,
     "BORDER_RADIUS": "10px",
     "STYLES": [lambda request: static("cep_admin/admin.css")],
+    "SCRIPTS": [lambda request: static("cep_admin/admin.js")],   # the menu button's first click (see the file)
     "COLORS": {
         "base": {"50": "#f8fafc", "100": "#f1f5f9", "200": "#e2e8f0", "300": "#cbd5e1", "400": "#94a3b8", "500": "#64748b",
                  "600": "#475569", "700": "#334155", "800": "#1e293b", "900": "#0f172a", "950": "#020617"},
