@@ -9,6 +9,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 
 from api.health import healthz
 
+admin.site.index_title = "Home"                          # the header of the back-office landing page (default: "Site administration")
+
 def admin_health_json(request):
     """Machine-readable copy of the back-office health page (staff session required): 503 when any check is failing."""
     from apps import platform_health

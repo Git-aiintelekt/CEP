@@ -94,7 +94,7 @@ def check_outbox():
     status = FAIL if age > timedelta(minutes=15) else WARN if age > timedelta(minutes=2) else OK
     if status == FAIL and settings.DEBUG:
         status = WARN                                      # development usually runs without the relay worker
-    return _result("Event outbox", status, f"{pending} events waiting, oldest {int(age.total_seconds() // 60)} min", "The outbox relay (Celery) publishes these to Redis Streams." if status != OK else "")
+    return _result("Event outbox", status, f"{pending} event{'' if pending == 1 else 's'} waiting, oldest {int(age.total_seconds() // 60)} min", "The outbox relay (Celery) publishes these to Redis Streams." if status != OK else "")
 
 
 def check_dead_letters():
@@ -114,9 +114,19 @@ def check_cache():
     return _result("Cache", OK, f"{backend} reachable")
 
 
+def _broker_reachable(timeout: float = 0.4):
+    """Raises quickly when nothing listens on the Celery broker's address."""
+    import socket
+    from urllib.parse import urlparse
+    url = urlparse(settings.CELERY_BROKER_URL)
+    if url.scheme in ("redis", "rediss", "amqp", "amqps") and url.hostname:
+        socket.create_connection((url.hostname, url.port or (6379 if url.scheme.startswith("redis") else 5672)), timeout=timeout).close()
+
+
 def check_workers():
     from config.celery import app
     try:
+        _broker_reachable()                                # without this, an absent broker costs 6 s of connection retries per page view
         replies = app.control.inspect(timeout=1.0).ping() or {}
     except Exception as exc:
         replies, error = {}, exc
@@ -225,4 +235,6 @@ def dashboard_callback(request, context):
         context["jobs"], context["alerts"] = [], []
     if isinstance(context["numbers"], dict):               # the guard returned a failure result instead of a list
         context["numbers"] = []
+    from apps.platform_ops import admin_ui
+    context["home"] = admin_ui.home(request, context["health"], context["numbers"], context["jobs"], context["alerts"])
     return context
