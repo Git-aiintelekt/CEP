@@ -15,6 +15,7 @@ import './designer.css'
 
 import type { PersonalizationTag } from '@/lib/types'
 
+import { expandSelfClosing, repairProject } from './mjml'
 import { asToken, groupTags } from './tags'
 
 // grapesjs-mjml ships as a UMD bundle: depending on the bundler the default import is the plugin or a { default } wrapper.
@@ -120,16 +121,22 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       })
     }
 
+    // Self-closing MJML tags are expanded before they reach the editor, and designs saved while they were not are put
+    // right on load (see ./mjml.ts): otherwise everything after a divider ends up inside it and is dropped from the email.
+    let repaired = 0
     try {
-      if (isProject(initialState)) editor.loadProjectData(initialState)
-      else editor.setComponents(initialMjml)
+      if (isProject(initialState)) {
+        const fixed = repairProject(initialState)
+        repaired = fixed.moved
+        editor.loadProjectData(fixed.project)
+      } else editor.setComponents(expandSelfClosing(initialMjml))
     } catch {
-      editor.setComponents(initialMjml) // a project saved by an older editor build: fall back to its MJML
+      editor.setComponents(expandSelfClosing(initialMjml)) // a project saved by an older editor build: fall back to its MJML
     }
 
     editor.on('load', () => {
       editor.clearDirtyCount()
-      latest.current.onDirtyChange(false)
+      latest.current.onDirtyChange(repaired > 0)       // a repaired design must be saved again so the stored HTML is rebuilt
       if (readOnly) editor.getWrapper()?.onAll((component) => component.set({ editable: false, draggable: false, removable: false, selectable: false }))
     })
     editor.on('update', () => latest.current.onDirtyChange(editor.getDirtyCount() > 0))
@@ -155,8 +162,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     load: (design) => {
       const editor = editorRef.current
       if (!editor) return
-      if (isProject(design.editor_state)) editor.loadProjectData(design.editor_state)
-      else if (design.mjml_source) editor.setComponents(design.mjml_source)
+      if (isProject(design.editor_state)) editor.loadProjectData(repairProject(design.editor_state).project)
+      else if (design.mjml_source) editor.setComponents(expandSelfClosing(design.mjml_source))
       editor.UndoManager.clear()
     },
     markSaved: () => {
