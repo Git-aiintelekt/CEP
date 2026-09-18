@@ -39,15 +39,15 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
 
   return (
-    <Modal title={provider ? `Edit ${provider.name}` : 'Add a delivery provider'} onClose={onClose} size="lg"
+    <Modal title={provider ? `Edit ${provider.name}` : 'Add an email engine'} onClose={onClose} size="lg"
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}{provider ? 'Save changes' : 'Add provider'}</button>
+        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}{provider ? 'Save changes' : 'Add engine'}</button>
       </>}>
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the provider" error={other} />}
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Provider" required error={errors.provider_type} hint={spec?.description}>
+          <Field label="Engine" required error={errors.provider_type} hint={spec?.description}>
             {(ids) => <Select {...ids} value={type} disabled={Boolean(provider)} onChange={(event) => { setType(event.target.value); setConfig({}) }}>
               {(provider ? catalogue : creatable).map((item) => <option key={item.provider_type} value={item.provider_type}>{item.label}</option>)}
             </Select>}
@@ -201,14 +201,14 @@ export function DeliveryPage() {
       <section aria-labelledby="providers-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="providers-heading" className="text-base font-semibold text-ink-900">Delivery providers</h2>
-            <p className="text-sm text-ink-500">The services that carry your campaign email. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
+            <h2 id="providers-heading" className="text-base font-semibold text-ink-900">Email engines</h2>
+            <p className="text-sm text-ink-500">The services that carry this workspace's campaign email and e-receipts: Postal or SendGrid over their HTTP API, or your own mail server. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
           </div>
-          <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add provider</button>
+          <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add engine</button>
         </div>
         {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading providers</p>
-          : rows.length === 0 ? <EmptyState title="No delivery provider yet" hint="Add Postal or SendGrid here, or offer your own mail server as a campaign sender under Email server." />
-          : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Delivery providers" />}
+          : rows.length === 0 ? <EmptyState title="No email engine yet" hint="Add Postal or SendGrid here, or offer your own mail server as a campaign sender under Email server." />
+          : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Email engines" />}
       </section>
 
       <section aria-labelledby="senders-heading">

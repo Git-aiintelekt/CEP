@@ -21,30 +21,30 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-test('delivery settings list providers and senders; the form of a new provider follows the adapter catalogue and the key is write-only', async () => {
+test('email engine settings list engines and senders; the form of a new provider follows the adapter catalogue and the key is write-only', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()
   await renderAppAt('/settings/delivery')
 
-  const providers = await screen.findByRole('table', { name: 'Delivery providers' })
+  const providers = await screen.findByRole('table', { name: 'Email engines' })
   expect(within(providers).getByText('Postal (self-hosted)')).toBeTruthy()
   expect(within(providers).getByRole('button', { name: 'Copy webhook URL' })).toBeTruthy()
   expect(within(await screen.findByRole('table', { name: 'Senders' })).getByText('Not verified yet')).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: 'Add provider' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Add a delivery provider' })
-  const type = within(dialog).getByLabelText(/^Provider/) as HTMLSelectElement
+  await user.click(screen.getByRole('button', { name: 'Add engine' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add an email engine' })
+  const type = within(dialog).getByLabelText(/^Engine/) as HTMLSelectElement
   expect([...type.options].map((option) => option.value)).toEqual(['POSTAL', 'SENDGRID'])          // SMTP comes from the Email server page
   expect(within(dialog).getByLabelText(/Postal address/)).toBeTruthy()
   await user.selectOptions(type, 'SENDGRID')
   expect(within(dialog).queryByLabelText(/Postal address/)).toBeNull()
 
   await user.type(within(dialog).getByLabelText(/^Name/), 'SendGrid (marketing)')
-  await user.click(within(dialog).getByRole('button', { name: 'Add provider' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Add engine' }))
   expect(await within(dialog).findByText('API key is required.')).toBeTruthy()
 
   await user.type(within(dialog).getByLabelText(/^API key/), 'SG.secret-value')
-  await user.click(within(dialog).getByRole('button', { name: 'Add provider' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Add engine' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   const post = calls.filter((call) => call.url.endsWith('/delivery-providers/') && call.method === 'POST').at(-1)
   expect(post?.body).toMatchObject({ provider_type: 'SENDGRID', name: 'SendGrid (marketing)', secret: 'SG.secret-value', is_active: true })
@@ -55,7 +55,7 @@ test('checking a provider and verifying a sender report what happened', async ()
   const user = userEvent.setup()
   await renderAppAt('/settings/delivery')
 
-  await user.click(within(await screen.findByRole('table', { name: 'Delivery providers' })).getByRole('button', { name: 'Check' }))
+  await user.click(within(await screen.findByRole('table', { name: 'Email engines' })).getByRole('button', { name: 'Check' }))
   expect((await screen.findByRole('status')).textContent).toContain('Postal refused the API key')
 
   await user.click(within(screen.getByRole('table', { name: 'Senders' })).getByRole('button', { name: 'Verify' }))
@@ -87,4 +87,14 @@ test('a campaign page offers a test send and shows what happened to its run, inc
   expect(within(panel).getByText('No email consent')).toBeTruthy()
   expect(within(panel).getByText('Frequency cap reached')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Send test' })).toBeNull()                           // a finished campaign is not tested any more
+})
+
+test('an e-receipt campaign explains how the point of sale sends receipts, with this campaign filled in', async () => {
+  installMockApi({ campaign: makeCampaign({ campaign_type: 'E_RECEIPT', status: 'ACTIVE', code: 'RCPT-STORE', contact_lists: [], contact_list_details: [] }) })
+  await renderAppAt('/campaigns/c1')
+
+  const panel = await screen.findByRole('region', { name: 'Sending receipts' })
+  expect(within(panel).getByText(/POST \/api\/v1\/receipts\/send\//)).toBeTruthy()
+  expect(within(panel).getByText(/"campaign": "RCPT-STORE"/)).toBeTruthy()
+  expect(within(panel).getByText(/receipts:send/)).toBeTruthy()
 })

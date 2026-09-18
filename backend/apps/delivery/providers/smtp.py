@@ -72,6 +72,8 @@ class SmtpProvider(EmailProvider):
                                       headers={**message.headers, "Message-ID": message_id, "X-CEP-Id": message.idempotency_key})
         if message.html:
             mail.attach_alternative(message.html, "text/html")
+        for attachment in message.attachments:
+            mail.attach(attachment.name, attachment.data, attachment.content_type)
         try:
             mail.send(fail_silently=False)
             return SendResult.accepted(message_id.strip("<>"))

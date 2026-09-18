@@ -91,7 +91,8 @@ Publishing a campaign creates a run; the send engine (`backend/apps/delivery/eng
 hands it to the sender's **delivery provider adapter** (`backend/apps/delivery/providers`: `SMTP`, `POSTAL`, `SENDGRID`,
 one module each behind one interface). Providers report back to a per-provider callback address; bounces and complaints
 block the address, the unsubscribe link in every marketing email records the opt-out, and the campaign page shows the
-results live. Tenants manage providers and senders under **Settings → Delivery**.
+results live. Tenants manage their engines and senders under **Settings → Email engines**. E-receipts are sent one at a time by the point of
+sale or web shop through `POST /api/v1/receipts/send/` (API key scope `receipts:send`, idempotent on the receipt number, PDF attachments).
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
 ```bash

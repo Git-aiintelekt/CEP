@@ -8,7 +8,7 @@ import { buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { RunResults, SendTestBox } from '@/features/delivery/RunResults'
+import { ReceiptApiPanel, RunResults, SendTestBox } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import type { Campaign, CampaignRun } from '@/lib/types'
@@ -169,6 +169,10 @@ export function CampaignDetailPage() {
           <SendTestBox campaignId={data.id} defaultTo={me?.principal.email ?? ''}
             disabledReason={!data.template ? 'Choose a template first.' : !data.sender_profile ? 'Choose a sender first.' : undefined} />
         </div>
+      )}
+
+      {data.campaign_type === 'E_RECEIPT' && (
+        <div className="mb-6"><ReceiptApiPanel campaignRef={data.code ?? data.id} published={['PRODUCTION_PUBLISHED', 'ACTIVE'].includes(data.status)} /></div>
       )}
 
       <h2 className="mb-3 text-sm font-semibold text-ink-900">Runs{live && <span className="ml-2 text-xs font-normal text-ink-500">updating every few seconds</span>}</h2>

@@ -13,10 +13,10 @@ from rest_framework.views import APIView
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.campaigns.models import Campaign, CampaignRun
-from apps.delivery.engine import dispatch, runs
+from apps.delivery.engine import dispatch, receipts, runs
 from apps.delivery.models import DeliveryProvider, SenderProfile
 from apps.delivery.providers import EmailMessage, Outcome, ProviderError, registry
-from apps.platform_ops import crypto
+from apps.platform_ops import crypto, params
 from apps.tenants import context
 
 WEBHOOK_SALT = "cep.delivery.webhook"
@@ -265,3 +265,67 @@ class CampaignRunResultsView(APIView):
         if run is None:
             raise ValidationError({"detail": "No such run."})
         return Response({"id": str(run.pk), "status": run.status, "started_at": run.started_at, "completed_at": run.completed_at, **runs.stats(tenant_id, run.pk)})
+
+
+# ------------------------------------------------------------------------------------------------------------ e-receipts
+class CanSendReceipts(HasPermissionCode):
+    """An integration key with the scope receipts:send (the point of sale, the web shop), or a user who may publish campaigns."""
+    def has_permission(self, request, view):
+        user = request.user
+        if getattr(user, "is_platform_admin", False):
+            return True
+        if hasattr(user, "has_scope"):
+            return user.has_scope("receipts:send")
+        return "campaign.publish" in user.permission_codes()
+
+
+class ReceiptItemSerializer(serializers.Serializer):
+    description = serializers.CharField(max_length=300)
+    sku = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, required=False, default=1, coerce_to_string=False)
+    unit_price = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True, coerce_to_string=False)
+    total = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True, coerce_to_string=False)
+
+
+class ReceiptAttachmentSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200)
+    content_type = serializers.CharField(max_length=100, required=False, default="application/pdf")
+    data = serializers.CharField(help_text="base64")
+
+
+class ReceiptSendSerializer(serializers.Serializer):
+    campaign = serializers.CharField(help_text="id or code of a published E_RECEIPT campaign")
+    to = serializers.EmailField()
+    name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    party_id = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
+    receipt = serializers.DictField(help_text="number (or order_number), transaction_at, currency, subtotal, discount_total, tax_total, grand_total, tender_summary, "
+                                              "items [...] and anything else your template's RECEIPT tags read (source_path receipt.<key>)")
+    store = serializers.DictField(required=False, default=dict, help_text="name, address ... for the template's STORE tags")
+    attachments = ReceiptAttachmentSerializer(many=True, required=False, default=list)
+    idempotency_key = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+
+    def validate_receipt(self, value):
+        items = ReceiptItemSerializer(data=value.get("items") or [], many=True)
+        items.is_valid(raise_exception=True)
+        return {**value, "items": [{k: (float(v) if hasattr(v, "quantize") else v) for k, v in item.items()} for item in items.validated_data]}
+
+
+class ReceiptSendView(APIView):
+    """Send one e-receipt now. Idempotent on receipt.number: repeating the call returns the first result with
+    `duplicate: true` and sends nothing. 424 = the delivery provider is failing temporarily: call again later."""
+    permission_classes = [IsAuthenticated, CanSendReceipts, params.RequiresFeature.for_("ereceipt")]
+
+    @extend_schema(request=ReceiptSendSerializer, responses={200: None, 201: None})
+    def post(self, request, version=None):
+        form = ReceiptSendSerializer(data=request.data)
+        form.is_valid(raise_exception=True)
+        data = form.validated_data
+        try:
+            result = receipts.send(context.require().tenant_id, campaign_ref=data["campaign"], to=data["to"], receipt=data["receipt"], store=data["store"],
+                                   party_id=data["party_id"] or None, name=data["name"], attachments=data["attachments"], idempotency_key=data["idempotency_key"] or None)
+        except receipts.ReceiptRefused as exc:
+            body = {"type": "about:blank", "title": "The receipt was not sent", "status": exc.status, "detail": str(exc), "retryable": exc.status == 424}
+            if exc.field:
+                body["errors"] = {exc.field: [str(exc)]}
+            return Response(body, status=exc.status, content_type="application/problem+json")
+        return Response(result, status=200 if result["duplicate"] else 201)

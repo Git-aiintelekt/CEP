@@ -32,7 +32,7 @@ The engine never mentions a provider by name. Everything provider-specific lives
 | You implement | The engine gives / expects |
 |---|---|
 | `provider_type`, `label`, `description` | `provider_type` is the value stored in `delivery_provider.provider_type` |
-| `config_fields: tuple[ConfigField, ...]` | The form shown in **Settings → Delivery**. `secret=True` fields are write-only and stored encrypted; the rest go to `delivery_provider.config` (JSON). |
+| `config_fields: tuple[ConfigField, ...]` | The form shown in **Settings → Email engines**. `secret=True` fields are write-only and stored encrypted; the rest go to `delivery_provider.config` (JSON). |
 | `open()` / `close()` | Called once around a batch: keep an HTTP session or an SMTP connection. |
 | `send(EmailMessage) -> SendResult` | `ACCEPTED` (+ `provider_message_id`), `REJECTED` (permanent, this message only), `RETRY` (temporary). Raise `ProviderError(retryable=False)` only when nothing can be sent at all (bad key, suspended account). |
 | `check() -> (ok, detail)` | The **Check** button: validate address + credential without sending. |
@@ -41,7 +41,7 @@ The engine never mentions a provider by name. Everything provider-specific lives
 | `max_batch`, `supports_webhooks`, `manageable` | Batch size per worker task; whether a callback address is shown; `manageable=False` for providers created by another screen (SMTP follows **Settings → Email server**). |
 
 `EmailMessage` carries: recipient and sender (name + address), reply-to, subject, HTML and text parts, headers
-(`List-Unsubscribe`, `List-Unsubscribe-Post` for marketing), `idempotency_key`
+(`List-Unsubscribe`, `List-Unsubscribe-Post` for marketing), `attachments` (receipts), `idempotency_key`
 (`<tenant>:<run>:<party>:EMAIL:v<content version>`), `tag` (campaign code) and `metadata` (tenant code, run id).
 
 ### What each outcome does
@@ -116,7 +116,7 @@ link all come from the engine.
 {API_PUBLIC_URL}/api/v1/webhooks/delivery/<TENANT CODE>/<provider id>/<token>/
 ```
 
-Shown per provider in **Settings → Delivery** ("Copy webhook URL"). The token is an HMAC of the provider id with the
+Shown per provider in **Settings → Email engines** ("Copy webhook URL"). The token is an HMAC of the provider id with the
 installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup. Every event is stored raw in
 `delivery_webhook_event` first, then applied; the endpoint answers `200` with counts
 (`received / applied / ignored / unmatched / failed`) so providers do not retry events that were understood.
@@ -142,7 +142,45 @@ campaign, run, static, inner template) → the list member's uploaded columns �
 default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_year}}`, `{{today}}`,
 `{{campaign_name}}` and `{{email}}` are always available.
 
-## 9. Running it
+## 9. E-receipts (transactional, one at a time)
+
+A receipt is not published to an audience: the point of sale or the web shop asks for each one, and gets the answer in
+the same call. It goes through the campaign's sender and email engine like any other message (Postal's HTTP API,
+SendGrid or SMTP), is recorded as a `mailer_execution` under the campaign's `ERECEIPT_INSTANCE` run of the day, and
+provider callbacks mark it delivered / bounced like a campaign message.
+
+```
+POST /api/v1/receipts/send/          Authorization: Bearer cep_in_...   (API key with the scope receipts:send)   X-Tenant: NWA
+{
+  "campaign": "RCPT-STORE",                       // id or code of a PUBLISHED campaign of type E_RECEIPT
+  "to": "customer@example.com", "name": "Pat Lee", "party_id": "C360-0042",          // party_id optional
+  "receipt": { "number": "R-104-88213", "transaction_at": "2026-09-18T16:12:00", "currency": "USD",
+               "subtotal": 84, "discount_total": -16.8, "tax_total": 5.38, "grand_total": 72.58, "tender_summary": "Visa ending 4242",
+               "items": [ { "description": "Merino crew sweater", "sku": "NW-1042", "quantity": 1, "unit_price": 64 } ] },
+  "store":   { "name": "Lenox Square", "address": "3393 Peachtree Rd NE, Atlanta" },
+  "attachments": [ { "name": "receipt.pdf", "content_type": "application/pdf", "data": "<base64>" } ]    // optional, 5 files, 10 MB
+}
+```
+
+| Answer | Meaning |
+|---|---|
+| `201` `{status: "SUBMITTED", execution_id, provider_message_id, duplicate: false}` | accepted by the email engine |
+| `200` `{..., duplicate: true}` | this receipt number was already sent: nothing was sent again (a cash register may retry freely) |
+| `422` | refused for good: the address is blocked (hard bounce / complaint), or the engine rejected the message (its reason is in `detail`) |
+| `424` `retryable: true` | the email engine is failing temporarily (three quick attempts were made): call again with the same number |
+| `409` / `404` | the campaign is not published / not an e-receipt campaign |
+
+* Template tags with source `RECEIPT` read `receipt.<key>` (path `receipt.number`, `receipt.grand_total` ...), source
+  `STORE` reads `store.<key>`. Money fields are formatted with the receipt's currency. `{{receipt_body}}` becomes the
+  line-item table (every value escaped); the text part gets the same lines as text.
+* Transactional: marketing consent and frequency caps do not apply and there is no unsubscribe header. A blocked
+  address is still refused.
+* Idempotency key: `receipt.number`, else `receipt.order_number`, else `idempotency_key`. A failed attempt is tried
+  again on the same execution row, so one receipt is always one row.
+* Tip: keep a separate email engine (for Postal: a separate mail server with its own API key) and sender for receipts,
+  so marketing volume and reputation never delay a receipt.
+
+## 10. Running it
 
 | | |
 |---|---|
@@ -153,7 +191,7 @@ default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_y
 | Test send | **Send a test** on the campaign page / `POST /api/v1/campaigns/{id}/send-test/ {"to": [...]}`: sample values, no execution rows |
 | Results | `GET /api/v1/campaign-runs/{id}/results/` and the campaign page (refreshes while a run is live) |
 
-## 10. API summary
+## 11. API summary
 
 | Endpoint | Permission | |
 |---|---|---|
@@ -165,10 +203,11 @@ default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_y
 | `GET /sender-profiles/` | `campaign.edit` | what the campaign form lists |
 | `POST /campaigns/{id}/send-test/` | `campaign.edit` | |
 | `GET /campaign-runs/{id}/results/` | `campaign.view` | audience, suppression reasons, message counts |
+| `POST /receipts/send/` | API key scope `receipts:send`, or `campaign.publish` | one e-receipt, idempotent on the receipt number |
 | `POST /webhooks/delivery/<tenant>/<provider>/<token>/` | public (token + provider signature) | |
 | `GET, POST /public/unsubscribe/?t=…` | public (signed token) | confirmation page, RFC 8058 one-click |
 
-## 11. Not in this version
+## 12. Not in this version
 
 * SMS / MMS sending (the Digivize adapter): same contract, `sms_execution` instead of `mailer_execution`.
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's

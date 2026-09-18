@@ -1,13 +1,14 @@
 """Tenant-scoped REST resources. BaseTenantViewSet is the pattern every domain resource follows."""
-from django.db import transaction
-import logging
 import hashlib
 import io
+import logging
 
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.db.models import Max
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from PIL import Image, UnidentifiedImageError
 from rest_framework import mixins
@@ -153,6 +154,10 @@ class CampaignViewSet(BaseTenantViewSet):
         billing.assert_can_send(campaign.tenant_id)          # 409 when a hard-capped plan has used its messages this month
         campaign.status = Campaign.Status.PRODUCTION_PUBLISHED
         campaign.save(update_fields=["status"])
+        if campaign.campaign_type == Campaign.CampaignType.E_RECEIPT:
+            # no audience, no schedule: receipts are sent one by one through POST /receipts/send/ under a run per day
+            from apps.delivery.engine import receipts
+            return Response(s.CampaignRunSerializer(receipts._run_of_today(campaign.tenant_id, campaign)).data, status=201)
         run = CampaignRun.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, run_number=campaign.campaign_runs.count() + 1,
                                          run_type=CampaignRun.RunType.ONE_TIME, scheduled_at=campaign.scheduled_at)
         if run.scheduled_at is None or run.scheduled_at <= timezone.now():

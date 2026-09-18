@@ -104,3 +104,25 @@ export function SendTestBox({ campaignId, defaultTo, disabledReason }: { campaig
     </form>
   )
 }
+
+/** E-receipts are not published to an audience: the point of sale or the web shop asks for each one. */
+export function ReceiptApiPanel({ campaignRef, published }: { campaignRef: string; published: boolean }) {
+  const example = JSON.stringify({
+    campaign: campaignRef, to: 'customer@example.com', name: 'Pat Lee',
+    receipt: { number: 'R-104-88213', transaction_at: '2026-09-18T16:12:00', currency: 'USD', subtotal: 84, discount_total: -16.8, tax_total: 5.38, grand_total: 72.58,
+               tender_summary: 'Visa ending 4242', items: [{ description: 'Merino crew sweater', sku: 'NW-1042', quantity: 1, unit_price: 64 }] },
+    store: { name: 'Lenox Square', address: '3393 Peachtree Rd NE, Atlanta' },
+  }, null, 2)
+  return (
+    <section aria-label="Sending receipts" className="rounded-xl border border-line bg-surface p-5">
+      <h3 className="text-sm font-semibold text-ink-900">Sending receipts</h3>
+      <p className="mt-1 text-sm text-ink-500">
+        {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-slate-100 px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
+        The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-slate-100 px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
+      </p>
+      <p className="mt-3 font-mono text-xs font-semibold text-ink-900">POST /api/v1/receipts/send/ · Authorization: Bearer cep_… · X-Tenant: your workspace code</p>
+      <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100">{example}</pre>
+      <p className="mt-2 text-xs text-ink-500">201 sent · 200 already sent (duplicate) · 422 refused (blocked address, or the email engine rejected it) · 424 the email engine is failing temporarily: call again with the same number.</p>
+    </section>
+  )
+}

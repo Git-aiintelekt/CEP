@@ -107,7 +107,7 @@ def finalize(tenant_id, run_id) -> str | None:
     """COMPLETED when nothing is queued any more; FAILED when nothing at all went out. Returns the new status, or None while still sending."""
     with session.tx():
         run = CampaignRun.objects.select_related("campaign").get(pk=run_id, tenant_id=tenant_id)
-        if run.status != "SENDING":
+        if run.status != "SENDING" or run.run_type == "ERECEIPT_INSTANCE":    # a receipt run stays open all day: receipts.py closes yesterday's
             return None
         numbers = stats(tenant_id, run_id)["messages"]
         if numbers["queued"]:
@@ -134,6 +134,6 @@ def due(limit: int = 50) -> list[tuple[str, str, str]]:
     with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
         cursor.execute("""SELECT r.tenant_id, r.id, r.status FROM campaign_run r JOIN tenant t ON t.id = r.tenant_id
                            WHERE t.status = 'ACTIVE' AND ((r.status = 'SCHEDULED' AND (r.scheduled_at IS NULL OR r.scheduled_at <= now()) AND NOT r.test_mode)
-                                  OR (r.status = 'SENDING' AND r.started_at < now() - interval '2 minutes'))
+                                  OR (r.status = 'SENDING' AND r.run_type <> 'ERECEIPT_INSTANCE' AND r.started_at < now() - interval '2 minutes'))
                            ORDER BY r.created_at LIMIT %s""", [limit])
         return [(str(a), str(b), c) for a, b, c in cursor.fetchall()]

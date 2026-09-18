@@ -40,6 +40,7 @@ urlpatterns = [
     path("campaign-runs/<uuid:pk>/results/", delivery_api.CampaignRunResultsView.as_view(), name="campaign-run-results"),
     path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
+    path("receipts/send/", delivery_api.ReceiptSendView.as_view(), name="receipt-send"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),

@@ -32,7 +32,7 @@ from . import params
 
 P = settings.PLATFORM_ALIAS
 # never leave the database in an export, never travel in clear
-SECRET_COLUMNS = {"password_hash", "key_hash", "mfa_secret_enc", "mfa_recovery_hashes", "client_secret_enc"}
+SECRET_COLUMNS = {"password_hash", "key_hash", "mfa_secret_enc", "mfa_recovery_hashes", "client_secret_enc", "password_enc", "secret_enc"}
 # live in the pool (control plane) for every tenant, dedicated or not: not moved, not purged after a move
 CONTROL_PLANE = {"tenant_database", "tenant_subscription", "tenant_usage", "tenant_storage_config", "tenant_invoice", "tenant_operation",
                  "support_access_log", "tenant_identity_provider", "mail_server"}

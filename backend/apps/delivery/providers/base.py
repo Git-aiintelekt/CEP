@@ -15,6 +15,13 @@ from enum import Enum
 
 # ------------------------------------------------------------------------------------------------------------ what goes out
 @dataclass
+class Attachment:
+    name: str
+    content_type: str
+    data: bytes
+
+
+@dataclass
 class EmailMessage:
     to_email: str
     from_email: str
@@ -28,6 +35,7 @@ class EmailMessage:
     idempotency_key: str = ""                                   # travels with the message and comes back in webhooks
     tag: str = ""                                               # campaign code: shows up in the provider's own reports
     metadata: dict[str, str] = field(default_factory=dict)      # tenant, campaign_run: echoed by providers that support it
+    attachments: list[Attachment] = field(default_factory=list)  # receipts (PDF copy); campaigns send none
 
     @property
     def sender(self) -> str:

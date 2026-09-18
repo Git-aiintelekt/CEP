@@ -49,7 +49,8 @@ class PostalProvider(EmailProvider):
 
     def send(self, message: EmailMessage) -> SendResult:
         body = {"to": [message.to_email], "from": message.sender, "subject": message.subject, "html_body": message.html, "plain_body": message.text,
-                "tag": message.tag or None, "reply_to": message.reply_to, "headers": {**message.headers, "X-CEP-Id": message.idempotency_key}}
+                "tag": message.tag or None, "reply_to": message.reply_to, "headers": {**message.headers, "X-CEP-Id": message.idempotency_key},
+                "attachments": [{"name": a.name, "content_type": a.content_type, "data": base64.b64encode(a.data).decode()} for a in message.attachments] or None}
         try:
             response = self._post("/api/v1/send/message", {k: v for k, v in body.items() if v not in (None, "")})
         except requests.RequestException as exc:

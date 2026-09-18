@@ -70,6 +70,8 @@ class SendGridProvider(EmailProvider):
             body["headers"] = headers
         if message.tag:
             body["categories"] = [message.tag[:255]]
+        if message.attachments:
+            body["attachments"] = [{"content": base64.b64encode(a.data).decode(), "filename": a.name, "type": a.content_type, "disposition": "attachment"} for a in message.attachments]
         try:
             response = self._session_or_open().post(self._base + "/v3/mail/send", json=body, timeout=20)
         except requests.RequestException as exc:
