@@ -12,7 +12,7 @@ import type { MailServer, MailServerSettings } from '@/lib/types'
 const KEY = ['workspace', 'mail-server']
 
 const EMPTY: MailServer = { host: '', port: 587, security: 'STARTTLS', username: '', has_password: false, from_email: '', from_name: '', reply_to: '', use_platform_server: false,
-                            is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null }
+                            campaign_sender: false, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null }
 
 const IN_USE: Record<string, string> = {
   tenant: 'Messages for this workspace go out through your own server.',
@@ -43,19 +43,20 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
   const save = useMutation({
     mutationFn: () => api.put<MailServerSettings>('/workspace/mail-server/', {
-      use_platform_server: shared, is_active: form.is_active,
+      use_platform_server: shared, is_active: form.is_active, campaign_sender: form.campaign_sender,
       from_email: form.from_email.trim(), from_name: form.from_name?.trim() || null, reply_to: form.reply_to?.trim() || null,
       ...(shared ? {} : { host: form.host.trim(), port: Number(form.port), security: form.security, username: form.username?.trim() || null, ...(password ? { password } : {}) }),
     }),
     onSuccess: (next) => { onSaved(next); setPassword(''); if (next.server) setForm(next.server) },
   })
   const test = useMutation({
-    mutationFn: () => api.post<{ ok: boolean; error: string | null; to: string }>('/workspace/mail-server/test/', { to: testTo.trim() }),
-    onSuccess: (result) => onSaved({ ...data, server: data.server && { ...data.server, last_tested_at: new Date().toISOString(), last_test_ok: result.ok, last_test_error: result.error } }),
+    mutationFn: () => api.post<{ ok: boolean; error: string | null; to: string; sender_profile: MailServerSettings['sender_profile'] }>('/workspace/mail-server/test/', { to: testTo.trim() }),
+    onSuccess: (result) => onSaved({ ...data, sender_profile: result.sender_profile ?? data.sender_profile,
+                                     server: data.server && { ...data.server, last_tested_at: new Date().toISOString(), last_test_ok: result.ok, last_test_error: result.error } }),
   })
   const remove = useMutation({
     mutationFn: () => api.delete('/workspace/mail-server/'),
-    onSuccess: () => { onSaved({ ...data, server: null, in_use: data.platform_shared ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
+    onSuccess: () => { onSaved({ ...data, server: null, sender_profile: null, in_use: data.platform_shared ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : test.isError ? test.error : null
@@ -130,6 +131,24 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
           </label>
         </div>
         {errors.use_platform_server && <p className="mt-3 text-xs font-medium text-red-700">{errors.use_platform_server}</p>}
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold text-ink-900">Campaigns</h2>
+        <label className="mt-3 flex cursor-pointer items-start gap-3">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.campaign_sender} onChange={(event) => set('campaign_sender', event.target.checked)} />
+          <span>
+            <span className="block text-sm font-medium text-ink-900">Offer this server as a campaign sender</span>
+            <span className="block text-xs text-ink-500">Adds a delivery provider and a sender ({form.from_name || form.from_email || 'the From address above'}) that campaigns can pick. It becomes verified, and usable for publishing, once a test message has gone through.</span>
+          </span>
+        </label>
+        {data.sender_profile && (
+          <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-700">
+            <StatusBadge status={data.sender_profile.verification_status === 'VERIFIED' ? 'ACTIVE' : 'PAUSED'} label={data.sender_profile.verification_status === 'VERIFIED' ? 'Verified sender' : 'Sender not verified yet'} />
+            {data.sender_profile.display_name} · {data.sender_profile.from_address}{data.sender_profile.is_default ? ' · default email sender' : ''}
+            {data.sender_profile.verification_status !== 'VERIFIED' && <span className="text-xs text-ink-500">Send a test message below to verify it.</span>}
+          </p>
+        )}
       </section>
 
       {other !== null && <ErrorState title="Could not save the mail server" error={other} />}

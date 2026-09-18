@@ -18,6 +18,7 @@ class DeliveryProvider(models.Model):
         DIGIVIZE = 'DIGIVIZE', 'Digivize'
         OTHER_ESP = 'OTHER_ESP', 'Other ESP'
         OTHER_SMS = 'OTHER_SMS', 'Other SMS'
+        SMTP = 'SMTP', 'SMTP (workspace mail server)'
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'
@@ -26,7 +27,7 @@ class DeliveryProvider(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
-    provider_type = models.CharField(max_length=20, choices=ProviderType.choices)  # POSTAL, DIGIVIZE, OTHER_ESP, OTHER_SMS
+    provider_type = models.CharField(max_length=20, choices=ProviderType.choices)  # POSTAL, DIGIVIZE, OTHER_ESP, OTHER_SMS, SMTP
     channel = models.CharField(max_length=20, choices=Channel.choices)  # EMAIL, SMS, MMS
     name = models.CharField(max_length=150)
     config = models.JSONField(default=dict)  # non-secret settings: endpoint, webhook path, sending domain

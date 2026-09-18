@@ -30,6 +30,8 @@ test('create: only channel-compatible options are offered and the draft is poste
   expect(within(template).queryByRole('option', { name: /Retired Email/ })).toBeNull() // archived
 
   await user.selectOptions(template, 'tpl-email')
+  const senderOptions = [...(screen.getByLabelText('Sender') as HTMLSelectElement).options].map((option) => option.textContent)
+  expect(senderOptions.some((text) => text?.includes('Northwind · hello@nwa.example · your mail server'))).toBe(true)
   await user.selectOptions(screen.getByLabelText('Sender'), 'snd-email')
   await user.click(await screen.findByRole('checkbox', { name: /Fall Master Audience/ }))
   await user.click(screen.getByRole('checkbox', { name: /Georgia only/ }))

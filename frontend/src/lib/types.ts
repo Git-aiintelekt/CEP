@@ -144,6 +144,8 @@ export interface MailServer {
   reply_to: string | null
   /** send through the platform's shared server with this workspace's From address */
   use_platform_server: boolean
+  /** also offered as a campaign delivery provider + sender profile */
+  campaign_sender: boolean
   is_active: boolean
   last_tested_at: string | null
   last_test_ok: boolean | null
@@ -157,6 +159,8 @@ export interface MailServerSettings {
   platform_host: string | null
   /** what messages for this workspace currently go through */
   in_use: 'tenant' | 'platform-shared' | 'platform' | 'environment' | 'console' | string
+  /** the campaign sender profile backed by this server, when offered */
+  sender_profile: { id: string; display_name: string; from_address: string; verification_status: 'PENDING' | 'VERIFIED' | 'FAILED'; is_default: boolean } | null
 }
 
 export interface SupportAccess {
@@ -243,6 +247,9 @@ export interface SenderProfile {
   sender_id: string | null
   verification_status: 'PENDING' | 'VERIFIED' | 'FAILED'
   is_default: boolean
+  /** POSTAL, DIGIVIZE, OTHER_ESP, OTHER_SMS or SMTP (the workspace's own mail server) */
+  provider_type?: string
+  provider_name?: string
 }
 
 export interface ContactList extends Audited {

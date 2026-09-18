@@ -117,6 +117,8 @@ class CampaignViewSet(BaseTenantViewSet):
             missing["template"] = "Choose a template before publishing."
         if campaign.sender_profile_id is None:
             missing["sender_profile"] = "Choose a sender before publishing."
+        elif campaign.sender_profile.deleted_at is not None:
+            missing["sender_profile"] = "This sender was removed. Choose another one."
         elif campaign.sender_profile.verification_status != "VERIFIED":
             missing["sender_profile"] = "This sender is not verified yet."
         if campaign.campaign_type != Campaign.CampaignType.E_RECEIPT and not campaign.contact_list_campaigns.exists():
@@ -146,7 +148,7 @@ class CampaignViewSet(BaseTenantViewSet):
 
 class SenderProfileViewSet(viewsets.ReadOnlyModelViewSet):
     """Senders a campaign can use (managed in the delivery settings, read-only here)."""
-    queryset = SenderProfile.objects.filter(deleted_at__isnull=True).order_by("channel", "display_name")
+    queryset = SenderProfile.objects.filter(deleted_at__isnull=True).select_related("delivery_provider").order_by("channel", "display_name")
     serializer_class = s.SenderProfileSerializer
     permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.edit")]
     filterset_fields = ["channel", "verification_status"]

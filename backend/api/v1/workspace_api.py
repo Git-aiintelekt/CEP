@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode
 from apps.identity.models import Role
-from apps.platform_ops import billing, crypto, mail, params, sso
+from apps.platform_ops import billing, campaign_sender, crypto, mail, params, sso
 from apps.platform_ops.models import MailServer, SupportAccessLog, TenantIdentityProvider, TenantInvoice
 from apps.tenants import context
 from apps.tenants.models import Tenant
@@ -151,7 +151,7 @@ class MailServerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MailServer
-        fields = ("host", "port", "security", "username", "password", "has_password", "from_email", "from_name", "reply_to", "use_platform_server", "is_active",
+        fields = ("host", "port", "security", "username", "password", "has_password", "from_email", "from_name", "reply_to", "use_platform_server", "campaign_sender", "is_active",
                   "last_tested_at", "last_test_ok", "last_test_error")
         read_only_fields = ("last_tested_at", "last_test_ok", "last_test_error")
         extra_kwargs = {"from_email": {"validators": []}}
@@ -205,7 +205,8 @@ class MailServerView(APIView):
         shared = mail.shared_with(platform, tenant_id)
         return {"server": MailServerSerializer(server).data if server else None,
                 "platform_shared": shared, "platform_host": platform.host if shared else None,
-                "in_use": mail.resolve(tenant_id, own=server).source}
+                "in_use": mail.resolve(tenant_id, own=server).source,
+                "sender_profile": campaign_sender.current(server)}
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
@@ -222,14 +223,18 @@ class MailServerView(APIView):
         if form.validated_data.get("use_platform_server"):
             extra.update(host="", username=None, password_enc=None)          # nothing of a previous own server lingers
         if server is None:
-            form.save(tenant_id=tenant_id, created_by_id=request.user.pk, **extra)
+            server = form.save(tenant_id=tenant_id, created_by_id=request.user.pk, **extra)
         else:
-            form.save(updated_by_id=request.user.pk, **extra)
+            server = form.save(updated_by_id=request.user.pk, **extra)
+        campaign_sender.sync(server, user_id=request.user.pk)               # the delivery provider and sender profile follow the server
         return Response(self._payload(tenant_id))
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request, version=None):
-        MailServer.objects.filter(tenant_id=_tenant_id()).delete()
+        server = MailServer.objects.filter(tenant_id=_tenant_id()).first()
+        if server is not None:
+            campaign_sender.retire(server)
+            server.delete()
         return Response(status=204)
 
 
@@ -246,4 +251,5 @@ class MailServerTestView(APIView):
         if not to:
             raise ValidationError({"to": "Enter the address the test message should go to."})
         ok, error = mail.test(server, to, by=getattr(request.user, "display_name", ""))
-        return Response({"ok": ok, "error": error or None, "to": to, "tested_at": server.last_tested_at})
+        sender = campaign_sender.sync(server, user_id=request.user.pk) if server.campaign_sender else None      # a passed test verifies the sender
+        return Response({"ok": ok, "error": error or None, "to": to, "tested_at": server.last_tested_at, "sender_profile": sender})

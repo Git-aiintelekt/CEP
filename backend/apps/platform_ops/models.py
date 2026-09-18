@@ -261,6 +261,7 @@ class MailServer(models.Model):
     from_name = models.CharField(max_length=150, null=True, blank=True)
     reply_to = models.CharField(max_length=254, null=True, blank=True)
     use_platform_server = models.BooleanField(default=False)
+    campaign_sender = models.BooleanField(default=False)
     shared_with_all = models.BooleanField(default=False)
     shared_tenant_ids = ArrayField(models.UUIDField(), default=list, blank=True)
     is_active = models.BooleanField(default=True)

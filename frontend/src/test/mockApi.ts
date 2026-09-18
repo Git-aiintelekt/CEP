@@ -28,6 +28,7 @@ export const templates: Template[] = [
 export const senders: SenderProfile[] = [
   { id: 'snd-email', display_name: 'Northwind Rewards', channel: 'EMAIL', from_address: 'rewards@northwind.example', reply_to_address: null, sender_id: null, verification_status: 'VERIFIED', is_default: true },
   { id: 'snd-sms', display_name: 'Northwind SMS', channel: 'SMS', from_address: null, reply_to_address: null, sender_id: '55512', verification_status: 'PENDING', is_default: true },
+  { id: 'snd-smtp', display_name: 'Northwind', channel: 'EMAIL', from_address: 'hello@nwa.example', reply_to_address: null, sender_id: null, verification_status: 'VERIFIED', is_default: false, provider_type: 'SMTP', provider_name: 'Workspace mail server' },
 ]
 
 const list = (id: string, name: string, member_count: number, is_master = false): ContactList => ({
@@ -156,7 +157,7 @@ export function installMockApi(options: MockOptions = {}) {
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   let securityNow: SecuritySettings = { ...security }
-  let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', ...options.mailServer }
+  let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', sender_profile: null, ...options.mailServer }
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
@@ -199,18 +200,20 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/auth/mfa/')) return json({ enabled: mfaEnabled, required: Boolean(options.me?.mfa_setup_required), recovery_codes_left: mfaEnabled ? 10 : 0, sso: false, confirmed_at: mfaEnabled ? '2026-09-18T10:00:00Z' : null })
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'
-      mailNow = { ...mailNow, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
-      return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to })
+      const sender = mailNow.server?.campaign_sender ? { id: 'snd-smtp', display_name: mailNow.server.from_name ?? mailNow.server.from_email, from_address: mailNow.server.from_email, verification_status: ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null
+      mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
+      return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
     }
     if (path.endsWith('/workspace/mail-server/')) {
-      if (method === 'DELETE') { mailNow = { ...mailNow, server: null, in_use: 'console' }; return json(null, 204) }
+      if (method === 'DELETE') { mailNow = { ...mailNow, server: null, sender_profile: null, in_use: 'console' }; return json(null, 204) }
       if (method === 'PUT') {
         if (body?.from_email === 'bad') return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { from_email: ['Enter a valid email address.'] } }, 400)
         const { password, ...rest } = body as Record<string, unknown>
         const shared = Boolean(rest.use_platform_server)
-        mailNow = { ...mailNow, in_use: shared ? 'platform-shared' : 'tenant',
-                    server: { host: '', port: 587, security: 'STARTTLS', username: null, from_name: null, reply_to: null, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null,
-                              ...(mailNow.server ?? {}), ...rest, has_password: Boolean(password) || Boolean(mailNow.server?.has_password) } as MailServerSettings['server'] }
+        const server = { host: '', port: 587, security: 'STARTTLS', username: null, from_name: null, reply_to: null, is_active: true, campaign_sender: false, last_tested_at: null, last_test_ok: null, last_test_error: null,
+                         ...(mailNow.server ?? {}), ...rest, has_password: Boolean(password) || Boolean(mailNow.server?.has_password) } as NonNullable<MailServerSettings['server']>
+        const sender = server.campaign_sender ? { id: 'snd-smtp', display_name: server.from_name ?? server.from_email, from_address: server.from_email, verification_status: server.last_test_ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null
+        mailNow = { ...mailNow, in_use: shared ? 'platform-shared' : 'tenant', server, sender_profile: sender }
       }
       return json(mailNow)
     }

@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS mail_server (
     from_name           VARCHAR(150),
     reply_to            CITEXT,
     use_platform_server BOOLEAN NOT NULL DEFAULT FALSE,                  -- tenant row: send through the shared platform server
+    campaign_sender     BOOLEAN NOT NULL DEFAULT FALSE,                  -- tenant row: also offered as a campaign delivery provider + sender profile
     shared_with_all     BOOLEAN NOT NULL DEFAULT FALSE,                  -- platform row: every tenant may use it
     shared_tenant_ids   UUID[] NOT NULL DEFAULT '{}',                    -- platform row: or only these tenants
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
@@ -356,6 +357,7 @@ CREATE TABLE IF NOT EXISTS mail_server (
     CONSTRAINT ck_mail_server_host CHECK (use_platform_server OR host <> ''),
     CONSTRAINT ck_mail_server_platform_row CHECK (tenant_id IS NOT NULL OR NOT use_platform_server)
 );
+ALTER TABLE mail_server ADD COLUMN IF NOT EXISTS campaign_sender BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_tenant ON mail_server(tenant_id) WHERE tenant_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_platform ON mail_server((tenant_id IS NULL)) WHERE tenant_id IS NULL;
 COMMENT ON TABLE mail_server IS 'SMTP servers entered in the product: one per tenant, plus the platform''s own (tenant_id NULL), which may be shared with tenants';
@@ -377,6 +379,11 @@ CREATE POLICY rls_mail_server_tenant ON mail_server
     WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
 GRANT SELECT, INSERT, UPDATE, DELETE ON mail_server TO cep_app;
 GRANT ALL ON mail_server TO cep_admin;
+
+-- a tenant's mail server can be a campaign delivery provider: delivery_provider.provider_type = 'SMTP',
+-- config = {"mail_server_id": ...}; the credentials stay in mail_server (encrypted), never in secret_ref
+ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
+ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP'));
 
 -- =====================================================================================
 -- End of platform operations layer.

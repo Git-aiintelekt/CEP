@@ -34,9 +34,12 @@ class CampaignRunSerializer(TenantModelSerializer):
 
 
 class SenderProfileSerializer(serializers.ModelSerializer):
+    provider_type = serializers.CharField(source="delivery_provider.provider_type", read_only=True)
+    provider_name = serializers.CharField(source="delivery_provider.name", read_only=True)
+
     class Meta:
         model = SenderProfile
-        fields = ("id", "display_name", "channel", "from_address", "reply_to_address", "sender_id", "verification_status", "is_default")
+        fields = ("id", "display_name", "channel", "from_address", "reply_to_address", "sender_id", "verification_status", "is_default", "provider_type", "provider_name")
         read_only_fields = fields
 
 

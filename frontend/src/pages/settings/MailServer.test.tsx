@@ -37,7 +37,7 @@ test('a workspace enters its own SMTP server: the password is sent once and neve
 
   expect(await screen.findByText('Saved')).toBeTruthy()
   const put = calls.filter((call) => call.method === 'PUT').at(-1)
-  expect(put?.body).toMatchObject({ host: 'smtp.office365.com', port: 587, security: 'STARTTLS', username: 'mailer@nwa.example', password: 'app-password-1', from_email: 'hello@nwa.example', from_name: 'Northwind', use_platform_server: false })
+  expect(put?.body).toMatchObject({ host: 'smtp.office365.com', port: 587, security: 'STARTTLS', username: 'mailer@nwa.example', password: 'app-password-1', from_email: 'hello@nwa.example', from_name: 'Northwind', use_platform_server: false, campaign_sender: false })
   expect((screen.getByLabelText(/^Password/) as HTMLInputElement).value).toBe('')
   expect(screen.getByText('A password is stored. Leave this empty to keep it.')).toBeTruthy()
   expect(screen.getByText(/through your own server/)).toBeTruthy()
@@ -51,7 +51,7 @@ test('a workspace enters its own SMTP server: the password is sent once and neve
 
 test('a failed test shows the reason; a field error lands on its field', async () => {
   installMockApi({ mailServer: { in_use: 'tenant', server: { host: 'smtp.broken.example', port: 465, security: 'SSL', username: null, has_password: true, from_email: 'hello@nwa.example', from_name: null,
-                                                            reply_to: null, use_platform_server: false, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null } } })
+                                                            reply_to: null, use_platform_server: false, campaign_sender: false, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null } } })
   const user = userEvent.setup()
   await renderAppAt('/settings/email')
 
@@ -78,6 +78,25 @@ test('when the platform shares its server, the workspace can use it with its own
 
   expect(await screen.findByText('Saved')).toBeTruthy()
   const put = calls.filter((call) => call.method === 'PUT').at(-1)
-  expect(put?.body).toEqual({ use_platform_server: true, is_active: true, from_email: 'hello@nwa.example', from_name: null, reply_to: null })
+  expect(put?.body).toEqual({ use_platform_server: true, is_active: true, campaign_sender: false, from_email: 'hello@nwa.example', from_name: null, reply_to: null })
   expect(screen.getByText(/with your From address\./)).toBeTruthy()
+})
+
+test('offered as a campaign sender: pending until a test passes, then verified; the campaign form labels it', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/settings/email')
+
+  await user.type(await screen.findByLabelText(/^Server/), 'smtp.office365.com')
+  await user.type(screen.getByLabelText(/^From address/), 'hello@nwa.example')
+  await user.type(screen.getByLabelText(/From name/), 'Northwind')
+  await user.click(screen.getByLabelText(/Offer this server as a campaign sender/))
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+
+  expect(await screen.findByText('Sender not verified yet')).toBeTruthy()
+  expect(calls.filter((call) => call.method === 'PUT').at(-1)?.body).toMatchObject({ campaign_sender: true })
+  const testSection = screen.getByRole('heading', { name: 'Send a test message' }).closest('section') as HTMLElement
+  await user.click(within(testSection).getByRole('button', { name: 'Send test' }))
+  expect(await screen.findByText('Verified sender')).toBeTruthy()
+  expect(screen.getByText(/Northwind · hello@nwa.example/)).toBeTruthy()
 })

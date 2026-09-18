@@ -364,6 +364,7 @@ export function CampaignFormPage() {
                 {senderOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.display_name} · {item.from_address ?? item.sender_id ?? item.channel}
+                    {item.provider_type === 'SMTP' ? ' · your mail server' : ''}
                     {item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}
                   </option>
                 ))}

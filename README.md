@@ -74,9 +74,15 @@ out from is decided per message, first match wins:
 5. Django's console backend: the message is printed to the server log and the app says so honestly (a password link
    can then only be copied; the health page shows *Email: attention*)
 
-Both screens have a real "send a test message" action that records the outcome. This is platform mail, not campaign
-delivery (that goes through each tenant's delivery providers). Passwords are encrypted with `FIELD_ENCRYPTION_KEY` and
-never appear in the audit trail or in any screen. Patch `0007` adds the `mail_server` table.
+Both screens have a real "send a test message" action that records the outcome. Passwords are encrypted with
+`FIELD_ENCRYPTION_KEY` and never appear in the audit trail or in any screen. Patch `0007` adds the `mail_server` table.
+
+**As a campaign sender.** With "Offer this server as a campaign sender" on (Settings → Email server), the workspace gets a
+delivery provider of type `SMTP` (`config.mail_server_id`; the credentials stay in `mail_server`) and an email sender
+profile with the server's From address, which the campaign form lists as "… · your mail server". The sender is
+`PENDING` until a test message has gone through the server, then `VERIFIED` and publishable; a failed test puts it back
+to pending. Switching the option off (or removing the server) retires the provider and sender, and campaigns that
+already reference the sender are refused at publish with "This sender was removed". Patch `0008`.
 
 ### Global parameters and industry profiles
 
