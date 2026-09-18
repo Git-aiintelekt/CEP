@@ -184,7 +184,9 @@ API login: `POST /api/v1/auth/token/` with header `X-Tenant: NWA` and body `{"em
 `access` / `refresh`. In Swagger click **Authorize**, paste the access token under `jwtAuth`, and send `X-Tenant: NWA`
 with every call (in production the tenant comes from the subdomain). `GET /api/v1/me/` returns the user, tenant and permissions.
 
-Local development needs no Redis (in-process cache) unless `DEV_USE_REDIS=True`.
+Local development needs no Redis (in-process cache) unless `DEV_USE_REDIS=True`. Development shares a small database connection pool between
+requests (`DEV_DB_POOL=False` turns it off): opening a connection per request costs over a second when the database is far away.
+Every statement is one network round trip, so a database on the same machine or network is what makes the app fast.
 
 ## Database roles
 
