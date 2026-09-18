@@ -143,6 +143,11 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
 .cep-usage-label { flex: none; width: 11rem; color: var(--cep-text-strong); }
 @media (max-width: 640px) { .cep-usage-label { width: 100%; } }
 
+/* ---- left menu: beside the page from 1024 px (the theme: from 1280 px); admin.js keeps it open from the same width ---- */
+@media (min-width: 1024px) {
+    div:has(> div > #nav-sidebar) { position: relative; }
+}
+
 /* ---- shell polish ------------------------------------------------------------------------------------------------ */
 #changelist table thead th { font-size: 0.75rem; letter-spacing: 0.02em; }
 #changelist table tbody tr:hover td, #changelist table tbody tr:hover th { background: color-mix(in oklab, var(--color-primary-500) 5%, transparent); }
