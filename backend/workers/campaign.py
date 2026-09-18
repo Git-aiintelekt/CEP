@@ -1,0 +1,48 @@
+"""Campaign run orchestration (queue: campaign).
+
+    dispatch_due_runs   beat, every minute: starts runs whose time has come, closes runs whose last batch is done
+    start_run           builds the audience and fans the executions out to workers.email.send_batch
+    finalize_run        closes the run once nothing is queued
+"""
+import logging
+
+from celery import shared_task
+
+from apps.delivery.engine import runs, session
+from apps.platform_ops import jobs
+
+log = logging.getLogger("cep.delivery")
+
+
+@shared_task(name="workers.campaign.start_run")
+def start_run(tenant_id: str, run_id: str) -> dict:
+    from workers.email import send_batch
+    with session.tenant_scope(tenant_id):
+        try:
+            started = runs.start(tenant_id, run_id)
+        except runs.RunNotStarted as exc:
+            return {"skipped": str(exc)}
+    for batch in started["batches"]:
+        send_batch.delay(tenant_id, run_id, batch)
+    return {"batches": len(started["batches"]), **started.get("audience", {})}
+
+
+@shared_task(name="workers.campaign.finalize_run")
+def finalize_run(tenant_id: str, run_id: str) -> dict:
+    with session.tenant_scope(tenant_id):
+        swept = runs.sweep(tenant_id, run_id)
+        return {"status": runs.finalize(tenant_id, run_id), "swept": swept}
+
+
+@shared_task(name="workers.campaign.dispatch_due_runs")
+@jobs.monitored("dispatch-campaign-runs")
+def dispatch_due_runs() -> dict:
+    started = closing = 0
+    for tenant_id, run_id, status in runs.due():
+        if status == "SCHEDULED":
+            start_run.delay(tenant_id, run_id)
+            started += 1
+        else:
+            finalize_run.delay(tenant_id, run_id)
+            closing += 1
+    return {"started": started, "checked_for_completion": closing}

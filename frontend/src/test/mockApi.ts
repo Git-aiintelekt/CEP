@@ -1,8 +1,8 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import type { ApiKey, AuthOptions, Campaign, ContactList, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, Role, SecuritySettings, SenderProfile, SettingsUser, SupportAccess, Template, TemplateStarter,
-              Usage, Workspace } from '@/lib/types'
+import type { ApiKey, AuthOptions, Campaign, ContactList, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
+              SecuritySettings, SenderProfile, SettingsUser, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -15,7 +15,7 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
-               permissions: ['campaign.edit', 'campaign.publish', 'template.edit', 'user.admin'] },
+               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
 }
 
@@ -91,6 +91,30 @@ export const supportAccess: SupportAccess[] = [
     started_at: '2026-09-10T10:00:00Z', expires_at: '2026-09-10T10:30:00Z', ended_at: '2026-09-10T10:12:00Z', writes: 0 },
 ]
 
+export const providerCatalogue: ProviderType[] = [
+  { provider_type: 'POSTAL', label: 'Postal', description: 'Self-hosted Postal server.', supports_webhooks: true, manageable: true, fields: [
+    { key: 'endpoint', label: 'Postal address', required: true, secret: false, help: 'Base address of your Postal installation.', placeholder: 'https://postal.example.com', kind: 'url' },
+    { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text' }] },
+  { provider_type: 'SENDGRID', label: 'SendGrid', description: 'Twilio SendGrid.', supports_webhooks: true, manageable: true, fields: [
+    { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text' },
+    { key: 'api_base', label: 'API address', required: false, secret: false, help: 'Leave empty for the global region.', placeholder: 'https://api.sendgrid.com', kind: 'url' }] },
+  { provider_type: 'SMTP', label: 'SMTP (your mail server)', description: 'Follows Settings -> Email server.', supports_webhooks: false, manageable: false, fields: [] },
+]
+export const deliveryProviders: DeliveryProvider[] = [
+  { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, secret_ref: null,
+    rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-postal/tok/', sender_count: 1,
+    last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 },
+]
+export const deliverySenders: DeliverySender[] = [
+  { id: 'snd-email', delivery_provider: 'prov-postal', display_name: 'Northwind Rewards', channel: 'EMAIL', from_address: 'rewards@northwind.example', reply_to_address: null, sender_id: null,
+    verification_status: 'PENDING', is_default: true, provider_type: 'POSTAL', provider_name: 'Postal (self-hosted)' },
+]
+export const runResults: RunResults = {
+  id: 'r1', status: 'COMPLETED', started_at: '2026-09-18T10:00:00Z', completed_at: '2026-09-18T10:02:00Z',
+  audience: { members: 90, eligible: 72, suppressed: { NO_CONSENT: 11, UNSUBSCRIBED: 4, BLOCKED_ADDRESS: 2, FREQUENCY_CAP: 1 } },
+  messages: { queued: 0, sent: 71, failed: 1, delivered: 68, opened: 30, clicked: 9, bounced: 2, complained: 0 }, by_status: {},
+}
+
 export const starters: TemplateStarter[] = [
   { key: 'promotion', name: 'Sale announcement', channel: 'EMAIL', category: 'Promotion', description: 'A time-limited offer.', subject_line: '{{first_name}}, a sale',
     preheader: '', html_content: '<html><body><p>Hi {{first_name}}</p></body></html>', sms_body: null },
@@ -146,6 +170,8 @@ interface MockOptions {
   onSecurityWrite?: (call: Call) => Response | null
   /** GET /workspace/mail-server/ starts from this */
   mailServer?: Partial<MailServerSettings>
+  /** POST /delivery-providers/{id}/check/ answers a failure */
+  providerCheckFails?: boolean
 }
 
 /** the code the mock authenticator "shows" */
@@ -198,6 +224,21 @@ export function installMockApi(options: MockOptions = {}) {
       return json(mfaEnabled ? { enabled: true, recovery_codes: ['aaaa-bbbb-01', 'aaaa-bbbb-02', 'aaaa-bbbb-03'], access: 'access-1', refresh: 'refresh-1' } : { enabled: false })
     }
     if (path.endsWith('/auth/mfa/')) return json({ enabled: mfaEnabled, required: Boolean(options.me?.mfa_setup_required), recovery_codes_left: mfaEnabled ? 10 : 0, sso: false, confirmed_at: mfaEnabled ? '2026-09-18T10:00:00Z' : null })
+    if (path.endsWith('/delivery-providers/catalogue/')) return json(providerCatalogue)
+    if (/\/delivery-providers\/[^/]+\/check\/$/.test(path)) return json({ ok: !options.providerCheckFails, detail: options.providerCheckFails ? 'Postal refused the API key (InvalidServerAPIKey).' : null })
+    if (path.endsWith('/delivery-providers/') && method === 'POST') {
+      if (!body?.secret) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { secret: ['API key is required.'] } }, 400)
+      const { secret, ...rest } = body as Record<string, unknown>
+      void secret
+      return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
+    }
+    if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], ...(body as Partial<DeliveryProvider>) })
+    if (path.endsWith('/delivery-providers/')) return json(deliveryProviders)
+    if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
+    if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
+    if (path.endsWith('/delivery-senders/')) return json(deliverySenders)
+    if (path.endsWith('/results/')) return json(runResults)
+    if (path.endsWith('/send-test/')) return json({ results: ((body?.to as string[]) ?? []).map((to) => ({ to, ok: !to.includes('bad'), detail: to.includes('bad') ? '550 mailbox unavailable' : 'msg-1' })) })
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'
       const sender = mailNow.server?.campaign_sender ? { id: 'snd-smtp', display_name: mailNow.server.from_name ?? mailNow.server.from_email, from_address: mailNow.server.from_email, verification_status: ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null

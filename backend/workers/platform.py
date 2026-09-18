@@ -31,5 +31,10 @@ def run_tenant_operations() -> dict:
     return tenant_ops.run_requested()
 
 
+def _dispatch_campaign_runs() -> dict:
+    from workers.campaign import dispatch_due_runs
+    return dispatch_due_runs()
+
+
 RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices, "evaluate-alerts": evaluate_alerts,
-            "run-tenant-operations": run_tenant_operations}
+            "run-tenant-operations": run_tenant_operations, "dispatch-campaign-runs": _dispatch_campaign_runs}

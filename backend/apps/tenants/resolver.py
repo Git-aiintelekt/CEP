@@ -31,6 +31,13 @@ def resolve_tenant(request):
         code = request.GET.get("tenant") or sso.tenant_from_state(request.GET.get("state", ""))
         if code:
             return _lookup("code", code)
+    if request.path.startswith("/api/v1/webhooks/delivery/"):  # a provider's callback: the workspace code is part of the address
+        parts = request.path.split("/")
+        return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None
+    if request.path.startswith("/api/v1/public/unsubscribe/"):  # the link in an email: the signed token names the workspace
+        from apps.delivery.engine import unsubscribe
+        claims = unsubscribe.read(request.GET.get("t", ""))
+        return _lookup("code", claims["t"]) if claims and claims.get("t") else None
     header = request.headers.get("X-Tenant")
     if header:
         return _lookup("code", header) or _lookup("subdomain", header)

@@ -84,6 +84,21 @@ profile with the server's From address, which the campaign form lists as "… ·
 to pending. Switching the option off (or removing the server) retires the provider and sender, and campaigns that
 already reference the sender are refused at publish with "This sender was removed". Patch `0008`.
 
+### Campaign send engine and delivery providers
+
+Publishing a campaign creates a run; the send engine (`backend/apps/delivery/engine`) starts it, builds the audience
+(consent, blocked addresses, frequency caps, duplicates; every exclusion keeps its reason), personalizes each message and
+hands it to the sender's **delivery provider adapter** (`backend/apps/delivery/providers`: `SMTP`, `POSTAL`, `SENDGRID`,
+one module each behind one interface). Providers report back to a per-provider callback address; bounces and complaints
+block the address, the unsubscribe link in every marketing email records the opt-out, and the campaign page shows the
+results live. Tenants manage providers and senders under **Settings → Delivery**.
+**Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
+
+```bash
+celery -A config worker -Q default,events,maintenance,campaign,email   # campaign = runs, email = batches
+python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)
+```
+
 ### Global parameters and industry profiles
 
 * **Configuration → Global parameters** (`platform_setting`): typed values that take effect within a minute, no deployment:
@@ -187,7 +202,7 @@ Never point `DATABASE_URL` at a superuser: superusers bypass RLS, so tenant isol
   queryset, tenant/created_by stamped on create, permission codes from `identity.permission`, cursor pagination, RFC 9457
   errors, OpenAPI at `/api/v1/schema/` (Swagger UI at `/api/v1/docs/`). JWT for the React app, `cep_…` API keys for integrations.
 * **Workers.** `workers/outbox.py` relays `domain_event` to Redis Streams every second; `workers/maintenance.py` runs the
-  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance` and `celery -A config beat`).
+  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email` and `celery -A config beat`).
 
 ## Development notes
 * Connect as a **non-superuser** database role in development too (`cep` in the compose file is fine): PostgreSQL superusers

@@ -2,12 +2,14 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import auth_api, settings_api, views, workspace_api
+from . import auth_api, delivery_api, delivery_public, settings_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
 router.register("campaigns", views.CampaignViewSet, basename="campaign")
 router.register("sender-profiles", views.SenderProfileViewSet, basename="sender-profile")
+router.register("delivery-providers", delivery_api.DeliveryProviderViewSet, basename="delivery-provider")
+router.register("delivery-senders", delivery_api.SenderProfileManageViewSet, basename="delivery-sender")
 router.register("campaign-runs", views.CampaignRunViewSet, basename="campaign-run")
 router.register("contact-lists", views.ContactListViewSet, basename="contact-list")
 router.register("template-starters", views.TemplateStarterViewSet, basename="template-starter")
@@ -34,6 +36,10 @@ urlpatterns = [
     path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
     path("workspace/mail-server/", workspace_api.MailServerView.as_view(), name="workspace-mail-server"),
     path("workspace/mail-server/test/", workspace_api.MailServerTestView.as_view(), name="workspace-mail-server-test"),
+    path("campaigns/<uuid:pk>/send-test/", delivery_api.CampaignSendTestView.as_view(), name="campaign-send-test"),
+    path("campaign-runs/<uuid:pk>/results/", delivery_api.CampaignRunResultsView.as_view(), name="campaign-run-results"),
+    path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
+    path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),

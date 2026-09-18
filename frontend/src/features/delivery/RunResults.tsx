@@ -1,0 +1,106 @@
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useState, type FormEvent } from 'react'
+
+import { buttonSecondary, Field, TextInput } from '@/components/Form'
+import { ErrorState, Spinner } from '@/components/States'
+import { StatusBadge } from '@/components/StatusBadge'
+import { api } from '@/lib/api'
+import { formatDateTime, formatNumber, humanize } from '@/lib/format'
+import type { CampaignRun, RunResults as Results, SendTestResult } from '@/lib/types'
+
+const LIVE = new Set(['SCHEDULED', 'PREPARING', 'SENDING'])
+
+const REASONS: Record<string, string> = {
+  NO_CONSENT: 'No email consent', UNSUBSCRIBED: 'Unsubscribed', SUPPRESSED: 'On the suppression list', NO_EMAIL: 'No valid email address',
+  BLOCKED_ADDRESS: 'Address blocked (bounce or complaint)', INVALID_ADDRESS: 'Invalid address', FREQUENCY_CAP: 'Frequency cap reached',
+  DUPLICATE_ADDRESS: 'Same address as someone else in the run', UNKNOWN_PARTY: 'Not in the customer master',
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'bad' | 'good' }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{label}</dt>
+      <dd className={`mt-0.5 text-lg font-semibold tabular-nums ${tone === 'bad' && value > 0 ? 'text-red-700' : tone === 'good' ? 'text-emerald-700' : 'text-ink-900'}`}>{formatNumber(value)}</dd>
+    </div>
+  )
+}
+
+/** What happened to one run: who was left out and why, and how the messages fared. Refreshes itself while the run is live. */
+export function RunResults({ run }: { run: CampaignRun }) {
+  const results = useQuery({
+    queryKey: ['campaign-runs', run.id, 'results'],
+    queryFn: ({ signal }) => api.get<Results>(`/campaign-runs/${run.id}/results/`, undefined, signal),
+    refetchInterval: (query) => (LIVE.has(query.state.data?.status ?? run.status) ? 5000 : false),
+  })
+  if (results.isError) return <ErrorState title={`Could not load the results of run #${run.run_number}`} error={results.error} />
+  if (results.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading results</p>
+
+  const { audience, messages, status } = results.data
+  const suppressed = Object.entries(audience.suppressed).sort((a, b) => b[1] - a[1])
+  return (
+    <section aria-label={`Results of run ${run.run_number}`} className="rounded-xl border border-line bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink-900">Run #{run.run_number}</h3>
+        <span className="flex items-center gap-2 text-xs text-ink-500">
+          {LIVE.has(status) && <Spinner className="h-3.5 w-3.5" />}
+          <StatusBadge status={status} /> {results.data.completed_at ? `finished ${formatDateTime(results.data.completed_at)}` : results.data.started_at ? `started ${formatDateTime(results.data.started_at)}` : 'waiting to start'}
+        </span>
+      </div>
+      {audience.members === 0 && status === 'SCHEDULED' ? <p className="mt-3 text-sm text-ink-500">The audience is built when the run starts.</p> : (
+        <>
+          <dl className="mt-4 grid grid-cols-3 gap-4 md:grid-cols-7">
+            <Stat label="On the lists" value={audience.members} />
+            <Stat label="Eligible" value={audience.eligible} />
+            <Stat label="Sent" value={messages.sent} tone="good" />
+            <Stat label="Delivered" value={messages.delivered} />
+            <Stat label="Opened" value={messages.opened} />
+            <Stat label="Bounced" value={messages.bounced + messages.complained} tone="bad" />
+            <Stat label="Failed" value={messages.failed} tone="bad" />
+          </dl>
+          {messages.queued > 0 && <p className="mt-3 text-xs text-ink-500">{formatNumber(messages.queued)} still waiting to be sent.</p>}
+          {suppressed.length > 0 && (
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Left out of this run</p>
+              <ul className="mt-2 grid gap-x-8 gap-y-1 text-sm text-ink-700 md:grid-cols-2">
+                {suppressed.map(([reason, count]) => (
+                  <li key={reason} className="flex justify-between gap-3"><span>{REASONS[reason] ?? humanize(reason)}</span><span className="tabular-nums">{formatNumber(count)}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+/** Sends the campaign's current content to a few addresses, with the sample values of the personalization tags. */
+export function SendTestBox({ campaignId, defaultTo, disabledReason }: { campaignId: string; defaultTo: string; disabledReason?: string }) {
+  const [to, setTo] = useState(defaultTo)
+  const send = useMutation({
+    mutationFn: () => api.post<{ results: SendTestResult[] }>(`/campaigns/${campaignId}/send-test/`, { to: to.split(/[\s,;]+/).filter(Boolean) }),
+  })
+  return (
+    <form className="rounded-xl border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); send.mutate() }}>
+      <h3 className="text-sm font-semibold text-ink-900">Send a test</h3>
+      <p className="mt-1 text-sm text-ink-500">Goes out now through the campaign's sender, with sample values in place of personal data. Up to 5 addresses. It does not count as a run.</p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="min-w-64 flex-1"><Field label="To" required>
+          {(ids) => <TextInput {...ids} value={to} onChange={(event) => setTo(event.target.value)} placeholder="you@example.com, colleague@example.com" />}
+        </Field></div>
+        <button type="submit" className={buttonSecondary} disabled={send.isPending || Boolean(disabledReason) || !to.trim()}>
+          {send.isPending && <Spinner className="h-4 w-4" />}Send test
+        </button>
+      </div>
+      {disabledReason && <p className="mt-2 text-xs text-ink-500">{disabledReason}</p>}
+      {send.isError && <div className="mt-3"><ErrorState title="The test was not sent" error={send.error} /></div>}
+      {send.data && (
+        <ul className="mt-3 space-y-1 text-sm" aria-label="Test results">
+          {send.data.results.map((result) => (
+            <li key={result.to} className={result.ok ? 'text-emerald-700' : 'text-red-700'}>{result.ok ? 'Sent to' : 'Not sent to'} {result.to}{!result.ok && result.detail ? `: ${result.detail}` : ''}</li>
+          ))}
+        </ul>
+      )}
+    </form>
+  )
+}

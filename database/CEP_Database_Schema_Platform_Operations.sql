@@ -278,7 +278,7 @@ DECLARE
     v_new     JSONB;
     v_changed TEXT[];
     v_tenant  UUID;
-    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes', 'password_enc'];
+    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes', 'password_enc', 'secret_enc'];
 BEGIN
     IF TG_OP IN ('UPDATE', 'DELETE') THEN v_old := to_jsonb(OLD); END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN v_new := to_jsonb(NEW); END IF;
@@ -384,6 +384,32 @@ GRANT ALL ON mail_server TO cep_admin;
 -- config = {"mail_server_id": ...}; the credentials stay in mail_server (encrypted), never in secret_ref
 ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
 ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP'));
+
+-- -------------------------------------------------------------------------------------
+-- 9. CAMPAIGN SEND ENGINE AND DELIVERY PROVIDER ADAPTERS
+--    Providers are adapters behind one interface (backend/apps/delivery/providers). Credentials entered in the
+--    product are encrypted by the application into secret_enc; secret_ref stays for credentials kept outside the
+--    database (env:NAME, vault:path). Neither ever enters the audit trail.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS secret_enc TEXT;
+ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_check_ok BOOLEAN;
+ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_check_error TEXT;
+COMMENT ON COLUMN delivery_provider.secret_enc IS 'API key / password entered in the product, encrypted with FIELD_ENCRYPTION_KEY; wins over secret_ref';
+
+ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
+ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type
+    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID'));
+ALTER TABLE delivery_webhook_event DROP CONSTRAINT IF EXISTS ck_delivery_webhook_event_provider;
+ALTER TABLE delivery_webhook_event ADD CONSTRAINT ck_delivery_webhook_event_provider
+    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID'));
+
+-- why a list member was left out of a run (NO_EMAIL, NO_CONSENT, UNSUBSCRIBED, BLOCKED_ADDRESS, FREQUENCY_CAP, DUPLICATE_ADDRESS ...)
+ALTER TABLE campaign_list_member ADD COLUMN IF NOT EXISTS suppression_reason VARCHAR(40);
+-- which provider carried the message: webhooks and reports join on it
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS delivery_provider_id UUID;
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_provider_message ON mailer_execution(tenant_id, provider_message_id) WHERE provider_message_id IS NOT NULL;
 
 -- =====================================================================================
 -- End of platform operations layer.

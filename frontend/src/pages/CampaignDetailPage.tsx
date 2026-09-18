@@ -8,6 +8,7 @@ import { buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { RunResults, SendTestBox } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import type { Campaign, CampaignRun } from '@/lib/types'
@@ -35,19 +36,22 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 export function CampaignDetailPage() {
   const { id = '' } = useParams()
-  const { can } = useAuth()
+  const { can, me } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const campaign = useQuery({
     queryKey: ['campaigns', 'detail', id],
     queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${id}/`, undefined, signal),
+    refetchInterval: (query) => (query.state.data?.runs.some((run) => ['SCHEDULED', 'PREPARING', 'SENDING'].includes(run.status)) ? 5000 : false),
   })
 
   const publish = useMutation({
     mutationFn: () => api.post<CampaignRun>(`/campaigns/${id}/publish/`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
   })
+  // a run is started by the send engine after publishing: keep the page fresh until every run has finished
+  const live = campaign.data?.runs.some((run) => ['SCHEDULED', 'PREPARING', 'SENDING'].includes(run.status)) ?? false
 
   const remove = useMutation({
     mutationFn: () => api.delete(`/campaigns/${id}/`),
@@ -160,11 +164,23 @@ export function CampaignDetailPage() {
         </>
       )}
 
-      <h2 className="mb-3 text-sm font-semibold text-ink-900">Runs</h2>
+      {can('campaign.edit') && ['EMAIL', 'MULTI'].includes(data.channel) && PUBLISHABLE.has(data.status) && (
+        <div className="mb-6">
+          <SendTestBox campaignId={data.id} defaultTo={me?.principal.email ?? ''}
+            disabledReason={!data.template ? 'Choose a template first.' : !data.sender_profile ? 'Choose a sender first.' : undefined} />
+        </div>
+      )}
+
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">Runs{live && <span className="ml-2 text-xs font-normal text-ink-500">updating every few seconds</span>}</h2>
       {data.runs.length === 0 ? (
-        <EmptyState title="No runs yet" hint="Publishing the campaign creates run #1. Recurring and drip campaigns add a run per send." />
+        <EmptyState title="No runs yet" hint="Publishing the campaign creates run #1 and the send engine starts it. Recurring and drip campaigns add a run per send." />
       ) : (
-        <DataTable columns={runColumns} rows={data.runs} rowKey={(run) => run.id} caption="Campaign runs" />
+        <>
+          <DataTable columns={runColumns} rows={data.runs} rowKey={(run) => run.id} caption="Campaign runs" />
+          <div className="mt-4 space-y-4">
+            {data.runs.filter((run) => !run.test_mode).slice(-3).reverse().map((run) => <RunResults key={run.id} run={run} />)}
+          </div>
+        </>
       )}
     </section>
   )

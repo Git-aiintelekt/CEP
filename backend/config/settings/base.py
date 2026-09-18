@@ -187,6 +187,7 @@ CELERY_BEAT_SCHEDULE = {
     "evaluate-alerts": {"task": "workers.platform.evaluate_alerts", "schedule": 300},
     "generate-invoices": {"task": "workers.platform.generate_invoices", "schedule": 24 * 3600},          # drafts last month; re-runs only refresh drafts
     "run-tenant-operations": {"task": "workers.platform.run_tenant_operations", "schedule": 600},
+    "dispatch-campaign-runs": {"task": "workers.campaign.dispatch_due_runs", "schedule": 60},          # starts due runs, closes finished ones
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

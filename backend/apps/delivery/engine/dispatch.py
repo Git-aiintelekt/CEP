@@ -1,0 +1,193 @@
+"""Sends one batch of queued executions through the run's delivery provider.
+
+Per message: claim (QUEUED -> SUBMITTED, committed) -> provider.send -> record (committed).
+Claiming first means a worker that dies mid-batch can never send the same message twice; the worst case is a message
+marked SUBMITTED that never left, which `runs.sweep` turns into FAILED so it is visible instead of silently lost.
+"""
+import logging
+import time
+
+from django.utils import timezone
+
+from apps.campaigns.models import CampaignRun
+from apps.customers.models import CustomerMaster
+from apps.templates.models import PersonalizationTag, RenderedTemplateContent
+
+from ..providers import EmailMessage, Outcome, ProviderError, registry
+from . import session, unsubscribe
+from .render import Renderer
+
+log = logging.getLogger("cep.delivery")
+MAX_ATTEMPTS = 5
+
+
+class RetryBatch(Exception):
+    """Some messages hit a temporary provider problem and are QUEUED again: run the batch again later."""
+    def __init__(self, execution_ids, reason):
+        super().__init__(reason)
+        self.execution_ids, self.reason = execution_ids, reason
+
+
+def _load(tenant_id, run_id):
+    with session.tx():
+        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider").get(pk=run_id, tenant_id=tenant_id)
+        campaign = run.campaign
+        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True).select_related("inner_template"))
+        inner = {}
+        for tag in tags:
+            if tag.resolution_source == "INNER_TEMPLATE" and tag.inner_template_id:
+                body = RenderedTemplateContent.objects.filter(template_id=tag.inner_template_id).order_by("-version_number").first()
+                inner[tag.tag_key.strip("{} ")] = (body.html_content or "") if body else ""
+        tenant_code = campaign.tenant.code
+    return run, campaign, content, tags, inner, tenant_code
+
+
+def _claim(tenant_id, execution_id) -> tuple | None:
+    with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute("""UPDATE mailer_execution SET status = 'SUBMITTED', submitted_at = now(), attempts = attempts + 1
+                           WHERE tenant_id = %s AND id = %s AND status = 'QUEUED'
+                       RETURNING party_id, email_address, idempotency_key, campaign_list_member_id, attempts""", [str(tenant_id), execution_id])
+        return cursor.fetchone()
+
+
+def _record(tenant_id, execution_id, member_id, *, status, reason=None, message_id=None) -> None:
+    with session.tx(), session.connection().cursor() as cursor:
+        if status == "QUEUED":
+            cursor.execute("UPDATE mailer_execution SET status = 'QUEUED', submitted_at = NULL, status_reason = %s WHERE tenant_id = %s AND id = %s",
+                           [reason, str(tenant_id), execution_id])
+            return
+        cursor.execute("UPDATE mailer_execution SET status = %s, status_reason = %s, provider_message_id = COALESCE(%s, provider_message_id) WHERE tenant_id = %s AND id = %s",
+                       [status, reason, message_id or None, str(tenant_id), execution_id])
+        if status == "SUBMITTED" and member_id:
+            cursor.execute("UPDATE campaign_list_member SET status = 'SENT' WHERE tenant_id = %s AND id = %s", [str(tenant_id), member_id])
+
+
+def _dead_letter(tenant_id, run_id, row, reason) -> None:
+    import json
+    with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute("""INSERT INTO dead_letter_message (tenant_id, queue_name, task_name, campaign_run_id, party_id, channel, idempotency_key, payload, error_class,
+                                                           error_message, attempts)
+                          VALUES (%s, 'email', 'workers.email.send_batch', %s, %s, 'EMAIL', %s, %s::jsonb, 'ProviderTemporaryFailure', %s, %s)""",
+                       [str(tenant_id), str(run_id), row[0], row[2], json.dumps({"email": row[1]}), reason, row[4]])
+
+
+def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
+    """Must be called inside session.tenant_scope(tenant_id). Raises RetryBatch when some messages should be tried again."""
+    run, campaign, content, tags, inner, tenant_code = _load(tenant_id, run_id)
+    if run.status not in ("SENDING", "PREPARING"):
+        return {"skipped": len(execution_ids), "reason": f"run is {run.status}"}
+    sender = campaign.sender_profile
+    provider_row = sender.delivery_provider
+    renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags, inner_templates=inner)
+    marketing = campaign.solicitation_type == "MARKETING"
+    pause = 60.0 / provider_row.rate_limit_per_minute if provider_row.rate_limit_per_minute else 0.0
+    counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0}
+    retry_ids, retry_reason = [], ""
+
+    try:
+        provider = registry.for_provider(provider_row)
+        provider.open()
+    except ProviderError as exc:
+        if exc.retryable:
+            raise RetryBatch(execution_ids, str(exc)) from None
+        raise
+
+    try:
+        for execution_id in execution_ids:
+            claimed = _claim(tenant_id, execution_id)
+            if claimed is None:                             # already handled by an earlier attempt of this batch
+                counts["skipped"] += 1
+                continue
+            party_id, email, idempotency_key, member_id, attempts = claimed
+            try:
+                with session.tx():
+                    customer = CustomerMaster.objects.filter(tenant_id=tenant_id, party_id=party_id).values("party_id", "first_name", "last_name", "custom_attributes").first() or {}
+                    with session.connection().cursor() as cursor:
+                        cursor.execute("SELECT custom_value_pairs, segment_codes FROM campaign_list_member WHERE tenant_id = %s AND id = %s", [str(tenant_id), member_id])
+                        found = cursor.fetchone()
+                member = {"custom_value_pairs": _as_dict(found[0]) if found else {}, "segment_codes": found[1] if found else []}
+                customer["email"] = email
+                token = unsubscribe.token_for(tenant_code=tenant_code, party_id=party_id, email=email, campaign_id=campaign.pk, run_id=run.pk)
+                rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "email": email})
+                message = EmailMessage(to_email=email, to_name=" ".join(filter(None, [customer.get("first_name"), customer.get("last_name")])),
+                                       from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
+                                       subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=idempotency_key,
+                                       tag=campaign.code or "", headers=unsubscribe.headers_for(token) if marketing else {},
+                                       metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)})
+                result = provider.send(message)
+            except ProviderError as exc:                    # nothing more will go out: put this one back and stop
+                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
+                if exc.retryable:
+                    raise RetryBatch(execution_ids, str(exc)) from None
+                raise
+            except Exception as exc:                        # noqa: BLE001  a rendering problem with one person must not stop the run
+                log.exception("execution %s could not be prepared", execution_id)
+                _record(tenant_id, execution_id, member_id, status="FAILED", reason=f"{exc.__class__.__name__}: {exc}"[:200])
+                counts["failed"] += 1
+                continue
+
+            if result.outcome is Outcome.ACCEPTED:
+                _record(tenant_id, execution_id, member_id, status="SUBMITTED", message_id=result.provider_message_id)
+                counts["submitted"] += 1
+            elif result.outcome is Outcome.REJECTED:
+                _record(tenant_id, execution_id, member_id, status="FAILED", reason=result.reason)
+                counts["failed"] += 1
+            elif attempts >= MAX_ATTEMPTS:
+                _record(tenant_id, execution_id, member_id, status="FAILED", reason=f"Gave up after {attempts} attempts: {result.reason}"[:200])
+                _dead_letter(tenant_id, run_id, claimed, result.reason)
+                counts["failed"] += 1
+            else:
+                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=result.reason)
+                retry_ids.append(execution_id)
+                retry_reason = result.reason
+                counts["retry"] += 1
+            if pause:
+                time.sleep(min(pause, 5.0))
+    finally:
+        provider.close()
+    if retry_ids:
+        raise RetryBatch(retry_ids, retry_reason)
+    return counts
+
+
+def fail_queued(tenant_id, run_id, reason: str, execution_ids: list[int] | None = None) -> int:
+    """Everything still waiting fails with the reason: the whole run when the provider cannot send at all (bad credentials,
+    switched off), or only `execution_ids` when one batch has used up its retries."""
+    with session.tx(), session.connection().cursor() as cursor:
+        cursor.execute("UPDATE mailer_execution SET status = 'FAILED', status_reason = %s WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED'"
+                       + (" AND id = ANY(%s)" if execution_ids is not None else ""),
+                       [reason[:200], str(tenant_id), str(run_id), *([list(execution_ids)] if execution_ids is not None else [])])
+        return cursor.rowcount
+
+
+def _as_dict(value) -> dict:
+    import json
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    return value if isinstance(value, dict) else {}
+
+
+def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
+    """Sends the campaign's current content to a few addresses, personalized with the catalogue's sample values.
+    Nothing is recorded as an execution and no consent rule applies: the recipients are the people building the campaign."""
+    with session.tx():
+        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True))
+        sender = campaign.sender_profile
+        provider_row = sender.delivery_provider
+        tenant_code = campaign.tenant.code
+    samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
+    renderer = Renderer(campaign=campaign, run=None, content=content, tags=[])
+    results = []
+    with registry.for_provider(provider_row) as provider:
+        for address in to:
+            rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": f"{unsubscribe.url_for('test')}", "email": address})
+            result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
+                                                subject="[TEST] " + rendered["subject"], html=rendered["html"], text=rendered["text"],
+                                                idempotency_key=f"test:{campaign.pk}:{timezone.now().timestamp():.0f}", tag="test", metadata={"cep_tenant": tenant_code}))
+            results.append({"to": address, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id})
+    return results

@@ -213,6 +213,7 @@ class CampaignListMember(models.Model):
     custom_value_pairs = models.JSONField(default=dict)  # campaign-time extensible attributes (BRD 6.3)
     segment_codes = ArrayField(models.TextField(), default=_default_campaign_list_member_segment_codes)
     status = models.CharField(max_length=20, default='ELIGIBLE', choices=Status.choices)  # ELIGIBLE, SUPPRESSED, SENT
+    suppression_reason = models.CharField(max_length=40, null=True, blank=True)  # NO_EMAIL, NO_CONSENT, UNSUBSCRIBED, BLOCKED_ADDRESS, FREQUENCY_CAP ...
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:

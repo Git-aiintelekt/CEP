@@ -1,0 +1,62 @@
+"""The unsubscribe link in every marketing email, and what happens when it is used.
+
+The link carries a signed token (no database lookup to read it, nothing guessable): tenant code, party, campaign, run and
+the address. GET shows a confirmation page (mail scanners follow links; they do not press buttons), POST records the
+opt-out. Mailbox providers' one-click unsubscribe (RFC 8058) POSTs to the same address.
+"""
+from django.conf import settings
+from django.core import signing
+from django.utils import timezone
+
+from . import session
+
+SALT = "cep.unsubscribe"
+
+
+def token_for(*, tenant_code: str, party_id: str, email: str, campaign_id, run_id) -> str:
+    return signing.dumps({"t": tenant_code, "p": party_id, "e": email, "c": str(campaign_id), "r": str(run_id)}, salt=SALT, compress=True)
+
+
+def read(token: str) -> dict | None:
+    try:
+        return signing.loads(token, salt=SALT)              # no max_age: a link in a year-old email must still work
+    except signing.BadSignature:
+        return None
+
+
+def url_for(token: str) -> str:
+    return f"{settings.API_PUBLIC_URL.rstrip('/')}/api/v1/public/unsubscribe/?t={token}"
+
+
+def headers_for(token: str) -> dict[str, str]:
+    return {"List-Unsubscribe": f"<{url_for(token)}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+
+
+def opt_out(*, tenant_id, party_id: str, email: str = "", campaign_id=None, run_id=None, method: str = "UNSUBSCRIBE_LINK", evidence: dict | None = None,
+            execution_id: int | None = None) -> bool:
+    """Records the opt-out (append-only consent_record) and updates the current state. Returns False when already opted out."""
+    source = "COMPLAINT" if method == "COMPLAINT" else "UNSUBSCRIBE_LINK"
+    now = timezone.now()
+    with session.connection().cursor() as cursor:
+        cursor.execute("SELECT consent_status FROM consent_suppression WHERE tenant_id = %s AND party_id = %s AND channel = 'EMAIL'", [str(tenant_id), party_id])
+        row = cursor.fetchone()
+        if row and row[0] == "OPTED_OUT":
+            return False
+        cursor.execute("""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, campaign_id, campaign_run_id, mailer_execution_id, occurred_at)
+                          VALUES (%s, %s, 'EMAIL', 'OPT_OUT', %s, %s::jsonb, %s, %s, %s, %s) RETURNING id""",
+                       [str(tenant_id), party_id, source, _json({"email": email, **(evidence or {})}), campaign_id and str(campaign_id), run_id and str(run_id), execution_id, now])
+        record_id = cursor.fetchone()[0]
+        reason = "COMPLAINT" if method == "COMPLAINT" else "UNSUBSCRIBED"
+        cursor.execute("""INSERT INTO consent_suppression (tenant_id, party_id, channel, consent_status, opted_out_at, opt_out_method, marketable, marketable_reason,
+                                                          last_consent_record_id, source_system, updated_at)
+                          VALUES (%s, %s, 'EMAIL', 'OPTED_OUT', %s, %s, FALSE, %s, %s, 'CEP', %s)
+                          ON CONFLICT (tenant_id, party_id, channel) DO UPDATE
+                             SET consent_status = 'OPTED_OUT', opted_out_at = EXCLUDED.opted_out_at, opt_out_method = EXCLUDED.opt_out_method, marketable = FALSE,
+                                 marketable_reason = EXCLUDED.marketable_reason, last_consent_record_id = EXCLUDED.last_consent_record_id, updated_at = EXCLUDED.updated_at""",
+                       [str(tenant_id), party_id, now, method, reason, record_id, now])
+    return True
+
+
+def _json(value) -> str:
+    import json
+    return json.dumps(value, default=str)

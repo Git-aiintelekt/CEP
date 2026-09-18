@@ -19,6 +19,7 @@ class DeliveryProvider(models.Model):
         OTHER_ESP = 'OTHER_ESP', 'Other ESP'
         OTHER_SMS = 'OTHER_SMS', 'Other SMS'
         SMTP = 'SMTP', 'SMTP (workspace mail server)'
+        SENDGRID = 'SENDGRID', 'SendGrid'
 
     class Channel(models.TextChoices):
         EMAIL = 'EMAIL', 'Email'
@@ -31,7 +32,11 @@ class DeliveryProvider(models.Model):
     channel = models.CharField(max_length=20, choices=Channel.choices)  # EMAIL, SMS, MMS
     name = models.CharField(max_length=150)
     config = models.JSONField(default=dict)  # non-secret settings: endpoint, webhook path, sending domain
-    secret_ref = models.CharField(max_length=200, null=True, blank=True)  # vault key for API credentials; never the credential itself
+    secret_ref = models.CharField(max_length=200, null=True, blank=True)  # env:NAME / vault key for credentials kept outside the database
+    secret_enc = models.TextField(null=True, blank=True)  # credential entered in the product, encrypted with FIELD_ENCRYPTION_KEY; wins over secret_ref
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_check_ok = models.BooleanField(null=True, blank=True)
+    last_check_error = models.TextField(null=True, blank=True)
     rate_limit_per_minute = models.IntegerField(null=True, blank=True)  # provider throughput cap honoured by workers
     is_default = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -129,6 +134,8 @@ class MailerExecution(models.Model):
     clicked_at = models.DateTimeField(null=True, blank=True)
     bounced_at = models.DateTimeField(null=True, blank=True)
     complained_at = models.DateTimeField(null=True, blank=True)
+    delivery_provider_id = models.UUIDField(null=True, blank=True)  # which provider carried the message
+    attempts = models.IntegerField(default=0)
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:

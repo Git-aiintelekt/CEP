@@ -132,6 +132,59 @@ export interface SecuritySettings {
   identity_provider: IdentityProvider | null
 }
 
+/** One installed delivery adapter and the inputs its form needs (GET /delivery-providers/catalogue/) */
+export interface ProviderType {
+  provider_type: string
+  label: string
+  description: string
+  supports_webhooks: boolean
+  /** false: created by another screen (SMTP follows Settings -> Email server) */
+  manageable: boolean
+  fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea' }[]
+}
+
+export interface DeliveryProvider {
+  id: string
+  provider_type: string
+  channel: string
+  name: string
+  config: Record<string, string>
+  /** the credential itself is write-only */
+  has_secret: boolean
+  secret_ref: string | null
+  rate_limit_per_minute: number | null
+  is_default: boolean
+  is_active: boolean
+  /** address to register with the provider for delivery / bounce / open / click callbacks */
+  webhook_url: string | null
+  sender_count: number
+  last_checked_at: string | null
+  last_check_ok: boolean | null
+  last_check_error: string | null
+  row_version: number
+  manageable?: boolean
+}
+
+export interface DeliverySender extends SenderProfile {
+  delivery_provider: string
+}
+
+export interface RunResults {
+  id: string
+  status: string
+  started_at: string | null
+  completed_at: string | null
+  audience: { members: number; eligible: number; suppressed: Record<string, number> }
+  messages: { queued: number; sent: number; failed: number; delivered: number; opened: number; clicked: number; bounced: number; complained: number }
+  by_status: Record<string, number>
+}
+
+export interface SendTestResult {
+  to: string
+  ok: boolean
+  detail: string | null
+}
+
 export interface MailServer {
   host: string
   port: number

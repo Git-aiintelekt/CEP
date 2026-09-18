@@ -1,4 +1,6 @@
 """Tenant-scoped REST resources. BaseTenantViewSet is the pattern every domain resource follows."""
+from django.db import transaction
+import logging
 import hashlib
 import io
 
@@ -75,6 +77,16 @@ class BaseTenantViewSet(viewsets.ModelViewSet):
             instance.delete()
 
 
+def _enqueue_run(tenant_id: str, run_id: str) -> None:
+    """Hands the run to the send engine. Without a reachable broker nothing is lost: the dispatch-campaign-runs job
+    (or `manage.py send_campaign_runs`) picks up every run that is still SCHEDULED."""
+    try:
+        from workers.campaign import start_run
+        start_run.apply_async(args=[tenant_id, run_id], retry=False)   # no broker: fail fast, the dispatcher job takes over
+    except Exception:                                       # noqa: BLE001  (broker down: the run stays SCHEDULED)
+        logging.getLogger("cep.delivery").warning("run %s could not be queued; it stays SCHEDULED for the dispatcher", run_id)
+
+
 class CampaignViewSet(BaseTenantViewSet):
     queryset = (Campaign.objects.select_related("template", "sender_profile")
                 .prefetch_related("campaign_runs", "contact_list_campaigns__contact_list"))
@@ -143,6 +155,8 @@ class CampaignViewSet(BaseTenantViewSet):
         campaign.save(update_fields=["status"])
         run = CampaignRun.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, run_number=campaign.campaign_runs.count() + 1,
                                          run_type=CampaignRun.RunType.ONE_TIME, scheduled_at=campaign.scheduled_at)
+        if run.scheduled_at is None or run.scheduled_at <= timezone.now():
+            transaction.on_commit(lambda: _enqueue_run(str(campaign.tenant_id), str(run.pk)), using=context.require().db_alias)
         return Response(s.CampaignRunSerializer(run).data, status=201)
 
 
