@@ -228,15 +228,19 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
 
 
 # ------------------------------------------------------------------------------------------------------------ campaigns: test send, results
+class SendTestSerializer(serializers.Serializer):
+    to = serializers.ListField(child=serializers.EmailField(), min_length=1, max_length=5)
+
+
 class CampaignSendTestView(APIView):
     permission_classes = [IsAuthenticated, HasPermissionCode.for_("campaign.edit")]
 
-    @extend_schema(request=inline_serializer("SendTest", {"to": serializers.ListField(child=serializers.EmailField(), max_length=5)}), responses={200: None})
+    @extend_schema(request=SendTestSerializer, responses={200: None})
     def post(self, request, pk, version=None):
         campaign = Campaign.objects.select_related("template", "sender_profile__delivery_provider", "tenant").filter(pk=pk, tenant_id=context.require().tenant_id).first()
         if campaign is None:
             raise ValidationError({"detail": "No such campaign."})
-        form = inline_serializer("SendTestIn", {"to": serializers.ListField(child=serializers.EmailField(), min_length=1, max_length=5)})(data=request.data)
+        form = SendTestSerializer(data=request.data)
         form.is_valid(raise_exception=True)
         missing = {}
         if campaign.template_id is None:

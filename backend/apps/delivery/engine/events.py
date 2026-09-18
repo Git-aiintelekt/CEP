@@ -4,6 +4,8 @@ Status only moves forward: SUBMITTED -> DELIVERED -> OPENED -> CLICKED. A bounce
 them, because they decide whether the address may be used again. Events can arrive twice and out of order; applying one
 a second time changes nothing.
 """
+from datetime import timedelta
+
 from django.utils import timezone
 
 from ..providers.base import DeliveryEvent, EventType
@@ -12,6 +14,15 @@ from . import session, unsubscribe
 RANK = {"QUEUED": 0, "SUBMITTED": 1, "DELIVERED": 2, "OPENED": 3, "CLICKED": 4}
 TERMINAL = {"BOUNCED", "COMPLAINED", "FAILED"}
 SOFT_BOUNCE_BLOCK_AFTER = 3
+
+
+def _plausible(moment):
+    """Event tables are partitioned by month and only recent months exist. A replayed or mis-clocked event keeps its
+    place in history through the raw payload; for our own rows it counts as having happened now."""
+    now = timezone.now()
+    if moment is None or moment > now + timedelta(days=1) or moment < now - timedelta(days=45):
+        return now
+    return moment
 
 
 def find_execution(tenant_id, event: DeliveryEvent):
@@ -34,7 +45,7 @@ def apply(tenant_id, event: DeliveryEvent) -> str:
     if found is None:
         return "unmatched"
     execution_id, party_id, email, status, campaign_id, run_id = found
-    when = event.occurred_at or timezone.now()
+    when = _plausible(event.occurred_at)
     kind = event.event_type
     sets: dict[str, object] = {}
 

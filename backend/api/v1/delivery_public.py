@@ -91,12 +91,18 @@ def unsubscribe_view(request, version=None):
         action = f'<form method="post" action="?t={escape(token)}"><button type="submit">Unsubscribe</button></form>'
         return HttpResponse(PAGE.format(title="Unsubscribe from marketing email", text=f"Stop sending marketing email to <strong>{address}</strong>?", action=action))
     tenant_id = context.require().tenant_id
-    unsubscribe.opt_out(tenant_id=tenant_id, party_id=claims["p"], email=claims.get("e", ""), campaign_id=claims.get("c"), run_id=claims.get("r"),
+    with session.connection().cursor() as cursor:          # the message whose link was used: evidence for the opt-out, required by tracking_event
+        cursor.execute("SELECT id FROM mailer_execution WHERE tenant_id = %s AND campaign_run_id = %s AND party_id = %s ORDER BY created_at DESC LIMIT 1",
+                       [tenant_id, claims.get("r"), claims["p"]])
+        found = cursor.fetchone()
+    execution_id = found[0] if found else None
+    unsubscribe.opt_out(tenant_id=tenant_id, party_id=claims["p"], email=claims.get("e", ""), campaign_id=claims.get("c"), run_id=claims.get("r"), execution_id=execution_id,
                         evidence={"ip": request.META.get("REMOTE_ADDR"), "user_agent": request.headers.get("User-Agent", "")[:300],
                                   "one_click": request.POST.get("List-Unsubscribe") == "One-Click"})
-    with session.connection().cursor() as cursor:
-        cursor.execute("""INSERT INTO tracking_event (tenant_id, party_id, event_type, channel, campaign_id, campaign_run_id, ip_address, user_agent)
-                          VALUES (%s, %s, 'UNSUBSCRIBE_CLICK', 'EMAIL', %s, %s, %s, %s)""",
-                       [tenant_id, claims["p"], claims.get("c"), claims.get("r"), request.META.get("REMOTE_ADDR"), request.headers.get("User-Agent", "")[:300]])
+    if execution_id is not None:
+        with session.connection().cursor() as cursor:
+            cursor.execute("""INSERT INTO tracking_event (tenant_id, party_id, event_type, channel, campaign_id, campaign_run_id, mailer_execution_id, ip_address, user_agent)
+                              VALUES (%s, %s, 'UNSUBSCRIBE_CLICK', 'EMAIL', %s, %s, %s, %s, %s)""",
+                           [tenant_id, claims["p"], claims.get("c"), claims.get("r"), execution_id, request.META.get("REMOTE_ADDR"), request.headers.get("User-Agent", "")[:300]])
     return HttpResponse(PAGE.format(title="You are unsubscribed", text=f"<strong>{address}</strong> will no longer receive marketing email from this sender. "
                                           "Receipts and service messages about your account may still be sent.", action=""))
