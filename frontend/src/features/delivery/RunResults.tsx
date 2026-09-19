@@ -22,7 +22,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'ba
   return (
     <div>
       <dt className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{label}</dt>
-      <dd className={`mt-0.5 text-lg font-semibold tabular-nums ${tone === 'bad' && value > 0 ? 'text-red-700' : tone === 'good' ? 'text-emerald-700' : 'text-ink-900'}`}>{formatNumber(value)}</dd>
+      <dd className={`mt-0.5 text-lg font-semibold tabular-nums ${tone === 'bad' && value > 0 ? 'text-danger-text' : tone === 'good' ? 'text-success-text' : 'text-ink-900'}`}>{formatNumber(value)}</dd>
     </div>
   )
 }
@@ -41,7 +41,7 @@ export function RunResults({ run }: { run: CampaignRun }) {
   const texts = results.data.family === 'SMS'
   const suppressed = Object.entries(audience.suppressed).sort((a, b) => b[1] - a[1])
   return (
-    <section aria-label={`Results of run ${run.run_number}`} className="rounded-xl border border-line bg-surface p-5">
+    <section aria-label={`Results of run ${run.run_number}`} className="rounded-lg border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-ink-900">Run #{run.run_number}</h3>
         <span className="flex items-center gap-2 text-xs text-ink-500">
@@ -51,7 +51,7 @@ export function RunResults({ run }: { run: CampaignRun }) {
       </div>
       {audience.members === 0 && status === 'SCHEDULED' ? <p className="mt-3 text-sm text-ink-500">The audience is built when the run starts.</p> : (
         <>
-          <dl className="mt-4 grid grid-cols-3 gap-4 md:grid-cols-7">
+          <dl className="mt-4 grid grid-cols-3 gap-4 lg:grid-cols-7">
             <Stat label="On the lists" value={audience.members} />
             <Stat label="Eligible" value={audience.eligible} />
             <Stat label="Sent" value={messages.sent} tone="good" />
@@ -65,7 +65,7 @@ export function RunResults({ run }: { run: CampaignRun }) {
           {suppressed.length > 0 && (
             <div className="mt-4 border-t border-line pt-3">
               <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Left out of this run</p>
-              <ul className="mt-2 grid gap-x-8 gap-y-1 text-sm text-ink-700 md:grid-cols-2">
+              <ul className="mt-2 grid gap-x-8 gap-y-1 text-sm text-ink-700 lg:grid-cols-2">
                 {suppressed.map(([reason, count]) => (
                   <li key={reason} className="flex justify-between gap-3"><span>{REASONS[reason] ?? humanize(reason)}</span><span className="tabular-nums">{formatNumber(count)}</span></li>
                 ))}
@@ -85,7 +85,7 @@ export function SendTestBox({ campaignId, defaultTo, disabledReason, texts = fal
     mutationFn: () => api.post<{ results: SendTestResult[] }>(`/campaigns/${campaignId}/send-test/`, { to: to.split(/[\s,;]+/).filter(Boolean) }),
   })
   return (
-    <form className="rounded-xl border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); send.mutate() }}>
+    <form className="rounded-lg border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); send.mutate() }}>
       <h3 className="text-sm font-semibold text-ink-900">Send a test</h3>
       <p className="mt-1 text-sm text-ink-500">Goes out now through the campaign's sender, with sample values in place of personal data. Up to 5 {texts ? 'mobile numbers with country code' : 'addresses'}. It does not count as a run.</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -101,7 +101,7 @@ export function SendTestBox({ campaignId, defaultTo, disabledReason, texts = fal
       {send.data && (
         <ul className="mt-3 space-y-1 text-sm" aria-label="Test results">
           {send.data.results.map((result) => (
-            <li key={result.to} className={result.ok ? 'text-emerald-700' : 'text-red-700'}>{result.ok ? 'Sent to' : 'Not sent to'} {result.to}{!result.ok && result.detail ? `: ${result.detail}` : ''}</li>
+            <li key={result.to} className={result.ok ? 'text-success-text' : 'text-danger-text'}>{result.ok ? 'Sent to' : 'Not sent to'} {result.to}{!result.ok && result.detail ? `: ${result.detail}` : ''}</li>
           ))}
         </ul>
       )}
@@ -118,14 +118,14 @@ export function ReceiptApiPanel({ campaignRef, published }: { campaignRef: strin
     store: { name: 'Lenox Square', address: '3393 Peachtree Rd NE, Atlanta' },
   }, null, 2)
   return (
-    <section aria-label="Sending receipts" className="rounded-xl border border-line bg-surface p-5">
+    <section aria-label="Sending receipts" className="rounded-lg border border-line bg-surface p-5">
       <h3 className="text-sm font-semibold text-ink-900">Sending receipts</h3>
       <p className="mt-1 text-sm text-ink-500">
-        {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-slate-100 px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
-        The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-slate-100 px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
+        {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
+        The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
       </p>
-      <p className="mt-3 font-mono text-xs font-semibold text-ink-900">POST /api/v1/receipts/send/ · Authorization: Bearer cep_… · X-Tenant: your workspace code</p>
-      <pre className="mt-2 max-h-72 overflow-auto rounded-lg bg-slate-900 p-3 text-xs leading-5 text-slate-100">{example}</pre>
+      <p className="mt-3 cep-num text-xs font-semibold text-ink-900">POST /api/v1/receipts/send/ · Authorization: Bearer cep_… · X-Tenant: your workspace code</p>
+      <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-line bg-surface-subtle p-3 text-xs leading-5 text-ink-900">{example}</pre>
       <p className="mt-2 text-xs text-ink-500">201 sent · 200 already sent (duplicate) · 422 refused (blocked address, or the email engine rejected it) · 424 the email engine is failing temporarily: call again with the same number.</p>
     </section>
   )
@@ -140,7 +140,7 @@ export function TextReplies({ campaignId }: { campaignId: string }) {
   const replies = useQuery({ queryKey: ['sms-inbound', campaignId], queryFn: ({ signal }) => api.get<SmsReply[]>('/sms-inbound/', { campaign: campaignId }, signal), refetchInterval: 30_000 })
   if (replies.isError || replies.isPending || replies.data.length === 0) return null
   return (
-    <section aria-label="Replies" className="rounded-xl border border-line bg-surface p-5">
+    <section aria-label="Replies" className="rounded-lg border border-line bg-surface p-5">
       <h3 className="text-sm font-semibold text-ink-900">Replies</h3>
       <p className="mt-1 text-sm text-ink-500">STOP and START are applied the moment they arrive: the person is opted out (or back in) and the number is blocked for every campaign.</p>
       <ul className="mt-3 divide-y divide-line text-sm">

@@ -1,41 +1,62 @@
 import { humanize } from '@/lib/format'
 
-type Tone = 'green' | 'blue' | 'amber' | 'gray' | 'red'
+/**
+ * Status is carried by a solid light tint plus a 6px dot. Status never uses the action blue, so a tag cannot be
+ * mistaken for something clickable.
+ */
+type Tone = 'success' | 'warning' | 'danger' | 'pending' | 'neutral'
 
-const TONES: Record<Tone, string> = {
-  green: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-  blue: 'bg-brand-50 text-brand-700 ring-brand-600/20',
-  amber: 'bg-amber-50 text-amber-800 ring-amber-600/20',
-  gray: 'bg-slate-100 text-slate-700 ring-slate-500/20',
-  red: 'bg-red-50 text-red-700 ring-red-600/20',
+const TONES: Record<Tone, { tag: string; dot: string }> = {
+  success: { tag: 'bg-line-subtle text-success-text', dot: 'bg-success' },
+  warning: { tag: 'bg-warning-bg text-warning-text', dot: 'bg-warning' },
+  danger: { tag: 'bg-danger-bg text-danger-text', dot: 'bg-danger' },
+  pending: { tag: 'bg-line-subtle text-ink-900', dot: 'bg-ink-700' },
+  neutral: { tag: 'bg-line-subtle text-ink-700', dot: 'bg-ink-300' },
 }
 
 const STATUS_TONE: Record<string, Tone> = {
-  ACTIVE: 'green',
-  COMPLETED: 'green',
-  PRODUCTION_PUBLISHED: 'blue',
-  SENDING: 'blue',
-  SCHEDULED: 'blue',
-  TEST_PUBLISHED: 'amber',
-  PAUSED: 'amber',
-  DRAFT: 'gray',
-  ARCHIVED: 'gray',
-  CANCELLED: 'red',
-  FAILED: 'red',
+  ACTIVE: 'success',
+  COMPLETED: 'success',
+  PRODUCTION_PUBLISHED: 'success',
+  SENDING: 'pending',
+  PREPARING: 'pending',
+  SCHEDULED: 'pending',
+  TEST_PUBLISHED: 'warning',
+  PAUSED: 'warning',
+  DRAFT: 'neutral',
+  ARCHIVED: 'neutral',
+  CANCELLED: 'danger',
+  FAILED: 'danger',
+}
+
+/** The campaign status vocabulary is locked; these spellings win over whatever wording the API sends. */
+const LOCKED_LABEL: Record<string, string> = {
+  DRAFT: 'Draft',
+  TEST_PUBLISHED: 'Test Published',
+  PRODUCTION_PUBLISHED: 'Production Published',
+  SCHEDULED: 'Scheduled',
+}
+
+function labelFor(status: string, label?: string): string {
+  const plain = humanize(status)
+  const isPlainWording = !label || label.toLowerCase() === plain.toLowerCase()
+  if (isPlainWording && LOCKED_LABEL[status]) return LOCKED_LABEL[status]
+  return label ?? plain
 }
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const tone = STATUS_TONE[status] ?? 'gray'
+  const tone = TONES[STATUS_TONE[status] ?? 'neutral']
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}>
-      {label ?? humanize(status)}
+    <span className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-xs font-semibold ${tone.tag}`}>
+      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+      {labelFor(status, label)}
     </span>
   )
 }
 
 export function Tag({ children }: { children: string }) {
   return (
-    <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-ink-700">
+    <span className="inline-flex items-center rounded-sm bg-line-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-700">
       {children}
     </span>
   )

@@ -56,19 +56,19 @@ function RoleForm({ role, catalogue, onClose }: { role: Role | null; catalogue: 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="role-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}{role ? 'Save changes' : 'Create role'}
+          {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{role ? 'Save changes' : 'Create role'}
         </button>
       </>}>
       <form id="role-form" onSubmit={onSubmit} noValidate className="space-y-4">
         {other !== null && <ErrorState title="Could not save the role" error={other} />}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Name" required error={errors.name}>{(ids) => <TextInput {...ids} value={name} maxLength={100} onChange={(event) => setName(event.target.value)} />}</Field>
           <Field label="Description" error={errors.description}>{(ids) => <TextArea {...ids} rows={1} value={description} onChange={(event) => setDescription(event.target.value)} />}</Field>
         </div>
         <fieldset>
           <legend className="text-sm font-medium text-ink-700">Permissions <span className="font-normal text-ink-500">({chosen.length} selected)</span></legend>
-          {errors.permissions && <p role="alert" className="mt-1 text-xs font-medium text-red-700">{errors.permissions}</p>}
-          <div className="mt-2 grid gap-3 md:grid-cols-2">
+          {errors.permissions && <p role="alert" className="mt-1 text-xs font-medium text-danger-text">{errors.permissions}</p>}
+          <div className="mt-2 grid gap-3 lg:grid-cols-2">
             {areas.map(([area, permissions]) => (
               <div key={area} className="rounded-lg border border-line p-3">
                 <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{AREA_LABEL[area] ?? area}</p>
@@ -78,7 +78,7 @@ function RoleForm({ role, catalogue, onClose }: { role: Role | null; catalogue: 
                       <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-900">
                         <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={chosen.includes(permission.code)} onChange={() => toggle(permission.code)} />
                         {ACTION_LABEL[permission.code.split('.')[1]] ?? permission.description ?? permission.code}
-                        <span className="font-mono text-xs text-ink-500">{permission.code}</span>
+                        <span className="cep-num text-xs text-ink-500">{permission.code}</span>
                       </label>
                     </li>
                   ))}
@@ -105,8 +105,8 @@ export function RolesPage() {
     { key: 'users', header: 'Users', align: 'right', render: (role) => formatNumber(role.user_count) },
     { key: 'actions', header: '', align: 'right', render: (role) => (
       <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-700 hover:underline" onClick={() => setEditing({ role })}>Edit</button>
-        <button type="button" className="text-red-700 hover:underline disabled:text-ink-300 disabled:no-underline" disabled={role.user_count > 0 || remove.isPending}
+        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing({ role })}>Edit</button>
+        <button type="button" className="text-danger-text hover:underline disabled:text-ink-300 disabled:no-underline" disabled={role.user_count > 0 || remove.isPending}
           title={role.user_count > 0 ? 'People still have this role' : undefined}
           onClick={() => window.confirm(`Delete the role "${role.name}"?`) && remove.mutate(role)}>Delete</button>
       </span>) },

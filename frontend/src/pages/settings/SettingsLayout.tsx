@@ -41,7 +41,7 @@ export function SettingsLayout() {
     <section>
       <PageHeader title="Settings" description="Who can sign in to this workspace, what they may do, and which systems may call the API." />
       {data && (
-        <dl className="mb-5 grid grid-cols-2 gap-4 rounded-xl border border-line bg-surface p-4 md:grid-cols-5">
+        <dl className="mb-5 grid grid-cols-2 gap-4 rounded-lg border border-line bg-surface p-4 lg:grid-cols-5">
           <Fact label="Workspace" value={`${data.name} (${data.code})`} />
           <Fact label="Plan" value={data.plan ?? 'No plan'} />
           <Fact label="Active users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
@@ -52,7 +52,7 @@ export function SettingsLayout() {
       <nav aria-label="Settings sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-line whitespace-nowrap">
         {TABS.filter((tab) => !tab.feature || has(tab.feature)).map((tab) => (
           <NavLink key={tab.to} to={tab.to} className={({ isActive }) =>
-            `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-900'}`}>
+            `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-800' : 'border-transparent text-ink-500 hover:text-ink-900'}`}>
             {tab.label}
           </NavLink>
         ))}

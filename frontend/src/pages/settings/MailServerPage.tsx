@@ -64,16 +64,16 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
   return (
     <form className="max-w-3xl space-y-6" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
-      <section className="rounded-xl border border-line bg-surface p-5">
+      <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-ink-900">Outgoing email</h2>
         <p className="mt-1 text-sm text-ink-500">
           The server used for the messages this platform sends to people in your workspace: password links, sign-in notices and support notifications. Campaign email is sent through your delivery provider.
         </p>
-        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-amber-50 text-amber-900' : 'bg-slate-50 text-ink-700'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
+        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-700'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
       </section>
 
       {data.platform_shared && (
-        <section className="rounded-xl border border-line bg-surface p-5">
+        <section className="rounded-lg border border-line bg-surface p-5">
           <label className="flex cursor-pointer items-start gap-3">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.use_platform_server} onChange={(event) => set('use_platform_server', event.target.checked)} />
             <span>
@@ -85,9 +85,9 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       )}
 
       {!shared && (
-        <section className="rounded-xl border border-line bg-surface p-5">
+        <section className="rounded-lg border border-line bg-surface p-5">
           <h2 className="text-sm font-semibold text-ink-900">Your SMTP server</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Field label="Server" required error={errors.host} hint="e.g. smtp.office365.com, smtp.gmail.com, email-smtp.us-east-1.amazonaws.com">
               {(ids) => <TextInput {...ids} value={form.host} onChange={(event) => set('host', event.target.value)} autoComplete="off" />}
             </Field>
@@ -113,9 +113,9 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
         </section>
       )}
 
-      <section className="rounded-xl border border-line bg-surface p-5">
+      <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-ink-900">Sender</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Field label="From address" required error={errors.from_email} hint="Must be an address the server is allowed to send as.">
             {(ids) => <TextInput {...ids} type="email" value={form.from_email} onChange={(event) => set('from_email', event.target.value)} autoComplete="off" />}
           </Field>
@@ -130,10 +130,10 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
             <span><span className="block text-sm font-medium text-ink-900">In use</span><span className="block text-xs text-ink-500">Switch off to fall back to the platform's server without losing these settings.</span></span>
           </label>
         </div>
-        {errors.use_platform_server && <p className="mt-3 text-xs font-medium text-red-700">{errors.use_platform_server}</p>}
+        {errors.use_platform_server && <p className="mt-3 text-xs font-medium text-danger-text">{errors.use_platform_server}</p>}
       </section>
 
-      <section className="rounded-xl border border-line bg-surface p-5">
+      <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-sm font-semibold text-ink-900">Campaigns</h2>
         <label className="mt-3 flex cursor-pointer items-start gap-3">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.campaign_sender} onChange={(event) => set('campaign_sender', event.target.checked)} />
@@ -153,14 +153,14 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
       {other !== null && <ErrorState title="Could not save the mail server" error={other} />}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Save</button>
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Save</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
           onClick={() => window.confirm("Remove your mail server? Messages will go out through the platform's server instead.") && remove.mutate()}>Remove</button>}
-        {save.isSuccess && <span role="status" className="text-sm text-emerald-700">Saved</span>}
+        {save.isSuccess && <span role="status" className="text-sm text-success-text">Saved</span>}
       </div>
 
       {server && (
-        <section aria-labelledby="mail-test" className="rounded-xl border border-line bg-surface p-5">
+        <section aria-labelledby="mail-test" className="rounded-lg border border-line bg-surface p-5">
           <h2 id="mail-test" className="text-sm font-semibold text-ink-900">Send a test message</h2>
           <p className="mt-1 text-sm text-ink-500">Uses the saved settings. Save first if you changed anything above.</p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -174,7 +174,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
               </span>
             )}
           </div>
-          {server.last_test_ok === false && server.last_test_error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 font-mono text-xs text-red-800">{server.last_test_error}</p>}
+          {server.last_test_ok === false && server.last_test_error && <p role="alert" className="mt-3 rounded-lg bg-danger-bg px-3 py-2 cep-num text-xs text-danger-text">{server.last_test_error}</p>}
         </section>
       )}
     </form>

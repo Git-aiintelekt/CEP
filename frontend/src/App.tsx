@@ -6,6 +6,7 @@ import { AuthProvider } from '@/auth/AuthContext'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { AppShell } from '@/components/AppShell'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { LoadingOverlayHost } from '@/components/LoadingOverlayHost'
 import { FullPageSpinner } from '@/components/States'
 import { ApiError } from '@/lib/api'
 import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
@@ -46,9 +47,9 @@ const queryClient = new QueryClient({
 function NotFoundPage() {
   return (
     <div className="py-16 text-center">
-      <p className="text-sm font-semibold text-brand-700">404</p>
+      <p className="text-sm font-semibold text-brand-800">404</p>
       <h1 className="mt-1 text-xl font-semibold text-ink-900">Page not found</h1>
-      <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">
+      <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline">
         Back to overview
       </Link>
     </div>
@@ -101,6 +102,7 @@ export default function App() {
               </Route>
             </Route>
           </Routes>
+          <LoadingOverlayHost />
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

@@ -1,10 +1,12 @@
 /** Form primitives: a labelled field with hint + error wiring, and consistently styled controls. */
 import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
-const CONTROL =
-  'mt-1 w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink-900 disabled:bg-slate-50 disabled:text-ink-500'
+const CONTROL_BASE =
+  'mt-1 w-full rounded-sm border bg-surface px-3 text-sm text-ink-900 transition-colors focus-visible:border-brand-600 disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
+const CONTROL = `${CONTROL_BASE} h-10`
+const CONTROL_MULTILINE = `${CONTROL_BASE} py-2`
 
-const border = (invalid: boolean) => (invalid ? 'border-red-400' : 'border-line')
+const border = (invalid: boolean) => (invalid ? 'border-danger' : 'border-line')
 
 interface FieldProps {
   label: string
@@ -25,7 +27,7 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink-700">
         {label}
-        {required && <span className="ml-0.5 text-red-600" aria-hidden>*</span>}
+        {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
       </label>
       {children({ id, describedBy, invalid: Boolean(error) })}
       {hint && !error && (
@@ -34,7 +36,7 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
         </p>
       )}
       {error && (
-        <p id={errorId} className="mt-1 text-xs font-medium text-red-700">
+        <p id={errorId} className="mt-1 text-xs font-medium text-danger-text">
           {error}
         </p>
       )}
@@ -49,7 +51,7 @@ export function TextInput({ invalid = false, describedBy, className = '', ...pro
 }
 
 export function TextArea({ invalid = false, describedBy, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired) {
-  return <textarea {...props} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={`${CONTROL} ${border(invalid)} ${className}`} />
+  return <textarea {...props} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={`${CONTROL_MULTILINE} ${border(invalid)} ${className}`} />
 }
 
 export function Select({ invalid = false, describedBy, className = '', children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & Wired) {
@@ -62,17 +64,17 @@ export function Select({ invalid = false, describedBy, className = '', children,
 
 export function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <fieldset className="rounded-xl border border-line bg-surface p-5">
+    <fieldset className="rounded-lg border border-line bg-surface p-5">
       <legend className="px-1 text-sm font-semibold text-ink-900">{title}</legend>
       {description && <p className="mb-4 text-sm text-ink-500">{description}</p>}
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+      <div className="grid gap-4 lg:grid-cols-2">{children}</div>
     </fieldset>
   )
 }
 
 export const buttonPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60'
+  'inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-700 hover:bg-slate-50 disabled:opacity-60'
+  'inline-flex h-10 items-center justify-center gap-2 rounded-sm border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonDanger =
-  'inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-surface px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60'
+  'inline-flex h-10 items-center justify-center gap-2 rounded-sm border border-danger bg-surface px-4 text-sm font-medium text-danger-text transition-colors hover:bg-danger-bg disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'

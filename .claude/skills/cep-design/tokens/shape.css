@@ -1,0 +1,10 @@
+:root{
+--radius-none:0;--radius-xs:2px;--radius-sm:4px;--radius-md:6px;--radius-lg:8px;--radius-xl:12px;--radius-pill:999px;
+--radius-control:var(--radius-sm);--radius-card:var(--radius-lg);--radius-tag:var(--radius-sm);--radius-modal:var(--radius-lg);
+--border-w:1px;--border-w-strong:2px;--accent-bar-w:3px;
+--elev-none:none;
+--elev-menu:0 4px 16px rgba(20,23,31,0.10);
+--elev-modal:-12px 0 32px rgba(20,23,31,0.14);
+--elev-toast:0 8px 24px rgba(20,23,31,0.16);
+--scrim:rgba(19,21,27,0.45)
+}

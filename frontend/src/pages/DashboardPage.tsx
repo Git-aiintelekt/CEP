@@ -11,7 +11,7 @@ import { useCursorList } from '@/lib/useCursorList'
 
 function StatCard({ label, value, hint, to, loading }: { label: string; value: number; hint: string; to: string; loading: boolean }) {
   return (
-    <Link to={to} className="rounded-xl border border-line bg-surface p-5 transition-colors hover:border-brand-500">
+    <Link to={to} className="rounded-lg border border-line bg-surface p-5 transition-colors hover:border-brand-600">
       <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-ink-900 tabular-nums">{loading ? <Spinner /> : formatNumber(value)}</p>
       <p className="mt-1 text-sm text-ink-500">{hint}</p>

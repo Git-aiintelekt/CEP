@@ -1,22 +1,246 @@
 @import 'tailwindcss';
 
-/* Design tokens: change the brand here, components only reference the token names. */
+/*
+ * CEP design tokens. Ported from .claude/skills/cep-design (tokens/*.css) — those hex values are locked;
+ * change the brand there first, then here. Components only reference token names, never raw hex.
+ *
+ * ink / surface / canvas / line are the app's semantic names for the neutral ramp; brand-* is the action ramp.
+ */
 @theme {
+  --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  --color-brand-50: #eef4ff;
-  --color-brand-100: #dbe6fe;
-  --color-brand-500: #3b6cf6;
-  --color-brand-600: #2753e4;
-  --color-brand-700: #1f41c4;
+  /* ---- brand action ramp: only real numbered ramps are named brand-* ---- */
+  --color-brand-100: #dee9fc; /* brand tag background, selected rows */
+  --color-brand-600: #3863db; /* action: primary buttons, links, focus ring */
+  --color-brand-700: #4e47dd; /* pill / large-CTA variant only */
+  --color-brand-800: #2b4dd0; /* brand tag text, hover and pressed on brand fills */
 
-  --color-ink-900: #0f172a;
-  --color-ink-700: #334155;
-  --color-ink-500: #64748b;
-  --color-ink-300: #cbd5e1;
+  /* ---- text. The system has three greys, so ink-700 and ink-500 are both Gray 700 ---- */
+  --color-ink-900: #17181c; /* Gray 900 — primary text */
+  --color-ink-700: #6b6f7b; /* Gray 700 — secondary text, default icons */
+  --color-ink-500: #6b6f7b; /* Gray 700 — secondary text */
+  --color-ink-300: #9ea2ad; /* Gray 400 — placeholder, disabled, emphasis border */
+
+  /* ---- surfaces and borders ---- */
   --color-surface: #ffffff;
-  --color-canvas: #f6f7fb;
-  --color-line: #e5e8f0;
+  --color-surface-subtle: #f9fafb; /* Gray 75 — alternating rows, sunken inputs */
+  --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
+  --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
+  --color-sidebar: #20265d; /* Navy 900 — the only dark surface */
+  --color-line: #e7e8ef; /* Gray 150 — default hairline */
+  --color-line-subtle: #eeeff5; /* Gray 100 — subtle border, icon-button hover */
+
+  /* ---- status. accent = dot / icon / bar, text = label on the matching bg ---- */
+  --color-success: #5ec16a;
+  --color-success-text: #0e6027;
+  --color-warning: #e8a13b;
+  --color-warning-bg: #fcf4cb;
+  --color-warning-text: #87451d;
+  --color-danger: #dd514c;
+  --color-danger-bg: #fae2e2;
+  --color-danger-text: #a92e26;
+  --color-danger-plain: #c93a32; /* error text with no background */
+  --color-danger-dark: #b44b23;
+  --color-high: #d96129;
+  --color-high-bg: #f6d5a4;
+  --color-row-flagged: #fefdf2;
+
+  /* ---- callouts are periwinkle, never a blue-tinted info box ---- */
+  --color-callout-bg: #eef2fe;
+  --color-callout-icon: #7570d4;
+  --color-callout-link: #4139c2;
+  --color-callout-text: #312e7c;
+
+  /* ---- wordmark ---- */
+  --color-wordmark-teal: #418eae;
+  --color-wordmark-navy: #273fa8;
+
+  /* ---- radii. Nothing is more rounded than 8px; pill is for switch tracks and progress fills ---- */
+  --radius-xs: 2px; /* checkbox */
+  --radius-sm: 4px; /* controls, tags, tooltips — the default */
+  --radius-md: 6px; /* menus */
+  --radius-lg: 8px; /* cards, modals, drawer bodies */
+
+  /* ---- exactly three shadows, each with one job. Cards and rows never carry one ---- */
+  --shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
+  --shadow-drawer: -12px 0 32px rgb(20 23 31 / 0.14); /* cast leftward, right-edge drawers */
+  --shadow-toast: 0 8px 24px rgb(20 23 31 / 0.16);
+
+  /* ---- layout ---- */
+  --spacing-sidenav: 256px;
+  --spacing-sidenav-collapsed: 64px;
+  --spacing-drawer: min(480px, 92vw); /* never overflows the viewport */
+  --spacing-content-max: 1440px;
+
+  /* ---- control heights: three only. Table rows: 40px compact, 48px default ---- */
+  --spacing-control-sm: 32px;
+  --spacing-control-md: 40px;
+  --spacing-control-lg: 48px;
+  --spacing-row-compact: 40px;
+  --spacing-row: 48px;
+
+  /* ---- motion: functional and quick, one easing family, no bounce or overshoot ---- */
+  --ease-standard: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-entrance: cubic-bezier(0, 0, 0.38, 0.9);
+  --ease-exit: cubic-bezier(0.2, 0, 1, 0.9);
+  --duration-fast: 70ms; /* hover / press */
+  --duration-base: 110ms; /* control state change */
+  --duration-moderate: 240ms; /* drawer and modal entrance, progress fills */
+
+  --animate-fade-in: fade-in var(--duration-moderate) var(--ease-entrance);
+  --animate-slide-in-right: slide-in-right var(--duration-moderate) var(--ease-entrance);
+  --animate-step-in: step-in var(--duration-moderate) var(--ease-entrance) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes step-in {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+}
+
+/*
+ * The two unauthenticated screens (/login and /set-password) are a documented exception to the flat, motion-light rules
+ * in designnew.md §4-§5: the signed-off design builds their brand panel and loading state from gradients and looping
+ * motion. Everything is confined to these classes so no component carries a raw colour, and every loop stops under
+ * prefers-reduced-motion. Do not copy this into the signed-in app.
+ */
+@layer components {
+  .cep-auth-panel {
+    background: linear-gradient(158deg, var(--color-sidebar) 0%, #1b2154 48%, #141943 100%);
+  }
+
+  /* drifting colour wash behind the brand panel */
+  .cep-auth-wash {
+    background:
+      radial-gradient(52% 44% at 74% 22%, rgb(78 71 221 / 0.62) 0%, rgb(78 71 221 / 0) 68%),
+      radial-gradient(46% 40% at 22% 78%, rgb(56 99 219 / 0.5) 0%, rgb(56 99 219 / 0) 70%),
+      radial-gradient(38% 34% at 86% 84%, rgb(65 142 174 / 0.34) 0%, rgb(65 142 174 / 0) 72%);
+    filter: blur(18px);
+    animation: cep-drift-a 64s var(--ease-standard) infinite alternate;
+  }
+  .cep-auth-wash--overlay {
+    background:
+      radial-gradient(52% 44% at 74% 22%, rgb(78 71 221 / 0.45) 0%, rgb(78 71 221 / 0) 68%),
+      radial-gradient(46% 40% at 22% 78%, rgb(56 99 219 / 0.34) 0%, rgb(56 99 219 / 0) 70%);
+    filter: blur(18px);
+    animation: none;
+  }
+
+  .cep-auth-rings {
+    animation: cep-drift-b 84s var(--ease-standard) infinite alternate;
+  }
+  .cep-auth-ring {
+    border: 1px solid rgb(222 233 252 / var(--ring-alpha, 0.16));
+  }
+
+  /* diagonal hairlines flowing upward, masked to a soft ellipse */
+  .cep-auth-flow {
+    -webkit-mask-image: radial-gradient(70% 58% at 62% 46%, #000 0%, rgb(0 0 0 / 0) 78%);
+    mask-image: radial-gradient(70% 58% at 62% 46%, #000 0%, rgb(0 0 0 / 0) 78%);
+  }
+  .cep-auth-flow > div {
+    background-image: repeating-linear-gradient(
+      96deg,
+      rgb(222 233 252 / 0.13) 0px,
+      rgb(222 233 252 / 0.13) 1px,
+      rgb(222 233 252 / 0) 1px,
+      rgb(222 233 252 / 0) 24px
+    );
+    transform: skewY(-8deg);
+    animation: cep-flow 46s linear infinite;
+  }
+
+  /* darkens the foot of the panel so the headline keeps its contrast */
+  .cep-auth-vignette {
+    background: linear-gradient(180deg, rgb(32 38 93 / 0.1) 0%, rgb(32 38 93 / 0.62) 62%, rgb(32 38 93 / 0.88) 100%);
+  }
+
+  .cep-auth-arc { animation: cep-arc 3.6s linear infinite; }
+  .cep-auth-dot { animation: cep-converge 3.6s var(--ease-standard) infinite; }
+  /* the keyframes drive `transform`, so the centring lives here too and survives animation: none */
+  .cep-auth-core {
+    transform: translate(-50%, -50%);
+    animation: cep-pulse 2.4s var(--ease-standard) infinite;
+  }
+  .cep-auth-halo {
+    background: radial-gradient(circle, rgb(222 233 252 / 0.55) 0%, rgb(222 233 252 / 0) 70%);
+    transform: translate(-50%, -50%);
+    animation: cep-halo 2.4s var(--ease-standard) infinite;
+  }
+}
+
+/*
+ * The hand-off from the sign-in loader to the app shell. The loader fades out, then the shell fades in and settles
+ * up 8px. Opacity and translate only — no scale, spring or overshoot (designnew.md §5).
+ * Under prefers-reduced-motion the shell cross-fades with no movement at all.
+ */
+.cep-settle-in {
+  /* TEMPORARY: slowed from 240ms so the settle is easy to watch. Put back to 240ms. */
+  animation: cep-settle-in 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cep-settle-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cep-settle-in {
+    animation: fade-in 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes cep-drift-a {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-26px, -34px, 0); }
+}
+@keyframes cep-drift-b {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(22px, 28px, 0); }
+}
+@keyframes cep-flow {
+  from { transform: translate3d(0, 0, 0) skewY(-8deg); }
+  to { transform: translate3d(0, -96px, 0) skewY(-8deg); }
+}
+@keyframes cep-arc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(26deg); }
+}
+@keyframes cep-converge {
+  0% { left: 98%; opacity: 0; }
+  10% { opacity: 0.95; }
+  86% { opacity: 0.9; }
+  100% { left: 50%; opacity: 0; }
+}
+@keyframes cep-pulse {
+  0%, 100% { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.16); }
+}
+@keyframes cep-halo {
+  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+/* Nothing loops for someone who asked for less motion; the overlay still fades in so the state change reads. */
+@media (prefers-reduced-motion: reduce) {
+  .cep-auth-wash,
+  .cep-auth-rings,
+  .cep-auth-flow > div,
+  .cep-auth-arc,
+  .cep-auth-dot,
+  .cep-auth-core,
+  .cep-auth-halo {
+    animation: none;
+  }
+  .cep-auth-dot { left: 50%; opacity: 0.9; }
 }
 
 html,
@@ -33,7 +257,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Headings take the display face; body copy stays Inter. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Numerals line up in tables and KPI tiles. */
+.cep-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The focus ring is never removed: Blue 600 outline plus the 3px translucent ring. */
 :focus-visible {
-  outline: 2px solid var(--color-brand-500);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgb(56 99 219 / 0.24);
+}
+
+::placeholder {
+  color: var(--color-ink-300);
 }

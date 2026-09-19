@@ -46,7 +46,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="user-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}{user ? 'Save changes' : 'Add user'}
+          {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{user ? 'Save changes' : 'Add user'}
         </button>
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -59,11 +59,11 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
         </Field>
         <fieldset>
           <legend className="text-sm font-medium text-ink-700">Roles</legend>
-          {errors.roles && <p className="mt-1 text-xs font-medium text-red-700">{errors.roles}</p>}
+          {errors.roles && <p className="mt-1 text-xs font-medium text-danger-text">{errors.roles}</p>}
           <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
             {roles.map((role) => (
               <li key={role.id}>
-                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-brand-50/50">
+                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-subtle">
                   <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={chosen.includes(role.id)}
                     onChange={() => setChosen(chosen.includes(role.id) ? chosen.filter((id) => id !== role.id) : [...chosen, role.id])} />
                   <span><span className="block text-sm font-medium text-ink-900">{role.name}</span>
@@ -74,7 +74,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
           </ul>
           {chosen.length === 0 && <p className="mt-1.5 text-xs text-ink-500">Without a role the user can sign in but sees nothing.</p>}
         </fieldset>
-        {!user && <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-ink-500">No password is set here. After adding the user, create a password link and send it to them: they choose their own password.</p>}
+        {!user && <p className="rounded-lg bg-surface-subtle px-3 py-2 text-xs text-ink-500">No password is set here. After adding the user, create a password link and send it to them: they choose their own password.</p>}
       </form>
     </Modal>
   )
@@ -96,20 +96,20 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
           <div className="space-y-3 text-sm text-ink-700">
             {link.data.email_configured !== false && (
               <div className="rounded-lg border border-line px-3 py-3">
-                {email.data?.emailed ? <p role="status" className="font-medium text-emerald-700">Sent to {user.email}. They choose their own password from the message.</p>
+                {email.data?.emailed ? <p role="status" className="font-medium text-success-text">Sent to {user.email}. They choose their own password from the message.</p>
                   : (<div className="flex flex-wrap items-center justify-between gap-3">
                       <p>Email the link to <strong>{user.email}</strong>: you never have to handle it.</p>
                       <button type="button" className={buttonPrimary} disabled={email.isPending} onClick={() => email.mutate()}>
-                        {email.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Email the link
+                        {email.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Email the link
                       </button>
                     </div>)}
-                {(email.isError || email.data?.emailed === false) && <p role="alert" className="mt-2 text-xs font-medium text-red-700">The email could not be sent. Copy the link below instead.</p>}
+                {(email.isError || email.data?.emailed === false) && <p role="alert" className="mt-2 text-xs font-medium text-danger-text">The email could not be sent. Copy the link below instead.</p>}
               </div>
             )}
             <p>{link.data.email_configured !== false ? 'Or send' : 'Send'} this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
             <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-time link</label>
             <div className="flex gap-2">
-              <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 rounded-lg border border-line bg-slate-50 px-3 py-2 font-mono text-xs" />
+              <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-sm border border-line bg-surface-subtle px-3 cep-num text-xs" />
               <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(url).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
             </div>
             <p className="text-xs text-ink-500">It works once, for {link.data.expires_in_hours} hours, and stops working as soon as they sign in. Anyone holding it can set the password, so do not post it in a shared channel.</p>
@@ -137,12 +137,12 @@ export function UsersPage() {
         <p className="text-xs text-ink-500">{user.email}</p></div>) },
     { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-500">No role</span> },
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
-    { key: 'signin', header: 'Sign-in', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-amber-700">No password yet</span> },
+    { key: 'signin', header: 'Sign-in', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
     { key: 'actions', header: '', align: 'right', render: (user) => (
       <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-700 hover:underline" onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
-        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className="text-brand-700 hover:underline" onClick={() => setLinkFor(user)}>Password link</button>}
-        {!user.is_self && <button type="button" className={user.is_active ? 'text-red-700 hover:underline' : 'text-brand-700 hover:underline'} disabled={toggle.isPending}
+        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
+        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className="text-brand-800 hover:underline" onClick={() => setLinkFor(user)}>Password link</button>}
+        {!user.is_self && <button type="button" className={user.is_active ? 'text-danger-text hover:underline' : 'text-brand-800 hover:underline'} disabled={toggle.isPending}
           onClick={() => (user.is_active ? window.confirm(`Deactivate ${user.display_name}? They will not be able to sign in.`) : true) && toggle.mutate(user)}>{user.is_active ? 'Deactivate' : 'Activate'}</button>}
       </span>) },
   ]

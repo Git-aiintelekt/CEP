@@ -1,13 +1,24 @@
-/** Public page behind the one-time link an administrator sends: the user chooses their own password. */
+/** Public page behind the one-time link: the user chooses their own password. */
+import { Check } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
-import { buttonPrimary, Field, TextInput } from '@/components/Form'
-import { Spinner } from '@/components/States'
+import {
+  AuthAlert,
+  authButtonPrimary,
+  AuthHeading,
+  AuthLayout,
+  AuthLink,
+  AuthPasswordField,
+  AuthStep,
+} from '@/components/AuthLayout'
 import { ApiError, request, session } from '@/lib/api'
+
+const MIN_LENGTH = 12
 
 export function SetPasswordPage() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
   const tenant = params.get('tenant') ?? ''
   const uid = params.get('uid') ?? ''
   const token = params.get('token') ?? ''
@@ -19,8 +30,8 @@ export function SetPasswordPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
-    if (password.length < 12) return setErrors({ password: 'Use at least 12 characters.' })
-    if (password !== again) return setErrors({ again: 'The two passwords are not the same.' })
+    if (password.length < MIN_LENGTH) return setErrors({ password: `Password must be at least ${MIN_LENGTH} characters` })
+    if (password !== again) return setErrors({ again: "Passwords don't match" })
     setErrors({})
     setBusy(true)
     try {
@@ -37,39 +48,56 @@ export function SetPasswordPage() {
   }
 
   const missing = !tenant || !uid || !token
+
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-base font-bold text-white">C</span>
-          <div>
-            <p className="text-base font-semibold text-ink-900">Customer Engagement Platform</p>
-            <p className="text-sm text-ink-500">Choose your password</p>
-          </div>
-        </div>
-        {done ? (
-          <div role="status" className="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-700 shadow-sm">
-            <p className="font-medium text-ink-900">Your password is set.</p>
-            <p className="mt-1">This link no longer works. Sign in with your email address and the password you just chose.</p>
-            <Link to="/login" className={`${buttonPrimary} mt-4`}>Go to sign in</Link>
-          </div>
-        ) : missing ? (
-          <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">This link is incomplete. Ask your administrator for a new one.</p>
-        ) : (
-          <form onSubmit={onSubmit} noValidate className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
-            <Field label="New password" required error={errors.password} hint="At least 12 characters. A sentence you can remember works well.">
-              {(ids) => <TextInput {...ids} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />}
-            </Field>
-            <Field label="Repeat the password" required error={errors.again}>
-              {(ids) => <TextInput {...ids} type="password" autoComplete="new-password" value={again} onChange={(event) => setAgain(event.target.value)} />}
-            </Field>
-            {errors.link && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errors.link}</p>}
-            <button type="submit" disabled={busy} className={`${buttonPrimary} w-full`}>
-              {busy && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Set password
+    <AuthLayout>
+      {done ? (
+        <AuthStep>
+          <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-success">
+            <Check size={20} strokeWidth={1.5} className="text-white" />
+          </span>
+          <AuthHeading title="Password updated">Log in with your new password to continue.</AuthHeading>
+          <button type="button" onClick={() => navigate('/login')} className={authButtonPrimary}>
+            Back to log in
+          </button>
+        </AuthStep>
+      ) : missing ? (
+        <AuthStep>
+          <AuthHeading title="This link is incomplete">
+            Ask your administrator for a new one, then open it from the message they send.
+          </AuthHeading>
+          <AuthLink onClick={() => navigate('/login')}>← Back to log in</AuthLink>
+        </AuthStep>
+      ) : (
+        <AuthStep>
+          <AuthHeading title="Set a new password">Choose a password you haven't used on CEP before.</AuthHeading>
+          {errors.link && <AuthAlert>{errors.link}</AuthAlert>}
+
+          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
+            <AuthPasswordField
+              label="New password"
+              autoComplete="new-password"
+              placeholder={`At least ${MIN_LENGTH} characters`}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              error={errors.password}
+            />
+            <AuthPasswordField
+              label="Confirm password"
+              autoComplete="new-password"
+              placeholder="Re-enter your password"
+              value={again}
+              onChange={(event) => setAgain(event.target.value)}
+              error={errors.again}
+            />
+            <button type="submit" disabled={busy} className={authButtonPrimary}>
+              Update password
             </button>
           </form>
-        )}
-      </div>
-    </div>
+
+          <AuthLink onClick={() => navigate('/login')}>← Back to log in</AuthLink>
+        </AuthStep>
+      )}
+    </AuthLayout>
   )
 }

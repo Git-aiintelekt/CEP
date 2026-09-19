@@ -25,7 +25,7 @@ function QrCode({ text }: { text: string }) {
     }
   }, [text])
   return (
-    <div role="img" aria-label="QR code for your authenticator app" className="h-44 w-44 shrink-0 rounded-lg border border-line bg-white p-1 [&>svg]:h-full [&>svg]:w-full"
+    <div role="img" aria-label="QR code for your authenticator app" className="h-44 w-44 shrink-0 rounded-lg border border-line bg-surface p-1 [&>svg]:h-full [&>svg]:w-full"
       dangerouslySetInnerHTML={svg ? { __html: svg } : undefined} />
   )
 }
@@ -33,10 +33,10 @@ function QrCode({ text }: { text: string }) {
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-      <h2 className="text-sm font-semibold text-emerald-900">Multi-factor authentication is on</h2>
-      <p className="mt-1 text-sm text-emerald-900">Keep these recovery codes somewhere safe, away from your phone. Each one signs you in once if you lose your authenticator. They are shown only now.</p>
-      <ul aria-label="Recovery codes" className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg bg-white px-4 py-3 font-mono text-sm text-ink-900 sm:grid-cols-5">
+    <div className="rounded-lg border border-success bg-surface-subtle p-5">
+      <h2 className="text-sm font-semibold text-success-text">Multi-factor authentication is on</h2>
+      <p className="mt-1 text-sm text-success-text">Keep these recovery codes somewhere safe, away from your phone. Each one signs you in once if you lose your authenticator. They are shown only now.</p>
+      <ul aria-label="Recovery codes" className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg bg-surface px-4 py-3 cep-num text-sm text-ink-900 sm:grid-cols-5">
         {codes.map((code) => <li key={code}>{code}</li>)}
       </ul>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -84,7 +84,7 @@ export function AccountSecurityPage() {
     <section className="max-w-3xl">
       <PageHeader title="Account security" description="A second step when you sign in: a code from an authenticator app on your phone." />
       {forced && !codes && (
-        <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p role="status" className="mb-5 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">
           Your workspace requires multi-factor authentication. Set it up to continue: nothing else is available until you do.
         </p>
       )}
@@ -93,9 +93,9 @@ export function AccountSecurityPage() {
         : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
         : status.isError ? <ErrorState error={status.error} onRetry={() => void status.refetch()} />
         : status.data.sso ? (
-          <div className="rounded-xl border border-line bg-surface p-5 text-sm text-ink-700">You sign in through your company's single sign-on. The second step, if any, is managed there.</div>
+          <div className="rounded-lg border border-line bg-surface p-5 text-sm text-ink-700">You sign in through your company's single sign-on. The second step, if any, is managed there.</div>
         ) : status.data.enabled ? (
-          <div className="rounded-xl border border-line bg-surface p-5">
+          <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-ink-900">Multi-factor authentication is on</h2>
@@ -104,7 +104,7 @@ export function AccountSecurityPage() {
               {!status.data.required && !turningOff && <button type="button" className={buttonDanger} onClick={() => { setTurningOff(true); setCode(''); disable.reset() }}>Turn off</button>}
             </div>
             {status.data.required && <p className="mt-3 text-xs text-ink-500">Your workspace requires it, so it cannot be turned off.</p>}
-            {status.data.recovery_codes_left <= 2 && <p className="mt-3 text-xs text-amber-700">Few recovery codes are left. To get a new set, turn multi-factor authentication off and set it up again.</p>}
+            {status.data.recovery_codes_left <= 2 && <p className="mt-3 text-xs text-warning-text">Few recovery codes are left. To get a new set, turn multi-factor authentication off and set it up again.</p>}
             {turningOff && (
               <form className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4" onSubmit={(event: FormEvent) => { event.preventDefault(); disable.mutate() }}>
                 <div className="w-48"><Field label="Current code" required error={codeError(disable.error)}>
@@ -116,7 +116,7 @@ export function AccountSecurityPage() {
             )}
           </div>
         ) : setup ? (
-          <form className="rounded-xl border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); confirm.mutate() }}>
+          <form className="rounded-lg border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); confirm.mutate() }}>
             <ol className="space-y-5 text-sm text-ink-700">
               <li>
                 <p className="font-semibold text-ink-900">1. Scan this code with your authenticator app</p>
@@ -125,7 +125,7 @@ export function AccountSecurityPage() {
                   <QrCode text={setup.otpauth_uri} />
                   <div className="min-w-0">
                     <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Cannot scan? Type this key</p>
-                    <p className="mt-1 font-mono text-sm break-all text-ink-900">{setup.secret.replace(/(.{4})/g, '$1 ').trim()}</p>
+                    <p className="mt-1 cep-num text-sm break-all text-ink-900">{setup.secret.replace(/(.{4})/g, '$1 ').trim()}</p>
                   </div>
                 </div>
               </li>
@@ -143,7 +143,7 @@ export function AccountSecurityPage() {
             </div>
           </form>
         ) : (
-          <div className="rounded-xl border border-line bg-surface p-5">
+          <div className="rounded-lg border border-line bg-surface p-5">
             <h2 className="text-sm font-semibold text-ink-900">Multi-factor authentication is off</h2>
             <p className="mt-1 text-sm text-ink-500">With it on, a stolen password is not enough to get into your account.</p>
             {begin.isError && <div className="mt-3"><ErrorState title="Could not start the set-up" error={begin.error} /></div>}

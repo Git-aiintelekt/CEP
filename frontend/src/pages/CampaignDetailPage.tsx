@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
@@ -78,8 +79,8 @@ export function CampaignDetailPage() {
 
   return (
     <section>
-      <Link to="/campaigns" className="mb-3 inline-block text-sm font-medium text-brand-700 hover:underline">
-        ← Campaigns
+      <Link to="/campaigns" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+        <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Campaigns
       </Link>
       <PageHeader
         title={data.name}
@@ -105,7 +106,7 @@ export function CampaignDetailPage() {
             )}
             {canPublish && (
               <button type="button" onClick={() => publish.mutate()} disabled={publish.isPending} className={buttonPrimary}>
-                {publish.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}
+                {publish.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
                 Publish to production
               </button>
             )}
@@ -124,7 +125,7 @@ export function CampaignDetailPage() {
         </div>
       )}
 
-      <dl className="mb-6 grid grid-cols-2 gap-5 rounded-xl border border-line bg-surface p-5 md:grid-cols-4">
+      <dl className="mb-6 grid grid-cols-2 gap-5 rounded-lg border border-line bg-surface p-5 lg:grid-cols-4">
         <Field label="Code">{data.code ?? '—'}</Field>
         <Field label="Status">
           <StatusBadge status={data.status} label={data.status_label} />
@@ -149,7 +150,7 @@ export function CampaignDetailPage() {
               <EmptyState title="No contact list attached" hint="Attach at least one list before publishing." />
             </div>
           ) : (
-            <ul className="mb-6 divide-y divide-line rounded-xl border border-line bg-surface">
+            <ul className="mb-6 divide-y divide-line rounded-lg border border-line bg-surface">
               {data.contact_list_details.map((list) => (
                 <li key={list.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span className="flex min-w-0 items-center gap-2">

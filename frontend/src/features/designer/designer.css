@@ -14,13 +14,13 @@
   --gjs-tertiary-color: var(--color-brand-600); /* selected component badge and toolbar */
   --gjs-quaternary-color: var(--color-brand-600); /* active buttons and highlights */
   --gjs-font-color: var(--color-ink-700);
-  --gjs-font-color-active: var(--color-brand-700);
-  --gjs-main-dark-color: rgb(15 23 42 / 0.08);
-  --gjs-secondary-dark-color: rgb(15 23 42 / 0.06);
-  --gjs-main-light-color: rgb(15 23 42 / 0.06);
-  --gjs-secondary-light-color: rgb(15 23 42 / 0.45);
-  --gjs-soft-light-color: rgb(15 23 42 / 0.03);
-  --gjs-color-blue: var(--color-brand-500);
+  --gjs-font-color-active: var(--color-brand-800);
+  --gjs-main-dark-color: rgb(23 24 28 / 0.08);
+  --gjs-secondary-dark-color: rgb(23 24 28 / 0.06);
+  --gjs-main-light-color: rgb(23 24 28 / 0.06);
+  --gjs-secondary-light-color: rgb(23 24 28 / 0.45);
+  --gjs-soft-light-color: rgb(23 24 28 / 0.03);
+  --gjs-color-blue: var(--color-brand-600);
   --gjs-canvas-top: 40px;
   @apply font-sans;
 }
@@ -43,7 +43,7 @@
   @apply border-l border-line shadow-none;
 }
 .cep-designer .gjs-cv-canvas {
-  @apply bg-canvas;
+  @apply bg-surface-subtle;
 }
 
 /* toolbar buttons */
@@ -51,10 +51,10 @@
   @apply rounded-md;
 }
 .cep-designer .gjs-pn-btn:hover {
-  @apply bg-slate-100;
+  @apply bg-line-subtle;
 }
 .cep-designer .gjs-pn-btn.gjs-pn-active {
-  @apply bg-brand-50 text-brand-700 shadow-none;
+  @apply bg-brand-100 text-brand-800 shadow-none;
 }
 
 /* block palette */
@@ -62,12 +62,12 @@
   @apply rounded-lg border border-line bg-surface text-ink-700 shadow-none transition-colors;
 }
 .cep-designer .gjs-block:hover {
-  @apply border-brand-500 text-brand-700;
+  @apply border-brand-600 text-brand-800;
 }
 .cep-designer .gjs-block-category .gjs-title,
 .cep-designer .gjs-sm-sector-title,
 .cep-designer .gjs-layer-title {
-  @apply border-b border-line bg-slate-50 font-semibold text-ink-900;
+  @apply border-b border-line bg-surface-subtle font-semibold text-ink-900;
 }
 
 /* fields in the style and trait managers */
@@ -104,22 +104,22 @@
   @apply bg-ink-900 text-white;
 }
 .gjs-rte-toolbar {
-  @apply rounded-lg border-0 shadow-lg;
+  @apply rounded-lg border-0 shadow-menu;
 }
 .gjs-rte-action {
-  @apply border-white/10 text-white;
+  @apply border-ink-700 text-white;
 }
 .gjs-rte-action:hover,
 .gjs-rte-active {
-  @apply bg-white/15;
+  @apply bg-ink-700;
 }
 
 /* personalization tag menu inside the rich-text toolbar */
 .cep-tag-menu {
-  @apply h-[26px] max-w-[150px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-xs text-slate-100;
+  @apply h-[26px] max-w-[150px] cursor-pointer rounded border-0 bg-transparent px-1.5 text-xs text-white;
 }
 .gjs-rte-toolbar .cep-tag-menu:focus-visible {
-  @apply outline-2 outline-brand-500;
+  @apply outline-2 outline-brand-600;
 }
 .gjs-rte-toolbar .cep-tag-menu option,
 .gjs-rte-toolbar .cep-tag-menu optgroup {
@@ -128,16 +128,16 @@
 
 /* GrapesJS modals (import / export MJML, asset manager) */
 .gjs-mdl-dialog {
-  @apply rounded-xl bg-surface font-sans text-ink-700 shadow-xl;
+  @apply rounded-lg bg-surface font-sans text-ink-700;
 }
 .gjs-mdl-header {
   @apply border-b border-line font-semibold text-ink-900;
 }
 .gjs-btn-prim {
-  @apply cursor-pointer rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700;
+  @apply h-10 cursor-pointer rounded-sm bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-800;
 }
 .gjs-am-file-uploader > form {
-  @apply rounded-lg border-2 border-dashed border-ink-300 bg-canvas;
+  @apply rounded-lg border-2 border-dashed border-ink-300 bg-surface-subtle;
 }
 .gjs-am-assets-cont {
   @apply bg-surface;
