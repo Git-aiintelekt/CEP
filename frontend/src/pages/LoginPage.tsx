@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -13,11 +13,10 @@ import {
   AuthPasswordField,
   AuthStep,
 } from '@/components/AuthLayout'
-import { loadingOverlay } from '@/lib/loadingOverlay'
 import { api, ApiError, request } from '@/lib/api'
 import { tenantFromHost } from '@/lib/config'
+import { LOADING_HOLD_MS, loadingOverlay } from '@/lib/loadingOverlay'
 import type { AuthOptions } from '@/lib/types'
-import { LOADING_HOLD_MS, useDelayedFlag } from '@/lib/useDelayedFlag'
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
@@ -43,11 +42,6 @@ const LOADER_FADE_MS = 600 // TEMPORARY: slowed from 150 so the fade is easy to 
 
 type Step = 'signin' | 'mfa' | 'reset' | 'sent'
 
-const LOADING_LABEL: Partial<Record<Step, string>> = {
-  signin: 'Logging you in…',
-  mfa: 'Checking your code…',
-}
-
 export function LoginPage() {
   const { status, tenant: rememberedTenant, login, verifyMfa } = useAuth()
   const navigate = useNavigate()
@@ -67,7 +61,6 @@ export function LoginPage() {
   const [options, setOptions] = useState<AuthOptions | null>(null)
   const [usePassword, setUsePassword] = useState(false)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
-  const startedAt = useRef(0)
 
   // what this workspace offers (single sign-on); asked once the code stops changing
   useEffect(() => {
@@ -81,35 +74,19 @@ export function LoginPage() {
     }
   }, [tenant])
 
-  // the reset journey deliberately has no animation, so the hold only applies to logging in
-  const loggingIn = step === 'signin' || step === 'mfa'
-  const showLoading = useDelayedFlag(submitting && loggingIn)
-  const loadingLabel = LOADING_LABEL[step] ?? ''
-
-  useEffect(() => {
-    if (showLoading) loadingOverlay.show(loadingLabel)
-    else loadingOverlay.hide()
-  }, [showLoading, loadingLabel])
-
   if (status === 'authenticated' && !submitting) return <Navigate to={from} replace />
 
   const sso = options?.sso_enabled && options.workspace.toUpperCase() === tenant.trim().toUpperCase() ? options : null
   const passwordHidden = Boolean(sso?.sso_enforced) && !usePassword
 
   /**
-   * Navigating away unmounts this page and takes the animation with it, so a successful sign-in waits out whatever is
-   * left of the hold first. Nothing is added to a slow request: the wait is only ever the unused remainder.
-   */
-  function holdForAnimation() {
-    return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, LOADING_HOLD_MS - (Date.now() - startedAt.current))))
-  }
-
-  /**
-   * Navigate first, then fade: the dashboard is mounted underneath by then, so the loader dissolves onto it instead
-   * of revealing this form again. The shell's own settle runs during the same window, which is the cross-fade.
+   * Runs only once the server has accepted the credentials, so a wrong password or code never shows the animation:
+   * it goes straight to the message. Then navigate first and fade: the dashboard is mounted underneath by then, so the
+   * loader dissolves onto it instead of revealing this form again, while the shell's own settle runs alongside.
    */
   async function leaveForApp() {
-    await holdForAnimation()
+    loadingOverlay.show('Logging you in…')
+    await new Promise((resolve) => window.setTimeout(resolve, LOADING_HOLD_MS))
     navigate(from, { replace: true })
     loadingOverlay.fadeOut()
     window.setTimeout(() => loadingOverlay.hide(), LOADER_FADE_MS)
@@ -117,7 +94,6 @@ export function LoginPage() {
 
   async function run(action: () => Promise<void>) {
     setError(null)
-    startedAt.current = Date.now()
     setSubmitting(true)
     try {
       await action()

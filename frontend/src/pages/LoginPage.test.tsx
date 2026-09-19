@@ -41,6 +41,31 @@ test('the password is hidden until the reveal toggle is pressed', async () => {
   expect(password.getAttribute('type')).toBe('password')
 })
 
+test('a wrong password shows only the message: the log-in animation never starts', async () => {
+  installMockApi()
+  const user = await renderApp()
+  const { loadingOverlay } = await import('@/lib/loadingOverlay')
+  const show = vi.spyOn(loadingOverlay, 'show')
+
+  await fillCredentials(user, 'wrong-password')
+
+  expect((await screen.findByRole('alert')).textContent).toContain('Incorrect email or password')
+  expect(show).not.toHaveBeenCalled()
+  expect(screen.queryByText('Logging you in…')).toBeNull()
+})
+
+test('the right password starts the animation before the dashboard', async () => {
+  installMockApi()
+  const user = await renderApp()
+  const { loadingOverlay } = await import('@/lib/loadingOverlay')
+  const show = vi.spyOn(loadingOverlay, 'show')
+
+  await fillCredentials(user, 'correct-horse')
+
+  expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
+  expect(show).toHaveBeenCalledWith('Logging you in…')
+})
+
 test('a workspace that requires a code asks for one instead of signing in', async () => {
   const calls = installMockApi()
   const user = await renderApp()

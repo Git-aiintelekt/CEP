@@ -98,7 +98,7 @@ These screens were built from the "CEP Sign In" design in Claude Design.
 ### The loading animation
 
 - **What it looks like.** After the user presses Log In, a full-screen navy animation plays: eight dots sweep in towards a softly pulsing centre.
-- **When it plays.** It plays for 5 seconds when logging in, then hands over to the dashboard.
+- **When it plays.** It starts only once the email and password (or the two-step code) have been accepted, plays for 5 seconds, then hands over to the dashboard. A wrong password or code never shows it: the person just sees the error message.
 - **How it hands over.** The animation fades out while the dashboard fades in and rises slightly into place, so the change feels continuous rather than a sudden cut.
 - **Where it doesn't appear.** It is deliberately left out of the forgot-password flow.
 - **Reduced motion.** People whose device is set to "reduce motion" see a simple fade with no movement.
