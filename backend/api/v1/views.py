@@ -136,6 +136,14 @@ class CampaignViewSet(BaseTenantViewSet):
             missing["sender_profile"] = "This sender is not verified yet."
         if campaign.campaign_type != Campaign.CampaignType.E_RECEIPT and not campaign.contact_list_campaigns.exists():
             missing["contact_lists"] = "Attach at least one contact list before publishing."
+        elif campaign.campaign_type != Campaign.CampaignType.E_RECEIPT:
+            attached = [link.contact_list for link in campaign.contact_list_campaigns.select_related("contact_list")]
+            gone = [item.name for item in attached if item.deleted_at is not None or item.status != "ACTIVE"]
+            test = [item.name for item in attached if item.list_environment == "TEST"]
+            if gone:
+                missing["contact_lists"] = f"No longer usable, detach it first: {', '.join(gone)}"
+            elif test:                                       # a Test list is for test sends: it never reaches a production send by accident
+                missing["contact_lists"] = f"Marked as Test, so it cannot go out in production: {', '.join(test)}. Detach it, or change the list to Production."
         if campaign.template_id is not None and "template" not in missing:
             content = (RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first())
             body = ((content.html_content or "") + (content.sms_body or "")) if content else ""
@@ -187,14 +195,6 @@ class CampaignRunViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return super().get_queryset().filter(tenant_id=context.require().tenant_id)
-
-
-class ContactListViewSet(BaseTenantViewSet):
-    queryset = ContactList.objects.all()
-    serializer_class = s.ContactListSerializer
-    permission_code = "list.edit"
-    filterset_fields = ["list_kind", "status", "is_master", "list_environment"]
-    search_fields = ["name"]
 
 
 class TemplateViewSet(BaseTenantViewSet):

@@ -24,15 +24,19 @@ BUILD = f"""
 WITH picked AS (
     SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes
       FROM contact_list_member m
-      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s
+      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
      WHERE m.tenant_id = %(tenant)s
      ORDER BY m.party_id, m.added_at DESC
+), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
+    SELECT DISTINCT m.party_id FROM contact_list_member m
+      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
+     WHERE m.tenant_id = %(tenant)s
 ), resolved AS (
     SELECT p.*, cm.party_id AS known, COALESCE(jsonb_array_length(cm.phones), 0) AS numbers, {PRIMARY_PHONE} AS phone
       FROM picked p LEFT JOIN customer_master cm ON cm.party_id = p.party_id AND cm.tenant_id = %(tenant)s
 ), capped AS (
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
-                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(marketing)s
+                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(caps)s
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, %(channel)s) = %(channel)s))
                            AND (CASE WHEN g.scope = 'GLOBAL' THEN
                                      (SELECT count(*) FROM mailer_execution x WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id
@@ -43,7 +47,8 @@ WITH picked AS (
       FROM resolved r
 ), judged AS (
     SELECT r.*,
-           CASE WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
+           CASE WHEN EXISTS (SELECT 1 FROM excluded e WHERE e.party_id = r.party_id) THEN 'EXCLUDED_LIST'
+                WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
                 WHEN r.numbers = 0 THEN 'NO_PHONE'
                 WHEN r.phone IS NULL THEN 'INVALID_NUMBER'
                 WHEN cps.blocked THEN 'BLOCKED_NUMBER'
@@ -94,6 +99,7 @@ SELECT m.tenant_id, %(campaign)s, %(run)s, m.id, m.party_id, {PRIMARY_PHONE}, %(
 def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender, channel: str, media_url: str | None) -> dict:
     """Fills the campaign list and queues one sms_execution per eligible member. `channel` is SMS or MMS."""
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": campaign.solicitation_type == "MARKETING",
+            "caps": campaign.solicitation_type == "MARKETING" and bool(getattr(campaign, "respect_governance", True)),
             "channel": channel, "content": str(content.pk), "version": content.version_number, "media": media_url if channel == "MMS" else None,
             "sender": (sender.sender_id or "")[:30] or None, "provider_code": provider.provider_type, "provider": str(provider.pk)}
     with session.connection().cursor() as cursor:

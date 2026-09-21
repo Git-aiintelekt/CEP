@@ -185,6 +185,14 @@ export const api = {
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body }),
   put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body }),
   delete: (path: string) => request<void>(path, { method: 'DELETE' }),
+  /** a file the API produces (CSV export): the bytes, fetched with the session like any other call */
+  async download(path: string, query?: Query): Promise<Blob> {
+    const send = () => fetch(buildUrl(path, query), { headers: { 'X-Tenant': memory.tenant, ...(memory.access ? { Authorization: `Bearer ${memory.access}` } : {}) } })
+    let response = await send()
+    if (response.status === 401 && (await refreshAccessToken())) response = await send()
+    if (!response.ok) throw new ApiError(response.status, await parseProblem(response))
+    return response.blob()
+  },
   /** multipart upload of one file in the `file` field */
   upload: <T>(path: string, file: File) => {
     const form = new FormData()

@@ -10,10 +10,14 @@ import { LoadingOverlayHost } from '@/components/LoadingOverlayHost'
 import { FullPageSpinner } from '@/components/States'
 import { ApiError } from '@/lib/api'
 import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
-import { CampaignDetailPage } from '@/pages/CampaignDetailPage'
-import { CampaignFormPage } from '@/pages/CampaignFormPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { CampaignsPage, ContactListsPage, JourneysPage, TemplatesPage } from '@/pages/ListPages'
+import { CampaignListPage } from '@/features/campaigns/CampaignListPage'
+import { CampaignDetailPage } from '@/features/campaigns/detail/CampaignDetailPage'
+import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPage'
+import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
+import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
+import { UploadsPage } from '@/features/contact-lists/UploadsPage'
+import { JourneysPage, TemplatesPage } from '@/pages/ListPages'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
@@ -79,11 +83,13 @@ export default function App() {
               <Route path="templates/:id/design" element={<Suspense fallback={<FullPageSpinner label="Loading the designer" />}><TemplateDesignerPage /></Suspense>} />
               <Route element={<AppShell />}>
                 <Route index element={<DashboardPage />} />
-                <Route path="campaigns" element={<CampaignsPage />} />
-                <Route path="campaigns/new" element={<CampaignFormPage />} />
+                <Route path="campaigns" element={<CampaignListPage />} />
+                <Route path="campaigns/new" element={<CampaignWizardPage key="new" />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
-                <Route path="campaigns/:id/edit" element={<CampaignFormPage />} />
+                <Route path="campaigns/:id/edit" element={<CampaignWizardPage key="edit" />} />
                 <Route path="contact-lists" element={<ContactListsPage />} />
+                <Route path="contact-lists/uploads" element={<UploadsPage />} />
+                <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />

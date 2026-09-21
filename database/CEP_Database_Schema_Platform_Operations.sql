@@ -464,6 +464,186 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'Marketing texts are not started between these times (workspace time zone); a run that is due waits for the window to open. {} switches it off')
 ON CONFLICT (key) DO NOTHING;
 
+-- 11. CONTACT LIST MODULE
+--     Three ways to make a list: upload a file (staged, mapped, reviewed, then applied), take an audience the data team
+--     defined (a C360 segment), or clone a list (a snapshot with its parent recorded). A list made by the upload wizard is
+--     a DRAFT until its first import is applied, so a half-finished upload never shows up in a campaign's list picker.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_source_type;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_source_type
+    CHECK (source_type IN ('BI', 'EXTRACTION', 'UPLOAD', 'SEGMENT', 'CLONE'));
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_status;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_tenant_updated ON contact_list(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
+
+ALTER TABLE contact_list_member DROP CONSTRAINT IF EXISTS ck_contact_list_member_membership_source;
+ALTER TABLE contact_list_member ADD CONSTRAINT ck_contact_list_member_membership_source
+    CHECK (membership_source IN ('UPLOAD', 'RULE', 'SEGMENT', 'MANUAL', 'CLONE'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_member_added ON contact_list_member(tenant_id, contact_list_id, added_at DESC);
+
+-- The file as the operator sees it (headers, a few sample values, the property guessed for each column), what they mapped,
+-- and the outcome of the review: matched_count = people already known, unmatched_count = new people,
+-- duplicate_count = repeated in the file, rejected_count = cannot be imported, warning_count = imported with a remark.
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_columns JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS column_mapping JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS rejected_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS warning_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS error VARCHAR(500);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_mapping_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_mapping_object CHECK (jsonb_typeof(column_mapping) = 'object');
+
+-- error_message says why a row is held back; warning is a remark on a row that IS imported (a phone number that was dropped, ...)
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS warning VARCHAR(300);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_import ON contact_list_import_row(tenant_id, import_id, match_status);
+
+-- 12. LIST UPLOADS AS BACKGROUND JOBS
+--     A large file must not be read, checked and imported inside a web request. The request only stores the file and
+--     samples its header; contact_list_import is the queue (the database is the queue, as for campaign runs: nothing is
+--     lost when no broker is reachable). A worker claims one import at a time with FOR UPDATE SKIP LOCKED, never two of
+--     the same workspace at once, and at most lists.import_max_parallel in the whole platform; it works in chunks, each
+--     in its own short transaction, and reports progress. A worker that stops is noticed by its heartbeat.
+--       UPLOADED  file stored, waiting to be read        STAGING   being read into contact_list_import_row
+--       STAGED    read; waiting for the column mapping    MATCHING  being checked against the mapping
+--       REVIEW    checked; waiting for the operator       APPLYING  being added to the list
+--       APPLIED / FAILED / CANCELLED
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_status;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_status
+    CHECK (status IN ('UPLOADED', 'STAGING', 'STAGED', 'MATCHING', 'REVIEW', 'APPLYING', 'APPLIED', 'FAILED', 'CANCELLED'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS next_action VARCHAR(10);          -- what a worker should do next: STAGE, REVIEW, APPLY; NULL = nothing queued
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS mapping_confirmed BOOLEAN NOT NULL DEFAULT FALSE;  -- the operator confirmed the mapping (possibly while the file was still being read)
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS apply_when_ready BOOLEAN NOT NULL DEFAULT FALSE;   -- reserved: import without stopping at the review
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_done BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_total BIGINT NOT NULL DEFAULT 0;         -- bytes while reading, rows afterwards
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS worker VARCHAR(120);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS new_customer_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_encoding VARCHAR(20);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_delimiter VARCHAR(4);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_next_action;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'REVIEW', 'APPLY'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_queue ON contact_list_import(queued_at) WHERE next_action IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_tenant_recent ON contact_list_import(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_line ON contact_list_import_row(tenant_id, import_id, row_number);
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('lists.import_max_parallel', '2', 'INTEGER', 'Contact lists',
+     'How many list uploads the platform processes at the same time, all workspaces together. One workspace never has two running at once'),
+    ('lists.import_max_waiting_per_workspace', '5', 'INTEGER', 'Contact lists',
+     'A workspace with this many uploads in progress has to wait for one to finish before starting another'),
+    ('lists.import_chunk_rows', '5000', 'INTEGER', 'Contact lists',
+     'Rows per transaction while a file is read, checked and imported. Smaller = gentler on the database, slower overall')
+ON CONFLICT (key) DO NOTHING;
+
+-- 13. GOVERNANCE CHECK ON LIST UPLOADS
+--     Every row that can be imported is judged the way a marketing email send would judge it today, in the same order
+--     (backend/apps/delivery/engine/audience.py): blocked address (hard bounce, repeated soft bounces, complaint, other),
+--     invalid address, suppressed, unsubscribed, no consent, otherwise marketable. The verdict is kept per row, and the
+--     import carries a summary whose numbers add up: rows = held back + ready; ready = the governance buckets;
+--     ready = added to the list + already in it. Staged rows are kept after the import: they are the row-by-row report.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS governance_status VARCHAR(30);
+ALTER TABLE contact_list_import_row DROP CONSTRAINT IF EXISTS ck_contact_list_import_row_governance;
+ALTER TABLE contact_list_import_row ADD CONSTRAINT ck_contact_list_import_row_governance
+    CHECK (governance_status IN ('MARKETABLE', 'UNSUBSCRIBED', 'HARD_BOUNCE', 'SOFT_BOUNCE', 'COMPLAINT', 'BLOCKED', 'INVALID_ADDRESS', 'SUPPRESSED', 'NO_CONSENT'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS summary JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_summary_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_summary_object CHECK (jsonb_typeof(summary) = 'object');
+
+-- 14. CAMPAIGN MODULE (BRD v0.9 sections 6.3, 7, 15)
+--     The campaign, run, run-variant, campaign-list, target and actual tables already carry the execution model (a Run
+--     beneath a Campaign, subject-line variants per Run for Phase II, a frozen de-duplicated Campaign List). This section
+--     adds what planning and operating a campaign needs on top of it.
+--       Status   the locked vocabulary stays (DRAFT, TEST_PUBLISHED, PRODUCTION_PUBLISHED, ACTIVE, COMPLETED, CANCELLED);
+--                PAUSED and ARCHIVED are added. "Scheduled" is not a stored status: it is a production-published
+--                campaign whose next run lies in the future. Archive replaces delete; previous_status is where
+--                resume goes back to.
+--       Send     IMMEDIATE | SCHEDULED | RECURRING (recurring_config) | DRIP (drip_config). A recurring or drip campaign
+--                is one Campaign with several Runs, never several campaigns.
+--       Lists    a list is attached to INCLUDE its people or to EXCLUDE them (a suppression list for this campaign).
+--       Log      campaign_activity_log: what happened to a campaign, in words, for the people who run it. The
+--                definition audit trail (triggers) stays the record of who changed which column.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_status;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_status
+    CHECK (status IN ('DRAFT', 'TEST_PUBLISHED', 'PRODUCTION_PUBLISHED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED', 'ARCHIVED'));
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS previous_status VARCHAR(30);
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS send_type VARCHAR(20) NOT NULL DEFAULT 'IMMEDIATE';
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS send_timezone VARCHAR(64);                       -- the zone the schedule was entered in; NULL = the workspace's
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS recurring_config JSONB;                          -- {frequency: DAILY|WEEKLY|MONTHLY, interval, weekdays[], day_of_month, time, end_date, max_runs}
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS drip_config JSONB;                               -- {steps: [{day: 0, template?: uuid}, {day: 3}, ...], time}
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS respect_governance BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS rate_limit_per_hour INTEGER;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS timezone_optimization BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS receipt_config JSONB;                            -- e-receipt: layout and field visibility, where the template does not define it
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_send_type;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_send_type CHECK (send_type IN ('IMMEDIATE', 'SCHEDULED', 'RECURRING', 'DRIP'));
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_tags_array;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_tags_array CHECK (jsonb_typeof(tags) = 'array');
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_rate_limit;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_rate_limit CHECK (rate_limit_per_hour IS NULL OR rate_limit_per_hour > 0);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_campaign_name_live ON campaign(tenant_id, lower(name)) WHERE deleted_at IS NULL AND status <> 'ARCHIVED' AND NOT is_journey_generated;
+CREATE INDEX IF NOT EXISTS ix_campaign_tenant_status_created ON campaign(tenant_id, status, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_campaign_tags ON campaign USING GIN (tags);
+
+ALTER TABLE campaign_run DROP CONSTRAINT IF EXISTS ck_campaign_run_status;
+ALTER TABLE campaign_run ADD CONSTRAINT ck_campaign_run_status
+    CHECK (status IN ('SCHEDULED', 'PREPARING', 'SENDING', 'PAUSED', 'COMPLETED', 'FAILED', 'CANCELLED'));
+ALTER TABLE campaign_run ADD COLUMN IF NOT EXISTS sequence_label VARCHAR(60);                  -- "Day 3", "Week 2": the step of a drip, the occurrence of a recurrence
+
+ALTER TABLE contact_list_campaign ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'INCLUDE';
+ALTER TABLE contact_list_campaign DROP CONSTRAINT IF EXISTS ck_contact_list_campaign_role;
+ALTER TABLE contact_list_campaign ADD CONSTRAINT ck_contact_list_campaign_role CHECK (role IN ('INCLUDE', 'EXCLUDE'));
+
+ALTER TABLE campaign_target ADD COLUMN IF NOT EXISTS planned_offer_cost NUMERIC(14,2);         -- offer / coupon / incentive cost (BRD 15)
+ALTER TABLE campaign_target ADD COLUMN IF NOT EXISTS notes TEXT;
+
+CREATE TABLE IF NOT EXISTS campaign_activity_log (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    campaign_id         UUID NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
+    campaign_run_id     UUID,
+    event_type          VARCHAR(30) NOT NULL,             -- CREATED, MODIFIED, LIST_ATTACHED, LIST_DETACHED, TEST_PUBLISHED, PUBLISHED, SCHEDULE_CANCELLED,
+                                                          -- SEND_STARTED, SEND_COMPLETED, SEND_FAILED, PAUSED, RESUMED, CLONED, ARCHIVED, UNARCHIVED, WARNING
+    severity            VARCHAR(10) NOT NULL DEFAULT 'INFO',
+    message             VARCHAR(500) NOT NULL,
+    detail              JSONB NOT NULL DEFAULT '{}',
+    actor_user_id       UUID,
+    actor_name          VARCHAR(200),                     -- kept as text: the log still reads right after a user is removed
+    occurred_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_campaign_activity_severity CHECK (severity IN ('INFO', 'WARNING', 'ERROR'))
+);
+CREATE INDEX IF NOT EXISTS ix_campaign_activity_campaign ON campaign_activity_log(tenant_id, campaign_id, occurred_at DESC);
+COMMENT ON TABLE campaign_activity_log IS 'What happened to a campaign, in words: created, published, send started, paused ... (the definition audit trail stays the column-level record)';
+ALTER TABLE campaign_activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_activity_log FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_campaign_activity_log_tenant ON campaign_activity_log;
+CREATE POLICY rls_campaign_activity_log_tenant ON campaign_activity_log
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT ON campaign_activity_log TO cep_app;
+GRANT ALL ON campaign_activity_log TO cep_admin;
+
+-- 15. CAMPAIGN SETUP PROGRESS
+--     How many of the setup's steps were completed (Basic Info, Audience, Template, Scheduling & Delivery, Targets &
+--     Economics, Test & Preview = 6; the seventh step is the publish itself). An unfinished draft opens in the setup at
+--     the step it stopped at, not on the campaign page. It cannot be told from the data: schedule, targets and test are
+--     all optional. The default is 6: campaigns that existed before, and the ones an integration creates, are complete.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS setup_step SMALLINT NOT NULL DEFAULT 6;
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_setup_step;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_setup_step CHECK (setup_step BETWEEN 0 AND 6);
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

@@ -268,6 +268,8 @@ export interface CampaignRun extends Audited {
   scheduled_at: string | null
   started_at: string | null
   completed_at: string | null
+  /** "Occurrence 3", "Day 7", "Test": which send of a recurring or drip campaign this run is */
+  sequence_label?: string | null
 }
 
 export interface Campaign extends Audited {
@@ -289,11 +291,164 @@ export interface Campaign extends Audited {
   sender_profile_name: string | null
   /** IDs of the attached source contact lists (writable: sending the array replaces the set) */
   contact_lists: string[]
+  /** IDs of the lists whose people are kept OUT of the campaign */
+  excluded_lists: string[]
   contact_list_details: AttachedContactList[]
   runs: CampaignRun[]
+  /** the stored status, or SCHEDULED while production published with its next send still ahead */
+  display_status: string
+  display_status_label: string
+  /** what can be done now: edit, clone, test_publish, publish, pause, resume, cancel_schedule, archive, unarchive, results */
+  actions: CampaignAction[]
+  next_run_at: string | null
+  list_count: number
+  audience_size: number | null
+  owner_name: string | null
+  triggered_by: 'MANUAL' | 'JOURNEY'
+  tags: string[]
+  send_type: SendType
+  send_timezone: string | null
+  recurring_config: RecurringConfig | null
+  drip_config: DripConfig | null
+  respect_governance: boolean
+  rate_limit_per_hour: number | null
+  timezone_optimization: boolean
+  targets: CampaignTargets | null
+  published_at: string | null
+  completed_at: string | null
+  archived_at: string | null
+  /** setup steps completed, 0 to 6 (the seventh step is the publish) */
+  setup_step: number
+  /** false: the campaign opens in the setup at step setup_step + 1, not on its page */
+  setup_complete: boolean
 }
 
-export type AttachedContactList = Pick<ContactList, 'id' | 'name' | 'list_kind' | 'is_master' | 'list_environment' | 'status' | 'member_count'>
+export type CampaignAction = 'edit' | 'clone' | 'test_publish' | 'publish' | 'pause' | 'resume' | 'cancel_schedule' | 'archive' | 'unarchive' | 'results'
+export type SendType = 'IMMEDIATE' | 'SCHEDULED' | 'RECURRING' | 'DRIP'
+
+export interface RecurringConfig {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY'
+  interval?: number
+  /** MO TU WE TH FR SA SU, for a weekly recurrence */
+  weekdays?: string[]
+  day_of_month?: number
+  /** HH:MM in the campaign's time zone */
+  time: string
+  end_date?: string | null
+  max_runs?: number | null
+}
+
+export interface DripConfig {
+  steps: { day: number; label?: string }[]
+  time?: string
+}
+
+/** Money comes back as a string ("25000.00"): it is never rounded through a float. */
+export interface CampaignTargets {
+  target_revenue: string | null
+  target_opens: number | null
+  target_clicks: number | null
+  target_conversions: number | null
+  target_redemptions: number | null
+  planned_cost: string | null
+  planned_offer_cost: string | null
+  notes: string | null
+}
+
+export type AttachedContactList = Pick<ContactList, 'id' | 'name' | 'list_kind' | 'is_master' | 'list_environment' | 'status' | 'member_count'> & {
+  role?: 'INCLUDE' | 'EXCLUDE'
+  attached_at?: string
+}
+
+/** Page-numbered list (campaigns): the total is known, so the table can say "51 to 100 of 214". */
+export interface CountedPage<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
+export interface CampaignFormOptions {
+  owners: { id: string; name: string; email: string }[]
+  tags: string[]
+  timezones: string[]
+  workspace_timezone: string
+}
+
+export interface AudienceStatusLine {
+  code: string
+  label: string
+  sendable: boolean
+  count: number
+}
+
+export interface CampaignAudience {
+  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; role: 'INCLUDE' | 'EXCLUDE' }[]
+  gross: number
+  unique: number
+  duplicates_removed: number
+  excluded_by_list: number
+  after_exclusions: number
+  estimated_recipients: number
+  excluded_by_governance: number
+  marketing: boolean
+  channel: string
+  statuses: AudienceStatusLine[]
+  sample: { party_id: string; address: string | null; first_name: string | null; last_name: string | null; status: string; status_label: string }[]
+  note: string
+  /** the Campaign List of the last production send, once there is one */
+  frozen?: { members: number; generated_at: string; eligible: number; suppressed: Record<string, number> }
+}
+
+export interface CampaignChecklist {
+  ready: boolean
+  problems: Record<string, string>
+  test_sent: boolean
+  items: { key: string; label: string; ok: boolean; problem: string | null; advisory?: boolean }[]
+}
+
+export interface CampaignPreview {
+  subject: string | null
+  html: string | null
+  text: string | null
+  version: number
+  template: string
+  tags_used: string[]
+  customer: string | null
+}
+
+export interface CampaignMetrics {
+  counts: Record<'queued' | 'sent' | 'failed' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'unsubscribed' | 'replied', number>
+  conversions: number
+  revenue: string | number | null
+  rates: Record<'delivery' | 'open' | 'click' | 'bounce' | 'unsubscribe' | 'conversion', number>
+  targets: { measure: string; target: number; actual: number; percent: number }[]
+  breakdown: { by: 'domain' | 'carrier'; rows: { key: string; sent: number; delivered: number; opened: number; bounced: number }[]; note: string | null }
+  runs: number
+  test_runs: number
+}
+
+export interface CampaignTimeseries {
+  bucket: 'hour' | 'day'
+  points: { at: string; sent: number; delivered: number; opened: number; clicked: number }[]
+}
+
+export interface CampaignActivity {
+  id: string
+  event_type: string
+  severity: 'INFO' | 'WARNING' | 'ERROR'
+  message: string
+  detail: Record<string, unknown> | null
+  actor_name: string | null
+  campaign_run_id: string | null
+  occurred_at: string
+}
+
+export interface BulkResult {
+  action: 'archive' | 'clone'
+  done: { id: string; name: string }[]
+  skipped: { id: string; name: string; reason: string }[]
+}
 
 /** Body of POST /campaigns/ and PATCH /campaigns/{id}/ */
 export interface CampaignInput {
@@ -307,6 +462,18 @@ export interface CampaignInput {
   sender_profile: string | null
   contact_lists: string[]
   scheduled_at: string | null
+  excluded_lists?: string[]
+  owner_user?: string | null
+  tags?: string[]
+  send_type?: SendType
+  send_timezone?: string | null
+  recurring_config?: RecurringConfig | null
+  drip_config?: DripConfig | null
+  respect_governance?: boolean
+  rate_limit_per_hour?: number | null
+  timezone_optimization?: boolean
+  targets?: Partial<CampaignTargets> | null
+  setup_step?: number
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number
 }
@@ -325,18 +492,180 @@ export interface SenderProfile {
   provider_name?: string
 }
 
+export type ListSource = 'UPLOAD' | 'BI' | 'CLONE'
+
 export interface ContactList extends Audited {
   name: string
   description: string | null
-  source_type: string
-  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | string
+  source_type: 'UPLOAD' | 'BI' | 'EXTRACTION' | 'SEGMENT' | 'CLONE' | string
+  /** "Upload", "BI / Extraction" or "Cloned" */
+  source_label?: string
+  /** where it came from in words: the file, the audience, the list it was copied from */
+  source_reference?: string | null
+  /** from an audience or a clone: a campaign being built attaches it without asking; an upload is only ever attached by hand */
+  vetted?: boolean
+  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | 'SEGMENT' | string
   is_master: boolean
   refresh_mode: string
   last_refreshed_at: string | null
-  list_environment: string
-  status: string
+  list_environment: 'TEST' | 'PRODUCTION' | string
+  /** DRAFT = made by the upload wizard, waiting for its first import */
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string
   member_count: number
   parent_contact_list: string | null
+  parent_name?: string | null
+  attached_campaigns?: number
+  live_campaigns?: number
+}
+
+export interface ListStats {
+  total_lists: number
+  total_contacts: number
+  attached_to_live_campaigns: number
+}
+
+/** an audience the data team defined (a C360 segment) */
+export interface Audience {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  source_system: string
+  synced_at: string
+  member_count: number
+  list_count: number
+}
+
+export interface ImportColumn {
+  name: string
+  samples: string[]
+  guess: string | null
+}
+
+export interface ImportProperty {
+  key: string
+  label: string
+  required: boolean
+  help: string
+}
+
+export interface ImportReview {
+  ready: number
+  held_back: number
+  new: number
+  existing: number
+  warnings: number
+  errors: number
+  duplicates: number
+  rejected: number
+}
+
+export interface ImportIssue {
+  line: number
+  kind: 'error' | 'warning'
+  message: string
+  value: string
+}
+
+/** how a marketing email send would judge a contact today (same rules and order as the send engine) */
+export interface GovernanceLine {
+  code: 'MARKETABLE' | 'UNSUBSCRIBED' | 'HARD_BOUNCE' | 'SOFT_BOUNCE' | 'COMPLAINT' | 'BLOCKED' | 'INVALID_ADDRESS' | 'SUPPRESSED' | 'NO_CONSENT'
+  label: string
+  sendable: boolean
+  count: number
+}
+
+/** An upload in numbers that add up: rows = held back + ready; ready = the governance lines; ready = added + already in the list. */
+export interface UploadSummary {
+  rows: number
+  held_back: { total: number; reasons: { code: string; label: string; count: number }[] }
+  ready: { total: number; new: number; existing: number }
+  governance: { sendable: number; not_sendable: number; statuses: GovernanceLine[] }
+  mobile: { with_number: number; blocked: number } | null
+  /** after the import */
+  result: { added: number; already_in_list: number; list_members_now: number; new_people: number; consents_recorded: number } | null
+  balanced: boolean
+}
+
+export interface ListGovernance {
+  total: number
+  sendable: number
+  not_sendable: number
+  statuses: GovernanceLine[]
+  checked_at: string
+}
+
+/** An upload is a background job: the API answers at once and the file is read, checked and imported by a worker. */
+export interface ListImport {
+  id: string
+  contact_list: string
+  list_name: string
+  list_status: string
+  file_name: string
+  file_size: number | null
+  /** UPLOADED waiting to be read · STAGING being read · STAGED waiting for the mapping · MATCHING being checked ·
+   *  REVIEW waiting for the operator · APPLYING being added · APPLIED / FAILED / CANCELLED */
+  status: 'UPLOADED' | 'STAGING' | 'STAGED' | 'MATCHING' | 'REVIEW' | 'APPLYING' | 'APPLIED' | 'FAILED' | 'CANCELLED'
+  /** the status in words, e.g. "Reading the file" */
+  phase: string
+  /** a worker is on it, or it is queued for one */
+  working: boolean
+  progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' }
+  mapping_confirmed: boolean
+  error: string | null
+  created_at: string
+  completed_at: string | null
+  created_by_name: string | null
+  row_count: number
+  columns: ImportColumn[]
+  /** property -> column name */
+  mapping: Record<string, string>
+  properties: ImportProperty[]
+  review: ImportReview | null
+  /** there once the file has been checked */
+  summary?: UploadSummary | null
+  issues?: ImportIssue[]
+  applied_count: number
+  new_people?: number
+  consents_recorded?: number
+  list?: ContactList
+}
+
+export interface ListMember {
+  id: number
+  party_id: string
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  mobile: string | null
+  added_at: string
+  source: 'UPLOAD' | 'RULE' | 'SEGMENT' | 'MANUAL' | 'CLONE' | string
+  known: boolean
+  email_status?: GovernanceLine['code']
+  email_status_label?: string | null
+  sendable?: boolean
+}
+
+export interface ListMembersPage {
+  count: number
+  page: number
+  page_size: number
+  results: ListMember[]
+}
+
+export interface ListUsage {
+  campaigns: { id: string; name: string; code: string; status: string; channel: string; scheduled_at: string | null; attached_at: string; live: boolean; frozen_lists: number }[]
+  attached_campaigns: number
+  live_campaigns: number
+  added_this_week: number
+}
+
+export interface ManualAddResult {
+  added: number
+  already_in_list: number
+  new_people: number
+  invalid: string[]
+  member_count: number
 }
 
 export interface Template extends Audited {

@@ -99,8 +99,36 @@ receipts, replies on the campaign page). A sandbox text engine that sends nothin
 waiting for its API specification.
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
+## Campaigns
+
+What is sent, to whom, when and why (BRD 6.3, 7, 15). The **Campaigns** page shows what is coming up and every campaign with search, filters, sorting,
+pages of 50 and bulk clone / archive. A campaign is set up in **seven steps**: basic info, audience (lists to send to *and* lists to exclude, with a live
+estimate: merged, one entry per person, today's governance check), template (with a preview), scheduling and delivery (now, scheduled, recurring, or a
+drip series, in the campaign's own time zone), targets and economics, test and preview, review and publish (the API's publish checks shown as a checklist
+first). A draft whose setup is not finished opens in the setup at the step it stopped at, from the list or from its own address; the campaign page opens once
+every step before the publish is done. Each send is a **run** of its campaign against a Campaign List frozen when the run starts, so a recurring or drip campaign stays one campaign
+with many runs and its results roll up. A campaign page has six tabs: overview, performance (numbers, rates, progress against targets, a curve over
+time), audience (the frozen list, who was left out and why, CSV export), content, settings and an activity log. Statuses are Draft, Test Published,
+Production Published and Scheduled (derived), then Active, Paused, Completed, Cancelled, Archived; the API says which actions each allows, and
+**archive replaces delete**. The hourly limit and recipient-local send time are stored now and take effect with the email engine integration.
+**[docs/CAMPAIGNS.md](docs/CAMPAIGNS.md)**
+
+## Contact lists
+
+Reusable audiences, made three ways: **upload a CSV** (staged, columns matched, reviewed, then imported: known people are recognised by loyalty ID
+or email address, new ones become customer rows owned by CEP), **take an audience the data team defined** (a C360 segment; the list follows it), or
+**clone a list** (a snapshot). Lists are typed Production or Test (a Test list cannot go out in a production send), can be attached to any number of
+campaigns, and say which live campaigns use them. A campaign freezes its own copy at send time, so editing a list never changes a send that was
+already built. Inside campaign setup the same wizard is one click away: a vetted list (audience, clone) is attached at once, an uploaded one waits
+for the operator to confirm. **A file is never processed inside a web request:** the upload answers at once and a background worker reads, checks and
+imports it in chunks, a few uploads at a time for the whole platform and one per workspace, with progress in the header, an alert when it is done
+and an uploads page (Celery queue `imports` in production; a thread of the web process in development, no Redis needed).
+Every uploaded contact is checked against governance with the send engine's own rules (unsubscribed, bounced, complained, blocked, invalid, suppressed,
+no consent), and the upload reports numbers that add up (rows = held back + ready; ready = the governance lines = added + already in the list), with a
+row-by-row CSV to reconcile against the source. **[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
+
 ```bash
-celery -A config worker -Q default,events,maintenance,campaign,email,sms   # campaign = runs, email / sms = batches
+celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports   # campaign = runs, email / sms = batches
 python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)
 ```
 
@@ -209,7 +237,7 @@ Never point `DATABASE_URL` at a superuser: superusers bypass RLS, so tenant isol
   queryset, tenant/created_by stamped on create, permission codes from `identity.permission`, cursor pagination, RFC 9457
   errors, OpenAPI at `/api/v1/schema/` (Swagger UI at `/api/v1/docs/`). JWT for the React app, `cep_…` API keys for integrations.
 * **Workers.** `workers/outbox.py` relays `domain_event` to Redis Streams every second; `workers/maintenance.py` runs the
-  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms` and `celery -A config beat`).
+  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports` and `celery -A config beat`).
 
 ## Development notes
 * Connect as a **non-superuser** database role in development too (`cep` in the compose file is fine): PostgreSQL superusers
