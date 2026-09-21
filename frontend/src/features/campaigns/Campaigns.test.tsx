@@ -123,8 +123,13 @@ test('setup, steps 1 to 4: the draft is created on the first Continue and saved 
   expect(post?.body).not.toHaveProperty('row_version')
   expect(window.location.pathname).toBe('/campaigns/c-new/edit')
   expect((screen.getByRole('button', { name: /Template/ }) as HTMLButtonElement).disabled).toBe(true)     // one step at a time
-  await user.click(await screen.findByRole('radio', { name: 'Send to: Fall Master Audience' }))
-  await user.click(screen.getByRole('radio', { name: 'Exclude: Georgia only' }))
+  await user.click(await screen.findByRole('checkbox', { name: 'Select every list shown' }))       // more than one list at once
+  expect((screen.getByRole('checkbox', { name: 'Send to Fall Master Audience' }) as HTMLInputElement).checked).toBe(true)
+  expect(screen.getByText(/2 lists selected, 120 contacts before duplicates and governance/)).toBeTruthy()
+  await user.click(screen.getByRole('checkbox', { name: 'Send to Georgia only' }))                    // and one off again
+  await user.click(screen.getByText(/Keep people out of this campaign/))
+  await user.click(await screen.findByRole('checkbox', { name: 'Exclude Georgia only' }))
+  expect((screen.getByRole('checkbox', { name: 'Send to Georgia only' }) as HTMLInputElement).disabled).toBe(true)   // a list is sent to, or excluded, never both
   const estimate = await screen.findByLabelText('Audience estimate')
   await vi.waitFor(() => expect(within(estimate).getByText('Estimated recipients').nextElementSibling?.textContent).toBe('78'))
   expect(calls.some((call) => call.url.includes('/campaigns/audience-estimate/') && call.url.includes('include=cl-master') && call.url.includes('exclude=cl-ga'))).toBe(true)
@@ -241,7 +246,7 @@ test('setup: a drip campaign sends as a series of steps; an e-receipt needs no l
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [] }) })
   await renderAppAt('/campaigns/c1/edit?step=2')
   expect(await screen.findByText('This is an E-Receipt campaign, so there is no contact list to attach')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Create a list' })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Upload a CSV file/ })).toBeNull()
   await user.click(screen.getByRole('button', { name: /Scheduling & Delivery/ }))
   expect(await screen.findByText('This is an E-Receipt campaign, so there is no schedule to set')).toBeTruthy()
 
@@ -252,8 +257,8 @@ test('setup: a drip campaign sends as a series of steps; an e-receipt needs no l
   await user.click(screen.getByRole('radio', { name: /Regular Marketing/ }))
   expect((screen.getByLabelText(/^Message purpose/) as HTMLSelectElement).value).toBe('MARKETING')
   await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByRole('radio', { name: 'Send to: Fall Master Audience' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Create a list' })).toBeTruthy()
+  expect(await screen.findByRole('checkbox', { name: 'Send to Fall Master Audience' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: /Upload a CSV file/ })).toBeTruthy()
 })
 
 test('an unfinished setup opens where it stopped, from the list and from the campaign address; the campaign page opens once every step before the publish is done', async () => {

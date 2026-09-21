@@ -19,7 +19,7 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 | # | Step | What is decided |
 |---|---|---|
 | 1 | Basic Info | name (unique in the workspace), code, description, type and channel (cards), message purpose, owner (defaults to the creator), tags |
-| 2 | Audience | each contact list is **Send to**, **Exclude** or unused; a live estimate: merged, counted once per person, exclusions removed, today's governance check. *Create a list* opens the contact list wizard (a vetted list is attached at once, an uploaded one waits for a confirm) |
+| 2 | Audience | a checkbox per contact list (and one to select every list shown) picks the lists the campaign is sent to; *Keep people out of this campaign* (optional) ticks lists to exclude, and a list is one or the other, never both; a live estimate: merged, counted once per person, exclusions removed, today's governance check. **Upload a CSV file** and **From an audience or a clone** open the contact list wizard itself, the same upload process as in Contact Lists (a vetted list is attached at once, an uploaded one waits for a confirm) |
 | 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not) |
 | 4 | Scheduling & Delivery | send immediately / schedule / recurring (daily, weekly, monthly; ends never, on a date, after n sends) / drip series (a run per step); the campaign's time zone; frequency limits, hourly limit, recipient-local time |
 | 5 | Targets & Economics | revenue, conversions, opens, clicks, redemptions; planned campaign and offer cost; notes (BRD 15) |
