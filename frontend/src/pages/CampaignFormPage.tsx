@@ -13,6 +13,7 @@ import { buttonPrimary, buttonSecondary, Field, FormSection, Select, TextArea, T
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { CreateListWizard } from '@/features/contact-lists/CreateListWizard'
 import { api, ApiError } from '@/lib/api'
 import { channelAllowed } from '@/lib/features'
 import { formatNumber, fromLocalInput, humanize, toLocalInput } from '@/lib/format'
@@ -115,6 +116,10 @@ export function CampaignFormPage() {
   const [rowVersion, setRowVersion] = useState<number | undefined>(undefined)
   const [errors, setErrors] = useState<Errors>({})
   const [listSearch, setListSearch] = useState('')
+  const [listWizard, setListWizard] = useState(false)
+  /** a list made here from an upload: raw file data is not checked upstream, so it waits for the operator to attach it */
+  const [uploadedList, setUploadedList] = useState<ContactList | null>(null)
+  const [listNotice, setListNotice] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
 
   // Load the campaign into the form once per fetched version (a reload after a 409 replaces local edits on purpose).
@@ -377,10 +382,33 @@ export function CampaignFormPage() {
         {!isReceipt && (
           <fieldset className="rounded-lg border border-line bg-surface p-5">
             <legend className="px-1 text-sm font-semibold text-ink-900">Audience</legend>
-            <p className="mb-3 text-sm text-ink-500">
-              Attach one or more contact lists. At send time they are merged into one frozen campaign list, one entry per customer, so
-              overlapping lists never cause duplicate messages.
-            </p>
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <p className="max-w-2xl text-sm text-ink-500">
+                Attach one or more contact lists; the same list can serve any number of campaigns. At send time they are merged into one frozen
+                campaign list, one entry per customer, so overlapping lists never cause duplicate messages.
+              </p>
+              {can('list.edit') && (
+                <button type="button" className={buttonSecondary} onClick={() => setListWizard(true)}>
+                  Create a list
+                </button>
+              )}
+            </div>
+            {listNotice && <p role="status" className="mb-3 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{listNotice}</p>}
+            {uploadedList && !values.contact_lists.includes(uploadedList.id) && (
+              <div role="group" aria-label="Uploaded list waiting to be attached" className="mb-3 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
+                <p>
+                  <strong>{uploadedList.name}</strong> ({formatNumber(uploadedList.member_count)} contacts) came from an uploaded file. File data is not checked upstream, so it
+                  is not attached until you confirm.
+                </p>
+                <p className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className={buttonSecondary} onClick={() => { set('contact_lists', [...values.contact_lists, uploadedList.id]); setListNotice(`“${uploadedList.name}” is attached.`); setUploadedList(null) }}>
+                    I have checked it: attach to this campaign
+                  </button>
+                  <a className={buttonSecondary} href={`/contact-lists/${uploadedList.id}`} target="_blank" rel="noreferrer">Open the list</a>
+                  <button type="button" className={buttonSecondary} onClick={() => setUploadedList(null)}>Not now</button>
+                </p>
+              </div>
+            )}
             {errors.contact_lists && <p className="mb-3 text-xs font-medium text-danger-text">{errors.contact_lists}</p>}
             {lists.isPending ? (
               <p className="flex items-center gap-2 text-sm text-ink-500">
@@ -390,7 +418,7 @@ export function CampaignFormPage() {
               <ErrorState error={lists.error} onRetry={() => void lists.refetch()} />
             ) : listOptions.length === 0 ? (
               <p className="text-sm text-ink-500">
-                No active contact lists yet. <Link to="/contact-lists" className="font-medium text-brand-800 underline">Create one first</Link>.
+                No active contact lists yet. {can('list.edit') ? 'Use “Create a list” above.' : <Link to="/contact-lists" className="font-medium text-brand-800 underline">See contact lists</Link>}
               </p>
             ) : (
               <>
@@ -412,9 +440,9 @@ export function CampaignFormPage() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-ink-900">{item.name}</span>
                           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
-                            <Tag>{item.list_kind}</Tag>
-                            {item.is_master && <Tag>MASTER</Tag>}
-                            {item.list_environment === 'TEST' && <Tag>TEST</Tag>}
+                            <Tag>{item.source_label ?? item.list_kind}</Tag>
+                            {item.list_environment === 'TEST' && <Tag>Test: not for production sends</Tag>}
+                            {(item.live_campaigns ?? 0) > 0 && <span>on {item.live_campaigns} live campaign{item.live_campaigns === 1 ? '' : 's'}</span>}
                           </span>
                         </span>
                         <span className="text-sm text-ink-700 tabular-nums">{formatNumber(item.member_count)}</span>
@@ -456,6 +484,23 @@ export function CampaignFormPage() {
           {isEdit && !dirty && <span className="text-sm text-ink-500">No changes to save.</span>}
         </div>
       </form>
+      {listWizard && (
+        <CreateListWizard
+          inCampaign
+          onClose={() => setListWizard(false)}
+          onCreated={(created) => {
+            void lists.refetch()
+            if (created.vetted) {
+              // an audience or a clone is already vetted: it joins this campaign without asking
+              setValues((current) => (current.contact_lists.includes(created.id) ? current : { ...current, contact_lists: [...current.contact_lists, created.id] }))
+              setListNotice(`“${created.name}” is attached: it comes from ${created.source_type === 'CLONE' ? 'a list you already had' : 'a vetted audience'}.`)
+            } else {
+              setUploadedList(created)
+              setListNotice('')
+            }
+          }}
+        />
+      )}
     </section>
   )
 }

@@ -325,18 +325,132 @@ export interface SenderProfile {
   provider_name?: string
 }
 
+export type ListSource = 'UPLOAD' | 'BI' | 'CLONE'
+
 export interface ContactList extends Audited {
   name: string
   description: string | null
-  source_type: string
-  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | string
+  source_type: 'UPLOAD' | 'BI' | 'EXTRACTION' | 'SEGMENT' | 'CLONE' | string
+  /** "Upload", "BI / Extraction" or "Cloned" */
+  source_label?: string
+  /** where it came from in words: the file, the audience, the list it was copied from */
+  source_reference?: string | null
+  /** from an audience or a clone: a campaign being built attaches it without asking; an upload is only ever attached by hand */
+  vetted?: boolean
+  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | 'SEGMENT' | string
   is_master: boolean
   refresh_mode: string
   last_refreshed_at: string | null
-  list_environment: string
-  status: string
+  list_environment: 'TEST' | 'PRODUCTION' | string
+  /** DRAFT = made by the upload wizard, waiting for its first import */
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string
   member_count: number
   parent_contact_list: string | null
+  parent_name?: string | null
+  attached_campaigns?: number
+  live_campaigns?: number
+}
+
+export interface ListStats {
+  total_lists: number
+  total_contacts: number
+  attached_to_live_campaigns: number
+}
+
+/** an audience the data team defined (a C360 segment) */
+export interface Audience {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  source_system: string
+  synced_at: string
+  member_count: number
+  list_count: number
+}
+
+export interface ImportColumn {
+  name: string
+  samples: string[]
+  guess: string | null
+}
+
+export interface ImportProperty {
+  key: string
+  label: string
+  required: boolean
+  help: string
+}
+
+export interface ImportReview {
+  ready: number
+  held_back: number
+  new: number
+  existing: number
+  warnings: number
+  errors: number
+  duplicates: number
+  rejected: number
+}
+
+export interface ImportIssue {
+  line: number
+  kind: 'error' | 'warning'
+  message: string
+  value: string
+}
+
+export interface ListImport {
+  id: string
+  contact_list: string
+  file_name: string
+  file_size: number | null
+  status: 'UPLOADED' | 'MATCHING' | 'REVIEW' | 'APPLIED' | 'FAILED'
+  row_count: number
+  columns: ImportColumn[]
+  /** property -> column name */
+  mapping: Record<string, string>
+  properties: ImportProperty[]
+  review: ImportReview | null
+  issues?: ImportIssue[]
+  applied_count: number
+  new_people?: number
+  consents_recorded?: number
+  list?: ContactList
+}
+
+export interface ListMember {
+  id: number
+  party_id: string
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  mobile: string | null
+  added_at: string
+  source: 'UPLOAD' | 'RULE' | 'SEGMENT' | 'MANUAL' | 'CLONE' | string
+  known: boolean
+}
+
+export interface ListMembersPage {
+  count: number
+  page: number
+  page_size: number
+  results: ListMember[]
+}
+
+export interface ListUsage {
+  campaigns: { id: string; name: string; code: string; status: string; channel: string; scheduled_at: string | null; attached_at: string; live: boolean; frozen_lists: number }[]
+  attached_campaigns: number
+  live_campaigns: number
+  added_this_week: number
+}
+
+export interface ManualAddResult {
+  added: number
+  already_in_list: number
+  new_people: number
+  invalid: string[]
+  member_count: number
 }
 
 export interface Template extends Audited {

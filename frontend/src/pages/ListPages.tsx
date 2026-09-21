@@ -8,7 +8,7 @@ import { buttonPrimary } from '@/components/Form'
 import { ResourceList } from '@/components/ResourceList'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
-import type { Campaign, ContactList, Journey, Template } from '@/lib/types'
+import type { Campaign, Journey, Template } from '@/lib/types'
 
 const options = (...values: string[]) => values.map((value) => ({ value, label: humanize(value) }))
 
@@ -52,45 +52,6 @@ export function CampaignsPage() {
         )
       }
       emptyHint="Create the first campaign with the New campaign button."
-    />
-  )
-}
-
-const contactListColumns: Column<ContactList>[] = [
-  {
-    key: 'name',
-    header: 'List',
-    render: (row) => <Title primary={row.name} secondary={row.description} />,
-    className: 'max-w-sm',
-  },
-  {
-    key: 'kind',
-    header: 'Kind',
-    render: (row) => (
-      <span className="flex items-center gap-1.5">
-        <Tag>{row.list_kind}</Tag>
-        {row.is_master && <Tag>MASTER</Tag>}
-      </span>
-    ),
-  },
-  { key: 'members', header: 'Members', align: 'right', render: (row) => formatNumber(row.member_count) },
-  { key: 'environment', header: 'Environment', render: (row) => humanize(row.list_environment) },
-  { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-  { key: 'refreshed', header: 'Last refreshed', render: (row) => formatDateTime(row.last_refreshed_at) },
-]
-
-export function ContactListsPage() {
-  return (
-    <ResourceList<ContactList>
-      title="Contact lists"
-      description="Reusable master lists, dynamic segments and derived lists. Campaigns snapshot a list at send time, so lists are never duplicated."
-      resource="contact-lists"
-      columns={contactListColumns}
-      filters={[
-        { param: 'list_kind', label: 'Kind', options: options('STATIC', 'DYNAMIC', 'DERIVED') },
-        { param: 'status', label: 'Status', options: options('ACTIVE', 'DRAFT', 'ARCHIVED') },
-      ]}
-      emptyHint="Upload a file or define criteria to create the first list."
     />
   )
 }

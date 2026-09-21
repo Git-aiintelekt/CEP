@@ -1,7 +1,7 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import type { ApiKey, AuthOptions, Campaign, ContactList, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
+import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, ListImport, ListMember, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -15,7 +15,7 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
-               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin'] },
+               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
 }
 
@@ -31,11 +31,33 @@ export const senders: SenderProfile[] = [
   { id: 'snd-smtp', display_name: 'Northwind', channel: 'EMAIL', from_address: 'hello@nwa.example', reply_to_address: null, sender_id: null, verification_status: 'VERIFIED', is_default: false, provider_type: 'SMTP', provider_name: 'Workspace mail server' },
 ]
 
-const list = (id: string, name: string, member_count: number, is_master = false): ContactList => ({
-  ...audit, id, name, description: null, source_type: 'UPLOAD', list_kind: 'STATIC', is_master, refresh_mode: 'MANUAL',
-  last_refreshed_at: null, list_environment: 'PRODUCTION', status: 'ACTIVE', member_count, parent_contact_list: null,
+const list = (id: string, name: string, member_count: number, is_master = false, extra: Partial<ContactList> = {}): ContactList => ({
+  ...audit, id, name, description: null, source_type: 'UPLOAD', source_label: 'Upload', vetted: false, list_kind: 'STATIC', is_master, refresh_mode: 'MANUAL',
+  last_refreshed_at: null, list_environment: 'PRODUCTION', status: 'ACTIVE', member_count, parent_contact_list: null, attached_campaigns: 0, live_campaigns: 0, ...extra,
 })
-export const contactLists: ContactList[] = [list('cl-master', 'Fall Master Audience', 90, true), list('cl-ga', 'Georgia only', 30)]
+export const contactLists: ContactList[] = [
+  list('cl-master', 'Fall Master Audience', 90, true, { description: 'Active loyalty members', attached_campaigns: 2, live_campaigns: 1 }),
+  list('cl-ga', 'Georgia only', 30, false, { source_type: 'BI', source_label: 'BI / Extraction', vetted: true, list_kind: 'SEGMENT', list_environment: 'TEST' }),
+]
+export const audiences: Audience[] = [
+  { id: 'aud-gold', code: 'LOYALTY_GOLD_PLUS', name: 'Loyalty Gold & Platinum', description: null, source_system: 'C360', synced_at: '2026-09-20T05:00:00Z', member_count: 43, list_count: 1 },
+  { id: 'aud-lapsed', code: 'LAPSED_90', name: 'No purchase in 90 days', description: 'Win-back base', source_system: 'C360', synced_at: '2026-09-20T05:00:00Z', member_count: 70, list_count: 0 },
+]
+export const listMembers: ListMember[] = [
+  { id: 11, party_id: 'P-1', email: 'd.alvarez@northwind.example', first_name: 'Dolores', last_name: 'Alvarez', mobile: null, added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true },
+  { id: 12, party_id: 'P-2', email: 'm.okonkwo@fabrikam.example', first_name: 'Miriam', last_name: 'Okonkwo', mobile: '+14045550002', added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true },
+  { id: 13, party_id: 'P-3', email: 's.ramachandran@tailspin.example', first_name: 'Sana', last_name: 'Ramachandran', mobile: null, added_at: '2026-08-24T10:00:00Z', source: 'MANUAL', known: true },
+]
+const PROPERTIES = [
+  { key: 'email', label: 'Email', required: true, help: 'Who the person is.' }, { key: 'first_name', label: 'First name', required: false, help: '' },
+  { key: 'last_name', label: 'Last name', required: false, help: '' }, { key: 'consent_date', label: 'Consent date', required: false, help: 'Recorded as an email opt-in.' },
+]
+const REVIEW = { ready: 4, held_back: 2, new: 3, existing: 1, warnings: 1, errors: 2, duplicates: 1, rejected: 1 }
+export const stagedImport: ListImport = {
+  id: 'imp-1', contact_list: 'cl-new', file_name: 'leads.csv', file_size: 2048, status: 'UPLOADED', row_count: 6, applied_count: 0, review: null, properties: PROPERTIES,
+  columns: [{ name: 'Email Address', samples: ['a@x.example'], guess: 'email' }, { name: 'First Name', samples: ['Ana'], guess: 'first_name' }, { name: 'Notes', samples: ['vip'], guess: null }],
+  mapping: { email: 'Email Address', first_name: 'First Name' },
+}
 
 const tag = (tag_key: string, label: string, tag_kind: string, sample_value: string): PersonalizationTag => ({
   id: tag_key, tag_key, label, tag_kind, data_type: 'STRING', applies_to_channels: ['EMAIL', 'SMS', 'MMS'], description: null, sample_value,
@@ -193,6 +215,8 @@ interface MockOptions {
   providerCheckFails?: boolean
   /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
   texts?: boolean
+  /** answer for POST /contact-lists/{id}/imports/ ; default: a staged six-row file */
+  onListUpload?: (call: Call) => Response | null
 }
 
 /** the code the mock authenticator "shows" */
@@ -203,6 +227,8 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
+  let listsNow: ContactList[] = [...contactLists]
+  let membersNow: ListMember[] = [...listMembers]
   let securityNow: SecuritySettings = { ...security }
   let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', sender_profile: null, ...options.mailServer }
 
@@ -323,7 +349,83 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/templates/')) return json({ next: null, previous: null, results: templates })
     if (path.endsWith('/sender-profiles/')) return json(senders)
-    if (path.endsWith('/contact-lists/')) return json({ next: null, previous: null, results: contactLists })
+    // ---- contact lists: stateful, so what a test creates is there afterwards
+    if (path.includes('/contact-lists/')) {
+      const one = /\/contact-lists\/([^/]+)\//.exec(path)?.[1]
+      const find = (id: string | undefined) => listsNow.find((item) => item.id === id)
+      const query = new URL(url, 'http://x').searchParams
+      if (path.endsWith('/contact-lists/stats/')) return json({ total_lists: listsNow.filter((item) => item.status !== 'DRAFT').length, total_contacts: 100, attached_to_live_campaigns: 1 })
+      if (path.endsWith('/audiences/')) return json(audiences)
+      if (path.endsWith('/from-audience/')) {
+        const made = list('cl-bi', String(body?.name), 43, true, { source_type: 'BI', source_label: 'BI / Extraction', vetted: true, list_kind: 'SEGMENT', list_environment: String(body?.list_environment ?? 'PRODUCTION') })
+        listsNow = [made, ...listsNow]
+        return json(made, 201)
+      }
+      if (path.endsWith('/clone/')) {
+        const made = list('cl-clone', String(body?.name), find(one)?.member_count ?? 0, true, { source_type: 'CLONE', source_label: 'Cloned', vetted: true, parent_contact_list: one ?? null, parent_name: find(one)?.name })
+        listsNow = [made, ...listsNow]
+        return json(made, 201)
+      }
+      if (path.endsWith('/usage/')) {
+        const item = find(one)
+        return json({
+          campaigns: item?.attached_campaigns ? [{ id: 'c1', name: 'Fall Promo Email', code: 'CMP-1', status: 'PRODUCTION_PUBLISHED', channel: 'EMAIL', scheduled_at: null, attached_at: '2026-09-01T00:00:00Z', live: true, frozen_lists: 1 }] : [],
+          attached_campaigns: item?.attached_campaigns ?? 0, live_campaigns: item?.live_campaigns ?? 0, added_this_week: 2,
+        })
+      }
+      if (path.endsWith('/members/remove/')) {
+        const ids = (body?.ids as number[]) ?? []
+        membersNow = membersNow.filter((row) => !ids.includes(row.id))
+        return json({ removed: ids.length, member_count: membersNow.length })
+      }
+      if (path.endsWith('/members/') && method === 'POST') {
+        const wanted = (body?.contacts as { email: string }[]) ?? []
+        const valid = wanted.filter((row) => row.email.includes('@'))
+        membersNow = [...valid.map((row, index) => ({ ...listMembers[0], id: 100 + index, email: row.email, first_name: null, last_name: null, source: 'MANUAL' })), ...membersNow]
+        return json({ added: valid.length, already_in_list: 0, new_people: valid.length, invalid: wanted.filter((row) => !row.email.includes('@')).map((row) => row.email), member_count: membersNow.length })
+      }
+      if (path.endsWith('/members/')) {
+        const needle = query.get('search')?.toLowerCase() ?? ''
+        const rows = membersNow.filter((row) => `${row.email} ${row.first_name} ${row.last_name}`.toLowerCase().includes(needle))
+        return json({ count: rows.length, page: 1, page_size: 50, results: rows })
+      }
+      if (path.endsWith('/imports/')) return options.onListUpload?.(call) ?? json({ ...stagedImport, contact_list: one }, 201)
+      if (path.endsWith('/review/')) {
+        return json({ ...stagedImport, status: 'REVIEW', mapping: body?.mapping, review: REVIEW,
+                      issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] })
+      }
+      if (path.endsWith('/apply/')) {
+        const made = { ...(find(one) as ContactList), status: 'ACTIVE', member_count: 4 }
+        listsNow = listsNow.map((item) => (item.id === one ? made : item))
+        return json({ ...stagedImport, status: 'APPLIED', applied_count: 4, new_people: 3, consents_recorded: 0, review: REVIEW, list: made })
+      }
+      if (path.endsWith('/contact-lists/') && method === 'POST') {
+        if (listsNow.some((item) => item.name.toLowerCase() === String(body?.name).toLowerCase())) {
+          return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { name: 'Another list already has this name.' } }, 400)
+        }
+        const made = list('cl-new', String(body?.name), 0, true, { status: 'DRAFT', description: (body?.description as string) || null, list_environment: String(body?.list_environment ?? 'PRODUCTION') })
+        listsNow = [made, ...listsNow]
+        return json(made, 201)
+      }
+      if (path.endsWith('/contact-lists/')) {
+        const sources: Record<string, string[]> = { UPLOAD: ['UPLOAD'], BI: ['BI', 'EXTRACTION', 'SEGMENT'], CLONE: ['CLONE'] }
+        const rows = listsNow.filter((item) => (query.get('status') ? item.status === query.get('status') : item.status !== 'DRAFT')
+          && (!query.get('list_environment') || item.list_environment === query.get('list_environment'))
+          && (!query.get('source') || sources[query.get('source') as string].includes(item.source_type))
+          && item.name.toLowerCase().includes((query.get('search') ?? '').toLowerCase()))
+        return json({ next: null, previous: null, results: rows })
+      }
+      if (one && method === 'PATCH') {
+        listsNow = listsNow.map((item) => (item.id === one ? { ...item, ...(body as Partial<ContactList>) } : item))
+        return json(find(one))
+      }
+      if (one && method === 'DELETE') {
+        if (find(one)?.attached_campaigns) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'This list is attached to a campaign. Detach it there first, or archive the list.' }, 409)
+        listsNow = listsNow.filter((item) => item.id !== one)
+        return json(null, 204)
+      }
+      if (one) return find(one) ? json(find(one)) : json({ type: 'about:blank', title: 'Not found', status: 404 }, 404)
+    }
     if (path.endsWith('/publish/')) return json({ id: 'r1', run_number: 1 }, 201)
     if ((method === 'POST' && path.endsWith('/campaigns/')) || method === 'PATCH') {
       const custom = options.onSave?.(call)

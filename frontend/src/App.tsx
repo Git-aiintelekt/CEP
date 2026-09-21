@@ -13,7 +13,9 @@ import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
 import { CampaignDetailPage } from '@/pages/CampaignDetailPage'
 import { CampaignFormPage } from '@/pages/CampaignFormPage'
 import { DashboardPage } from '@/pages/DashboardPage'
-import { CampaignsPage, ContactListsPage, JourneysPage, TemplatesPage } from '@/pages/ListPages'
+import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
+import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
+import { CampaignsPage, JourneysPage, TemplatesPage } from '@/pages/ListPages'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
@@ -84,6 +86,7 @@ export default function App() {
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                 <Route path="campaigns/:id/edit" element={<CampaignFormPage />} />
                 <Route path="contact-lists" element={<ContactListsPage />} />
+                <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />

@@ -207,21 +207,6 @@ class CampaignSerializer(TenantModelSerializer):
         return Campaign.objects.prefetch_related(*WITH_LISTS).get(pk=campaign.pk)
 
 
-class ContactListSerializer(TenantModelSerializer):
-    class Meta(TenantModelSerializer.Meta):
-        model = ContactList
-        fields = "__all__"
-        read_only_fields = AUDIT_FIELDS + ("member_count", "last_refreshed_at")
-
-    def validate(self, attrs):
-        kind = attrs.get("list_kind", getattr(self.instance, "list_kind", "STATIC"))
-        if kind == "DERIVED" and not attrs.get("parent_contact_list", getattr(self.instance, "parent_contact_list", None)):
-            raise serializers.ValidationError({"parent_contact_list": "A DERIVED list needs a parent list."})
-        if kind in ("DYNAMIC", "DERIVED") and not attrs.get("criteria", getattr(self.instance, "criteria", None)):
-            raise serializers.ValidationError({"criteria": f"A {kind} list needs criteria."})
-        return attrs
-
-
 class TemplateStarterSerializer(serializers.Serializer):
     key = serializers.CharField()
     name = serializers.CharField()

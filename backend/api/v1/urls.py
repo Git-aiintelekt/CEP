@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import auth_api, delivery_api, delivery_public, settings_api, views, workspace_api
+from . import auth_api, contact_lists_api, delivery_api, delivery_public, settings_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -11,7 +11,7 @@ router.register("sender-profiles", views.SenderProfileViewSet, basename="sender-
 router.register("delivery-providers", delivery_api.DeliveryProviderViewSet, basename="delivery-provider")
 router.register("delivery-senders", delivery_api.SenderProfileManageViewSet, basename="delivery-sender")
 router.register("campaign-runs", views.CampaignRunViewSet, basename="campaign-run")
-router.register("contact-lists", views.ContactListViewSet, basename="contact-list")
+router.register("contact-lists", contact_lists_api.ContactListViewSet, basename="contact-list")
 router.register("template-starters", views.TemplateStarterViewSet, basename="template-starter")
 router.register("media-assets", views.MediaAssetViewSet, basename="media-asset")
 router.register("templates", views.TemplateViewSet, basename="template")

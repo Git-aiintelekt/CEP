@@ -158,6 +158,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": r"/api/v[0-9]",
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {"ContactListStatusEnum": "apps.contact_lists.models.ContactList.Status"},   # several models have a `status`
 }
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])  # Vite dev server
 CORS_ALLOW_CREDENTIALS = True
@@ -189,6 +190,7 @@ CELERY_BEAT_SCHEDULE = {
     "generate-invoices": {"task": "workers.platform.generate_invoices", "schedule": 24 * 3600},          # drafts last month; re-runs only refresh drafts
     "run-tenant-operations": {"task": "workers.platform.run_tenant_operations", "schedule": 600},
     "dispatch-campaign-runs": {"task": "workers.campaign.dispatch_due_runs", "schedule": 60},          # starts due runs, closes finished ones
+    "refresh-audience-lists": {"task": "workers.campaign.refresh_audience_lists", "schedule": 900},    # lists made from a BI / extraction audience
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

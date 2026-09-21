@@ -464,6 +464,40 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'Marketing texts are not started between these times (workspace time zone); a run that is due waits for the window to open. {} switches it off')
 ON CONFLICT (key) DO NOTHING;
 
+-- 11. CONTACT LIST MODULE
+--     Three ways to make a list: upload a file (staged, mapped, reviewed, then applied), take an audience the data team
+--     defined (a C360 segment), or clone a list (a snapshot with its parent recorded). A list made by the upload wizard is
+--     a DRAFT until its first import is applied, so a half-finished upload never shows up in a campaign's list picker.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_source_type;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_source_type
+    CHECK (source_type IN ('BI', 'EXTRACTION', 'UPLOAD', 'SEGMENT', 'CLONE'));
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_status;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_tenant_updated ON contact_list(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
+
+ALTER TABLE contact_list_member DROP CONSTRAINT IF EXISTS ck_contact_list_member_membership_source;
+ALTER TABLE contact_list_member ADD CONSTRAINT ck_contact_list_member_membership_source
+    CHECK (membership_source IN ('UPLOAD', 'RULE', 'SEGMENT', 'MANUAL', 'CLONE'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_member_added ON contact_list_member(tenant_id, contact_list_id, added_at DESC);
+
+-- The file as the operator sees it (headers, a few sample values, the property guessed for each column), what they mapped,
+-- and the outcome of the review: matched_count = people already known, unmatched_count = new people,
+-- duplicate_count = repeated in the file, rejected_count = cannot be imported, warning_count = imported with a remark.
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_columns JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS column_mapping JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS rejected_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS warning_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS error VARCHAR(500);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_mapping_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_mapping_object CHECK (jsonb_typeof(column_mapping) = 'object');
+
+-- error_message says why a row is held back; warning is a remark on a row that IS imported (a phone number that was dropped, ...)
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS warning VARCHAR(300);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_import ON contact_list_import_row(tenant_id, import_id, match_status);
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

@@ -99,6 +99,15 @@ receipts, replies on the campaign page). A sandbox text engine that sends nothin
 waiting for its API specification.
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
+## Contact lists
+
+Reusable audiences, made three ways: **upload a CSV** (staged, columns matched, reviewed, then imported: known people are recognised by loyalty ID
+or email address, new ones become customer rows owned by CEP), **take an audience the data team defined** (a C360 segment; the list follows it), or
+**clone a list** (a snapshot). Lists are typed Production or Test (a Test list cannot go out in a production send), can be attached to any number of
+campaigns, and say which live campaigns use them. A campaign freezes its own copy at send time, so editing a list never changes a send that was
+already built. Inside campaign setup the same wizard is one click away: a vetted list (audience, clone) is attached at once, an uploaded one waits
+for the operator to confirm. **[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
+
 ```bash
 celery -A config worker -Q default,events,maintenance,campaign,email,sms   # campaign = runs, email / sms = batches
 python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)

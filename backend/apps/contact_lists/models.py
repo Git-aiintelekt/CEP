@@ -22,6 +22,7 @@ class ContactList(models.Model):
         EXTRACTION = 'EXTRACTION', 'Extraction'
         UPLOAD = 'UPLOAD', 'Upload'
         SEGMENT = 'SEGMENT', 'Segment'
+        CLONE = 'CLONE', 'Clone'
 
     class ListKind(models.TextChoices):
         STATIC = 'STATIC', 'Static'
@@ -39,6 +40,7 @@ class ContactList(models.Model):
         PRODUCTION = 'PRODUCTION', 'Production'
 
     class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'          # made by the upload wizard; ACTIVE once its first import is applied
         ACTIVE = 'ACTIVE', 'Active'
         ARCHIVED = 'ARCHIVED', 'Archived'
 
@@ -81,6 +83,7 @@ class ContactListMember(models.Model):
         RULE = 'RULE', 'Rule'
         SEGMENT = 'SEGMENT', 'Segment'
         MANUAL = 'MANUAL', 'Manual'
+        CLONE = 'CLONE', 'Clone'
 
     class MatchedBy(models.TextChoices):
         LOYALTY_ID = 'LOYALTY_ID', 'Loyalty ID'
@@ -127,6 +130,13 @@ class ContactListImport(models.Model):
     matched_count = models.IntegerField(default=0)
     unmatched_count = models.IntegerField(default=0)
     duplicate_count = models.IntegerField(default=0)
+    rejected_count = models.IntegerField(default=0)  # rows that cannot be imported (no usable email address, ...)
+    warning_count = models.IntegerField(default=0)  # rows imported with a remark
+    applied_count = models.IntegerField(default=0)  # members the import added to the list
+    file_size = models.BigIntegerField(null=True, blank=True)
+    file_columns = models.JSONField(default=list)  # [{name, samples, guess}] as read from the file
+    column_mapping = models.JSONField(default=dict)  # {property: column name}
+    error = models.CharField(max_length=500, null=True, blank=True)
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -165,7 +175,8 @@ class ContactListImportRow(models.Model):
     matched_party_id = models.CharField(max_length=60, null=True, blank=True)
     match_status = models.CharField(max_length=20, default='PENDING', choices=MatchStatus.choices)  # PENDING, MATCHED, UNMATCHED, DUPLICATE, REJECTED
     match_method = models.CharField(max_length=20, null=True, blank=True, choices=MatchMethod.choices)  # LOYALTY_ID, EMAIL, PHONE, PARTY_ID
-    error_message = models.CharField(max_length=300, null=True, blank=True)
+    error_message = models.CharField(max_length=300, null=True, blank=True)  # why the row is held back
+    warning = models.CharField(max_length=300, null=True, blank=True)  # a remark on a row that is imported
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:
