@@ -22,7 +22,7 @@ import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
 import { StepRail } from '../parts'
 import { campaignSchema, emptyValues, formFieldOf, fromCampaign, STEP_FIELDS, stepOfApiField, toInput, type CampaignFormValues } from '../schema'
-import { hasAction, SETUP_STEPS } from '../vocabulary'
+import { hasAction, SETUP_STEPS, TAB_OF_STEP } from '../vocabulary'
 import { StepAudience } from './StepAudience'
 import { StepBasics } from './StepBasics'
 import { StepReview } from './StepReview'
@@ -142,7 +142,7 @@ export function CampaignWizardPage() {
 
   async function saveAndClose() {
     const campaign = await commit(false)
-    if (campaign) navigate(campaign.setup_complete ? `/campaigns/${campaign.id}` : '/campaigns') // an unfinished setup has no campaign page to go to yet
+    if (campaign) navigate(campaign.setup_complete ? `/campaigns/${campaign.id}?tab=${TAB_OF_STEP[step]}` : '/campaigns') // an unfinished setup has no campaign page to go to yet
   }
 
   // ---- guards
@@ -168,7 +168,7 @@ export function CampaignWizardPage() {
 
   return (
     <section>
-      <Link to={loaded?.setup_complete ? `/campaigns/${loaded.id}` : '/campaigns'} className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+      <Link to={loaded?.setup_complete ? `/campaigns/${loaded.id}?tab=${TAB_OF_STEP[step]}` : '/campaigns'} className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
         <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> {loaded?.setup_complete ? 'Back to the campaign' : 'Campaigns'}
       </Link>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -200,7 +200,7 @@ export function CampaignWizardPage() {
       {otherError !== null && <div className="mb-4"><ErrorState title="The campaign was not saved" error={otherError} /></div>}
 
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <StepRail steps={STEPS} current={step} reached={furthest} onGo={(index) => void go(index)} />
+        <StepRail steps={STEPS} current={step} reached={furthest} completed={loaded ? (loaded.setup_complete ? SETUP_STEPS : Math.min(loaded.setup_step, SETUP_STEPS)) : 0} onGo={(index) => void go(index)} />
         <FormProvider {...form}>
           <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) void go(step + 1) }} className="min-w-0">
             <div key={step} className="animate-step-in">

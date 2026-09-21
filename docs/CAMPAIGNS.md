@@ -12,7 +12,7 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 |---|---|---|
 | Campaigns | `/campaigns` | *Upcoming campaigns*, then the table: search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns, pages of 50, a row action that fits the status, bulk **Clone** and **Archive** |
 | Setup | `/campaigns/new`, `/campaigns/:id/edit?step=n` | seven steps, below |
-| Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log |
+| Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log. **Edit** opens the setup step that belongs to the tab in view (Overview and Activity Log → Basic Info, Audience → Audience, Content → Template, Settings → Scheduling & Delivery, Performance → Targets & Economics), and leaving the setup leads back to the matching tab |
 
 ### The seven steps
 
@@ -39,6 +39,8 @@ number only moves forward: going back to an earlier step and saving does not und
 - While a draft's setup is unfinished it has **no campaign page**: its name, *Continue setup* and *Open* in the list, and
   the address `/campaigns/:id` itself (a bookmark, a typed link) all lead to `/campaigns/:id/edit?step=<next step>`.
   The steps ahead stay closed, so the publish step cannot be reached early; *Save and close* returns to the list.
+- The step list marks every completed step with a green check, whichever step is open (and says "completed" to a screen
+  reader); the step in hand keeps its number until Continue records it. Review & Publish is never "done" on a draft.
 - Once the six steps are done, the campaign page opens as usual, with **Test Publish** and **Production Publish** on it.
   Publishing is not part of "complete".
 - Someone without `campaign.edit` cannot use the setup: they get the campaign page with a note that the setup is not finished.

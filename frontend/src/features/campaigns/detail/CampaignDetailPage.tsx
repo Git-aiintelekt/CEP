@@ -17,7 +17,7 @@ import { api } from '@/lib/api'
 import type { Campaign } from '@/lib/types'
 
 import { CONFIRM, useCampaignAction, type StatusAction } from '../useCampaignAction'
-import { campaignHome, channelLabel, hasAction, SETUP_STEPS, typeLabel } from '../vocabulary'
+import { campaignHome, channelLabel, hasAction, SETUP_STEPS, STEP_OF_TAB, typeLabel } from '../vocabulary'
 import { AudienceTab } from './AudienceTab'
 import { ActivityTab, ContentTab, SettingsTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
@@ -106,7 +106,7 @@ export function CampaignDetailPage() {
           {canPublish && hasAction(data, 'cancel_schedule') && button('cancel-schedule', 'Cancel schedule')}
           {canPublish && hasAction(data, 'pause') && button('pause', 'Pause')}
           {canPublish && hasAction(data, 'resume') && button('resume', 'Resume', true)}
-          {canEdit && hasAction(data, 'edit') && <Link to={`/campaigns/${data.id}/edit`} className={buttonSecondary}>Edit</Link>}
+          {canEdit && hasAction(data, 'edit') && <Link to={`/campaigns/${data.id}/edit?step=${STEP_OF_TAB[tab]}`} className={buttonSecondary}>Edit</Link>}
           {canEdit && hasAction(data, 'test_publish') && <Link to={`/campaigns/${data.id}/edit?step=6`} className={buttonSecondary}>Test Publish</Link>}
           {canPublish && hasAction(data, 'publish') && <Link to={`/campaigns/${data.id}/edit?step=7`} className={buttonPrimary}>Production Publish</Link>}
         </div>

@@ -39,13 +39,16 @@ export function ChoiceGroup({ label, error, columns = 'sm:grid-cols-2', children
   )
 }
 
-/** The seven steps. A step that was reached can be revisited; the ones ahead open through "Continue", so nothing is skipped unchecked. */
-export function StepRail({ steps, current, reached, onGo }: { steps: readonly string[]; current: number; reached: number; onGo: (index: number) => void }) {
+/**
+ * The seven steps. A step that was reached can be revisited; the ones ahead open through "Continue", so nothing is skipped unchecked.
+ * `completed` is how many steps were gone through: those show a check whichever step is open, so the rail says where the setup stands.
+ */
+export function StepRail({ steps, current, reached, completed, onGo }: { steps: readonly string[]; current: number; reached: number; completed: number; onGo: (index: number) => void }) {
   return (
     <nav aria-label="Campaign setup steps">
       <ol className="flex flex-wrap gap-x-1 gap-y-2 lg:flex-col lg:gap-1">
         {steps.map((label, index) => {
-          const done = index < current
+          const done = index < completed
           const open = index <= reached
           return (
             <li key={label}>
@@ -61,12 +64,14 @@ export function StepRail({ steps, current, reached, onGo }: { steps: readonly st
                 <span
                   aria-hidden
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
-                    index === current ? 'border-brand-600 bg-brand-600 text-white' : done ? 'border-brand-600 text-brand-600' : 'border-line text-ink-500'
+                    index === current ? 'border-brand-600 bg-brand-600 text-white' : done ? 'border-success bg-surface text-success-text' : 'border-line text-ink-500'
                   }`}
                 >
                   {done ? <Check size={14} strokeWidth={2} /> : index + 1}
                 </span>
-                <span className="whitespace-nowrap">{label}</span>
+                <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
+                {done && <span className="sr-only">, completed</span>}
+                {done && index === current && <span aria-hidden className="hidden text-xs font-medium text-success-text lg:inline">Done</span>}
               </button>
             </li>
           )

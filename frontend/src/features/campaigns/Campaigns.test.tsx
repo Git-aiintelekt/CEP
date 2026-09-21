@@ -273,6 +273,9 @@ test('an unfinished setup opens where it stopped, from the list and from the cam
   expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
   expect(screen.getByText(/Setup in progress: 2 of 6 steps done/)).toBeTruthy()
   expect((screen.getByRole('button', { name: /Audience/ }) as HTMLButtonElement).disabled).toBe(false)  // what was done can be revisited
+  expect(screen.getByRole('button', { name: 'Basic Info, completed' })).toBeTruthy()                   // and says so
+  expect(screen.getByRole('button', { name: 'Audience, completed' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Template, completed/ })).toBeNull()                     // the step in hand is not done yet
   expect((screen.getByRole('button', { name: /Scheduling & Delivery/ }) as HTMLButtonElement).disabled).toBe(true)
   expect(screen.queryByRole('link', { name: 'Back to the campaign' })).toBeNull()
 
@@ -344,6 +347,34 @@ test('campaign page: six tabs; results against targets with a chart and its numb
   expect(within(log).getAllByRole('listitem')).toHaveLength(2)
   await user.selectOptions(screen.getByLabelText('Show'), 'WARNING')
   expect(within(screen.getByRole('list', { name: 'Activity log' })).getAllByRole('listitem')).toHaveLength(1)
+})
+
+test('campaign page: Edit opens the setup step that belongs to the tab in view, and the setup leads back to that tab', async () => {
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }) })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1')
+  const tabs = await screen.findByRole('tablist', { name: 'Campaign sections' })
+  const header = () => screen.getAllByRole('link', { name: 'Edit' })[0]                                // the Settings tab has an Edit of its own on each panel
+  const editStep = () => header().getAttribute('href')
+  expect(editStep()).toBe('/campaigns/c1/edit?step=1')                                                // Overview: Basic Info
+  for (const [tab, step] of [['Performance', 5], ['Content', 3], ['Settings', 4], ['Activity Log', 1], ['Audience', 2]] as const) {
+    await user.click(within(tabs).getByRole('tab', { name: tab }))
+    expect(editStep()).toBe(`/campaigns/c1/edit?step=${step}`)
+  }
+
+  await user.click(header())                                                                           // from the Audience tab
+  expect(await screen.findByRole('heading', { name: 'Audience' })).toBeTruthy()
+  for (const name of ['Basic Info', 'Audience', 'Template', 'Scheduling & Delivery', 'Targets & Economics', 'Test & Preview']) expect(screen.getByRole('button', { name: `${name}, completed` })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /Review & Publish, completed/ })).toBeNull()              // the publish is never 'done' on a draft
+  expect(await screen.findByRole('checkbox', { name: 'Send to Fall Master Audience' })).toBeTruthy()
+  await user.click(screen.getByRole('link', { name: 'Back to the campaign' }))
+  expect(await screen.findByRole('tab', { name: 'Audience', selected: true })).toBeTruthy()          // and back where it started
+
+  await user.click(header())
+  await user.click(await screen.findByRole('button', { name: /Scheduling & Delivery/ }))
+  expect(await screen.findByRole('heading', { name: 'Scheduling & Delivery' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Save and close' }))
+  expect(await screen.findByRole('tab', { name: 'Settings', selected: true })).toBeTruthy()
 })
 
 test('campaign page: actions by status: a scheduled send can be cancelled, a paused one resumed, an archived one restored, a clone opens in the setup', async () => {
