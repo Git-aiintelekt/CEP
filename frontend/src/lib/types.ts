@@ -400,6 +400,34 @@ export interface ImportIssue {
   value: string
 }
 
+/** how a marketing email send would judge a contact today (same rules and order as the send engine) */
+export interface GovernanceLine {
+  code: 'MARKETABLE' | 'UNSUBSCRIBED' | 'HARD_BOUNCE' | 'SOFT_BOUNCE' | 'COMPLAINT' | 'BLOCKED' | 'INVALID_ADDRESS' | 'SUPPRESSED' | 'NO_CONSENT'
+  label: string
+  sendable: boolean
+  count: number
+}
+
+/** An upload in numbers that add up: rows = held back + ready; ready = the governance lines; ready = added + already in the list. */
+export interface UploadSummary {
+  rows: number
+  held_back: { total: number; reasons: { code: string; label: string; count: number }[] }
+  ready: { total: number; new: number; existing: number }
+  governance: { sendable: number; not_sendable: number; statuses: GovernanceLine[] }
+  mobile: { with_number: number; blocked: number } | null
+  /** after the import */
+  result: { added: number; already_in_list: number; list_members_now: number; new_people: number; consents_recorded: number } | null
+  balanced: boolean
+}
+
+export interface ListGovernance {
+  total: number
+  sendable: number
+  not_sendable: number
+  statuses: GovernanceLine[]
+  checked_at: string
+}
+
 /** An upload is a background job: the API answers at once and the file is read, checked and imported by a worker. */
 export interface ListImport {
   id: string
@@ -427,6 +455,8 @@ export interface ListImport {
   mapping: Record<string, string>
   properties: ImportProperty[]
   review: ImportReview | null
+  /** there once the file has been checked */
+  summary?: UploadSummary | null
   issues?: ImportIssue[]
   applied_count: number
   new_people?: number
@@ -444,6 +474,9 @@ export interface ListMember {
   added_at: string
   source: 'UPLOAD' | 'RULE' | 'SEGMENT' | 'MANUAL' | 'CLONE' | string
   known: boolean
+  email_status?: GovernanceLine['code']
+  email_status_label?: string | null
+  sendable?: boolean
 }
 
 export interface ListMembersPage {

@@ -11,10 +11,11 @@ import { ErrorState, FullPageSpinner, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber, humanize } from '@/lib/format'
-import type { ContactList, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
+import type { ContactList, ListGovernance, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
 
 import { CloneDialog, TypeBadge } from './ContactListsPage'
 import { problemText } from './problem'
+import { GovernanceLines } from './UploadReport'
 
 const PAGE_SIZE = 50
 const MEMBER_SOURCE: Record<string, string> = { UPLOAD: 'Upload', MANUAL: 'Manual', SEGMENT: 'Audience', CLONE: 'Cloned', RULE: 'Rule' }
@@ -114,6 +115,7 @@ export function ContactListDetailPage() {
 
   const list = useQuery({ queryKey: ['contact-lists', id], queryFn: ({ signal }) => api.get<ContactList>(`/contact-lists/${id}/`, undefined, signal) })
   const usage = useQuery({ queryKey: ['contact-lists', id, 'usage'], queryFn: ({ signal }) => api.get<ListUsage>(`/contact-lists/${id}/usage/`, undefined, signal) })
+  const governance = useQuery({ queryKey: ['contact-lists', id, 'governance'], queryFn: ({ signal }) => api.get<ListGovernance>(`/contact-lists/${id}/governance/`, undefined, signal) })
   const members = useQuery({
     queryKey: ['contact-lists', id, 'members', search.trim(), page],
     queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, page, page_size: PAGE_SIZE }, signal),
@@ -239,6 +241,17 @@ export function ContactListDetailPage() {
         </section>
       )}
 
+      {governance.data && governance.data.total > 0 && (
+        <section aria-label="Governance check" className="mb-4 rounded-lg border border-line bg-surface p-4">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink-900">Governance check · marketing email, as of today</h2>
+            <p className="cep-num text-sm text-ink-700">{formatNumber(governance.data.sendable)} of {formatNumber(governance.data.total)} can receive it</p>
+          </div>
+          <div className="max-w-xl"><GovernanceLines statuses={governance.data.statuses} total={governance.data.total} sendable={governance.data.sendable} /></div>
+          <p className="mt-2 text-xs text-ink-500">Unsubscribes, bounces, complaints, blocked and invalid addresses, suppression and consent, with the rules a send uses. Transactional campaigns ignore consent, not blocked or invalid addresses.</p>
+        </section>
+      )}
+
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -252,7 +265,7 @@ export function ContactListDetailPage() {
         <ErrorState error={members.error} onRetry={() => void members.refetch()} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[860px] text-left text-sm">
             <caption className="sr-only">Contacts in {data.name}</caption>
             <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-700">
               <tr>
@@ -266,6 +279,7 @@ export function ContactListDetailPage() {
                 <th scope="col" className="px-3 py-2">Last name</th>
                 <th scope="col" className="px-3 py-2 text-right">Added on</th>
                 <th scope="col" className="px-3 py-2">Source</th>
+                <th scope="col" className="px-3 py-2">Marketing email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
@@ -280,10 +294,18 @@ export function ContactListDetailPage() {
                   <td className="px-3 py-2 text-ink-700">{row.last_name ?? '—'}</td>
                   <td className="cep-num px-3 py-2 text-right text-ink-700">{formatDate(row.added_at)}</td>
                   <td className="px-3 py-2"><Tag>{MEMBER_SOURCE[row.source] ?? humanize(row.source)}</Tag></td>
+                  <td className="px-3 py-2">
+                    {row.email_status_label && (
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${row.sendable ? 'text-success-text' : 'text-warning-text'}`}>
+                        <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${row.sendable ? 'bg-success' : 'bg-warning'}`} />
+                        {row.sendable ? 'Can receive' : row.email_status_label}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="px-3 py-8 text-center text-ink-500">{members.isPending ? 'Loading contacts' : search.trim() ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-500">{members.isPending ? 'Loading contacts' : search.trim() ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
               )}
             </tbody>
           </table>

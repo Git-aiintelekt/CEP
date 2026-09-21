@@ -155,6 +155,7 @@ class ContactListImport(models.Model):
     consent_count = models.IntegerField(default=0)
     file_encoding = models.CharField(max_length=20, null=True, blank=True)
     file_delimiter = models.CharField(max_length=4, null=True, blank=True)
+    summary = models.JSONField(default=dict)  # the reconciliation: rows = held back + ready; ready = governance buckets = added + already in the list
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -195,6 +196,7 @@ class ContactListImportRow(models.Model):
     match_method = models.CharField(max_length=20, null=True, blank=True, choices=MatchMethod.choices)  # LOYALTY_ID, EMAIL, PHONE, PARTY_ID
     error_message = models.CharField(max_length=300, null=True, blank=True)  # why the row is held back
     warning = models.CharField(max_length=300, null=True, blank=True)  # a remark on a row that is imported
+    governance_status = models.CharField(max_length=30, null=True, blank=True)  # how a marketing email send would judge the contact today
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:

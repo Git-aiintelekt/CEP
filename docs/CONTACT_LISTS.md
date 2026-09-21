@@ -14,7 +14,7 @@ Interface reference: <https://cep-dashboard-tau.vercel.app/> → Contact Lists.
 | 2 | Create a list from BI / extraction | wizard, *BI or extraction tool*: pick an audience the data team defined (a C360 `segment`) |
 | 3 | Create a list by cloning | wizard, *Clone a list*; also **Clone** in a row's menu and on the list page |
 | 4 | Browse all lists | `/contact-lists`: totals, search, **Type** and **Source** filters |
-| 5 | Inspect a list's contents | `/contact-lists/:id`: email, name, *added on*, *source* per contact; search; paging; CSV export |
+| 5 | Inspect a list's contents | `/contact-lists/:id`: email, name, *added on*, *source* and *marketing email status* per contact; the governance breakdown of the list today; search; paging; CSV export |
 | 6 | Fix a list after creation | **Add contacts** (by email address), **Remove from list**, **Edit details** (name, description, type) |
 | 7 | Reuse a list across campaigns | campaign form → Audience: tick any number of lists; the list page names every campaign it is on |
 | 8 | Build a list without leaving campaign setup | campaign form → Audience → **Create a list** opens the same wizard |
@@ -95,6 +95,51 @@ waits, *Cancel*, *Open the list*. A hidden browser tab stops asking, so idle tab
    members (`membership_source = 'UPLOAD'`); the list becomes `ACTIVE`. Staged rows that went in are deleted; the ones to
    look at (held back, warnings) are kept.
 
+### 3.3 Governance check and reconciliation (`apps/contact_lists/governance.py`)
+
+While a file is checked, **every row that can be imported is judged the way a marketing email send would judge that
+contact today**, with the send engine's own rules in the same order (`apps/delivery/engine/audience.py`), so a word means
+the same at upload and in a campaign's results. First match wins:
+
+| Status | From |
+|---|---|
+| Bounced: the address does not exist · Bounced repeatedly · Marked a message as spam · Blocked address | `contact_point_status.blocked`, by `block_reason` (`HARD_BOUNCE`, `SOFT_BOUNCE_THRESHOLD`, `COMPLAINT`, anything else: manual, registry, suppression list) |
+| Invalid address | `contact_point_status.is_valid = false` |
+| Suppressed | `consent_suppression.suppressed` |
+| Unsubscribed | `consent_status = OPTED_OUT` |
+| No consent on record | no `OPTED_IN` answer for email (a valid consent date in the file counts, for someone without an answer) |
+| Can receive marketing email | none of the above |
+
+The address judged is the one a send would use: the customer's primary address for someone CEP knows, the address in
+the file for someone new (so a new person whose address is on a suppression list is caught too). When a mobile column is
+mapped the report also says how many usable numbers the file has and how many of those are blocked (STOP reply,
+do-not-disturb registry).
+
+**The check does not decide who is imported.** Everyone with a usable address goes into the list whatever their
+status: the list is the audience, people resubscribe and addresses get unblocked, and the send engine decides again, for
+real, every time a campaign builds its list. The check tells the operator, before and after, how much of the file can
+actually be reached.
+
+**Numbers that add up.** The verdict is stored per row (`contact_list_import_row.governance_status`) and the import
+carries a summary (`contact_list_import.summary`, in the API as `summary`) built so it can be reconciled against the
+source, with `balanced: true` when every line below holds:
+
+```
+rows in the file = held back + ready
+        held back = no email address + not a valid email address + same address earlier in the file
+            ready = new to CEP + already known
+            ready = can receive + unsubscribed + bounced (hard) + bounced repeatedly + complained + blocked + invalid + suppressed + no consent
+after the import:
+            ready = added to the list + already in the list
+```
+
+It is shown in the wizard's review step (before anything is imported), on its last step, and under **Report** on the
+uploads page for every upload that was checked. **Download the row-by-row report** gives a CSV with every line of the
+file: `line, email, outcome (Imported / Held back), detail, recognised (new / known by email / known by loyalty ID),
+marketing_email_status`. Staged rows are kept after the import for that purpose (the partition retention policy ages
+them out). The list page shows the same breakdown for the list **as it is today** (`GET /contact-lists/{id}/governance/`)
+and the status of each contact in the table.
+
 **Consent.** Uploading someone does not give consent. When a *Consent date* column is mapped, a valid date that is not
 in the future becomes an email opt-in (`consent_record`: `OPT_IN`, source `IMPORT`, evidence = file, line, date) **only
 for people CEP has no consent answer for**. It never overrides an unsubscribe. Without it, new people have no consent
@@ -118,7 +163,7 @@ date, Consent date. First / last name, postal code, tier and last order date are
 | `POST /contact-lists/{id}/clone/` | `{name, description, list_environment}` | `list.edit` |
 | `POST /contact-lists/{id}/refresh/` | audience lists: who left is removed, who joined is added, contacts added by hand stay | `list.edit` |
 | `GET /contact-lists/{id}/usage/` | campaigns, which are live, Campaign Lists already built, added this week | `list.view` |
-| `GET /contact-lists/{id}/members/` | `?search= &source= &page= &page_size=` | `list.view` |
+| `GET /contact-lists/{id}/members/` | `?search= &source= &page= &page_size=`; each contact with `email_status`, `email_status_label`, `sendable` | `list.view` |
 | `POST /contact-lists/{id}/members/` | `{contacts: [{email, first_name, last_name}]}` (up to 500): known people are linked, new ones created | `list.edit` |
 | `POST /contact-lists/{id}/members/remove/` | `{ids}`; the people stay in CEP | `list.edit` |
 | `GET /contact-lists/{id}/members/export/` | CSV; `?ids=1,2,3` for a selection; cells that a spreadsheet would run as a formula are neutralised | `list.view` |
@@ -128,12 +173,15 @@ date, Consent date. First / last name, postal code, tier and last order date are
 | `POST /contact-lists/{id}/imports/{import}/review/` | `{mapping: {property: column}}` → **202**, checked in the background | `list.import` |
 | `POST /contact-lists/{id}/imports/{import}/apply/` | → **202**, added in the background | `list.import` |
 | `POST /contact-lists/{id}/imports/{import}/cancel/` | | `list.import` |
+| `GET /contact-lists/{id}/imports/{import}/report/` | CSV, one line per row of the file: outcome, detail, recognised, governance status (409 before the file was checked) | `list.view` |
+| `GET /contact-lists/{id}/governance/` | the list's people as a marketing email send would judge them today: `total`, `sendable`, `not_sendable`, `statuses[]` | `list.view` |
 
 "Live" = a campaign in `PRODUCTION_PUBLISHED` or `ACTIVE`. `POST /campaigns/{id}/publish/` refuses a list that is
 marked Test, archived, deleted or still a draft.
 
 ## 5. Schema
 
+`database/patches/0013_list_upload_governance.sql` (section 13): `contact_list_import_row.governance_status`, `contact_list_import.summary`.
 `database/patches/0012_list_upload_jobs.sql` (section 12): the queue on `contact_list_import` (`next_action`, progress, `heartbeat_at`, `worker`,
 `attempts`, statuses `STAGING` / `STAGED` / `APPLYING` / `CANCELLED`) and the three `lists.import_*` global parameters.
 `database/patches/0011_contact_list_module.sql` (layer 5, section 11): `source_type` gains `CLONE`, `status` gains
@@ -142,7 +190,7 @@ marked Test, archived, deleted or still a draft.
 
 ## 6. Tests
 
-* backend: `test_contact_lists.py` (37 checks, real database, rolled back): chunking, the limits per workspace and platform, a dead worker's job taken over, cancel, 20,000 rows
+* backend: `test_contact_lists.py` (42 checks, among them every governance status set up on seed customers, the summary balancing before and after the import, and the row-by-row report; real database, rolled back): chunking, the limits per workspace and platform, a dead worker's job taken over, cancel, 20,000 rows
 * frontend: `src/features/contact-lists/ContactLists.test.tsx` (10 tests against the mock API, whose worker takes time)
 * live: `live_upload.py` pushes 50,000 to 100,000 rows through the running server and times other API calls meanwhile
 

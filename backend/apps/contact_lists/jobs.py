@@ -209,11 +209,7 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
                 finish(status="REVIEW", next_action=None)
             else:
                 imports.apply(record, chunk, beat, user_id=record.created_by_id)
-                with session.tx():
-                    imports_rows = connections[record._state.db].cursor()
-                    imports_rows.execute("DELETE FROM contact_list_import_row WHERE tenant_id = %s AND import_id = %s AND match_status IN ('MATCHED', 'UNMATCHED') AND warning IS NULL",
-                                         [tenant_id, import_id])      # the rows that went in are in the list now; the ones to look at are kept
-                    imports_rows.close()
+                # the staged rows stay: they are the row-by-row report of this upload (the partition retention policy ages them out)
                 finish(status="APPLIED", next_action=None)
             return True
         except imports.Cancelled:

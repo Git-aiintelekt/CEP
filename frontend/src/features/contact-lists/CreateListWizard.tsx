@@ -21,6 +21,7 @@ import type { Audience, ContactList, ListImport, ListSource, Page } from '@/lib/
 
 import { problemText } from './problem'
 import { POLL_MS, watchedUploads } from './uploadJobs'
+import { UploadReport } from './UploadReport'
 import { ProgressBar } from './UploadsIndicator'
 
 type Step = 'method' | 'file' | 'map' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
@@ -514,6 +515,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               </ul>
             </div>
           )}
+          <UploadReport job={job} />
           {review_.new > 0 && <p className="text-xs text-ink-500">New contacts have no consent answer in CEP unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
         </div>
       )}
@@ -559,6 +561,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <p className="text-base font-semibold text-ink-900">{created.name} is ready</p>
             {source === 'UPLOAD' && upload && (
               <>
+                {job?.summary && <div className="mb-3"><UploadReport job={job} /></div>}
                 <p className="cep-num">{formatNumber(job?.applied_count ?? 0)} contacts imported · {formatNumber(job?.review?.held_back ?? 0)} rows skipped</p>
                 <p>{inCampaign ? 'It came from an upload, so it is not attached to this campaign yet. Check it, then tick it in the list below.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
               </>

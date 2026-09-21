@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { buttonSecondary } from '@/components/Form'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
+import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -15,6 +16,7 @@ import type { ListImport } from '@/lib/types'
 import { CreateListWizard } from './CreateListWizard'
 import { problemText } from './problem'
 import { jobSummary, resumeLink, uploadedWhen, useImportJobs } from './uploadJobs'
+import { UploadReport } from './UploadReport'
 import { ProgressBar } from './UploadsIndicator'
 
 const TONE: Record<string, string> = { APPLIED: 'COMPLETED', FAILED: 'FAILED', CANCELLED: 'CANCELLED', REVIEW: 'PAUSED', STAGED: 'PAUSED' }
@@ -25,6 +27,7 @@ export function UploadsPage() {
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState('')
+  const [reportOf, setReportOf] = useState<string | null>(null)
   const jobs = useImportJobs()
   const [listId, importId] = (params.get('resume') ?? '').split(':')
   const canImport = can('list.import') || can('list.edit')
@@ -88,6 +91,7 @@ export function UploadsPage() {
                     <td className="px-3 py-2 text-right">
                       <span className="flex flex-wrap justify-end gap-2">
                         {resume && canImport && <button type="button" className={buttonSecondary} onClick={() => setParams({ resume: `${job.contact_list}:${job.id}` })}>Continue</button>}
+                        {job.summary && <button type="button" className={buttonSecondary} onClick={() => setReportOf(job.id)}>Report</button>}
                         {job.status === 'APPLIED' && <Link to={`/contact-lists/${job.contact_list}`} className={buttonSecondary}>Open the list</Link>}
                         {!over && job.status !== 'APPLYING' && canImport && <button type="button" className={buttonSecondary} disabled={cancel.isPending} onClick={() => cancel.mutate(job)}>Cancel</button>}
                       </span>
@@ -98,6 +102,15 @@ export function UploadsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {reportOf && rows.find((job) => job.id === reportOf) && (
+        <Modal title="Upload report" size="lg" onClose={() => setReportOf(null)} footer={<button type="button" className={buttonPrimary} onClick={() => setReportOf(null)}>Close</button>}>
+          <p className="mb-3 text-sm text-ink-700">
+            <strong className="text-ink-900">{rows.find((job) => job.id === reportOf)?.list_name}</strong> · {rows.find((job) => job.id === reportOf)?.file_name}
+          </p>
+          <UploadReport job={rows.find((job) => job.id === reportOf) as ListImport} />
+        </Modal>
       )}
 
       {listId && importId && (

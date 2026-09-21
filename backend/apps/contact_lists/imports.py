@@ -6,7 +6,9 @@
                       per transaction (`raw` = the row as received). Then the file is deleted: nothing is kept of it.
     review()          worker: set-based SQL over the staged rows, a range of lines per transaction: which rows cannot be
                       imported, which repeat an earlier one, who is already known (loyalty ID, then email address), who
-                      is new. Can be run again with another mapping; nothing outside the staging table changes.
+                      is new, and the GOVERNANCE CHECK: how a marketing email send would judge each contact today
+                      (unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent: governance.py).
+                      Can be run again with another mapping; nothing outside the staging table changes.
     apply()           worker: a range of lines per transaction. New people become customer_master rows owned by CEP
                       (source_system CEP_UPLOAD, not a C360 copy), the list gets its members, and a consent date in the
                       file becomes an email opt-in for people CEP has no consent answer for (never over an unsubscribe).
@@ -28,6 +30,7 @@ from django.utils import timezone
 from apps.delivery.engine import session
 from apps.tenants import context
 
+from . import governance
 from .models import ContactList, ContactListImport
 
 MAX_BYTES = 50 * 1024 * 1024
@@ -338,7 +341,10 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     span = mine + " AND r.row_number BETWEEN %(a)s AND %(b)s"
     last_line = record.row_count + 1
     ranges = list(_ranges(last_line, chunk_rows))
-    steps, done = len(ranges) * 2 + 2, 0
+    steps, done = len(ranges) * 2 + 3, 0
+    # a valid consent date in the file, not in the future, for someone CEP has no answer for, becomes an opt-in when the
+    # file is imported: the check already counts that person as marketable
+    from_file = f"({v['consent_date_ok']} AND ({v['consent_date']})::date <= current_date AND COALESCE(cs.consent_status, 'UNKNOWN') = 'UNKNOWN')"
 
     def tick():
         nonlocal done
@@ -367,7 +373,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
             params = {**base, "a": a, "b": b}
             with session.tx(), connection.cursor() as cursor:
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'PENDING', match_method = NULL, matched_party_id = NULL,
-                                          error_message = NULL, warning = NULL WHERE {span}""", params)
+                                          error_message = NULL, warning = NULL, governance_status = NULL WHERE {span}""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r
                                       SET match_status = 'REJECTED',
                                           error_message = CASE WHEN {v['email']} IS NULL THEN 'No email address'
@@ -407,7 +413,36 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                                             CASE WHEN {v['consent_date']} IS NOT NULL AND NOT {v['consent_date_ok']} THEN 'Consent date not recognised: no consent recorded'
                                                  WHEN {v['consent_date_ok']} AND ({v['consent_date']})::date > current_date THEN 'Consent date is in the future: no consent recorded' END), '')
                                     WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')""", params)
+                # 6. the governance check. The address judged is the one a send would use: the customer's primary address for
+                #    someone known, the address in the file for someone new.
+                cursor.execute(f"""UPDATE contact_list_import_row r SET governance_status = g.status
+                                     FROM (SELECT r.id, {governance.status_sql(from_file)} AS status
+                                             FROM contact_list_import_row r
+                                             LEFT JOIN customer_master cm ON cm.party_id = r.matched_party_id AND cm.tenant_id = r.tenant_id
+                                             LEFT JOIN consent_suppression cs ON cs.tenant_id = r.tenant_id AND cs.party_id = r.matched_party_id AND cs.channel = 'EMAIL'
+                                             LEFT JOIN contact_point_status cps ON cps.tenant_id = r.tenant_id AND cps.contact_point_type = 'EMAIL'
+                                                  AND cps.contact_value = COALESCE({governance.PRIMARY_EMAIL_SQL}, lower({v['email']}))::citext
+                                            WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')) g
+                                    WHERE {span} AND r.id = g.id""", params)
             tick()
+
+        with session.tx(), connection.cursor() as cursor:
+            cursor.execute(f"""SELECT COALESCE(r.governance_status, 'x'), count(*) FROM contact_list_import_row r
+                                WHERE {mine} AND r.match_status IN ('MATCHED', 'UNMATCHED') GROUP BY 1""", base)
+            by_status = dict(cursor.fetchall())
+            cursor.execute(f"""SELECT count(*) FILTER (WHERE r.error_message = 'No email address'),
+                                      count(*) FILTER (WHERE r.match_status = 'REJECTED' AND r.error_message <> 'No email address')
+                                 FROM contact_list_import_row r WHERE {mine}""", base)
+            no_email, bad_email = cursor.fetchone()
+            mobile = None
+            if "mobile" in mapping:                       # text campaigns: how many usable numbers, how many of them blocked (STOP, registry)
+                cursor.execute(f"""SELECT count(*) FILTER (WHERE m.number IS NOT NULL), count(*) FILTER (WHERE p.blocked)
+                                     FROM (SELECT ({v['mobile_e164']}) AS number, r.tenant_id FROM contact_list_import_row r
+                                            WHERE {mine} AND r.match_status IN ('MATCHED', 'UNMATCHED')) m
+                                     LEFT JOIN contact_point_status p ON p.tenant_id = m.tenant_id AND p.contact_point_type = 'PHONE' AND p.contact_value = m.number::citext""", base)
+                with_number, blocked_number = cursor.fetchone()
+                mobile = {"with_number": with_number, "blocked": blocked_number}
+        tick()
 
         with session.tx(), connection.cursor() as cursor:
             cursor.execute(f"""SELECT count(*) FILTER (WHERE match_status = 'MATCHED'), count(*) FILTER (WHERE match_status = 'UNMATCHED'),
@@ -425,8 +460,13 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     record.matched_count, record.unmatched_count, record.duplicate_count = matched, new, duplicate
     record.rejected_count, record.warning_count = rejected, warnings
     record.progress_done = record.progress_total = record.row_count
+    record.summary = {"rows": record.row_count,
+                      "held_back": {"total": rejected + duplicate, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "DUPLICATE_IN_FILE": duplicate},
+                      "ready": {"total": matched + new, "new": new, "existing": matched},
+                      "governance": {code: int(by_status.get(code, 0)) for code in governance.STATUSES},
+                      "mobile": mobile, "checked_at": timezone.now().isoformat()}
     with session.tx():
-        record.save(update_fields=["column_mapping", "matched_count", "unmatched_count", "duplicate_count", "rejected_count", "warning_count", "progress_done", "progress_total"])
+        record.save(update_fields=["column_mapping", "matched_count", "unmatched_count", "duplicate_count", "rejected_count", "warning_count", "progress_done", "progress_total", "summary"])
 
 
 def issues(record: ContactListImport, limit: int = 50) -> list[dict]:
@@ -512,8 +552,36 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
             member_count=members, status=ContactList.Status.ACTIVE if contact_list.status == ContactList.Status.DRAFT else contact_list.status,
             last_refreshed_at=now, source_reference=contact_list.source_reference or record.file_name, updated_by_id=user_id or contact_list.updated_by_id)
     record.applied_count = from_this_file
+    ready = record.matched_count + record.unmatched_count
+    record.summary = {**(record.summary or {}), "result": {"added": from_this_file, "already_in_list": max(0, ready - from_this_file),
+                                                            "list_members_now": members, "imported_at": now.isoformat()}}
     record.new_customer_count = (record.new_customer_count or 0) + created
     record.consent_count = (record.consent_count or 0) + consents
     record.completed_at = now
     with session.tx():
-        record.save(update_fields=["applied_count", "new_customer_count", "consent_count", "completed_at"])
+        record.save(update_fields=["applied_count", "new_customer_count", "consent_count", "completed_at", "summary"])
+
+
+# ---------------------------------------------------------------- the row-by-row report
+REPORT_HEADER = ["line", "email", "outcome", "detail", "recognised", "marketing_email_status"]
+
+
+def report_rows(record: ContactListImport, page_rows: int = 5000):
+    """Every row of the file with what happened to it, for reconciling the upload against its source."""
+    email_column = (record.column_mapping or {}).get("email")
+    recognised = {("MATCHED", "EMAIL"): "Known: same email address", ("MATCHED", "LOYALTY_ID"): "Known: same loyalty ID", ("UNMATCHED", "EMAIL"): "New to CEP"}
+    last = 0
+    while True:
+        with _conn().cursor() as cursor:
+            cursor.execute("""SELECT row_number, raw, match_status, match_method, error_message, warning, governance_status FROM contact_list_import_row
+                               WHERE tenant_id = %s AND import_id = %s AND row_number > %s ORDER BY row_number LIMIT %s""",
+                           [str(record.tenant_id), str(record.pk), last, page_rows])
+            page = cursor.fetchall()
+        for line, raw, status, method, error, warning, verdict in page:
+            raw = json.loads(raw) if isinstance(raw, str) else (raw or {})
+            held = status in ("REJECTED", "DUPLICATE")
+            yield [line, raw.get(email_column, "") if email_column else "", "Held back" if held else ("Not checked yet" if status == "PENDING" else "Imported"),
+                   error or warning or "", "" if held else recognised.get((status, method), ""), "" if held else (governance.label(verdict) or "")]
+        if len(page) < page_rows:
+            return
+        last = page[-1][0]

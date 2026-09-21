@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.tenants import context
 
+from . import governance
 from .imports import EMAIL_RE, PARTY_ID
 from .models import ContactList
 
@@ -150,11 +151,15 @@ def members(contact_list: ContactList, *, search: str = "", source: str = "", pa
         params.update({"limit": page_size, "offset": (page - 1) * page_size})
         cursor.execute(f"""SELECT m.id, m.party_id, {PRIMARY_EMAIL}, COALESCE(cm.first_name, m.custom_attributes ->> 'first_name'),
                                   COALESCE(cm.last_name, m.custom_attributes ->> 'last_name'), m.added_at, m.membership_source, cm.party_id IS NOT NULL,
-                                  (SELECT p ->> 'number' FROM jsonb_array_elements(cm.phones) p ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1)
+                                  (SELECT p ->> 'number' FROM jsonb_array_elements(cm.phones) p ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1),
+                                  {governance.status_sql()}
                              FROM contact_list_member m LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
+                             LEFT JOIN consent_suppression cs ON cs.tenant_id = m.tenant_id AND cs.party_id = m.party_id AND cs.channel = 'EMAIL'
+                             LEFT JOIN contact_point_status cps ON cps.tenant_id = m.tenant_id AND cps.contact_point_type = 'EMAIL' AND cps.contact_value = {governance.PRIMARY_EMAIL_SQL}::citext
                             WHERE {clause} ORDER BY m.added_at DESC, m.id DESC LIMIT %(limit)s OFFSET %(offset)s""", params)
-        rows = [{"id": mid, "party_id": party, "email": email, "first_name": first, "last_name": last, "added_at": added, "source": src, "known": known, "mobile": mobile}
-                for mid, party, email, first, last, added, src, known, mobile in cursor.fetchall()]
+        rows = [{"id": mid, "party_id": party, "email": email, "first_name": first, "last_name": last, "added_at": added, "source": src, "known": known, "mobile": mobile,
+                 "email_status": verdict, "email_status_label": governance.label(verdict), "sendable": governance.STATUSES[verdict][1]}
+                for mid, party, email, first, last, added, src, known, mobile, verdict in cursor.fetchall()]
     return {"count": total, "page": page, "page_size": page_size, "results": rows}
 
 
@@ -220,6 +225,22 @@ def remove_all(contact_list: ContactList):
         cursor.execute("DELETE FROM contact_list_member WHERE tenant_id = %s AND contact_list_id = %s", [tenant, pk])
         cursor.execute("""DELETE FROM contact_list_import_row r USING contact_list_import i
                            WHERE r.tenant_id = %s AND i.tenant_id = r.tenant_id AND i.id = r.import_id AND i.contact_list_id = %s""", [tenant, pk])
+
+
+def governance_now(contact_list: ContactList) -> dict:
+    """The list's people as a marketing email send would judge them today. One set-based query over indexed keys."""
+    with _conn().cursor() as cursor:
+        cursor.execute(f"""SELECT v.status, count(*) FROM (
+                               SELECT {governance.status_sql()} AS status
+                                 FROM contact_list_member m LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
+                                 LEFT JOIN consent_suppression cs ON cs.tenant_id = m.tenant_id AND cs.party_id = m.party_id AND cs.channel = 'EMAIL'
+                                 LEFT JOIN contact_point_status cps ON cps.tenant_id = m.tenant_id AND cps.contact_point_type = 'EMAIL'
+                                      AND cps.contact_value = {governance.PRIMARY_EMAIL_SQL}::citext
+                                WHERE m.tenant_id = %s AND m.contact_list_id = %s) v GROUP BY 1""", [str(contact_list.tenant_id), str(contact_list.pk)])
+        counts = dict(cursor.fetchall())
+    total = sum(counts.values())
+    return {"total": total, "sendable": int(counts.get("MARKETABLE", 0)), "not_sendable": total - int(counts.get("MARKETABLE", 0)),
+            "statuses": governance.breakdown(counts), "checked_at": timezone.now()}
 
 
 # ---------------------------------------------------------------- where a list is used

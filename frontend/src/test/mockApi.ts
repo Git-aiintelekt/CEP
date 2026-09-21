@@ -1,7 +1,7 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, ListImport, ListMember, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
+import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, GovernanceLine, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -44,15 +44,28 @@ export const audiences: Audience[] = [
   { id: 'aud-lapsed', code: 'LAPSED_90', name: 'No purchase in 90 days', description: 'Win-back base', source_system: 'C360', synced_at: '2026-09-20T05:00:00Z', member_count: 70, list_count: 0 },
 ]
 export const listMembers: ListMember[] = [
-  { id: 11, party_id: 'P-1', email: 'd.alvarez@northwind.example', first_name: 'Dolores', last_name: 'Alvarez', mobile: null, added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true },
-  { id: 12, party_id: 'P-2', email: 'm.okonkwo@fabrikam.example', first_name: 'Miriam', last_name: 'Okonkwo', mobile: '+14045550002', added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true },
-  { id: 13, party_id: 'P-3', email: 's.ramachandran@tailspin.example', first_name: 'Sana', last_name: 'Ramachandran', mobile: null, added_at: '2026-08-24T10:00:00Z', source: 'MANUAL', known: true },
+  { id: 11, party_id: 'P-1', email: 'd.alvarez@northwind.example', first_name: 'Dolores', last_name: 'Alvarez', mobile: null, added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true, email_status: 'MARKETABLE', email_status_label: 'Can receive marketing email', sendable: true },
+  { id: 12, party_id: 'P-2', email: 'm.okonkwo@fabrikam.example', first_name: 'Miriam', last_name: 'Okonkwo', mobile: '+14045550002', added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true, email_status: 'MARKETABLE', email_status_label: 'Can receive marketing email', sendable: true },
+  { id: 13, party_id: 'P-3', email: 's.ramachandran@tailspin.example', first_name: 'Sana', last_name: 'Ramachandran', mobile: null, added_at: '2026-08-24T10:00:00Z', source: 'MANUAL', known: true, email_status: 'UNSUBSCRIBED', email_status_label: 'Unsubscribed', sendable: false },
 ]
 const PROPERTIES = [
   { key: 'email', label: 'Email', required: true, help: 'Who the person is.' }, { key: 'first_name', label: 'First name', required: false, help: '' },
   { key: 'last_name', label: 'Last name', required: false, help: '' }, { key: 'consent_date', label: 'Consent date', required: false, help: 'Recorded as an email opt-in.' },
 ]
 const REVIEW = { ready: 4, held_back: 2, new: 3, existing: 1, warnings: 1, errors: 2, duplicates: 1, rejected: 1 }
+const GOVERNANCE: GovernanceLine[] = [
+  { code: 'MARKETABLE', label: 'Can receive marketing email', sendable: true, count: 2 }, { code: 'UNSUBSCRIBED', label: 'Unsubscribed', sendable: false, count: 1 },
+  { code: 'HARD_BOUNCE', label: 'Bounced: the address does not exist', sendable: false, count: 1 }, { code: 'SOFT_BOUNCE', label: 'Bounced repeatedly', sendable: false, count: 0 },
+  { code: 'COMPLAINT', label: 'Marked a message as spam', sendable: false, count: 0 }, { code: 'BLOCKED', label: 'Blocked address', sendable: false, count: 0 },
+  { code: 'INVALID_ADDRESS', label: 'Invalid address', sendable: false, count: 0 }, { code: 'SUPPRESSED', label: 'Suppressed', sendable: false, count: 0 },
+  { code: 'NO_CONSENT', label: 'No consent on record', sendable: false, count: 0 },
+]
+/** 6 rows = 2 held back + 4 ready; 4 = 2 marketable + 1 unsubscribed + 1 hard bounce; after the import 4 = 3 added + 1 already in the list */
+export const uploadSummary: UploadSummary = {
+  rows: 6, held_back: { total: 2, reasons: [{ code: 'NO_EMAIL', label: 'No email address', count: 0 }, { code: 'INVALID_EMAIL', label: 'Not a valid email address', count: 1 },
+                                            { code: 'DUPLICATE_IN_FILE', label: 'Same address earlier in the file', count: 1 }] },
+  ready: { total: 4, new: 3, existing: 1 }, governance: { sendable: 2, not_sendable: 2, statuses: GOVERNANCE }, mobile: null, result: null, balanced: true,
+}
 /** as POST .../imports/ answers: stored and queued, nothing read yet. The mock "worker" moves it on at the next poll. */
 export const stagedImport: ListImport = {
   id: 'imp-1', contact_list: 'cl-new', list_name: 'Trade show leads', list_status: 'DRAFT', file_name: 'leads.csv', file_size: 2048, status: 'UPLOADED', phase: 'Waiting to be read',
@@ -377,6 +390,8 @@ export function installMockApi(options: MockOptions = {}) {
         listsNow = [made, ...listsNow]
         return json(made, 201)
       }
+      if (path.endsWith('/governance/')) return json({ total: 3, sendable: 2, not_sendable: 1, statuses: GOVERNANCE.map((line) => (line.code === 'HARD_BOUNCE' ? { ...line, count: 0 } : line)), checked_at: '2026-09-21T10:00:00Z' })
+      if (path.endsWith('/report/')) return new Response('line,email,outcome\n2,a@x.example,Imported\n', { status: 200, headers: { 'Content-Type': 'text/csv' } })
       if (path.endsWith('/usage/')) {
         const item = find(one)
         return json({
@@ -408,7 +423,8 @@ export function installMockApi(options: MockOptions = {}) {
       for (const item of jobsNow) {
         if (item.status === 'APPLYING' && (importDoneAt.get(item.id) ?? Infinity) <= Date.now()) {
           listsNow = listsNow.map((entry) => (entry.id === item.contact_list ? { ...entry, status: 'ACTIVE', member_count: 4 } : entry))
-          put({ ...item, status: 'APPLIED', phase: 'Imported', working: false, applied_count: 4, new_people: 3, consents_recorded: 0, list_status: 'ACTIVE', completed_at: '2026-09-21T10:02:00Z' })
+          put({ ...item, status: 'APPLIED', phase: 'Imported', working: false, applied_count: 3, new_people: 3, consents_recorded: 0, list_status: 'ACTIVE', completed_at: '2026-09-21T10:02:00Z',
+                summary: { ...uploadSummary, result: { added: 3, already_in_list: 1, list_members_now: 4, new_people: 3, consents_recorded: 0 } } })
         }
       }
       if (path.endsWith('/contact-lists/imports/')) return json(jobsNow)
@@ -434,7 +450,7 @@ export function installMockApi(options: MockOptions = {}) {
         }
         if (job.status === 'UPLOADED') return json(put({ ...job, status: 'STAGED', phase: 'Read. Match the columns to continue', working: false, row_count: 6, progress: { done: 6, total: 6, percent: 100, unit: 'rows' } }))
         if (job.status === 'MATCHING') {
-          return json(put({ ...job, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
+          return json(put({ ...job, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, summary: uploadSummary, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
                             issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] }))
         }
         return json(jobsNow.find((item) => item.id === job.id))

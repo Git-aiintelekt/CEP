@@ -541,6 +541,21 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'Rows per transaction while a file is read, checked and imported. Smaller = gentler on the database, slower overall')
 ON CONFLICT (key) DO NOTHING;
 
+-- 13. GOVERNANCE CHECK ON LIST UPLOADS
+--     Every row that can be imported is judged the way a marketing email send would judge it today, in the same order
+--     (backend/apps/delivery/engine/audience.py): blocked address (hard bounce, repeated soft bounces, complaint, other),
+--     invalid address, suppressed, unsubscribed, no consent, otherwise marketable. The verdict is kept per row, and the
+--     import carries a summary whose numbers add up: rows = held back + ready; ready = the governance buckets;
+--     ready = added to the list + already in it. Staged rows are kept after the import: they are the row-by-row report.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS governance_status VARCHAR(30);
+ALTER TABLE contact_list_import_row DROP CONSTRAINT IF EXISTS ck_contact_list_import_row_governance;
+ALTER TABLE contact_list_import_row ADD CONSTRAINT ck_contact_list_import_row_governance
+    CHECK (governance_status IN ('MARKETABLE', 'UNSUBSCRIBED', 'HARD_BOUNCE', 'SOFT_BOUNCE', 'COMPLAINT', 'BLOCKED', 'INVALID_ADDRESS', 'SUPPRESSED', 'NO_CONSENT'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS summary JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_summary_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_summary_object CHECK (jsonb_typeof(summary) = 'object');
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

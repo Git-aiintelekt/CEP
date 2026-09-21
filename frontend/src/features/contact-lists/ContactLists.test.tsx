@@ -100,12 +100,35 @@ test('create from a file: name and type, the file, the columns, the review, then
   expect(within(dialog).getByText('2 rows held back')).toBeTruthy()
   expect(within(dialog).getByText('New').previousElementSibling?.textContent).toBe('3')
   expect(within(dialog).getByText('Same email address as line 3', { exact: false })).toBeTruthy()
+
+  // the governance check, contact by contact, before anything is imported; and numbers that add up
+  const report = within(dialog).getByRole('region', { name: 'Upload report' })
+  const value = (label: string) => within(report).getByText(label).nextElementSibling?.textContent
+  expect([value('Rows in the file'), value('Held back'), value('Ready to import'), value('New to CEP'), value('Already known')]).toEqual(['6', '2', '4', '3', '1'])
+  expect([value('Not a valid email address'), value('Same address earlier in the file')]).toEqual(['1', '1'])
+  expect(within(report).queryByText('No email address')).toBeNull()                          // a reason with nothing in it is not listed
+  expect([value('Can receive marketing email'), value('Unsubscribed'), value('Bounced: the address does not exist')]).toEqual(['2', '1', '1'])
+  expect(within(report).queryByText('Suppressed')).toBeNull()
+  expect(within(report).getByRole('img', { name: '2 of 4 can receive marketing email today' })).toBeTruthy()
+  expect(report.textContent).toContain('6 rows = 2 held back + 4 ready. Of those 4, 2 can receive marketing email today and 2 cannot.')
+  expect(report.textContent).toContain('Everyone ready is imported whatever their status')
   await user.click(await ready(dialog, 'Import contacts'))
 
   dialog = await screen.findByRole('dialog', { name: 'List created' })
   expect(within(dialog).getByText('Trade show leads is ready')).toBeTruthy()
-  expect(within(dialog).getByText(/4 contacts imported · 2 rows skipped/)).toBeTruthy()
+  expect(within(dialog).getByText(/3 contacts imported · 2 rows skipped/)).toBeTruthy()
   expect(within(dialog).getByText(/pick it manually when you attach it to a campaign/)).toBeTruthy()
+  // after the import: what happened, still adding up, and the row-by-row report to reconcile with
+  const after = within(dialog).getByRole('region', { name: 'Upload report' })
+  expect(within(after).getByText('Added to the list').nextElementSibling?.textContent).toBe('3')
+  expect(within(after).getByText('Already in the list').nextElementSibling?.textContent).toBe('1')
+  expect(after.textContent).toContain('6 rows = 2 held back + 4 imported.')
+  expect(after.textContent).toContain('3 were added to the list and 1 were in it already')
+  const clicked = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => undefined }))
+  await user.click(within(after).getByRole('button', { name: /Download the row-by-row report/ }))
+  await vi.waitFor(() => expect(clicked).toHaveBeenCalled())
+  expect(calls.some((call) => call.url.endsWith('/contact-lists/cl-new/imports/imp-1/report/'))).toBe(true)
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
   expect(await within(await screen.findByRole('table', { name: 'Contact Lists' })).findByText('Trade show leads')).toBeTruthy()
 })
@@ -181,6 +204,11 @@ test('inspect and fix: who is in the list and how they got there; what is safe t
   const sana = (await within(table).findByText('s.ramachandran@tailspin.example')).closest('tr') as HTMLElement
   expect(within(sana).getByText('Manual')).toBeTruthy()
   expect(within(sana).getByText('Aug 24, 2026')).toBeTruthy()
+  expect(within(sana).getByText('Unsubscribed')).toBeTruthy()                                 // each contact carries its status as of today
+  expect(within((within(table).getByText('d.alvarez@northwind.example')).closest('tr') as HTMLElement).getByText('Can receive')).toBeTruthy()
+  const check = await screen.findByRole('region', { name: 'Governance check' })
+  expect(check.textContent).toContain('2 of 3 can receive it')
+  expect(within(check).getByText('Unsubscribed').closest('div')?.textContent).toContain('1')
   expect(screen.getByText('No contacts selected')).toBeTruthy()
   expect((screen.getByRole('button', { name: 'Remove from list' }) as HTMLButtonElement).disabled).toBe(true)
 
@@ -303,7 +331,7 @@ test('a large upload runs in the background: progress in the wizard, leave it ru
   const alert = await screen.findByText('“Big file” is ready', {}, { timeout: 4000 })
   const toast = alert.closest('[role=status]') as HTMLElement
   expect(screen.queryByText(/has been checked/)).toBeNull()                           // no alert for the step they were watching in the wizard
-  expect(toast.textContent).toContain('4 contacts imported · 2 rows skipped')
+  expect(toast.textContent).toContain('3 contacts imported · 2 rows skipped')
   expect(within(toast).getByRole('link', { name: /Open the list/ }).getAttribute('href')).toBe('/contact-lists/cl-new')
   expect(await within(await screen.findByRole('table', { name: 'Contact Lists' })).findByText('Big file')).toBeTruthy()      // the table was refreshed
 
@@ -313,6 +341,11 @@ test('a large upload runs in the background: progress in the wizard, leave it ru
   expect(within(row).getByText('Imported')).toBeTruthy()
   expect(within(row).getByText('Aby John', { exact: false })).toBeTruthy()
   expect(within(row).getByRole('link', { name: 'Open the list' })).toBeTruthy()
+  await user.click(within(row).getByRole('button', { name: 'Report' }))
+  const reportDialog = await screen.findByRole('dialog', { name: 'Upload report' })
+  expect(reportDialog.textContent).toContain('6 rows = 2 held back + 4 imported.')
+  expect(within(reportDialog).getByText('Unsubscribed').nextElementSibling?.textContent).toBe('1')
+  expect(within(reportDialog).getByRole('button', { name: /Download the row-by-row report/ })).toBeTruthy()
 })
 
 test('uploads page: what is running shows its progress, what waits can be continued, and an unfinished upload can be cancelled', async () => {

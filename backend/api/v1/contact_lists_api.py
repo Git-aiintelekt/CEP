@@ -17,14 +17,17 @@
     POST   /contact-lists/{id}/imports/{import}/review/   {mapping}: 202, the check runs in the background
     POST   /contact-lists/{id}/imports/{import}/apply/    202, the contacts are added in the background
     POST   /contact-lists/{id}/imports/{import}/cancel/
+    GET    /contact-lists/{id}/imports/{import}/report/   CSV: every row of the file, what happened to it, its governance status
+    GET    /contact-lists/{id}/governance/                the list's people as a marketing email send would judge them today
 
 A file is never read, checked or imported inside a request (apps/contact_lists/jobs.py): the upload answers at once and
 the three steps run as background jobs, a few at a time for the whole platform and one at a time per workspace.
 """
 import csv
+import tempfile
 
 from django.db.models import Count, Q
-from django.http import StreamingHttpResponse
+from django.http import FileResponse, StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -35,7 +38,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.contact_lists import imports, jobs, lists
+from apps.contact_lists import governance, imports, jobs, lists
 from apps.contact_lists.models import ContactList, ContactListImport
 from apps.tenants import context
 
@@ -148,7 +151,41 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
                           "warnings": record.warning_count, "errors": held_back, "duplicates": record.duplicate_count, "rejected": record.rejected_count}
     if with_issues and data["review"] is not None:
         data["issues"] = imports.issues(record)
+    data["summary"] = reconciliation(record) if data["review"] is not None else None
     return data
+
+
+HELD_BACK = (("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("DUPLICATE_IN_FILE", "Same address earlier in the file"))
+
+
+def reconciliation(record: ContactListImport) -> dict | None:
+    """The upload in numbers that add up, so it can be reconciled against its source:
+        rows in the file = held back + ready;  ready = the governance lines;  ready = added to the list + already in it."""
+    stored = record.summary or {}
+    if "ready" not in stored:
+        return None
+    held, ready, counts = stored.get("held_back", {}), stored.get("ready", {}), stored.get("governance", {})
+    lines = governance.breakdown(counts)
+    sendable = sum(line["count"] for line in lines if line["sendable"])
+    result = stored.get("result")
+    return {
+        "rows": stored.get("rows", record.row_count),
+        "held_back": {"total": held.get("total", 0), "reasons": [{"code": code, "label": label, "count": int(held.get(code, 0))} for code, label in HELD_BACK]},
+        "ready": {"total": ready.get("total", 0), "new": ready.get("new", 0), "existing": ready.get("existing", 0)},
+        "governance": {"sendable": sendable, "not_sendable": ready.get("total", 0) - sendable, "statuses": lines},
+        "mobile": stored.get("mobile"),
+        "result": None if result is None else {**result, "new_people": record.new_customer_count, "consents_recorded": record.consent_count},
+        "balanced": stored.get("rows", 0) == held.get("total", 0) + ready.get("total", 0) and sum(line["count"] for line in lines) == ready.get("total", 0)
+                    and (result is None or result["added"] + result["already_in_list"] == ready.get("total", 0)),
+        "checked_at": stored.get("checked_at"),
+    }
+
+
+def _safe_cell(value):
+    """A cell that starts with = + - or @ would be run as a formula by a spreadsheet: neutralise it. Empty stays empty."""
+    if value is None:
+        return ""
+    return "'" + value if isinstance(value, str) and value and value[0] in "=+-@" else value
 
 
 class _Echo:
@@ -259,6 +296,13 @@ class ContactListViewSet(BaseTenantViewSet):
     def usage(self, request, pk=None, version=None):
         return Response(lists.usage(self.get_object()))
 
+    @extend_schema(responses=inline_serializer("ListGovernance", {"total": serializers.IntegerField(), "sendable": serializers.IntegerField(), "not_sendable": serializers.IntegerField(),
+                                                                  "statuses": serializers.ListField(child=serializers.DictField()), "checked_at": serializers.DateTimeField()}))
+    @action(detail=True, methods=["get"], url_path="governance")
+    def governance_now(self, request, pk=None, version=None):
+        """Unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent, marketable: the list's people today."""
+        return Response(lists.governance_now(self.get_object()))
+
     # ------------------------------------------------------------ the people in it
     @extend_schema(methods=["GET"], parameters=[OpenApiParameter("search", str), OpenApiParameter("source", str), OpenApiParameter("page", int), OpenApiParameter("page_size", int)],
                    responses=inline_serializer("ListMembers", {"count": serializers.IntegerField(), "page": serializers.IntegerField(), "page_size": serializers.IntegerField(),
@@ -312,7 +356,7 @@ class ContactListViewSet(BaseTenantViewSet):
                 for row in chunk:
                     # a leading = + - @ would be run as a formula by a spreadsheet: neutralise it
                     cells = [row["email"], row["first_name"], row["last_name"], row["mobile"], row["added_at"].date().isoformat(), row["source"].title(), row["party_id"]]
-                    yield writer.writerow([("'" + str(c)) if isinstance(c, str) and c[:1] in "=+-@" else ("" if c is None else c) for c in cells])
+                    yield writer.writerow([_safe_cell(c) for c in cells])
                 if len(chunk) < 200:
                     break
                 page += 1
@@ -396,3 +440,25 @@ class ContactListViewSet(BaseTenantViewSet):
         except imports.ImportError_ as exc:
             raise Conflict(str(exc)) from exc
         return Response(import_payload(record))
+
+    @extend_schema(responses={(200, "text/csv"): str})
+    @action(detail=True, methods=["get"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/report")
+    def import_report(self, request, pk=None, import_id=None, version=None):
+        """Every row of the file: imported or held back, why, whether the person was known, and the governance status."""
+        record = self._import(self.get_object(), import_id)
+        if record.status not in ("REVIEW", "APPLYING", "APPLIED"):
+            raise Conflict("The report is there once the file has been checked.")
+        # written to a spooled file inside the request (the tenant's transaction ends with the view), then sent from it:
+        # memory stays bounded for a 250,000-row report
+        spool = tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024, mode="w+b")
+        spool.write("\ufeff".encode("utf-8"))                                  # Excel reads UTF-8 only with the mark
+        text = _Echo()
+        writer = csv.writer(text)
+        spool.write(writer.writerow(imports.REPORT_HEADER).encode("utf-8"))
+        for row in imports.report_rows(record):
+            # a leading = + - @ would be run as a formula by a spreadsheet: neutralise it
+            spool.write(writer.writerow([_safe_cell(cell) for cell in row]).encode("utf-8"))
+        spool.seek(0)
+        safe = "".join(ch if ch.isalnum() or ch in "-_ ." else "_" for ch in record.file_name.rsplit(".", 1)[0]).strip() or "upload"
+        return FileResponse(spool, as_attachment=True, filename=f"{safe} - upload report.csv", content_type="text/csv; charset=utf-8")
+

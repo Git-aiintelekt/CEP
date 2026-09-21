@@ -109,7 +109,9 @@ already built. Inside campaign setup the same wizard is one click away: a vetted
 for the operator to confirm. **A file is never processed inside a web request:** the upload answers at once and a background worker reads, checks and
 imports it in chunks, a few uploads at a time for the whole platform and one per workspace, with progress in the header, an alert when it is done
 and an uploads page (Celery queue `imports` in production; a thread of the web process in development, no Redis needed).
-**[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
+Every uploaded contact is checked against governance with the send engine's own rules (unsubscribed, bounced, complained, blocked, invalid, suppressed,
+no consent), and the upload reports numbers that add up (rows = held back + ready; ready = the governance lines = added + already in the list), with a
+row-by-row CSV to reconcile against the source. **[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
 
 ```bash
 celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports   # campaign = runs, email / sms = batches
