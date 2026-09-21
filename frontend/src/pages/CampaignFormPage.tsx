@@ -384,7 +384,7 @@ export function CampaignFormPage() {
             {errors.contact_lists && <p className="mb-3 text-xs font-medium text-danger-text">{errors.contact_lists}</p>}
             {lists.isPending ? (
               <p className="flex items-center gap-2 text-sm text-ink-500">
-                <Spinner className="h-4 w-4" /> Loading contact lists
+                <Spinner size="sm" /> Loading contact lists
               </p>
             ) : lists.isError ? (
               <ErrorState error={lists.error} onRetry={() => void lists.refetch()} />
@@ -447,7 +447,7 @@ export function CampaignFormPage() {
 
         <div className="flex flex-wrap items-center gap-3 pb-8">
           <button type="submit" disabled={save.isPending || (isEdit && !dirty)} className={buttonPrimary}>
-            {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
+            {save.isPending && <Spinner size="sm" tone="onBrand" />}
             {isEdit ? 'Save changes' : 'Create draft'}
           </button>
           <Link to={cancelTo} className={buttonSecondary}>

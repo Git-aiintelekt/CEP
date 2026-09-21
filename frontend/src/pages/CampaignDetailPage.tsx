@@ -106,7 +106,7 @@ export function CampaignDetailPage() {
             )}
             {canPublish && (
               <button type="button" onClick={() => publish.mutate()} disabled={publish.isPending} className={buttonPrimary}>
-                {publish.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
+                {publish.isPending && <Spinner size="sm" tone="onBrand" />}
                 Publish to production
               </button>
             )}

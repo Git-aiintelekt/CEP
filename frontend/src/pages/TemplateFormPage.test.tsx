@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, problem, signIn } from '@/test/mockApi'
+import { installMockApi, problem, signIn, tags } from '@/test/mockApi'
 
 // GrapesJS needs a real browser layout engine; the designer itself is checked in the browser playground (/dev/designer).
 vi.mock('@/pages/TemplateDesignerPage', () => ({ default: () => <p>designer opened</p> }))
@@ -66,6 +66,23 @@ test('a starter is offered for the channel, previewed with sample values, pre-fi
   await user.click(screen.getByRole('button', { name: 'Create and open the designer' }))
   expect(await screen.findByText('designer opened')).toBeTruthy()
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body).toMatchObject({ name: 'Sale announcement', channel: 'EMAIL', starter: 'promotion' })
+})
+
+test('a starter thumbnail falls back to the default when a tag’s sample is empty, as the preview does', async () => {
+  const was = tags[0]
+  tags[0] = { ...was, sample_value: '', default_value: 'there' }
+  try {
+    installMockApi()
+    await renderAppAt('/templates/new')
+    await screen.findByRole('radio', { name: /Sale announcement/ })
+    const thumbnail = screen.getByTitle('Sale announcement preview') as HTMLIFrameElement
+    expect(thumbnail.srcdoc).toContain('Hi there')
+    expect(thumbnail.srcdoc).not.toContain('{{first_name}}')
+    // a thumbnail is the email itself: none of the preview's marks
+    expect(thumbnail.srcdoc).not.toMatch(/cep-pv-|no value/)
+  } finally {
+    tags[0] = was
+  }
 })
 
 test('changing the channel swaps the starters and clears the choice', async () => {

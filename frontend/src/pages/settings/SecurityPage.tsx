@@ -108,7 +108,7 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
       </div>
       {other !== null && <ErrorState title="Could not save single sign-on" error={other} />}
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Save single sign-on</button>
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save single sign-on</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
           onClick={() => window.confirm('Remove single sign-on? People who only sign in through it will need a password link.') && remove.mutate()}>Remove</button>}
         {save.isSuccess && <span role="status" className="self-center text-sm text-success-text">Saved</span>}
@@ -132,7 +132,7 @@ function SupportLog() {
       <h2 id="support-log" className="text-sm font-semibold text-ink-900">Support access</h2>
       <p className="mt-0.5 mb-3 text-sm text-ink-500">Every time someone from the platform's support team acted as one of your users, with their reason. Support can never manage users, roles, API keys or these settings.</p>
       {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
-        : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+        : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
         : log.data.length === 0 ? <EmptyState title="Support has never accessed this workspace" />
         : <DataTable columns={columns} rows={log.data} rowKey={(row) => row.id} caption="Support access" />}
     </section>
@@ -145,7 +145,7 @@ export function SecurityPage() {
   const [configuring, setConfiguring] = useState(false)
 
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading security settings</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading security settings</p>
 
   const data = settings.data
   return (

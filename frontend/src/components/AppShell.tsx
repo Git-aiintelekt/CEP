@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { Bell, ChevronsLeft, ChevronsRight, FileText, GitBranch, LayoutDashboard, Megaphone, Menu, Search, Settings, Users, X, type LucideIcon } from 'lucide-react'
+import { Bell, ChevronsLeft, ChevronsRight, Menu, Search, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -7,27 +7,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import type { Feature } from '@/lib/types'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-  end?: boolean
-  feature?: Feature
-}
-
-const OVERVIEW: NavItem = { to: '/', label: 'Overview', icon: LayoutDashboard, end: true }
-
-const ENGAGE: NavItem[] = [
-  { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/journeys', label: 'Journeys', icon: GitBranch, feature: 'journeys' },
-  { to: '/templates', label: 'Templates', icon: FileText },
-]
-
-const MANAGE: NavItem[] = [{ to: '/contact-lists', label: 'Contact lists', icon: Users }]
-
-const SETTINGS: NavItem = { to: '/settings', label: 'Settings', icon: Settings }
+import { ENGAGE, MANAGE, OVERVIEW, SETTINGS, type NavItem } from './navItems'
 
 const SECURITY = '/account/security'
 const COLLAPSED_KEY = 'cep.nav.collapsed'

@@ -1,9 +1,9 @@
 # Handoff: CEP Design System
 
-> **designnew.md (the latest design.md) overrides this file** where they differ: page background is White (Gray 50 is removed), brand tokens are named `--brand-100/600/700/800`, navy and teal are `--color-sidebar` and `--color-wordmark-*`, and CEP's vocabulary is campaign / journey / template / contact list / audience, not the invoice-audit words below. Nav sections are ENGAGE / MANAGE.
+> **designnew.md (the latest design.md) overrides this file** where they differ: page background is White (Gray 50 is removed), brand tokens are named `--brand-100/600/700/800`, navy and teal are `--color-sidebar` and `--color-wordmark-*`, and CEP's vocabulary is campaign / journey / template / contact list / audience. Nav sections are ENGAGE / MANAGE.
 
 ## Overview
-CEP is a flat, data-dense enterprise design language for an internal financial/invoice-audit console. This bundle is the **foundation layer only** — design tokens (colour, type, spacing, shape, motion) plus specimen cards that show each token in use. There are no product screens and no component library here; the job of this handoff is to get the token layer and the usage rules into a real codebase so components built there are consistent from day one.
+CEP is a flat, data-dense enterprise design language for a multi-tenant customer engagement platform (email/SMS campaigns). This bundle is the **foundation layer only** — design tokens (colour, type, spacing, shape, motion) plus specimen cards that show each token in use. There are no product screens and no component library here; the job of this handoff is to get the token layer and the usage rules into a real codebase so components built there are consistent from day one.
 
 ## About the Design Files
 The files in this bundle are **design references authored in HTML and CSS** — a token layer and a set of specimen cards demonstrating intended look, not production code to paste in wholesale.
@@ -195,14 +195,14 @@ Not applicable — this bundle has no application logic. Components built from i
 
 ## Content & Copy Rules
 
-These matter as much as the visuals; CEP writes like a competent colleague filing an audit note — short, factual, numeric, never chirpy.
+These matter as much as the visuals; CEP writes like a competent colleague leaving a handover note — short, factual, numeric, never chirpy.
 
-- **Sentence case everywhere.** Buttons, headings, table headers, tabs. Exception: 11px uppercase side-nav section headings (`AUDIT`, `SETUP`).
+- **Sentence case everywhere.** Buttons, headings, table headers, tabs. Exception: 11px uppercase side-nav section headings (`ENGAGE`, `MANAGE`).
 - **Second person for instructions; the product never says "we" or "I".** "3 campaigns are scheduled today."
 - **Lead with the number**, always with its unit, tabular figures and thousands separators. Percentages one decimal ("97.4%"); currency two in tables ("12,480.00"), abbreviated in tiles ("$4.82M").
-- **Verbs for actions, nouns for places.** "Run audit", "Mark reconciled" / "Dashboard", "Exceptions".
-- **Errors say what failed, when, and what to do**: "Sync failed — vendor feed returned 503 at 04:12 UTC." plus a Retry. No "Oops".
-- **Empty states describe the fix**: "No matching invoices / Try widening the date range or clearing filters."
+- **Verbs for actions, nouns for places.** "Send test", "Publish campaign" / "Dashboard", "Contact lists".
+- **Errors say what failed, when, and what to do**: "Test publish failed — email provider returned 503 at 04:12 UTC." plus a Retry. No "Oops".
+- **Empty states describe the fix**: "No matching campaigns / Try widening the date range or clearing filters."
 - **No emoji, ever. No exclamation marks.** Status is carried by tag colour plus a 6px dot, never a glyph.
 - **Time is explicit and zoned**: "13 Aug 2026, 06:41 UTC".
 - **Consistent vocabulary**: *campaign*, *journey*, *template*, *contact list*, *campaign list*, *audience*, *governance*, *test publish*, *production publish*, *party ID*. Status vocabulary is locked: Draft / Test Published / Production Published / Scheduled. Never use invoice/audit words (line item, exception, reconciled, ledger, SLA, tolerance).

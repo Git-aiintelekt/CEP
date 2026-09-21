@@ -28,11 +28,16 @@
   --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
   --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
   --color-sidebar: #20265d; /* Navy 900 — the only dark surface */
+  /* the design's two sidebar tints: an idle icon and the hover fill behind it */
+  --color-sidebar-icon: rgb(255 255 255 / 0.62);
+  --color-sidebar-hover: rgb(255 255 255 / 0.1);
   --color-line: #e7e8ef; /* Gray 150 — default hairline */
   --color-line-subtle: #eeeff5; /* Gray 100 — subtle border, icon-button hover */
 
   /* ---- status. accent = dot / icon / bar, text = label on the matching bg ---- */
   --color-success: #5ec16a;
+  /* NEW, pending sign-off: the design's --status-success-bg, which the token set does not define */
+  --color-success-bg: #e3f4e5;
   --color-success-text: #0e6027;
   --color-warning: #e8a13b;
   --color-warning-bg: #fcf4cb;
@@ -61,11 +66,18 @@
   --radius-sm: 4px; /* controls, tags, tooltips — the default */
   --radius-md: 6px; /* menus */
   --radius-lg: 8px; /* cards, modals, drawer bodies */
+  --radius-pill: 9999px; /* switch tracks and progress fills only */
+
+  /* ---- type: the one step between the 12px label and 14px body, for helper text, metadata and notices ---- */
+  --text-helper: 13px;
+  --text-helper--line-height: 1.4;
 
   /* ---- exactly three shadows, each with one job. Cards and rows never carry one ---- */
   --shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
   --shadow-drawer: -12px 0 32px rgb(20 23 31 / 0.14); /* cast leftward, right-edge drawers */
   --shadow-toast: 0 8px 24px rgb(20 23 31 / 0.16);
+  /* the focus ring, for wrappers that show focus on behalf of a bare input inside them */
+  --shadow-focus: 0 0 0 3px rgb(56 99 219 / 0.24);
 
   /* ---- layout ---- */
   --spacing-sidenav: 256px;
@@ -89,12 +101,37 @@
   --duration-moderate: 240ms; /* drawer and modal entrance, progress fills */
 
   --animate-fade-in: fade-in var(--duration-moderate) var(--ease-entrance);
+  --animate-fade-out: fade-out var(--duration-fast) var(--ease-exit) both;
   --animate-slide-in-right: slide-in-right var(--duration-moderate) var(--ease-entrance);
   --animate-step-in: step-in var(--duration-moderate) var(--ease-entrance) both;
+  --animate-popover-in: fade-in var(--duration-base) var(--ease-entrance);
+  --animate-popover-out: fade-out var(--duration-fast) var(--ease-exit) both;
+  /* the design's toastIn keyframe: a fade with a 6px drop from above */
+  --animate-toast-in: toast-in var(--duration-moderate) var(--ease-entrance) both;
+  /* 240ms at full tint, then a 400ms fade: marks where a jump from an issue landed */
+  --animate-jump-flash: jump-flash 640ms var(--ease-standard) both;
+  /* the only continuous animation in the system */
+  --animate-spin: spin 700ms linear infinite;
 
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes jump-flash {
+    0%, 37.5% { background-color: var(--color-brand-100); }
+    100% { background-color: transparent; }
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translate3d(0, -6px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
   @keyframes fade-in {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
   @keyframes slide-in-right {
     from { transform: translateX(100%); }
@@ -104,6 +141,20 @@
     from { opacity: 0; transform: translate3d(0, 8px, 0); }
     to { opacity: 1; transform: translate3d(0, 0, 0); }
   }
+}
+
+/*
+ * Tailwind v4 has no `--duration-*` theme namespace: `duration-base` would compile to nothing and every
+ * transition would silently fall back to the framework's 150ms. These three utilities carry the motion tokens.
+ */
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+@utility duration-moderate {
+  transition-duration: var(--duration-moderate);
 }
 
 /*
@@ -275,7 +326,34 @@ h4 {
 :focus-visible {
   outline: 2px solid var(--color-brand-600);
   outline-offset: 1px;
-  box-shadow: 0 0 0 3px rgb(56 99 219 / 0.24);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Rows inside a clipped panel (menus, lists) draw the ring inside their own edge so it is never cut off. */
+.cep-focus-inset:focus-visible {
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+/* Less motion, never none: the spinner slows so progress still reads, entrances fade without moving, the flash is dropped. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation-duration: 1400ms;
+  }
+  .animate-toast-in,
+  .animate-popover-in,
+  .animate-popover-out {
+    animation: none;
+  }
+  .animate-jump-flash {
+    animation: none;
+  }
+}
+
+/* A bare input inside an InputGroup: the group draws the ring around the whole control instead. */
+.cep-input-bare:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 ::placeholder {

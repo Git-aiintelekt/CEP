@@ -2,7 +2,8 @@ import { expect, test } from 'vitest'
 
 import type { PersonalizationTag } from '@/lib/types'
 
-import { applySampleValues, extractTags, groupTags, unknownTags } from './tags'
+import { DEFAULT_PROFILE, fillForPreview } from './preview/previewProfiles'
+import { extractTags, groupTags, unknownTags } from './tags'
 
 const tag = (tag_key: string, tag_kind: string, sample_value: string | null, channels = ['EMAIL'], extra: Partial<PersonalizationTag> = {}): PersonalizationTag => ({
   id: tag_key, tag_key, label: tag_key, tag_kind, data_type: 'STRING', applies_to_channels: channels, description: null, sample_value,
@@ -26,8 +27,8 @@ test('unknownTags keeps only keys missing from the catalogue', () => {
   expect(unknownTags(['first_name', 'mystery', 'offer_code'], catalogue)).toEqual(['mystery'])
 })
 
-test('applySampleValues fills sample then default values, escapes them for HTML, and leaves unknown tags visible', () => {
-  const html = applySampleValues('<p>Hi {{first_name}}, code {{offer_code}} {{mystery}}</p><a href="{{unsubscribe_url}}">x</a>', catalogue)
+test('sample values fill from the catalogue, escaped for HTML, and unknown tags stay visible (the rule the gallery uses)', () => {
+  const html = fillForPreview('<p>Hi {{first_name}}, code {{offer_code}} {{mystery}}</p><a href="{{unsubscribe_url}}">x</a>', catalogue, DEFAULT_PROFILE)
   expect(html).toBe('<p>Hi Jordan, code FALL&lt;17&gt;&amp;&quot;x&quot; {{mystery}}</p><a href="https://example.com/u">x</a>')
 })
 

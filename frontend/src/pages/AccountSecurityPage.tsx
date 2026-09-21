@@ -90,7 +90,7 @@ export function AccountSecurityPage() {
       )}
 
       {codes ? <RecoveryCodes codes={codes} onDone={finish} />
-        : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+        : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
         : status.isError ? <ErrorState error={status.error} onRetry={() => void status.refetch()} />
         : status.data.sso ? (
           <div className="rounded-lg border border-line bg-surface p-5 text-sm text-ink-700">You sign in through your company's single sign-on. The second step, if any, is managed there.</div>

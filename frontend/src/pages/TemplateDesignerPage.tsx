@@ -5,8 +5,11 @@ import { Link, useParams } from 'react-router-dom'
 
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
-import { ErrorState, FullPageSpinner } from '@/components/States'
+
+import { ErrorState } from '@/components/States'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
+import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
+import { canEditTemplate } from '@/features/designer/editAccess'
 import { api } from '@/lib/api'
 import type { Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
 
@@ -47,13 +50,20 @@ export default function TemplateDesignerPage() {
   const failed = [template, design, tags].find((query) => query.isError)
   if (failed) {
     return (
-      <div className="mx-auto max-w-xl px-4 py-16">
-        <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />
-        <Link to="/templates" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
-      </div>
+      <EditorFailure
+        title="Couldn’t load this template"
+        detail={failed.error instanceof Error ? failed.error.message : 'The server did not answer. Your last saved version is safe.'}
+        onRetry={() => void failed.refetch()}
+        // this screen replaces the whole window, so it keeps the one way out the design's own chrome would have given
+        footer={
+          <Link to="/templates" className="mt-2 inline-flex items-center gap-1 text-helper font-medium text-brand-800 hover:underline">
+            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
+          </Link>
+        }
+      />
     )
   }
-  if (!template.data || !design.data || !tags.data) return <FullPageSpinner label="Opening the designer" />
+  if (!template.data || !design.data || !tags.data) return <EditorLoading label="Opening the designer" />
 
   if (!DESIGNER_CHANNELS.includes(template.data.channel)) {
     return (
@@ -75,7 +85,8 @@ export default function TemplateDesignerPage() {
       assets={(assets.data?.results ?? []).map((asset) => ({ url: asset.url, name: asset.file_name, width: asset.width_px, height: asset.height_px }))}
       backend={backend}
       backTo="/templates"
-      readOnly={!can('template.edit') || template.data.status === 'ARCHIVED'}
+      showNav
+      readOnly={!canEditTemplate(can, template.data.status)}
     />
   )
 }

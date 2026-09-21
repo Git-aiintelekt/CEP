@@ -28,7 +28,7 @@ export function MailServerPage() {
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<MailServerSettings>('/workspace/mail-server/', undefined, signal) })
 
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
   return <MailServerForm data={settings.data} myEmail={me?.principal.email ?? ''}
     onSaved={(next) => queryClient.setQueryData(KEY, next)} />
 }
@@ -153,7 +153,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
       {other !== null && <ErrorState title="Could not save the mail server" error={other} />}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Save</button>
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
           onClick={() => window.confirm("Remove your mail server? Messages will go out through the platform's server instead.") && remove.mutate()}>Remove</button>}
         {save.isSuccess && <span role="status" className="text-sm text-success-text">Saved</span>}
@@ -166,7 +166,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div className="w-72"><Field label="To" required>{(ids) => <TextInput {...ids} type="email" value={testTo} onChange={(event) => setTestTo(event.target.value)} />}</Field></div>
             <button type="button" className={buttonSecondary} disabled={test.isPending || !testTo.trim()} onClick={() => test.mutate()}>
-              {test.isPending && <Spinner className="h-4 w-4" />}Send test
+              {test.isPending && <Spinner size="sm" />}Send test
             </button>
             {server.last_test_ok !== null && (
               <span className="flex items-center gap-2 text-sm text-ink-700">
