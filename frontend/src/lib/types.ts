@@ -268,6 +268,8 @@ export interface CampaignRun extends Audited {
   scheduled_at: string | null
   started_at: string | null
   completed_at: string | null
+  /** "Occurrence 3", "Day 7", "Test": which send of a recurring or drip campaign this run is */
+  sequence_label?: string | null
 }
 
 export interface Campaign extends Audited {
@@ -289,11 +291,160 @@ export interface Campaign extends Audited {
   sender_profile_name: string | null
   /** IDs of the attached source contact lists (writable: sending the array replaces the set) */
   contact_lists: string[]
+  /** IDs of the lists whose people are kept OUT of the campaign */
+  excluded_lists: string[]
   contact_list_details: AttachedContactList[]
   runs: CampaignRun[]
+  /** the stored status, or SCHEDULED while production published with its next send still ahead */
+  display_status: string
+  display_status_label: string
+  /** what can be done now: edit, clone, test_publish, publish, pause, resume, cancel_schedule, archive, unarchive, results */
+  actions: CampaignAction[]
+  next_run_at: string | null
+  list_count: number
+  audience_size: number | null
+  owner_name: string | null
+  triggered_by: 'MANUAL' | 'JOURNEY'
+  tags: string[]
+  send_type: SendType
+  send_timezone: string | null
+  recurring_config: RecurringConfig | null
+  drip_config: DripConfig | null
+  respect_governance: boolean
+  rate_limit_per_hour: number | null
+  timezone_optimization: boolean
+  targets: CampaignTargets | null
+  published_at: string | null
+  completed_at: string | null
+  archived_at: string | null
 }
 
-export type AttachedContactList = Pick<ContactList, 'id' | 'name' | 'list_kind' | 'is_master' | 'list_environment' | 'status' | 'member_count'>
+export type CampaignAction = 'edit' | 'clone' | 'test_publish' | 'publish' | 'pause' | 'resume' | 'cancel_schedule' | 'archive' | 'unarchive' | 'results'
+export type SendType = 'IMMEDIATE' | 'SCHEDULED' | 'RECURRING' | 'DRIP'
+
+export interface RecurringConfig {
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY'
+  interval?: number
+  /** MO TU WE TH FR SA SU, for a weekly recurrence */
+  weekdays?: string[]
+  day_of_month?: number
+  /** HH:MM in the campaign's time zone */
+  time: string
+  end_date?: string | null
+  max_runs?: number | null
+}
+
+export interface DripConfig {
+  steps: { day: number; label?: string }[]
+  time?: string
+}
+
+/** Money comes back as a string ("25000.00"): it is never rounded through a float. */
+export interface CampaignTargets {
+  target_revenue: string | null
+  target_opens: number | null
+  target_clicks: number | null
+  target_conversions: number | null
+  target_redemptions: number | null
+  planned_cost: string | null
+  planned_offer_cost: string | null
+  notes: string | null
+}
+
+export type AttachedContactList = Pick<ContactList, 'id' | 'name' | 'list_kind' | 'is_master' | 'list_environment' | 'status' | 'member_count'> & {
+  role?: 'INCLUDE' | 'EXCLUDE'
+  attached_at?: string
+}
+
+/** Page-numbered list (campaigns): the total is known, so the table can say "51 to 100 of 214". */
+export interface CountedPage<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
+export interface CampaignFormOptions {
+  owners: { id: string; name: string; email: string }[]
+  tags: string[]
+  timezones: string[]
+  workspace_timezone: string
+}
+
+export interface AudienceStatusLine {
+  code: string
+  label: string
+  sendable: boolean
+  count: number
+}
+
+export interface CampaignAudience {
+  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; role: 'INCLUDE' | 'EXCLUDE' }[]
+  gross: number
+  unique: number
+  duplicates_removed: number
+  excluded_by_list: number
+  after_exclusions: number
+  estimated_recipients: number
+  excluded_by_governance: number
+  marketing: boolean
+  channel: string
+  statuses: AudienceStatusLine[]
+  sample: { party_id: string; address: string | null; first_name: string | null; last_name: string | null; status: string; status_label: string }[]
+  note: string
+  /** the Campaign List of the last production send, once there is one */
+  frozen?: { members: number; generated_at: string; eligible: number; suppressed: Record<string, number> }
+}
+
+export interface CampaignChecklist {
+  ready: boolean
+  problems: Record<string, string>
+  test_sent: boolean
+  items: { key: string; label: string; ok: boolean; problem: string | null; advisory?: boolean }[]
+}
+
+export interface CampaignPreview {
+  subject: string | null
+  html: string | null
+  text: string | null
+  version: number
+  template: string
+  tags_used: string[]
+  customer: string | null
+}
+
+export interface CampaignMetrics {
+  counts: Record<'queued' | 'sent' | 'failed' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'unsubscribed' | 'replied', number>
+  conversions: number
+  revenue: string | number | null
+  rates: Record<'delivery' | 'open' | 'click' | 'bounce' | 'unsubscribe' | 'conversion', number>
+  targets: { measure: string; target: number; actual: number; percent: number }[]
+  breakdown: { by: 'domain' | 'carrier'; rows: { key: string; sent: number; delivered: number; opened: number; bounced: number }[]; note: string | null }
+  runs: number
+  test_runs: number
+}
+
+export interface CampaignTimeseries {
+  bucket: 'hour' | 'day'
+  points: { at: string; sent: number; delivered: number; opened: number; clicked: number }[]
+}
+
+export interface CampaignActivity {
+  id: string
+  event_type: string
+  severity: 'INFO' | 'WARNING' | 'ERROR'
+  message: string
+  detail: Record<string, unknown> | null
+  actor_name: string | null
+  campaign_run_id: string | null
+  occurred_at: string
+}
+
+export interface BulkResult {
+  action: 'archive' | 'clone'
+  done: { id: string; name: string }[]
+  skipped: { id: string; name: string; reason: string }[]
+}
 
 /** Body of POST /campaigns/ and PATCH /campaigns/{id}/ */
 export interface CampaignInput {
@@ -307,6 +458,17 @@ export interface CampaignInput {
   sender_profile: string | null
   contact_lists: string[]
   scheduled_at: string | null
+  excluded_lists?: string[]
+  owner_user?: string | null
+  tags?: string[]
+  send_type?: SendType
+  send_timezone?: string | null
+  recurring_config?: RecurringConfig | null
+  drip_config?: DripConfig | null
+  respect_governance?: boolean
+  rate_limit_per_hour?: number | null
+  timezone_optimization?: boolean
+  targets?: Partial<CampaignTargets> | null
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number
 }

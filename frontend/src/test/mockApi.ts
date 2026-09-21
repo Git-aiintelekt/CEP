@@ -1,6 +1,8 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
+import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockCampaigns'
+
 import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, GovernanceLine, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -188,13 +190,18 @@ export function makeMessage(overrides: Partial<Message> = {}): Message {
 }
 
 export function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
+  const made = { ...campaignBase(), ...overrides }
+  return { ...made, ...derived(made), ...(overrides.actions ? { actions: overrides.actions } : {}) }
+}
+
+function campaignBase(): Omit<Campaign, 'display_status' | 'display_status_label' | 'actions' | 'next_run_at'> {
   return {
-    ...audit, id: 'c1', code: 'CMP-2026-0001', name: 'Fall Launch', description: 'Seasonal launch', campaign_type: 'REGULAR_MARKETING',
+    ...audit, ...moduleDefaults, id: 'c1', code: 'CMP-2026-0001', name: 'Fall Launch', description: 'Seasonal launch', campaign_type: 'REGULAR_MARKETING',
     channel: 'EMAIL', status: 'DRAFT', status_label: 'Draft', solicitation_type: 'MARKETING', is_journey_generated: false, scheduled_at: null,
     template: 'tpl-email', sender_profile: 'snd-email', origin_journey: null, owner_user: 'u1', template_name: 'Fall Email',
     sender_profile_name: 'Northwind Rewards', contact_lists: ['cl-master'],
     contact_list_details: [{ id: 'cl-master', name: 'Fall Master Audience', list_kind: 'STATIC', is_master: true, list_environment: 'PRODUCTION', status: 'ACTIVE', member_count: 90 }],
-    runs: [], ...overrides,
+    runs: [],
   }
 }
 
@@ -204,6 +211,8 @@ function json(body: unknown, status = 200) {
 
 interface MockOptions {
   campaign?: Campaign
+  /** the workspace's campaigns (GET /campaigns/); default: the one campaign above */
+  campaigns?: Campaign[]
   /** answer for POST /campaigns/ and PATCH /campaigns/{id}/ ; default echoes a saved campaign */
   onSave?: (call: Call) => Response | null
   /** answer for POST /templates/ ; default echoes a created draft */
@@ -249,6 +258,7 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
+  const campaignState = { campaigns: options.campaigns ?? [campaign], make: makeCampaign }
   let listsNow: ContactList[] = [...contactLists]
   let membersNow: ListMember[] = [...listMembers]
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
@@ -312,7 +322,6 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
     if (path.endsWith('/delivery-senders/')) return json(options.texts ? [...deliverySenders, textSender] : deliverySenders)
     if (path.endsWith('/results/')) return json(options.texts ? textResults : runResults)
-    if (path.endsWith('/send-test/')) return json({ results: ((body?.to as string[]) ?? []).map((to) => ({ to, ok: !to.includes('bad'), detail: to.includes('bad') ? '550 mailbox unavailable' : 'msg-1' })) })
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'
       const sender = mailNow.server?.campaign_sender ? { id: 'snd-smtp', display_name: mailNow.server.from_name ?? mailNow.server.from_email, from_address: mailNow.server.from_email, verification_status: ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null
@@ -482,15 +491,32 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (one) return find(one) ? json(find(one)) : json({ type: 'about:blank', title: 'Not found', status: 404 }, 404)
     }
-    if (path.endsWith('/publish/')) return json({ id: 'r1', run_number: 1 }, 201)
-    if ((method === 'POST' && path.endsWith('/campaigns/')) || method === 'PATCH') {
+    const handled = handleCampaigns({ path, url, method, body }, campaignState)
+    if (handled) return handled
+    const one = /\/campaigns\/([^/]+)\/$/.exec(path)?.[1]
+    if ((method === 'POST' && path.endsWith('/campaigns/')) || (method === 'PATCH' && one)) {
       const custom = options.onSave?.(call)
       if (custom) return custom
-      return json(makeCampaign({ ...(body as Partial<Campaign>), id: method === 'POST' ? 'c-new' : campaign.id, code: (body?.code as string) ?? 'CMP-2026-0009', row_version: 2 }), method === 'POST' ? 201 : 200)
+      // as the API does: the body's ids come back with the names and details the pages show
+      const before = campaignState.campaigns.find((item) => item.id === one)
+      const input = body as Partial<Campaign>
+      const details = [...((input.contact_lists ?? before?.contact_lists ?? []) as string[]).map((id) => ({ id, role: 'INCLUDE' as const })),
+                       ...((input.excluded_lists ?? before?.excluded_lists ?? []) as string[]).map((id) => ({ id, role: 'EXCLUDE' as const }))]
+        .map(({ id, role }) => { const found = listsNow.find((item) => item.id === id); return { id, name: found?.name ?? id, list_kind: found?.list_kind ?? 'STATIC', is_master: found?.is_master ?? false,
+                                   list_environment: found?.list_environment ?? 'PRODUCTION', status: found?.status ?? 'ACTIVE', member_count: found?.member_count ?? 0, role } })
+      const saved = makeCampaign({ ...before, ...input, id: before?.id ?? 'c-new', code: (body?.code as string) ?? before?.code ?? 'CMP-2026-0009', row_version: (before?.row_version ?? 1) + 1,
+                                   status: before?.status ?? 'DRAFT', runs: before?.runs ?? [], contact_list_details: details,
+                                   template_name: templates.find((item) => item.id === (input.template ?? before?.template))?.name ?? null,
+                                   sender_profile_name: senders.find((item) => item.id === (input.sender_profile ?? before?.sender_profile))?.display_name ?? null })
+      campaignState.campaigns = before ? campaignState.campaigns.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...campaignState.campaigns]
+      return json(saved, method === 'POST' ? 201 : 200)
     }
     if (method === 'DELETE') return json(null, 204)
-    if (/\/campaigns\/[^/]+\/$/.test(path)) return json(campaign)
-    if (path.endsWith('/campaigns/')) return json({ next: null, previous: null, results: [campaign] })
+    if (one) {
+      const found = campaignState.campaigns.find((item) => item.id === one)
+      return found ? json(found) : json({ type: 'about:blank', title: 'Not found', status: 404, detail: 'No campaign matches the given query.' }, 404)
+    }
+    if (path.endsWith('/campaigns/')) return listCampaigns(url, campaignState.campaigns)
     return json({ next: null, previous: null, results: [] })
   })
   return calls

@@ -1,12 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { buttonSecondary, Field, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
-import type { CampaignRun, RunResults as Results, SendTestResult, SmsReply } from '@/lib/types'
+import type { CampaignRun, RunResults as Results, SmsReply } from '@/lib/types'
 
 const LIVE = new Set(['SCHEDULED', 'PREPARING', 'SENDING'])
 
@@ -79,36 +77,6 @@ export function RunResults({ run }: { run: CampaignRun }) {
 }
 
 /** Sends the campaign's current content to a few addresses, with the sample values of the personalization tags. */
-export function SendTestBox({ campaignId, defaultTo, disabledReason, texts = false }: { campaignId: string; defaultTo: string; disabledReason?: string; texts?: boolean }) {
-  const [to, setTo] = useState(defaultTo)
-  const send = useMutation({
-    mutationFn: () => api.post<{ results: SendTestResult[] }>(`/campaigns/${campaignId}/send-test/`, { to: to.split(/[\s,;]+/).filter(Boolean) }),
-  })
-  return (
-    <form className="rounded-lg border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); send.mutate() }}>
-      <h3 className="text-sm font-semibold text-ink-900">Send a test</h3>
-      <p className="mt-1 text-sm text-ink-500">Goes out now through the campaign's sender, with sample values in place of personal data. Up to 5 {texts ? 'mobile numbers with country code' : 'addresses'}. It does not count as a run.</p>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <div className="min-w-64 flex-1"><Field label="To" required>
-          {(ids) => <TextInput {...ids} value={to} onChange={(event) => setTo(event.target.value)} placeholder={texts ? '+14045550100, +14045550101' : 'you@example.com, colleague@example.com'} />}
-        </Field></div>
-        <button type="submit" className={buttonSecondary} disabled={send.isPending || Boolean(disabledReason) || !to.trim()}>
-          {send.isPending && <Spinner className="h-4 w-4" />}Send test
-        </button>
-      </div>
-      {disabledReason && <p className="mt-2 text-xs text-ink-500">{disabledReason}</p>}
-      {send.isError && <div className="mt-3"><ErrorState title="The test was not sent" error={send.error} /></div>}
-      {send.data && (
-        <ul className="mt-3 space-y-1 text-sm" aria-label="Test results">
-          {send.data.results.map((result) => (
-            <li key={result.to} className={result.ok ? 'text-success-text' : 'text-danger-text'}>{result.ok ? 'Sent to' : 'Not sent to'} {result.to}{!result.ok && result.detail ? `: ${result.detail}` : ''}</li>
-          ))}
-        </ul>
-      )}
-    </form>
-  )
-}
-
 /** E-receipts are not published to an audience: the point of sale or the web shop asks for each one. */
 export function ReceiptApiPanel({ campaignRef, published }: { campaignRef: string; published: boolean }) {
   const example = JSON.stringify({

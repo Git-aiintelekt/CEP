@@ -7,8 +7,8 @@ import type { Column } from '@/components/DataTable'
 import { buttonPrimary } from '@/components/Form'
 import { ResourceList } from '@/components/ResourceList'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { formatDateTime, formatNumber, humanize } from '@/lib/format'
-import type { Campaign, Journey, Template } from '@/lib/types'
+import { formatDateTime, humanize } from '@/lib/format'
+import type { Journey, Template } from '@/lib/types'
 
 const options = (...values: string[]) => values.map((value) => ({ value, label: humanize(value) }))
 
@@ -18,41 +18,6 @@ function Title({ primary, secondary }: { primary: string; secondary?: string | n
       <p className="truncate font-medium text-ink-900">{primary}</p>
       {secondary && <p className="truncate text-xs text-ink-500">{secondary}</p>}
     </div>
-  )
-}
-
-const campaignColumns: Column<Campaign>[] = [
-  { key: 'name', header: 'Campaign', render: (row) => <Title primary={row.name} secondary={row.code} /> },
-  { key: 'type', header: 'Type', render: (row) => humanize(row.campaign_type) },
-  { key: 'channel', header: 'Channel', render: (row) => <Tag>{row.channel}</Tag> },
-  { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} label={row.status_label} /> },
-  { key: 'runs', header: 'Runs', align: 'right', render: (row) => formatNumber(row.runs.length) },
-  { key: 'scheduled', header: 'Scheduled', render: (row) => formatDateTime(row.scheduled_at) },
-]
-
-export function CampaignsPage() {
-  const navigate = useNavigate()
-  const { can } = useAuth()
-  return (
-    <ResourceList<Campaign>
-      title="Campaigns"
-      description="One-time, recurring, drip and e-receipt campaigns. Every send is a campaign run against a frozen campaign list."
-      resource="campaigns"
-      columns={campaignColumns}
-      filters={[
-        { param: 'status', label: 'Status', options: options('DRAFT', 'TEST_PUBLISHED', 'PRODUCTION_PUBLISHED', 'ACTIVE', 'COMPLETED') },
-        { param: 'channel', label: 'Channel', options: options('EMAIL', 'SMS', 'MMS') },
-      ]}
-      onRowClick={(row) => navigate(`/campaigns/${row.id}`)}
-      actions={
-        can('campaign.edit') && (
-          <Link to="/campaigns/new" className={buttonPrimary}>
-            New campaign
-          </Link>
-        )
-      }
-      emptyHint="Create the first campaign with the New campaign button."
-    />
   )
 }
 

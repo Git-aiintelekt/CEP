@@ -24,6 +24,8 @@ def process_run(tenant_id, run_id, *, max_rounds: int = 5, wait_seconds: float =
             started = {"batches": [], "audience": {}, "waiting": str(waiting)}
         with session.tx():
             kind = started.get("family") or runs.run_family(tenant_id, run_id)
+            if started.get("waiting"):                     # not waiting to start: it may be a run that was paused and resumed, with messages still queued
+                started["batches"] = runs.queued_batches(tenant_id, run_id)
         sender = dispatch_sms if kind == "SMS" else dispatch
         pending = started["batches"]
         for round_number in range(max_rounds):
