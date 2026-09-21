@@ -179,6 +179,8 @@ interface MockOptions {
   onSettingsWrite?: (call: Call) => Response | null
   /** merged over the default GET /me/ answer: features, support_session, mfa_setup_required ... */
   me?: Partial<Me>
+  /** answer for POST /auth/forgot-password/ ; default: 404, as the unbuilt endpoint really answers */
+  onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
   authOptions?: Partial<AuthOptions>
   /** GET /auth/mfa/ starts from this */
@@ -225,6 +227,8 @@ export function installMockApi(options: MockOptions = {}) {
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'No active account' }, 401)
     }
     if (path.endsWith('/auth/set-password/')) return options.onSettingsWrite?.(call) ?? json(null, 204)
+    // no view is registered for this yet: Django answers 404, which is what the reset form has to cope with
+    if (path.endsWith('/auth/forgot-password/')) return options.onForgotPassword?.(call) ?? json({ title: 'Not Found', status: 404 }, 404)
     if (headers.Authorization !== 'Bearer access-1') return json({ title: 'Unauthorized', status: 401 }, 401)
     if (/\/(users|roles|api-clients)\//.test(path) && method !== 'GET') {
       const custom = options.onSettingsWrite?.(call)

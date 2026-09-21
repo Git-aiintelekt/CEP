@@ -42,11 +42,11 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
     <Modal title={provider ? `Edit ${provider.name}` : 'Add a sending engine'} onClose={onClose} size="lg"
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}{provider ? 'Save changes' : 'Add engine'}</button>
+        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{provider ? 'Save changes' : 'Add engine'}</button>
       </>}>
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the provider" error={other} />}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Engine" required error={errors.provider_type} hint={spec?.description}>
             {(ids) => <Select {...ids} value={type} disabled={Boolean(provider)} onChange={(event) => { setType(event.target.value); setConfig({}) }}>
               {(provider ? catalogue : creatable).map((item) => <option key={item.provider_type} value={item.provider_type}>{item.channel === 'SMS' ? 'Texts' : 'Email'} · {item.label}</option>)}
@@ -64,12 +64,12 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
               {(ids) => field.secret
                 ? <TextInput {...ids} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} autoComplete="new-password" placeholder={provider?.has_secret ? '••••••••' : ''} />
                 : field.kind === 'textarea'
-                  ? <TextArea {...ids} rows={3} className="font-mono text-xs" value={config[field.key] ?? ''} onChange={(event) => setConfig({ ...config, [field.key]: event.target.value })} />
+                  ? <TextArea {...ids} rows={3} className="cep-num text-xs" value={config[field.key] ?? ''} onChange={(event) => setConfig({ ...config, [field.key]: event.target.value })} />
                   : <TextInput {...ids} value={config[field.key] ?? ''} placeholder={field.placeholder} onChange={(event) => setConfig({ ...config, [field.key]: event.target.value })} autoComplete="off" />}
             </Field>
           )
         })}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Messages per minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts.">
             {(ids) => <TextInput {...ids} type="number" min={1} value={rate} onChange={(event) => setRate(event.target.value)} />}
           </Field>
@@ -185,15 +185,15 @@ export function DeliveryPage() {
     { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched off" />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not checked yet" /> },
     { key: 'webhook', header: 'Callback address', render: (row) => row.webhook_url
-      ? <button type="button" className="text-left text-xs font-medium text-brand-700 hover:underline" title={row.webhook_url}
+      ? <button type="button" className="text-left text-xs font-medium text-brand-800 hover:underline" title={row.webhook_url}
           onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy webhook URL'}</button>
       : <span className="text-xs text-ink-500">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
       <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-700 hover:underline" disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
-        {row.manageable === false ? <Link to="/settings/email" className="text-brand-700 hover:underline">Email server</Link> : (<>
-          <button type="button" className="text-brand-700 hover:underline" onClick={() => setEditing(row)}>Edit</button>
-          <button type="button" className="text-red-700 hover:underline" onClick={() => window.confirm(`Remove ${row.name}? Its senders are removed with it.`) && removeProvider.mutate(row)}>Remove</button>
+        <button type="button" className="text-brand-800 hover:underline" disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
+        {row.manageable === false ? <Link to="/settings/email" className="text-brand-800 hover:underline">Email server</Link> : (<>
+          <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing(row)}>Edit</button>
+          <button type="button" className="text-danger-text hover:underline" onClick={() => window.confirm(`Remove ${row.name}? Its senders are removed with it.`) && removeProvider.mutate(row)}>Remove</button>
         </>)}
       </span>) },
   ]
@@ -204,17 +204,17 @@ export function DeliveryPage() {
     { key: 'provider', header: 'Sends through', render: (row) => row.provider_name },
     { key: 'status', header: 'Verification', render: (row) => <StatusBadge status={row.verification_status === 'VERIFIED' ? 'ACTIVE' : row.verification_status === 'FAILED' ? 'FAILED' : 'PAUSED'}
         label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification failed' : 'Not verified yet'} /> },
-    { key: 'actions', header: '', align: 'right', render: (row) => row.provider_type === 'SMTP' ? <Link to="/settings/email" className="text-sm font-medium text-brand-700 hover:underline">Email server</Link> : (
+    { key: 'actions', header: '', align: 'right', render: (row) => row.provider_type === 'SMTP' ? <Link to="/settings/email" className="text-sm font-medium text-brand-800 hover:underline">Email server</Link> : (
       <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-700 hover:underline" disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify again' : 'Verify'}</button>
-        <button type="button" className="text-brand-700 hover:underline" onClick={() => setEditingSender(row)}>Edit</button>
-        <button type="button" className="text-red-700 hover:underline" onClick={() => window.confirm(`Remove the sender ${row.display_name}?`) && removeSender.mutate(row)}>Remove</button>
+        <button type="button" className="text-brand-800 hover:underline" disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify again' : 'Verify'}</button>
+        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditingSender(row)}>Edit</button>
+        <button type="button" className="text-danger-text hover:underline" onClick={() => window.confirm(`Remove the sender ${row.display_name}?`) && removeSender.mutate(row)}>Remove</button>
       </span>) },
   ]
 
   return (
     <div className="space-y-8">
-      {notice && <p role="status" className={`rounded-xl border px-4 py-3 text-sm ${notice.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-800'}`}>{notice.text}</p>}
+      {notice && <p role="status" className={`rounded-lg border px-4 py-3 text-sm ${notice.ok ? 'border-success bg-surface-subtle text-success-text' : 'border-danger bg-danger-bg text-danger-text'}`}>{notice.text}</p>}
       {failure != null && <ErrorState title="That did not work" error={failure} />}
 
       <section aria-labelledby="providers-heading">

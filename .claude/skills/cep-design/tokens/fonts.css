@@ -1,0 +1,4 @@
+/* CEP webfonts. No binaries were supplied with the token spec; both families are the
+   real specified typefaces served from Google Fonts. Swap these @import lines for local
+   @font-face rules if self-hosted .woff2 files become available. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap');

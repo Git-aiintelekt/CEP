@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ErrorState, FullPageSpinner } from '@/components/States'
 import { MessageWorkspace, type MessageBackend } from '@/features/messaging/MessageWorkspace'
@@ -40,7 +41,7 @@ export function MessageEditorPage() {
     [id, queryClient],
   )
 
-  const back = <Link to="/templates" className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">← Templates</Link>
+  const back = <Link to="/templates" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
   const failed = [template, message, tags].find((query) => query.isError)
   if (failed) {
     return (
@@ -54,7 +55,7 @@ export function MessageEditorPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <ErrorState title="This is not a text message template" error={new Error(`"${template.data.name}" is ${template.data.channel}. Open it in the email designer instead.`)} />
-        <Link to={`/templates/${id}/design`} className="mt-4 mr-4 inline-block text-sm font-medium text-brand-700 hover:underline">Open the email designer</Link>
+        <Link to={`/templates/${id}/design`} className="mt-4 mr-4 inline-block text-sm font-medium text-brand-800 hover:underline">Open the email designer</Link>
         {back}
       </div>
     )

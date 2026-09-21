@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { ErrorState, FullPageSpinner } from '@/components/States'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
@@ -48,7 +49,7 @@ export default function TemplateDesignerPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <ErrorState error={failed.error} onRetry={() => void failed.refetch()} />
-        <Link to="/templates" className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">← Templates</Link>
+        <Link to="/templates" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
       </div>
     )
   }
@@ -58,7 +59,7 @@ export default function TemplateDesignerPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <ErrorState title="This is not an email template" error={new Error(`The email designer is for EMAIL and E_RECEIPT templates. "${template.data.name}" is ${template.data.channel}.`)} />
-        <Link to="/templates" className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline">← Templates</Link>
+        <Link to="/templates" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
       </div>
     )
   }

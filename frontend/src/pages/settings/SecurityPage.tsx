@@ -29,13 +29,13 @@ function MfaRule({ settings }: { settings: SecuritySettings }) {
   })
   const refused = save.error instanceof ApiError ? save.error.fieldErrors.require_mfa : undefined
   return (
-    <section aria-labelledby="mfa-rule" className="rounded-xl border border-line bg-surface p-5">
+    <section aria-labelledby="mfa-rule" className="rounded-lg border border-line bg-surface p-5">
       <h2 id="mfa-rule" className="text-sm font-semibold text-ink-900">Multi-factor authentication</h2>
       <div className="mt-3">
         <Toggle label="Require it for everyone in this workspace" checked={settings.require_mfa} disabled={save.isPending} onChange={(next) => save.mutate(next)}
           hint="People who have not set it up are asked to do so the next time they sign in, before anything else. Single sign-on users are covered by your identity provider." />
       </div>
-      {refused && <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{refused} <Link to="/account/security" className="font-medium underline">Set it up now</Link></p>}
+      {refused && <p role="alert" className="mt-3 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">{refused} <Link to="/account/security" className="font-medium underline">Set it up now</Link></p>}
       {save.isError && !refused && <div className="mt-3"><ErrorState title="Could not save" error={save.error} /></div>}
     </section>
   )
@@ -69,14 +69,14 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
 
   return (
     <form className="mt-4 space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
-      <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+      <div className="rounded-lg bg-surface-subtle px-3 py-2.5">
         <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Redirect URI to register with your identity provider</p>
         <div className="mt-1 flex gap-2">
           <code className="min-w-0 flex-1 text-xs break-all text-ink-900">{settings.redirect_uri}</code>
-          <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
+          <button type="button" className="text-xs font-medium text-brand-800 hover:underline" onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Field label="Name on the sign-in button" required error={errors.display_name} hint="For example: Okta, Microsoft, Google Workspace">
           {(ids) => <TextInput {...ids} value={form.display_name} onChange={(event) => set('display_name', event.target.value)} />}
         </Field>
@@ -104,14 +104,14 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
         <Toggle label="Create accounts on first sign-in" checked={form.jit_provisioning} onChange={(next) => set('jit_provisioning', next)} hint="Otherwise only people you added under Users can sign in." />
         <Toggle label="Require single sign-on" checked={form.enforce_sso} onChange={(next) => set('enforce_sso', next)}
           hint="Passwords stop working for everyone except administrators, who keep theirs for the day the identity provider is unreachable." />
-        {errors.enforce_sso && <p className="text-xs font-medium text-red-700">{errors.enforce_sso}</p>}
+        {errors.enforce_sso && <p className="text-xs font-medium text-danger-text">{errors.enforce_sso}</p>}
       </div>
       {other !== null && <ErrorState title="Could not save single sign-on" error={other} />}
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Save single sign-on</button>
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Save single sign-on</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
           onClick={() => window.confirm('Remove single sign-on? People who only sign in through it will need a password link.') && remove.mutate()}>Remove</button>}
-        {save.isSuccess && <span role="status" className="self-center text-sm text-emerald-700">Saved</span>}
+        {save.isSuccess && <span role="status" className="self-center text-sm text-success-text">Saved</span>}
       </div>
     </form>
   )
@@ -151,7 +151,7 @@ export function SecurityPage() {
   return (
     <div className="space-y-6">
       <MfaRule settings={data} />
-      <section aria-labelledby="sso" className="rounded-xl border border-line bg-surface p-5">
+      <section aria-labelledby="sso" className="rounded-lg border border-line bg-surface p-5">
         <h2 id="sso" className="text-sm font-semibold text-ink-900">Single sign-on (OpenID Connect)</h2>
         {!data.sso_available ? <p className="mt-1 text-sm text-ink-500">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
           : data.identity_provider || configuring ? <SsoForm settings={data} roles={roles.data ?? []} />

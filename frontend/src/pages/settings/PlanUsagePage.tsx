@@ -10,7 +10,7 @@ import type { Invoice, Usage, UsageMeter } from '@/lib/types'
 const money = (amount: number | string, currency: string) => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount))
 const monthName = (iso: string) => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso))
 
-const BAR: Record<UsageMeter['state'], string> = { ok: 'bg-brand-600', warning: 'bg-amber-500', over: 'bg-amber-600', blocked: 'bg-red-600' }
+const BAR: Record<UsageMeter['state'], string> = { ok: 'bg-brand-600', warning: 'bg-warning', over: 'bg-high', blocked: 'bg-danger-plain' }
 
 function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
   const unit = meter.unit ? ` ${meter.unit}` : ''
@@ -20,7 +20,7 @@ function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
     : meter.state === 'warning' ? 'Close to the limit'
     : meter.overage ? `Then ${money(meter.overage_price_per_1k ?? 0, currency)} per 1,000` : 'Hard limit'
   return (
-    <li className="rounded-xl border border-line bg-surface p-4">
+    <li className="rounded-lg border border-line bg-surface p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="text-sm font-medium text-ink-700">{meter.label}</h3>
         {meter.percent !== null && <span className="text-xs font-semibold text-ink-500">{meter.percent}%</span>}
@@ -30,11 +30,11 @@ function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
         {meter.limit !== null && <span className="text-sm font-normal text-ink-500"> of {formatNumber(meter.limit)}{unit}</span>}
       </p>
       {meter.limit !== null && (
-        <div role="progressbar" aria-label={meter.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(meter.percent ?? 0, 100)} className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div role="progressbar" aria-label={meter.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(meter.percent ?? 0, 100)} className="mt-3 h-2 overflow-hidden rounded-full bg-line-subtle">
           <div className={`h-full rounded-full ${BAR[meter.state]}`} style={{ width: `${Math.min(meter.percent ?? 0, 100)}%` }} />
         </div>
       )}
-      <p className={`mt-2 text-xs ${meter.state === 'blocked' ? 'font-medium text-red-700' : meter.state === 'ok' ? 'text-ink-500' : 'text-amber-700'}`}>{note}</p>
+      <p className={`mt-2 text-xs ${meter.state === 'blocked' ? 'font-medium text-danger-text' : meter.state === 'ok' ? 'text-ink-500' : 'text-warning-text'}`}>{note}</p>
     </li>
   )
 }
@@ -59,7 +59,7 @@ export function PlanUsagePage() {
   return (
     <div className="space-y-6">
       {!can_send && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p role="alert" className="rounded-lg border border-danger bg-danger-bg px-4 py-3 text-sm text-danger-text">
           This month's messages are used up, so campaigns cannot be published until next month. Talk to us about a larger plan to keep sending.
         </p>
       )}
@@ -73,9 +73,9 @@ export function PlanUsagePage() {
         {plan && plan.status !== 'ACTIVE' && <StatusBadge status="SCHEDULED" label={plan.status} />}
       </div>
 
-      <ul aria-label="Usage" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{meters.map((meter) => <Meter key={meter.label} meter={meter} currency={currency} />)}</ul>
+      <ul aria-label="Usage" className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">{meters.map((meter) => <Meter key={meter.label} meter={meter} currency={currency} />)}</ul>
 
-      <div className="rounded-xl border border-line bg-surface p-4">
+      <div className="rounded-lg border border-line bg-surface p-4">
         <h3 className="text-sm font-medium text-ink-700">Messages by channel</h3>
         <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
           {Object.entries(breakdown).map(([label, value]) => (

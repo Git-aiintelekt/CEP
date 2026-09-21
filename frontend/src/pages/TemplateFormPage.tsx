@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { buttonPrimary, buttonSecondary, Field, FormSection, Select, TextArea, TextInput } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
@@ -62,7 +63,7 @@ export function TemplateFormPage() {
 
   return (
     <section className="max-w-5xl">
-      <Link to="/templates" className="mb-3 inline-block text-sm font-medium text-brand-700 hover:underline">← Templates</Link>
+      <Link to="/templates" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
       <PageHeader title="New template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." />
       {otherError !== null && (
         <div className="mb-4">
@@ -81,7 +82,7 @@ export function TemplateFormPage() {
               </Select>
             )}
           </Field>
-          <div className="md:col-span-2">
+          <div className="lg:col-span-2">
             <Field label="Description" error={errors.description} hint="What this template is for. Shown in the template list.">
               {(ids) => <TextArea {...ids} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />}
             </Field>
@@ -96,10 +97,10 @@ export function TemplateFormPage() {
             if (chosen && !description.trim()) setDescription(chosen.description)
           }}
         />
-        {errors.starter && <p className="text-sm font-medium text-red-700">{errors.starter}</p>}
+        {errors.starter && <p className="text-sm font-medium text-danger-text">{errors.starter}</p>}
         <div className="flex items-center gap-3">
           <button type="submit" disabled={create.isPending} className={buttonPrimary}>
-            {create.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}
+            {create.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
             {['EMAIL', 'E_RECEIPT'].includes(channel) ? 'Create and open the designer' : 'Create and write the message'}
           </button>
           <Link to="/templates" className={buttonSecondary}>Cancel</Link>

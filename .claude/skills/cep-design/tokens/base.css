@@ -1,0 +1,12 @@
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-primary);font:var(--text-body-role);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-family:var(--font-display);font-weight:var(--fw-semibold);color:var(--text-primary);letter-spacing:var(--ls-tight)}
+h1{font-size:var(--fs-page-title);line-height:var(--lh-tight)}
+h2{font-size:var(--fs-section-title);line-height:var(--lh-heading)}
+h3{font-size:var(--fs-section-title-sm);line-height:var(--lh-heading)}
+p{margin:0 0 var(--sp-3)}
+a{color:var(--text-link);text-decoration:none}
+a:hover{color:var(--text-link-hover);text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--border-focus);outline-offset:1px}
+.cep-num{font-variant-numeric:tabular-nums}
+::placeholder{color:var(--text-placeholder)}
