@@ -3,11 +3,14 @@
  *   Upload a file        name -> file -> match columns -> review -> done   (the list is a DRAFT until the import is added)
  *   BI / extraction      name -> choose an audience -> done
  *   Clone a list         name -> choose the list to copy -> done
- * Leaving before the end removes the draft, so a half-finished upload never becomes a list.
+ * A file is never processed while the operator waits on a request: the upload answers at once and a background worker
+ * reads, checks and imports it. The wizard shows the progress; "Continue in the background" closes it and leaves the job
+ * running (the header's upload button and an alert tell the operator when it is done; the uploads page resumes it).
+ * Cancel removes the draft and stops its job, so a half-finished upload never becomes a list.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Copy, Database, FileSpreadsheet, Upload } from 'lucide-react'
-import { useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
@@ -17,11 +20,13 @@ import { formatNumber } from '@/lib/format'
 import type { Audience, ContactList, ListImport, ListSource, Page } from '@/lib/types'
 
 import { problemText } from './problem'
+import { POLL_MS, watchedUploads } from './uploadJobs'
+import { ProgressBar } from './UploadsIndicator'
 
-type Step = 'method' | 'file' | 'map' | 'review' | 'audience' | 'clone' | 'done'
+type Step = 'method' | 'file' | 'map' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
 
 const STEPS: Record<ListSource, Step[]> = {
-  UPLOAD: ['method', 'file', 'map', 'review', 'done'],
+  UPLOAD: ['method', 'file', 'map', 'review', 'done'],                                   // 'importing' is the tail of the review step
   BI: ['method', 'audience', 'done'],
   CLONE: ['method', 'clone', 'done'],
 }
@@ -31,6 +36,7 @@ const TITLES: Record<Step, [string, string]> = {
   file: ['Add your file', 'Upload the CSV that holds your contacts.'],
   map: ['Match your columns', 'Tell CEP what each column in your file means.'],
   review: ['Review before importing', 'Check what comes in and what gets held back.'],
+  importing: ['Importing your contacts', 'This runs in the background. You can keep working.'],
   audience: ['Choose an audience', 'Pick an audience your data team already defined.'],
   clone: ['Choose a list to copy', 'Pick the list you want to start from.'],
   done: ['List created', "Here's where to find it and what happens next."],
@@ -77,9 +83,11 @@ interface WizardProps {
   onCreated?: (list: ContactList) => void
   /** opened from campaign setup: the closing message says what happened to the campaign's audience */
   inCampaign?: boolean
+  /** pick up an upload that was left running or waiting (from the uploads page) */
+  resume?: { listId: string; importId: string }
 }
 
-export function CreateListWizard({ onClose, onCreated, inCampaign = false }: WizardProps) {
+export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume }: WizardProps) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<Step>('method')
   const [source, setSource] = useState<ListSource>('UPLOAD')
@@ -105,8 +113,73 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
     enabled: step === 'clone',
   })
 
+  // ---- the background job: polled while a worker is on it; what it reports replaces what the wizard holds
+  const polled = useQuery({
+    queryKey: ['contact-lists', 'import', upload?.contact_list, upload?.id],
+    queryFn: ({ signal }) => api.get<ListImport>(`/contact-lists/${upload?.contact_list}/imports/${upload?.id}/`, undefined, signal),
+    enabled: Boolean(upload) && step !== 'done' && step !== 'method',
+    refetchInterval: (query) => ((query.state.data ?? upload)?.working ? POLL_MS : false),
+  })
+  const job = polled.data && polled.data.id === upload?.id ? polled.data : upload
+
+  // ---- while the wizard is open on an upload, the header does not raise alerts about it
+  const watchedId = upload?.id
+  useEffect(() => {
+    if (!watchedId) return
+    watchedUploads.add(watchedId)
+    return () => {
+      watchedUploads.delete(watchedId)
+    }
+  }, [watchedId])
+
+  // ---- picking up an upload that was left running or waiting
+  useEffect(() => {
+    if (!resume) return
+    let alive = true
+    void (async () => {
+      try {
+        const [list, staged] = await Promise.all([
+          api.get<ContactList>(`/contact-lists/${resume.listId}/`),
+          api.get<ListImport>(`/contact-lists/${resume.listId}/imports/${resume.importId}/`),
+        ])
+        if (!alive) return
+        setDraft(list)
+        setName(list.name)
+        setDescription(list.description ?? '')
+        setEnvironment(list.list_environment)
+        setUpload(staged)
+        setMapping(staged.mapping)
+        setStep(staged.status === 'APPLYING' ? 'importing' : staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed ? 'review' : 'map')
+      } catch (problem) {
+        if (alive) setError(problemText(problem))
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [resume])
+
+  // ---- the import finished while the wizard was open
+  const finished = step === 'importing' && job?.status === 'APPLIED'
+  useEffect(() => {
+    if (!finished || !draft) return
+    let alive = true
+    void api.get<ContactList>(`/contact-lists/${draft.id}/`).then((list) => {
+      if (!alive) return
+      setCreated(list)
+      setStep('done')
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists'] })
+      onCreated?.(list)
+    })
+    return () => {
+      alive = false
+    }
+    // onCreated identity changes with every render of the parent
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished, draft?.id])
+
   const steps = STEPS[source]
-  const index = steps.indexOf(step)
+  const index = step === 'importing' ? steps.indexOf('review') : steps.indexOf(step)
   const [title, subtitle] = TITLES[step]
 
   const run = async (work: () => Promise<void>) => {
@@ -148,9 +221,13 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
   const takeFile = (file: File | undefined) => {
     if (!file || !draft) return
     void run(async () => {
+      if (upload && !['APPLIED', 'FAILED', 'CANCELLED'].includes(upload.status)) {
+        await api.post(`/contact-lists/${draft.id}/imports/${upload.id}/cancel/`).catch(() => undefined)     // "Replace": the first file is dropped
+      }
       const staged = await api.upload<ListImport>(`/contact-lists/${draft.id}/imports/`, file)
       setUpload(staged)
       setMapping(staged.mapping)
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
     })
   }
 
@@ -163,17 +240,28 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
   const review = () =>
     run(async () => {
       if (!draft || !upload) return
-      setUpload(await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/review/`, { mapping }))
+      const queued = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/review/`, { mapping })
+      setUpload(queued)
+      queryClient.setQueryData(['contact-lists', 'import', queued.contact_list, queued.id], queued)
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
       setStep('review')
     })
 
   const apply = () =>
     run(async () => {
       if (!draft || !upload) return
-      const result = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/apply/`)
-      setUpload(result)
-      finish(result.list ?? draft)
+      const queued = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/apply/`)
+      setUpload(queued)
+      queryClient.setQueryData(['contact-lists', 'import', queued.contact_list, queued.id], queued)
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
+      setStep('importing')
     })
+
+  /** the job goes on without the wizard: the header's upload button and an alert report on it */
+  const leaveRunning = () => {
+    void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
+    onClose()
+  }
 
   const fromAudience = () => run(async () => finish(await api.post<ContactList>('/contact-lists/from-audience/', { name, description, list_environment: environment, audience })))
   const fromClone = () => run(async () => finish(await api.post<ContactList>(`/contact-lists/${parent}/clone/`, { name, description, list_environment: environment })))
@@ -196,9 +284,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
 
   const primary: { label: string; action: () => void; disabled: boolean } | null =
     step === 'method' ? { label: 'Continue', action: fromMethod, disabled: name.trim() === '' }
-    : step === 'file' ? { label: 'Continue', action: () => setStep('map'), disabled: !upload }
+    : step === 'file' ? { label: 'Continue', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
     : step === 'map' ? { label: 'Continue', action: review, disabled: !emailMapped }
-    : step === 'review' ? { label: 'Import contacts', action: apply, disabled: !upload?.review || upload.review.ready === 0 }
+    : step === 'review' ? { label: 'Import contacts', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
     : step === 'audience' ? { label: 'Create list', action: fromAudience, disabled: audience === '' }
     : step === 'clone' ? { label: 'Create list', action: fromClone, disabled: parent === '' }
     : null
@@ -210,15 +298,22 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
       </button>
     ) : (
       <div className="flex w-full items-center gap-2">
-        <button type="button" className={buttonSecondary} onClick={abandon}>
-          Cancel
-        </button>
-        {index > 0 && (
-          <button type="button" className={buttonSecondary} onClick={back} disabled={busy}>
+        {step !== 'importing' && (
+          <button type="button" className={buttonSecondary} onClick={abandon}>
+            Cancel
+          </button>
+        )}
+        {index > 0 && step !== 'importing' && (
+          <button type="button" className={buttonSecondary} onClick={back} disabled={busy || (step === 'review' && Boolean(job?.working))}>
             Back
           </button>
         )}
         <span className="grow" />
+        {(step === 'importing' || (step === 'review' && job?.working)) && job?.status !== 'FAILED' && (
+          <button type="button" className={buttonSecondary} onClick={leaveRunning}>
+            Continue in the background
+          </button>
+        )}
         {busy && <Spinner className="h-4 w-4" />}
         {primary && (
           <button type="button" className={buttonPrimary} onClick={primary.action} disabled={primary.disabled || busy}>
@@ -231,10 +326,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
   const needle = filter.trim().toLowerCase()
   const shownAudiences = (audiences.data ?? []).filter((item) => `${item.name} ${item.code} ${item.description ?? ''}`.toLowerCase().includes(needle))
   const shownLists = (lists.data?.results ?? []).filter((item) => item.status === 'ACTIVE' && item.name.toLowerCase().includes(needle))
-  const review_ = upload?.review
+  const review_ = job?.working ? null : job?.review
+  const failed = job?.status === 'FAILED'
 
   return (
-    <Modal title={title} onClose={step === 'done' ? onClose : abandon} footer={footer} size="lg">
+    <Modal title={title} onClose={step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon} footer={footer} size="lg">
       <p className="mb-4 text-xs text-ink-500" aria-live="polite">
         {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
       </p>
@@ -285,10 +381,16 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
               <div className="flex flex-wrap items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-line-subtle text-ink-700"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
                 <div className="min-w-0 grow">
-                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-line-subtle px-1.5 py-0.5 text-[11px] font-semibold text-success-text">Ready</span></p>
+                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-line-subtle px-1.5 py-0.5 text-[11px] font-semibold text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
                   <p className="text-xs text-ink-500">
-                    {formatNumber(upload.row_count)} rows · {upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
+                    {job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
                   </p>
+                  {job?.working && (
+                    <p className="mt-1 text-xs text-ink-500" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. You can match the columns meanwhile.</p>
+                  )}
+                  {job?.status === 'FAILED' && (
+                    <p role="alert" className="mt-1 text-xs font-medium text-danger-plain">{job.error ?? 'This file could not be read.'} Choose Replace to upload another file.</p>
+                  )}
                 </div>
                 <button type="button" className={buttonSecondary} onClick={() => picker.current?.click()} disabled={busy}>
                   Replace
@@ -362,7 +464,24 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
         </div>
       )}
 
-      {step === 'review' && review_ && upload && (
+      {(step === 'importing' || (step === 'review' && !review_)) && job && (
+        <div className="space-y-3" aria-live="polite">
+          {failed ? (
+            <p role="alert" className="rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">{job.error ?? 'The upload failed.'}</p>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-ink-900">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}</p>
+              <ProgressBar job={job} />
+              <p className="text-sm text-ink-700">
+                {job.row_count > 0 ? `${formatNumber(job.row_count)} rows. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of CEP stays fast.
+                You can wait here, or continue in the background: the upload button at the top shows the progress and you get an alert when it is done.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {step === 'review' && review_ && upload && job && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line px-4 py-3">
             <p className="text-sm text-ink-700">Ready to import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
@@ -379,11 +498,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
               ),
             )}
           </dl>
-          {(upload.issues ?? []).length > 0 && (
+          {(job.issues ?? []).length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-ink-700">Rows to look at{(upload.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
+              <p className="mb-1 text-xs font-semibold text-ink-700">Rows to look at{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
               <ul className="max-h-44 divide-y divide-line-subtle overflow-y-auto rounded-lg border border-line text-sm">
-                {(upload.issues ?? []).map((issue) => (
+                {(job.issues ?? []).map((issue) => (
                   <li key={`${issue.line}-${issue.kind}`} className="flex items-start gap-3 px-3 py-1.5">
                     <span className="cep-num w-14 shrink-0 text-xs text-ink-500">Line {issue.line}</span>
                     <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-semibold ${issue.kind === 'error' ? 'bg-danger-bg text-danger-text' : 'bg-warning-bg text-warning-text'}`}>
@@ -440,7 +559,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false }: Wiz
             <p className="text-base font-semibold text-ink-900">{created.name} is ready</p>
             {source === 'UPLOAD' && upload && (
               <>
-                <p className="cep-num">{formatNumber(upload.applied_count)} contacts imported · {formatNumber(upload.review?.held_back ?? 0)} rows skipped</p>
+                <p className="cep-num">{formatNumber(job?.applied_count ?? 0)} contacts imported · {formatNumber(job?.review?.held_back ?? 0)} rows skipped</p>
                 <p>{inCampaign ? 'It came from an upload, so it is not attached to this campaign yet. Check it, then tick it in the list below.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
               </>
             )}

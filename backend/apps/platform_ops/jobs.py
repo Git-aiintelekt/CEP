@@ -30,8 +30,9 @@ JOBS = {
     "run-tenant-operations": ("Executes requested exports, moves and offboardings", 30 * 60),
     "dispatch-campaign-runs": ("Starts campaign runs that are due and closes finished ones", 10 * 60),
     "refresh-audience-lists": ("Brings contact lists that follow an audience in line with it", 3 * 3600),
+    "process-list-imports": ("Reads, checks and imports uploaded contact list files", 10 * 60),
 }
-QUIET = {"outbox-relay"}                                   # runs every second: only failures and one success a minute are recorded
+QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}
 
 

@@ -15,6 +15,7 @@ import { CampaignFormPage } from '@/pages/CampaignFormPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
+import { UploadsPage } from '@/features/contact-lists/UploadsPage'
 import { CampaignsPage, JourneysPage, TemplatesPage } from '@/pages/ListPages'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
@@ -86,6 +87,7 @@ export default function App() {
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                 <Route path="campaigns/:id/edit" element={<CampaignFormPage />} />
                 <Route path="contact-lists" element={<ContactListsPage />} />
+                <Route path="contact-lists/uploads" element={<UploadsPage />} />
                 <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />

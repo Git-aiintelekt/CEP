@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeCampaign, signIn } from '@/test/mockApi'
+import { installMockApi, makeCampaign, signIn, stagedImport } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -20,6 +20,13 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
+
+/** the button of a step whose numbers come from the background worker: there, and enabled, once the worker is done */
+async function ready(dialog: HTMLElement, name: string) {
+  const button = (await within(dialog).findByRole('button', { name })) as HTMLButtonElement
+  await vi.waitFor(() => expect(button.disabled).toBe(false))
+  return button
+}
 
 const csv = () => new File(['Email Address,First Name,Notes\na@x.example,Ana,vip\n'], 'leads.csv', { type: 'text/csv' })
 
@@ -71,7 +78,7 @@ test('create from a file: name and type, the file, the columns, the review, then
   expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)
   await user.upload(within(dialog).getByLabelText('CSV file'), csv())
   expect(await within(dialog).findByText('leads.csv')).toBeTruthy()
-  expect(within(dialog).getByText(/6 rows · 3 columns · 2 KB/)).toBeTruthy()
+  expect(await within(dialog).findByText(/6 rows · 3 columns · 2 KB/)).toBeTruthy()          // the row count arrives once the worker has read the file
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
 
   dialog = await screen.findByRole('dialog', { name: 'Match your columns' })
@@ -89,11 +96,11 @@ test('create from a file: name and type, the file, the columns, the review, then
 
   dialog = await screen.findByRole('dialog', { name: 'Review before importing' })
   expect(calls.find((call) => call.url.endsWith('/review/'))?.body).toEqual({ mapping: { first_name: 'First Name', email: 'Email Address' } })
-  expect(within(dialog).getByText('4 contacts')).toBeTruthy()
+  expect(await within(dialog).findByText('4 contacts')).toBeTruthy()                           // checked in the background, then shown
   expect(within(dialog).getByText('2 rows held back')).toBeTruthy()
   expect(within(dialog).getByText('New').previousElementSibling?.textContent).toBe('3')
   expect(within(dialog).getByText('Same email address as line 3', { exact: false })).toBeTruthy()
-  await user.click(within(dialog).getByRole('button', { name: 'Import contacts' }))
+  await user.click(await ready(dialog, 'Import contacts'))
 
   dialog = await screen.findByRole('dialog', { name: 'List created' })
   expect(within(dialog).getByText('Trade show leads is ready')).toBeTruthy()
@@ -254,7 +261,7 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await within(dialog).findByText('leads.csv')
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   await user.click(within(await screen.findByRole('dialog', { name: 'Match your columns' })).getByRole('button', { name: 'Continue' }))
-  await user.click(within(await screen.findByRole('dialog', { name: 'Review before importing' })).getByRole('button', { name: 'Import contacts' }))
+  await user.click(await ready(await screen.findByRole('dialog', { name: 'Review before importing' }), 'Import contacts'))
   dialog = await screen.findByRole('dialog', { name: 'List created' })
   expect(within(dialog).getByText(/not attached to this campaign yet/)).toBeTruthy()
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
@@ -265,4 +272,91 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(waiting).getByRole('button', { name: 'I have checked it: attach to this campaign' }))
   await vi.waitFor(() => expect((within(booth).getByRole('checkbox') as HTMLInputElement).checked).toBe(true))
   expect(screen.queryByRole('group', { name: 'Uploaded list waiting to be attached' })).toBeNull()
+})
+
+test('a large upload runs in the background: progress in the wizard, leave it running, an alert when it is done, and the uploads page', async () => {
+  const calls = installMockApi({ listImportMs: 1500 })
+  const user = userEvent.setup()
+  await renderAppAt('/contact-lists')
+  await user.click(await screen.findByRole('button', { name: 'Create List' }))
+  let dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
+  await user.type(within(dialog).getByLabelText(/^List name/), 'Big file')
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+  dialog = await screen.findByRole('dialog', { name: 'Add your file' })
+  await user.upload(within(dialog).getByLabelText('CSV file'), csv())
+  await within(dialog).findByText('leads.csv')
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))             // the columns are known from the first lines: no waiting for the whole file
+  await user.click(within(await screen.findByRole('dialog', { name: 'Match your columns' })).getByRole('button', { name: 'Continue' }))
+  dialog = await screen.findByRole('dialog', { name: 'Review before importing' })
+  await user.click(await ready(dialog, 'Import contacts'))
+
+  dialog = await screen.findByRole('dialog', { name: 'Importing your contacts' })
+  expect(calls.filter((call) => call.url.endsWith('/apply/')).length).toBe(1)
+  expect(within(dialog).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('33')
+  expect(screen.getByRole('button', { name: 'List uploads: 1 in progress', hidden: true })).toBeTruthy()      // the header counts it (behind the dialog)
+  expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull()             // adding contacts is not interrupted half-way
+  await user.click(within(dialog).getByRole('button', { name: 'Continue in the background' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'Importing your contacts' })).toBeNull())
+  expect(calls.some((call) => call.method === 'DELETE')).toBe(false)                     // leaving it running is not cancelling it
+
+  // the header keeps watching; when the worker is done the operator is told, wherever they are
+  const alert = await screen.findByText('“Big file” is ready', {}, { timeout: 4000 })
+  const toast = alert.closest('[role=status]') as HTMLElement
+  expect(screen.queryByText(/has been checked/)).toBeNull()                           // no alert for the step they were watching in the wizard
+  expect(toast.textContent).toContain('4 contacts imported · 2 rows skipped')
+  expect(within(toast).getByRole('link', { name: /Open the list/ }).getAttribute('href')).toBe('/contact-lists/cl-new')
+  expect(await within(await screen.findByRole('table', { name: 'Contact Lists' })).findByText('Big file')).toBeTruthy()      // the table was refreshed
+
+  await user.click(screen.getByRole('link', { name: 'Uploads' }))
+  const uploads = await screen.findByRole('table', { name: 'List uploads' })
+  const row = (await within(uploads).findByText('Big file')).closest('tr') as HTMLElement
+  expect(within(row).getByText('Imported')).toBeTruthy()
+  expect(within(row).getByText('Aby John', { exact: false })).toBeTruthy()
+  expect(within(row).getByRole('link', { name: 'Open the list' })).toBeTruthy()
+})
+
+test('uploads page: what is running shows its progress, what waits can be continued, and an unfinished upload can be cancelled', async () => {
+  const running = { ...stagedImport, id: 'imp-run', contact_list: 'cl-ga', list_name: 'Georgia only', file_name: 'big.csv', status: 'APPLYING' as const, phase: 'Adding contacts to the list',
+                    working: true, row_count: 180000, progress: { done: 90000, total: 180000, percent: 50, unit: 'rows' as const } }
+  const waiting = { ...stagedImport, id: 'imp-wait', contact_list: 'cl-master', list_name: 'Fall Master Audience', file_name: 'pos-export.csv', status: 'STAGED' as const,
+                    phase: 'Read. Match the columns to continue', working: false, row_count: 6 }
+  const calls = installMockApi({ listUploads: [running, waiting] })
+  const user = userEvent.setup()
+  await renderAppAt('/contact-lists/uploads')
+
+  const table = await screen.findByRole('table', { name: 'List uploads' })
+  const busy = (await within(table).findByText('big.csv', { exact: false })).closest('tr') as HTMLElement
+  expect(within(busy).getByText('In progress')).toBeTruthy()
+  expect(within(busy).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('50')
+  expect(within(busy).queryByRole('button', { name: 'Cancel' })).toBeNull()               // contacts are being added: not interruptible
+  expect(screen.getByRole('button', { name: 'List uploads: 1 in progress' })).toBeTruthy() // the header button counts it, on every page
+
+  const idle = within(table).getByText('pos-export.csv', { exact: false }).closest('tr') as HTMLElement
+  expect(within(idle).getByText('Waiting for you')).toBeTruthy()
+  await user.click(within(idle).getByRole('button', { name: 'Continue' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Match your columns' })        // resumed where it stopped, with its columns
+  expect((within(dialog).getByLabelText('CEP property for Email Address') as HTMLSelectElement).value).toBe('email')
+  await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+  await user.click(within(idle).getByRole('button', { name: 'Cancel' }))
+  expect((await screen.findByRole('status')).textContent).toContain('The upload of “pos-export.csv” was cancelled.')
+  expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contact-lists/cl-master/imports/imp-wait/cancel/'))).toBe(true)
+})
+
+test('a file the worker cannot take: the reason is shown in the wizard instead of a spinner that never ends', async () => {
+  installMockApi({ listUploadFails: true })
+  const user = userEvent.setup()
+  await renderAppAt('/contact-lists')
+  await user.click(await screen.findByRole('button', { name: 'Create List' }))
+  let dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
+  await user.type(within(dialog).getByLabelText(/^List name/), 'Too big')
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+  dialog = await screen.findByRole('dialog', { name: 'Add your file' })
+  await user.upload(within(dialog).getByLabelText('CSV file'), csv())
+  await within(dialog).findByText('Failed')
+  expect((await within(dialog).findByRole('alert')).textContent).toContain('more than 250,000 rows')
+  expect(within(dialog).getByRole('alert').textContent).toContain('Choose Replace to upload another file')
+  expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(within(dialog).getByRole('button', { name: 'Replace' })).toBeTruthy()
 })

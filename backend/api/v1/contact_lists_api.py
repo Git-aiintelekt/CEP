@@ -11,10 +11,15 @@
     GET    /contact-lists/{id}/members/             the people in it; POST adds people by email address
     POST   /contact-lists/{id}/members/remove/      {ids}
     GET    /contact-lists/{id}/members/export/      CSV; ?ids=1,2,3 for a selection
-    POST   /contact-lists/{id}/imports/             multipart `file`: stage a CSV               (permission list.import)
-    GET    /contact-lists/{id}/imports/{import}/    its columns, the guessed mapping, the review numbers
-    POST   /contact-lists/{id}/imports/{import}/review/   {mapping}: who is new, known, held back
-    POST   /contact-lists/{id}/imports/{import}/apply/    add them to the list
+    GET    /contact-lists/imports/                  the workspace's uploads, newest first; ?active=true = the unfinished ones
+    POST   /contact-lists/{id}/imports/             multipart `file`: store a CSV and queue it  (permission list.import)
+    GET    /contact-lists/{id}/imports/{import}/    status, progress, columns, mapping, review numbers: poll this
+    POST   /contact-lists/{id}/imports/{import}/review/   {mapping}: 202, the check runs in the background
+    POST   /contact-lists/{id}/imports/{import}/apply/    202, the contacts are added in the background
+    POST   /contact-lists/{id}/imports/{import}/cancel/
+
+A file is never read, checked or imported inside a request (apps/contact_lists/jobs.py): the upload answers at once and
+the three steps run as background jobs, a few at a time for the whole platform and one at a time per workspace.
 """
 import csv
 
@@ -30,7 +35,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.contact_lists import imports, lists
+from apps.contact_lists import imports, jobs, lists
 from apps.contact_lists.models import ContactList, ContactListImport
 from apps.tenants import context
 
@@ -117,20 +122,32 @@ class MappingSerializer(serializers.Serializer):
     mapping = serializers.DictField(child=serializers.CharField(allow_blank=True, allow_null=True))
 
 
+PHASE = {"UPLOADED": "Waiting to be read", "STAGING": "Reading the file", "STAGED": "Read. Match the columns to continue", "MATCHING": "Checking the rows",
+         "REVIEW": "Checked. Review it to continue", "APPLYING": "Adding contacts to the list", "APPLIED": "Imported", "FAILED": "Failed", "CANCELLED": "Cancelled"}
+WAITING = {"STAGE": "Waiting to be read", "REVIEW": "Waiting to be checked", "APPLY": "Waiting to be imported"}
+
+
 def import_payload(record: ContactListImport, with_issues: bool = False) -> dict:
+    working = record.status in ("STAGING", "MATCHING", "APPLYING") or bool(record.next_action)
+    total = record.progress_total or 0
+    percent = 100 if not working else (min(99, int(record.progress_done * 100 / total)) if total and record.status in ("STAGING", "MATCHING", "APPLYING") else 0)
     data = {
-        "id": str(record.pk), "contact_list": str(record.contact_list_id), "file_name": record.file_name, "file_size": record.file_size, "status": record.status,
+        "id": str(record.pk), "contact_list": str(record.contact_list_id), "list_name": record.contact_list.name, "list_status": record.contact_list.status,
+        "file_name": record.file_name, "file_size": record.file_size, "status": record.status,
+        "phase": WAITING[record.next_action] if record.next_action and record.status not in ("STAGING", "MATCHING", "APPLYING") else PHASE.get(record.status, record.status),
+        "working": working, "progress": {"done": record.progress_done, "total": total, "percent": percent, "unit": "bytes" if record.status in ("UPLOADED", "STAGING") else "rows"},
+        "mapping_confirmed": record.mapping_confirmed, "error": record.error,
         "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(),
-        "review": None, "applied_count": record.applied_count, "created_at": record.created_at, "completed_at": record.completed_at,
+        "review": None, "applied_count": record.applied_count, "new_people": record.new_customer_count, "consents_recorded": record.consent_count,
+        "created_at": record.created_at, "started_at": record.started_at, "completed_at": record.completed_at,
+        "created_by_name": getattr(record.created_by, "display_name", None) or getattr(record.created_by, "email", None),
     }
-    if record.status in ("REVIEW", "APPLIED"):
+    if record.status in ("REVIEW", "APPLYING", "APPLIED") and not (record.status == "REVIEW" and record.next_action == "REVIEW"):
         held_back = record.duplicate_count + record.rejected_count
         data["review"] = {"ready": record.matched_count + record.unmatched_count, "held_back": held_back, "new": record.unmatched_count, "existing": record.matched_count,
                           "warnings": record.warning_count, "errors": held_back, "duplicates": record.duplicate_count, "rejected": record.rejected_count}
-    if with_issues:
+    if with_issues and data["review"] is not None:
         data["issues"] = imports.issues(record)
-    if hasattr(record, "new_customers"):
-        data["new_people"], data["consents_recorded"] = record.new_customers, record.consents
     return data
 
 
@@ -177,6 +194,7 @@ class ContactListViewSet(BaseTenantViewSet):
             raise Conflict("This list is attached to a campaign. Detach it there first, or archive the list.")
         if instance.contact_lists.filter(deleted_at__isnull=True, list_kind="DERIVED").exists():
             raise Conflict("Another list is built on this one. Delete that list first.")
+        jobs.cancel_all_for(instance)                      # a worker that is on one of its files stops at its next chunk
         lists.remove_all(instance)
         super().perform_destroy(instance)
 
@@ -304,17 +322,24 @@ class ContactListViewSet(BaseTenantViewSet):
         response["Content-Disposition"] = f'attachment; filename="{safe}.csv"'
         return response
 
-    # ------------------------------------------------------------ upload
+    # ------------------------------------------------------------ upload (background jobs)
     def _import(self, contact_list, import_id) -> ContactListImport:
-        record = ContactListImport.objects.filter(pk=import_id, contact_list=contact_list, tenant_id=contact_list.tenant_id).first()
+        record = ContactListImport.objects.select_related("contact_list", "created_by").filter(pk=import_id, contact_list=contact_list, tenant_id=contact_list.tenant_id).first()
         if record is None:
             raise NotFound("No such import for this list.")
         return record
+
+    @extend_schema(operation_id="contact_lists_uploads_list", parameters=[OpenApiParameter("active", bool, description="only uploads that are not finished")], responses=dict)
+    @action(detail=False, methods=["get"], url_path="imports", pagination_class=None)
+    def import_jobs(self, request, version=None):
+        active = request.query_params.get("active", "").lower() in ("1", "true", "yes")
+        return Response([import_payload(record) for record in jobs.recent(context.require().tenant_id, active_only=active)])
 
     @extend_schema(request={"multipart/form-data": inline_serializer("ListUpload", {"file": serializers.FileField()})}, responses={201: dict})
     @action(detail=True, methods=["post"], url_path="imports", parser_classes=[MultiPartParser],
             permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
     def imports(self, request, pk=None, version=None):
+        """Stores the file and answers at once. Reading it is a background job: poll the import for its progress."""
         contact_list = self.get_object()
         if contact_list.status == ContactList.Status.ARCHIVED:
             raise Conflict("An archived list cannot be changed. Restore it first.")
@@ -324,9 +349,11 @@ class ContactListViewSet(BaseTenantViewSet):
         if upload is None:
             raise ValidationError({"file": "Choose a CSV file."})
         try:
-            record = imports.read(contact_list, upload, _user_id(request))
+            record = imports.accept(contact_list, upload, _user_id(request))
         except imports.ImportError_ as exc:
             raise ValidationError({"file": str(exc)}) from exc
+        except jobs.TooManyUploads as exc:
+            raise Conflict(str(exc)) from exc
         return Response(import_payload(record), status=201)
 
     @extend_schema(responses=dict)
@@ -334,29 +361,38 @@ class ContactListViewSet(BaseTenantViewSet):
     def import_detail(self, request, pk=None, import_id=None, version=None):
         return Response(import_payload(self._import(self.get_object(), import_id), with_issues=True))
 
-    @extend_schema(request=MappingSerializer, responses=dict)
+    @extend_schema(request=MappingSerializer, responses={202: dict})
     @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/review", parser_classes=[JSONParser],
             permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
     def import_review(self, request, pk=None, import_id=None, version=None):
+        """Confirms the mapping. The check runs in the background, right away or as soon as the file has been read."""
         record = self._import(self.get_object(), import_id)
         body = MappingSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         try:
-            record = imports.review(record, body.validated_data["mapping"])
+            record = imports.confirm_mapping(record, body.validated_data["mapping"])
         except imports.ImportError_ as exc:
             raise ValidationError({"mapping": str(exc)}) from exc
-        return Response(import_payload(record, with_issues=True))
+        return Response(import_payload(record), status=202)
 
-    @extend_schema(request=None, responses=dict)
+    @extend_schema(request=None, responses={202: dict})
     @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/apply", parser_classes=[JSONParser],
             permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
     def import_apply(self, request, pk=None, import_id=None, version=None):
-        contact_list = self.get_object()
-        record = self._import(contact_list, import_id)
+        record = self._import(self.get_object(), import_id)
         try:
-            record = imports.apply(record, _user_id(request))
+            record = imports.request_apply(record)
         except imports.ImportError_ as exc:
             raise Conflict(str(exc)) from exc
-        payload = import_payload(record)
-        payload["list"] = self.get_serializer(self.get_queryset().get(pk=contact_list.pk)).data
-        return Response(payload)
+        return Response(import_payload(record), status=202)
+
+    @extend_schema(request=None, responses=dict)
+    @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/cancel", parser_classes=[JSONParser],
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
+    def import_cancel(self, request, pk=None, import_id=None, version=None):
+        record = self._import(self.get_object(), import_id)
+        try:
+            jobs.cancel(record)
+        except imports.ImportError_ as exc:
+            raise Conflict(str(exc)) from exc
+        return Response(import_payload(record))

@@ -113,11 +113,15 @@ class ContactListMember(models.Model):
 class ContactListImport(models.Model):
     """An upload job: file, identity-resolution rules, match / unmatched / duplicate counts"""
     class Status(models.TextChoices):
-        UPLOADED = 'UPLOADED', 'Uploaded'
-        MATCHING = 'MATCHING', 'Matching'
-        REVIEW = 'REVIEW', 'Review'
+        UPLOADED = 'UPLOADED', 'Uploaded'      # file stored, waiting to be read
+        STAGING = 'STAGING', 'Staging'         # being read into contact_list_import_row
+        STAGED = 'STAGED', 'Staged'            # read; waiting for the column mapping
+        MATCHING = 'MATCHING', 'Matching'      # being checked against the mapping
+        REVIEW = 'REVIEW', 'Review'            # checked; waiting for the operator
+        APPLYING = 'APPLYING', 'Applying'      # being added to the list
         APPLIED = 'APPLIED', 'Applied'
         FAILED = 'FAILED', 'Failed'
+        CANCELLED = 'CANCELLED', 'Cancelled'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
@@ -137,6 +141,20 @@ class ContactListImport(models.Model):
     file_columns = models.JSONField(default=list)  # [{name, samples, guess}] as read from the file
     column_mapping = models.JSONField(default=dict)  # {property: column name}
     error = models.CharField(max_length=500, null=True, blank=True)
+    next_action = models.CharField(max_length=10, null=True, blank=True)  # what a worker should do next: STAGE, REVIEW, APPLY
+    mapping_confirmed = models.BooleanField(default=False)  # confirmed by the operator, possibly while the file was still being read
+    apply_when_ready = models.BooleanField(default=False)
+    progress_done = models.BigIntegerField(default=0)
+    progress_total = models.BigIntegerField(default=0)  # bytes while reading, rows afterwards
+    queued_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    worker = models.CharField(max_length=120, null=True, blank=True)
+    attempts = models.IntegerField(default=0)
+    new_customer_count = models.IntegerField(default=0)
+    consent_count = models.IntegerField(default=0)
+    file_encoding = models.CharField(max_length=20, null=True, blank=True)
+    file_delimiter = models.CharField(max_length=4, null=True, blank=True)
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     completed_at = models.DateTimeField(null=True, blank=True)

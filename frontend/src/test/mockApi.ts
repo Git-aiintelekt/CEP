@@ -53,8 +53,11 @@ const PROPERTIES = [
   { key: 'last_name', label: 'Last name', required: false, help: '' }, { key: 'consent_date', label: 'Consent date', required: false, help: 'Recorded as an email opt-in.' },
 ]
 const REVIEW = { ready: 4, held_back: 2, new: 3, existing: 1, warnings: 1, errors: 2, duplicates: 1, rejected: 1 }
+/** as POST .../imports/ answers: stored and queued, nothing read yet. The mock "worker" moves it on at the next poll. */
 export const stagedImport: ListImport = {
-  id: 'imp-1', contact_list: 'cl-new', file_name: 'leads.csv', file_size: 2048, status: 'UPLOADED', row_count: 6, applied_count: 0, review: null, properties: PROPERTIES,
+  id: 'imp-1', contact_list: 'cl-new', list_name: 'Trade show leads', list_status: 'DRAFT', file_name: 'leads.csv', file_size: 2048, status: 'UPLOADED', phase: 'Waiting to be read',
+  working: true, progress: { done: 0, total: 2048, percent: 0, unit: 'bytes' }, mapping_confirmed: false, error: null, created_at: '2026-09-21T10:00:00Z', completed_at: null,
+  created_by_name: 'Aby John', row_count: 0, applied_count: 0, review: null, properties: PROPERTIES,
   columns: [{ name: 'Email Address', samples: ['a@x.example'], guess: 'email' }, { name: 'First Name', samples: ['Ana'], guess: 'first_name' }, { name: 'Notes', samples: ['vip'], guess: null }],
   mapping: { email: 'Email Address', first_name: 'First Name' },
 }
@@ -215,8 +218,14 @@ interface MockOptions {
   providerCheckFails?: boolean
   /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
   texts?: boolean
-  /** answer for POST /contact-lists/{id}/imports/ ; default: a staged six-row file */
+  /** answer for POST /contact-lists/{id}/imports/ ; default: a six-row file, stored and queued */
   onListUpload?: (call: Call) => Response | null
+  /** how long the background worker takes to import (default: done at the next poll) */
+  listImportMs?: number
+  /** the background worker refuses the file when it reads it */
+  listUploadFails?: boolean
+  /** uploads the workspace already has (GET /contact-lists/imports/) */
+  listUploads?: ListImport[]
 }
 
 /** the code the mock authenticator "shows" */
@@ -229,6 +238,8 @@ export function installMockApi(options: MockOptions = {}) {
   let mfaEnabled = options.mfaEnabled ?? false
   let listsNow: ContactList[] = [...contactLists]
   let membersNow: ListMember[] = [...listMembers]
+  let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
+  const importDoneAt = new Map<string, number>()
   let securityNow: SecuritySettings = { ...security }
   let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', sender_profile: null, ...options.mailServer }
 
@@ -389,15 +400,44 @@ export function installMockApi(options: MockOptions = {}) {
         const rows = membersNow.filter((row) => `${row.email} ${row.first_name} ${row.last_name}`.toLowerCase().includes(needle))
         return json({ count: rows.length, page: 1, page_size: 50, results: rows })
       }
-      if (path.endsWith('/imports/')) return options.onListUpload?.(call) ?? json({ ...stagedImport, contact_list: one }, 201)
-      if (path.endsWith('/review/')) {
-        return json({ ...stagedImport, status: 'REVIEW', mapping: body?.mapping, review: REVIEW,
-                      issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] })
+      // uploads are background jobs: a request only queues; the "worker" finishes the step by the time of the next poll
+      const jobId = /\/imports\/([^/]+)\//.exec(path)?.[1]
+      const job = jobsNow.find((item) => item.id === jobId)
+      const put = (next: ListImport) => { jobsNow = jobsNow.map((item) => (item.id === next.id ? next : item)); return next }
+      // the "worker": an import that was requested is finished once options.listImportMs have passed, whoever asks
+      for (const item of jobsNow) {
+        if (item.status === 'APPLYING' && (importDoneAt.get(item.id) ?? Infinity) <= Date.now()) {
+          listsNow = listsNow.map((entry) => (entry.id === item.contact_list ? { ...entry, status: 'ACTIVE', member_count: 4 } : entry))
+          put({ ...item, status: 'APPLIED', phase: 'Imported', working: false, applied_count: 4, new_people: 3, consents_recorded: 0, list_status: 'ACTIVE', completed_at: '2026-09-21T10:02:00Z' })
+        }
       }
-      if (path.endsWith('/apply/')) {
-        const made = { ...(find(one) as ContactList), status: 'ACTIVE', member_count: 4 }
-        listsNow = listsNow.map((item) => (item.id === one ? made : item))
-        return json({ ...stagedImport, status: 'APPLIED', applied_count: 4, new_people: 3, consents_recorded: 0, review: REVIEW, list: made })
+      if (path.endsWith('/contact-lists/imports/')) return json(jobsNow)
+      if (path.endsWith('/imports/') && method === 'POST') {
+        const custom = options.onListUpload?.(call)
+        if (custom) return custom
+        const made: ListImport = { ...stagedImport, id: `imp-${jobsNow.length + 1}`, contact_list: String(one), list_name: find(one)?.name ?? '' }
+        jobsNow = [made, ...jobsNow]
+        return json(made, 201)
+      }
+      if (job && path.endsWith('/review/')) {
+        return json(put({ ...job, status: 'MATCHING', phase: 'Checking the rows', working: true, mapping_confirmed: true, mapping: body?.mapping as Record<string, string>, review: null,
+                          progress: { done: 3, total: 6, percent: 50, unit: 'rows' } }), 202)
+      }
+      if (job && path.endsWith('/apply/')) {
+        importDoneAt.set(job.id, Date.now() + (options.listImportMs ?? 0))
+        return json(put({ ...job, status: 'APPLYING', phase: 'Adding contacts to the list', working: true, progress: { done: 2, total: 6, percent: 33, unit: 'rows' } }), 202)
+      }
+      if (job && path.endsWith('/cancel/')) return json(put({ ...job, status: 'CANCELLED', phase: 'Cancelled', working: false }))
+      if (job && method === 'GET') {
+        if (options.listUploadFails && job.status === 'UPLOADED') {
+          return json(put({ ...job, status: 'FAILED', phase: 'Failed', working: false, error: 'The file has more than 250,000 rows. Split it and upload the parts as separate lists.' }))
+        }
+        if (job.status === 'UPLOADED') return json(put({ ...job, status: 'STAGED', phase: 'Read. Match the columns to continue', working: false, row_count: 6, progress: { done: 6, total: 6, percent: 100, unit: 'rows' } }))
+        if (job.status === 'MATCHING') {
+          return json(put({ ...job, status: 'REVIEW', phase: 'Checked. Review it to continue', working: false, review: REVIEW, progress: { done: 6, total: 6, percent: 100, unit: 'rows' },
+                            issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] }))
+        }
+        return json(jobsNow.find((item) => item.id === job.id))
       }
       if (path.endsWith('/contact-lists/') && method === 'POST') {
         if (listsNow.some((item) => item.name.toLowerCase() === String(body?.name).toLowerCase())) {

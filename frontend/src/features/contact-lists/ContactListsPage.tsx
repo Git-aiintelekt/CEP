@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoreVertical, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -172,11 +172,16 @@ export function ContactListsPage() {
       <PageHeader
         title="Contact Lists"
         description="Reusable audiences. A campaign freezes its own copy at send time, so changing a list never changes a send that was already built."
-        actions={editable && (
-          <button type="button" className={buttonPrimary} onClick={() => setWizard(true)}>
-            <Plus size={16} strokeWidth={2} aria-hidden /> Create List
-          </button>
-        )}
+        actions={
+          <span className="flex flex-wrap gap-2">
+            <Link to="/contact-lists/uploads" className={buttonSecondary}>Uploads</Link>
+            {editable && (
+              <button type="button" className={buttonPrimary} onClick={() => setWizard(true)}>
+                <Plus size={16} strokeWidth={2} aria-hidden /> Create List
+              </button>
+            )}
+          </span>
+        }
       />
 
       <dl className="mb-4 grid gap-3 sm:grid-cols-3" aria-label="Contact list totals">

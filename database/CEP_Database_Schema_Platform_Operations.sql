@@ -498,6 +498,49 @@ ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_mapping_ob
 ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS warning VARCHAR(300);
 CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_import ON contact_list_import_row(tenant_id, import_id, match_status);
 
+-- 12. LIST UPLOADS AS BACKGROUND JOBS
+--     A large file must not be read, checked and imported inside a web request. The request only stores the file and
+--     samples its header; contact_list_import is the queue (the database is the queue, as for campaign runs: nothing is
+--     lost when no broker is reachable). A worker claims one import at a time with FOR UPDATE SKIP LOCKED, never two of
+--     the same workspace at once, and at most lists.import_max_parallel in the whole platform; it works in chunks, each
+--     in its own short transaction, and reports progress. A worker that stops is noticed by its heartbeat.
+--       UPLOADED  file stored, waiting to be read        STAGING   being read into contact_list_import_row
+--       STAGED    read; waiting for the column mapping    MATCHING  being checked against the mapping
+--       REVIEW    checked; waiting for the operator       APPLYING  being added to the list
+--       APPLIED / FAILED / CANCELLED
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_status;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_status
+    CHECK (status IN ('UPLOADED', 'STAGING', 'STAGED', 'MATCHING', 'REVIEW', 'APPLYING', 'APPLIED', 'FAILED', 'CANCELLED'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS next_action VARCHAR(10);          -- what a worker should do next: STAGE, REVIEW, APPLY; NULL = nothing queued
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS mapping_confirmed BOOLEAN NOT NULL DEFAULT FALSE;  -- the operator confirmed the mapping (possibly while the file was still being read)
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS apply_when_ready BOOLEAN NOT NULL DEFAULT FALSE;   -- reserved: import without stopping at the review
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_done BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_total BIGINT NOT NULL DEFAULT 0;         -- bytes while reading, rows afterwards
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS worker VARCHAR(120);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS new_customer_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_encoding VARCHAR(20);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_delimiter VARCHAR(4);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_next_action;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'REVIEW', 'APPLY'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_queue ON contact_list_import(queued_at) WHERE next_action IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_tenant_recent ON contact_list_import(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_line ON contact_list_import_row(tenant_id, import_id, row_number);
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('lists.import_max_parallel', '2', 'INTEGER', 'Contact lists',
+     'How many list uploads the platform processes at the same time, all workspaces together. One workspace never has two running at once'),
+    ('lists.import_max_waiting_per_workspace', '5', 'INTEGER', 'Contact lists',
+     'A workspace with this many uploads in progress has to wait for one to finish before starting another'),
+    ('lists.import_chunk_rows', '5000', 'INTEGER', 'Contact lists',
+     'Rows per transaction while a file is read, checked and imported. Smaller = gentler on the database, slower overall')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

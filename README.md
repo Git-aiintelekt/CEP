@@ -106,10 +106,13 @@ or email address, new ones become customer rows owned by CEP), **take an audienc
 **clone a list** (a snapshot). Lists are typed Production or Test (a Test list cannot go out in a production send), can be attached to any number of
 campaigns, and say which live campaigns use them. A campaign freezes its own copy at send time, so editing a list never changes a send that was
 already built. Inside campaign setup the same wizard is one click away: a vetted list (audience, clone) is attached at once, an uploaded one waits
-for the operator to confirm. **[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
+for the operator to confirm. **A file is never processed inside a web request:** the upload answers at once and a background worker reads, checks and
+imports it in chunks, a few uploads at a time for the whole platform and one per workspace, with progress in the header, an alert when it is done
+and an uploads page (Celery queue `imports` in production; a thread of the web process in development, no Redis needed).
+**[docs/CONTACT_LISTS.md](docs/CONTACT_LISTS.md)**
 
 ```bash
-celery -A config worker -Q default,events,maintenance,campaign,email,sms   # campaign = runs, email / sms = batches
+celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports   # campaign = runs, email / sms = batches
 python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)
 ```
 
@@ -218,7 +221,7 @@ Never point `DATABASE_URL` at a superuser: superusers bypass RLS, so tenant isol
   queryset, tenant/created_by stamped on create, permission codes from `identity.permission`, cursor pagination, RFC 9457
   errors, OpenAPI at `/api/v1/schema/` (Swagger UI at `/api/v1/docs/`). JWT for the React app, `cep_…` API keys for integrations.
 * **Workers.** `workers/outbox.py` relays `domain_event` to Redis Streams every second; `workers/maintenance.py` runs the
-  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms` and `celery -A config beat`).
+  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports` and `celery -A config beat`).
 
 ## Development notes
 * Connect as a **non-superuser** database role in development too (`cep` in the compose file is fine): PostgreSQL superusers

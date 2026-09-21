@@ -400,12 +400,27 @@ export interface ImportIssue {
   value: string
 }
 
+/** An upload is a background job: the API answers at once and the file is read, checked and imported by a worker. */
 export interface ListImport {
   id: string
   contact_list: string
+  list_name: string
+  list_status: string
   file_name: string
   file_size: number | null
-  status: 'UPLOADED' | 'MATCHING' | 'REVIEW' | 'APPLIED' | 'FAILED'
+  /** UPLOADED waiting to be read · STAGING being read · STAGED waiting for the mapping · MATCHING being checked ·
+   *  REVIEW waiting for the operator · APPLYING being added · APPLIED / FAILED / CANCELLED */
+  status: 'UPLOADED' | 'STAGING' | 'STAGED' | 'MATCHING' | 'REVIEW' | 'APPLYING' | 'APPLIED' | 'FAILED' | 'CANCELLED'
+  /** the status in words, e.g. "Reading the file" */
+  phase: string
+  /** a worker is on it, or it is queued for one */
+  working: boolean
+  progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' }
+  mapping_confirmed: boolean
+  error: string | null
+  created_at: string
+  completed_at: string | null
+  created_by_name: string | null
   row_count: number
   columns: ImportColumn[]
   /** property -> column name */
