@@ -215,7 +215,7 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 
 | | |
 |---|---|
-| Celery queues | `campaign` (start / finalize runs), `email` and `sms` (send batches): `celery -A config worker -Q default,events,maintenance,campaign,email,sms` |
+| Celery queues | `campaign` (start / finalize runs), `email` and `sms` (send batches): `celery -A config worker -Q default,events,maintenance,campaign,email,sms,imports` |
 | Scheduled job | `dispatch-campaign-runs` every minute: starts due runs (also the ones scheduled for later), closes finished ones. Shown on the back-office health page. |
 | Without Celery | `python manage.py send_campaign_runs` (everything due) or `--run <uuid>` |
 | Pace | `delivery_provider.rate_limit_per_minute` |

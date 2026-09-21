@@ -10,6 +10,9 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {"user": "100000/min", "anon": "1000/
 if not env.bool("DEV_USE_REDIS", default=False):  # noqa: F405
     CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "cep-dev"}}
 
+# No Redis in local development: list uploads are processed by a background thread of the web process.
+LIST_IMPORT_RUNNER = env("LIST_IMPORT_RUNNER", default="celery" if env.bool("DEV_USE_REDIS", default=False) else "thread")  # noqa: F405
+
 # runserver starts a thread per request, and a persistent connection belongs to its thread: with CONN_MAX_AGE > 0 every
 # request would leave an idle session behind until the database runs out of connections. Production (gunicorn / uvicorn
 # with a fixed pool of workers) keeps the persistent connections configured in base.py.

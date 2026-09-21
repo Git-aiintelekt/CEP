@@ -325,18 +325,180 @@ export interface SenderProfile {
   provider_name?: string
 }
 
+export type ListSource = 'UPLOAD' | 'BI' | 'CLONE'
+
 export interface ContactList extends Audited {
   name: string
   description: string | null
-  source_type: string
-  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | string
+  source_type: 'UPLOAD' | 'BI' | 'EXTRACTION' | 'SEGMENT' | 'CLONE' | string
+  /** "Upload", "BI / Extraction" or "Cloned" */
+  source_label?: string
+  /** where it came from in words: the file, the audience, the list it was copied from */
+  source_reference?: string | null
+  /** from an audience or a clone: a campaign being built attaches it without asking; an upload is only ever attached by hand */
+  vetted?: boolean
+  list_kind: 'STATIC' | 'DYNAMIC' | 'DERIVED' | 'SEGMENT' | string
   is_master: boolean
   refresh_mode: string
   last_refreshed_at: string | null
-  list_environment: string
-  status: string
+  list_environment: 'TEST' | 'PRODUCTION' | string
+  /** DRAFT = made by the upload wizard, waiting for its first import */
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string
   member_count: number
   parent_contact_list: string | null
+  parent_name?: string | null
+  attached_campaigns?: number
+  live_campaigns?: number
+}
+
+export interface ListStats {
+  total_lists: number
+  total_contacts: number
+  attached_to_live_campaigns: number
+}
+
+/** an audience the data team defined (a C360 segment) */
+export interface Audience {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  source_system: string
+  synced_at: string
+  member_count: number
+  list_count: number
+}
+
+export interface ImportColumn {
+  name: string
+  samples: string[]
+  guess: string | null
+}
+
+export interface ImportProperty {
+  key: string
+  label: string
+  required: boolean
+  help: string
+}
+
+export interface ImportReview {
+  ready: number
+  held_back: number
+  new: number
+  existing: number
+  warnings: number
+  errors: number
+  duplicates: number
+  rejected: number
+}
+
+export interface ImportIssue {
+  line: number
+  kind: 'error' | 'warning'
+  message: string
+  value: string
+}
+
+/** how a marketing email send would judge a contact today (same rules and order as the send engine) */
+export interface GovernanceLine {
+  code: 'MARKETABLE' | 'UNSUBSCRIBED' | 'HARD_BOUNCE' | 'SOFT_BOUNCE' | 'COMPLAINT' | 'BLOCKED' | 'INVALID_ADDRESS' | 'SUPPRESSED' | 'NO_CONSENT'
+  label: string
+  sendable: boolean
+  count: number
+}
+
+/** An upload in numbers that add up: rows = held back + ready; ready = the governance lines; ready = added + already in the list. */
+export interface UploadSummary {
+  rows: number
+  held_back: { total: number; reasons: { code: string; label: string; count: number }[] }
+  ready: { total: number; new: number; existing: number }
+  governance: { sendable: number; not_sendable: number; statuses: GovernanceLine[] }
+  mobile: { with_number: number; blocked: number } | null
+  /** after the import */
+  result: { added: number; already_in_list: number; list_members_now: number; new_people: number; consents_recorded: number } | null
+  balanced: boolean
+}
+
+export interface ListGovernance {
+  total: number
+  sendable: number
+  not_sendable: number
+  statuses: GovernanceLine[]
+  checked_at: string
+}
+
+/** An upload is a background job: the API answers at once and the file is read, checked and imported by a worker. */
+export interface ListImport {
+  id: string
+  contact_list: string
+  list_name: string
+  list_status: string
+  file_name: string
+  file_size: number | null
+  /** UPLOADED waiting to be read · STAGING being read · STAGED waiting for the mapping · MATCHING being checked ·
+   *  REVIEW waiting for the operator · APPLYING being added · APPLIED / FAILED / CANCELLED */
+  status: 'UPLOADED' | 'STAGING' | 'STAGED' | 'MATCHING' | 'REVIEW' | 'APPLYING' | 'APPLIED' | 'FAILED' | 'CANCELLED'
+  /** the status in words, e.g. "Reading the file" */
+  phase: string
+  /** a worker is on it, or it is queued for one */
+  working: boolean
+  progress: { done: number; total: number; percent: number; unit: 'bytes' | 'rows' }
+  mapping_confirmed: boolean
+  error: string | null
+  created_at: string
+  completed_at: string | null
+  created_by_name: string | null
+  row_count: number
+  columns: ImportColumn[]
+  /** property -> column name */
+  mapping: Record<string, string>
+  properties: ImportProperty[]
+  review: ImportReview | null
+  /** there once the file has been checked */
+  summary?: UploadSummary | null
+  issues?: ImportIssue[]
+  applied_count: number
+  new_people?: number
+  consents_recorded?: number
+  list?: ContactList
+}
+
+export interface ListMember {
+  id: number
+  party_id: string
+  email: string | null
+  first_name: string | null
+  last_name: string | null
+  mobile: string | null
+  added_at: string
+  source: 'UPLOAD' | 'RULE' | 'SEGMENT' | 'MANUAL' | 'CLONE' | string
+  known: boolean
+  email_status?: GovernanceLine['code']
+  email_status_label?: string | null
+  sendable?: boolean
+}
+
+export interface ListMembersPage {
+  count: number
+  page: number
+  page_size: number
+  results: ListMember[]
+}
+
+export interface ListUsage {
+  campaigns: { id: string; name: string; code: string; status: string; channel: string; scheduled_at: string | null; attached_at: string; live: boolean; frozen_lists: number }[]
+  attached_campaigns: number
+  live_campaigns: number
+  added_this_week: number
+}
+
+export interface ManualAddResult {
+  added: number
+  already_in_list: number
+  new_people: number
+  invalid: string[]
+  member_count: number
 }
 
 export interface Template extends Audited {

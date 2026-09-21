@@ -36,6 +36,24 @@ def finalize_run(tenant_id: str, run_id: str) -> dict:
         return {"status": runs.finalize(tenant_id, run_id), "swept": swept}
 
 
+@shared_task(name="workers.campaign.refresh_audience_lists")
+@jobs.monitored("refresh-audience-lists")
+def refresh_audience_lists() -> dict:
+    """Contact lists that follow a BI / extraction audience, per workspace, when their refresh interval has passed."""
+    from django.conf import settings
+
+    from apps.contact_lists import lists
+    from apps.tenants.models import Tenant
+    refreshed = failed = 0
+    for tenant_id in Tenant.objects.using(settings.CONTROL_PLANE_ALIAS).filter(status="ACTIVE", deleted_at__isnull=True).values_list("id", flat=True):
+        try:
+            with session.tenant_scope(str(tenant_id)), session.tx():
+                refreshed += lists.refresh_due(tenant_id)
+        except Exception:                                 # one workspace's problem does not stop the others
+            failed += 1
+    return {"refreshed": refreshed, "workspaces_failed": failed}
+
+
 @shared_task(name="workers.campaign.dispatch_due_runs")
 @jobs.monitored("dispatch-campaign-runs")
 def dispatch_due_runs() -> dict:

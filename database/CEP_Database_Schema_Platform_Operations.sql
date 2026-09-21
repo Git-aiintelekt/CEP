@@ -464,6 +464,98 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
      'Marketing texts are not started between these times (workspace time zone); a run that is due waits for the window to open. {} switches it off')
 ON CONFLICT (key) DO NOTHING;
 
+-- 11. CONTACT LIST MODULE
+--     Three ways to make a list: upload a file (staged, mapped, reviewed, then applied), take an audience the data team
+--     defined (a C360 segment), or clone a list (a snapshot with its parent recorded). A list made by the upload wizard is
+--     a DRAFT until its first import is applied, so a half-finished upload never shows up in a campaign's list picker.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_source_type;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_source_type
+    CHECK (source_type IN ('BI', 'EXTRACTION', 'UPLOAD', 'SEGMENT', 'CLONE'));
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_status;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_status CHECK (status IN ('DRAFT', 'ACTIVE', 'ARCHIVED'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_tenant_updated ON contact_list(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
+
+ALTER TABLE contact_list_member DROP CONSTRAINT IF EXISTS ck_contact_list_member_membership_source;
+ALTER TABLE contact_list_member ADD CONSTRAINT ck_contact_list_member_membership_source
+    CHECK (membership_source IN ('UPLOAD', 'RULE', 'SEGMENT', 'MANUAL', 'CLONE'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_member_added ON contact_list_member(tenant_id, contact_list_id, added_at DESC);
+
+-- The file as the operator sees it (headers, a few sample values, the property guessed for each column), what they mapped,
+-- and the outcome of the review: matched_count = people already known, unmatched_count = new people,
+-- duplicate_count = repeated in the file, rejected_count = cannot be imported, warning_count = imported with a remark.
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_size BIGINT;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_columns JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS column_mapping JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS rejected_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS warning_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS error VARCHAR(500);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_mapping_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_mapping_object CHECK (jsonb_typeof(column_mapping) = 'object');
+
+-- error_message says why a row is held back; warning is a remark on a row that IS imported (a phone number that was dropped, ...)
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS warning VARCHAR(300);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_import ON contact_list_import_row(tenant_id, import_id, match_status);
+
+-- 12. LIST UPLOADS AS BACKGROUND JOBS
+--     A large file must not be read, checked and imported inside a web request. The request only stores the file and
+--     samples its header; contact_list_import is the queue (the database is the queue, as for campaign runs: nothing is
+--     lost when no broker is reachable). A worker claims one import at a time with FOR UPDATE SKIP LOCKED, never two of
+--     the same workspace at once, and at most lists.import_max_parallel in the whole platform; it works in chunks, each
+--     in its own short transaction, and reports progress. A worker that stops is noticed by its heartbeat.
+--       UPLOADED  file stored, waiting to be read        STAGING   being read into contact_list_import_row
+--       STAGED    read; waiting for the column mapping    MATCHING  being checked against the mapping
+--       REVIEW    checked; waiting for the operator       APPLYING  being added to the list
+--       APPLIED / FAILED / CANCELLED
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_status;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_status
+    CHECK (status IN ('UPLOADED', 'STAGING', 'STAGED', 'MATCHING', 'REVIEW', 'APPLYING', 'APPLIED', 'FAILED', 'CANCELLED'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS next_action VARCHAR(10);          -- what a worker should do next: STAGE, REVIEW, APPLY; NULL = nothing queued
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS mapping_confirmed BOOLEAN NOT NULL DEFAULT FALSE;  -- the operator confirmed the mapping (possibly while the file was still being read)
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS apply_when_ready BOOLEAN NOT NULL DEFAULT FALSE;   -- reserved: import without stopping at the review
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_done BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS progress_total BIGINT NOT NULL DEFAULT 0;         -- bytes while reading, rows afterwards
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS heartbeat_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS worker VARCHAR(120);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS new_customer_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_encoding VARCHAR(20);
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS file_delimiter VARCHAR(4);
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_next_action;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_next_action CHECK (next_action IN ('STAGE', 'REVIEW', 'APPLY'));
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_queue ON contact_list_import(queued_at) WHERE next_action IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_tenant_recent ON contact_list_import(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_contact_list_import_row_line ON contact_list_import_row(tenant_id, import_id, row_number);
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('lists.import_max_parallel', '2', 'INTEGER', 'Contact lists',
+     'How many list uploads the platform processes at the same time, all workspaces together. One workspace never has two running at once'),
+    ('lists.import_max_waiting_per_workspace', '5', 'INTEGER', 'Contact lists',
+     'A workspace with this many uploads in progress has to wait for one to finish before starting another'),
+    ('lists.import_chunk_rows', '5000', 'INTEGER', 'Contact lists',
+     'Rows per transaction while a file is read, checked and imported. Smaller = gentler on the database, slower overall')
+ON CONFLICT (key) DO NOTHING;
+
+-- 13. GOVERNANCE CHECK ON LIST UPLOADS
+--     Every row that can be imported is judged the way a marketing email send would judge it today, in the same order
+--     (backend/apps/delivery/engine/audience.py): blocked address (hard bounce, repeated soft bounces, complaint, other),
+--     invalid address, suppressed, unsubscribed, no consent, otherwise marketable. The verdict is kept per row, and the
+--     import carries a summary whose numbers add up: rows = held back + ready; ready = the governance buckets;
+--     ready = added to the list + already in it. Staged rows are kept after the import: they are the row-by-row report.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import_row ADD COLUMN IF NOT EXISTS governance_status VARCHAR(30);
+ALTER TABLE contact_list_import_row DROP CONSTRAINT IF EXISTS ck_contact_list_import_row_governance;
+ALTER TABLE contact_list_import_row ADD CONSTRAINT ck_contact_list_import_row_governance
+    CHECK (governance_status IN ('MARKETABLE', 'UNSUBSCRIBED', 'HARD_BOUNCE', 'SOFT_BOUNCE', 'COMPLAINT', 'BLOCKED', 'INVALID_ADDRESS', 'SUPPRESSED', 'NO_CONSENT'));
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS summary JSONB NOT NULL DEFAULT '{}';
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_summary_object;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_summary_object CHECK (jsonb_typeof(summary) = 'object');
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

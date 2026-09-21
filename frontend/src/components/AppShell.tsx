@@ -1,9 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
-import { Bell, ChevronsLeft, ChevronsRight, FileText, GitBranch, LayoutDashboard, Megaphone, Menu, Search, Settings, Users, X, type LucideIcon } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, FileText, GitBranch, LayoutDashboard, Megaphone, Menu, Search, Settings, Users, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
@@ -275,15 +276,7 @@ export function AppShell() {
               <span className="rounded-sm bg-line-subtle px-2 py-0.5 font-semibold text-ink-900">{me?.tenant.code}</span>
               <span className="hidden text-ink-700 xl:inline">{me?.tenant.timezone}</span>
             </span>
-            <button
-              type="button"
-              disabled
-              aria-label="Notifications"
-              title="Notifications are not available yet"
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-300"
-            >
-              <Bell size={20} strokeWidth={1.5} aria-hidden />
-            </button>
+            <UploadsIndicator />
             <Link to={SECURITY} title="Account security" className="hidden rounded-sm px-2 py-1 text-right leading-tight transition-colors hover:bg-surface-subtle lg:block">
               <p className="text-sm font-medium text-ink-900">{name}</p>
               <p className="text-xs text-ink-700">{me?.principal.email}</p>
