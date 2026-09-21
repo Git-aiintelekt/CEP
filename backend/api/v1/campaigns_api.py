@@ -88,6 +88,9 @@ class CampaignSerializer(s.CampaignSerializer):
     audience_size = serializers.SerializerMethodField(help_text="People in the last frozen Campaign List; before the first send, the sum of the attached lists (not de-duplicated).")
     owner_name = serializers.SerializerMethodField()
     triggered_by = serializers.SerializerMethodField()
+    setup_step = serializers.IntegerField(required=False, min_value=0, max_value=service.SETUP_STEPS,
+                                          help_text="Setup steps completed (0-6). It only moves forward; left out, a new campaign counts as complete.")
+    setup_complete = serializers.SerializerMethodField(help_text="False: open the setup at step setup_step + 1, not the campaign page.")
 
     class Meta(s.CampaignSerializer.Meta):
         read_only_fields = s.AUDIT_FIELDS + ("status", "is_journey_generated", "origin_journey", "legacy_marketing_campaign_id", "previous_status", "published_at",
@@ -120,6 +123,9 @@ class CampaignSerializer(s.CampaignSerializer):
     def get_owner_name(self, campaign) -> str | None:
         owner = campaign.owner_user
         return (owner.display_name or owner.email) if owner else None
+
+    def get_setup_complete(self, campaign) -> bool:
+        return service.setup_complete(campaign)
 
     def get_triggered_by(self, campaign) -> str:
         return "JOURNEY" if campaign.is_journey_generated else "MANUAL"
@@ -165,6 +171,8 @@ class CampaignSerializer(s.CampaignSerializer):
             return attrs[name] if name in attrs else getattr(self.instance, name, None)
 
         errors = {}
+        if self.instance is not None and "setup_step" in attrs:          # going back to an earlier step and saving does not undo the later ones
+            attrs["setup_step"] = max(attrs["setup_step"], self.instance.setup_step)
         send_type = current("send_type") or "IMMEDIATE"
         if current("campaign_type") == "DRIP" and "send_type" not in attrs and self.instance is None:
             send_type = attrs["send_type"] = "DRIP"
@@ -207,8 +215,7 @@ class CampaignSerializer(s.CampaignSerializer):
             keep_out = exclude if exclude is not None else [link.contact_list for link in links if link.role == "EXCLUDE"]
             attached, detached = service.set_lists(campaign, keep_in, [item for item in keep_out if item.pk not in {i.pk for i in keep_in}])
             changes += [f"attached {name}" for name in attached] + [f"detached {name}" for name in detached]
-        if targets is not None:
-            service.upsert_targets(campaign, targets, user)
+        if targets is not None and service.upsert_targets(campaign, targets, user):
             changes.append("targets")
         return changes
 

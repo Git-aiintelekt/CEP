@@ -88,6 +88,7 @@ class Campaign(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)
+    setup_step = models.SmallIntegerField(default=6)  # setup steps completed, 0-6; 6 = everything but the publish
 
     class Meta:
         managed = False

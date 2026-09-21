@@ -86,12 +86,14 @@ interface WizardProps {
   inCampaign?: boolean
   /** pick up an upload that was left running or waiting (from the uploads page) */
   resume?: { listId: string; importId: string }
+  /** which way of making a list is chosen when the wizard opens (it can still be changed on the first step) */
+  initialSource?: ListSource
 }
 
-export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume }: WizardProps) {
+export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD' }: WizardProps) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<Step>('method')
-  const [source, setSource] = useState<ListSource>('UPLOAD')
+  const [source, setSource] = useState<ListSource>(initialSource)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [environment, setEnvironment] = useState('PRODUCTION')
@@ -563,7 +565,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <>
                 {job?.summary && <div className="mb-3"><UploadReport job={job} /></div>}
                 <p className="cep-num">{formatNumber(job?.applied_count ?? 0)} contacts imported · {formatNumber(job?.review?.held_back ?? 0)} rows skipped</p>
-                <p>{inCampaign ? 'It came from an upload, so it is not attached to this campaign yet. Check it, then tick it in the list below.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
+                <p>{inCampaign ? 'It came from an upload, so it is not attached to this campaign yet. Check it, then attach it from the note above the lists.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
               </>
             )}
             {source === 'BI' && (

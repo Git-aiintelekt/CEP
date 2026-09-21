@@ -20,7 +20,7 @@ import type { Campaign, CampaignFormOptions, CountedPage } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
 import { CONFIRM, useBulkAction, useCampaignAction, type StatusAction } from './useCampaignAction'
-import { CAMPAIGN_TYPES, channelLabel, hasAction, STATUS_FILTERS, typeLabel } from './vocabulary'
+import { CAMPAIGN_TYPES, campaignHome, channelLabel, hasAction, STATUS_FILTERS, typeLabel } from './vocabulary'
 import { formatInZone } from './zone'
 
 const PAGE_SIZE = 50
@@ -35,7 +35,7 @@ const SORTABLE: { key: string; label: string; align?: 'right' }[] = [
 /** the one thing most people want to do with a campaign in this state (the prototype's Edit / View / Continue setup) */
 function primaryAction(campaign: Campaign, canEdit: boolean): { label: string; to: string } {
   if (canEdit && hasAction(campaign, 'edit') && !campaign.is_journey_generated) {
-    return { label: campaign.status === 'DRAFT' ? 'Continue setup' : 'Edit', to: `/campaigns/${campaign.id}/edit` }
+    return campaign.setup_complete ? { label: 'Edit', to: `/campaigns/${campaign.id}/edit` } : { label: 'Continue setup', to: campaignHome(campaign, canEdit) }
   }
   return hasAction(campaign, 'results') ? { label: 'View results', to: `/campaigns/${campaign.id}?tab=performance` } : { label: 'View', to: `/campaigns/${campaign.id}` }
 }
@@ -64,7 +64,7 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   }, [open])
 
   const item = 'block w-full px-3 py-2 text-left text-sm text-ink-900 hover:bg-surface-subtle'
-  const entries: { label: string; run: () => void }[] = [{ label: 'Open', run: () => navigate(`/campaigns/${campaign.id}`) }]
+  const entries: { label: string; run: () => void }[] = [{ label: 'Open', run: () => navigate(campaignHome(campaign, canEdit)) }]
   if (hasAction(campaign, 'results')) entries.push({ label: 'View results', run: () => navigate(`/campaigns/${campaign.id}?tab=performance`) })
   if (canEdit && hasAction(campaign, 'clone')) entries.push({ label: 'Clone', run: () => onAction('clone') })
   if (canPublish && hasAction(campaign, 'pause')) entries.push({ label: 'Pause', run: () => onAction('pause') })
@@ -188,8 +188,10 @@ export function CampaignListPage() {
 
   const nameCell = (row: Campaign) => (
     <div className="min-w-0">
-      <Link to={`/campaigns/${row.id}`} className="block truncate font-medium text-ink-900 hover:underline">{row.name}</Link>
-      <p className="truncate text-xs text-ink-500">{row.is_journey_generated ? 'Journey-generated · not editable' : row.code}</p>
+      <Link to={campaignHome(row, canEdit)} className="block truncate font-medium text-ink-900 hover:underline">{row.name}</Link>
+      <p className="truncate text-xs text-ink-500">
+        {row.is_journey_generated ? 'Journey-generated · not editable' : row.setup_complete ? row.code : `Setup not finished: step ${row.setup_step + 1} of 7`}
+      </p>
     </div>
   )
 

@@ -12,14 +12,14 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 |---|---|---|
 | Campaigns | `/campaigns` | *Upcoming campaigns*, then the table: search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns, pages of 50, a row action that fits the status, bulk **Clone** and **Archive** |
 | Setup | `/campaigns/new`, `/campaigns/:id/edit?step=n` | seven steps, below |
-| Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log |
+| Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log. **Edit** opens the setup step that belongs to the tab in view (Overview and Activity Log → Basic Info, Audience → Audience, Content → Template, Settings → Scheduling & Delivery, Performance → Targets & Economics), and leaving the setup leads back to the matching tab |
 
 ### The seven steps
 
 | # | Step | What is decided |
 |---|---|---|
 | 1 | Basic Info | name (unique in the workspace), code, description, type and channel (cards), message purpose, owner (defaults to the creator), tags |
-| 2 | Audience | each contact list is **Send to**, **Exclude** or unused; a live estimate: merged, counted once per person, exclusions removed, today's governance check. *Create a list* opens the contact list wizard (a vetted list is attached at once, an uploaded one waits for a confirm) |
+| 2 | Audience | a checkbox per contact list (and one to select every list shown) picks the lists the campaign is sent to; *Keep people out of this campaign* (optional) ticks lists to exclude, and a list is one or the other, never both; a live estimate: merged, counted once per person, exclusions removed, today's governance check. **Upload a CSV file** and **From an audience or a clone** open the contact list wizard itself, the same upload process as in Contact Lists (a vetted list is attached at once, an uploaded one waits for a confirm) |
 | 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not) |
 | 4 | Scheduling & Delivery | send immediately / schedule / recurring (daily, weekly, monthly; ends never, on a date, after n sends) / drip series (a run per step); the campaign's time zone; frequency limits, hourly limit, recipient-local time |
 | 5 | Targets & Economics | revenue, conversions, opens, clicks, redemptions; planned campaign and offer cost; notes (BRD 15) |
@@ -29,6 +29,24 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 **Continue** validates the step you are on and saves the draft, so steps 6 and 7 always work on what is stored. The API's
 field messages land on the same fields, and the wizard opens the step that holds the first one. A save with an older
 `row_version` is refused with 409 and the page offers to reload.
+
+### An unfinished setup opens where it stopped
+
+`campaign.setup_step` counts the steps completed, 0 to 6 (the seventh step is the publish itself), and the API answers
+`setup_complete`. **Continue** records the step as done; **Save and close** keeps the place without moving it on. The
+number only moves forward: going back to an earlier step and saving does not undo the later ones.
+
+- While a draft's setup is unfinished it has **no campaign page**: its name, *Continue setup* and *Open* in the list, and
+  the address `/campaigns/:id` itself (a bookmark, a typed link) all lead to `/campaigns/:id/edit?step=<next step>`.
+  The steps ahead stay closed, so the publish step cannot be reached early; *Save and close* returns to the list.
+- The step list marks every completed step with a green check, whichever step is open (and says "completed" to a screen
+  reader); the step in hand keeps its number until Continue records it. Review & Publish is never "done" on a draft.
+- Once the six steps are done, the campaign page opens as usual, with **Test Publish** and **Production Publish** on it.
+  Publishing is not part of "complete".
+- Someone without `campaign.edit` cannot use the setup: they get the campaign page with a note that the setup is not finished.
+- It cannot be derived from the data (schedule, targets and test are all optional), hence the column. Its default is 6:
+  campaigns that existed before, clones of finished campaigns, and campaigns an integration creates through the API
+  without the setup count as complete. Anything that is no longer a draft is complete by definition.
 
 Send times are **clock times in the campaign's time zone** (`send_timezone`, default: the workspace's), not the
 browser's: `features/campaigns/zone.ts` converts, daylight saving included.
@@ -97,7 +115,7 @@ All under `/api/v1/campaigns/`, tenant-scoped, pages of 50 (`?page=`, `?page_siz
 | `GET /{id}/metrics/`, `/metrics/timeseries/?bucket=hour|day` | counts, rates, progress against targets, breakdown by mailbox provider; the curve |
 | `GET /{id}/activity/` | the activity log, newest first |
 
-## 5. Data model (patch `0014_campaign_module.sql`)
+## 5. Data model (patches `0014_campaign_module.sql`, `0015_campaign_setup_progress.sql`)
 
 Existing tables were extended rather than replaced (BRD 21).
 
@@ -107,6 +125,7 @@ Existing tables were extended rather than replaced (BRD 21).
 - `campaign_run`: status `PAUSED`; `sequence_label` ("Occurrence 3", "Day 7", "Test").
 - `contact_list_campaign.role`; `campaign_target.planned_offer_cost`, `.notes`.
 - `campaign_activity_log` (new, RLS): who did what, and what the engine did. Entries are never changed.
+- Patch `0015_campaign_setup_progress.sql`: `campaign.setup_step` (0 to 6, default 6).
 - Subject-line testing is future-proofed (TD-04): results hang off `campaign_run_variant`, and nothing assumes one
   subject per run.
 
@@ -134,7 +153,7 @@ completes the campaign.
 
 ## 8. Tests
 
-- Backend: `test_campaign_module.py` (31 checks, one rolled-back transaction, real sends through the sandbox text
+- Backend: `test_campaign_module.py` (33 checks, one rolled-back transaction, real sends through the sandbox text
   engine), plus the send engine, SMS engine, contact list and legacy campaign suites.
 - Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.

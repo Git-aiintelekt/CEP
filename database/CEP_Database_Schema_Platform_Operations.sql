@@ -634,6 +634,16 @@ CREATE POLICY rls_campaign_activity_log_tenant ON campaign_activity_log
 GRANT SELECT, INSERT ON campaign_activity_log TO cep_app;
 GRANT ALL ON campaign_activity_log TO cep_admin;
 
+-- 15. CAMPAIGN SETUP PROGRESS
+--     How many of the setup's steps were completed (Basic Info, Audience, Template, Scheduling & Delivery, Targets &
+--     Economics, Test & Preview = 6; the seventh step is the publish itself). An unfinished draft opens in the setup at
+--     the step it stopped at, not on the campaign page. It cannot be told from the data: schedule, targets and test are
+--     all optional. The default is 6: campaigns that existed before, and the ones an integration creates, are complete.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS setup_step SMALLINT NOT NULL DEFAULT 6;
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_setup_step;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_setup_step CHECK (setup_step BETWEEN 0 AND 6);
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

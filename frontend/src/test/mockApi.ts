@@ -194,7 +194,7 @@ export function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
   return { ...made, ...derived(made), ...(overrides.actions ? { actions: overrides.actions } : {}) }
 }
 
-function campaignBase(): Omit<Campaign, 'display_status' | 'display_status_label' | 'actions' | 'next_run_at'> {
+function campaignBase(): Omit<Campaign, 'display_status' | 'display_status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
   return {
     ...audit, ...moduleDefaults, id: 'c1', code: 'CMP-2026-0001', name: 'Fall Launch', description: 'Seasonal launch', campaign_type: 'REGULAR_MARKETING',
     channel: 'EMAIL', status: 'DRAFT', status_label: 'Draft', solicitation_type: 'MARKETING', is_journey_generated: false, scheduled_at: null,
@@ -506,6 +506,7 @@ export function installMockApi(options: MockOptions = {}) {
                                    list_environment: found?.list_environment ?? 'PRODUCTION', status: found?.status ?? 'ACTIVE', member_count: found?.member_count ?? 0, role } })
       const saved = makeCampaign({ ...before, ...input, id: before?.id ?? 'c-new', code: (body?.code as string) ?? before?.code ?? 'CMP-2026-0009', row_version: (before?.row_version ?? 1) + 1,
                                    status: before?.status ?? 'DRAFT', runs: before?.runs ?? [], contact_list_details: details,
+                                   setup_step: Math.max(before?.setup_step ?? 0, (input.setup_step as number | undefined) ?? (before ? 0 : 6)), // only forward, as the API
                                    template_name: templates.find((item) => item.id === (input.template ?? before?.template))?.name ?? null,
                                    sender_profile_name: senders.find((item) => item.id === (input.sender_profile ?? before?.sender_profile))?.display_name ?? null })
       campaignState.campaigns = before ? campaignState.campaigns.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...campaignState.campaigns]

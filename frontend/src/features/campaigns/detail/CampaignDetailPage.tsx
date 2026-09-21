@@ -5,7 +5,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
@@ -17,7 +17,7 @@ import { api } from '@/lib/api'
 import type { Campaign } from '@/lib/types'
 
 import { CONFIRM, useCampaignAction, type StatusAction } from '../useCampaignAction'
-import { channelLabel, hasAction, typeLabel } from '../vocabulary'
+import { campaignHome, channelLabel, hasAction, SETUP_STEPS, STEP_OF_TAB, typeLabel } from '../vocabulary'
 import { AudienceTab } from './AudienceTab'
 import { ActivityTab, ContentTab, SettingsTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
@@ -56,6 +56,9 @@ export function CampaignDetailPage() {
   if (campaign.isError) return <ErrorState error={campaign.error} onRetry={() => void campaign.refetch()} />
 
   const data = campaign.data
+  // an unfinished setup has no campaign page yet: whoever may edit it continues where it stopped
+  const home = campaignHome(data, can('campaign.edit'))
+  if (home !== `/campaigns/${data.id}`) return <Navigate to={home} replace />
   const zone = data.send_timezone || me?.tenant.timezone || 'UTC'
   const live = data.runs.some((run) => ['PREPARING', 'SENDING'].includes(run.status))
   const canEdit = can('campaign.edit') && !data.is_journey_generated
@@ -103,7 +106,7 @@ export function CampaignDetailPage() {
           {canPublish && hasAction(data, 'cancel_schedule') && button('cancel-schedule', 'Cancel schedule')}
           {canPublish && hasAction(data, 'pause') && button('pause', 'Pause')}
           {canPublish && hasAction(data, 'resume') && button('resume', 'Resume', true)}
-          {canEdit && hasAction(data, 'edit') && <Link to={`/campaigns/${data.id}/edit`} className={buttonSecondary}>Edit</Link>}
+          {canEdit && hasAction(data, 'edit') && <Link to={`/campaigns/${data.id}/edit?step=${STEP_OF_TAB[tab]}`} className={buttonSecondary}>Edit</Link>}
           {canEdit && hasAction(data, 'test_publish') && <Link to={`/campaigns/${data.id}/edit?step=6`} className={buttonSecondary}>Test Publish</Link>}
           {canPublish && hasAction(data, 'publish') && <Link to={`/campaigns/${data.id}/edit?step=7`} className={buttonPrimary}>Production Publish</Link>}
         </div>
@@ -111,6 +114,11 @@ export function CampaignDetailPage() {
 
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
       {act.isError && !confirming && <div className="mb-4"><ErrorState title="That did not go through" error={act.error} /></div>}
+      {!data.setup_complete && (
+        <p className="mb-4 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">
+          The setup of this campaign is not finished: {data.setup_step} of {SETUP_STEPS} steps are done. Someone with the campaign.edit permission can continue it.
+        </p>
+      )}
       {data.status === 'PAUSED' && <p className="mb-4 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>}
 
       <div role="tablist" aria-label="Campaign sections" onKeyDown={onTabKey} className="mb-5 flex gap-1 overflow-x-auto border-b border-line">

@@ -51,6 +51,23 @@ export const typeLabel = (value: string) => CAMPAIGN_TYPES.find((item) => item.v
 export const channelLabel = (value: string) => CHANNELS.find((item) => item.value === value)?.label ?? value
 export const sendTypeLabel = (value: string) => SEND_TYPES.find((item) => item.value === value)?.label ?? value
 
+/** the steps before Review & Publish; a draft that has not been through all of them is still being set up */
+export const SETUP_STEPS = 6
+
+/**
+ * Where a campaign opens. An unfinished setup continues at the step it stopped at, for whoever may edit it;
+ * everything else, and everyone else, gets the campaign page.
+ */
+export function campaignHome(campaign: Pick<Campaign, 'id' | 'setup_step' | 'setup_complete' | 'actions' | 'is_journey_generated'>, canEdit: boolean): string {
+  const resume = canEdit && !campaign.setup_complete && campaign.actions.includes('edit') && !campaign.is_journey_generated
+  return resume ? `/campaigns/${campaign.id}/edit?step=${Math.min(campaign.setup_step, SETUP_STEPS) + 1}` : `/campaigns/${campaign.id}`
+}
+
+/** Edit on the campaign page opens the setup step that holds what the tab in view shows (1-based, as in the address) */
+export const STEP_OF_TAB: Record<string, number> = { overview: 1, performance: 5, audience: 2, content: 3, settings: 4, activity: 1 }
+/** and leaving the setup leads back to the tab that shows what the step was about (by step index, 0-based) */
+export const TAB_OF_STEP = ['overview', 'audience', 'content', 'settings', 'settings', 'content', 'overview'] as const
+
 export const isText = (campaign: Pick<Campaign, 'channel'>) => campaign.channel === 'SMS' || campaign.channel === 'MMS'
 export const hasAction = (campaign: Pick<Campaign, 'actions'>, action: Campaign['actions'][number]) => campaign.actions.includes(action)
 

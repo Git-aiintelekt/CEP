@@ -264,10 +264,10 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await renderAppAt('/campaigns/c1/edit?step=2')
 
   // 1. from an audience: attached automatically
-  await user.click(await screen.findByRole('button', { name: 'Create a list' }))
+  await user.click(await screen.findByRole('button', { name: 'From an audience or a clone' }))
   let dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
   await user.type(within(dialog).getByLabelText(/^List name/), 'Gold for this campaign')
-  await user.click(within(dialog).getByRole('radio', { name: /BI or extraction tool/ }))
+  expect(within(dialog).getByRole('radio', { name: /BI or extraction tool/ }).getAttribute('aria-checked')).toBe('true')   // opened on the way that was asked for
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   dialog = await screen.findByRole('dialog', { name: 'Choose an audience' })
   await user.click(await within(dialog).findByRole('radio', { name: /Loyalty Gold/ }))
@@ -275,12 +275,13 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   dialog = await screen.findByRole('dialog', { name: 'List created' })
   expect(within(dialog).getByText(/attached to this campaign already/)).toBeTruthy()
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
-  expect((await screen.findByRole('radio', { name: 'Send to: Gold for this campaign' })).getAttribute('aria-checked')).toBe('true')
+  expect(((await screen.findByRole('checkbox', { name: 'Send to Gold for this campaign' })) as HTMLInputElement).checked).toBe(true)
   expect(screen.getByText(/“Gold for this campaign” is attached: it comes from a vetted audience/)).toBeTruthy()
 
   // 2. from a file: not attached until the operator says so
-  await user.click(screen.getByRole('button', { name: 'Create a list' }))
+  await user.click(screen.getByRole('button', { name: /Upload a CSV file/ }))                         // the contact list section's own upload, not a copy of it
   dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
+  expect(within(dialog).getByRole('radio', { name: /Upload a file/ }).getAttribute('aria-checked')).toBe('true')
   await user.type(within(dialog).getByLabelText(/^List name/), 'Booth scans')
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   dialog = await screen.findByRole('dialog', { name: 'Add your file' })
@@ -294,10 +295,9 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
 
   const waiting = await screen.findByRole('group', { name: 'Uploaded list waiting to be attached' })
-  const booth = await screen.findByRole('radio', { name: 'Send to: Booth scans' })
-  expect(booth.getAttribute('aria-checked')).toBe('false')
+  expect(((await screen.findByRole('checkbox', { name: 'Send to Booth scans' })) as HTMLInputElement).checked).toBe(false)
   await user.click(within(waiting).getByRole('button', { name: 'I have checked it: attach to this campaign' }))
-  await vi.waitFor(() => expect(screen.getByRole('radio', { name: 'Send to: Booth scans' }).getAttribute('aria-checked')).toBe('true'))
+  await vi.waitFor(() => expect((screen.getByRole('checkbox', { name: 'Send to Booth scans' }) as HTMLInputElement).checked).toBe(true))
   expect(screen.queryByRole('group', { name: 'Uploaded list waiting to be attached' })).toBeNull()
 })
 

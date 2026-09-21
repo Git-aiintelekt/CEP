@@ -37,6 +37,7 @@ EDITABLE = (S.DRAFT, S.TEST_PUBLISHED)
 LIVE = (S.PRODUCTION_PUBLISHED, S.ACTIVE)
 OPEN_RUN = ("SCHEDULED", "PREPARING", "SENDING", "PAUSED")
 WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+SETUP_STEPS = 6                                         # the steps before Review & Publish
 
 # what the interface offers, by (display) status. Journey-generated campaigns are read-only (BRD 7.3): view and clone only.
 ACTIONS = {
@@ -91,6 +92,11 @@ def display_status(campaign) -> str:
         if upcoming is not None and upcoming > timezone.now():
             return "SCHEDULED"
     return campaign.status
+
+
+def setup_complete(campaign) -> bool:
+    """Every step before the publish was gone through. What is no longer a draft is past its setup by definition."""
+    return campaign.status not in EDITABLE or campaign.setup_step >= SETUP_STEPS
 
 
 def actions(campaign) -> list[str]:
@@ -351,7 +357,7 @@ def copy_name(tenant_id, name: str) -> str:
 def clone(campaign, user=None, code: str | None = None) -> Campaign:
     """Settings, lists and targets; never status, runs or results."""
     copied = ("campaign_type", "channel", "solicitation_type", "template_id", "sender_profile_id", "description", "tags", "send_type", "send_timezone", "recurring_config",
-              "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config")
+              "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config", "setup_step")
     values = {name: getattr(campaign, name) for name in copied}
     if campaign.campaign_type == Campaign.CampaignType.JOURNEY:                 # a copy is a campaign someone runs by hand
         values["campaign_type"] = Campaign.CampaignType.REGULAR_MARKETING
@@ -491,16 +497,23 @@ def timeseries(campaign, bucket: str = "hour") -> dict:
     return {"bucket": bucket, "points": points}
 
 
-def upsert_targets(campaign, values: dict, user=None) -> CampaignTarget:
+def upsert_targets(campaign, values: dict, user=None) -> bool:
+    """-> whether anything changed. The setup sends the targets with every save: empty ones create nothing, equal ones change nothing."""
     actor = None if user is None or hasattr(user, "has_scope") else user
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()
     if target is None:
-        return CampaignTarget.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, created_by_id=getattr(actor, "pk", None), **values)
-    for name, value in values.items():
-        setattr(target, name, value)
+        if all(value in (None, "") for value in values.values()):
+            return False
+        CampaignTarget.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, created_by_id=getattr(actor, "pk", None), **values)
+        return True
+    changed = [name for name, value in values.items() if getattr(target, name) != value]
+    if not changed:
+        return False
+    for name in changed:
+        setattr(target, name, values[name])
     target.updated_by_id = getattr(actor, "pk", None)
-    target.save(update_fields=[*values, "updated_by_id"])
-    return target
+    target.save(update_fields=[*changed, "updated_by_id"])
+    return True
 
 
 @transaction.atomic
