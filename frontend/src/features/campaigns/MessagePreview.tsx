@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Select } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { SegmentedControl } from '@/components/SegmentedControl'
 import { api, ApiError } from '@/lib/api'
 import type { CampaignPreview } from '@/lib/types'
 
@@ -59,14 +60,8 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false }
             </label>
           )}
           {isEmail && (
-            <div role="group" aria-label="Preview size" className="flex overflow-hidden rounded-sm border border-line">
-              {([['desktop', Monitor, 'Desktop'], ['mobile', Smartphone, 'Mobile']] as const).map(([value, Icon, label]) => (
-                <button key={value} type="button" aria-pressed={device === value} aria-label={label} onClick={() => setDevice(value)}
-                  className={`flex h-10 w-10 items-center justify-center transition-colors ${device === value ? 'bg-callout-bg text-brand-600' : 'bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
-                  <Icon size={18} strokeWidth={1.5} aria-hidden />
-                </button>
-              ))}
-            </div>
+            <SegmentedControl label="Preview size" iconOnly value={device} onChange={setDevice}
+              options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
           )}
         </div>
       </div>

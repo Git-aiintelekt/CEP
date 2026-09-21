@@ -12,6 +12,7 @@ import { Button, IconButton } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import type { CalendarSpan, CampaignCalendarData } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
@@ -122,7 +123,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
                           {Number(key.slice(8))}
                         </span>
                         {hidden.length > 0 && (
-                          <button type="button" onClick={() => setDayOpen(key)} className="relative z-10 self-start rounded-sm px-1 text-xs font-medium text-brand-800 hover:underline">
+                          <button type="button" onClick={() => setDayOpen(key)} className={`${buttonClass({ variant: 'link', size: 'sm' })} relative z-10 -mx-1 self-start`}>
                             +{hidden.length} more
                           </button>
                         )}

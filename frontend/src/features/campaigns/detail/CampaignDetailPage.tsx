@@ -4,7 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -12,6 +12,8 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { Tabs, type TabItem } from '@/components/Tabs'
+import { tabId, tabPanelId } from '@/components/tabIds'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
 import type { Campaign } from '@/lib/types'
@@ -23,11 +25,11 @@ import { ActivityTab, ContentTab, SettingsTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
 import { PerformanceTab } from './PerformanceTab'
 
-const TABS = [
-  { key: 'overview', label: 'Overview' }, { key: 'performance', label: 'Performance' }, { key: 'audience', label: 'Audience' },
-  { key: 'content', label: 'Content' }, { key: 'settings', label: 'Settings' }, { key: 'activity', label: 'Activity Log' },
-] as const
-type TabKey = (typeof TABS)[number]['key']
+type TabKey = 'overview' | 'performance' | 'audience' | 'content' | 'settings' | 'activity'
+const TABS: TabItem<TabKey>[] = [
+  { id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'audience', label: 'Audience' },
+  { id: 'content', label: 'Content' }, { id: 'settings', label: 'Settings' }, { id: 'activity', label: 'Activity Log' },
+]
 const LIVE_RUN = ['SCHEDULED', 'PREPARING', 'SENDING']
 
 export function CampaignDetailPage() {
@@ -35,8 +37,7 @@ export function CampaignDetailPage() {
   const { can, me } = useAuth()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const tab: TabKey = TABS.some((item) => item.key === params.get('tab')) ? (params.get('tab') as TabKey) : 'overview'
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const tab: TabKey = TABS.some((item) => item.id === params.get('tab')) ? (params.get('tab') as TabKey) : 'overview'
   const [notice, setNotice] = useState<ReactNode>('')
   const [confirming, setConfirming] = useState<StatusAction | null>(null)
 
@@ -68,14 +69,6 @@ export function CampaignDetailPage() {
     setNotice('')
     if (CONFIRM[action]) setConfirming(action)
     else act.mutate({ campaign: data, action })
-  }
-  function onTabKey(event: KeyboardEvent) {
-    const index = TABS.findIndex((item) => item.key === tab)
-    const next = event.key === 'ArrowRight' ? (index + 1) % TABS.length : event.key === 'ArrowLeft' ? (index - 1 + TABS.length) % TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length - 1 : -1
-    if (next < 0) return
-    event.preventDefault()
-    setParams({ tab: TABS[next].key }, { replace: true })
-    tabRefs.current[TABS[next].key]?.focus()
   }
 
   const button = (action: StatusAction, label: string, primary = false) => (
@@ -121,17 +114,11 @@ export function CampaignDetailPage() {
       )}
       {data.status === 'PAUSED' && <p className="mb-4 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>}
 
-      <div role="tablist" aria-label="Campaign sections" onKeyDown={onTabKey} className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
-        {TABS.map((item) => (
-          <button key={item.key} ref={(node) => { tabRefs.current[item.key] = node }} type="button" role="tab" id={`tab-${item.key}`} aria-selected={tab === item.key} aria-controls={`panel-${item.key}`}
-            tabIndex={tab === item.key ? 0 : -1} onClick={() => setParams({ tab: item.key }, { replace: true })}
-            className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === item.key ? 'border-brand-600 text-ink-900' : 'border-transparent text-ink-700 hover:text-ink-900'}`}>
-            {item.label}
-          </button>
-        ))}
+      <div className="mb-5 flex overflow-x-auto border-b border-line">
+        <Tabs label="Campaign sections" idPrefix="campaign" tabs={TABS} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
       </div>
 
-      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+      <div role="tabpanel" id={tabPanelId('campaign', tab)} aria-labelledby={tabId('campaign', tab)}>
         {tab === 'overview' && <OverviewTab campaign={data} zone={zone} live={live} />}
         {tab === 'performance' && <PerformanceTab campaign={data} live={live} />}
         {tab === 'audience' && <AudienceTab campaign={data} />}

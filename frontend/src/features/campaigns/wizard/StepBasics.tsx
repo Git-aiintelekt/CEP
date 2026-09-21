@@ -5,6 +5,7 @@ import { Controller, useFormContext } from 'react-hook-form'
 
 import { useAuth } from '@/auth/AuthContext'
 import { Field, Select, TextArea, TextInput } from '@/components/Form'
+import { iconButtonClass } from '@/components/buttonStyles'
 import { channelAllowed } from '@/lib/features'
 import type { CampaignFormOptions } from '@/lib/types'
 
@@ -49,7 +50,7 @@ function TagsInput({ value, onChange, suggestions, error }: { value: string[]; o
         {value.map((tag) => (
           <span key={tag} className="inline-flex items-center gap-1 rounded-sm bg-line-subtle py-0.5 pl-1.5 pr-0.5 text-xs font-semibold text-ink-700">
             {tag}
-            <button type="button" aria-label={`Remove the tag ${tag}`} onClick={() => onChange(value.filter((item) => item !== tag))} className="flex h-4 w-4 items-center justify-center rounded-xs hover:bg-line">
+            <button type="button" aria-label={`Remove the tag ${tag}`} onClick={() => onChange(value.filter((item) => item !== tag))} className={`${iconButtonClass({ size: 'xs' })} -my-1 -mr-0.5`}>
               <X size={12} strokeWidth={1.5} aria-hidden />
             </button>
           </span>

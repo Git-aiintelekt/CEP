@@ -15,6 +15,8 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { Tabs } from '@/components/Tabs'
 import { tabPanelId } from '@/components/tabIds'
+import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
+import { MenuRow } from '@/components/MenuRow'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
@@ -65,7 +67,6 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
     }
   }, [open])
 
-  const item = 'block w-full px-3 py-2 text-left text-sm text-ink-900 hover:bg-surface-subtle'
   const entries: { label: string; run: () => void }[] = [{ label: 'Open', run: () => navigate(campaignHome(campaign, canEdit)) }]
   if (hasAction(campaign, 'results')) entries.push({ label: 'View results', run: () => navigate(`/campaigns/${campaign.id}?tab=performance`) })
   if (canEdit && hasAction(campaign, 'clone')) entries.push({ label: 'Clone', run: () => onAction('clone') })
@@ -78,13 +79,13 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   return (
     <div ref={box} className="relative inline-block">
       <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`Actions for ${campaign.name}`} onClick={() => setOpen((value) => !value)}
-        className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 hover:bg-line-subtle">
+        className={iconButtonClass({ pressed: open })}>
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-line bg-surface shadow-menu">
           {entries.map((entry) => (
-            <button key={entry.label} type="button" role="menuitem" className={item} onClick={() => { setOpen(false); entry.run() }}>{entry.label}</button>
+            <MenuRow key={entry.label} role="menuitem" divider={false} title={entry.label} onClick={() => { setOpen(false); entry.run() }} />
           ))}
         </div>
       )}
@@ -258,7 +259,7 @@ export function CampaignListPage() {
         {view === 'list' && <label className="flex items-center gap-2 text-sm text-ink-500">to
           <input type="date" value={filters.date_to} min={filters.date_from || undefined} onChange={(event) => change('date_to', event.target.value)} className={control} />
         </label>}
-        {filtered && <button type="button" className="text-sm font-medium text-brand-800 hover:underline" onClick={() => { setSearch(''); setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</button>}
+        {filtered && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => { setSearch(''); setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</button>}
         {view === 'list' && list.isFetching && <Spinner className="h-4 w-4" />}
       </div>
 
@@ -271,7 +272,7 @@ export function CampaignListPage() {
           <span className="font-medium">{selected.length} selected</span>
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => bulk.mutate({ action: 'clone', ids: selected })}>Clone</button>
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => setBulkArchive(true)}>Archive</button>
-          <button type="button" className="font-medium underline underline-offset-2" onClick={() => setSelected([])}>Clear selection</button>
+          <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setSelected([])}>Clear selection</button>
         </div>
       )}
 
@@ -357,7 +358,7 @@ export function CampaignListPage() {
                   <StatusBadge status={row.display_status} label={row.display_status_label} /><Tag>{channelLabel(row.channel)}</Tag>
                   <span>{typeLabel(row.campaign_type)}</span><span>{scheduledText(row)}</span>
                 </p>
-                <button type="button" className="mt-3 text-sm font-medium text-brand-800 hover:underline" onClick={() => navigate(main.to)}>{main.label}</button>
+                <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} mt-3`} onClick={() => navigate(main.to)}>{main.label}</button>
               </li>
             )
           })}
@@ -369,8 +370,8 @@ export function CampaignListPage() {
           <p aria-live="polite">{formatNumber((page - 1) * PAGE_SIZE + 1)} to {formatNumber(Math.min(page * PAGE_SIZE, total))} of {formatNumber(total)}</p>
           {total > PAGE_SIZE && (
             <div className="flex gap-2">
-              <button type="button" className={`${buttonSecondary} h-8`} disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
-              <button type="button" className={`${buttonSecondary} h-8`} disabled={page * PAGE_SIZE >= total} onClick={() => setPage(page + 1)}>Next</button>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={page * PAGE_SIZE >= total} onClick={() => setPage(page + 1)}>Next</button>
             </div>
           )}
         </div>

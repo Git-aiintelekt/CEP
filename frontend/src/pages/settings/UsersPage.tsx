@@ -6,6 +6,7 @@ import { buttonPrimary, buttonSecondary, Field, TextInput } from '@/components/F
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { PasswordLink, Role, SettingsUser } from '@/lib/types'
@@ -139,10 +140,10 @@ export function UsersPage() {
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
     { key: 'signin', header: 'Sign-in', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
     { key: 'actions', header: '', align: 'right', render: (user) => (
-      <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
-        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className="text-brand-800 hover:underline" onClick={() => setLinkFor(user)}>Password link</button>}
-        {!user.is_self && <button type="button" className={user.is_active ? 'text-danger-text hover:underline' : 'text-brand-800 hover:underline'} disabled={toggle.isPending}
+      <span className="flex justify-end gap-1">
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
+        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setLinkFor(user)}>Password link</button>}
+        {!user.is_self && <button type="button" className={buttonClass({ variant: user.is_active ? 'danger' : 'link', size: 'sm' })} disabled={toggle.isPending}
           onClick={() => (user.is_active ? window.confirm(`Deactivate ${user.display_name}? They will not be able to sign in.`) : true) && toggle.mutate(user)}>{user.is_active ? 'Deactivate' : 'Activate'}</button>}
       </span>) },
   ]

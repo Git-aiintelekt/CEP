@@ -381,7 +381,7 @@ test('campaign page: six tabs; results against targets with a chart and its numb
   expect(screen.getByRole('progressbar', { name: 'Clicks against target' }).getAttribute('aria-valuenow')).toBe('30')
   expect(screen.getByText('52.6% of delivered')).toBeTruthy()
   expect(screen.getByText('northwind.example')).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'By day' }))
+  await user.click(screen.getByRole('radio', { name: 'By day' }))                                      // the shared segmented control: one choice of two
   expect(window.location.search).toBe('?tab=performance')
 
   await user.keyboard('{ArrowRight}')                                                                  // tabs follow the arrow keys once one has focus

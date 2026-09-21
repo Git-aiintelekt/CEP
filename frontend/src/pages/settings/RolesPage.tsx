@@ -5,6 +5,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { buttonPrimary, buttonSecondary, Field, TextArea, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { PermissionDef, Role } from '@/lib/types'
@@ -104,9 +105,9 @@ export function RolesPage() {
     { key: 'permissions', header: 'Permissions', align: 'right', render: (role) => `${role.permissions.length} of ${catalogue.data?.length ?? '…'}` },
     { key: 'users', header: 'Users', align: 'right', render: (role) => formatNumber(role.user_count) },
     { key: 'actions', header: '', align: 'right', render: (role) => (
-      <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing({ role })}>Edit</button>
-        <button type="button" className="text-danger-text hover:underline disabled:text-ink-300 disabled:no-underline" disabled={role.user_count > 0 || remove.isPending}
+      <span className="flex justify-end gap-1">
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing({ role })}>Edit</button>
+        <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} disabled={role.user_count > 0 || remove.isPending}
           title={role.user_count > 0 ? 'People still have this role' : undefined}
           onClick={() => window.confirm(`Delete the role "${role.name}"?`) && remove.mutate(role)}>Delete</button>
       </span>) },
