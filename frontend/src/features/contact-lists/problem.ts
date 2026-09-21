@@ -6,5 +6,5 @@ export function problemText(error: unknown): string {
     const fields = Object.values(error.fieldErrors)
     return fields.length > 0 ? fields.join(' ') : error.message
   }
-  return error instanceof Error ? error.message : 'Something went wrong. Try again.'
+  return error instanceof Error ? error.message : 'The request did not complete. Check the connection and try again.'
 }

@@ -46,9 +46,14 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   expect(screen.getByText('NWA')).toBeTruthy()
 
   await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Campaigns'))
-  await user.click(await screen.findByText('CMP-2026-0001'))
+  await user.click(await screen.findByRole('link', { name: 'Fall Launch' }))
 
-  await user.click(await screen.findByRole('button', { name: 'Publish to production' }))
+  // the detail page sends to the last step of the setup, where the checklist is; publishing asks once more
+  await user.click(await screen.findByRole('link', { name: 'Production Publish' }))
+  const publish = await screen.findByRole('button', { name: 'Publish to production' })
+  await vi.waitFor(() => expect((publish as HTMLButtonElement).disabled).toBe(false))
+  await user.click(publish)
+  await user.click(within(await screen.findByRole('dialog', { name: 'Publish to production?' })).getByRole('button', { name: 'Publish' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/campaigns/c1/publish/') && call.method === 'POST')).toBe(true))
 
   // the login call and the public sign-in options lookup carry no token

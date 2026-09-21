@@ -556,6 +556,84 @@ ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS summary JSONB NOT NULL 
 ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_summary_object;
 ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_summary_object CHECK (jsonb_typeof(summary) = 'object');
 
+-- 14. CAMPAIGN MODULE (BRD v0.9 sections 6.3, 7, 15)
+--     The campaign, run, run-variant, campaign-list, target and actual tables already carry the execution model (a Run
+--     beneath a Campaign, subject-line variants per Run for Phase II, a frozen de-duplicated Campaign List). This section
+--     adds what planning and operating a campaign needs on top of it.
+--       Status   the locked vocabulary stays (DRAFT, TEST_PUBLISHED, PRODUCTION_PUBLISHED, ACTIVE, COMPLETED, CANCELLED);
+--                PAUSED and ARCHIVED are added. "Scheduled" is not a stored status: it is a production-published
+--                campaign whose next run lies in the future. Archive replaces delete; previous_status is where
+--                resume goes back to.
+--       Send     IMMEDIATE | SCHEDULED | RECURRING (recurring_config) | DRIP (drip_config). A recurring or drip campaign
+--                is one Campaign with several Runs, never several campaigns.
+--       Lists    a list is attached to INCLUDE its people or to EXCLUDE them (a suppression list for this campaign).
+--       Log      campaign_activity_log: what happened to a campaign, in words, for the people who run it. The
+--                definition audit trail (triggers) stays the record of who changed which column.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_status;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_status
+    CHECK (status IN ('DRAFT', 'TEST_PUBLISHED', 'PRODUCTION_PUBLISHED', 'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED', 'ARCHIVED'));
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS previous_status VARCHAR(30);
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS send_type VARCHAR(20) NOT NULL DEFAULT 'IMMEDIATE';
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS send_timezone VARCHAR(64);                       -- the zone the schedule was entered in; NULL = the workspace's
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS recurring_config JSONB;                          -- {frequency: DAILY|WEEKLY|MONTHLY, interval, weekdays[], day_of_month, time, end_date, max_runs}
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS drip_config JSONB;                               -- {steps: [{day: 0, template?: uuid}, {day: 3}, ...], time}
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS respect_governance BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS rate_limit_per_hour INTEGER;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS timezone_optimization BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS receipt_config JSONB;                            -- e-receipt: layout and field visibility, where the template does not define it
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_send_type;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_send_type CHECK (send_type IN ('IMMEDIATE', 'SCHEDULED', 'RECURRING', 'DRIP'));
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_tags_array;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_tags_array CHECK (jsonb_typeof(tags) = 'array');
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_rate_limit;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_rate_limit CHECK (rate_limit_per_hour IS NULL OR rate_limit_per_hour > 0);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_campaign_name_live ON campaign(tenant_id, lower(name)) WHERE deleted_at IS NULL AND status <> 'ARCHIVED' AND NOT is_journey_generated;
+CREATE INDEX IF NOT EXISTS ix_campaign_tenant_status_created ON campaign(tenant_id, status, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_campaign_tags ON campaign USING GIN (tags);
+
+ALTER TABLE campaign_run DROP CONSTRAINT IF EXISTS ck_campaign_run_status;
+ALTER TABLE campaign_run ADD CONSTRAINT ck_campaign_run_status
+    CHECK (status IN ('SCHEDULED', 'PREPARING', 'SENDING', 'PAUSED', 'COMPLETED', 'FAILED', 'CANCELLED'));
+ALTER TABLE campaign_run ADD COLUMN IF NOT EXISTS sequence_label VARCHAR(60);                  -- "Day 3", "Week 2": the step of a drip, the occurrence of a recurrence
+
+ALTER TABLE contact_list_campaign ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'INCLUDE';
+ALTER TABLE contact_list_campaign DROP CONSTRAINT IF EXISTS ck_contact_list_campaign_role;
+ALTER TABLE contact_list_campaign ADD CONSTRAINT ck_contact_list_campaign_role CHECK (role IN ('INCLUDE', 'EXCLUDE'));
+
+ALTER TABLE campaign_target ADD COLUMN IF NOT EXISTS planned_offer_cost NUMERIC(14,2);         -- offer / coupon / incentive cost (BRD 15)
+ALTER TABLE campaign_target ADD COLUMN IF NOT EXISTS notes TEXT;
+
+CREATE TABLE IF NOT EXISTS campaign_activity_log (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    campaign_id         UUID NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
+    campaign_run_id     UUID,
+    event_type          VARCHAR(30) NOT NULL,             -- CREATED, MODIFIED, LIST_ATTACHED, LIST_DETACHED, TEST_PUBLISHED, PUBLISHED, SCHEDULE_CANCELLED,
+                                                          -- SEND_STARTED, SEND_COMPLETED, SEND_FAILED, PAUSED, RESUMED, CLONED, ARCHIVED, UNARCHIVED, WARNING
+    severity            VARCHAR(10) NOT NULL DEFAULT 'INFO',
+    message             VARCHAR(500) NOT NULL,
+    detail              JSONB NOT NULL DEFAULT '{}',
+    actor_user_id       UUID,
+    actor_name          VARCHAR(200),                     -- kept as text: the log still reads right after a user is removed
+    occurred_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_campaign_activity_severity CHECK (severity IN ('INFO', 'WARNING', 'ERROR'))
+);
+CREATE INDEX IF NOT EXISTS ix_campaign_activity_campaign ON campaign_activity_log(tenant_id, campaign_id, occurred_at DESC);
+COMMENT ON TABLE campaign_activity_log IS 'What happened to a campaign, in words: created, published, send started, paused ... (the definition audit trail stays the column-level record)';
+ALTER TABLE campaign_activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_activity_log FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_campaign_activity_log_tenant ON campaign_activity_log;
+CREATE POLICY rls_campaign_activity_log_tenant ON campaign_activity_log
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT ON campaign_activity_log TO cep_app;
+GRANT ALL ON campaign_activity_log TO cep_admin;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

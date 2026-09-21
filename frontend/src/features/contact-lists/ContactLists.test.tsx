@@ -261,7 +261,7 @@ test('a list on a campaign cannot be deleted from the table: the reason is shown
 test('building a list inside campaign setup: a vetted list is attached at once, an uploaded one waits for the operator', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', contact_lists: [], contact_list_details: [] }) })
   const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1/edit')
+  await renderAppAt('/campaigns/c1/edit?step=2')
 
   // 1. from an audience: attached automatically
   await user.click(await screen.findByRole('button', { name: 'Create a list' }))
@@ -275,8 +275,7 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   dialog = await screen.findByRole('dialog', { name: 'List created' })
   expect(within(dialog).getByText(/attached to this campaign already/)).toBeTruthy()
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
-  const gold = (await screen.findByText('Gold for this campaign')).closest('label') as HTMLElement
-  expect((within(gold).getByRole('checkbox') as HTMLInputElement).checked).toBe(true)
+  expect((await screen.findByRole('radio', { name: 'Send to: Gold for this campaign' })).getAttribute('aria-checked')).toBe('true')
   expect(screen.getByText(/“Gold for this campaign” is attached: it comes from a vetted audience/)).toBeTruthy()
 
   // 2. from a file: not attached until the operator says so
@@ -295,10 +294,10 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(dialog).getByRole('button', { name: 'Done' }))
 
   const waiting = await screen.findByRole('group', { name: 'Uploaded list waiting to be attached' })
-  const booth = (await screen.findAllByText('Booth scans')).map((node) => node.closest('label')).find(Boolean) as HTMLElement
-  expect((within(booth).getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
+  const booth = await screen.findByRole('radio', { name: 'Send to: Booth scans' })
+  expect(booth.getAttribute('aria-checked')).toBe('false')
   await user.click(within(waiting).getByRole('button', { name: 'I have checked it: attach to this campaign' }))
-  await vi.waitFor(() => expect((within(booth).getByRole('checkbox') as HTMLInputElement).checked).toBe(true))
+  await vi.waitFor(() => expect(screen.getByRole('radio', { name: 'Send to: Booth scans' }).getAttribute('aria-checked')).toBe('true'))
   expect(screen.queryByRole('group', { name: 'Uploaded list waiting to be attached' })).toBeNull()
 })
 

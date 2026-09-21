@@ -191,6 +191,7 @@ CELERY_BEAT_SCHEDULE = {
     "generate-invoices": {"task": "workers.platform.generate_invoices", "schedule": 24 * 3600},          # drafts last month; re-runs only refresh drafts
     "run-tenant-operations": {"task": "workers.platform.run_tenant_operations", "schedule": 600},
     "dispatch-campaign-runs": {"task": "workers.campaign.dispatch_due_runs", "schedule": 60},          # starts due runs, closes finished ones
+    "plan-recurring-runs": {"task": "workers.campaign.plan_recurring_runs", "schedule": 300},          # recurring campaigns: one Run per occurrence
     "refresh-audience-lists": {"task": "workers.campaign.refresh_audience_lists", "schedule": 900},    # lists made from a BI / extraction audience
     "process-list-imports": {"task": "workers.lists.process_imports", "schedule": 30},                 # the net under the API's own hand-off
 }

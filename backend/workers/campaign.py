@@ -3,6 +3,7 @@
     dispatch_due_runs   beat, every minute: starts runs whose time has come, closes runs whose last batch is done
     start_run           builds the audience and fans the executions out to workers.email.send_batch
     finalize_run        closes the run once nothing is queued
+    plan_recurring_runs beat, every 5 minutes: the next occurrence of each recurring campaign, until its end
 """
 import logging
 
@@ -52,6 +53,28 @@ def refresh_audience_lists() -> dict:
         except Exception:                                 # one workspace's problem does not stop the others
             failed += 1
     return {"refreshed": refreshed, "workspaces_failed": failed}
+
+
+@shared_task(name="workers.campaign.plan_recurring_runs")
+@jobs.monitored("plan-recurring-runs")
+def plan_recurring_runs() -> dict:
+    """One campaign, many Runs (BRD 7): when no occurrence of a recurring campaign is waiting, the next one is created."""
+    from django.conf import settings
+
+    from apps.campaigns import service
+    from apps.campaigns.models import Campaign
+    from apps.tenants.models import Tenant
+    planned = failed = 0
+    for tenant_id in Tenant.objects.using(settings.CONTROL_PLANE_ALIAS).filter(status="ACTIVE", deleted_at__isnull=True).values_list("id", flat=True):
+        try:
+            with session.tenant_scope(str(tenant_id)), session.tx():
+                recurring = (Campaign.objects.filter(tenant_id=tenant_id, send_type="RECURRING", status__in=service.LIVE, deleted_at__isnull=True)
+                             .select_related("tenant").prefetch_related("campaign_runs"))
+                planned += sum(1 for campaign in recurring if service.schedule_next_occurrence(campaign) is not None)
+        except Exception:                                 # one workspace's problem does not stop the others
+            log.exception("planning recurring runs failed for workspace %s", tenant_id)
+            failed += 1
+    return {"planned": planned, "workspaces_failed": failed}
 
 
 @shared_task(name="workers.campaign.dispatch_due_runs")

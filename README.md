@@ -99,6 +99,19 @@ receipts, replies on the campaign page). A sandbox text engine that sends nothin
 waiting for its API specification.
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
+## Campaigns
+
+What is sent, to whom, when and why (BRD 6.3, 7, 15). The **Campaigns** page shows what is coming up and every campaign with search, filters, sorting,
+pages of 50 and bulk clone / archive. A campaign is set up in **seven steps**: basic info, audience (lists to send to *and* lists to exclude, with a live
+estimate: merged, one entry per person, today's governance check), template (with a preview), scheduling and delivery (now, scheduled, recurring, or a
+drip series, in the campaign's own time zone), targets and economics, test and preview, review and publish (the API's publish checks shown as a checklist
+first). Each send is a **run** of its campaign against a Campaign List frozen when the run starts, so a recurring or drip campaign stays one campaign
+with many runs and its results roll up. A campaign page has six tabs: overview, performance (numbers, rates, progress against targets, a curve over
+time), audience (the frozen list, who was left out and why, CSV export), content, settings and an activity log. Statuses are Draft, Test Published,
+Production Published and Scheduled (derived), then Active, Paused, Completed, Cancelled, Archived; the API says which actions each allows, and
+**archive replaces delete**. The hourly limit and recipient-local send time are stored now and take effect with the email engine integration.
+**[docs/CAMPAIGNS.md](docs/CAMPAIGNS.md)**
+
 ## Contact lists
 
 Reusable audiences, made three ways: **upload a CSV** (staged, columns matched, reviewed, then imported: known people are recognised by loyalty ID
