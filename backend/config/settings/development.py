@@ -13,5 +13,12 @@ if not env.bool("DEV_USE_REDIS", default=False):  # noqa: F405
 # runserver starts a thread per request, and a persistent connection belongs to its thread: with CONN_MAX_AGE > 0 every
 # request would leave an idle session behind until the database runs out of connections. Production (gunicorn / uvicorn
 # with a fixed pool of workers) keeps the persistent connections configured in base.py.
+#
+# Opening a connection costs five or more network round trips. Against a database that is far away (a VPN, another
+# region) that is well over a second per request, so development shares a small psycopg pool between the request threads
+# instead. Tenant and platform context are set per transaction (set_config(..., true)), so a pooled connection carries
+# nothing from one request to the next. DEV_DB_POOL=False goes back to a connection per request.
 for _alias in DATABASES:  # noqa: F405
     DATABASES[_alias]["CONN_MAX_AGE"] = 0  # noqa: F405
+    if env.bool("DEV_DB_POOL", default=True):  # noqa: F405
+        DATABASES[_alias].setdefault("OPTIONS", {})["pool"] = {"min_size": 1, "max_size": 8, "timeout": 30, "max_idle": 600}  # noqa: F405

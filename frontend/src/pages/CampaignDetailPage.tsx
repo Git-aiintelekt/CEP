@@ -2,13 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { ReceiptApiPanel, RunResults, SendTestBox } from '@/features/delivery/RunResults'
+import { ReceiptApiPanel, RunResults, SendTestBox, TextReplies } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, humanize } from '@/lib/format'
 import type { Campaign, CampaignRun } from '@/lib/types'
@@ -71,14 +72,15 @@ export function CampaignDetailPage() {
   if (campaign.isError) return <ErrorState error={campaign.error} onRetry={() => void campaign.refetch()} />
 
   const data = campaign.data
+  const isText = data.channel === 'SMS' || data.channel === 'MMS'
   const canPublish = can('campaign.publish') && PUBLISHABLE.has(data.status)
   const canEdit = can('campaign.edit') && PUBLISHABLE.has(data.status) && !data.is_journey_generated
   const canDelete = can('campaign.edit') && data.status === 'DRAFT' && data.runs.length === 0
 
   return (
     <section>
-      <Link to="/campaigns" className="mb-3 inline-block text-sm font-medium text-brand-700 hover:underline">
-        ← Campaigns
+      <Link to="/campaigns" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+        <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Campaigns
       </Link>
       <PageHeader
         title={data.name}
@@ -104,7 +106,7 @@ export function CampaignDetailPage() {
             )}
             {canPublish && (
               <button type="button" onClick={() => publish.mutate()} disabled={publish.isPending} className={buttonPrimary}>
-                {publish.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}
+                {publish.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
                 Publish to production
               </button>
             )}
@@ -123,7 +125,7 @@ export function CampaignDetailPage() {
         </div>
       )}
 
-      <dl className="mb-6 grid grid-cols-2 gap-5 rounded-xl border border-line bg-surface p-5 md:grid-cols-4">
+      <dl className="mb-6 grid grid-cols-2 gap-5 rounded-lg border border-line bg-surface p-5 lg:grid-cols-4">
         <Field label="Code">{data.code ?? '—'}</Field>
         <Field label="Status">
           <StatusBadge status={data.status} label={data.status_label} />
@@ -148,7 +150,7 @@ export function CampaignDetailPage() {
               <EmptyState title="No contact list attached" hint="Attach at least one list before publishing." />
             </div>
           ) : (
-            <ul className="mb-6 divide-y divide-line rounded-xl border border-line bg-surface">
+            <ul className="mb-6 divide-y divide-line rounded-lg border border-line bg-surface">
               {data.contact_list_details.map((list) => (
                 <li key={list.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
@@ -164,9 +166,9 @@ export function CampaignDetailPage() {
         </>
       )}
 
-      {can('campaign.edit') && ['EMAIL', 'MULTI'].includes(data.channel) && PUBLISHABLE.has(data.status) && (
+      {can('campaign.edit') && PUBLISHABLE.has(data.status) && (
         <div className="mb-6">
-          <SendTestBox campaignId={data.id} defaultTo={me?.principal.email ?? ''}
+          <SendTestBox campaignId={data.id} texts={isText} defaultTo={isText ? '' : (me?.principal.email ?? '')}
             disabledReason={!data.template ? 'Choose a template first.' : !data.sender_profile ? 'Choose a sender first.' : undefined} />
         </div>
       )}
@@ -183,6 +185,7 @@ export function CampaignDetailPage() {
           <DataTable columns={runColumns} rows={data.runs} rowKey={(run) => run.id} caption="Campaign runs" />
           <div className="mt-4 space-y-4">
             {data.runs.filter((run) => !run.test_mode).slice(-3).reverse().map((run) => <RunResults key={run.id} run={run} />)}
+            {isText && <TextReplies campaignId={data.id} />}
           </div>
         </>
       )}

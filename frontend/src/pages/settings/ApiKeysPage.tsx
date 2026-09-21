@@ -44,7 +44,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="key-form" className={buttonPrimary} disabled={create.isPending}>
-          {create.isPending && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}Create key
+          {create.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Create key
         </button>
       </>}>
       <form id="key-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -54,18 +54,18 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
         </Field>
         <fieldset>
           <legend className="text-sm font-medium text-ink-700">Scopes <span className="font-normal text-ink-500">(give the key only what it needs)</span></legend>
-          {errors.scopes && <p role="alert" className="mt-1 text-xs font-medium text-red-700">{errors.scopes}</p>}
-          <ul className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2 md:grid-cols-3">
+          {errors.scopes && <p role="alert" className="mt-1 text-xs font-medium text-danger-text">{errors.scopes}</p>}
+          <ul className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
             {scopes.map((scope) => (
-              <li key={scope}><label className="flex cursor-pointer items-center gap-2 font-mono text-xs text-ink-900">
+              <li key={scope}><label className="flex cursor-pointer items-center gap-2 cep-num text-xs text-ink-900">
                 <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={chosen.includes(scope)}
                   onChange={() => setChosen(chosen.includes(scope) ? chosen.filter((item) => item !== scope) : [...chosen, scope])} />{scope}</label></li>
             ))}
           </ul>
         </fieldset>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Allowed IP addresses" error={errors.allowed_ip_cidrs} hint="Optional. Addresses or CIDR ranges, separated by commas or new lines. Empty means any address.">
-            {(ids) => <TextArea {...ids} rows={2} value={cidrs} onChange={(event) => setCidrs(event.target.value)} placeholder="203.0.113.0/24" className="font-mono" />}
+            {(ids) => <TextArea {...ids} rows={2} value={cidrs} onChange={(event) => setCidrs(event.target.value)} placeholder="203.0.113.0/24" className="cep-num" />}
           </Field>
           <Field label="Expires" error={errors.expires_at} hint="Optional. Your local time.">
             {(ids) => <TextInput {...ids} type="datetime-local" value={expires} onChange={(event) => setExpires(event.target.value)} />}
@@ -83,10 +83,10 @@ function KeyReveal({ created, onClose }: { created: ApiKeyCreated; onClose: () =
       <div className="space-y-3 text-sm text-ink-700">
         <p><strong>{created.name}</strong> is ready. This is the only time the full key is shown: only a fingerprint of it is stored, so it cannot be recovered later.</p>
         <div className="flex gap-2">
-          <input aria-label="API key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 rounded-lg border border-line bg-slate-50 px-3 py-2 font-mono text-xs" />
+          <input aria-label="API key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-sm border border-line bg-surface-subtle px-3 cep-num text-xs" />
           <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(created.key).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
-        <p className="text-xs text-ink-500">Send it as <code className="font-mono">Authorization: Bearer {created.key_prefix}…</code> together with the <code className="font-mono">X-Tenant</code> header. If it leaks, revoke it here and create a new one.</p>
+        <p className="text-xs text-ink-500">Send it as <code className="cep-num">Authorization: Bearer {created.key_prefix}…</code> together with the <code className="cep-num">X-Tenant</code> header. If it leaks, revoke it here and create a new one.</p>
       </div>
     </Modal>
   )
@@ -101,14 +101,14 @@ export function ApiKeysPage() {
   const revoke = useMutation({ mutationFn: (key: ApiKey) => api.post<ApiKey>(`/api-clients/${key.id}/revoke/`), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] }) } })
 
   const columns: Column<ApiKey>[] = [
-    { key: 'name', header: 'Key', render: (key) => <div><p className="font-medium text-ink-900">{key.name}</p><p className="font-mono text-xs text-ink-500">{key.key_prefix}…</p></div> },
+    { key: 'name', header: 'Key', render: (key) => <div><p className="font-medium text-ink-900">{key.name}</p><p className="cep-num text-xs text-ink-500">{key.key_prefix}…</p></div> },
     { key: 'scopes', header: 'Scopes', render: (key) => <span className="flex max-w-xs flex-wrap gap-1">{key.scopes.map((scope) => <Tag key={scope}>{scope}</Tag>)}</span> },
-    { key: 'ips', header: 'Allowed from', render: (key) => key.allowed_ip_cidrs?.length ? <span className="font-mono text-xs">{key.allowed_ip_cidrs.join(', ')}</span> : <span className="text-ink-500">Any address</span> },
+    { key: 'ips', header: 'Allowed from', render: (key) => key.allowed_ip_cidrs?.length ? <span className="cep-num text-xs">{key.allowed_ip_cidrs.join(', ')}</span> : <span className="text-ink-500">Any address</span> },
     { key: 'status', header: 'Status', render: (key) => <StatusBadge status={STATUS_TONE[key.status]} label={key.status === 'ACTIVE' ? 'Active' : key.status === 'EXPIRED' ? 'Expired' : 'Revoked'} /> },
     { key: 'used', header: 'Last used', render: (key) => formatDateTime(key.last_used_at).replace('—', 'Never') },
     { key: 'expires', header: 'Expires', render: (key) => formatDateTime(key.expires_at).replace('—', 'Never') },
     { key: 'actions', header: '', align: 'right', render: (key) => key.status !== 'REVOKED' && (
-      <button type="button" className="text-sm font-medium text-red-700 hover:underline" disabled={revoke.isPending}
+      <button type="button" className="text-sm font-medium text-danger-text hover:underline" disabled={revoke.isPending}
         onClick={() => window.confirm(`Revoke "${key.name}"? Systems using it stop working immediately. This cannot be undone.`) && revoke.mutate(key)}>Revoke</button>) },
   ]
 

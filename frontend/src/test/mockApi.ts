@@ -2,7 +2,7 @@
 import { vi } from 'vitest'
 
 import type { ApiKey, AuthOptions, Campaign, ContactList, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
-              SecuritySettings, SenderProfile, SettingsUser, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
+              SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -92,19 +92,36 @@ export const supportAccess: SupportAccess[] = [
 ]
 
 export const providerCatalogue: ProviderType[] = [
-  { provider_type: 'POSTAL', label: 'Postal', description: 'Self-hosted Postal server.', supports_webhooks: true, manageable: true, fields: [
+  { provider_type: 'POSTAL', label: 'Postal', description: 'Self-hosted Postal server.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
     { key: 'endpoint', label: 'Postal address', required: true, secret: false, help: 'Base address of your Postal installation.', placeholder: 'https://postal.example.com', kind: 'url' },
     { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text' }] },
-  { provider_type: 'SENDGRID', label: 'SendGrid', description: 'Twilio SendGrid.', supports_webhooks: true, manageable: true, fields: [
+  { provider_type: 'SENDGRID', label: 'SendGrid', description: 'Twilio SendGrid.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
     { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text' },
     { key: 'api_base', label: 'API address', required: false, secret: false, help: 'Leave empty for the global region.', placeholder: 'https://api.sendgrid.com', kind: 'url' }] },
-  { provider_type: 'SMTP', label: 'SMTP (your mail server)', description: 'Follows Settings -> Email server.', supports_webhooks: false, manageable: false, fields: [] },
+  { provider_type: 'SMTP', label: 'SMTP (your mail server)', description: 'Follows Settings -> Email server.', supports_webhooks: false, manageable: false, channel: 'EMAIL', fields: [] },
+  { provider_type: 'SANDBOX_SMS', label: 'Sandbox (sends nothing)', description: 'Accepts SMS and MMS without sending them.', supports_webhooks: true, manageable: true, channel: 'SMS', supports_mms: true, fields: [
+    { key: 'reject_numbers', label: 'Numbers to refuse', required: false, secret: false, help: 'Comma-separated.', placeholder: '', kind: 'text' }] },
 ]
 export const deliveryProviders: DeliveryProvider[] = [
   { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, secret_ref: null,
     rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-postal/tok/', sender_count: 1,
     last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 },
 ]
+export const textEngine: DeliveryProvider = { id: 'prov-texts', provider_type: 'SANDBOX_SMS', channel: 'SMS', name: 'Sandbox texts', config: {}, has_secret: false, secret_ref: null,
+  rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-texts/tok/', sender_count: 1,
+  last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 }
+export const textSender: DeliverySender = { id: 'snd-texts', delivery_provider: 'prov-texts', display_name: 'Northwind texts', channel: 'SMS', from_address: null, reply_to_address: null, sender_id: '55123',
+  verification_status: 'PENDING', is_default: true, provider_type: 'SANDBOX_SMS', provider_name: 'Sandbox texts' }
+export const textResults: RunResults = {
+  id: 'r1', status: 'COMPLETED', family: 'SMS', started_at: '2026-09-18T10:00:00Z', completed_at: '2026-09-18T10:01:00Z',
+  audience: { members: 40, eligible: 31, suppressed: { NO_CONSENT: 5, BLOCKED_NUMBER: 3, INVALID_NUMBER: 1 } },
+  messages: { queued: 0, sent: 30, failed: 1, delivered: 28, opened: 0, clicked: 0, bounced: 0, complained: 0, replied: 4, opted_out: 2, parts: 37 }, by_status: {},
+}
+export const smsReplies: SmsReply[] = [
+  { id: 2, from_number: '+14045550002', to_number: '55123', body: 'Do you have it in blue?', keyword: null, action: 'NONE', party_id: 'P-2', name: 'Luis Brown', campaign: 'c1', received_at: '2026-09-18T10:20:00Z' },
+  { id: 1, from_number: '+14045550001', to_number: '55123', body: 'STOP', keyword: 'STOP', action: 'OPT_OUT', party_id: 'P-1', name: 'Brianna Garcia', campaign: 'c1', received_at: '2026-09-18T10:05:00Z' },
+]
+
 export const deliverySenders: DeliverySender[] = [
   { id: 'snd-email', delivery_provider: 'prov-postal', display_name: 'Northwind Rewards', channel: 'EMAIL', from_address: 'rewards@northwind.example', reply_to_address: null, sender_id: null,
     verification_status: 'PENDING', is_default: true, provider_type: 'POSTAL', provider_name: 'Postal (self-hosted)' },
@@ -162,6 +179,8 @@ interface MockOptions {
   onSettingsWrite?: (call: Call) => Response | null
   /** merged over the default GET /me/ answer: features, support_session, mfa_setup_required ... */
   me?: Partial<Me>
+  /** answer for POST /auth/forgot-password/ ; default: 404, as the unbuilt endpoint really answers */
+  onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
   authOptions?: Partial<AuthOptions>
   /** GET /auth/mfa/ starts from this */
@@ -172,6 +191,8 @@ interface MockOptions {
   mailServer?: Partial<MailServerSettings>
   /** POST /delivery-providers/{id}/check/ answers a failure */
   providerCheckFails?: boolean
+  /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
+  texts?: boolean
 }
 
 /** the code the mock authenticator "shows" */
@@ -206,6 +227,8 @@ export function installMockApi(options: MockOptions = {}) {
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'No active account' }, 401)
     }
     if (path.endsWith('/auth/set-password/')) return options.onSettingsWrite?.(call) ?? json(null, 204)
+    // no view is registered for this yet: Django answers 404, which is what the reset form has to cope with
+    if (path.endsWith('/auth/forgot-password/')) return options.onForgotPassword?.(call) ?? json({ title: 'Not Found', status: 404 }, 404)
     if (headers.Authorization !== 'Bearer access-1') return json({ title: 'Unauthorized', status: 401 }, 401)
     if (/\/(users|roles|api-clients)\//.test(path) && method !== 'GET') {
       const custom = options.onSettingsWrite?.(call)
@@ -233,11 +256,12 @@ export function installMockApi(options: MockOptions = {}) {
       return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
     }
     if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], ...(body as Partial<DeliveryProvider>) })
-    if (path.endsWith('/delivery-providers/')) return json(deliveryProviders)
+    if (path.endsWith('/delivery-providers/')) return json(options.texts ? [...deliveryProviders, textEngine] : deliveryProviders)
+    if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
     if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
-    if (path.endsWith('/delivery-senders/')) return json(deliverySenders)
-    if (path.endsWith('/results/')) return json(runResults)
+    if (path.endsWith('/delivery-senders/')) return json(options.texts ? [...deliverySenders, textSender] : deliverySenders)
+    if (path.endsWith('/results/')) return json(options.texts ? textResults : runResults)
     if (path.endsWith('/send-test/')) return json({ results: ((body?.to as string[]) ?? []).map((to) => ({ to, ok: !to.includes('bad'), detail: to.includes('bad') ? '550 mailbox unavailable' : 'msg-1' })) })
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'

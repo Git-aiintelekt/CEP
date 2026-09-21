@@ -48,6 +48,7 @@ class Renderer:
         self.campaign, self.run, self.content = campaign, run, content
         self.tags = {tag.tag_key.strip("{} "): tag for tag in tags}
         self.sources: dict = {}
+        self.used: dict[str, str] = {}
         inner = inner_templates or {}
         self.html = self._expand_inner(content.html_content or "", inner)
         self.text = content.text_content or ""
@@ -85,13 +86,16 @@ class Renderer:
             value = customer.get(key) if key in ("first_name", "last_name", "party_id", "email") else (customer.get("custom_attributes") or {}).get(key)
         if value in (None, ""):
             value = tag.default_value if tag is not None else ""
-        return "" if value is None else _format(value, tag)
+        shown = "" if value is None else _format(value, tag)
+        self.used[key] = shown
+        return shown
 
     def render(self, *, customer: dict, member: dict, system: dict, sources: dict | None = None, html_blocks: dict | None = None) -> dict:
         """-> {'subject', 'html', 'text'} for one recipient. `system` holds the per-message values (unsubscribe_url ...),
         `sources` the data of tags resolved from RECEIPT / STORE, `html_blocks` ready-made HTML (already escaped by its
         builder, e.g. the receipt's line items) that goes into the HTML part as it is and into the text part as text."""
         self.sources = sources or {}
+        self.used = {}                                      # tag -> value of THIS recipient, for the compliance record of a text
         blocks = html_blocks or {}
         today = timezone.localdate()
         system = {"current_year": str(today.year), "today": today.isoformat(), "campaign_name": self.campaign.name, **system}

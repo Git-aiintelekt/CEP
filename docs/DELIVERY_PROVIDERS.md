@@ -32,7 +32,7 @@ The engine never mentions a provider by name. Everything provider-specific lives
 | You implement | The engine gives / expects |
 |---|---|
 | `provider_type`, `label`, `description` | `provider_type` is the value stored in `delivery_provider.provider_type` |
-| `config_fields: tuple[ConfigField, ...]` | The form shown in **Settings → Email engines**. `secret=True` fields are write-only and stored encrypted; the rest go to `delivery_provider.config` (JSON). |
+| `config_fields: tuple[ConfigField, ...]` | The form shown in **Settings → Sending engines**. `secret=True` fields are write-only and stored encrypted; the rest go to `delivery_provider.config` (JSON). |
 | `open()` / `close()` | Called once around a batch: keep an HTTP session or an SMTP connection. |
 | `send(EmailMessage) -> SendResult` | `ACCEPTED` (+ `provider_message_id`), `REJECTED` (permanent, this message only), `RETRY` (temporary). Raise `ProviderError(retryable=False)` only when nothing can be sent at all (bad key, suspended account). |
 | `check() -> (ok, detail)` | The **Check** button: validate address + credential without sending. |
@@ -116,7 +116,7 @@ link all come from the engine.
 {API_PUBLIC_URL}/api/v1/webhooks/delivery/<TENANT CODE>/<provider id>/<token>/
 ```
 
-Shown per provider in **Settings → Email engines** ("Copy webhook URL"). The token is an HMAC of the provider id with the
+Shown per provider in **Settings → Sending engines** ("Copy webhook URL"). The token is an HMAC of the provider id with the
 installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup. Every event is stored raw in
 `delivery_webhook_event` first, then applied; the endpoint answers `200` with counts
 (`received / applied / ignored / unmatched / failed`) so providers do not retry events that were understood.
@@ -180,18 +180,49 @@ POST /api/v1/receipts/send/          Authorization: Bearer cep_in_...   (API key
 * Tip: keep a separate email engine (for Postal: a separate mail server with its own API key) and sender for receipts,
   so marketing volume and reputation never delay a receipt.
 
-## 10. Running it
+## 10. SMS and MMS
+
+Texts use the same engine, run life cycle, settings screen and callback address as email. What differs:
+
+| | Email | Texts (SMS / MMS) |
+|---|---|---|
+| Adapter base class | `EmailProvider`, `send(EmailMessage)` | `SmsProvider` (`channel = "SMS"`, `supports_mms`), `send(SmsMessage)`, plus `parse_inbound(payload) -> [InboundMessage]` |
+| Execution table | `mailer_execution` | `sms_execution`: the exact text sent, its number of parts, the merged values, sender number, engine, the aggregator's answer |
+| Sender | From name + address | `sender_id`: short code, long number (+E.164) or alphanumeric sender; verified by a text to a mobile number |
+| Audience (`engine/audience_sms.py`) | see section 7 | `UNKNOWN_PARTY, NO_PHONE, INVALID_NUMBER` (no E.164 mobile, landline, fax), `BLOCKED_NUMBER`, `UNSUBSCRIBED`, then marketing only: `SUPPRESSED, NO_CONSENT, FREQUENCY_CAP`, and `DUPLICATE_NUMBER` |
+| Opt-out | unsubscribe link, marketing only | a STOP applies to **every** kind of campaign, and to the **number** (it is blocked even when nobody in the customer master owns it) |
+| Quiet hours | none | marketing texts that are due between `messaging.sms_quiet_hours` (global parameter, workspace time zone; default 21:00-08:00, `{}` = off) stay `SCHEDULED` until the window opens |
+| Receipts | delivered, bounced, opened, clicked | `DELIVERED`; `BOUNCED` HARD = the number can never receive (blocked as `INVALID`), SOFT = temporary; `DROPPED` |
+| Report | opened, bounced | replied, opted out, message parts (what the carrier bills) |
+
+**Replies (`engine/inbound.py`).** `STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, OPTOUT, REVOKE` as the first word: opted
+out of SMS and MMS (`consent_record` source `SMS_STOP`, with the text as evidence), number blocked, the message they
+answered becomes `OPTED_OUT`. `START, UNSTOP, SUBSCRIBE` as the whole message: opted in again, a STOP block lifted.
+`HELP, INFO`: recorded. Anything else: recorded as a reply, the message becomes `RESPONDED`. All of it is kept in
+`sms_inbound_message` and shown on the campaign page. Numbers reported without `+` or without the North American
+country code are matched. A repeated callback changes nothing. Confirmation and help texts are left to the aggregator.
+
+**Engines installed for texts**
+
+| Type | |
+|---|---|
+| `SANDBOX_SMS` | Accepts SMS and MMS and **sends nothing**: for trying text campaigns before an aggregator is connected. Not metered. Config: numbers to refuse / to fail temporarily. Simulate the aggregator by posting to its callback address: `{"events": [{"type": "delivered", "message_id": "sbx-..."}, {"type": "failed", "message_id": "...", "reason": "...", "permanent": true}, {"type": "inbound", "from": "+14045550001", "to": "55123", "text": "STOP"}]}` |
+| `DIGIVIZE` | **Not installed.** `providers/digivize.py` is a skeleton with the five places to fill in (send SMS, send MMS, receipts, inbound, limits); it is not registered, so a campaign whose sender points at a Digivize engine fails at start with "No adapter is installed", before anyone is queued. Once the Digivize API specification (or the code that sends to Digivize today) is available: fill it in, add it to `registry._load()`, test it like `postal.py`. |
+
+MMS needs a template with a picture that has a public address (the aggregator fetches it) and an engine with `supports_mms`.
+
+## 11. Running it
 
 | | |
 |---|---|
-| Celery queues | `campaign` (start / finalize runs) and `email` (send batches): `celery -A config worker -Q default,events,maintenance,campaign,email` |
+| Celery queues | `campaign` (start / finalize runs), `email` and `sms` (send batches): `celery -A config worker -Q default,events,maintenance,campaign,email,sms` |
 | Scheduled job | `dispatch-campaign-runs` every minute: starts due runs (also the ones scheduled for later), closes finished ones. Shown on the back-office health page. |
 | Without Celery | `python manage.py send_campaign_runs` (everything due) or `--run <uuid>` |
 | Pace | `delivery_provider.rate_limit_per_minute` |
 | Test send | **Send a test** on the campaign page / `POST /api/v1/campaigns/{id}/send-test/ {"to": [...]}`: sample values, no execution rows |
 | Results | `GET /api/v1/campaign-runs/{id}/results/` and the campaign page (refreshes while a run is live) |
 
-## 11. API summary
+## 12. API summary
 
 | Endpoint | Permission | |
 |---|---|---|
@@ -204,12 +235,14 @@ POST /api/v1/receipts/send/          Authorization: Bearer cep_in_...   (API key
 | `POST /campaigns/{id}/send-test/` | `campaign.edit` | |
 | `GET /campaign-runs/{id}/results/` | `campaign.view` | audience, suppression reasons, message counts |
 | `POST /receipts/send/` | API key scope `receipts:send`, or `campaign.publish` | one e-receipt, idempotent on the receipt number |
+| `GET /sms-inbound/?campaign=` | `campaign.view` | what people texted back, newest first |
 | `POST /webhooks/delivery/<tenant>/<provider>/<token>/` | public (token + provider signature) | |
 | `GET, POST /public/unsubscribe/?t=…` | public (signed token) | confirmation page, RFC 8058 one-click |
 
-## 12. Not in this version
+## 13. Not in this version
 
-* SMS / MMS sending (the Digivize adapter): same contract, `sms_execution` instead of `mailer_execution`.
+* The Digivize adapter itself (section 10): everything around it is in place.
+* Link shortening and click tracking in texts; automatic HELP / STOP confirmation texts (left to the aggregator).
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's
   tracking through webhooks, so SMTP sends report neither.
 * A/B variants, recurring and drip runs, journey-generated sends: the run model supports them; the engine sends

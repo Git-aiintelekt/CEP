@@ -43,8 +43,8 @@ def rollup_usage(month: date | None = None) -> dict:
     sources = {
         # a message counts once it left the platform; SMS is billed per part, as the carriers bill it
         "EMAIL_SENT": ("SELECT tenant_id, count(*) FROM mailer_execution WHERE created_at >= %s AND created_at < %s AND status <> 'QUEUED' GROUP BY 1", True),
-        "SMS_SENT": ("SELECT tenant_id, sum(COALESCE(segment_count, 1)) FROM sms_execution WHERE created_at >= %s AND created_at < %s AND status <> 'QUEUED' AND message_type = 'SMS' GROUP BY 1", True),
-        "MMS_SENT": ("SELECT tenant_id, count(*) FROM sms_execution WHERE created_at >= %s AND created_at < %s AND status <> 'QUEUED' AND message_type = 'MMS' GROUP BY 1", True),
+        "SMS_SENT": ("SELECT tenant_id, sum(COALESCE(segment_count, 1)) FROM sms_execution WHERE created_at >= %s AND created_at < %s AND status <> 'QUEUED' AND COALESCE(provider_code, '') <> 'SANDBOX_SMS' AND message_type = 'SMS' GROUP BY 1", True),
+        "MMS_SENT": ("SELECT tenant_id, count(*) FROM sms_execution WHERE created_at >= %s AND created_at < %s AND status <> 'QUEUED' AND COALESCE(provider_code, '') <> 'SANDBOX_SMS' AND message_type = 'MMS' GROUP BY 1", True),
         # point-in-time measures, recorded against the current month only
         "CONTACTS": ("SELECT tenant_id, count(DISTINCT party_id) FROM contact_list_member GROUP BY 1", False),
         "STORAGE_BYTES": ("SELECT tenant_id, COALESCE(sum(byte_size), 0) FROM media_asset WHERE deleted_at IS NULL GROUP BY 1", False),

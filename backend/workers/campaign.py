@@ -16,12 +16,14 @@ log = logging.getLogger("cep.delivery")
 
 @shared_task(name="workers.campaign.start_run")
 def start_run(tenant_id: str, run_id: str) -> dict:
-    from workers.email import send_batch
+    from workers.email import send_batch as send_email_batch
+    from workers.sms import send_batch as send_sms_batch
     with session.tenant_scope(tenant_id):
         try:
             started = runs.start(tenant_id, run_id)
         except runs.RunNotStarted as exc:
             return {"skipped": str(exc)}
+    send_batch = send_sms_batch if started.get("family") == "SMS" else send_email_batch
     for batch in started["batches"]:
         send_batch.delay(tenant_id, run_id, batch)
     return {"batches": len(started["batches"]), **started.get("audience", {})}

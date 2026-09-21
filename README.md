@@ -50,7 +50,8 @@ running: `cd frontend && npm install && npm run dev`, then open `http://localhos
 | Where | **Settings** in the React app (`/settings`, permission `user.admin`) | Django Admin, themed with django-unfold (`/admin/`, `is_staff`) |
 | Scope | their own workspace only, under row-level security | every tenant, on the BYPASSRLS `platform` connection |
 | Can do | add / deactivate users, one-time password links (emailed or copied), roles from the permission catalogue, API keys (shown once, revocable), plan & usage, invoices, require MFA, single sign-on, support-access log | register and onboard tenants (partitions, routing row, starting roles on save), suspend / reactivate, users and roles across tenants, revoke API keys, plans, subscriptions, routing, storage, read-only audit trail |
-| Home page | workspace facts and plan limits | **Platform health**: database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, workers, configuration. Also `GET /admin/health.json` (503 when a check fails) |
+| Home page | workspace facts and plan limits | **Home**: what needs attention (failing checks, late jobs, open alerts, past-due subscriptions, draft invoices), quick actions, headline numbers, newest tenants, latest changes, then every health check and scheduled job. Also `GET /admin/health.json` (503 when a check fails) |
+| Navigation | tabs under Settings | left menu: platform work always open (Overview, Tenants, People and access, Configuration, Operations); the tenants' own data (campaigns, delivery, customers, content, consent, journeys, integrations) in folded groups for support. `config/settings/unfold.py`; look: `backend/static/cep_admin/admin.css`; header label from `CEP_ENVIRONMENT` (Production / Staging; default Local or Production by `DEBUG`) |
 
 Passwords are never typed by an administrator on either surface: both create a one-time link (`/set-password`) on
 which the user chooses their own. Nobody can deactivate themselves or remove the last administrator of a workspace.
@@ -91,12 +92,15 @@ Publishing a campaign creates a run; the send engine (`backend/apps/delivery/eng
 hands it to the sender's **delivery provider adapter** (`backend/apps/delivery/providers`: `SMTP`, `POSTAL`, `SENDGRID`,
 one module each behind one interface). Providers report back to a per-provider callback address; bounces and complaints
 block the address, the unsubscribe link in every marketing email records the opt-out, and the campaign page shows the
-results live. Tenants manage their engines and senders under **Settings → Email engines**. E-receipts are sent one at a time by the point of
+results live. Tenants manage their engines and senders under **Settings → Sending engines**. E-receipts are sent one at a time by the point of
 sale or web shop through `POST /api/v1/receipts/send/` (API key scope `receipts:send`, idempotent on the receipt number, PDF attachments).
+**SMS and MMS** run through the same engine (consent and STOP handling per number, quiet hours for marketing texts, message parts, delivery
+receipts, replies on the campaign page). A sandbox text engine that sends nothing is installed; the Digivize adapter is a skeleton
+waiting for its API specification.
 **Full description, the adapter contract and how to add a provider: [docs/DELIVERY_PROVIDERS.md](docs/DELIVERY_PROVIDERS.md).**
 
 ```bash
-celery -A config worker -Q default,events,maintenance,campaign,email   # campaign = runs, email = batches
+celery -A config worker -Q default,events,maintenance,campaign,email,sms   # campaign = runs, email / sms = batches
 python manage.py send_campaign_runs                                    # the same without Celery (development, or by hand)
 ```
 
@@ -181,7 +185,9 @@ API login: `POST /api/v1/auth/token/` with header `X-Tenant: NWA` and body `{"em
 `access` / `refresh`. In Swagger click **Authorize**, paste the access token under `jwtAuth`, and send `X-Tenant: NWA`
 with every call (in production the tenant comes from the subdomain). `GET /api/v1/me/` returns the user, tenant and permissions.
 
-Local development needs no Redis (in-process cache) unless `DEV_USE_REDIS=True`.
+Local development needs no Redis (in-process cache) unless `DEV_USE_REDIS=True`. Development shares a small database connection pool between
+requests (`DEV_DB_POOL=False` turns it off): opening a connection per request costs over a second when the database is far away.
+Every statement is one network round trip, so a database on the same machine or network is what makes the app fast.
 
 ## Database roles
 
@@ -203,7 +209,7 @@ Never point `DATABASE_URL` at a superuser: superusers bypass RLS, so tenant isol
   queryset, tenant/created_by stamped on create, permission codes from `identity.permission`, cursor pagination, RFC 9457
   errors, OpenAPI at `/api/v1/schema/` (Swagger UI at `/api/v1/docs/`). JWT for the React app, `cep_…` API keys for integrations.
 * **Workers.** `workers/outbox.py` relays `domain_event` to Redis Streams every second; `workers/maintenance.py` runs the
-  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email` and `celery -A config beat`).
+  partition lifecycle nightly (`celery -A config worker -Q default,events,maintenance,campaign,email,sms` and `celery -A config beat`).
 
 ## Development notes
 * Connect as a **non-superuser** database role in development too (`cep` in the compose file is fine): PostgreSQL superusers

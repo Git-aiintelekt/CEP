@@ -24,12 +24,12 @@ test('anonymous visitors are sent to the login form, and a wrong password is exp
   const user = userEvent.setup()
   render(<App />)
 
-  expect(await screen.findByText('Sign in to your workspace')).toBeTruthy()
+  expect(await screen.findByText('Log in to CEP')).toBeTruthy()
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'nope')
-  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  await user.click(screen.getByRole('button', { name: 'Log In' }))
 
-  expect((await screen.findByRole('alert')).textContent).toContain('Email or password is incorrect')
+  expect((await screen.findByRole('alert')).textContent).toContain('Incorrect email or password')
 })
 
 test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bearer headers on every call', async () => {
@@ -40,7 +40,7 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   await user.type(screen.getByLabelText('Workspace'), 'NWA')
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'correct-horse')
-  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  await user.click(screen.getByRole('button', { name: 'Log In' }))
 
   expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
   expect(screen.getByText('NWA')).toBeTruthy()

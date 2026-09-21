@@ -24,14 +24,15 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children
     return (
       <div role="alert" className="mx-auto max-w-xl px-4 py-20 text-center">
-        <p className="text-sm font-semibold text-red-700">Something went wrong</p>
+        <p className="text-sm font-semibold text-danger-text">Screen failed to render</p>
         <h1 className="mt-1 text-xl font-semibold text-ink-900">This screen could not be shown</h1>
         <p className="mt-2 text-sm text-ink-500">{this.state.error.message}</p>
+        <p className="mt-1 text-sm text-ink-500">Reload the page. If it fails again, go back to the overview.</p>
         <div className="mt-5 flex justify-center gap-3">
-          <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">
+          <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-sm bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800">
             Reload
           </button>
-          <a href="/" className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-700 hover:bg-slate-50">
+          <a href="/" className="inline-flex h-10 items-center rounded-sm border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle">
             Go to the overview
           </a>
         </div>

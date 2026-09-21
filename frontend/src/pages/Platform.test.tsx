@@ -28,7 +28,7 @@ async function fillLogin(user: ReturnType<typeof userEvent.setup>, password: str
   await user.type(workspace, 'NWA')
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), password)
-  await user.click(screen.getByRole('button', { name: 'Sign in' }))
+  await user.click(screen.getByRole('button', { name: 'Log In' }))
 }
 
 test('sign-in with a second factor: the password alone stores no token; a wrong code is refused; the right one signs in', async () => {
@@ -62,10 +62,10 @@ test('a workspace with single sign-on shows its button; when it is required the 
   const workspace = await screen.findByLabelText('Workspace')
   await user.clear(workspace)
   await user.type(workspace, 'NWA')
-  const button = await screen.findByRole('link', { name: 'Sign in with Okta' })
+  const button = await screen.findByRole('link', { name: 'Log in with Okta' })
   expect(button.getAttribute('href')).toContain('/auth/sso/start/?tenant=NWA&next=%2F')
   expect(screen.queryByLabelText('Password')).toBeNull()
-  await user.click(screen.getByRole('button', { name: 'Administrator? Sign in with a password' }))
+  await user.click(screen.getByRole('button', { name: 'Administrator? Log in with a password' }))
   expect(screen.getByLabelText('Password')).toBeTruthy()
 })
 

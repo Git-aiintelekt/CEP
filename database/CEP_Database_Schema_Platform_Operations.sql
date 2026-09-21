@@ -411,6 +411,59 @@ ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS delivery_provider_id UUID;
 ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS ix_mailer_execution_provider_message ON mailer_execution(tenant_id, provider_message_id) WHERE provider_message_id IS NOT NULL;
 
+-- -------------------------------------------------------------------------------------
+-- 10. SMS / MMS SENDING
+--     Same engine and adapter contract as email (backend/apps/delivery). SANDBOX_SMS is an engine that accepts
+--     messages and sends nothing: for trying a workspace's text flows before a real aggregator is connected.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS delivery_provider_id UUID;
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS ix_sms_execution_provider_message ON sms_execution(tenant_id, provider_message_id) WHERE provider_message_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, phone_number, created_at DESC);
+
+ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
+ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type
+    CHECK (provider_type IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS'));
+ALTER TABLE delivery_webhook_event DROP CONSTRAINT IF EXISTS ck_delivery_webhook_event_provider;
+ALTER TABLE delivery_webhook_event ADD CONSTRAINT ck_delivery_webhook_event_provider
+    CHECK (provider IN ('POSTAL', 'DIGIVIZE', 'OTHER_ESP', 'OTHER_SMS', 'SMTP', 'SENDGRID', 'SANDBOX_SMS'));
+
+-- What people text back: STOP / START / HELP keywords and free replies. Kept as received; `action` is what the platform did.
+CREATE TABLE IF NOT EXISTS sms_inbound_message (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    provider            VARCHAR(20) NOT NULL,
+    from_number         VARCHAR(30) NOT NULL,                            -- the person
+    to_number           VARCHAR(30),                                     -- the workspace's short code / long number
+    body                TEXT NOT NULL DEFAULT '',
+    keyword             VARCHAR(20),                                     -- first word, upper-cased, when it is a known keyword
+    action              VARCHAR(20) NOT NULL DEFAULT 'NONE',             -- OPT_OUT, OPT_IN, HELP, NONE
+    party_id            VARCHAR(60),                                     -- resolved from the number, when known
+    sms_execution_id    BIGINT,                                          -- the last message sent to that number (what they replied to)
+    campaign_id         UUID,
+    provider_message_id VARCHAR(200),
+    raw_payload         JSONB NOT NULL DEFAULT '{}',
+    received_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_sms_inbound_action CHECK (action IN ('OPT_OUT', 'OPT_IN', 'HELP', 'NONE'))
+);
+CREATE INDEX IF NOT EXISTS ix_sms_inbound_tenant_received ON sms_inbound_message(tenant_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS ix_sms_inbound_number ON sms_inbound_message(tenant_id, from_number);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_sms_inbound_provider_message ON sms_inbound_message(tenant_id, provider, provider_message_id) WHERE provider_message_id IS NOT NULL;
+COMMENT ON TABLE sms_inbound_message IS 'Text messages received from people: STOP / START / HELP keywords and free replies, with what the platform did';
+ALTER TABLE sms_inbound_message ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sms_inbound_message FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_sms_inbound_message_tenant ON sms_inbound_message;
+CREATE POLICY rls_sms_inbound_message_tenant ON sms_inbound_message
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT ON sms_inbound_message TO cep_app;
+GRANT ALL ON sms_inbound_message TO cep_admin;
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('messaging.sms_quiet_hours', '{"start": "21:00", "end": "08:00"}', 'OBJECT', 'Messaging',
+     'Marketing texts are not started between these times (workspace time zone); a run that is due waits for the window to open. {} switches it off')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

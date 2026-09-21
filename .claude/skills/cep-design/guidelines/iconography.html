@@ -1,0 +1,14 @@
+<!-- @dsCard group="Brand" viewport="700x160" name="Iconography (Lucide, substituted)" subtitle="1.5px outline glyphs from Lucide CDN — CEP shipped no icon set" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css"><style>html,body{margin:0}body{background:var(--white);padding:16px;font:var(--text-body-role);color:var(--text-primary)}.r{display:flex;flex-direction:column;gap:12px}.row{display:flex;align-items:center;gap:18px}.i{display:flex;flex-direction:column;align-items:center;gap:6px}.g{display:inline-block;background:var(--icon-default);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}.k{font:10px/1 var(--font-body);color:var(--text-tertiary)}.h{font:var(--text-label);color:var(--text-tertiary)}</style></head><body>
+<div class="r">
+<div class="row" id="r16"></div>
+<div class="row" id="r20"></div>
+</div>
+<script>
+const CDN='https://unpkg.com/lucide-static@0.454.0/icons/';
+const mk=(n,s)=>{const d=document.createElement('div');d.className='i';const g=document.createElement('span');g.className='g';g.style.width=s+'px';g.style.height=s+'px';g.style.maskImage='url("'+CDN+n+'.svg")';g.style.webkitMaskImage='url("'+CDN+n+'.svg")';const k=document.createElement('span');k.className='k';k.textContent=n;d.append(g,k);return d};
+const a=['search','filter','download','plus','check','x','chevron-down','chevrons-up-down','ellipsis-vertical','trash-2','external-link','refresh-cw'];
+const b=['layout-dashboard','file-text','triangle-alert','building-2','settings','bell','lock','inbox','circle-check','circle-alert','trending-up','calendar'];
+a.forEach(n=>document.getElementById('r16').appendChild(mk(n,16)));
+b.forEach(n=>document.getElementById('r20').appendChild(mk(n,20)));
+</script></body></html>

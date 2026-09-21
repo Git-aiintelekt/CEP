@@ -3,7 +3,7 @@
 {% block title %}{{ title }} | {{ site_title }}{% endblock %}
 {% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
 {% block content %}
-<div class="flex flex-col gap-6 max-w-md">
+<div class="flex flex-col gap-6 cep-narrow">
     {% component "unfold/components/title.html" %}{{ title }}{% endcomponent %}
     {% component "unfold/components/card.html" %}
         <form method="post">{% csrf_token %}

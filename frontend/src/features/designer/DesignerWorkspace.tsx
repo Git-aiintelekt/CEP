@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ArrowLeft, X } from 'lucide-react'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -48,7 +49,7 @@ function findingsNotice(findings: DesignFindings | undefined, version: number): 
   return items.length > 0 ? { tone: 'warn', title: `Saved as version ${version}, with things to fix before sending`, items } : { tone: 'ok', title: `Saved as version ${version}` }
 }
 
-const NOTICE_TONE = { ok: 'border-emerald-200 bg-emerald-50 text-emerald-900', warn: 'border-amber-200 bg-amber-50 text-amber-900', error: 'border-red-200 bg-red-50 text-red-800' }
+const NOTICE_TONE = { ok: 'border-success bg-surface-subtle text-success-text', warn: 'border-warning bg-warning-bg text-warning-text', error: 'border-danger bg-danger-bg text-danger-text' }
 
 export function DesignerWorkspace({ templateName, channel, status, design, tags, assets, backend, backTo, readOnly = false }: WorkspaceProps) {
   const editor = useRef<EmailDesignerHandle>(null)
@@ -168,16 +169,16 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     window.setTimeout(() => setCopied((current) => (current === key ? null : current)), 1500)
   }
 
-  const input = 'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-900'
+  const input = 'h-8 w-full rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900'
 
   return (
     <div className="flex h-screen flex-col bg-canvas">
       <header className="border-b border-line bg-surface px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-3">
-          <Link to={backTo} className="text-sm font-medium text-brand-700 hover:underline" onClick={(event) => {
+          <Link to={backTo} className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline" onClick={(event) => {
             if (dirty && !window.confirm('Leave without saving your changes?')) event.preventDefault()
           }}>
-            ← Templates
+            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
           </Link>
           <h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1>
           <StatusBadge status={currentStatus} />
@@ -202,12 +203,12 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             )}
             {!readOnly && (
               <button type="button" className={buttonPrimary} disabled={!dirty || busy !== null} onClick={() => void save()}>
-                {busy === 'save' && <Spinner className="h-4 w-4 border-white/40 border-t-white" />} Save
+                {busy === 'save' && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />} Save
               </button>
             )}
           </div>
         </div>
-        <div className="mt-2.5 grid gap-2 md:grid-cols-2">
+        <div className="mt-2.5 grid gap-2 lg:grid-cols-2">
           <label className="flex items-center gap-2 text-xs font-medium text-ink-500">
             <span className="w-20 shrink-0">Subject</span>
             <input className={input} value={subject} maxLength={300} disabled={readOnly} onChange={(event) => setSubject(event.target.value)} placeholder="{{first_name}}, your offer is here" />
@@ -217,7 +218,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             <input className={input} value={preheader} maxLength={300} disabled={readOnly} onChange={(event) => setPreheader(event.target.value)} placeholder="Preview text shown after the subject in the inbox" />
           </label>
         </div>
-        {headerUnknown.length > 0 && <p className="mt-1.5 text-xs font-medium text-amber-700">Unknown tag in subject or preheader: {headerUnknown.map(asToken).join(', ')}</p>}
+        {headerUnknown.length > 0 && <p className="mt-1.5 text-xs font-medium text-warning-text">Unknown tag in subject or preheader: {headerUnknown.map(asToken).join(', ')}</p>}
         {notice && (
           <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`mt-2.5 flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${NOTICE_TONE[notice.tone]}`}>
             <div>
@@ -230,8 +231,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
                 </ul>
               )}
             </div>
-            <button type="button" aria-label="Dismiss" className="font-semibold opacity-70 hover:opacity-100" onClick={() => setNotice(null)}>
-              ×
+            <button type="button" aria-label="Dismiss" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-line-subtle" onClick={() => setNotice(null)}>
+              <X size={16} strokeWidth={1.5} aria-hidden />
             </button>
           </div>
         )}
@@ -263,12 +264,12 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
                 <ul className="mt-1.5 space-y-1">
                   {group.tags.map((tag) => (
                     <li key={tag.id}>
-                      <button type="button" onClick={() => void applyTag(tag.tag_key)} className="w-full rounded-md border border-line px-2.5 py-1.5 text-left hover:border-brand-500 hover:bg-brand-50/50">
+                      <button type="button" onClick={() => void applyTag(tag.tag_key)} className="w-full rounded-md border border-line px-2.5 py-1.5 text-left hover:border-brand-600 hover:bg-surface-subtle">
                         <span className="flex items-center justify-between gap-2 text-sm font-medium text-ink-900">
                           {tag.label}
-                          {copied === tag.tag_key && <span className="text-xs font-normal text-emerald-700">Done</span>}
+                          {copied === tag.tag_key && <span className="text-xs font-normal text-success-text">Done</span>}
                         </span>
-                        <span className="block font-mono text-xs text-brand-700">{asToken(tag.tag_key)}</span>
+                        <span className="block cep-num text-xs text-brand-800">{asToken(tag.tag_key)}</span>
                         {tag.sample_value && <span className="block truncate text-xs text-ink-500">e.g. {tag.sample_value}</span>}
                       </button>
                     </li>
@@ -291,10 +292,10 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             ) : (
               <ul className="mt-3 space-y-1.5">
                 {versions.map((version) => (
-                  <li key={version.version_number} className={`rounded-md border px-2.5 py-2 ${version.version_number === saved.shown ? 'border-brand-500 bg-brand-50/50' : 'border-line'}`}>
+                  <li key={version.version_number} className={`rounded-md border px-2.5 py-2 ${version.version_number === saved.shown ? 'border-brand-600 bg-brand-100' : 'border-line'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium text-ink-900">Version {version.version_number}</span>
-                      <button type="button" disabled={busy !== null || version.version_number === saved.shown} onClick={() => void loadVersion(version.version_number)} className="text-xs font-medium text-brand-700 hover:underline disabled:text-ink-500 disabled:no-underline">
+                      <button type="button" disabled={busy !== null || version.version_number === saved.shown} onClick={() => void loadVersion(version.version_number)} className="text-xs font-medium text-brand-800 hover:underline disabled:text-ink-500 disabled:no-underline">
                         {version.version_number === saved.shown ? 'Open' : 'Load'}
                       </button>
                     </div>
@@ -308,8 +309,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       </div>
 
       {preview && (
-        <div role="dialog" aria-modal="true" aria-label="Email preview" className="fixed inset-0 z-50 flex flex-col bg-slate-900/70 p-4 md:p-8">
-          <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-xl bg-surface shadow-xl">
+        <div role="dialog" aria-modal="true" aria-label="Email preview" className="fixed inset-0 z-50 flex flex-col bg-scrim p-4 md:p-8">
+          <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-lg bg-surface">
             <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{applySampleValuesText(subject, tags) || 'No subject line'}</p>
@@ -325,13 +326,13 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
               <button type="button" className={buttonSecondary} onClick={() => setPreview(null)}>Close</button>
             </div>
             {preview.errors.length > 0 && (
-              <ul className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">
+              <ul className="border-b border-warning bg-warning-bg px-5 py-2 text-xs text-warning-text">
                 {preview.errors.slice(0, 5).map((error) => <li key={error}>{error}</li>)}
               </ul>
             )}
-            <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-4">
+            <div className="min-h-0 flex-1 overflow-auto bg-line-subtle p-4">
               {/* sandbox with no allowances: no scripts, no forms, no navigation, a unique origin */}
-              <iframe title="Email preview with sample values" sandbox="" srcDoc={applySampleValues(preview.html, tags)} className="mx-auto block h-full min-h-[480px] border border-line bg-white" style={{ width: previewWidth === 'desktop' ? 680 : 375, maxWidth: '100%' }} />
+              <iframe title="Email preview with sample values" sandbox="" srcDoc={applySampleValues(preview.html, tags)} className="mx-auto block h-full min-h-[480px] border border-line bg-surface" style={{ width: previewWidth === 'desktop' ? 680 : 375, maxWidth: '100%' }} />
             </div>
             <p className="border-t border-line px-4 py-2 text-xs text-ink-500">Tags are filled with their sample values. The HTML that is sent is rendered by the server when you save.</p>
           </div>

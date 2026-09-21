@@ -13,13 +13,17 @@ from rest_framework.views import APIView
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
 from apps.campaigns.models import Campaign, CampaignRun
-from apps.delivery.engine import dispatch, receipts, runs
+import re
+
+from apps.delivery.engine import dispatch, dispatch_sms, receipts, runs
 from apps.delivery.models import DeliveryProvider, SenderProfile
-from apps.delivery.providers import EmailMessage, Outcome, ProviderError, registry
+from apps.delivery.providers import EmailMessage, Outcome, ProviderError, SmsMessage, registry
 from apps.platform_ops import crypto, params
 from apps.tenants import context
 
 WEBHOOK_SALT = "cep.delivery.webhook"
+E164 = re.compile(r"^\+[1-9][0-9]{7,14}$")
+SENDER_ID = re.compile(r"^(\+[1-9][0-9]{7,14}|[0-9]{3,8}|[A-Za-z0-9 ]{3,11})$")          # long number, short code, alphanumeric sender
 MANAGE = [IsAuthenticated, SameTenant, HasPermissionCode.for_("provider.edit")]
 
 
@@ -93,7 +97,7 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return DeliveryProvider.objects.filter(tenant_id=context.require().tenant_id, deleted_at__isnull=True, channel="EMAIL").order_by("name")
+        return DeliveryProvider.objects.filter(tenant_id=context.require().tenant_id, deleted_at__isnull=True).order_by("channel", "name")
 
     def get_serializer_context(self):
         return {**super().get_serializer_context(), "tenant_code": self.request.tenant["code"]}
@@ -108,15 +112,17 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
         if secret:
             extra["secret_enc"] = crypto.encrypt(secret)
         tenant_id = context.require().tenant_id
-        if serializer.validated_data.get("is_default"):
-            DeliveryProvider.objects.filter(tenant_id=tenant_id, channel="EMAIL", is_default=True).exclude(pk=getattr(serializer.instance, "pk", None)).update(is_default=False)
+        channel = extra.get("channel") or serializer.instance.channel
+        if serializer.validated_data.get("is_default"):                     # one default engine per channel
+            DeliveryProvider.objects.filter(tenant_id=tenant_id, channel=channel, is_default=True).exclude(pk=getattr(serializer.instance, "pk", None)).update(is_default=False)
         return serializer.save(**extra)
 
     def perform_create(self, serializer):
         tenant_id = context.require().tenant_id
         if DeliveryProvider.objects.filter(tenant_id=tenant_id, name=serializer.validated_data["name"]).exists():
             raise ValidationError({"name": "A provider with this name already exists (or existed). Choose another name."})
-        self._save(serializer, tenant_id=tenant_id, channel="EMAIL", created_by_id=self.request.user.pk)
+        channel = registry.adapter_class(serializer.validated_data["provider_type"]).channel          # EMAIL, or SMS for text engines (they carry MMS too)
+        self._save(serializer, tenant_id=tenant_id, channel=channel, created_by_id=self.request.user.pk)
 
     def perform_update(self, serializer):
         self._save(serializer, updated_by_id=self.request.user.pk)
@@ -153,7 +159,8 @@ class SenderProfileWriteSerializer(serializers.ModelSerializer):
         model = SenderProfile
         fields = ("id", "delivery_provider", "display_name", "channel", "from_address", "reply_to_address", "sender_id", "verification_status", "is_default",
                   "provider_type", "provider_name")
-        read_only_fields = ("channel", "sender_id", "verification_status")
+        read_only_fields = ("channel", "verification_status")
+        extra_kwargs = {"from_address": {"required": False, "allow_null": True, "allow_blank": True}, "sender_id": {"required": False, "allow_null": True, "allow_blank": True}}
 
     def validate_delivery_provider(self, provider):
         if str(provider.tenant_id) != context.require().tenant_id or provider.deleted_at is not None:
@@ -164,8 +171,23 @@ class SenderProfileWriteSerializer(serializers.ModelSerializer):
 
     def validate_from_address(self, value):
         value = (value or "").strip().lower()
-        serializers.EmailField().run_validation(value)
-        return value
+        if value:
+            serializers.EmailField().run_validation(value)
+        return value or None
+
+    def validate(self, attrs):
+        provider = attrs.get("delivery_provider") or getattr(self.instance, "delivery_provider", None)
+        current = lambda name: attrs.get(name, getattr(self.instance, name, None))         # noqa: E731
+        if provider is not None and registry.adapter_class(provider.provider_type).channel == "SMS":
+            sender_id = (current("sender_id") or "").strip()
+            if not SENDER_ID.match(sender_id):
+                raise serializers.ValidationError({"sender_id": "Enter the number texts come from: a long number (+14045550100), a short code (55123) or an alphanumeric sender (up to 11 characters)."})
+            attrs.update(sender_id=sender_id, from_address=None, reply_to_address=None)
+        else:
+            if not current("from_address"):
+                raise serializers.ValidationError({"from_address": "Enter the address email comes from."})
+            attrs["sender_id"] = None
+        return attrs
 
     def validate_reply_to_address(self, value):
         value = (value or "").strip().lower()
@@ -183,19 +205,20 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return SenderProfile.objects.filter(tenant_id=context.require().tenant_id, deleted_at__isnull=True, channel="EMAIL").select_related("delivery_provider").order_by("display_name")
+        return SenderProfile.objects.filter(tenant_id=context.require().tenant_id, deleted_at__isnull=True).select_related("delivery_provider").order_by("channel", "display_name")
 
-    def _default(self, serializer):
+    def _default(self, serializer, channel):
         if serializer.validated_data.get("is_default"):
-            SenderProfile.objects.filter(tenant_id=context.require().tenant_id, channel="EMAIL", is_default=True).exclude(pk=getattr(serializer.instance, "pk", None)).update(is_default=False)
+            SenderProfile.objects.filter(tenant_id=context.require().tenant_id, channel=channel, is_default=True).exclude(pk=getattr(serializer.instance, "pk", None)).update(is_default=False)
 
     def perform_create(self, serializer):
-        self._default(serializer)
-        serializer.save(tenant_id=context.require().tenant_id, channel="EMAIL", verification_status="PENDING", created_by_id=self.request.user.pk)
+        channel = registry.adapter_class(serializer.validated_data["delivery_provider"].provider_type).channel
+        self._default(serializer, channel)
+        serializer.save(tenant_id=context.require().tenant_id, channel=channel, verification_status="PENDING", created_by_id=self.request.user.pk)
 
     def perform_update(self, serializer):
-        self._default(serializer)
-        changed_address = "from_address" in serializer.validated_data and serializer.validated_data["from_address"] != serializer.instance.from_address
+        self._default(serializer, serializer.instance.channel)
+        changed_address = any(name in serializer.validated_data and serializer.validated_data[name] != getattr(serializer.instance, name) for name in ("from_address", "sender_id"))
         if registry.adapter_class(serializer.instance.delivery_provider.provider_type).manageable is False:
             raise Conflict("This sender follows Settings -> Email server. Change it there.")
         serializer.save(updated_by_id=self.request.user.pk, **({"verification_status": "PENDING"} if changed_address else {}))
@@ -210,12 +233,17 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
     def verify(self, request, pk=None, version=None):
         """Sends a real message from this address through its provider. Accepted by the provider = verified for publishing."""
         sender = self.get_object()
-        to = str(request.data.get("to") or getattr(request.user, "email", "") or "").strip()
+        texts = registry.adapter_class(sender.delivery_provider.provider_type).channel == "SMS"
+        to = str(request.data.get("to") or ("" if texts else getattr(request.user, "email", "")) or "").strip()
+        if texts and not E164.match(to):
+            raise ValidationError({"to": "Enter the mobile number the verification text should go to, with country code: +14045550100."})
         if not to:
             raise ValidationError({"to": "Enter the address the test message should go to."})
         try:
             with registry.for_provider(sender.delivery_provider) as provider:
-                result = provider.send(EmailMessage(
+                result = provider.send(SmsMessage(to_number=to, from_sender=sender.sender_id or "", tag="verification",
+                                                  text=f"{settings.EMAIL_PRODUCT_NAME}: this text confirms that {sender.sender_id} can send through {sender.delivery_provider.name}.",
+                                                  idempotency_key=f"verify:{sender.pk}:{timezone.now().timestamp():.0f}")) if texts else provider.send(EmailMessage(
                     to_email=to, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                     subject=f"[{settings.EMAIL_PRODUCT_NAME}] Sender verification", idempotency_key=f"verify:{sender.pk}:{timezone.now().timestamp():.0f}", tag="verification",
                     text=f"This message confirms that {sender.from_address} can send through {sender.delivery_provider.name}.",
@@ -229,7 +257,7 @@ class SenderProfileManageViewSet(viewsets.ModelViewSet):
 
 # ------------------------------------------------------------------------------------------------------------ campaigns: test send, results
 class SendTestSerializer(serializers.Serializer):
-    to = serializers.ListField(child=serializers.EmailField(), min_length=1, max_length=5)
+    to = serializers.ListField(child=serializers.CharField(max_length=254), min_length=1, max_length=5)
 
 
 class CampaignSendTestView(APIView):
@@ -249,8 +277,13 @@ class CampaignSendTestView(APIView):
             missing["sender_profile"] = "Choose a sender first."
         if missing:
             raise ValidationError(missing)
+        texts = runs.family(campaign) == "SMS"
+        to = [item.strip() for item in form.validated_data["to"]]
+        bad = [item for item in to if not (E164.match(item) if texts else re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", item))]
+        if bad:
+            raise ValidationError({"to": f"Not a {'mobile number with country code (+14045550100)' if texts else 'valid email address'}: {', '.join(bad)}"})
         try:
-            return Response({"results": dispatch.send_test(campaign.tenant_id, campaign, form.validated_data["to"])})
+            return Response({"results": (dispatch_sms if texts else dispatch).send_test(campaign.tenant_id, campaign, to)})
         except ProviderError as exc:
             raise Conflict(str(exc)) from None
 
@@ -329,3 +362,22 @@ class ReceiptSendView(APIView):
                 body["errors"] = {exc.field: [str(exc)]}
             return Response(body, status=exc.status, content_type="application/problem+json")
         return Response(result, status=200 if result["duplicate"] else 201)
+
+
+# ------------------------------------------------------------------------------------------------------------ replies to texts
+class SmsInboundView(APIView):
+    """What people texted back: STOP / START / HELP and free replies, newest first. ?campaign=<id> narrows it to one campaign."""
+    permission_classes = [IsAuthenticated, HasPermissionCode.for_("campaign.view")]
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        from apps.delivery.engine import session
+        campaign = request.query_params.get("campaign")
+        with session.connection().cursor() as cursor:
+            cursor.execute("""SELECT i.id, i.from_number, i.to_number, i.body, i.keyword, i.action, i.party_id, i.campaign_id, i.received_at,
+                                     (SELECT trim(concat_ws(' ', c.first_name, c.last_name)) FROM customer_master c WHERE c.tenant_id = i.tenant_id AND c.party_id = i.party_id)
+                                FROM sms_inbound_message i WHERE i.tenant_id = %s AND (%s::uuid IS NULL OR i.campaign_id = %s::uuid)
+                               ORDER BY i.received_at DESC LIMIT 200""", [context.require().tenant_id, campaign or None, campaign or None])
+            rows = cursor.fetchall()
+        return Response([{"id": r[0], "from_number": r[1], "to_number": r[2], "body": r[3], "keyword": r[4], "action": r[5], "party_id": r[6],
+                          "campaign": r[7] and str(r[7]), "received_at": r[8], "name": r[9] or None} for r in rows])

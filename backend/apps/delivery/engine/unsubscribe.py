@@ -33,27 +33,48 @@ def headers_for(token: str) -> dict[str, str]:
 
 
 def opt_out(*, tenant_id, party_id: str, email: str = "", campaign_id=None, run_id=None, method: str = "UNSUBSCRIBE_LINK", evidence: dict | None = None,
-            execution_id: int | None = None) -> bool:
-    """Records the opt-out (append-only consent_record) and updates the current state. Returns False when already opted out."""
-    source = "COMPLAINT" if method == "COMPLAINT" else "UNSUBSCRIBE_LINK"
+            execution_id: int | None = None, channel: str = "EMAIL") -> bool:
+    """Records the opt-out (append-only consent_record) and updates the current state. Returns False when already opted out.
+    method: UNSUBSCRIBE_LINK | COMPLAINT | SMS_STOP. For texts pass channel='SMS' (and again 'MMS': a STOP covers both)."""
+    source = method if method in ("COMPLAINT", "SMS_STOP") else "UNSUBSCRIBE_LINK"
+    reason = {"COMPLAINT": "COMPLAINT", "SMS_STOP": "SMS_STOP"}.get(method, "UNSUBSCRIBED")
+    execution_column = "mailer_execution_id" if channel == "EMAIL" else "sms_execution_id"
     now = timezone.now()
     with session.connection().cursor() as cursor:
-        cursor.execute("SELECT consent_status FROM consent_suppression WHERE tenant_id = %s AND party_id = %s AND channel = 'EMAIL'", [str(tenant_id), party_id])
+        cursor.execute("SELECT consent_status FROM consent_suppression WHERE tenant_id = %s AND party_id = %s AND channel = %s", [str(tenant_id), party_id, channel])
         row = cursor.fetchone()
         if row and row[0] == "OPTED_OUT":
             return False
-        cursor.execute("""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, campaign_id, campaign_run_id, mailer_execution_id, occurred_at)
-                          VALUES (%s, %s, 'EMAIL', 'OPT_OUT', %s, %s::jsonb, %s, %s, %s, %s) RETURNING id""",
-                       [str(tenant_id), party_id, source, _json({"email": email, **(evidence or {})}), campaign_id and str(campaign_id), run_id and str(run_id), execution_id, now])
+        cursor.execute(f"""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, campaign_id, campaign_run_id, {execution_column}, occurred_at)
+                           VALUES (%s, %s, %s, 'OPT_OUT', %s, %s::jsonb, %s, %s, %s, %s) RETURNING id""",
+                       [str(tenant_id), party_id, channel, source, _json({"email": email, **(evidence or {})} if channel == "EMAIL" else (evidence or {})),
+                        campaign_id and str(campaign_id), run_id and str(run_id), execution_id, now])
         record_id = cursor.fetchone()[0]
-        reason = "COMPLAINT" if method == "COMPLAINT" else "UNSUBSCRIBED"
         cursor.execute("""INSERT INTO consent_suppression (tenant_id, party_id, channel, consent_status, opted_out_at, opt_out_method, marketable, marketable_reason,
                                                           last_consent_record_id, source_system, updated_at)
-                          VALUES (%s, %s, 'EMAIL', 'OPTED_OUT', %s, %s, FALSE, %s, %s, 'CEP', %s)
+                          VALUES (%s, %s, %s, 'OPTED_OUT', %s, %s, FALSE, %s, %s, 'CEP', %s)
                           ON CONFLICT (tenant_id, party_id, channel) DO UPDATE
                              SET consent_status = 'OPTED_OUT', opted_out_at = EXCLUDED.opted_out_at, opt_out_method = EXCLUDED.opt_out_method, marketable = FALSE,
                                  marketable_reason = EXCLUDED.marketable_reason, last_consent_record_id = EXCLUDED.last_consent_record_id, updated_at = EXCLUDED.updated_at""",
-                       [str(tenant_id), party_id, now, method, reason, record_id, now])
+                       [str(tenant_id), party_id, channel, now, method, reason, record_id, now])
+    return True
+
+
+def opt_in(*, tenant_id, party_id: str, channel: str, evidence: dict | None = None, execution_id: int | None = None) -> bool:
+    """START / UNSTOP: the person asks for texts again. Returns False when they were not opted out."""
+    now = timezone.now()
+    with session.connection().cursor() as cursor:
+        cursor.execute("SELECT consent_status FROM consent_suppression WHERE tenant_id = %s AND party_id = %s AND channel = %s", [str(tenant_id), party_id, channel])
+        row = cursor.fetchone()
+        if not row or row[0] != "OPTED_OUT":
+            return False
+        cursor.execute("""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, sms_execution_id, occurred_at)
+                          VALUES (%s, %s, %s, 'RESUBSCRIBE', 'SMS_STOP', %s::jsonb, %s, %s) RETURNING id""",
+                       [str(tenant_id), party_id, channel, _json(evidence or {}), execution_id, now])
+        record_id = cursor.fetchone()[0]
+        cursor.execute("""UPDATE consent_suppression SET consent_status = 'OPTED_IN', opted_in_at = %s, opted_out_at = NULL, opt_out_method = NULL, marketable = NOT suppressed,
+                                 marketable_reason = NULL, last_consent_record_id = %s, updated_at = %s
+                           WHERE tenant_id = %s AND party_id = %s AND channel = %s""", [now, record_id, now, str(tenant_id), party_id, channel])
     return True
 
 

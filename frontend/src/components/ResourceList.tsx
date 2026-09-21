@@ -58,7 +58,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
             onChange={(event) => setSearch(event.target.value)}
             placeholder={`Search ${title.toLowerCase()}`}
             aria-label={`Search ${title.toLowerCase()}`}
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm sm:w-64"
+            className="h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm sm:w-64"
           />
         )}
         {filters.map((filter) => (
@@ -67,7 +67,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
             <select
               value={selected[filter.param] ?? ''}
               onChange={(event) => setSelected((current) => ({ ...current, [filter.param]: event.target.value }))}
-              className="rounded-lg border border-line bg-surface px-2.5 py-2 text-sm text-ink-900"
+              className="h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900"
             >
               <option value="">All</option>
               {filter.options.map((option) => (
@@ -84,7 +84,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
       {list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
       ) : list.isPending ? (
-        <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-5 py-10 text-sm text-ink-500">
+        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-10 text-sm text-ink-500">
           <Spinner /> Loading {title.toLowerCase()}
         </div>
       ) : list.rows.length === 0 ? (
@@ -114,7 +114,7 @@ function PagerButton({ children, disabled, onClick }: { children: ReactNode; dis
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+      className="h-8 rounded-sm border border-line bg-surface px-3 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300"
     >
       {children}
     </button>

@@ -15,7 +15,7 @@ from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from apps.delivery.engine import events, session, unsubscribe
+from apps.delivery.engine import events, inbound, session, unsubscribe
 from apps.delivery.models import DeliveryProvider
 from apps.delivery.providers import ProviderError, registry
 from apps.tenants import context
@@ -47,18 +47,29 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     except ValueError:
         return JsonResponse({"title": "The body is not JSON", "status": 400}, status=400)
 
+    texts = adapter.channel == "SMS"
     outcome = {"received": 0, "applied": 0, "ignored": 0, "unmatched": 0, "failed": 0}
+    if texts:                                               # what people texted back: STOP / START / HELP and free replies
+        outcome["inbound"] = 0
+        for message in adapter.parse_inbound(payload):
+            try:
+                with session.tx():
+                    inbound.handle(tenant_id, provider.provider_type, message)
+                outcome["inbound"] += 1
+            except Exception:                               # noqa: BLE001
+                log.exception("inbound text from %s could not be handled", message.from_number)
+                outcome["failed"] += 1
     for event in adapter.parse_webhook(payload):
         outcome["received"] += 1
         with session.connection().cursor() as cursor:
             cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload)
-                              VALUES (%s, %s, 'MAILER', %s, %s, %s::jsonb) RETURNING id, received_at""",
-                           [tenant_id, provider.provider_type, (event.idempotency_key or event.provider_message_id or "unknown")[:200], event.event_type.value,
+                              VALUES (%s, %s, %s, %s, %s, %s::jsonb) RETURNING id, received_at""",
+                           [tenant_id, provider.provider_type, "SMS" if texts else "MAILER", (event.idempotency_key or event.provider_message_id or "unknown")[:200], event.event_type.value,
                             json.dumps(event.raw, default=str)])
             event_id, received_at = cursor.fetchone()
         try:
             with session.tx():                              # a savepoint: one bad event must not undo the others
-                result = events.apply(tenant_id, event)
+                result = events.apply_sms(tenant_id, event) if texts else events.apply(tenant_id, event)
             status = "PROCESSED"
         except Exception:                                   # noqa: BLE001
             log.exception("webhook event %s could not be applied", event_id)

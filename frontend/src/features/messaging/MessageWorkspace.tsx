@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ArrowLeft, X } from 'lucide-react'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
@@ -43,7 +44,7 @@ const MAX_CHARS = 1600
 const MMS_TYPES = ['image/jpeg', 'image/png', 'image/gif']
 const MMS_WARN_BYTES = 600 * 1024
 const MMS_MAX_BYTES = 1024 * 1024
-const NOTICE_TONE = { ok: 'border-emerald-200 bg-emerald-50 text-emerald-900', warn: 'border-amber-200 bg-amber-50 text-amber-900', error: 'border-red-200 bg-red-50 text-red-800' }
+const NOTICE_TONE = { ok: 'border-success bg-surface-subtle text-success-text', warn: 'border-warning bg-warning-bg text-warning-text', error: 'border-danger bg-danger-bg text-danger-text' }
 
 const kb = (bytes: number) => `${Math.round(bytes / 1024)} KB`
 const asMedia = (asset: MediaAsset): NonNullable<Media> => ({
@@ -196,19 +197,19 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     }
   }
 
-  const counterTone = tooLong ? 'text-red-700' : metrics.segments > 3 ? 'text-amber-700' : 'text-ink-700'
+  const counterTone = tooLong ? 'text-danger-text' : metrics.segments > 3 ? 'text-warning-text' : 'text-ink-700'
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <header className="border-b border-line bg-surface px-4 py-2.5">
         <div className="flex flex-wrap items-center gap-3">
-          <Link to={backTo} className="text-sm font-medium text-brand-700 hover:underline" onClick={(event) => {
+          <Link to={backTo} className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline" onClick={(event) => {
             if (dirty && !window.confirm('Leave without saving your changes?')) event.preventDefault()
           }}>
-            ← Templates
+            <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
           </Link>
           <h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1>
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-ink-700">{channel}</span>
+          <span className="rounded-md bg-line-subtle px-1.5 py-0.5 text-xs font-medium text-ink-700">{channel}</span>
           <StatusBadge status={currentStatus} />
           <span className="text-xs text-ink-500">
             {saved.shown === 0 ? 'Not saved yet' : `Version ${saved.shown}${saved.shown !== saved.version ? ` of ${saved.version}` : ''}`}
@@ -223,7 +224,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             )}
             {!readOnly && (
               <button type="button" className={buttonPrimary} disabled={!dirty || tooLong || !body.trim() || busy !== null} onClick={() => void save()}>
-                {busy === 'save' && <Spinner className="h-4 w-4 border-white/40 border-t-white" />} Save
+                {busy === 'save' && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />} Save
               </button>
             )}
           </div>
@@ -236,7 +237,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 <ul className="mt-1 list-disc space-y-0.5 pl-5">{notice.items.map((item) => <li key={item}>{item}</li>)}</ul>
               )}
             </div>
-            <button type="button" aria-label="Dismiss" className="font-semibold opacity-70 hover:opacity-100" onClick={() => setNotice(null)}>×</button>
+            <button type="button" aria-label="Dismiss" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-line-subtle" onClick={() => setNotice(null)}><X size={16} strokeWidth={1.5} aria-hidden /></button>
           </div>
         )}
       </header>
@@ -244,19 +245,19 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
       <div className="mx-auto grid w-full max-w-6xl flex-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="min-w-0 space-y-5">
           {isMms && (
-            <div className="rounded-xl border border-line bg-surface p-5">
+            <div className="rounded-lg border border-line bg-surface p-5">
               <label htmlFor="mms-subject" className="block text-sm font-medium text-ink-700">Subject <span className="font-normal text-ink-500">(optional, shown by some phones)</span></label>
               <input id="mms-subject" value={subject} maxLength={80} disabled={readOnly} onChange={(event) => setSubject(event.target.value)}
-                className={`mt-1 w-full rounded-lg border bg-surface px-3 py-2 text-sm ${fieldErrors.subject_line ? 'border-red-400' : 'border-line'}`} />
+                className={`mt-1 h-10 w-full rounded-sm border bg-surface px-3 text-sm ${fieldErrors.subject_line ? 'border-danger' : 'border-line'}`} />
             </div>
           )}
 
-          <div className="rounded-xl border border-line bg-surface p-5">
+          <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label htmlFor="sms-body" className="text-sm font-medium text-ink-700">Message</label>
               {!readOnly && tagGroups.length > 0 && (
                 <select aria-label="Insert personalization tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
-                  className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink-900">
+                  className="h-8 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900">
                   <option value="">{'{{ }}'} Insert tag</option>
                   {tagGroups.map((group) => (
                     <optgroup key={group.kind} label={group.label}>
@@ -270,25 +271,25 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               aria-invalid={Boolean(fieldErrors.sms_body) || tooLong || undefined} aria-describedby="sms-counter"
               onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }}
               placeholder="Northwind: Hi {{first_name}}, ... Reply STOP to opt out."
-              className={`mt-2 w-full rounded-lg border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-red-400' : 'border-line'}`} />
+              className={`mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line'}`} />
             <div id="sms-counter" aria-live="polite" className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${counterTone}`}>
               <span className="font-medium tabular-nums">{metrics.units} characters</span>
               <span className="tabular-nums">{metrics.segments} part{metrics.segments === 1 ? '' : 's'} · {metrics.perSegment} per part</span>
               <span className="tabular-nums text-ink-500">{metrics.remaining} left in this part</span>
-              <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-ink-700">{metrics.encoding}</span>
+              <span className="rounded-md bg-line-subtle px-1.5 py-0.5 text-xs font-medium text-ink-700">{metrics.encoding}</span>
               {used.length > 0 && <span className="text-xs text-ink-500">estimated with sample values; real lengths vary per recipient</span>}
             </div>
-            {tooLong && <p className="mt-1 text-xs font-medium text-red-700">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
-            {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-red-700">{fieldErrors.sms_body}</p>}
+            {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
+            {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
             {metrics.encoding === 'UCS-2' && canBePlain(metrics.nonGsmCharacters) && !readOnly && (
-              <button type="button" className="mt-3 text-sm font-medium text-brand-700 underline underline-offset-2" onClick={() => setBody(plainPunctuation(body))}>
+              <button type="button" className="mt-3 text-sm font-medium text-brand-800 underline underline-offset-2" onClick={() => setBody(plainPunctuation(body))}>
                 Replace curly quotes, long dashes and ellipses with plain ones
               </button>
             )}
           </div>
 
           {isMms && (
-            <div className="rounded-xl border border-line bg-surface p-5">
+            <div className="rounded-lg border border-line bg-surface p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-medium text-ink-700">Picture</h2>
                 {!readOnly && (
@@ -302,7 +303,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 )}
               </div>
               <p className="mt-1 text-xs text-ink-500">JPEG, PNG or GIF, up to 1 MB. Under 600 KB is delivered reliably by every carrier.</p>
-              {fieldErrors.media_asset && <p className="mt-2 text-xs font-medium text-red-700">{fieldErrors.media_asset}</p>}
+              {fieldErrors.media_asset && <p className="mt-2 text-xs font-medium text-danger-text">{fieldErrors.media_asset}</p>}
               {media ? (
                 <div className="mt-3 flex items-center gap-3 rounded-lg border border-line p-2.5">
                   <img src={media.url} alt="" className="h-16 w-16 rounded-md object-cover" />
@@ -310,7 +311,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                     <p className="truncate font-medium text-ink-900">{media.file_name}</p>
                     <p className="text-xs text-ink-500">{kb(media.byte_size)}{media.width_px ? ` · ${media.width_px} × ${media.height_px}` : ''}</p>
                   </div>
-                  {!readOnly && <button type="button" className="text-sm font-medium text-red-700 hover:underline" onClick={() => setMedia(null)}>Remove</button>}
+                  {!readOnly && <button type="button" className="text-sm font-medium text-danger-text hover:underline" onClick={() => setMedia(null)}>Remove</button>}
                 </div>
               ) : (
                 <p className="mt-3 rounded-lg border border-dashed border-ink-300 px-4 py-6 text-center text-sm text-ink-500">No picture attached.</p>
@@ -325,7 +326,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                         <li key={asset.id}>
                           <button type="button" aria-label={`Use ${asset.file_name}`} aria-pressed={media?.id === asset.id}
                             onClick={() => { setMedia(asMedia(asset)); setPickerOpen(false) }}
-                            className={`block w-full overflow-hidden rounded-lg border-2 ${media?.id === asset.id ? 'border-brand-600' : 'border-transparent hover:border-brand-500'}`}>
+                            className={`block w-full overflow-hidden rounded-lg border-2 ${media?.id === asset.id ? 'border-brand-600' : 'border-transparent hover:border-brand-600'}`}>
                             <img src={asset.url} alt="" className="aspect-square w-full object-cover" />
                           </button>
                         </li>
@@ -338,14 +339,14 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
           )}
 
           {warnings.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+            <div className="rounded-lg border border-warning bg-warning-bg px-5 py-4 text-sm text-warning-text">
               <p className="font-medium">Before sending</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">{warnings.map((item) => <li key={item}>{item}</li>)}</ul>
             </div>
           )}
 
           {showHistory && (
-            <div className="rounded-xl border border-line bg-surface p-5">
+            <div className="rounded-lg border border-line bg-surface p-5">
               <h2 className="text-sm font-semibold text-ink-900">Version history</h2>
               <p className="mt-1 text-xs text-ink-500">Every save is a new version. Loading an old one never deletes anything: saving it creates the next version.</p>
               {versions === null ? (
@@ -359,7 +360,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                       <span><span className="font-medium text-ink-900">Version {version.version_number}</span>
                         <span className="ml-2 text-xs text-ink-500">{formatDateTime(version.saved_at)}{version.saved_by ? ` · ${version.saved_by}` : ''}</span></span>
                       <button type="button" disabled={busy !== null || version.version_number === saved.shown} onClick={() => void loadVersion(version.version_number)}
-                        className="text-xs font-medium text-brand-700 hover:underline disabled:text-ink-500 disabled:no-underline">
+                        className="text-xs font-medium text-brand-800 hover:underline disabled:text-ink-500 disabled:no-underline">
                         {version.version_number === saved.shown ? 'Open' : 'Load'}
                       </button>
                     </li>
@@ -371,16 +372,16 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         </section>
 
         <aside aria-label="Preview" className="lg:sticky lg:top-6 lg:self-start">
-          <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-4 border-slate-800 bg-white p-3 shadow-lg">
+          <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-4 border-slate-800 bg-surface p-3">
             <div className="mb-3 border-b border-line pb-2 text-center">
               <p className="text-sm font-semibold text-ink-900">{senderName}</p>
               <p className="text-xs text-ink-500">Text message</p>
             </div>
             <div className="min-h-[300px] space-y-1.5 px-1 pb-3">
-              {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-2xl rounded-bl-md object-cover" />}
+              {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />}
               {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-700">{subject}</p>}
               {sample.trim() ? (
-                <p data-testid="sms-preview" className="max-w-[85%] rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900">{sample}</p>
+                <p data-testid="sms-preview" className="max-w-[85%] rounded-lg rounded-bl-md bg-line-subtle px-3.5 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900">{sample}</p>
               ) : (
                 <p className="px-2 pt-10 text-center text-xs text-ink-500">Your message appears here as one recipient would see it.</p>
               )}

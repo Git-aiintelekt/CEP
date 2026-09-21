@@ -46,6 +46,22 @@ class EmailMessage:
         return f"{self.to_name} <{self.to_email}>" if self.to_name else self.to_email
 
 
+@dataclass
+class SmsMessage:
+    to_number: str                                              # E.164: +14045550001
+    from_sender: str                                            # the workspace's short code or long number
+    text: str
+    media_url: str | None = None                                # set = MMS
+    subject: str = ""                                           # MMS only
+    idempotency_key: str = ""
+    tag: str = ""                                               # campaign code
+    metadata: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def is_mms(self) -> bool:
+        return bool(self.media_url)
+
+
 class Outcome(str, Enum):
     ACCEPTED = "ACCEPTED"      # the provider took the message: mailer_execution -> SUBMITTED
     REJECTED = "REJECTED"      # permanent, this message only (bad address, suppressed at the provider): -> FAILED, never retried
@@ -98,6 +114,17 @@ class DeliveryEvent:
     raw: dict = field(default_factory=dict)
 
 
+@dataclass
+class InboundMessage:
+    """A text a person sent to the workspace's number: STOP, START, HELP or a free reply."""
+    from_number: str
+    text: str
+    to_number: str = ""
+    provider_message_id: str = ""
+    received_at: datetime | None = None
+    raw: dict = field(default_factory=dict)
+
+
 # ------------------------------------------------------------------------------------------------------------ describing a provider
 @dataclass(frozen=True)
 class ConfigField:
@@ -119,6 +146,7 @@ class ProviderError(Exception):
 
 
 class EmailProvider(ABC):
+    channel: str = "EMAIL"              # EMAIL adapters carry email; SMS adapters carry SMS and (supports_mms) MMS
     provider_type: str = ""             # value of delivery_provider.provider_type
     label: str = ""                     # shown in the product
     description: str = ""
@@ -174,3 +202,22 @@ class EmailProvider(ABC):
             if item.kind == "url" and config.get(item.key) and not str(config[item.key]).startswith("https://"):
                 errors[item.key] = f"{item.label} must be an https:// address."
         return errors
+
+
+class SmsProvider(EmailProvider):
+    """Text messages through an aggregator. Same life cycle, configuration, credential and webhook rules as EmailProvider;
+    `send` takes an SmsMessage, and `parse_inbound` translates what people text back.
+
+    Delivery receipts use the same DeliveryEvent vocabulary: DELIVERED; BOUNCED with bounce_type HARD for a number that
+    can never receive (invalid, landline, deactivated: the number is blocked) or SOFT for a temporary failure;
+    DROPPED when the aggregator refused to try."""
+    channel = "SMS"
+    supports_mms: bool = False
+    max_batch = 200
+
+    @abstractmethod
+    def send(self, message: SmsMessage) -> SendResult:       # type: ignore[override]
+        """Hand one message to the aggregator. REJECTED / RETRY for a per-message problem, ProviderError when nothing can be sent."""
+
+    def parse_inbound(self, payload) -> list[InboundMessage]:
+        return []

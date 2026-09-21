@@ -107,11 +107,11 @@ const templateColumns: Column<Template>[] = [
     header: 'Design',
     render: (row) =>
       DESIGNER_CHANNELS.includes(row.channel) ? (
-        <Link to={`/templates/${row.id}/design`} className="font-medium text-brand-700 hover:underline" onClick={(event) => event.stopPropagation()}>
+        <Link to={`/templates/${row.id}/design`} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
           Open designer
         </Link>
       ) : (
-        <Link to={`/templates/${row.id}/message`} className="font-medium text-brand-700 hover:underline" onClick={(event) => event.stopPropagation()}>
+        <Link to={`/templates/${row.id}/message`} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
           Open editor
         </Link>
       ),

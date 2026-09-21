@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",                           # thousands separators on the back-office pages
     "django.contrib.postgres",
     "rest_framework",
     "rest_framework_simplejwt",
@@ -212,6 +213,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 MEDIA_URL = "/media/"
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]                  # the back-office stylesheet (static/cep_admin)
+CEP_ENVIRONMENT = env("CEP_ENVIRONMENT", default="")       # label in the back-office header: Production, Staging, ...; empty = Local / Production by DEBUG
 
 # ---------------------------------------------------------------- i18n / misc
 LANGUAGE_CODE = "en-us"

@@ -35,9 +35,13 @@ WITH picked AS (                                          -- PARTY_ID_LAST_WINS 
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
                          WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(marketing)s
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, 'EMAIL') = 'EMAIL'))
-                           AND (SELECT count(*) FROM mailer_execution x
-                                 WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
-                                   AND x.created_at >= now() - make_interval(days => g.period_days)) >= g.max_messages
+                           AND ((SELECT count(*) FROM mailer_execution x
+                                  WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
+                                    AND x.created_at >= now() - make_interval(days => g.period_days))
+                                + CASE WHEN g.scope = 'GLOBAL' THEN                      -- a GLOBAL policy counts every message, texts included
+                                       (SELECT count(*) FROM sms_execution y
+                                         WHERE y.tenant_id = %(tenant)s AND y.party_id = r.party_id AND y.status NOT IN ('QUEUED', 'FAILED')
+                                           AND y.created_at >= now() - make_interval(days => g.period_days)) ELSE 0 END) >= g.max_messages
                          ORDER BY g.priority LIMIT 1) AS policy_id
       FROM resolved r
 ), judged AS (

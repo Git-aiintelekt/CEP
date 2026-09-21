@@ -235,6 +235,13 @@ def _message_media(state):
     return MediaAsset.objects.filter(pk=asset_id, deleted_at__isnull=True).first() if asset_id else None
 
 
+def message_media_url(template: TemplateMaster) -> str | None:
+    """Public address of the picture of an MMS template's latest version: what the aggregator fetches."""
+    state = TemplateDesignState.objects.filter(template=template).order_by("-version_number").first()
+    media = _message_media(state)
+    return (getattr(media, "cdn_url", None) or media.public_url or None) if media else None
+
+
 def message_payload(template: TemplateMaster, version: int | None = None) -> dict:
     latest = latest_content_version(template)
     number = version or latest

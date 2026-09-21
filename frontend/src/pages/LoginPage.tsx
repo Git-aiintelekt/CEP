@@ -2,16 +2,27 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { Spinner } from '@/components/States'
-import { api, ApiError } from '@/lib/api'
+import {
+  AuthAlert,
+  AuthField,
+  authButtonPrimary,
+  authButtonSecondary,
+  AuthHeading,
+  AuthLayout,
+  AuthLink,
+  AuthPasswordField,
+  AuthStep,
+} from '@/components/AuthLayout'
+import { api, ApiError, request } from '@/lib/api'
 import { tenantFromHost } from '@/lib/config'
+import { LOADING_HOLD_MS, loadingOverlay } from '@/lib/loadingOverlay'
 import type { AuthOptions } from '@/lib/types'
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) return 'Email or password is incorrect.'
+    if (error.status === 401) return 'Incorrect email or password. Try again.'
     if (error.status === 403) return error.message || 'This workspace signs in with single sign-on.'
-    if (error.status === 404) return 'That workspace does not exist. Check the tenant code.'
+    if (error.status === 404) return 'That workspace does not exist. Check the workspace code.'
     if (error.status === 429) return 'Too many attempts. Wait a minute and try again.'
     if (error.status === 503) return 'This workspace is being migrated. Try again in a few minutes.'
     return error.message
@@ -26,9 +37,10 @@ function takeSsoError(): string | null {
   return message
 }
 
-const field = 'mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink-900'
-const primary = 'flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60'
-const secondary = 'flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink-900 hover:bg-slate-50'
+/** How long the loader takes to fade before it unmounts and the shell takes over. */
+const LOADER_FADE_MS = 600 // TEMPORARY: slowed from 150 so the fade is easy to watch
+
+type Step = 'signin' | 'mfa' | 'reset' | 'sent'
 
 export function LoginPage() {
   const { status, tenant: rememberedTenant, login, verifyMfa } = useAuth()
@@ -37,15 +49,18 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const hostTenant = tenantFromHost()
+  const [step, setStep] = useState<Step>('signin')
   const [tenant, setTenant] = useState(hostTenant ?? rememberedTenant)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(takeSsoError)
+  const [resetError, setResetError] = useState<string | null>(null)
+  const [resentAt, setResentAt] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [options, setOptions] = useState<AuthOptions | null>(null)
   const [usePassword, setUsePassword] = useState(false)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
-  const [code, setCode] = useState('')
 
   // what this workspace offers (single sign-on); asked once the code stops changing
   useEffect(() => {
@@ -59,10 +74,23 @@ export function LoginPage() {
     }
   }, [tenant])
 
-  if (status === 'authenticated') return <Navigate to={from} replace />
+  if (status === 'authenticated' && !submitting) return <Navigate to={from} replace />
 
   const sso = options?.sso_enabled && options.workspace.toUpperCase() === tenant.trim().toUpperCase() ? options : null
   const passwordHidden = Boolean(sso?.sso_enforced) && !usePassword
+
+  /**
+   * Runs only once the server has accepted the credentials, so a wrong password or code never shows the animation:
+   * it goes straight to the message. Then navigate first and fade: the dashboard is mounted underneath by then, so the
+   * loader dissolves onto it instead of revealing this form again, while the shell's own settle runs alongside.
+   */
+  async function leaveForApp() {
+    loadingOverlay.show('Logging you in…')
+    await new Promise((resolve) => window.setTimeout(resolve, LOADING_HOLD_MS))
+    navigate(from, { replace: true })
+    loadingOverlay.fadeOut()
+    window.setTimeout(() => loadingOverlay.hide(), LOADER_FADE_MS)
+  }
 
   async function run(action: () => Promise<void>) {
     setError(null)
@@ -83,7 +111,8 @@ export function LoginPage() {
       if (pending) {
         setMfaToken(pending)
         setCode('')
-      } else navigate(from, { replace: true })
+        setStep('mfa')
+      } else await leaveForApp()
     })
   }
 
@@ -91,107 +120,200 @@ export function LoginPage() {
     event.preventDefault()
     void run(async () => {
       await verifyMfa(mfaToken as string, code.trim())
-      navigate(from, { replace: true })
+      await leaveForApp()
     })
   }
 
-  const alert = error && (
-    <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-      {error}
-    </p>
-  )
+  /**
+   * The endpoint that mints a reset link for an anonymous caller does not exist yet: today only an administrator can
+   * create one. Until it lands this 404s, and we say so rather than claiming an email is on its way.
+   */
+  async function sendResetLink() {
+    setResetError(null)
+    setSubmitting(true)
+    try {
+      await request<void>('/auth/forgot-password/', { method: 'POST', body: { email: email.trim() }, auth: false })
+      setStep('sent')
+      return true
+    } catch (caught) {
+      const missing = caught instanceof ApiError && (caught.status === 404 || caught.status === 405 || caught.status === 501)
+      setResetError(missing ? 'Password reset by email is not switched on yet. Ask your administrator to send you a link.' : messageFor(caught))
+      return false
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function onReset(event: FormEvent) {
+    event.preventDefault()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setResetError('Enter a valid email address')
+    void sendResetLink()
+  }
+
+  function goTo(next: Step) {
+    setStep(next)
+    setError(null)
+    setResetError(null)
+    setResentAt(null)
+    if (next === 'signin') {
+      setPassword('')
+      setMfaToken(null)
+    }
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-base font-bold text-white">C</span>
-          <div>
-            <p className="text-base font-semibold text-ink-900">Customer Engagement Platform</p>
-            <p className="text-sm text-ink-500">{mfaToken ? 'One more step' : 'Sign in to your workspace'}</p>
-          </div>
-        </div>
+    <AuthLayout>
+      {step === 'signin' && (
+        <AuthStep>
+          <AuthHeading title="Log in to CEP">Enter your email and password to continue.</AuthHeading>
+          {error && <AuthAlert>{error}</AuthAlert>}
 
-        {mfaToken ? (
-          <form onSubmit={onCode} className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
-            <label className="block text-sm font-medium text-ink-700">
-              Authentication code
-              <input
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                required
-                autoFocus
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="6 digits"
-                className={`${field} font-mono tracking-widest`}
-              />
-            </label>
-            <p className="mt-2 text-xs text-ink-500">Open your authenticator app for the current code. Lost your phone? Type one of your recovery codes instead.</p>
-            {alert}
-            <button type="submit" disabled={submitting} className={`mt-5 ${primary}`}>
-              {submitting && <Spinner className="h-4 w-4 border-white/40 border-t-white" />}
-              Verify
-            </button>
-            <button type="button" className="mt-3 w-full text-center text-sm font-medium text-brand-700 hover:underline" onClick={() => { setMfaToken(null); setPassword(''); setError(null) }}>
-              Start again
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={onPassword} className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <form onSubmit={onPassword} className="flex flex-col gap-5">
+            {/* only asked for when the address bar cannot say which workspace this is */}
             {!hostTenant && (
-              <label className="mb-4 block text-sm font-medium text-ink-700">
-                Workspace
-                <input
-                  value={tenant}
-                  onChange={(event) => setTenant(event.target.value)}
-                  required
-                  autoCapitalize="characters"
-                  placeholder="Tenant code, e.g. NWA"
-                  className={field}
-                />
-              </label>
+              <AuthField
+                label="Workspace"
+                value={tenant}
+                onChange={(event) => setTenant(event.target.value)}
+                required
+                autoCapitalize="characters"
+                placeholder="Workspace code, e.g. NWA"
+              />
             )}
 
             {sso && (
+              <a href={api.ssoStartUrl(tenant.trim(), from)} className={sso.sso_enforced ? authButtonPrimary : authButtonSecondary}>
+                Log in with {sso.sso_name}
+              </a>
+            )}
+
+            {passwordHidden ? (
+              <AuthLink onClick={() => setUsePassword(true)}>Administrator? Log in with a password</AuthLink>
+            ) : (
               <>
-                <a href={api.ssoStartUrl(tenant.trim(), from)} className={sso.sso_enforced ? primary : secondary}>
-                  Sign in with {sso.sso_name}
-                </a>
-                {passwordHidden ? (
-                  <button type="button" className="mt-4 w-full text-center text-sm font-medium text-brand-700 hover:underline" onClick={() => setUsePassword(true)}>
-                    Administrator? Sign in with a password
-                  </button>
-                ) : (
-                  <p className="my-4 flex items-center gap-3 text-xs text-ink-500 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">or</p>
+                {sso && (
+                  <p className="flex items-center gap-3 text-xs text-ink-700 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+                    or
+                  </p>
                 )}
+                <AuthField
+                  label="Email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="name@company.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  invalid={Boolean(error)}
+                />
+                <AuthPasswordField
+                  label="Password"
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  invalid={Boolean(error)}
+                  action={<AuthLink onClick={() => goTo('reset')}>Forgot password?</AuthLink>}
+                />
+                <button type="submit" disabled={submitting} className={authButtonPrimary}>
+                  Log In
+                </button>
               </>
-            )}
-
-            {!passwordHidden && (
-              <>
-                <label className="mb-4 block text-sm font-medium text-ink-700">
-                  Email
-                  <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="username" className={field} />
-                </label>
-                <label className="block text-sm font-medium text-ink-700">
-                  Password
-                  <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" className={field} />
-                </label>
-              </>
-            )}
-
-            {alert}
-
-            {!passwordHidden && (
-              <button type="submit" disabled={submitting} className={`mt-5 ${sso?.sso_enforced ? secondary : primary}`}>
-                {submitting && <Spinner className={`h-4 w-4 ${sso?.sso_enforced ? '' : 'border-white/40 border-t-white'}`} />}
-                Sign in
-              </button>
             )}
           </form>
-        )}
-      </div>
-    </div>
+
+          <p className="text-[13px] leading-normal text-ink-700">
+            By continuing you agree to CEP's Terms of Service and Privacy Policy.
+          </p>
+        </AuthStep>
+      )}
+
+      {step === 'mfa' && (
+        <AuthStep>
+          <AuthHeading title="Enter your code">
+            Open your authenticator app for the current code. Lost your phone? Type one of your recovery codes instead.
+          </AuthHeading>
+          {error && <AuthAlert>{error}</AuthAlert>}
+
+          <form onSubmit={onCode} className="flex flex-col gap-5">
+            <AuthField
+              label="Authentication code"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              required
+              autoFocus
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="6 digits"
+              className="cep-num tracking-widest"
+              invalid={Boolean(error)}
+            />
+            <button type="submit" disabled={submitting} className={authButtonPrimary}>
+              Verify
+            </button>
+          </form>
+
+          <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+        </AuthStep>
+      )}
+
+      {step === 'reset' && (
+        <AuthStep>
+          <AuthHeading title="Reset your password">Enter your email and we'll send a link to reset it.</AuthHeading>
+
+          {/* the address is checked below, so the browser's own bubble would only duplicate it */}
+          <form onSubmit={onReset} noValidate className="flex flex-col gap-5">
+            <AuthField
+              label="Email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="name@company.com"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setResetError(null)
+              }}
+              required
+              autoFocus
+              error={resetError ?? undefined}
+            />
+            <button type="submit" disabled={submitting} className={authButtonPrimary}>
+              Send reset link
+            </button>
+          </form>
+
+          <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+        </AuthStep>
+      )}
+
+      {step === 'sent' && (
+        <AuthStep>
+          <AuthHeading title="Check your email">
+            We sent a reset link to <span className="font-medium text-ink-900">{email.trim()}</span>. The link expires in 72 hours.
+          </AuthHeading>
+
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => void sendResetLink().then((ok) => ok && setResentAt(new Date().toISOString().slice(11, 16)))}
+              className={authButtonSecondary}
+            >
+              Resend link
+            </button>
+            {resetError && <AuthAlert>{resetError}</AuthAlert>}
+            {resentAt && <span className="text-[13px] text-ink-700">Link resent at {resentAt} UTC</span>}
+          </div>
+
+          <div className="border-t border-line pt-4">
+            <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+          </div>
+        </AuthStep>
+      )}
+
+    </AuthLayout>
   )
 }
