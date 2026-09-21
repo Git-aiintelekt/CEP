@@ -105,7 +105,8 @@ What is sent, to whom, when and why (BRD 6.3, 7, 15). The **Campaigns** page sho
 pages of 50 and bulk clone / archive. A campaign is set up in **seven steps**: basic info, audience (lists to send to *and* lists to exclude, with a live
 estimate: merged, one entry per person, today's governance check), template (with a preview), scheduling and delivery (now, scheduled, recurring, or a
 drip series, in the campaign's own time zone), targets and economics, test and preview, review and publish (the API's publish checks shown as a checklist
-first). Each send is a **run** of its campaign against a Campaign List frozen when the run starts, so a recurring or drip campaign stays one campaign
+first). A draft whose setup is not finished opens in the setup at the step it stopped at, from the list or from its own address; the campaign page opens once
+every step before the publish is done. Each send is a **run** of its campaign against a Campaign List frozen when the run starts, so a recurring or drip campaign stays one campaign
 with many runs and its results roll up. A campaign page has six tabs: overview, performance (numbers, rates, progress against targets, a curve over
 time), audience (the frozen list, who was left out and why, CSV export), content, settings and an activity log. Statuses are Draft, Test Published,
 Production Published and Scheduled (derived), then Active, Paused, Completed, Cancelled, Archived; the API says which actions each allows, and

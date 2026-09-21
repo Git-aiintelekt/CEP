@@ -37,6 +37,7 @@ EDITABLE = (S.DRAFT, S.TEST_PUBLISHED)
 LIVE = (S.PRODUCTION_PUBLISHED, S.ACTIVE)
 OPEN_RUN = ("SCHEDULED", "PREPARING", "SENDING", "PAUSED")
 WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
+SETUP_STEPS = 6                                         # the steps before Review & Publish
 
 # what the interface offers, by (display) status. Journey-generated campaigns are read-only (BRD 7.3): view and clone only.
 ACTIONS = {
@@ -91,6 +92,11 @@ def display_status(campaign) -> str:
         if upcoming is not None and upcoming > timezone.now():
             return "SCHEDULED"
     return campaign.status
+
+
+def setup_complete(campaign) -> bool:
+    """Every step before the publish was gone through. What is no longer a draft is past its setup by definition."""
+    return campaign.status not in EDITABLE or campaign.setup_step >= SETUP_STEPS
 
 
 def actions(campaign) -> list[str]:
@@ -351,7 +357,7 @@ def copy_name(tenant_id, name: str) -> str:
 def clone(campaign, user=None, code: str | None = None) -> Campaign:
     """Settings, lists and targets; never status, runs or results."""
     copied = ("campaign_type", "channel", "solicitation_type", "template_id", "sender_profile_id", "description", "tags", "send_type", "send_timezone", "recurring_config",
-              "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config")
+              "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config", "setup_step")
     values = {name: getattr(campaign, name) for name in copied}
     if campaign.campaign_type == Campaign.CampaignType.JOURNEY:                 # a copy is a campaign someone runs by hand
         values["campaign_type"] = Campaign.CampaignType.REGULAR_MARKETING

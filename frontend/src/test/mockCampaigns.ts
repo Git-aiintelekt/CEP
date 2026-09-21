@@ -12,17 +12,18 @@ const LABEL: Record<string, string> = {
 }
 
 /** the fields the API derives from the status: what a campaign shows as, and what can be done with it */
-export function derived(campaign: Pick<Campaign, 'status' | 'runs'>): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at'> {
+export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step'>): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
   const next = campaign.runs.filter((run) => !run.test_mode && run.status === 'SCHEDULED' && run.scheduled_at && new Date(run.scheduled_at).getTime() > Date.now())
     .map((run) => run.scheduled_at as string).sort()[0] ?? null
   const shown = campaign.status === 'PRODUCTION_PUBLISHED' && next ? 'SCHEDULED' : campaign.status
-  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status, actions: ACTIONS[shown] ?? [], next_run_at: next }
+  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status, actions: ACTIONS[shown] ?? [], next_run_at: next,
+           setup_complete: !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status) || campaign.setup_step >= 6 }
 }
 
 export const moduleDefaults = {
   excluded_lists: [] as string[], tags: [] as string[], send_type: 'IMMEDIATE' as const, send_timezone: null, recurring_config: null, drip_config: null, respect_governance: true,
   rate_limit_per_hour: null, timezone_optimization: false, targets: null, published_at: null, completed_at: null, archived_at: null, list_count: 1, audience_size: 90,
-  owner_name: 'Aby John', triggered_by: 'MANUAL' as const,
+  owner_name: 'Aby John', triggered_by: 'MANUAL' as const, setup_step: 6,
 }
 
 export const audienceEstimate: CampaignAudience = {

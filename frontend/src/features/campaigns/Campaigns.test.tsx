@@ -44,7 +44,7 @@ test('list: what is coming up, locked status wording, the action that fits each 
   const table = await screen.findByRole('table', { name: 'Campaigns' })
   const row = (name: string) => within(table).getByRole('link', { name }).closest('tr') as HTMLElement
   expect(within(row('Fall Launch')).getByText('Draft')).toBeTruthy()
-  expect(within(row('Fall Launch')).getByRole('link', { name: 'Continue setup' })).toBeTruthy()
+  expect(within(row('Fall Launch')).getByRole('link', { name: 'Edit' })).toBeTruthy()                 // a draft whose setup is finished; an unfinished one says Continue setup
   expect(within(row('Winter Preview')).getByText('Scheduled')).toBeTruthy()                          // stored as production published, shown as scheduled
   expect(within(row('Labor Day SMS Blast')).getByRole('link', { name: 'View results' })).toBeTruthy()
   expect(within(row('Welcome Series Email 1')).getByText('Journey-generated · not editable')).toBeTruthy()
@@ -119,9 +119,10 @@ test('setup, steps 1 to 4: the draft is created on the first Continue and saved 
   // 2. Audience
   expect(await screen.findByRole('heading', { name: 'Audience' })).toBeTruthy()
   const post = calls.find((call) => call.method === 'POST' && call.url.endsWith('/campaigns/'))
-  expect(post?.body).toMatchObject({ name: 'ab Holiday Preview', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: 'u1', tags: ['Holiday', 'vip'], send_type: 'IMMEDIATE' })
+  expect(post?.body).toMatchObject({ name: 'ab Holiday Preview', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: 'u1', tags: ['Holiday', 'vip'], send_type: 'IMMEDIATE', setup_step: 1 })
   expect(post?.body).not.toHaveProperty('row_version')
   expect(window.location.pathname).toBe('/campaigns/c-new/edit')
+  expect((screen.getByRole('button', { name: /Template/ }) as HTMLButtonElement).disabled).toBe(true)     // one step at a time
   await user.click(await screen.findByRole('radio', { name: 'Send to: Fall Master Audience' }))
   await user.click(screen.getByRole('radio', { name: 'Exclude: Georgia only' }))
   const estimate = await screen.findByLabelText('Audience estimate')
@@ -131,7 +132,7 @@ test('setup, steps 1 to 4: the draft is created on the first Continue and saved 
 
   // 3. Template: only what fits the channel; the preview is of the template picked here, saved or not
   expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ contact_lists: ['cl-master'], excluded_lists: ['cl-ga'], row_version: 2 })
+  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ contact_lists: ['cl-master'], excluded_lists: ['cl-ga'], row_version: 2, setup_step: 2 })
   const cards = await screen.findByRole('radiogroup', { name: 'Template' })
   expect(within(cards).queryByRole('radio', { name: /Fall SMS/ })).toBeNull()
   expect(within(cards).queryByRole('radio', { name: /Retired Email/ })).toBeNull()
@@ -151,7 +152,7 @@ test('setup, steps 1 to 4: the draft is created on the first Continue and saved 
   await user.click(screen.getByRole('button', { name: 'Save and continue' }))
   expect(await screen.findByRole('heading', { name: 'Targets & Economics' })).toBeTruthy()
   expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: 'snd-email', send_type: 'SCHEDULED', send_timezone: 'America/Chicago',
-    scheduled_at: '2099-11-02T15:00:00.000Z', respect_governance: true })
+    scheduled_at: '2099-11-02T15:00:00.000Z', respect_governance: true, setup_step: 4 })
 })
 
 test('setup, steps 5 to 7: targets, a test publish to colleagues, the checklist, and a production publish that asks once more', async () => {
@@ -242,6 +243,57 @@ test('setup: a drip campaign sends as a series of steps; an e-receipt needs no l
   expect(await screen.findByText('No contact list needed')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /Scheduling & Delivery/ }))
   expect(await screen.findByText('Sent when a purchase arrives')).toBeTruthy()
+})
+
+test('an unfinished setup opens where it stopped, from the list and from the campaign address; the campaign page opens once every step before the publish is done', async () => {
+  const half = () => makeCampaign({ id: 'c1', name: 'Fall Launch', status: 'DRAFT', setup_step: 2, template: null, template_name: null, sender_profile: null, sender_profile_name: null })
+  const calls = installMockApi({ campaigns: [half()] })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  const table = await screen.findByRole('table', { name: 'Campaigns' })
+  expect(within(table).getByText('Setup not finished: step 3 of 7')).toBeTruthy()
+  expect(within(table).getByRole('link', { name: 'Continue setup' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=3')
+  await user.click(within(table).getByRole('link', { name: 'Fall Launch' }))                          // the name leads to the setup too
+  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
+  expect(screen.getByText(/Setup in progress: 2 of 6 steps done/)).toBeTruthy()
+  expect((screen.getByRole('button', { name: /Audience/ }) as HTMLButtonElement).disabled).toBe(false)  // what was done can be revisited
+  expect((screen.getByRole('button', { name: /Scheduling & Delivery/ }) as HTMLButtonElement).disabled).toBe(true)
+  expect(screen.queryByRole('link', { name: 'Back to the campaign' })).toBeNull()
+
+  cleanup()
+  installMockApi({ campaigns: [half()] })
+  await renderAppAt('/campaigns/c1?tab=performance')                                                  // a bookmark or a typed address
+  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
+  expect(window.location.pathname + window.location.search).toBe('/campaigns/c1/edit?step=3')
+  expect(screen.queryByRole('tablist')).toBeNull()
+
+  cleanup()
+  installMockApi({ campaigns: [half()] })
+  await renderAppAt('/campaigns/c1/edit?step=7')                                                       // no jumping ahead to the publish
+  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
+  await user.click(await screen.findByRole('radio', { name: /Fall Email/ }))
+  await user.click(screen.getByRole('button', { name: 'Save and close' }))                             // keeps the place, does not move it on
+  expect(await screen.findByRole('table', { name: 'Campaigns' })).toBeTruthy()
+  expect(screen.getByText('Setup not finished: step 3 of 7')).toBeTruthy()
+  expect(calls.length).toBeGreaterThan(0)
+
+  cleanup()
+  const last = installMockApi({ campaigns: [makeCampaign({ id: 'c1', name: 'Fall Launch', status: 'DRAFT', setup_step: 5 })] })
+  await renderAppAt('/campaigns/c1')
+  expect(await screen.findByRole('heading', { name: 'Test & Preview' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Save and continue' }))                          // nothing was changed: the step is still recorded as done
+  expect(await screen.findByRole('heading', { name: 'Review & Publish' })).toBeTruthy()
+  expect(last.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ setup_step: 6 })
+  await user.click(screen.getByRole('link', { name: 'Back to the campaign' }))                        // every step but the publish is done: the page is there
+  expect(await screen.findByRole('tablist', { name: 'Campaign sections' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Production Publish' })).toBeTruthy()
+})
+
+test('an unfinished setup, for someone who may not edit: the campaign page, with a note that the setup is not finished', async () => {
+  installMockApi({ campaigns: [makeCampaign({ id: 'c1', status: 'DRAFT', setup_step: 2 })], me: { principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
+  await renderAppAt('/campaigns/c1')
+  expect(await screen.findByText(/The setup of this campaign is not finished: 2 of 6 steps are done/)).toBeTruthy()
+  expect(screen.getByRole('tablist', { name: 'Campaign sections' })).toBeTruthy()
 })
 
 test('campaign page: six tabs; results against targets with a chart and its numbers; the frozen Campaign List; the log, filtered', async () => {

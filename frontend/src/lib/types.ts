@@ -317,6 +317,10 @@ export interface Campaign extends Audited {
   published_at: string | null
   completed_at: string | null
   archived_at: string | null
+  /** setup steps completed, 0 to 6 (the seventh step is the publish) */
+  setup_step: number
+  /** false: the campaign opens in the setup at step setup_step + 1, not on its page */
+  setup_complete: boolean
 }
 
 export type CampaignAction = 'edit' | 'clone' | 'test_publish' | 'publish' | 'pause' | 'resume' | 'cancel_schedule' | 'archive' | 'unarchive' | 'results'
@@ -469,6 +473,7 @@ export interface CampaignInput {
   rate_limit_per_hour?: number | null
   timezone_optimization?: boolean
   targets?: Partial<CampaignTargets> | null
+  setup_step?: number
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number
 }

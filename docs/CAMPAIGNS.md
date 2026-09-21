@@ -30,6 +30,22 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 field messages land on the same fields, and the wizard opens the step that holds the first one. A save with an older
 `row_version` is refused with 409 and the page offers to reload.
 
+### An unfinished setup opens where it stopped
+
+`campaign.setup_step` counts the steps completed, 0 to 6 (the seventh step is the publish itself), and the API answers
+`setup_complete`. **Continue** records the step as done; **Save and close** keeps the place without moving it on. The
+number only moves forward: going back to an earlier step and saving does not undo the later ones.
+
+- While a draft's setup is unfinished it has **no campaign page**: its name, *Continue setup* and *Open* in the list, and
+  the address `/campaigns/:id` itself (a bookmark, a typed link) all lead to `/campaigns/:id/edit?step=<next step>`.
+  The steps ahead stay closed, so the publish step cannot be reached early; *Save and close* returns to the list.
+- Once the six steps are done, the campaign page opens as usual, with **Test Publish** and **Production Publish** on it.
+  Publishing is not part of "complete".
+- Someone without `campaign.edit` cannot use the setup: they get the campaign page with a note that the setup is not finished.
+- It cannot be derived from the data (schedule, targets and test are all optional), hence the column. Its default is 6:
+  campaigns that existed before, clones of finished campaigns, and campaigns an integration creates through the API
+  without the setup count as complete. Anything that is no longer a draft is complete by definition.
+
 Send times are **clock times in the campaign's time zone** (`send_timezone`, default: the workspace's), not the
 browser's: `features/campaigns/zone.ts` converts, daylight saving included.
 
@@ -97,7 +113,7 @@ All under `/api/v1/campaigns/`, tenant-scoped, pages of 50 (`?page=`, `?page_siz
 | `GET /{id}/metrics/`, `/metrics/timeseries/?bucket=hour|day` | counts, rates, progress against targets, breakdown by mailbox provider; the curve |
 | `GET /{id}/activity/` | the activity log, newest first |
 
-## 5. Data model (patch `0014_campaign_module.sql`)
+## 5. Data model (patches `0014_campaign_module.sql`, `0015_campaign_setup_progress.sql`)
 
 Existing tables were extended rather than replaced (BRD 21).
 
@@ -107,6 +123,7 @@ Existing tables were extended rather than replaced (BRD 21).
 - `campaign_run`: status `PAUSED`; `sequence_label` ("Occurrence 3", "Day 7", "Test").
 - `contact_list_campaign.role`; `campaign_target.planned_offer_cost`, `.notes`.
 - `campaign_activity_log` (new, RLS): who did what, and what the engine did. Entries are never changed.
+- Patch `0015_campaign_setup_progress.sql`: `campaign.setup_step` (0 to 6, default 6).
 - Subject-line testing is future-proofed (TD-04): results hang off `campaign_run_variant`, and nothing assumes one
   subject per run.
 
@@ -134,7 +151,7 @@ completes the campaign.
 
 ## 8. Tests
 
-- Backend: `test_campaign_module.py` (31 checks, one rolled-back transaction, real sends through the sandbox text
+- Backend: `test_campaign_module.py` (32 checks, one rolled-back transaction, real sends through the sandbox text
   engine), plus the send engine, SMS engine, contact list and legacy campaign suites.
 - Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.
