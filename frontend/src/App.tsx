@@ -5,9 +5,11 @@ import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/auth/AuthContext'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { AppShell } from '@/components/AppShell'
+import { EditorLoading } from '@/features/designer/EditorStates'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { LoadingOverlayHost } from '@/components/LoadingOverlayHost'
 import { FullPageSpinner } from '@/components/States'
+import { ToastProvider } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -36,6 +38,7 @@ import { TokenLandingPage } from '@/pages/TokenLandingPage'
 const TemplateDesignerPage = lazy(() => import('@/pages/TemplateDesignerPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/DesignerPlayground')) : null
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/MessagePlayground')) : null
+const DevFields = import.meta.env.DEV ? lazy(() => import('@/pages/DevFields')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +69,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <ErrorBoundary>
+          <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/set-password" element={<SetPasswordPage />} />
@@ -77,10 +81,13 @@ export default function App() {
             {MessagePlayground && (
               <Route path="/dev/message" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><MessagePlayground /></Suspense>} />
             )}
+            {DevFields && (
+              <Route path="/dev/fields" element={<Suspense fallback={<FullPageSpinner label="Loading the fields" />}><DevFields /></Suspense>} />
+            )}
             <Route element={<RequireAuth />}>
               {/* full-screen: outside the app shell */}
               <Route path="templates/:id/message" element={<MessageEditorPage />} />
-              <Route path="templates/:id/design" element={<Suspense fallback={<FullPageSpinner label="Loading the designer" />}><TemplateDesignerPage /></Suspense>} />
+              <Route path="templates/:id/design" element={<Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense>} />
               <Route element={<AppShell />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
@@ -109,6 +116,7 @@ export default function App() {
             </Route>
           </Routes>
           <LoadingOverlayHost />
+          </ToastProvider>
           </ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>

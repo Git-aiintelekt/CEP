@@ -44,7 +44,7 @@ export function PlanUsagePage() {
   const invoices = useQuery({ queryKey: ['workspace', 'invoices'], queryFn: ({ signal }) => api.get<Invoice[]>('/workspace/invoices/', undefined, signal) })
 
   if (usage.isError) return <ErrorState error={usage.error} onRetry={() => void usage.refetch()} />
-  if (usage.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading usage</p>
+  if (usage.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading usage</p>
 
   const { plan, meters, breakdown, month, can_send } = usage.data
   const currency = plan?.currency ?? 'USD'
@@ -87,7 +87,7 @@ export function PlanUsagePage() {
       <div>
         <h2 className="mb-3 text-base font-semibold text-ink-900">Invoices</h2>
         {invoices.isError ? <ErrorState error={invoices.error} onRetry={() => void invoices.refetch()} />
-          : invoices.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading invoices</p>
+          : invoices.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading invoices</p>
           : invoices.data.length === 0 ? <EmptyState title="No invoices yet" hint="An invoice appears here once it has been issued, shortly after the end of each month." />
           : <DataTable columns={columns} rows={invoices.data} rowKey={(invoice) => invoice.id} caption="Invoices" />}
       </div>

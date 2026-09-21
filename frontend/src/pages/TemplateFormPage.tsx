@@ -100,7 +100,7 @@ export function TemplateFormPage() {
         {errors.starter && <p className="text-sm font-medium text-danger-text">{errors.starter}</p>}
         <div className="flex items-center gap-3">
           <button type="submit" disabled={create.isPending} className={buttonPrimary}>
-            {create.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
+            {create.isPending && <Spinner size="sm" tone="onBrand" />}
             {['EMAIL', 'E_RECEIPT'].includes(channel) ? 'Create and open the designer' : 'Create and write the message'}
           </button>
           <Link to="/templates" className={buttonSecondary}>Cancel</Link>

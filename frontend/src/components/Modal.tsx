@@ -1,8 +1,12 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 
+import { IconButton } from './Button'
+
 interface ModalProps {
   title: string
+  /** one line under the title: what the dialog is about or where its content comes from */
+  subtitle?: string
   onClose: () => void
   children: ReactNode
   /** sticky footer, usually the action buttons */
@@ -14,8 +18,9 @@ interface ModalProps {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /** Accessible dialog: labelled, Escape closes, Tab stays inside, focus moves in on open and returns to the opener on close. */
-export function Modal({ title, onClose, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ title, subtitle, onClose, children, footer, size = 'md' }: ModalProps) {
   const titleId = useId()
+  const subtitleId = `${titleId}-subtitle`
   const panel = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -23,6 +28,9 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
     const first = panel.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button')
     first?.focus()
     const onKey = (event: KeyboardEvent) => {
+      // a dialog opened on top of this one (a confirmation) owns the keyboard until it closes
+      const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]')
+      if (open.length > 0 && open[open.length - 1] !== panel.current) return
       if (event.key === 'Escape') {
         onClose()
         return
@@ -50,13 +58,14 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center overflow-y-auto bg-scrim p-4 md:p-10" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className={`w-full rounded-lg bg-surface ${size === 'lg' ? 'md:max-w-3xl' : 'md:max-w-[480px]'}`}>
-        <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3">
-          <h2 id={titleId} className="font-display text-base font-semibold text-ink-900">{title}</h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 transition-colors hover:bg-line-subtle">
-            <X size={20} strokeWidth={1.5} aria-hidden />
-          </button>
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 md:p-10" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface ${size === 'lg' ? 'md:max-w-3xl' : 'md:max-w-[480px]'}`}>
+        <div className="flex items-start justify-between gap-4 border-b border-line px-4 py-3">
+          <div className="min-w-0 py-1">
+            <h2 id={titleId} className="font-display text-base font-semibold text-ink-900">{title}</h2>
+            {subtitle && <p id={subtitleId} className="mt-0.5 text-helper text-ink-700">{subtitle}</p>}
+          </div>
+          <IconButton label="Close" icon={X} onClick={onClose} />
         </div>
         <div className="px-4 py-4">{children}</div>
         {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-line px-4 py-3">{footer}</div>}

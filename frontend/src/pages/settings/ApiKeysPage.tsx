@@ -44,7 +44,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="key-form" className={buttonPrimary} disabled={create.isPending}>
-          {create.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Create key
+          {create.isPending && <Spinner size="sm" tone="onBrand" />}Create key
         </button>
       </>}>
       <form id="key-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -120,7 +120,7 @@ export function ApiKeysPage() {
         <button type="button" className={buttonPrimary} onClick={() => setCreating(true)}>New API key</button>
       </div>
       {revoke.isError && <div className="mb-4"><ErrorState title="Could not revoke the key" error={revoke.error} /></div>}
-      {keys.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading keys</p>
+      {keys.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading keys</p>
         : keys.data.length === 0 ? <EmptyState title="No API keys yet" hint="Create one when a system such as the POS or the data warehouse needs to call the API." />
         : <DataTable columns={columns} rows={keys.data} rowKey={(key) => key.id} caption="API keys" />}
       {creating && <CreateKey scopes={scopes.data?.scopes ?? []} onClose={() => setCreating(false)} onCreated={(key) => { setCreating(false); setCreated(key) }} />}

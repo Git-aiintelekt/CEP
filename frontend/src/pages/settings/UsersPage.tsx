@@ -46,7 +46,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="user-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{user ? 'Save changes' : 'Add user'}
+          {save.isPending && <Spinner size="sm" tone="onBrand" />}{user ? 'Save changes' : 'Add user'}
         </button>
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -90,7 +90,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
 
   return (
     <Modal title={`Password link for ${user.display_name}`} onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>Done</button>}>
-      {link.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Creating the link</p>
+      {link.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Creating the link</p>
         : link.isError ? <ErrorState title="Could not create a link" error={link.error} />
         : (
           <div className="space-y-3 text-sm text-ink-700">
@@ -100,7 +100,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
                   : (<div className="flex flex-wrap items-center justify-between gap-3">
                       <p>Email the link to <strong>{user.email}</strong>: you never have to handle it.</p>
                       <button type="button" className={buttonPrimary} disabled={email.isPending} onClick={() => email.mutate()}>
-                        {email.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Email the link
+                        {email.isPending && <Spinner size="sm" tone="onBrand" />}Email the link
                       </button>
                     </div>)}
                 {(email.isError || email.data?.emailed === false) && <p role="alert" className="mt-2 text-xs font-medium text-danger-text">The email could not be sent. Copy the link below instead.</p>}
@@ -155,7 +155,7 @@ export function UsersPage() {
         <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add user</button>
       </div>
       {toggle.isError && <div className="mb-4"><ErrorState title="Could not change the user" error={toggle.error} /></div>}
-      {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading users</p>
+      {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading users</p>
         : users.data.length === 0 ? <EmptyState title="No users yet" />
         : <DataTable columns={columns} rows={users.data} rowKey={(user) => user.id} caption="Users" />}
       {editing && <UserForm editing={editing} roles={roles.data ?? []} onClose={() => setEditing(null)} />}

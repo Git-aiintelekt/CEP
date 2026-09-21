@@ -19,7 +19,7 @@ export const STARTER_MJML = `<mjml>
         <mj-button href="{{shop_url}}" background-color="#2753e4" border-radius="8px" font-weight="700" align="left">Shop now</mj-button>
       </mj-column>
     </mj-section>
-    <mj-section padding="16px 24px">
+    <mj-section css-class="cep-footer" padding="16px 24px">
       <mj-column>
         <mj-text font-size="12px" line-height="18px" color="#64748b" align="center">
           You are receiving this email because you subscribed to our updates.<br />

@@ -40,3 +40,12 @@ export function fromLocalInput(value: string): string | null {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
+
+/** "04:12 UTC": a 24-hour clock in one named zone, so everyone in a workspace reads the same time. */
+export function formatUtcClock(value: string | null | undefined): string | null {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+}
