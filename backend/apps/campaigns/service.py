@@ -432,6 +432,50 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
             "note": "An estimate as of today. The Campaign List is frozen, and governance decided for real, when the send starts."}
 
 
+# ---------------------------------------------------------------- calendar
+def calendar_spans(campaigns, start: datetime, end: datetime) -> list[dict]:
+    """One span per campaign that touches [start, end): from its first send (or the send a draft plans) to its last one.
+    `ongoing`: it goes on past what is known (an e-receipt campaign, a recurrence without an end). `sends` are the moments
+    inside the range: done, waiting, and for a recurring campaign the occurrences that are still to be created."""
+    now, spans = timezone.now(), []
+    for campaign in campaigns:
+        runs = sorted((run for run in campaign.campaign_runs.all() if not run.test_mode and run.status != "CANCELLED"), key=lambda run: run.started_at or run.scheduled_at or run.created_at)
+        moments = [(run.started_at or run.scheduled_at or run.created_at, "SENT" if run.status in ("COMPLETED", "FAILED") else "SENDING" if run.status in ("PREPARING", "SENDING", "PAUSED") else "WAITING",
+                    run.sequence_label) for run in runs]
+        live = campaign.status in LIVE or campaign.status == S.PAUSED
+        if not moments and campaign.status in EDITABLE and campaign.send_type == "SCHEDULED" and campaign.scheduled_at:
+            moments = [(campaign.scheduled_at, "PLANNED", None)]                  # a draft with a date: not published, shown so the month is planned with it in view
+        ongoing = False
+        if live and campaign.send_type == "RECURRING" and not validate_recurring(campaign.recurring_config):
+            config, zone = campaign.recurring_config, zone_of(campaign)
+            limit, cursor = config.get("max_runs"), max([moment for moment, _, _ in moments] + [now])
+            for _ in range(60):                                                  # occurrences the planner has not created yet
+                if limit is not None and len(moments) >= int(limit):
+                    break
+                cursor = next_occurrence(config, cursor, zone)
+                if cursor is None or cursor >= end:
+                    ongoing = cursor is not None
+                    break
+                moments.append((cursor, "PROJECTED", None))
+        if live and campaign.campaign_type == Campaign.CampaignType.E_RECEIPT:
+            ongoing = True
+        if not moments:
+            if not ongoing or not campaign.published_at:
+                continue
+            moments = [(campaign.published_at, "SENDING", None)]
+        first = min(moment for moment, _, _ in moments)
+        last = max([moment for moment, _, _ in moments] + ([campaign.completed_at] if campaign.completed_at else []))
+        if first >= end or (last < start and not ongoing):
+            continue
+        shown = display_status(campaign)
+        spans.append({"campaign": str(campaign.pk), "name": campaign.name, "code": campaign.code, "channel": campaign.channel, "campaign_type": campaign.campaign_type,
+                      "display_status": shown, "is_journey_generated": campaign.is_journey_generated, "setup_step": campaign.setup_step, "setup_complete": setup_complete(campaign),
+                      "actions": actions(campaign), "timezone": zone_of(campaign).key, "start": first, "end": None if ongoing else last, "ongoing": ongoing,
+                      "failed": bool(runs) and all(run.status == "FAILED" for run in runs),
+                      "sends": [{"at": moment, "state": state, "label": label} for moment, state, label in sorted(moments, key=lambda item: item[0]) if start <= moment < end]})
+    return sorted(spans, key=lambda span: (span["start"], span["name"].lower()))
+
+
 # ---------------------------------------------------------------- results
 def metrics(campaign) -> dict:
     """Production runs only: a test publish never counts. Rates are of what was delivered, as email reporting does."""

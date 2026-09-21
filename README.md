@@ -101,8 +101,8 @@ waiting for its API specification.
 
 ## Campaigns
 
-What is sent, to whom, when and why (BRD 6.3, 7, 15). The **Campaigns** page shows what is coming up and every campaign with search, filters, sorting,
-pages of 50 and bulk clone / archive. A campaign is set up in **seven steps**: basic info, audience (lists to send to *and* lists to exclude, with a live
+What is sent, to whom, when and why (BRD 6.3, 7, 15). The **Campaigns** page shows what is coming up, and every campaign in a **list view** (search, filters, sorting,
+pages of 50, bulk clone / archive) or a **calendar view** (the month, a bar per campaign over the days it runs, coloured by status). A campaign is set up in **seven steps**: basic info, audience (lists to send to *and* lists to exclude, with a live
 estimate: merged, one entry per person, today's governance check), template (with a preview), scheduling and delivery (now, scheduled, recurring, or a
 drip series, in the campaign's own time zone), targets and economics, test and preview, review and publish (the API's publish checks shown as a checklist
 first). A draft whose setup is not finished opens in the setup at the step it stopped at, from the list or from its own address; the campaign page opens once

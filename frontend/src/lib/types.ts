@@ -444,6 +444,35 @@ export interface CampaignActivity {
   occurred_at: string
 }
 
+/** GET /campaigns/calendar/ : one span per campaign that touches the window */
+export interface CalendarSpan {
+  campaign: string
+  name: string
+  code: string | null
+  channel: string
+  campaign_type: string
+  display_status: string
+  is_journey_generated: boolean
+  setup_step: number
+  setup_complete: boolean
+  actions: CampaignAction[]
+  timezone: string
+  start: string
+  /** null while the campaign goes on (an e-receipt campaign, a recurrence without an end) */
+  end: string | null
+  ongoing: boolean
+  /** every production send of it failed */
+  failed: boolean
+  sends: { at: string; state: 'SENT' | 'SENDING' | 'WAITING' | 'PLANNED' | 'PROJECTED'; label: string | null }[]
+}
+
+export interface CampaignCalendarData {
+  date_from: string
+  date_to: string
+  timezone: string
+  spans: CalendarSpan[]
+}
+
 export interface BulkResult {
   action: 'archive' | 'clone'
   done: { id: string; name: string }[]

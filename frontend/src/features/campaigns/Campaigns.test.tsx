@@ -38,7 +38,7 @@ test('list: what is coming up, locked status wording, the action that fits each 
   await renderAppAt('/campaigns')
 
   const upcoming = await screen.findByRole('region', { name: 'Upcoming campaigns' })
-  expect(within(upcoming).getByText('Winter Preview')).toBeTruthy()
+  expect(await within(upcoming).findByText('Winter Preview')).toBeTruthy()                          // the block is there at once; its cards arrive with the data
   expect(within(upcoming).queryByText('Fall Launch')).toBeNull()
 
   const table = await screen.findByRole('table', { name: 'Campaigns' })
@@ -62,6 +62,54 @@ test('list: what is coming up, locked status wording, the action that fits each 
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('ordering=name') && !call.url.includes('ordering=-name'))).toBe(true))
   expect(screen.getByRole('columnheader', { name: 'Campaign name' }).getAttribute('aria-sort')).toBe('ascending')
   expect(calls.some((call) => call.url.includes('channel=SMS') && call.url.includes('page_size=50'))).toBe(true)
+})
+
+test('calendar view: a tab of the same page, the month as a grid with a bar per campaign, the same filters, and the upcoming block above both views', async () => {
+  const now = new Date().toISOString()
+  const calls = installMockApi({ campaigns: [...workspace(),
+    makeCampaign({ id: 'c6', name: 'Sent today', code: 'CMP-2026-0006', status: 'COMPLETED', runs: [run({ id: 'r6', campaign: 'c6', started_at: now, completed_at: now })] as never }),
+    makeCampaign({ id: 'c7', name: 'Texts today', code: 'CMP-2026-0007', channel: 'SMS', status: 'PAUSED', runs: [run({ id: 'r7', campaign: 'c7', status: 'PAUSED', started_at: now, completed_at: null })] as never })] })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+
+  const views = await screen.findByRole('tablist', { name: 'Campaign views' })
+  expect(within(views).getByRole('tab', { name: 'List view', selected: true })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Create Campaign' }).className).toContain('bg-brand-600')
+  const upcoming = await screen.findByRole('region', { name: 'Upcoming campaigns' })
+  expect(await within(upcoming).findByText('Winter Preview')).toBeTruthy()
+  expect(within(upcoming).getByText(/recipients/)).toBeTruthy()
+
+  await user.click(within(views).getByRole('tab', { name: 'Calendar view' }))
+  expect(window.location.search).toBe('?view=calendar')
+  const calendar = await screen.findByRole('region', { name: 'Campaign calendar' })
+  expect(screen.getByRole('region', { name: 'Upcoming campaigns' })).toBeTruthy()                       // stays above the calendar too
+  expect(screen.queryByRole('table', { name: 'Campaigns' })).toBeNull()
+  const title = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date())
+  expect(within(calendar).getByRole('heading', { name: title })).toBeTruthy()
+  expect(within(calendar).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
+  const sent = await within(calendar).findByRole('link', { name: /^Sent today: Completed/ })
+  expect(sent.getAttribute('href')).toBe('/campaigns/c6')
+  expect(sent.className).toContain('bg-success-bg')
+  expect(within(calendar).getByRole('link', { name: /^Texts today: Paused/ }).className).toContain('bg-warning-bg')   // status is a colour and a word, never blue
+  expect(within(calendar).queryByRole('link', { name: /^Fall Launch/ })).toBeNull()                       // a draft without a date is not on the calendar
+
+  await user.selectOptions(screen.getByLabelText('Channel'), 'SMS')                                       // the filters above drive the calendar as they drive the list
+  await vi.waitFor(() => expect(within(calendar).queryByRole('link', { name: /^Sent today/ })).toBeNull())
+  expect(within(calendar).getByRole('link', { name: /^Texts today/ })).toBeTruthy()
+  expect(calls.some((call) => call.url.includes('/campaigns/calendar/') && call.url.includes('channel=SMS') && call.url.includes('date_from='))).toBe(true)
+  expect(screen.queryByLabelText(/Created from/)).toBeNull()                                              // in the calendar the month is the date range
+
+  await user.click(within(calendar).getByRole('button', { name: 'Next month' }))
+  const next = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+  expect(await within(calendar).findByRole('heading', { name: new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(next) })).toBeTruthy()
+  await user.click(within(calendar).getByRole('button', { name: 'Today' }))
+  expect(await within(calendar).findByRole('heading', { name: title })).toBeTruthy()
+
+  cleanup()
+  installMockApi({ campaigns: [makeCampaign({})] })
+  await renderAppAt('/campaigns?view=calendar')                                                           // the view is part of the address
+  expect(await screen.findByRole('region', { name: 'Campaign calendar' })).toBeTruthy()
+  expect(await within(screen.getByRole('region', { name: 'Upcoming campaigns' })).findByText(/Nothing is scheduled/)).toBeTruthy()
 })
 
 test('list: pausing asks first and then shows Paused with Resume; bulk clone and bulk archive report what happened', async () => {

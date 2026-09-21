@@ -76,6 +76,19 @@ export function handleCampaigns(request: Request, state: State): Response | null
     return json({ owners: [{ id: 'u1', name: 'Aby John', email: 'aby.john@aiintelekt.com' }, { id: 'u2', name: 'Devon Okafor', email: 'devon@example.com' }], tags: ['Fall', 'VIP'],
                   timezones: ['America/Chicago', 'America/New_York', 'Asia/Kolkata', 'Europe/London'], workspace_timezone: 'America/New_York' })
   }
+  if (path.endsWith('/campaigns/calendar/')) {
+    // one span per campaign with a production run (or, for a live e-receipt campaign, going on from its publish), filtered by channel as the list is
+    const spans = state.campaigns.filter((item) => item.status !== 'ARCHIVED' && (!query.get('channel') || item.channel === query.get('channel'))).flatMap((item) => {
+      const moments = item.runs.filter((one) => !one.test_mode && one.status !== 'CANCELLED').map((one) => ({ at: (one.started_at ?? one.scheduled_at) as string, state: one.status === 'COMPLETED' || one.status === 'FAILED' ? 'SENT' : 'WAITING', label: one.sequence_label ?? null }))
+      const ongoing = item.campaign_type === 'E_RECEIPT' && ['ACTIVE', 'PRODUCTION_PUBLISHED'].includes(item.status)
+      if (moments.length === 0 && !ongoing) return []
+      const start = moments.length ? moments.map((moment) => moment.at).sort()[0] : (item.published_at ?? item.created_at)
+      return [{ campaign: item.id, name: item.name, code: item.code, channel: item.channel, campaign_type: item.campaign_type, display_status: item.display_status, is_journey_generated: item.is_journey_generated,
+                setup_step: item.setup_step, setup_complete: item.setup_complete, actions: item.actions, timezone: item.send_timezone ?? 'America/New_York', start,
+                end: ongoing ? null : moments.map((moment) => moment.at).sort().at(-1), ongoing, failed: item.runs.length > 0 && item.runs.every((one) => one.status === 'FAILED'), sends: moments }]
+    })
+    return json({ date_from: query.get('date_from'), date_to: query.get('date_to'), timezone: 'America/New_York', spans })
+  }
   if (path.endsWith('/campaigns/audience-estimate/')) {
     const excluded = (query.get('exclude') ?? '').split(',').filter(Boolean).length
     return json({ ...audienceEstimate, excluded_by_list: excluded * 10, after_exclusions: 100 - excluded * 10, estimated_recipients: 88 - excluded * 10 })
