@@ -13,7 +13,7 @@ import type { CampaignFormValues } from '../schema'
 import { SEND_TYPES, WEEKDAYS } from '../vocabulary'
 import { formatInZone, zonedToIso } from '../zone'
 
-export function StepSchedule({ options, workspaceZone }: { options: CampaignFormOptions | undefined; workspaceZone: string }) {
+export function StepSchedule({ options, workspaceZone, onChangeType }: { options: CampaignFormOptions | undefined; workspaceZone: string; onChangeType: () => void }) {
   const { register, control, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const steps = useFieldArray({ control, name: 'drip.steps' })
   const type = watch('campaign_type')
@@ -27,8 +27,12 @@ export function StepSchedule({ options, workspaceZone }: { options: CampaignForm
 
   if (type === 'E_RECEIPT') {
     return (
-      <Panel title="Sent when a purchase arrives">
-        <p className="text-sm text-ink-700">An e-receipt has no schedule: once the campaign is published, each receipt goes out when the point of sale or the web shop asks for it.</p>
+      <Panel title="This is an E-Receipt campaign, so there is no schedule to set">
+        <p className="max-w-3xl text-sm text-ink-700">Once the campaign is published, each receipt goes out when the point of sale or the web shop asks for it. A send time, a recurrence or a series belongs to the other campaign types.</p>
+        <p className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" className={buttonSecondary} onClick={onChangeType}>Change the campaign type</button>
+          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
+        </p>
       </Panel>
     )
   }

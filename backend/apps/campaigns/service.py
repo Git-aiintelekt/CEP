@@ -497,16 +497,23 @@ def timeseries(campaign, bucket: str = "hour") -> dict:
     return {"bucket": bucket, "points": points}
 
 
-def upsert_targets(campaign, values: dict, user=None) -> CampaignTarget:
+def upsert_targets(campaign, values: dict, user=None) -> bool:
+    """-> whether anything changed. The setup sends the targets with every save: empty ones create nothing, equal ones change nothing."""
     actor = None if user is None or hasattr(user, "has_scope") else user
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()
     if target is None:
-        return CampaignTarget.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, created_by_id=getattr(actor, "pk", None), **values)
-    for name, value in values.items():
-        setattr(target, name, value)
+        if all(value in (None, "") for value in values.values()):
+            return False
+        CampaignTarget.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, created_by_id=getattr(actor, "pk", None), **values)
+        return True
+    changed = [name for name, value in values.items() if getattr(target, name) != value]
+    if not changed:
+        return False
+    for name in changed:
+        setattr(target, name, values[name])
     target.updated_by_id = getattr(actor, "pk", None)
-    target.save(update_fields=[*values, "updated_by_id"])
-    return target
+    target.save(update_fields=[*changed, "updated_by_id"])
+    return True
 
 
 @transaction.atomic

@@ -38,7 +38,7 @@ function RolePicker({ list, role, onChange }: { list: ContactList; role: Role; o
   )
 }
 
-export function StepAudience() {
+export function StepAudience({ onChangeType }: { onChangeType: () => void }) {
   const { can } = useAuth()
   const { watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const included = watch('contact_lists')
@@ -69,8 +69,15 @@ export function StepAudience() {
 
   if (isReceipt) {
     return (
-      <Panel title="No contact list needed">
-        <p className="text-sm text-ink-700">An e-receipt goes to the customer of each purchase. The point of sale or the web shop asks for every receipt, so there is no audience to attach.</p>
+      <Panel title="This is an E-Receipt campaign, so there is no contact list to attach">
+        <p className="max-w-3xl text-sm text-ink-700">
+          An e-receipt goes to the customer of each purchase: the point of sale or the web shop asks for every receipt, one at a time. Contact lists are for campaigns
+          that are sent to an audience. To attach existing lists or upload a new one, the campaign type has to be Regular Marketing, Drip or Other.
+        </p>
+        <p className="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" className={buttonSecondary} onClick={onChangeType}>Change the campaign type</button>
+          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
+        </p>
       </Panel>
     )
   }

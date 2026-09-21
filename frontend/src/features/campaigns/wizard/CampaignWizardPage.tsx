@@ -208,9 +208,9 @@ export function CampaignWizardPage() {
               <h2 ref={heading} tabIndex={-1} className="font-display text-lg font-semibold text-ink-900 outline-none">{STEPS[step]}</h2>
               <p className="mb-5 mt-0.5 text-sm text-ink-500">{INTRO[step]}</p>
               {step === 0 && <StepBasics options={options.data} isNew={!loaded} />}
-              {step === 1 && <StepAudience />}
+              {step === 1 && <StepAudience onChangeType={() => show(0)} />}
               {step === 2 && <StepTemplate campaign={loaded ?? null} />}
-              {step === 3 && <StepSchedule options={options.data} workspaceZone={zone} />}
+              {step === 3 && <StepSchedule options={options.data} workspaceZone={zone} onChangeType={() => show(0)} />}
               {step === 4 && <StepTargets />}
               {step === 5 && loaded && <StepTest campaign={loaded} options={options.data} />}
               {step === 6 && loaded && <StepReview campaign={loaded} onEdit={show} />}

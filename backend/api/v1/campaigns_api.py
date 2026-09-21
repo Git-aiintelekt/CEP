@@ -215,8 +215,7 @@ class CampaignSerializer(s.CampaignSerializer):
             keep_out = exclude if exclude is not None else [link.contact_list for link in links if link.role == "EXCLUDE"]
             attached, detached = service.set_lists(campaign, keep_in, [item for item in keep_out if item.pk not in {i.pk for i in keep_in}])
             changes += [f"attached {name}" for name in attached] + [f"detached {name}" for name in detached]
-        if targets is not None:
-            service.upsert_targets(campaign, targets, user)
+        if targets is not None and service.upsert_targets(campaign, targets, user):
             changes.append("targets")
         return changes
 

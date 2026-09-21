@@ -240,9 +240,20 @@ test('setup: a drip campaign sends as a series of steps; an e-receipt needs no l
   cleanup()
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [] }) })
   await renderAppAt('/campaigns/c1/edit?step=2')
-  expect(await screen.findByText('No contact list needed')).toBeTruthy()
+  expect(await screen.findByText('This is an E-Receipt campaign, so there is no contact list to attach')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Create a list' })).toBeNull()
   await user.click(screen.getByRole('button', { name: /Scheduling & Delivery/ }))
-  expect(await screen.findByText('Sent when a purchase arrives')).toBeTruthy()
+  expect(await screen.findByText('This is an E-Receipt campaign, so there is no schedule to set')).toBeTruthy()
+
+  // the way out is on the page: change the type, and the lists are there to attach or to create
+  await user.click(screen.getByRole('button', { name: /Audience/ }))
+  await user.click(await screen.findByRole('button', { name: 'Change the campaign type' }))
+  expect(await screen.findByRole('heading', { name: 'Basic Info' })).toBeTruthy()
+  await user.click(screen.getByRole('radio', { name: /Regular Marketing/ }))
+  expect((screen.getByLabelText(/^Message purpose/) as HTMLSelectElement).value).toBe('MARKETING')
+  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
+  expect(await screen.findByRole('radio', { name: 'Send to: Fall Master Audience' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Create a list' })).toBeTruthy()
 })
 
 test('an unfinished setup opens where it stopped, from the list and from the campaign address; the campaign page opens once every step before the publish is done', async () => {

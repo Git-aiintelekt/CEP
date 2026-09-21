@@ -151,7 +151,7 @@ completes the campaign.
 
 ## 8. Tests
 
-- Backend: `test_campaign_module.py` (32 checks, one rolled-back transaction, real sends through the sandbox text
+- Backend: `test_campaign_module.py` (33 checks, one rolled-back transaction, real sends through the sandbox text
   engine), plus the send engine, SMS engine, contact list and legacy campaign suites.
 - Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.
