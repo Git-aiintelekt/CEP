@@ -222,6 +222,8 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('security.support_access_minutes',   '30',     'INTEGER', 'Security',   'Length of a support ("sign in as") session'),
     ('security.notify_user_on_support_access', 'true', 'BOOLEAN', 'Security', 'Email the user when platform staff open a support session on their account'),
     ('security.mfa_required_for_staff',   'false',  'BOOLEAN', 'Security',   'Platform staff must use multi-factor authentication (switch on once every staff member has enrolled)'),
+    ('security.idle_timeout_minutes',     '120',    'INTEGER', 'Security',   'Minutes of no activity in the browser before the frontend warns of a coming sign-out'),
+    ('security.idle_warning_seconds',     '60',     'INTEGER', 'Security',   'Seconds the inactivity warning stays up before the frontend signs the person out'),
     ('billing.invoice_due_days',          '14',     'INTEGER', 'Billing',    'Days between issuing an invoice and its due date'),
     ('billing.usage_warning_percent',     '80',     'INTEGER', 'Billing',    'Warn a tenant when usage reaches this share of a plan limit'),
     ('alerts.recipients',                 '[]',     'LIST',    'Alerts',     'Email addresses that receive platform alerts'),

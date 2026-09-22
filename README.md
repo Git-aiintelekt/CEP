@@ -136,7 +136,8 @@ python manage.py send_campaign_runs                                    # the sam
 
 * **Configuration → Global parameters** (`platform_setting`): typed values that take effect within a minute, no deployment:
   alert recipients and webhook, support-session length, staff MFA, invoice due days, usage warning percent, default
-  industry, export retention. Never a secret: secrets stay in the environment.
+  industry, export retention, the frontend's idle-timeout warning and how long it waits before signing out. Never a
+  secret: secrets stay in the environment.
 * **Configuration → Industry profiles** (`industry_profile`): what a kind of business gets by default (features) and what
   it calls things (terminology). Seeded: Generic, Retail, Hospitality, Financial services, Healthcare.
 * A tenant picks its profile and may override single features on its own page. Resolution order:
@@ -192,6 +193,12 @@ with triggers off, so they need the DDL-owner login: `OWNER_DATABASE_URL` (never
   is mandatory, the session is read-only unless opened for writing, lasts `security.support_access_minutes`, can never
   touch users, roles, API keys or security settings, shows a banner in the app, emails the user, and is listed for the
   tenant under **Settings → Security → Support access**.
+* **Idle sign-out.** After `security.idle_timeout_minutes` (default 2 hours) with no mouse, keyboard, wheel, touch or
+  scroll activity anywhere in the tab, the frontend shows a dialog ("Still there?"); without a response within
+  `security.idle_warning_seconds` (default 1 minute) it signs the person out and explains why on the next login screen.
+  Activity in one tab of the browser keeps every tab of the same workspace alive (a shared `localStorage` timestamp);
+  while the dialog is up, only its own buttons count as "still here" — a resting pointer must not silently cancel a
+  sign-out nobody saw. Both numbers are global parameters, so they change on the next page load, no deployment needed.
 
 ## Logging in
 

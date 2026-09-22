@@ -45,6 +45,8 @@ export interface Me {
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */
   support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
+  /** how long the browser waits before warning of inactivity, and how long the warning stays up before signing out (global parameters) */
+  session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
 }
 
 export type Feature = 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
