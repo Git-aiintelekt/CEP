@@ -3,6 +3,7 @@
 Set-based on purpose: one INSERT ... SELECT builds the frozen campaign list from the attached contact lists, another
 creates the mailer_execution rows. Rules, in order (first match is the recorded suppression_reason):
 
+    EXCLUDED_LIST      the party is in a list attached to this campaign as an exclusion
     UNKNOWN_PARTY      the list names a party that is not in customer_master
     NO_EMAIL           no valid email address on the customer
     BLOCKED_ADDRESS    contact_point_status.blocked (hard bounce, complaint, manual, registry)
@@ -25,15 +26,19 @@ BUILD = f"""
 WITH picked AS (                                          -- PARTY_ID_LAST_WINS across the attached lists
     SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes
       FROM contact_list_member m
-      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s
+      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
      WHERE m.tenant_id = %(tenant)s
      ORDER BY m.party_id, m.added_at DESC
+), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
+    SELECT DISTINCT m.party_id FROM contact_list_member m
+      JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
+     WHERE m.tenant_id = %(tenant)s
 ), resolved AS (
     SELECT p.*, cm.party_id AS known, {PRIMARY_EMAIL} AS email
       FROM picked p LEFT JOIN customer_master cm ON cm.party_id = p.party_id AND cm.tenant_id = %(tenant)s
 ), capped AS (                                            -- the strictest applicable policy that this party has already used up
     SELECT r.party_id, (SELECT g.id FROM communication_governance_policy g
-                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(marketing)s
+                         WHERE g.tenant_id = %(tenant)s AND g.is_active AND %(caps)s
                            AND (g.scope = 'GLOBAL' OR (g.scope = 'CHANNEL' AND COALESCE(g.channel, 'EMAIL') = 'EMAIL'))
                            AND ((SELECT count(*) FROM mailer_execution x
                                   WHERE x.tenant_id = %(tenant)s AND x.party_id = r.party_id AND x.status NOT IN ('QUEUED', 'FAILED')
@@ -46,7 +51,8 @@ WITH picked AS (                                          -- PARTY_ID_LAST_WINS 
       FROM resolved r
 ), judged AS (
     SELECT r.*, k.policy_id,
-           CASE WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
+           CASE WHEN EXISTS (SELECT 1 FROM excluded e WHERE e.party_id = r.party_id) THEN 'EXCLUDED_LIST'
+                WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
                 WHEN r.email IS NULL THEN 'NO_EMAIL'
                 WHEN cps.blocked THEN 'BLOCKED_ADDRESS'
                 WHEN cps.is_valid = FALSE THEN 'INVALID_ADDRESS'
@@ -94,6 +100,7 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider_id) -> d
     """Fills the campaign list and queues one execution per eligible member. Returns the counts."""
     marketing = campaign.solicitation_type == "MARKETING"
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": marketing,
+            "caps": marketing and bool(getattr(campaign, "respect_governance", True)),     # corporate frequency limits: marketing only (BRD 12), unless switched off for this campaign
             "content": str(content.pk), "version": content.version_number, "subject": (content.subject_line or "")[:300], "provider": str(provider_id)}
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD, args)

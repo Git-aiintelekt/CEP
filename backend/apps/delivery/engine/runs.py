@@ -69,6 +69,8 @@ def _fail(tenant_id, run, reason: str) -> None:
     log.error("run %s failed: %s", run.pk, reason)
     with session.tx():
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="FAILED", completed_at=timezone.now())
+    if not run.test_mode:
+        _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED", f"Send could not start: {reason}", severity="ERROR")
 
 
 def start(tenant_id, run_id) -> dict:
@@ -85,6 +87,8 @@ def start(tenant_id, run_id) -> dict:
             media_url = design.message_media_url(campaign.template)
         tenant_zone = campaign.tenant.timezone
 
+    if campaign.status in ("PAUSED", "ARCHIVED"):            # stays SCHEDULED: it starts once the campaign is resumed
+        raise RunNotStarted(f"The campaign is {campaign.get_status_display().lower()}: the run waits.")
     if kind == "SMS" and campaign.solicitation_type == "MARKETING" and run.status == "SCHEDULED":
         opens = quiet_until(tenant_zone)
         if opens is not None:                               # stays SCHEDULED: the dispatcher tries again every minute
@@ -137,7 +141,10 @@ def start(tenant_id, run_id) -> dict:
             built = audience.build(tenant_id=tenant_id, campaign=campaign, run=run, campaign_list=campaign_list, content=content, provider_id=sender.delivery_provider_id)
         CampaignList.objects.filter(pk=campaign_list.pk).update(status="FROZEN", member_count=built["members"])
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="SENDING")
-        Campaign.objects.filter(pk=campaign.pk, tenant_id=tenant_id).update(status="ACTIVE")
+        Campaign.objects.filter(pk=campaign.pk, tenant_id=tenant_id).exclude(status__in=["PAUSED", "ARCHIVED"]).update(status="ACTIVE")
+        _activity(tenant_id, campaign.pk, run.pk, "SEND_STARTED",
+                  f"Send started{' (' + run.sequence_label + ')' if run.sequence_label else ''}: Campaign List frozen with {built['members']:,} people, "
+                  f"{built.get('eligible', 0):,} to be sent, {built['members'] - built.get('eligible', 0):,} left out by governance or missing details.", detail=built)
         with session.connection().cursor() as cursor:
             cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED' ORDER BY id", [str(tenant_id), str(run_id)])
             ids = [row[0] for row in cursor.fetchall()]
@@ -145,6 +152,20 @@ def start(tenant_id, run_id) -> dict:
     if not batches:
         finalize(tenant_id, run_id)
     return {"batches": batches, "audience": built, "family": kind}
+
+
+def queued_batches(tenant_id, run_id, batch_size: int = 100) -> list[list[int]]:
+    """What is still to be sent of a run that was paused and resumed: the messages nobody has claimed yet."""
+    kind = run_family(tenant_id, run_id)
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED' ORDER BY id", [str(tenant_id), str(run_id)])
+        ids = [row[0] for row in cursor.fetchall()]
+    return [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+
+
+def _activity(tenant_id, campaign_id, run_id, event_type, message, severity="INFO", detail=None) -> None:
+    from apps.campaigns import service
+    service.record_run_event(tenant_id, campaign_id, run_id, event_type, message, severity, detail)
 
 
 def run_family(tenant_id, run_id) -> str:
@@ -185,10 +206,17 @@ def finalize(tenant_id, run_id) -> str | None:
         if numbers["queued"]:
             return None
         outcome = "FAILED" if numbers["failed"] and not numbers["sent"] else "COMPLETED"
-        CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id, status="SENDING").update(status=outcome, completed_at=timezone.now())
-        still_open = CampaignRun.objects.filter(campaign_id=run.campaign_id, tenant_id=tenant_id, status__in=["SCHEDULED", "PREPARING", "SENDING"]).exclude(pk=run.pk).exists()
-        if not still_open and run.run_type == "ONE_TIME":
-            Campaign.objects.filter(pk=run.campaign_id, tenant_id=tenant_id, status="ACTIVE").update(status="COMPLETED")
+        now = timezone.now()
+        CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id, status="SENDING").update(status=outcome, completed_at=now)
+        if not run.test_mode:
+            _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED" if outcome == "FAILED" else "SEND_COMPLETED",
+                      (f"Send failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
+                       else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else ".")),
+                      severity="ERROR" if outcome == "FAILED" else "INFO", detail=numbers)
+        still_open = CampaignRun.objects.filter(campaign_id=run.campaign_id, tenant_id=tenant_id, status__in=["SCHEDULED", "PREPARING", "SENDING", "PAUSED"]).exclude(pk=run.pk).exists()
+        # a one-time send, or the last step of a drip series, completes the campaign; a recurring campaign goes on (service.schedule_next_occurrence ends it)
+        if not still_open and run.run_type in ("ONE_TIME", "DRIP_INSTANCE"):
+            Campaign.objects.filter(pk=run.campaign_id, tenant_id=tenant_id, status="ACTIVE").update(status="COMPLETED", completed_at=now)
     return outcome
 
 
@@ -208,7 +236,9 @@ def due(limit: int = 50) -> list[tuple[str, str, str]]:
     """(tenant_id, run_id, status) of runs to start or to close, across tenants. Read on the platform connection."""
     with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
         cursor.execute("""SELECT r.tenant_id, r.id, r.status FROM campaign_run r JOIN tenant t ON t.id = r.tenant_id
-                           WHERE t.status = 'ACTIVE' AND ((r.status = 'SCHEDULED' AND (r.scheduled_at IS NULL OR r.scheduled_at <= now()) AND NOT r.test_mode)
+                             JOIN campaign c ON c.id = r.campaign_id AND c.tenant_id = r.tenant_id
+                           WHERE t.status = 'ACTIVE' AND ((r.status = 'SCHEDULED' AND (r.scheduled_at IS NULL OR r.scheduled_at <= now()) AND NOT r.test_mode
+                                                           AND c.status NOT IN ('PAUSED', 'ARCHIVED'))
                                   OR (r.status = 'SENDING' AND r.run_type <> 'ERECEIPT_INSTANCE' AND r.started_at < now() - interval '2 minutes'))
                            ORDER BY r.created_at LIMIT %s""", [limit])
         return [(str(a), str(b), c) for a, b, c in cursor.fetchall()]

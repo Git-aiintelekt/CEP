@@ -36,8 +36,16 @@ class Campaign(models.Model):
         TEST_PUBLISHED = 'TEST_PUBLISHED', 'Test Published'
         PRODUCTION_PUBLISHED = 'PRODUCTION_PUBLISHED', 'Production Published'
         ACTIVE = 'ACTIVE', 'Active'
+        PAUSED = 'PAUSED', 'Paused'
         COMPLETED = 'COMPLETED', 'Completed'
         CANCELLED = 'CANCELLED', 'Cancelled'
+        ARCHIVED = 'ARCHIVED', 'Archived'
+
+    class SendType(models.TextChoices):
+        IMMEDIATE = 'IMMEDIATE', 'Send immediately'
+        SCHEDULED = 'SCHEDULED', 'Schedule for later'
+        RECURRING = 'RECURRING', 'Recurring'
+        DRIP = 'DRIP', 'Drip series'
 
     class SolicitationType(models.TextChoices):
         MARKETING = 'MARKETING', 'Marketing'
@@ -67,6 +75,20 @@ class Campaign(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     row_version = models.IntegerField(default=1)
     sender_profile = models.ForeignKey('delivery.SenderProfile', on_delete=models.PROTECT, db_column='sender_profile_id', related_name='campaigns', null=True, blank=True)
+    previous_status = models.CharField(max_length=30, null=True, blank=True)  # where resume goes back to
+    tags = models.JSONField(default=list)
+    send_type = models.CharField(max_length=20, default='IMMEDIATE', choices=SendType.choices)
+    send_timezone = models.CharField(max_length=64, null=True, blank=True)  # the zone the schedule was entered in; NULL = the workspace's
+    recurring_config = models.JSONField(null=True, blank=True)  # {frequency, interval, weekdays[], day_of_month, time, end_date, max_runs}
+    drip_config = models.JSONField(null=True, blank=True)  # {steps: [{day}], time}
+    respect_governance = models.BooleanField(default=True)
+    rate_limit_per_hour = models.IntegerField(null=True, blank=True)
+    timezone_optimization = models.BooleanField(default=False)
+    receipt_config = models.JSONField(null=True, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    setup_step = models.SmallIntegerField(default=6)  # setup steps completed, 0-6; 6 = everything but the publish
 
     class Meta:
         managed = False
@@ -89,6 +111,7 @@ class CampaignRun(models.Model):
         SCHEDULED = 'SCHEDULED', 'Scheduled'
         PREPARING = 'PREPARING', 'Preparing'
         SENDING = 'SENDING', 'Sending'
+        PAUSED = 'PAUSED', 'Paused'
         COMPLETED = 'COMPLETED', 'Completed'
         FAILED = 'FAILED', 'Failed'
         CANCELLED = 'CANCELLED', 'Cancelled'
@@ -100,6 +123,7 @@ class CampaignRun(models.Model):
     run_type = models.CharField(max_length=30, choices=RunType.choices)  # ONE_TIME, RECURRING_INSTANCE, DRIP_INSTANCE, JOURNEY_INSTANCE, ERECEIPT_INSTANCE
     status = models.CharField(max_length=30, default='SCHEDULED', choices=Status.choices)  # SCHEDULED, PREPARING, SENDING, COMPLETED, FAILED, CANCELLED
     test_mode = models.BooleanField(default=False)
+    sequence_label = models.CharField(max_length=60, null=True, blank=True)  # "Day 3", "Occurrence 2"
     scheduled_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -160,6 +184,7 @@ class ContactListCampaign(models.Model):
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
     attached_at = models.DateTimeField(db_default=Now())
     created_at = models.DateTimeField(db_default=Now())
+    role = models.CharField(max_length=10, default='INCLUDE')  # INCLUDE its people, or EXCLUDE them from this campaign
 
     class Meta:
         managed = False
@@ -236,6 +261,8 @@ class CampaignTarget(models.Model):
     target_conversions = models.IntegerField(null=True, blank=True)
     target_redemptions = models.IntegerField(null=True, blank=True)
     planned_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    planned_offer_cost = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)  # offer / coupon / incentive cost (BRD 15)
+    notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
@@ -277,3 +304,28 @@ class CampaignActual(models.Model):
 
     def __str__(self):
         return str(self.pk)
+
+
+class CampaignActivityLog(models.Model):
+    """What happened to a campaign, in words (created, published, send started, paused ...)"""
+
+    id = models.BigAutoField(primary_key=True)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.CASCADE, db_column='campaign_id', related_name='activity')
+    campaign_run_id = models.UUIDField(null=True, blank=True)
+    event_type = models.CharField(max_length=30)
+    severity = models.CharField(max_length=10, default='INFO')
+    message = models.CharField(max_length=500)
+    detail = models.JSONField(default=dict)
+    actor_user_id = models.UUIDField(null=True, blank=True)
+    actor_name = models.CharField(max_length=200, null=True, blank=True)
+    occurred_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'campaign_activity_log'
+        ordering = ['-occurred_at', '-id']
+
+    def __str__(self):
+        return str(self.message)
+

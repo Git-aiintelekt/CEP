@@ -67,9 +67,9 @@ test('checking a provider and verifying a sender report what happened', async ()
 test('a campaign page offers a test send and shows what happened to its run, including who was left out and why', async () => {
   const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', runs: [] }) })
   const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1')
+  await renderAppAt('/campaigns/c1?tab=content')
 
-  const to = (await screen.findByLabelText(/^To/)) as HTMLInputElement
+  const to = (await screen.findByLabelText('Other addresses')) as HTMLInputElement
   expect(to.value).toBe('aby.john@aiintelekt.com')
   await user.clear(to)
   await user.type(to, 'me@example.com, bad@example.com')
@@ -77,17 +77,17 @@ test('a campaign page offers a test send and shows what happened to its run, inc
   const results = await screen.findByRole('list', { name: 'Test results' })
   expect(within(results).getByText('Sent to me@example.com')).toBeTruthy()
   expect(within(results).getByText('Not sent to bad@example.com: 550 mailbox unavailable')).toBeTruthy()
-  expect(calls.filter((call) => call.url.endsWith('/send-test/')).at(-1)?.body).toEqual({ to: ['me@example.com', 'bad@example.com'] })
+  expect(calls.filter((call) => call.url.endsWith('/test-publish/')).at(-1)?.body).toEqual({ to: ['me@example.com', 'bad@example.com'], user_ids: [] })
 
   cleanup()
   installMockApi({ campaign: makeCampaign({ status: 'COMPLETED', runs: [{ id: 'r1', campaign: 'c1', tenant: 't1', run_number: 1, run_type: 'ONE_TIME', status: 'COMPLETED', test_mode: false,
                                                                          scheduled_at: null, started_at: '2026-09-18T10:00:00Z', completed_at: '2026-09-18T10:02:00Z', created_at: '2026-09-18T10:00:00Z', updated_at: '2026-09-18T10:02:00Z', row_version: 1 }] }) })
-  await renderAppAt('/campaigns/c1')
+  await renderAppAt('/campaigns/c1?tab=performance')
   const panel = await screen.findByRole('region', { name: 'Results of run 1' })
   expect(within(panel).getByText('72')).toBeTruthy()
   expect(within(panel).getByText('No email consent')).toBeTruthy()
   expect(within(panel).getByText('Frequency cap reached')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Send test' })).toBeNull()                           // a finished campaign is not tested any more
+  expect(screen.queryByRole('link', { name: 'Test Publish' })).toBeNull()                          // a finished campaign is not tested any more
 })
 
 test('an e-receipt campaign explains how the point of sale sends receipts, with this campaign filled in', async () => {
@@ -129,14 +129,14 @@ test('a text campaign tests with mobile numbers, reports replies and opt-outs in
   const run = { id: 'r1', campaign: 'c1', tenant: 't1', run_number: 1, run_type: 'ONE_TIME', status: 'COMPLETED', test_mode: false, scheduled_at: null, started_at: '2026-09-18T10:00:00Z',
                 completed_at: '2026-09-18T10:01:00Z', created_at: '2026-09-18T10:00:00Z', updated_at: '2026-09-18T10:01:00Z', row_version: 1 }
   installMockApi({ texts: true, campaign: makeCampaign({ channel: 'SMS', status: 'DRAFT', runs: [] }) })
-  await renderAppAt('/campaigns/c1')
-  const to = (await screen.findByLabelText(/^To/)) as HTMLInputElement
+  await renderAppAt('/campaigns/c1?tab=content')
+  const to = (await screen.findByLabelText('Mobile numbers')) as HTMLInputElement
   expect(to.value).toBe('')
   expect(to.placeholder).toContain('+14045550100')
 
   cleanup()
   installMockApi({ texts: true, campaign: makeCampaign({ channel: 'SMS', status: 'COMPLETED', runs: [run] }) })
-  await renderAppAt('/campaigns/c1')
+  await renderAppAt('/campaigns/c1?tab=performance')
   const panel = await screen.findByRole('region', { name: 'Results of run 1' })
   expect(within(panel).getByText('Replied')).toBeTruthy()
   expect(within(panel).getByText('Opted out')).toBeTruthy()

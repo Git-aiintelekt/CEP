@@ -19,6 +19,8 @@ const TONES: Record<Tone, string> = {
 
 const STATUS_TONE: Record<string, Tone> = {
   ACTIVE: 'success',
+  PRODUCTION: 'success', // contact list type
+  TEST: 'warning',
   COMPLETED: 'success',
   PRODUCTION_PUBLISHED: 'success',
   SENDING: 'pending',
