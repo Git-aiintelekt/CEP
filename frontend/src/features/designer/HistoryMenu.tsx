@@ -28,20 +28,26 @@ export interface HistoryMenuProps {
   controller: SingleDropdown<PillKey>
   onOpen?: () => void
   onLoad: (version: number) => void
+  /** a second menu in the same bar needs its own key and its own name */
+  pillKey?: PillKey
+  label?: string
+  heading?: string
 }
 
 const ROW_BUTTON = 'h-7 shrink-0 rounded-sm border px-[10px] text-xs font-semibold transition-colors duration-base ease-standard cep-focus-inset'
 
-export function HistoryMenu({ versions, failed = false, shown, latest, busy = false, controller, onOpen, onLoad }: HistoryMenuProps) {
-  const trigger = controller.triggerProps('history')
-  const open = controller.isOpen('history')
+export function HistoryMenu({
+  versions, failed = false, shown, latest, busy = false, controller, onOpen, onLoad, pillKey = 'history', label = HISTORY_LABEL, heading = HISTORY_HEADING,
+}: HistoryMenuProps) {
+  const trigger = controller.triggerProps(pillKey)
+  const open = controller.isOpen(pillKey)
   const ordered = [...(versions ?? [])].sort((a, b) => b.version_number - a.version_number)
 
   return (
     <div className="relative">
       <Pill
         {...trigger}
-        title={HISTORY_HEADING}
+        title={heading}
         icon={History}
         open={open}
         onClick={() => {
@@ -49,12 +55,12 @@ export function HistoryMenu({ versions, failed = false, shown, latest, busy = fa
           trigger.onClick()
         }}
       >
-        {HISTORY_LABEL}
+        {label}
       </Pill>
 
       {open ?
-        <Popover label={HISTORY_HEADING} width={360} placement="bottom-end" {...controller.panelProps('history')}>
-          <PopoverHeading>{HISTORY_HEADING}</PopoverHeading>
+        <Popover label={heading} width={360} placement="bottom-end" {...controller.panelProps(pillKey)}>
+          <PopoverHeading>{heading}</PopoverHeading>
           <div className="max-h-80 overflow-y-auto">
             {failed ?
               <p className="px-3 py-3 text-helper text-ink-700">{HISTORY_FAILED}</p>

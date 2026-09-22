@@ -1,16 +1,16 @@
-/** A segmented control of three alignments. Selected is a Blue 600 outline over a light tint, never a blue fill. */
+/** A segmented control of three alignments, or fewer. Selected is a Blue 600 outline over a light tint, never a blue fill. */
 import { createElement, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 
 import { FieldRow } from './FieldRow'
 import { ALIGN_OPTIONS, type AlignAxis } from './options'
 import { INHERITED_NOTE, type Field } from './types'
 
-export type AlignFieldProps = Field<{ axis?: AlignAxis }>
+export type AlignFieldProps = Field<{ axis?: AlignAxis; /** limits the options to these values */ only?: string[] }>
 
 export function AlignField({
-  label, value, effective, onCommit, disabled = false, inherited = false, inheritedNote, axis = 'horizontal',
+  label, value, effective, onCommit, disabled = false, inherited = false, inheritedNote, axis = 'horizontal', only,
 }: AlignFieldProps) {
-  const options = ALIGN_OPTIONS[axis]
+  const options = only ? ALIGN_OPTIONS[axis].filter((option) => only.includes(option.value)) : ALIGN_OPTIONS[axis]
   const shown = value ?? effective ?? null
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
 

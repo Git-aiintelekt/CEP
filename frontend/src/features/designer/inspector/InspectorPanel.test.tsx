@@ -141,3 +141,28 @@ test('view-only keeps the way out: select parent and deselect still work', async
   expect(onSelectParent).toHaveBeenCalledTimes(1)
   expect(onDeselect).toHaveBeenCalledTimes(1)
 })
+
+test('the receipt slot says it is fixed, opens Receipt layout and switches the layout', async () => {
+  const user = userEvent.setup()
+  const onOpenLayout = vi.fn()
+  const onPresetChange = vi.fn()
+  renderPanel({ kind: 'cep-receipt-slot', name: 'Receipt slot', component: make('cep-receipt-slot'), receiptSlot: { preset: 'STANDARD', onOpenLayout, onPresetChange } })
+
+  expect(screen.getByText(/This slot is fixed/)).toBeTruthy()
+  expect(screen.queryByText(NO_SETTINGS_NOTE)).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Open Receipt layout' }))
+  expect(onOpenLayout).toHaveBeenCalledTimes(1)
+
+  const select = screen.getByLabelText('Current layout') as HTMLSelectElement
+  expect(select.value).toBe('STANDARD')
+  expect([...select.options].map((option) => option.textContent)).toEqual(['Compact', 'Standard', 'Itemized'])
+  await user.selectOptions(select, 'ITEMIZED')
+  expect(onPresetChange).toHaveBeenCalledWith('ITEMIZED')
+})
+
+test('a receipt block with no fields shows its callout, not the generic note', () => {
+  renderPanel({ kind: 'cep-receipt-divider', name: 'Divider', component: make('cep-receipt-divider'), hasFields: false })
+  expect(screen.getByText(/Spacing is fixed by the design system/)).toBeTruthy()
+  expect(screen.queryByText(NO_SETTINGS_NOTE)).toBeNull()
+})

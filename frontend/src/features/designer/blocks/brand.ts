@@ -13,6 +13,20 @@ export const BRAND = {
   line: '#e7e8ef',
 } as const
 
+/**
+ * The receipt's brand bar colours, from the design system's navy, teal and gray. Navy 900 and Gray 900 are its
+ * own values; the system has no Navy 700 or Teal 600, so those are its wordmark navy and wordmark teal.
+ */
+export const RECEIPT_SWATCHES = [
+  { value: '#273fa8', label: 'Navy 700' },
+  { value: '#20265d', label: 'Navy 900' },
+  { value: '#418eae', label: 'Teal 600' },
+  { value: '#17181c', label: 'Gray 900' },
+] as const
+
+/** The brand tag pair (Brand 100 / Brand 800), for a receipt's accent card. */
+export const BRAND_TINT = { background: '#dee9fc', text: '#2b4dd0' } as const
+
 export const FONT_STACK = 'Helvetica, Arial, sans-serif'
 
 /**

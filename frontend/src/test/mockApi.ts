@@ -2,8 +2,10 @@
 import { vi } from 'vitest'
 
 import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockCampaigns'
+import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
+import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, GovernanceLine, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, Role, RunResults,
+import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, Design, GovernanceLine, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -25,6 +27,7 @@ export const templates: Template[] = [
   { ...audit, id: 'tpl-email', name: 'Fall Email', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null },
   { ...audit, id: 'tpl-sms', name: 'Fall SMS', description: null, channel: 'SMS', status: 'ACTIVE', cloned_from: null },
   { ...audit, id: 'tpl-old', name: 'Retired Email', description: null, channel: 'EMAIL', status: 'ARCHIVED', cloned_from: null },
+  { ...audit, id: 'tpl-receipt', name: 'Northline order receipt', description: null, channel: 'E_RECEIPT', status: 'ACTIVE', cloned_from: null },
 ]
 
 export const senders: SenderProfile[] = [
@@ -189,6 +192,23 @@ export function makeMessage(overrides: Partial<Message> = {}): Message {
   }
 }
 
+export function makeDesign(overrides: Partial<Design> = {}): Design {
+  return {
+    template: 'tpl-receipt', version_number: 1, latest_version: 1, editor_state: null, mjml_source: RECEIPT_STARTER_MJML, html_content: null,
+    text_content: null, subject_line: 'Your Northline receipt', preheader: '', saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor',
+    ...overrides,
+  }
+}
+
+export function makeReceiptLayout(overrides: Partial<ReceiptLayout> = {}): ReceiptLayout {
+  return {
+    template: 'tpl-receipt', version_number: 1, latest_version: 1, layout_preset: 'STANDARD',
+    sections: defaultSectionsFor('STANDARD'),
+    custom_html: null, custom_css: null, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor',
+    ...overrides,
+  }
+}
+
 export function makeCampaign(overrides: Partial<Campaign> = {}): Campaign {
   const made = { ...campaignBase(), ...overrides }
   return { ...made, ...derived(made), ...(overrides.actions ? { actions: overrides.actions } : {}) }
@@ -222,6 +242,14 @@ interface MockOptions {
   message?: Message
   /** answer for POST /templates/{id}/message/ ; default echoes version n+1 */
   onSaveMessage?: (call: Call) => Response | null
+  /** what GET /templates/{id}/design/ answers */
+  design?: Design
+  /** answer for POST /templates/{id}/design/ ; default echoes version n+1 */
+  onSaveDesign?: (call: Call) => Response | null
+  /** what GET /templates/{id}/receipt/ answers */
+  receiptLayout?: ReceiptLayout
+  /** answer for POST /templates/{id}/receipt/ ; default echoes version n+1 */
+  onSaveReceiptLayout?: (call: Call) => Response | null
   /** answer for writes under /users/, /roles/, /api-clients/ and /auth/set-password/ ; default echoes success */
   onSettingsWrite?: (call: Call) => Response | null
   /** merged over the default GET /me/ answer: features, support_session, mfa_setup_required ... */
@@ -371,6 +399,22 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/message/')) return json(message)
     if (path.endsWith('/design/versions/')) return json([{ version_number: message.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
+    const design = options.design ?? makeDesign()
+    if (path.endsWith('/design/') && method === 'POST') {
+      const custom = options.onSaveDesign?.(call)
+      if (custom) return custom
+      return json({ ...design, ...(body as Partial<Design>), version_number: design.latest_version + 1, latest_version: design.latest_version + 1, saved_by: 'Aby John' }, 201)
+    }
+    if (path.endsWith('/design/')) return json(design)
+    const receiptLayout = options.receiptLayout ?? makeReceiptLayout()
+    if (path.endsWith('/receipt/') && method === 'POST') {
+      const custom = options.onSaveReceiptLayout?.(call)
+      if (custom) return custom
+      return json({ ...receiptLayout, ...(body as Partial<ReceiptLayout>), version_number: receiptLayout.latest_version + 1,
+                    latest_version: receiptLayout.latest_version + 1, saved_by: 'Aby John' }, 201)
+    }
+    if (path.endsWith('/receipt/')) return json(receiptLayout)
+    if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
     if (path.endsWith('/personalization-tags/')) return json({ next: null, previous: null, results: tags })
     if (path.endsWith('/template-starters/')) return json(starters.filter((item) => url.includes(`channel=${item.channel}`)))
     if (path.endsWith('/media-assets/') && method === 'POST') return json({ ...mediaLibrary[0], id: 'img-up', file_name: 'uploaded.png', mime_type: 'image/png' }, 201)

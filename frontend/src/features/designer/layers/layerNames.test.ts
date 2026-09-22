@@ -1,3 +1,4 @@
+import { Lock } from 'lucide-react'
 import { expect, test } from 'vitest'
 
 import { CEP_BLOCKS } from '../blocks/registry'
@@ -49,4 +50,9 @@ test('a name the reader typed wins, and clearing it brings the default back', ()
   expect(layerNameFor('mj-section', '   ')).toBe('Section')
   expect(layerNameFor('mj-section', undefined)).toBe('Section')
   expect(layerNameFor('mj-social-element', '', { name: 'x' })).toBe('X')
+})
+
+test('the locked receipt slot reads as a receipt slot with a lock', () => {
+  expect(defaultNameFor('cep-receipt-slot')).toBe('Receipt slot')
+  expect(iconFor('cep-receipt-slot')).toBe(Lock)
 })

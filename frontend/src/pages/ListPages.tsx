@@ -7,6 +7,7 @@ import type { Column } from '@/components/DataTable'
 import { buttonPrimary } from '@/components/Form'
 import { ResourceList } from '@/components/ResourceList'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { editorRouteFor } from '@/lib/editorRoute'
 import { formatDateTime, humanize } from '@/lib/format'
 import type { Journey, Template } from '@/lib/types'
 
@@ -21,7 +22,10 @@ function Title({ primary, secondary }: { primary: string; secondary?: string | n
   )
 }
 
-const DESIGNER_CHANNELS = ['EMAIL', 'E_RECEIPT']
+
+function editorPathFor(row: Template): string {
+  return `/templates/${row.id}/${editorRouteFor(row.channel)}`
+}
 
 const templateColumns: Column<Template>[] = [
   { key: 'name', header: 'Template', render: (row) => <Title primary={row.name} secondary={row.description} /> },
@@ -31,16 +35,11 @@ const templateColumns: Column<Template>[] = [
   {
     key: 'open',
     header: 'Design',
-    render: (row) =>
-      DESIGNER_CHANNELS.includes(row.channel) ? (
-        <Link to={`/templates/${row.id}/design`} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
-          Open designer
-        </Link>
-      ) : (
-        <Link to={`/templates/${row.id}/message`} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
-          Open editor
-        </Link>
-      ),
+    render: (row) => (
+      <Link to={editorPathFor(row)} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
+        {editorRouteFor(row.channel) === 'design' ? 'Open designer' : 'Open editor'}
+      </Link>
+    ),
   },
   { key: 'updated', header: 'Updated', render: (row) => formatDateTime(row.updated_at) },
 ]
@@ -50,7 +49,7 @@ export function TemplatesPage() {
   const { can } = useAuth()
   return (
     <ResourceList<Template>
-      onRowClick={(row) => navigate(`/templates/${row.id}/${DESIGNER_CHANNELS.includes(row.channel) ? 'design' : 'message'}`)}
+      onRowClick={(row) => navigate(editorPathFor(row))}
       actions={
         can('template.edit') && (
           <Link to="/templates/new" className={buttonPrimary}>

@@ -4,9 +4,12 @@ import { createElement } from 'react'
 
 import type { Component } from 'grapesjs'
 
+import { RECEIPT_SLOT_TYPE } from '../blocks/receiptSlot'
 import { iconFor } from '../layers/layerNames'
 import { VIEW_ONLY_NOTE } from '../readOnly'
 import { InspectorFields } from './InspectorFields'
+import { ReceiptSlotSettings } from './ReceiptSlotSettings'
+import { receiptCallout, type ReceiptSlotControls } from './receiptSettings'
 import type { TagPickerSlot } from './fields/types'
 import type { GroupedEditor } from './settings'
 
@@ -35,6 +38,8 @@ interface InspectorPanelProps {
   /** false when the selected block offers nothing to edit */
   hasFields?: boolean
   tagPicker?: TagPickerSlot
+  /** E-Receipt only: what the receipt slot's panel shows and does */
+  receiptSlot?: ReceiptSlotControls
 }
 
 /** createElement, so the glyph is not a component created during render (iconFor is a lookup, not a component). */
@@ -44,7 +49,7 @@ function KindIcon({ kind }: { kind: string }) {
 
 export function InspectorPanel({
   kind, name, component, editor, wrapper, canSelectParent = false, onSelectParent, onDeselect,
-  disabled = false, recent, onRecentUse, onChooseImage, version, focusKey, hasFields = true, tagPicker,
+  disabled = false, recent, onRecentUse, onChooseImage, version, focusKey, hasFields = true, tagPicker, receiptSlot,
 }: InspectorPanelProps) {
   return (
     <aside aria-label="Block settings" className="flex h-full min-h-0 w-[296px] shrink-0 flex-col border-l border-line bg-surface max-[1439px]:w-[272px] max-[1199px]:w-[264px]">
@@ -78,7 +83,9 @@ export function InspectorPanel({
             : null}
           </div>
 
-          {hasFields ?
+          {kind === RECEIPT_SLOT_TYPE ?
+            <ReceiptSlotSettings preset={receiptSlot?.preset ?? 'STANDARD'} onPresetChange={receiptSlot?.onPresetChange} onOpenLayout={receiptSlot?.onOpenLayout} disabled={disabled} />
+          : hasFields || receiptCallout(kind, component) ?
             <InspectorFields
               component={component}
               editor={editor}

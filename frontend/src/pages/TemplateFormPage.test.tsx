@@ -6,6 +6,7 @@ import { installMockApi, problem, signIn, tags } from '@/test/mockApi'
 
 // GrapesJS needs a real browser layout engine; the designer itself is checked in the browser playground (/dev/designer).
 vi.mock('@/pages/TemplateDesignerPage', () => ({ default: () => <p>designer opened</p> }))
+vi.mock('@/pages/ReceiptEditorPage', () => ({ default: () => <p>receipt editor opened</p> }))
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -46,6 +47,21 @@ test('an SMS template is created and the message editor opens on it', async () =
   await screen.findByLabelText('Message')
   expect(window.location.pathname).toBe('/templates/tpl-new/message')
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body).toMatchObject({ name: 'Holiday SMS', channel: 'SMS' })
+})
+
+test('an e-receipt template opens the receipt editor, not the email designer', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates/new')
+
+  await user.type(await screen.findByLabelText(/^Name/), 'Store receipt')
+  await user.selectOptions(screen.getByLabelText(/^Channel/), 'E_RECEIPT')
+  expect(screen.getByText('Transactional receipt email. Opens the receipt editor.')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Create and open the receipt editor' }))
+
+  expect(await screen.findByText('receipt editor opened')).toBeTruthy()
+  expect(window.location.pathname).toBe('/templates/tpl-new/receipt')
+  expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body).toMatchObject({ name: 'Store receipt', channel: 'E_RECEIPT' })
 })
 
 test('a starter is offered for the channel, previewed with sample values, pre-fills the name and is sent with the create call', async () => {

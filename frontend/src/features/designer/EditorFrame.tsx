@@ -1,8 +1,8 @@
 /**
- * The chrome around the email editor: top bar, Content / Preview tabs, a scrolling main area and optional footer.
+ * The chrome around a template editor: top bar, the caller's tabs, a scrolling main area and optional footer.
  * Presentational only — it owns no editor state and decides nothing about saving.
  */
-import { ArrowLeft, Eye, PencilRuler } from 'lucide-react'
+import { ArrowLeft, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -12,9 +12,20 @@ import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
 import { WizardTracker, type WizardTrackerProps } from './WizardTracker'
 
-export type EditorTab = 'content' | 'preview'
+export interface EditorTabDef<T extends string = string> {
+  id: T
+  label: string
+  Icon: LucideIcon
+}
 
-interface EditorFrameProps {
+export interface EditorPane<T extends string = string> {
+  id: T
+  content: ReactNode
+  /** the panel scrolls itself; leave off for panes such as the canvas that manage their own scrolling */
+  scrolls?: boolean
+}
+
+interface EditorFrameProps<T extends string> {
   name: string
   status: string
   /** real saves only, e.g. "Version 3 · unsaved changes" */
@@ -24,8 +35,9 @@ interface EditorFrameProps {
   backTo: string
   /** the parent may cancel the navigation, e.g. to confirm leaving unsaved work */
   onBack?: (event: MouseEvent) => void
-  tab: EditorTab
-  onTabChange: (tab: EditorTab) => void
+  tabs: EditorTabDef<T>[]
+  tab: T
+  onTabChange: (tab: T) => void
   /** the app's navigation bar, rendered as the editor's first column */
   nav?: ReactNode
   topBarEnd?: ReactNode
@@ -34,20 +46,14 @@ interface EditorFrameProps {
   notice?: ReactNode
   footer?: ReactNode
   wizard?: WizardTrackerProps
-  contentPane: ReactNode
-  previewPane: ReactNode
+  panes: EditorPane<T>[]
 }
 
-const TABS: { id: EditorTab; label: string; Icon: typeof Eye }[] = [
-  { id: 'content', label: 'Content', Icon: PencilRuler },
-  { id: 'preview', label: 'Preview', Icon: Eye },
-]
-
-export function EditorFrame({
-  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, tab, onTabChange, nav, topBarEnd, tabBarEnd, notice, footer, wizard, contentPane, previewPane,
-}: EditorFrameProps) {
+export function EditorFrame<T extends string>({
+  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, tabs, tab, onTabChange, nav, topBarEnd, tabBarEnd, notice, footer, wizard, panes,
+}: EditorFrameProps<T>) {
   const baseId = useId()
-  const tabRefs = useRef(new Map<EditorTab, HTMLButtonElement | null>())
+  const tabRefs = useRef(new Map<T, HTMLButtonElement | null>())
   // the bar takes its 72px out of the room the editor itself needs
   const wideEnough = useMinWidth(BREAKPOINT.lg + (nav ? NAV_BAR_WIDTH : 0))
 
@@ -60,26 +66,26 @@ export function EditorFrame({
     }
   }, [])
 
-  const tabId = (id: EditorTab) => `${baseId}-tab-${id}`
-  const panelId = (id: EditorTab) => `${baseId}-panel-${id}`
+  const tabId = (id: T) => `${baseId}-tab-${id}`
+  const panelId = (id: T) => `${baseId}-panel-${id}`
 
-  const go = (id: EditorTab) => {
+  const go = (id: T) => {
     onTabChange(id)
     tabRefs.current.get(id)?.focus()
   }
 
   // Arrow keys move and activate in one step, which is the expected behaviour for tabs that own their panel.
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const index = TABS.findIndex((item) => item.id === tab)
+    const index = tabs.findIndex((item) => item.id === tab)
     const next =
-      event.key === 'ArrowRight' ? (index + 1) % TABS.length
-      : event.key === 'ArrowLeft' ? (index - 1 + TABS.length) % TABS.length
+      event.key === 'ArrowRight' ? (index + 1) % tabs.length
+      : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length
       : event.key === 'Home' ? 0
-      : event.key === 'End' ? TABS.length - 1
+      : event.key === 'End' ? tabs.length - 1
       : -1
     if (next === -1) return
     event.preventDefault()
-    go(TABS[next].id)
+    go(tabs[next].id)
   }
 
   const backLink = (
@@ -126,7 +132,7 @@ export function EditorFrame({
 
       <div className="sticky top-0 z-10 flex shrink-0 items-stretch gap-6 border-b border-line bg-surface px-6">
         <div role="tablist" aria-label="Editor view" className="flex items-stretch gap-6">
-          {TABS.map(({ id, label, Icon }) => {
+          {tabs.map(({ id, label, Icon }) => {
             const active = tab === id
             return (
               <button
@@ -157,17 +163,23 @@ export function EditorFrame({
       {notice}
 
       {/*
-        Both panes stay mounted: unmounting the content pane destroys the GrapesJS editor,
+        Every pane stays mounted: unmounting the one holding the canvas destroys the GrapesJS editor,
         its undo history and any unsaved work.
       */}
       <main className="flex min-h-0 flex-1 flex-col">
         {/* the class, not just the attribute: `display: flex` from a class outranks the browser's [hidden] rule */}
-        <div role="tabpanel" id={panelId('content')} aria-labelledby={tabId('content')} hidden={tab !== 'content'} className={`${tab === 'content' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col`}>
-          {contentPane}
-        </div>
-        <div role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')} hidden={tab !== 'preview'} className={`${tab === 'preview' ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col overflow-auto`}>
-          {previewPane}
-        </div>
+        {panes.map((pane) => (
+          <div
+            key={pane.id}
+            role="tabpanel"
+            id={panelId(pane.id)}
+            aria-labelledby={tabId(pane.id)}
+            hidden={tab !== pane.id}
+            className={`${tab === pane.id ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col${pane.scrolls ? ' overflow-auto' : ''}`}
+          >
+            {pane.content}
+          </div>
+        ))}
       </main>
 
       {footer && <div className="shrink-0 border-t border-line bg-surface">{footer}</div>}

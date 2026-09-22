@@ -11,7 +11,7 @@ import type { SingleDropdown } from '@/lib/useSingleDropdown'
 import { issueLines, type Issue } from './issues'
 import { unknownTagsIn, type LinkEntry } from './links'
 
-export type PillKey = 'history' | 'errors' | 'links'
+export type PillKey = 'history' | 'errors' | 'links' | 'receiptHistory'
 export type PillController = SingleDropdown<PillKey>
 
 export const ERRORS_HEADING = 'Errors — must be fixed to save or activate'

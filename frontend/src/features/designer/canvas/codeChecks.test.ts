@@ -2,8 +2,10 @@ import { expect, test, vi } from 'vitest'
 
 import type { PersonalizationTag } from '@/lib/types'
 
+import { RECEIPT_SLOT_MJML } from '../blocks/receiptSlot'
+
 import {
-  EMPTY_MESSAGE, FORBIDDEN, MAX_MJML_BYTES, NOT_MJML_MESSAGE, checkMjml, lineOf, plainLine, rawDetail, unknownFieldMessage, type Compile,
+  EMPTY_MESSAGE, FORBIDDEN, MAX_MJML_BYTES, MISSING_RECEIPT_SLOT_MESSAGE, NOT_MJML_MESSAGE, checkMjml, lineOf, plainLine, rawDetail, unknownFieldMessage, type Compile,
 } from './codeChecks'
 
 const tag = (tag_key: string): PersonalizationTag => ({
@@ -129,4 +131,24 @@ test('the checks stop at the first problem, in order: server rules before compil
 test('a line is counted from 1', () => {
   expect(lineOf('a\nb\nc', 0)).toBe(1)
   expect(lineOf('a\nb\nc', 4)).toBe(3)
+})
+
+// ---- E-Receipt: the receipt slot ----------------------------------------------
+
+const WITH_SLOT = VALID.replace('  </mj-body>', `    ${RECEIPT_SLOT_MJML}\n  </mj-body>`)
+const forChannel = (text: string, channel?: string, compile: Compile = clean) => checkMjml(text, { compile, catalogue, channel })
+
+test('an E-Receipt whose code has lost the receipt slot is refused', () => {
+  expect(forChannel(VALID, 'E_RECEIPT')).toEqual({ ok: false, message: MISSING_RECEIPT_SLOT_MESSAGE, details: [] })
+})
+
+test('an E-Receipt that keeps the slot passes, and the earlier checks still come first', () => {
+  expect(forChannel(WITH_SLOT, 'E_RECEIPT')).toEqual({ ok: true })
+  expect(forChannel('   ', 'E_RECEIPT')).toMatchObject({ ok: false, message: EMPTY_MESSAGE })
+  expect(forChannel(WITH_SLOT.replace('{{first_name}}', '{{nope}}'), 'E_RECEIPT')).toMatchObject({ ok: false, message: unknownFieldMessage(['nope']) })
+})
+
+test('an email never needs the slot', () => {
+  expect(forChannel(VALID, 'EMAIL')).toEqual({ ok: true })
+  expect(forChannel(VALID)).toEqual({ ok: true })
 })

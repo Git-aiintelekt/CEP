@@ -13,7 +13,6 @@ import { canEditTemplate } from '@/features/designer/editAccess'
 import { api } from '@/lib/api'
 import type { Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
 
-const DESIGNER_CHANNELS = ['EMAIL', 'E_RECEIPT']
 
 export default function TemplateDesignerPage() {
   const { id = '' } = useParams()
@@ -65,10 +64,10 @@ export default function TemplateDesignerPage() {
   }
   if (!template.data || !design.data || !tags.data) return <EditorLoading label="Opening the designer" />
 
-  if (!DESIGNER_CHANNELS.includes(template.data.channel)) {
+  if (template.data.channel !== 'EMAIL') {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
-        <ErrorState title="This is not an email template" error={new Error(`The email designer is for EMAIL and E_RECEIPT templates. "${template.data.name}" is ${template.data.channel}.`)} />
+        <ErrorState title="This is not an email template" error={new Error(`The email designer is for EMAIL templates. "${template.data.name}" is ${template.data.channel}.`)} />
         <Link to="/templates" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
       </div>
     )

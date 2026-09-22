@@ -54,12 +54,22 @@ test('the category is the sentence-case label, not the id', () => {
   expect(new Set(added.map((item) => item.props.category))).toEqual(new Set(['Structure', 'Content', 'Brand', 'Commerce']))
 })
 
-test('a receipt is offered no footer, because it carries no unsubscribe link', () => {
+test('a receipt is offered its own six blocks, in its grid order', () => {
   const { editor, added } = mockEditor()
   registerBlocks(editor, { channel: 'E_RECEIPT' })
 
-  expect(added.map((item) => item.id)).not.toContain('footer')
-  expect(added).toHaveLength(CEP_BLOCKS.length - 1)
+  expect(added.map((item) => item.id)).toEqual([
+    'receipt-brand-header', 'receipt-marketing', 'receipt-button', 'receipt-footer', 'receipt-image', 'receipt-divider',
+  ])
+  expect(added.map((item) => item.props.label)).toEqual(['Brand header', 'Marketing', 'Button', 'Footer', 'Image', 'Divider'])
+})
+
+test('none of the Email palette is offered to a receipt', () => {
+  const ids = blockIdsInOrder('E_RECEIPT')
+  for (const excluded of ['text', 'heading', 'columns-1', 'columns-2', 'columns-3', 'columns-4', 'social', 'product-card', 'coupon', 'spacer', 'footer']) {
+    expect(ids, excluded).not.toContain(excluded)
+  }
+  expect(blockIdsInOrder('EMAIL')).toEqual(CEP_BLOCKS.map((block) => block.id))
 })
 
 test('blockIdsInOrder matches what was registered', () => {
@@ -67,7 +77,7 @@ test('blockIdsInOrder matches what was registered', () => {
   registerBlocks(editor, { channel: 'EMAIL' })
 
   expect(blockIdsInOrder('EMAIL')).toEqual(added.map((item) => item.id))
-  expect(blockIdsInOrder('E_RECEIPT')).not.toContain('footer')
+  expect(blockIdsInOrder('E_RECEIPT')).toHaveLength(6)
 })
 
 // ---- footer rules --------------------------------------------------------

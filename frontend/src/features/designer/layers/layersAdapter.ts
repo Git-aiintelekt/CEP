@@ -26,28 +26,31 @@ export function buildNodes(editor: Editor, hidden: ReadonlySet<string>): LayerNo
   if (!root) return []
   const selected = editor.getSelected()
 
-  const toNode = (component: Component, index: number, siblings: number): LayerNode => {
+  const toNode = (component: Component, index: number, siblings: Component[]): LayerNode => {
     const kind = String(component.get('type') ?? component.get('tagName') ?? '')
     const id = String(component.getId())
     const kids = childrenOf(editor, component)
+    const draggable = component.get('draggable') !== false
     return {
       id,
       kind,
       name: layerNameFor(kind, component.get('custom-name'), component.getAttributes()),
-      children: kids.map((child, childIndex) => toNode(child, childIndex, kids.length)),
+      children: kids.map((child, childIndex) => toNode(child, childIndex, kids)),
       open: editor.Layers.isOpen(component),
       visible: !hidden.has(id),
       hiddenOnPhones: isHiddenOnPhones(component),
       selected: component === selected,
       removable: component.get('removable') !== false,
-      // siblings only: the panel never changes a block's parent, so MJML nesting cannot be broken
-      canMoveUp: index > 0,
-      canMoveDown: index < siblings - 1,
+      draggable,
+      // siblings only: the panel never changes a block's parent, so MJML nesting cannot be broken; a locked block
+      // neither moves nor is moved past
+      canMoveUp: index > 0 && draggable && siblings[index - 1].get('draggable') !== false,
+      canMoveDown: index < siblings.length - 1 && draggable && siblings[index + 1].get('draggable') !== false,
     }
   }
 
   const top = childrenOf(editor, root)
-  return top.map((child, index) => toNode(child, index, top.length))
+  return top.map((child, index) => toNode(child, index, top))
 }
 
 /** Every component the tree can show, which is what a hidden id has to still match. */
@@ -146,6 +149,9 @@ export function moveLayer(editor: Editor, id: string, direction: 'up' | 'down'):
   const index = siblings.indexOf(component)
   if (index === -1) return
   if (direction === 'up' ? index === 0 : index === siblings.length - 1) return
+  // the panel already checks this; any other caller gets the same lock
+  if (component.get('draggable') === false) return
+  if (siblings[direction === 'up' ? index - 1 : index + 1].get('draggable') === false) return
 
   component.move(parent, { at: direction === 'up' ? index - 1 : index + 2 })
   editor.select(component)
