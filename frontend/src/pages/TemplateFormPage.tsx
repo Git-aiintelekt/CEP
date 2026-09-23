@@ -10,15 +10,23 @@ import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { StarterGallery } from '@/features/templates/StarterGallery'
 import { api, ApiError } from '@/lib/api'
+import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
 import type { Template } from '@/lib/types'
 
 const CHANNELS = [
   { value: 'EMAIL', label: 'Email', hint: 'Opens the drag-and-drop email designer.' },
-  { value: 'E_RECEIPT', label: 'E-receipt', hint: 'Transactional receipt email. Opens the email designer.' },
+  { value: 'E_RECEIPT', label: 'E-receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
   { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
   { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
 ]
+
+/** What the create button promises, by the editor the new template opens in. */
+const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
+  design: 'Create and open the designer',
+  receipt: 'Create and open the receipt editor',
+  message: 'Create and write the message',
+}
 
 export function TemplateFormPage() {
   const { can, has } = useAuth()
@@ -36,7 +44,7 @@ export function TemplateFormPage() {
     mutationFn: () => api.post<Template>('/templates/', { name: name.trim(), channel, description: description.trim() || null, ...(starter ? { starter } : {}) }),
     onSuccess: async (template) => {
       await queryClient.invalidateQueries({ queryKey: ['templates'] })
-      navigate(`/templates/${template.id}/${['EMAIL', 'E_RECEIPT'].includes(template.channel) ? 'design' : 'message'}`, { replace: true })
+      navigate(`/templates/${template.id}/${editorRouteFor(template.channel)}`, { replace: true })
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 400) {
@@ -100,8 +108,8 @@ export function TemplateFormPage() {
         {errors.starter && <p className="text-sm font-medium text-danger-text">{errors.starter}</p>}
         <div className="flex items-center gap-3">
           <button type="submit" disabled={create.isPending} className={buttonPrimary}>
-            {create.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}
-            {['EMAIL', 'E_RECEIPT'].includes(channel) ? 'Create and open the designer' : 'Create and write the message'}
+            {create.isPending && <Spinner size="sm" tone="onBrand" />}
+            {CREATE_LABEL[editorRouteFor(channel)]}
           </button>
           <Link to="/templates" className={buttonSecondary}>Cancel</Link>
         </div>

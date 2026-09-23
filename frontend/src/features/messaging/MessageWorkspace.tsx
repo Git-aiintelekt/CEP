@@ -219,12 +219,12 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             <button type="button" className={buttonSecondary} aria-pressed={showHistory} onClick={() => void toggleHistory()}>History</button>
             {backend.activate && currentStatus === 'DRAFT' && !readOnly && (
               <button type="button" className={buttonSecondary} disabled={dirty || saved.version === 0 || busy !== null} title={dirty ? 'Save first' : undefined} onClick={() => void activate()}>
-                {busy === 'activate' && <Spinner className="h-4 w-4" />} Activate
+                {busy === 'activate' && <Spinner size="sm" />} Activate
               </button>
             )}
             {!readOnly && (
               <button type="button" className={buttonPrimary} disabled={!dirty || tooLong || !body.trim() || busy !== null} onClick={() => void save()}>
-                {busy === 'save' && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />} Save
+                {busy === 'save' && <Spinner size="sm" tone="onBrand" />} Save
               </button>
             )}
           </div>
@@ -296,7 +296,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                   <div className="flex gap-2">
                     <button type="button" className={buttonSecondary} onClick={() => setPickerOpen(!pickerOpen)} aria-expanded={pickerOpen}>Choose from library</button>
                     <button type="button" className={buttonSecondary} disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
-                      {busy === 'upload' && <Spinner className="h-4 w-4" />} Upload
+                      {busy === 'upload' && <Spinner size="sm" />} Upload
                     </button>
                     <input ref={fileInput} type="file" accept={MMS_TYPES.join(',')} className="sr-only" aria-label="Upload a picture" onChange={(event) => void upload(event.target.files?.[0])} />
                   </div>
@@ -350,7 +350,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               <h2 className="text-sm font-semibold text-ink-900">Version history</h2>
               <p className="mt-1 text-xs text-ink-500">Every save is a new version. Loading an old one never deletes anything: saving it creates the next version.</p>
               {versions === null ? (
-                <p className="mt-3 flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+                <p className="mt-3 flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
               ) : versions.length === 0 ? (
                 <p className="mt-3 text-sm text-ink-500">Nothing saved yet.</p>
               ) : (

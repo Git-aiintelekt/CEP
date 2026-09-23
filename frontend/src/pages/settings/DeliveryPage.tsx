@@ -42,7 +42,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
     <Modal title={provider ? `Edit ${provider.name}` : 'Add a sending engine'} onClose={onClose} size="lg"
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{provider ? 'Save changes' : 'Add engine'}</button>
+        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}{provider ? 'Save changes' : 'Add engine'}</button>
       </>}>
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the provider" error={other} />}
@@ -225,7 +225,7 @@ export function DeliveryPage() {
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add engine</button>
         </div>
-        {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading providers</p>
+        {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading providers</p>
           : rows.length === 0 ? <EmptyState title="No sending engine yet" hint="Add Postal or SendGrid for email or a text engine here, or offer your own mail server as a campaign sender under Email server." />
           : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Sending engines" />}
       </section>
@@ -239,7 +239,7 @@ export function DeliveryPage() {
           <button type="button" className={buttonSecondary} disabled={rows.every((row) => row.manageable === false)} onClick={() => setEditingSender('new')}>Add sender</button>
         </div>
         {senders.isError ? <ErrorState error={senders.error} onRetry={() => void senders.refetch()} />
-          : senders.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading senders</p>
+          : senders.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading senders</p>
           : senders.data.length === 0 ? <EmptyState title="No sender yet" hint="Add a provider first, then the From address your campaigns should use." />
           : <DataTable columns={senderColumns} rows={senders.data} rowKey={(row) => row.id} caption="Senders" />}
       </section>

@@ -792,6 +792,92 @@ export interface DesignVersion {
   saved_by: string | null
 }
 
+export type ReceiptLayoutPreset = 'COMPACT' | 'STANDARD' | 'ITEMIZED' | 'CUSTOM_HTML'
+interface ReceiptSectionBase {
+  label: string
+  /** required sections: always visible, can't be hidden or removed */
+  locked: boolean
+  visible: boolean
+  order: number
+  /** informational only, e.g. "Order.lineItems[]" */
+  data_binding: string | null
+}
+
+export interface ReceiptHeaderSection extends ReceiptSectionBase {
+  key: 'header'
+  fields: { order_number: boolean; order_date: boolean; store: boolean; receipt_id: boolean }
+}
+
+export interface ReceiptCustomerFulfillmentSection extends ReceiptSectionBase {
+  key: 'customer_fulfillment'
+  address_mode: 'AUTO' | 'SHIP_TO' | 'PICKUP'
+  delivery_estimate: boolean
+}
+
+export interface ReceiptItemsSection extends ReceiptSectionBase {
+  key: 'items'
+  columns: { product_image: boolean; sku: boolean; quantity: boolean; unit_price: boolean; amount: boolean }
+  row_height: 'COMPACT' | 'DEFAULT'
+}
+
+/** the Total row always renders, so it isn't a toggle */
+export interface ReceiptTotalsSection extends ReceiptSectionBase {
+  key: 'totals'
+  rows: { subtotal: boolean; discount: boolean; tax: boolean; shipping: boolean; tip: boolean }
+  savings_callout: boolean
+}
+
+export interface ReceiptPaymentSection extends ReceiptSectionBase {
+  key: 'payment'
+  fields: { method: boolean; authorization_time: boolean; billing_address: boolean }
+}
+
+export interface ReceiptLoyaltySection extends ReceiptSectionBase {
+  key: 'loyalty'
+  fields: { points_earned: boolean; points_balance: boolean; tier_progress: boolean }
+}
+
+export interface ReceiptSupportSection extends ReceiptSectionBase {
+  key: 'support'
+  policy_text: string
+  barcode: boolean
+}
+
+export type ReceiptSection =
+  | ReceiptHeaderSection
+  | ReceiptCustomerFulfillmentSection
+  | ReceiptItemsSection
+  | ReceiptTotalsSection
+  | ReceiptPaymentSection
+  | ReceiptLoyaltySection
+  | ReceiptSupportSection
+
+export type ReceiptSectionKey = ReceiptSection['key']
+
+/** GET / POST /templates/{id}/receipt/ : the receipt layout half of an E-Receipt template (the outer design is a Design, elsewhere in this file) */
+export interface ReceiptLayout {
+  template: string
+  /** 0 = nothing saved yet */
+  version_number: number
+  latest_version: number
+  layout_preset: ReceiptLayoutPreset
+  sections: ReceiptSection[]
+  /** only used when layout_preset is CUSTOM_HTML */
+  custom_html: string | null
+  custom_css: string | null
+  saved_at: string | null
+  saved_by: string | null
+}
+
+export interface ReceiptLayoutSaveInput {
+  layout_preset: ReceiptLayoutPreset
+  sections: ReceiptSection[]
+  custom_html: string | null
+  custom_css: string | null
+  /** the version the editor loaded: the API answers 409 when a newer one exists */
+  base_version: number
+}
+
 export interface MediaAsset {
   id: string
   file_name: string

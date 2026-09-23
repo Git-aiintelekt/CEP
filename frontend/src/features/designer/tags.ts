@@ -17,19 +17,6 @@ export function unknownTags(used: string[], catalogue: PersonalizationTag[]): st
   return used.filter((key) => !known.has(key))
 }
 
-/** Replace tags with their sample (or default) value so a preview reads like a real message. Unknown tags stay visible. */
-export function applySampleValues(text: string, catalogue: PersonalizationTag[]): string {
-  const samples = new Map(catalogue.map((tag) => [tag.tag_key, tag.sample_value ?? tag.default_value ?? tag.static_value ?? '']))
-  return text.replace(TAG_PATTERN, (whole, key: string) => {
-    const value = samples.get(key)
-    return value ? escapeHtml(value) : whole
-  })
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
 const KIND_ORDER = ['STANDARD', 'CUSTOM', 'SYSTEM', 'SEGMENT', 'INNER_TEMPLATE']
 const KIND_LABEL: Record<string, string> = {
   STANDARD: 'Customer', CUSTOM: 'Campaign list', SYSTEM: 'System', SEGMENT: 'Segment', INNER_TEMPLATE: 'Content blocks',

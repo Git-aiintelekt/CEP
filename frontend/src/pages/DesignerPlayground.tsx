@@ -3,18 +3,22 @@
  * No sign-in and no API, so the editor can be worked on and checked visually in isolation.
  */
 import { useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
+import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { extractTags, unknownTags } from '@/features/designer/tags'
+import { ApiError } from '@/lib/api'
 import type { Design, PersonalizationTag } from '@/lib/types'
 
-const tag = (tag_key: string, label: string, tag_kind: string, sample_value: string): PersonalizationTag => ({
+const tag = (tag_key: string, label: string, tag_kind: string, sample_value: string, default_value: string | null = null): PersonalizationTag => ({
   id: tag_key, tag_key, label, tag_kind, data_type: 'STRING', applies_to_channels: ['EMAIL'], description: null, sample_value,
-  default_value: null, static_value: null, is_active: true,
+  default_value, static_value: null, is_active: true,
 })
 
 const TAGS = [
-  tag('first_name', 'First name', 'STANDARD', 'Jordan'),
+  // one tag with a workspace default and the rest without, so the picker shows both of its fallback lines
+  tag('first_name', 'First name', 'STANDARD', 'Jordan', 'there'),
   tag('loyalty_tier', 'Loyalty tier', 'STANDARD', 'Gold'),
   tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017'),
   tag('discount_pct', 'Discount %', 'CUSTOM', '20'),
@@ -30,10 +34,14 @@ const EMPTY: Design = {
 
 export default function DesignerPlayground() {
   const versions = useRef<Design[]>([])
+  // ?state= readonly | conflict | loading | failed puts each state on screen without a server behind it
+  const [params] = useSearchParams()
+  const state = params.get('state')
 
   const backend = useMemo<DesignerBackend>(
     () => ({
       save: async (input) => {
+        if (state === 'conflict') throw new ApiError(409, { title: 'Conflict', detail: 'Someone else saved while you were editing.' })
         const latest = versions.current.length
         if (input.base_version !== latest) throw new Error(`Stale version (latest is ${latest})`)
         const used = extractTags(input.subject_line, input.preheader, input.mjml_source)
@@ -49,8 +57,26 @@ export default function DesignerPlayground() {
       listVersions: async () => [...versions.current].reverse().map((item) => ({ version_number: item.version_number, saved_at: item.saved_at ?? '', saved_by: item.saved_by })),
       uploadAsset: async (file) => ({ url: URL.createObjectURL(file), name: file.name }),
     }),
-    [],
+    [state],
   )
 
-  return <DesignerWorkspace templateName="Playground template" channel="EMAIL" status="DRAFT" design={EMPTY} tags={TAGS} assets={[]} backend={backend} backTo="/templates" />
+  if (state === 'loading') return <EditorLoading label="Opening the designer" />
+  if (state === 'failed') {
+    return <EditorFailure title="Couldn’t load this template" detail="The server did not answer. Your last saved version is safe." onRetry={() => {}} />
+  }
+
+  return (
+    <DesignerWorkspace
+      templateName="Playground template"
+      channel="EMAIL"
+      status="DRAFT"
+      design={EMPTY}
+      tags={TAGS}
+      assets={[]}
+      backend={backend}
+      backTo="/templates"
+      readOnly={state === 'readonly'}
+      showNav={params.get('nav') === '1'}
+    />
+  )
 }

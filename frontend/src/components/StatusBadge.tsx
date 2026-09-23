@@ -1,17 +1,20 @@
+import type { LucideIcon } from 'lucide-react'
+
 import { humanize } from '@/lib/format'
 
 /**
- * Status is carried by a solid light tint plus a 6px dot. Status never uses the action blue, so a tag cannot be
- * mistaken for something clickable.
+ * Status is a solid light tint with matching text, at the design's 22px. The dot the design system asks for is
+ * not in the design: see the "design overrides design system" list.
  */
-type Tone = 'success' | 'warning' | 'danger' | 'pending' | 'neutral'
+type Tone = 'success' | 'warning' | 'danger' | 'pending' | 'neutral' | 'brand'
 
-const TONES: Record<Tone, { tag: string; dot: string }> = {
-  success: { tag: 'bg-line-subtle text-success-text', dot: 'bg-success' },
-  warning: { tag: 'bg-warning-bg text-warning-text', dot: 'bg-warning' },
-  danger: { tag: 'bg-danger-bg text-danger-text', dot: 'bg-danger' },
-  pending: { tag: 'bg-line-subtle text-ink-900', dot: 'bg-ink-700' },
-  neutral: { tag: 'bg-line-subtle text-ink-700', dot: 'bg-ink-300' },
+const TONES: Record<Tone, string> = {
+  success: 'bg-success-bg text-success-text',
+  warning: 'bg-warning-bg text-warning-text',
+  danger: 'bg-danger-bg text-danger-text',
+  pending: 'bg-line-subtle text-ink-900',
+  neutral: 'bg-line-subtle text-ink-700',
+  brand: 'bg-brand-100 text-brand-800',
 }
 
 const STATUS_TONE: Record<string, Tone> = {
@@ -25,7 +28,7 @@ const STATUS_TONE: Record<string, Tone> = {
   SCHEDULED: 'pending',
   TEST_PUBLISHED: 'warning',
   PAUSED: 'warning',
-  DRAFT: 'neutral',
+  DRAFT: 'brand',
   ARCHIVED: 'neutral',
   CANCELLED: 'danger',
   FAILED: 'danger',
@@ -47,18 +50,27 @@ function labelFor(status: string, label?: string): string {
 }
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const tone = TONES[STATUS_TONE[status] ?? 'neutral']
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-xs font-semibold ${tone.tag}`}>
-      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+    <span className={`inline-flex h-[22px] shrink-0 items-center rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${TONES[STATUS_TONE[status] ?? 'neutral']}`}>
       {labelFor(status, label)}
     </span>
   )
 }
 
-export function Tag({ children }: { children: string }) {
+export type TagTone = 'neutral' | 'warning' | 'error' | 'brand'
+
+const TAG_TONE: Record<TagTone, string> = {
+  neutral: 'bg-line-subtle text-ink-700',
+  warning: 'bg-warning-bg text-warning-text',
+  error: 'bg-danger-bg text-danger-text',
+  // brand is for merge-field tokens only, never a status
+  brand: 'bg-brand-100 text-brand-800',
+}
+
+export function Tag({ children, tone = 'neutral', icon: Icon }: { children: string; tone?: TagTone; icon?: LucideIcon }) {
   return (
-    <span className="inline-flex items-center rounded-sm bg-line-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-700">
+    <span className={`inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${TAG_TONE[tone]}`}>
+      {Icon && <Icon size={12} strokeWidth={1.5} aria-hidden />}
       {children}
     </span>
   )

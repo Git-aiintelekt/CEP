@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { Spinner } from '@/components/States'
-import { applySampleValues } from '@/features/designer/tags'
+import { DEFAULT_PROFILE, fillForPreview } from '@/features/designer/preview/previewProfiles'
 import { renderWithSamples } from '@/features/messaging/sms'
 import { api } from '@/lib/api'
 import type { Page, PersonalizationTag, TemplateStarter } from '@/lib/types'
@@ -53,7 +53,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
       <p className="mb-4 text-sm text-ink-500">A starter is only a beginning: it becomes version 1 of your template and you can change everything in it.</p>
 
       {starters.isPending ? (
-        <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading starters</p>
+        <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading starters</p>
       ) : (
         <div role="radiogroup" aria-label="Starting point" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <button type="button" role="radio" aria-checked={value === ''} onClick={() => onChange('', null)} className={`${CARD} ${state(value === '')}`}>
@@ -67,7 +67,8 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
           {(starters.data ?? []).map((starter) => (
             <button key={starter.key} type="button" role="radio" aria-checked={value === starter.key} onClick={() => onChange(starter.key, starter)} className={`${CARD} ${state(value === starter.key)}`}>
               {starter.html_content ? (
-                <EmailThumbnail html={applySampleValues(starter.html_content, catalogue)} title={`${starter.name} preview`} />
+                // the preview's own rule, without its marks: a thumbnail reads like the email itself
+                <EmailThumbnail html={fillForPreview(starter.html_content, catalogue, DEFAULT_PROFILE)} title={`${starter.name} preview`} />
               ) : (
                 <MessageThumbnail text={renderWithSamples(starter.sms_body ?? '', catalogue)} picture={starter.channel === 'MMS'} />
               )}

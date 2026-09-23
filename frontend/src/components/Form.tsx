@@ -1,12 +1,7 @@
 /** Form primitives: a labelled field with hint + error wiring, and consistently styled controls. */
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useId, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
-const CONTROL_BASE =
-  'mt-1 w-full rounded-sm border bg-surface px-3 text-sm text-ink-900 transition-colors focus-visible:border-brand-600 disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
-const CONTROL = `${CONTROL_BASE} h-10`
-const CONTROL_MULTILINE = `${CONTROL_BASE} py-2`
-
-const border = (invalid: boolean) => (invalid ? 'border-danger' : 'border-line')
+import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
 
 interface FieldProps {
   label: string
@@ -45,18 +40,39 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
 }
 
 type Wired = { invalid?: boolean; describedBy?: string }
+/** `size` is taken by the native attribute, hence controlSize */
+type Styled = { controlSize?: ControlSize; tone?: ControlTone; warning?: boolean }
 
-export function TextInput({ invalid = false, describedBy, className = '', ...props }: InputHTMLAttributes<HTMLInputElement> & Wired) {
-  return <input {...props} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={`${CONTROL} ${border(invalid)} ${className}`} />
-}
-
-export function TextArea({ invalid = false, describedBy, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired) {
-  return <textarea {...props} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={`${CONTROL_MULTILINE} ${border(invalid)} ${className}`} />
-}
-
-export function Select({ invalid = false, describedBy, className = '', children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & Wired) {
+export function TextInput({ invalid = false, warning = false, describedBy, controlSize, tone, className = '', ...props }: InputHTMLAttributes<HTMLInputElement> & Wired & Styled & { ref?: Ref<HTMLInputElement> }) {
   return (
-    <select {...props} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={`${CONTROL} ${border(invalid)} ${className}`}>
+    <input
+      {...props}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      className={`${controlClass({ size: controlSize, tone, invalid, warning })} ${className}`}
+    />
+  )
+}
+
+export function TextArea({ invalid = false, warning = false, describedBy, tone, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired & Omit<Styled, 'controlSize'>) {
+  return (
+    <textarea
+      {...props}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      className={`${CONTROL_BASE} mt-1 px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
+    />
+  )
+}
+
+export function Select({ invalid = false, warning = false, describedBy, controlSize, tone, className = '', children, ...props }: SelectHTMLAttributes<HTMLSelectElement> & Wired & Styled) {
+  return (
+    <select
+      {...props}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+      className={`${controlClass({ size: controlSize, tone, invalid, warning })} ${className}`}
+    >
       {children}
     </select>
   )
@@ -72,9 +88,11 @@ export function FormSection({ title, description, children }: { title: string; d
   )
 }
 
+// Class-string aliases for pages that style a link or plain button; new code uses <Button>.
+// Literals so fast refresh keeps working; a test holds them equal to buttonClass().
 export const buttonPrimary =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-sm border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 border border-line bg-surface text-ink-900 hover:bg-surface-subtle active:bg-line-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonDanger =
-  'inline-flex h-10 items-center justify-center gap-2 rounded-sm border border-danger bg-surface px-4 text-sm font-medium text-danger-text transition-colors hover:bg-danger-bg disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'

@@ -56,7 +56,7 @@ function RoleForm({ role, catalogue, onClose }: { role: Role | null; catalogue: 
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="role-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}{role ? 'Save changes' : 'Create role'}
+          {save.isPending && <Spinner size="sm" tone="onBrand" />}{role ? 'Save changes' : 'Create role'}
         </button>
       </>}>
       <form id="role-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -120,7 +120,7 @@ export function RolesPage() {
         <button type="button" className={buttonPrimary} onClick={() => setEditing({ role: null })}>New role</button>
       </div>
       {remove.isError && <div className="mb-4"><ErrorState title="Could not delete the role" error={remove.error} /></div>}
-      {roles.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading roles</p>
+      {roles.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading roles</p>
         : <DataTable columns={columns} rows={roles.data} rowKey={(role) => role.id} caption="Roles" />}
       {editing && <RoleForm role={editing.role} catalogue={catalogue.data ?? []} onClose={() => setEditing(null)} />}
     </div>

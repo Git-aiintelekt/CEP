@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { ChevronsLeft, ChevronsRight, FileText, GitBranch, LayoutDashboard, Megaphone, Menu, Search, Settings, Users, X, type LucideIcon } from 'lucide-react'
+import { Bell, ChevronsLeft, ChevronsRight, Menu, Search, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -8,27 +8,7 @@ import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import type { Feature } from '@/lib/types'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-  end?: boolean
-  feature?: Feature
-}
-
-const OVERVIEW: NavItem = { to: '/', label: 'Overview', icon: LayoutDashboard, end: true }
-
-const ENGAGE: NavItem[] = [
-  { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/journeys', label: 'Journeys', icon: GitBranch, feature: 'journeys' },
-  { to: '/templates', label: 'Templates', icon: FileText },
-]
-
-const MANAGE: NavItem[] = [{ to: '/contact-lists', label: 'Contact lists', icon: Users }]
-
-const SETTINGS: NavItem = { to: '/settings', label: 'Settings', icon: Settings }
+import { ENGAGE, MANAGE, OVERVIEW, SETTINGS, type NavItem } from './navItems'
 
 const SECURITY = '/account/security'
 const COLLAPSED_KEY = 'cep.nav.collapsed'
@@ -277,6 +257,15 @@ export function AppShell() {
               <span className="hidden text-ink-700 xl:inline">{me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
+            <button
+              type="button"
+              disabled
+              aria-label="Notifications"
+              title="Notifications are not available yet"
+              className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-300"
+            >
+              <Bell size={20} strokeWidth={1.5} aria-hidden />
+            </button>
             <Link to={SECURITY} title="Account security" className="hidden rounded-sm px-2 py-1 text-right leading-tight transition-colors hover:bg-surface-subtle lg:block">
               <p className="text-sm font-medium text-ink-900">{name}</p>
               <p className="text-xs text-ink-700">{me?.principal.email}</p>
