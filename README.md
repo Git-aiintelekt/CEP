@@ -136,8 +136,10 @@ python manage.py send_campaign_runs                                    # the sam
 
 * **Configuration → Global parameters** (`platform_setting`): typed values that take effect within a minute, no deployment:
   alert recipients and webhook, support-session length, staff MFA, invoice due days, usage warning percent, default
-  industry, export retention, the frontend's idle-timeout warning and how long it waits before signing out. Never a
-  secret: secrets stay in the environment.
+  industry, export retention, the frontend's idle-timeout warning and how long it waits before signing out, and the
+  installation's public address (`platform.api_public_url`: the provider webhook callbacks, unsubscribe links and the
+  single sign-on redirect are built from it; empty = the `API_PUBLIC_URL` environment variable). Never a secret:
+  secrets stay in the environment.
 * **Configuration → Industry profiles** (`industry_profile`): what a kind of business gets by default (features) and what
   it calls things (terminology). Seeded: Generic, Retail, Hospitality, Financial services, Healthcare.
 * A tenant picks its profile and may override single features on its own page. Resolution order:
@@ -186,8 +188,8 @@ with triggers off, so they need the DDL-owner login: `OWNER_DATABASE_URL` (never
   must also pass the code at `/admin/`. `security.mfa_required_for_staff` forces enrolment for all staff.
 * **Single sign-on (OpenID Connect, authorization code + PKCE).** Configured by the tenant under **Settings → Security**
   (issuer, client id, write-only client secret encrypted with `FIELD_ENCRYPTION_KEY`, allowed email domains, optional
-  account creation on first sign-in with a default role). Register the shown redirect URI (`API_PUBLIC_URL` +
-  `/api/v1/auth/sso/callback/`) with the identity provider. "Require single sign-on" switches passwords off for everyone
+  account creation on first sign-in with a default role). Register the shown redirect URI (the installation's public
+  address, `platform.api_public_url` or else `API_PUBLIC_URL`, + `/api/v1/auth/sso/callback/`) with the identity provider. "Require single sign-on" switches passwords off for everyone
   except workspace administrators (break-glass).
 * **Support access.** A platform administrator opens a user's page in the back-office → **Sign in as this user**: a reason
   is mandatory, the session is read-only unless opened for writing, lasts `security.support_access_minutes`, can never

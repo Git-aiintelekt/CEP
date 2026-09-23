@@ -4,9 +4,10 @@ The link carries a signed token (no database lookup to read it, nothing guessabl
 the address. GET shows a confirmation page (mail scanners follow links; they do not press buttons), POST records the
 opt-out. Mailbox providers' one-click unsubscribe (RFC 8058) POSTs to the same address.
 """
-from django.conf import settings
 from django.core import signing
 from django.utils import timezone
+
+from apps.platform_ops import params
 
 from . import session
 
@@ -25,7 +26,7 @@ def read(token: str) -> dict | None:
 
 
 def url_for(token: str) -> str:
-    return f"{settings.API_PUBLIC_URL.rstrip('/')}/api/v1/public/unsubscribe/?t={token}"
+    return f"{params.public_api_url()}/api/v1/public/unsubscribe/?t={token}"
 
 
 def headers_for(token: str) -> dict[str, str]:

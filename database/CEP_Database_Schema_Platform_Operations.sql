@@ -231,7 +231,8 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('alerts.renotify_minutes',           '240',    'INTEGER', 'Alerts',     'Repeat the notification for an alert that is still open after this many minutes'),
     ('tenancy.default_industry',          '"GENERIC"', 'STRING', 'Tenancy',  'Industry profile given to a tenant that does not name one'),
     ('tenancy.offboarding_export_days',   '30',     'INTEGER', 'Tenancy',    'Days an offboarding export archive is kept before it may be deleted'),
-    ('messaging.max_upload_mb',           '5',      'INTEGER', 'Messaging',  'Largest image upload, in MB')
+    ('messaging.max_upload_mb',           '5',      'INTEGER', 'Messaging',  'Largest image upload, in MB'),
+    ('platform.api_public_url',           '""',     'STRING',  'Platform',   'Public https address of this installation, no trailing slash (e.g. https://cep.example.com). The webhook callback addresses given to delivery providers, the unsubscribe link in marketing emails and the single sign-on redirect are built from it. Empty = the API_PUBLIC_URL environment variable.')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO industry_profile (code, name, description, features, terminology, defaults, sort_order) VALUES

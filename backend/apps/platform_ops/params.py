@@ -55,6 +55,13 @@ def get(key: str, default=None):
     return default if value in (None, "") else value
 
 
+def public_api_url() -> str:
+    """The address the outside world reaches this installation's API at: provider webhook callbacks, the unsubscribe link
+    in marketing emails and the single sign-on redirect are built from it. The `platform.api_public_url` parameter wins;
+    empty, the API_PUBLIC_URL environment variable applies (how a fresh installation bootstraps)."""
+    return str(get("platform.api_public_url", settings.API_PUBLIC_URL)).rstrip("/")
+
+
 def invalidate(tenant_id=None) -> None:
     cache.delete("cep:params")
     if tenant_id:

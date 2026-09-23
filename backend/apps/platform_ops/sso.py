@@ -19,7 +19,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.signing import BadSignature, TimestampSigner
 
-from . import crypto
+from . import crypto, params
 
 signer = TimestampSigner(salt="cep.sso.state")
 TIMEOUT = 8
@@ -31,7 +31,7 @@ class SsoError(Exception):
 
 
 def redirect_uri() -> str:
-    return settings.API_PUBLIC_URL.rstrip("/") + "/api/v1/auth/sso/callback/"
+    return params.public_api_url() + "/api/v1/auth/sso/callback/"
 
 
 def discovery(issuer: str) -> dict:
