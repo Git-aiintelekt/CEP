@@ -30,6 +30,7 @@ urlpatterns = [
     path("auth/sso/start/", auth_api.SsoStartView.as_view(), name="sso_start"),
     path("auth/sso/callback/", auth_api.SsoCallbackView.as_view(), name="sso_callback"),
     path("auth/support-session/end/", auth_api.SupportSessionEndView.as_view(), name="support_session_end"),
+    path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("workspace/usage/", workspace_api.UsageView.as_view(), name="workspace_usage"),
     path("workspace/invoices/", workspace_api.InvoicesView.as_view(), name="workspace_invoices"),
     path("workspace/security/", workspace_api.SecurityView.as_view(), name="workspace_security"),

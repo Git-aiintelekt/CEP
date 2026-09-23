@@ -22,6 +22,7 @@ import logging
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from django.core.cache import cache
 from django.db import connections, transaction
 from django.utils import timezone
 
@@ -38,6 +39,7 @@ LIVE = (S.PRODUCTION_PUBLISHED, S.ACTIVE)
 OPEN_RUN = ("SCHEDULED", "PREPARING", "SENDING", "PAUSED")
 WEEKDAYS = ("MO", "TU", "WE", "TH", "FR", "SA", "SU")
 SETUP_STEPS = 6                                         # the steps before Review & Publish
+RESULTS_CACHE_TTL = 30   # seconds. Dashboard/report figures, not billing-accurate: a short lag is fine, a per-request rescan is not.
 
 # what the interface offers, by (display) status. Journey-generated campaigns are read-only (BRD 7.3): view and clone only.
 ACTIONS = {
@@ -479,6 +481,10 @@ def calendar_spans(campaigns, start: datetime, end: datetime) -> list[dict]:
 # ---------------------------------------------------------------- results
 def metrics(campaign) -> dict:
     """Production runs only: a test publish never counts. Rates are of what was delivered, as email reporting does."""
+    cache_key = f"cep:campaign_metrics:{campaign.tenant_id}:{campaign.pk}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     tenant, pk = str(campaign.tenant_id), str(campaign.pk)
     table, address = ("sms_execution", "phone_number") if campaign.channel in ("SMS", "MMS") else ("mailer_execution", "email_address")
     with _conn().cursor() as cursor:
@@ -510,19 +516,25 @@ def metrics(campaign) -> dict:
     def progress(name, goal, value):
         return None if not goal else {"measure": name, "target": float(goal), "actual": float(value or 0), "percent": min(999.0, round(float(value or 0) * 100 / float(goal), 1))}
 
-    return {"counts": numbers, "conversions": conversions, "revenue": revenue,
-            "rates": {"delivery": rate(delivered, sent), "open": rate(numbers["opened"], delivered), "click": rate(numbers["clicked"], delivered),
-                      "bounce": rate(numbers["bounced"], sent), "unsubscribe": rate(numbers["unsubscribed"], delivered), "conversion": rate(conversions, delivered)},
-            "targets": [item for item in (progress("Opens", getattr(target, "target_opens", None), numbers["opened"]), progress("Clicks", getattr(target, "target_clicks", None), numbers["clicked"]),
-                                          progress("Conversions", getattr(target, "target_conversions", None), conversions),
-                                          progress("Revenue", getattr(target, "target_revenue", None), revenue)) if item],
-            "breakdown": {"by": "carrier" if texts else "domain", "rows": breakdown,
-                          "note": "Carrier figures arrive with the text aggregator's delivery receipts." if texts else None},
-            "runs": CampaignRun.objects.filter(campaign=campaign, test_mode=False).count(), "test_runs": CampaignRun.objects.filter(campaign=campaign, test_mode=True).count()}
+    result = {"counts": numbers, "conversions": conversions, "revenue": revenue,
+              "rates": {"delivery": rate(delivered, sent), "open": rate(numbers["opened"], delivered), "click": rate(numbers["clicked"], delivered),
+                        "bounce": rate(numbers["bounced"], sent), "unsubscribe": rate(numbers["unsubscribed"], delivered), "conversion": rate(conversions, delivered)},
+              "targets": [item for item in (progress("Opens", getattr(target, "target_opens", None), numbers["opened"]), progress("Clicks", getattr(target, "target_clicks", None), numbers["clicked"]),
+                                            progress("Conversions", getattr(target, "target_conversions", None), conversions),
+                                            progress("Revenue", getattr(target, "target_revenue", None), revenue)) if item],
+              "breakdown": {"by": "carrier" if texts else "domain", "rows": breakdown,
+                            "note": "Carrier figures arrive with the text aggregator's delivery receipts." if texts else None},
+              "runs": CampaignRun.objects.filter(campaign=campaign, test_mode=False).count(), "test_runs": CampaignRun.objects.filter(campaign=campaign, test_mode=True).count()}
+    cache.set(cache_key, result, RESULTS_CACHE_TTL)
+    return result
 
 
 def timeseries(campaign, bucket: str = "hour") -> dict:
     bucket = bucket if bucket in ("hour", "day") else "hour"
+    cache_key = f"cep:campaign_timeseries:{campaign.tenant_id}:{campaign.pk}:{bucket}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     table = "sms_execution" if campaign.channel in ("SMS", "MMS") else "mailer_execution"
     opened = "NULL::timestamptz" if table == "sms_execution" else "x.opened_at"
     clicked = "NULL::timestamptz" if table == "sms_execution" else "x.clicked_at"
@@ -538,7 +550,9 @@ def timeseries(campaign, bucket: str = "hour") -> dict:
                                 WHERE x.tenant_id = %(t)s AND x.campaign_id = %(c)s AND NOT r.test_mode AND {clicked} IS NOT NULL) t
                             GROUP BY 1 ORDER BY 1""", {"b": bucket, "t": str(campaign.tenant_id), "c": str(campaign.pk)})
         points = [{"at": at, "sent": int(sent), "delivered": int(delivered), "opened": int(opened_), "clicked": int(clicked_)} for at, sent, delivered, opened_, clicked_ in cursor.fetchall()]
-    return {"bucket": bucket, "points": points}
+    result = {"bucket": bucket, "points": points}
+    cache.set(cache_key, result, RESULTS_CACHE_TTL)
+    return result
 
 
 def upsert_targets(campaign, values: dict, user=None) -> bool:

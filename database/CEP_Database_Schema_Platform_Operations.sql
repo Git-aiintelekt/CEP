@@ -646,6 +646,16 @@ ALTER TABLE campaign ADD COLUMN IF NOT EXISTS setup_step SMALLINT NOT NULL DEFAU
 ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_setup_step;
 ALTER TABLE campaign ADD CONSTRAINT ck_campaign_setup_step CHECK (setup_step BETWEEN 0 AND 6);
 
+-- -------------------------------------------------------------------------------------
+-- 16. CAMPAIGN RESULTS: (tenant_id, campaign_id) INDEX
+--     campaigns.service.metrics()/timeseries() (the results tab and dashboard) filter mailer_execution/sms_execution by
+--     campaign, not by campaign_run: the existing (campaign_run_id, status) index does not serve that filter, so every
+--     call scanned the tenant's whole monthly partition. Declared on the partitioned parent, so PostgreSQL adds it to
+--     every existing and future per-tenant/per-month partition automatically.
+-- -------------------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_campaign ON mailer_execution(tenant_id, campaign_id);
+CREATE INDEX IF NOT EXISTS ix_sms_execution_campaign ON sms_execution(tenant_id, campaign_id);
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

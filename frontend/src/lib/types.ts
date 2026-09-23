@@ -22,6 +22,16 @@ export interface Page<T> {
   results: T[]
 }
 
+export interface DashboardSummary {
+  campaigns_total: number
+  campaigns_live: number
+  contact_lists_total: number
+  audience_total: number
+  templates_total: number
+  journeys_total: number
+  journeys_active: number
+}
+
 export interface Me {
   principal: {
     kind: 'user' | 'api_client'

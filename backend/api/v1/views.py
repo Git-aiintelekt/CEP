@@ -7,16 +7,17 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Sum
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from PIL import Image, UnidentifiedImageError
-from rest_framework import mixins
+from rest_framework import mixins, serializers
 from rest_framework.parsers import MultiPartParser
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from rest_framework.exceptions import ValidationError
 
@@ -28,6 +29,7 @@ from apps.platform_ops import billing, params
 from apps.templates import design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
+from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
 from apps.contact_lists.models import ContactList
 from apps.journeys.models import Journey
 from apps.templates.models import PersonalizationTag, TemplateMaster
@@ -376,6 +378,35 @@ class JourneyViewSet(BaseTenantViewSet):
     permission_classes = [*BaseTenantViewSet.permission_classes, params.RequiresFeature.for_("journeys")]
     filterset_fields = ["status", "population_mode"]
     search_fields = ["name", "code"]
+
+
+class DashboardSummaryView(APIView):
+    """Real totals for the overview page's stat cards. The list endpoints are cursor-paginated (a page is 50 rows,
+    on purpose — see api.pagination.DefaultCursorPagination), so counting rows returned by a list call only counts
+    that page; these are separate, cheap COUNT/SUM queries on tenant-scoped, unpartitioned tables."""
+    permission_classes = [IsAuthenticated, SameTenant]
+
+    @extend_schema(responses=inline_serializer("DashboardSummary", {
+        "campaigns_total": serializers.IntegerField(), "campaigns_live": serializers.IntegerField(),
+        "contact_lists_total": serializers.IntegerField(), "audience_total": serializers.IntegerField(),
+        "templates_total": serializers.IntegerField(),
+        "journeys_total": serializers.IntegerField(), "journeys_active": serializers.IntegerField(),
+    }))
+    def get(self, request, version=None):
+        tenant_id = context.require().tenant_id
+        campaigns = Campaign.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        lists = ContactList.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True).exclude(status=ContactList.Status.DRAFT)
+        templates = TemplateMaster.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        journeys = Journey.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        return Response({
+            "campaigns_total": campaigns.count(),
+            "campaigns_live": campaigns.filter(status__in=LIVE_CAMPAIGN_STATUSES).count(),
+            "contact_lists_total": lists.count(),
+            "audience_total": lists.aggregate(total=Sum("member_count"))["total"] or 0,
+            "templates_total": templates.count(),
+            "journeys_total": journeys.count(),
+            "journeys_active": journeys.filter(status=Journey.Status.ACTIVE).count(),
+        })
 
 
 class MeViewSet(viewsets.ViewSet):
