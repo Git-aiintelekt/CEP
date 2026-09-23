@@ -78,9 +78,10 @@ const add = (...items) => items.flat().forEach((item) => body.push(item))
 add(
   new Paragraph({ children: [new TextRun({ text: 'CEP — Customer Engagement Platform', font: FONT, size: 52, bold: true, color: BRAND })], spacing: { before: 2400, after: 120 } }),
   new Paragraph({ children: [new TextRun({ text: 'Deployment Guide: hosting the application on a remote server', font: FONT, size: 32, color: INK })], spacing: { after: 360 } }),
-  new Paragraph({ children: [run('Version 1.3  ·  21 September 2026  ·  Repository: github.com/Git-aiintelekt/CEP (branch main)', { color: MUTED })], spacing: { after: 80 } }),
+  new Paragraph({ children: [run('Version 1.4  ·  23 September 2026  ·  Repository: github.com/Git-aiintelekt/CEP (branch main)', { color: MUTED })], spacing: { after: 80 } }),
   new Paragraph({ children: [run('Stack: Django 6.1 + Django REST Framework, Celery, Redis, PostgreSQL 18, React 19 (Vite), Nginx, Gunicorn', { color: MUTED })], spacing: { after: 600 } }),
   note('Scope.', 'This guide is written from the project\'s actual settings, commands and file layout. The server-side steps (Nginx, systemd, TLS) are the standard way to host this stack and have **not** been executed on your server by the author: run them on a staging host first, then repeat for production. Replace every `example.com` name, path and IP address with your own. No password appears in this document, and none should be added to it.', 'E8EDFB', BRAND),
+  note('Release status, 23 September 2026.', '`main` currently carries the contact list module and the campaign module (list, seven-step setup, campaign page, publish and send). It does **not yet** include three finished pieces of work still on branch `cep_dev_18_sep_26`, pending its pull request into `main`: the shared UI restyle (the design tokens and component primitives this guide\'s screenshots do not reflect), the campaign calendar view, and the idle session timeout (section 3.1 and section 10 both note the two settings it adds). Confirm which commit is actually on `main` (`git log -1`) before treating this guide as a description of what a fresh deployment will contain, and prefer deploying `cep_dev_18_sep_26` — or `main` once that branch is merged — over an older commit.', 'FEF3C7', 'D97706'),
   new Paragraph({ children: [new PageBreak()] }),
   new Paragraph({ children: [new TextRun({ text: 'Contents', font: FONT, size: 32, bold: true, color: BRAND })], spacing: { after: 200 } }),
   new TableOfContents('Contents', { hyperlink: true, headingStyleRange: '1-2' }),
@@ -138,7 +139,7 @@ add(h1('2. Prerequisites'),
 // 3
 add(h1('3. Database'),
   h2('3.1 Using the existing cep_db (your case)'),
-  p('The schema, all five DDL layers and patches 0001–0008 are already applied to `cep_db`, and the three logins exist. Nothing has to be created. Two things to check from the new application server:'),
+  p('The schema, all five DDL layers and patches 0001–0015 are already applied to `cep_db`, and the three logins exist. Patch 0016 (the idle session timeout\'s two global parameters) is applied locally only as of this version of the guide; apply it as part of the release that brings the frontend change live (section 3.3). Nothing else has to be created. Two things to check from the new application server:'),
   ...steps([
     'On the PostgreSQL host, allow the application server in `pg_hba.conf` for the logins `cep_backend` and `cep_platform` (and the owner only if you will run tenant operations), then reload PostgreSQL. Use `scram-sha-256`. If the traffic leaves a trusted network, require TLS (`hostssl`) and add `?sslmode=require` to the URLs.',
     'From the application server, prove connectivity: `psql "postgres://cep_backend@10.0.0.43:5433/cep_db" -c "select 1"` (psql prompts for the password).',
@@ -229,6 +230,7 @@ add(h1('10. First run'),
     '**First tenant.** Tenants → Add: saving creates its partitions, routing row and starting roles. Add its first administrator under People and access, then send the one-time password link from the user\'s page.',
     '**Tenant sign-in.** `https://<subdomain>.cep.example.com/` (or the application host plus the workspace code). Tenant administrators find users, roles, API keys, plan & usage, security (MFA, single sign-on) and their own email server under **Settings**.',
     '**Staff MFA.** After every staff member has enrolled (their name → Account security), switch `security.mfa_required_for_staff` on.',
+    '**Idle sign-out (patch 0016 and newer).** Configuration → Global parameters: `security.idle_timeout_minutes` (default 120) and `security.idle_warning_seconds` (default 60) control how long the frontend waits before warning of inactivity, and how long that warning stays up before signing the person out. The defaults suit most workspaces; change them here, not in code.',
   ]),
 )
 
