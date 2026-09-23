@@ -12,14 +12,18 @@
 import type { Component } from 'grapesjs'
 
 import { HIDE_MOBILE_CLASS, isHiddenOnPhones, setCssClass } from '../blocks/register'
+import {
+  RECEIPT_BRAND_HEADER_TYPE, RECEIPT_BUTTON_TYPE, RECEIPT_DIVIDER_TYPE, RECEIPT_FOOTER_TYPE, RECEIPT_IMAGE_TYPE, RECEIPT_MARKETING_TYPE,
+} from '../blocks/receiptBlocks'
 import { normaliseHex } from './fields/color/colorMath'
 import type { LengthUnit } from './fields/length'
+import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
 
 // one implementation, shared with the colour field: #ABC and #AABBCC both become #aabbcc
 export { normaliseHex }
 
 export type SettingKind =
-  | 'color' | 'length' | 'padding' | 'align' | 'valign' | 'toggle' | 'select' | 'text' | 'link' | 'image'
+  | 'color' | 'length' | 'padding' | 'align' | 'valign' | 'toggle' | 'select' | 'text' | 'link' | 'image' | 'swatch'
 
 /** Where a setting belongs in the panel: what it says, where it sits, how it looks. */
 export type SettingSection = 'content' | 'layout' | 'appearance'
@@ -35,6 +39,16 @@ export interface SettingField {
   max?: number
   step?: number
   help?: string
+  /** a swatch field's fixed colours: the only values it can write */
+  swatches?: { value: string; label: string }[]
+  /** an align field limited to these of its options */
+  only?: string[]
+  /** a select with no empty "Default" row: the block always has one of the options */
+  required?: boolean
+  /** several lines of words, entered in a text area */
+  multiline?: boolean
+  /** tags offered as one-tap chips under a text area */
+  quickTags?: { key: string; label: string }[]
 }
 
 /** A button's label and an mj-text's words are component content, not an attribute. */
@@ -168,6 +182,33 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   'mj-spacer': [{ key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 }],
   'mj-social': [{ key: 'align', label: 'Alignment', kind: 'align', section: 'layout' }],
   'mj-social-element': [{ key: 'href', label: 'Link', kind: 'link', section: 'content' }],
+
+  // E-Receipt: each block offers only the choices a receipt allows (receiptSettings.ts reads and writes them)
+  [RECEIPT_BRAND_HEADER_TYPE]: [
+    { key: 'wordmark', label: 'Wordmark text', kind: 'text', section: 'content' },
+    { key: 'tagline', label: 'Tagline', kind: 'toggle', section: 'content' },
+    { key: 'align', label: 'Alignment', kind: 'align', section: 'layout', only: ['left', 'center'] },
+    { key: 'background-color', label: 'Brand bar color', kind: 'swatch', section: 'appearance', swatches: SWATCHES },
+  ],
+  [RECEIPT_MARKETING_TYPE]: [
+    { key: 'headline', label: 'Headline', kind: 'text', section: 'content' },
+    { key: 'body', label: 'Body', kind: 'text', section: 'content', multiline: true, quickTags: MARKETING_TAGS },
+    { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
+    { key: 'treatment', label: 'Treatment', kind: 'select', section: 'appearance', required: true },
+  ],
+  [RECEIPT_BUTTON_TYPE]: [
+    { key: 'button-label', label: 'Label', kind: 'text', section: 'content' },
+    { key: 'destination', label: 'Destination', kind: 'select', section: 'content', required: true },
+    { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
+    { key: 'button-style', label: 'Style', kind: 'select', section: 'appearance', required: true },
+  ],
+  [RECEIPT_IMAGE_TYPE]: [
+    { key: SRC_KEY, label: 'Image', kind: 'image', section: 'content' },
+    { key: 'alt', label: 'Alt text', kind: 'text', section: 'content', help: ALT_REQUIRED_HELP },
+    { key: 'ratio', label: 'Ratio', kind: 'select', section: 'layout', required: true },
+  ],
+  [RECEIPT_DIVIDER_TYPE]: [],
+  [RECEIPT_FOOTER_TYPE]: [{ key: 'sender-address', label: 'Sender address', kind: 'text', section: 'content', multiline: true }],
 }
 
 /** The blocks whose words belong to the canvas, not to a field. */
@@ -233,6 +274,8 @@ function textOf(component: Component): string | null {
 
 /** What this block sets on its own, ignoring anything it inherits. */
 export function readSetting(component: Component, key: string): string | null {
+  const receipt = receiptAccessor(blockType(component), key)
+  if (receipt) return receipt.read(component)
   if (key === LABEL_KEY) return textOf(component)
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
   const raw = component.getAttributes()[key] ?? (key === SRC_KEY ? component.get(SRC_KEY) : undefined)
@@ -263,8 +306,8 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 /** What the recipient will see: the block's own value, else mj-attributes, else mj-all, else MJML's default. */
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
-  // hiding on phones is the block's own choice: there is nothing in mj-head or MJML for it to inherit
-  if (own !== null || key === LABEL_KEY || key === HIDE_MOBILE_KEY) return { value: own, source: 'block' }
+  // hiding on phones and a receipt block's settings are the block's own: there is nothing for them to inherit
+  if (own !== null || key === LABEL_KEY || key === HIDE_MOBILE_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
 
   const type = blockType(component)
   const forTag = headAttribute(wrapper, type, key)
@@ -298,6 +341,11 @@ function prepare(type: string, key: string, value: string): string | null {
 
 /** null clears the setting. Returns false when the value was refused, in which case nothing was written. */
 export function writeSetting(component: Component, key: string, value: string | null): boolean {
+  const receipt = receiptAccessor(blockType(component), key)
+  if (receipt) {
+    receipt.write(component, value)
+    return true
+  }
   if (key === LABEL_KEY) {
     if (value === null) return false
     writeContent(component, value)

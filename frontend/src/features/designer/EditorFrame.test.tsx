@@ -1,10 +1,18 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Eye, PencilRuler } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { EditorFrame, type EditorTab } from './EditorFrame'
+import { EditorFrame, type EditorTabDef } from './EditorFrame'
+
+type EditorTab = 'content' | 'preview'
+
+const TABS: EditorTabDef<EditorTab>[] = [
+  { id: 'content', label: 'Content', Icon: PencilRuler },
+  { id: 'preview', label: 'Preview', Icon: Eye },
+]
 
 /** jsdom has no matchMedia; useMinWidth treats a missing one as a wide desktop, so only the narrow case needs a stub. */
 function setViewport(width: number) {
@@ -26,7 +34,7 @@ function CountingChild({ label }: { label: string }) {
   return <p>{label}</p>
 }
 
-function Frame(props: Partial<React.ComponentProps<typeof EditorFrame>> = {}) {
+function Frame(props: Partial<React.ComponentProps<typeof EditorFrame<EditorTab>>> = {}) {
   const [tab, setTab] = useState<EditorTab>('content')
   return (
     <MemoryRouter>
@@ -35,10 +43,13 @@ function Frame(props: Partial<React.ComponentProps<typeof EditorFrame>> = {}) {
         status="DRAFT"
         saveNote="Version 3 · unsaved changes"
         backTo="/templates"
+        tabs={TABS}
         tab={tab}
         onTabChange={setTab}
-        contentPane={<CountingChild label="the canvas" />}
-        previewPane={<p>the preview</p>}
+        panes={[
+          { id: 'content', content: <CountingChild label="the canvas" /> },
+          { id: 'preview', content: <p>the preview</p>, scrolls: true },
+        ]}
         {...props}
       />
     </MemoryRouter>

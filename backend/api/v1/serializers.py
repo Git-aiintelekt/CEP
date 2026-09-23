@@ -320,6 +320,26 @@ class DesignVersionSerializer(serializers.Serializer):
     saved_by = serializers.CharField(allow_null=True)
 
 
+class ReceiptLayoutSaveSerializer(serializers.Serializer):
+    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "CUSTOM_HTML"])
+    sections = serializers.ListField(child=serializers.DictField(), default=list, help_text="the typed section list the editor owns; kept loose here, same as editor_state")
+    custom_html = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
+    custom_css = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
+    base_version = serializers.IntegerField(min_value=0, help_text="version the editor loaded; a newer stored version answers 409")
+
+
+class ReceiptLayoutSerializer(serializers.Serializer):
+    template = serializers.UUIDField()
+    version_number = serializers.IntegerField()
+    latest_version = serializers.IntegerField()
+    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "CUSTOM_HTML"])
+    sections = serializers.ListField(child=serializers.DictField())
+    custom_html = serializers.CharField(allow_null=True)
+    custom_css = serializers.CharField(allow_null=True)
+    saved_at = serializers.DateTimeField(allow_null=True)
+    saved_by = serializers.CharField(allow_null=True)
+
+
 class MessageSaveSerializer(serializers.Serializer):
     sms_body = serializers.CharField(trim_whitespace=False, allow_blank=True, help_text="message text with {{tags}}")
     subject_line = serializers.CharField(max_length=80, allow_blank=True, default="", help_text="MMS only")

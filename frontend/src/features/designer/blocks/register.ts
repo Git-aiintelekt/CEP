@@ -1,6 +1,7 @@
 /** Puts the palette into a GrapesJS editor. The panel that draws it is the editor's job, not this file's. */
 import type { Component, Editor } from 'grapesjs'
 
+import { RECEIPT_BLOCKS, RECEIPT_FOOTER_CLASS } from './receiptBlocks'
 import { BLOCK_CATEGORIES, CEP_BLOCKS, needsImage, withImage } from './registry'
 import type { CepBlock } from './types'
 
@@ -12,9 +13,9 @@ export interface RegisterOptions {
 
 const CATEGORY_LABEL = new Map(BLOCK_CATEGORIES.map((category) => [category.id, category.label]))
 
-/** A receipt is transactional and carries no unsubscribe link (see issues.ts), so it is offered no footer. */
+/** A receipt has a palette of its own: six blocks, its footer a transactional one with no unsubscribe link. */
 export function blocksFor(channel: string): CepBlock[] {
-  return channel === 'E_RECEIPT' ? CEP_BLOCKS.filter((block) => block.id !== 'footer') : CEP_BLOCKS
+  return channel === 'E_RECEIPT' ? RECEIPT_BLOCKS : CEP_BLOCKS
 }
 
 export function registerBlocks(editor: Editor, { channel, imageUrl = null }: RegisterOptions): void {
@@ -38,7 +39,7 @@ export function blockContent(block: CepBlock, imageUrl: string | null): string {
 
 /** What the next drop of a picture block carries: an image being dragged out of the library, or nothing. */
 export function setBlockImage(editor: Editor, imageUrl: string | null): void {
-  for (const block of CEP_BLOCKS) {
+  for (const block of [...CEP_BLOCKS, ...RECEIPT_BLOCKS]) {
     if (!needsImage(block)) continue
     editor.Blocks.get(block.id)?.set('content', blockContent(block, imageUrl))
   }
@@ -84,6 +85,11 @@ export function setCssClass(component: Component, name: string, on: boolean): vo
 
 export function isFooter(component: Component): boolean {
   return hasCssClass(component, FOOTER_CLASS)
+}
+
+/** A receipt's transactional footer, which is what carries the sender's postal address. */
+export function isReceiptFooter(component: Component): boolean {
+  return hasCssClass(component, RECEIPT_FOOTER_CLASS)
 }
 
 /** A block the reader hid on phones. It still ships: the media query is what stops phones drawing it. */

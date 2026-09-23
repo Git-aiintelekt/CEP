@@ -12,6 +12,7 @@ export interface LayerNode {
   hiddenOnPhones: boolean
   selected: boolean
   removable: boolean
+  draggable: boolean
   canMoveUp: boolean
   canMoveDown: boolean
 }

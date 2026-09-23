@@ -9,11 +9,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Component } from 'grapesjs'
 
+import { Notice } from '@/components/Notice'
+
 import { AlignField } from './fields/AlignField'
 import { LengthField } from './fields/LengthField'
 import { LinkField } from './fields/LinkField'
 import { PaddingField } from './fields/PaddingField'
 import { SelectField } from './fields/SelectField'
+import { SwatchField } from './fields/SwatchField'
 import { TextField } from './fields/TextField'
 import { ToggleField } from './fields/ToggleField'
 import { ColorField } from './fields/color/ColorField'
@@ -26,6 +29,7 @@ import {
 } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
 import { createSettingBinder } from './useSettingBinding'
+import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
 import type { GroupedEditor } from './settings'
 
 export const CHOOSE_IMAGE_LABEL = 'Choose image'
@@ -37,10 +41,16 @@ const SECTIONS: { id: SettingSection; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
 ]
 
-const SELECT_OPTIONS: Record<string, SelectOption[]> = { 'font-weight': FONT_WEIGHTS }
+const SELECT_OPTIONS: Record<string, SelectOption[]> = {
+  'font-weight': FONT_WEIGHTS,
+  destination: DESTINATIONS,
+  'button-style': BUTTON_STYLES,
+  treatment: TREATMENTS,
+  ratio: RATIOS,
+}
 
 /** A setting whose value is a word rather than a measurement, so the switch writes that word when it is on. */
-const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS }
+const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS, tagline: 'tagline' }
 
 export interface InspectorFieldsProps {
   component: Component
@@ -85,6 +95,7 @@ export function InspectorFields({
 
   const fields = fieldsFor(component)
   const type = blockType(component)
+  const callout = receiptCallout(type, component)
   // a section holding the setting an issue row named is open whatever the reader collapsed earlier
   const forced = focusKey ? fields.find((field) => field.key === focusKey)?.section : undefined
 
@@ -96,6 +107,11 @@ export function InspectorFields({
 
   return (
     <div ref={container} className="min-h-0 flex-1 overflow-y-auto">
+      {callout ?
+        <div className="p-3">
+          <Notice layout="box">{callout}</Notice>
+        </div>
+      : null}
       {SECTIONS.map((section) => {
         const own = fields.filter((field) => field.section === section.id)
         const note = section.id === 'content' && TEXT_ON_CANVAS.has(type)
@@ -216,17 +232,19 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
     case 'padding':
       return <PaddingField {...shared} onPreview={handlers.onPreview} />
     case 'align':
-      return <AlignField {...shared} />
+      return <AlignField {...shared} only={field.only} />
     case 'valign':
       return <AlignField {...shared} axis="vertical" />
     case 'toggle':
       return <ToggleField {...shared} onValue={TOGGLE_VALUES[field.key] ?? field.key} />
     case 'select':
-      return <SelectField {...shared} options={SELECT_OPTIONS[field.key] ?? []} />
+      return <SelectField {...shared} options={SELECT_OPTIONS[field.key] ?? []} required={field.required} />
+    case 'swatch':
+      return <SwatchField {...shared} swatches={field.swatches ?? []} />
     case 'link':
       return <LinkField {...shared} tagPicker={tagPicker} />
     default:
-      return <TextField {...shared} placeholder={field.help} tagPicker={tagPicker} />
+      return <TextField {...shared} placeholder={field.help} tagPicker={tagPicker} multiline={field.multiline} quickTags={field.quickTags} />
   }
 }
 

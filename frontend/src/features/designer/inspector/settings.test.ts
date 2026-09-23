@@ -64,7 +64,7 @@ test('a block kind maps to its ordered fields, and a heading is an mj-text', () 
 })
 
 test('every field label is sentence case and every kind is one we render', () => {
-  const kinds = new Set(['color', 'length', 'padding', 'align', 'valign', 'toggle', 'select', 'text', 'link', 'image'])
+  const kinds = new Set(['color', 'length', 'padding', 'align', 'valign', 'toggle', 'select', 'text', 'link', 'image', 'swatch'])
   for (const [type, fields] of Object.entries(SETTINGS_BY_BLOCK)) {
     for (const field of fields) {
       expect(kinds.has(field.kind), `${type} ${field.key}`).toBe(true)
@@ -323,4 +323,25 @@ test('the switch commits once, so one undo takes the class off again', () => {
 
   binder.handlers(HIDE_MOBILE_KEY).onCommit(null)
   expect(section.getAttributes()['css-class']).toBeUndefined()
+})
+
+test('a swatch setting carries its fixed colours, and a receipt block offers only its own settings', () => {
+  const header = fieldsFor(make('cep-receipt-brand-header'))
+  expect(header.map((field) => field.key)).toEqual(['wordmark', 'tagline', 'align', 'background-color'])
+  const swatch = header.find((field) => field.kind === 'swatch')
+  expect(swatch?.swatches?.map((item) => item.label)).toEqual(['Navy 700', 'Navy 900', 'Teal 600', 'Gray 900'])
+  expect(header.find((field) => field.key === 'align')?.only).toEqual(['left', 'center'])
+
+  expect(fieldsFor(make('cep-marketing')).map((field) => field.key)).toEqual(['headline', 'body', 'align', 'treatment'])
+  expect(fieldsFor(make('cep-receipt-button')).map((field) => field.key)).toEqual(['button-label', 'destination', 'align', 'button-style'])
+  expect(fieldsFor(make('cep-receipt-image')).map((field) => field.key)).toEqual(['src', 'alt', 'ratio'])
+  expect(fieldsFor(make('cep-receipt-divider'))).toEqual([])
+  expect(fieldsFor(make('cep-receipt-footer')).map((field) => field.key)).toEqual(['sender-address'])
+})
+
+test('the brand bar colour is written as the swatch value, straight onto the section', () => {
+  const header = make('cep-receipt-brand-header', { 'background-color': '#20265d' })
+  expect(readSetting(header, 'background-color')).toBe('#20265d')
+  expect(writeSetting(header, 'background-color', '#418eae')).toBe(true)
+  expect(header.getAttributes()['background-color']).toBe('#418eae')
 })

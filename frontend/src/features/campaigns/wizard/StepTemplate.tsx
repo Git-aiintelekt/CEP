@@ -10,6 +10,7 @@ import { Field, Select } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
+import { editorRouteFor } from '@/lib/editorRoute'
 import { formatDate } from '@/lib/format'
 import type { Campaign, Page, SenderProfile, Template } from '@/lib/types'
 
@@ -18,7 +19,8 @@ import { Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
 
-const DESIGNER_CHANNELS = ['EMAIL', 'E_RECEIPT']
+
+const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'designer', receipt: 'receipt editor', message: 'message editor' }
 
 export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const { can } = useAuth()
@@ -124,8 +126,8 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
           <>
             <MessagePreview campaignId={campaign.id} templateId={chosen} />
             {picked && can('template.edit') && (
-              <Link to={`/templates/${picked.id}/${DESIGNER_CHANNELS.includes(picked.channel) ? 'design' : 'message'}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
-                Open in the {DESIGNER_CHANNELS.includes(picked.channel) ? 'designer' : 'message editor'} <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
+              <Link to={`/templates/${picked.id}/${editorRouteFor(picked.channel)}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+                Open in the {EDITOR_NAME[editorRouteFor(picked.channel)]} <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
               </Link>
             )}
           </>

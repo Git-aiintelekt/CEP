@@ -473,3 +473,14 @@ test('permissions: without campaign.edit there is nothing to create, select or c
   expect(await screen.findByText(/Publishing needs the campaign.publish permission/)).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Publish to production' })).toBeNull()
 })
+
+test('setup: a picked template opens in its own editor, an e-receipt in the receipt editor', async () => {
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [], template: null }) })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns/c1/edit?step=3')
+
+  const cards = await screen.findByRole('radiogroup', { name: 'Template' })
+  await user.click(within(cards).getByRole('radio', { name: /Northline order receipt/ }))
+  const open = await screen.findByRole('link', { name: /Open in the receipt editor/ })
+  expect(open.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
+})

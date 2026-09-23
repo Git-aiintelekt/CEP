@@ -63,7 +63,15 @@ def render_mjml(mjml_source: str) -> str:
 
 
 def latest_version(template: TemplateMaster) -> int:
-    return TemplateDesignState.objects.filter(template=template).aggregate(v=Max("version_number"))["v"] or 0
+    """The design half's own latest -- excludes receipt-layout saves, which share this template's version counter
+    (the unique constraint is (template, version_number) globally) but are a sibling stream, not a design edit."""
+    return TemplateDesignState.objects.filter(template=template).exclude(editor_state__kind="receipt").aggregate(v=Max("version_number"))["v"] or 0
+
+
+def _next_version(template: TemplateMaster) -> int:
+    """The number to insert at: the template's global max + 1, regardless of kind, so a design save and a receipt
+    save on the same template can never race for the same version_number (unique per template, across both kinds)."""
+    return (TemplateDesignState.objects.filter(template=template).aggregate(v=Max("version_number"))["v"] or 0) + 1
 
 
 def design_payload(template: TemplateMaster, version: int | None = None) -> dict:
@@ -127,7 +135,7 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
         raise Conflict(f"This template was saved by someone else (now at version {current}). Reload before saving again.")
 
     html = render_mjml(mjml_source)
-    number = current + 1
+    number = _next_version(template)
     TemplateDesignState.objects.create(template=template, version_number=number, editor_state=editor_state, created_by_id=user_id)
     RenderedTemplateContent.objects.create(template=template, version_number=number, subject_line=subject_line.strip() or None,
                                            preheader=preheader.strip() or None, mjml_source=mjml_source, html_content=html,
@@ -161,6 +169,100 @@ def activation_blockers(template: TemplateMaster) -> dict:
     if findings["unknown_tags"]:
         blockers["tags"] = "Unknown personalization tags: " + ", ".join("{{" + key + "}}" for key in findings["unknown_tags"])
     return blockers
+
+
+# =====================================================================================================================
+# Receipt layout (E_RECEIPT only): the inner line-item layout. The outer shell (subject, MJML wrapper) is a Design,
+# above. Both share one per-template version sequence (TemplateDesignState.version_number), so a receipt layout's own
+# "latest" is the latest version whose editor_state is a receipt, not the latest version of either kind.
+# =====================================================================================================================
+RECEIPT_CHANNELS = ("E_RECEIPT",)
+DEFAULT_RECEIPT_POLICY_TEXT = "Unworn items with tags can be returned within 30 days in store or by mail for a full refund."
+MAX_CUSTOM_HTML_BYTES = 512 * 1024
+
+
+def default_receipt_sections() -> list[dict]:
+    """The Standard receipt: every section on. Mirrors frontend/src/features/receipt/receiptPresets.ts's standard() --
+    the two must not drift, since this is what a freshly-created E_RECEIPT template's editor opens with."""
+    return [
+        {"key": "header", "label": "Order header", "order": 0, "locked": True, "visible": True, "data_binding": "Order.header",
+         "fields": {"order_number": True, "order_date": True, "store": True, "receipt_id": True}},
+        {"key": "customer_fulfillment", "label": "Customer & fulfillment", "order": 1, "locked": False, "visible": True,
+         "data_binding": "Order.fulfillment", "address_mode": "AUTO", "delivery_estimate": True},
+        {"key": "items", "label": "Items", "order": 2, "locked": True, "visible": True, "data_binding": "Order.lineItems[]",
+         "columns": {"product_image": False, "sku": False, "quantity": True, "unit_price": True, "amount": True}, "row_height": "DEFAULT"},
+        {"key": "totals", "label": "Totals", "order": 3, "locked": True, "visible": True, "data_binding": "Order.totals",
+         "rows": {"subtotal": True, "discount": True, "tax": True, "shipping": True, "tip": False}, "savings_callout": True},
+        {"key": "payment", "label": "Payment", "order": 4, "locked": False, "visible": True, "data_binding": "Order.payment",
+         "fields": {"method": True, "authorization_time": True, "billing_address": True}},
+        {"key": "loyalty", "label": "Loyalty", "order": 5, "locked": False, "visible": True, "data_binding": "Order.loyalty",
+         "fields": {"points_earned": True, "points_balance": True, "tier_progress": True}},
+        {"key": "support", "label": "Returns & support", "order": 6, "locked": False, "visible": True, "data_binding": None,
+         "policy_text": DEFAULT_RECEIPT_POLICY_TEXT, "barcode": False},
+    ]
+
+
+def latest_receipt_version(template: TemplateMaster) -> int:
+    return TemplateDesignState.objects.filter(template=template, editor_state__kind="receipt").aggregate(v=Max("version_number"))["v"] or 0
+
+
+def receipt_payload(template: TemplateMaster, version: int | None = None) -> dict:
+    """The receipt layout at `version` (default: latest); version 0 = nothing saved yet, which opens on the Standard
+    preset (the editor always needs a real layout to show, unlike the design half, which can start blank)."""
+    latest = latest_receipt_version(template)
+    number = version or latest
+    state = None
+    if number:
+        state = TemplateDesignState.objects.filter(template=template, version_number=number, editor_state__kind="receipt").select_related("created_by").first()
+        if state is None:
+            raise ValidationError({"version": f"Version {number} does not exist."})
+    layout = state.editor_state if state else {}
+    return {
+        "template": str(template.id),
+        "version_number": number if state else 0,
+        "latest_version": latest,
+        "layout_preset": layout.get("layout_preset", "STANDARD"),
+        "sections": layout.get("sections") or default_receipt_sections(),
+        "custom_html": layout.get("custom_html"),
+        "custom_css": layout.get("custom_css"),
+        "saved_at": state.created_at if state else None,
+        "saved_by": state.created_by.display_name if state and state.created_by else None,
+    }
+
+
+@transaction.atomic
+def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, sections: list, custom_html: str | None, custom_css: str | None,
+                  base_version: int) -> dict:
+    if template.channel not in RECEIPT_CHANNELS:
+        raise Conflict("The receipt layout is for E_RECEIPT templates.")
+    if template.status == "ARCHIVED" or template.deleted_at is not None:
+        raise Conflict("An archived template cannot be changed.")
+
+    errors = {}
+    if layout_preset == "CUSTOM_HTML":
+        if not (custom_html or "").strip():
+            errors["custom_html"] = "Write the receipt's HTML."
+        elif len((custom_html or "").encode()) > MAX_CUSTOM_HTML_BYTES:
+            errors["custom_html"] = "The custom HTML is too large (over 512 KB)."
+        for pattern, message in FORBIDDEN:
+            if pattern.search(custom_html or "") or pattern.search(custom_css or ""):
+                errors.setdefault("custom_html", message)
+    elif not sections:
+        errors["sections"] = "Choose a layout preset."
+    if errors:
+        raise ValidationError(errors)
+
+    # Same row lock as save_design(): two people saving at once get versions n+1 and a 409, never two n+1 rows.
+    TemplateMaster.objects.select_for_update().get(pk=template.pk)
+    current = latest_receipt_version(template)
+    if base_version != current:
+        raise Conflict(f"This receipt layout was saved by someone else (now at version {current}). Reload before saving again.")
+
+    number = _next_version(template)
+    state = {"kind": "receipt", "layout_preset": layout_preset, "sections": sections, "custom_html": custom_html, "custom_css": custom_css}
+    TemplateDesignState.objects.create(template=template, version_number=number, editor_state=state, created_by_id=user_id)
+    TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())
+    return receipt_payload(template, number)
 
 
 # =====================================================================================================================

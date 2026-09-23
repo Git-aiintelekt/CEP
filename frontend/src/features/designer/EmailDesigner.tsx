@@ -37,6 +37,7 @@ import { AssetsPanel } from './assets/AssetsPanel'
 import { ImagePicker } from './assets/ImagePicker'
 import { absoluteUrl, assetAction, assetMessage } from './assets/assetAction'
 import { InspectorPanel } from './inspector/InspectorPanel'
+import type { ReceiptSlotPreset } from './inspector/receiptSettings'
 import { LayersPanel } from './layers/LayersPanel'
 import { pruneHidden, sameHidden, toggleHidden } from './layers/hidden'
 import { layerNameFor } from './layers/layerNames'
@@ -47,6 +48,8 @@ import type { LayerNode } from './layers/types'
 import { dropLevel } from './blocks/dropLevel'
 import { insertTarget, type InsertNode } from './blocks/insertTarget'
 import { keepChosenValues } from './blocks/keepChosenValues'
+import { RECEIPT_BODY_TYPES, registerReceiptBlockTypes } from './blocks/receiptBlocks'
+import { registerReceiptSlotType } from './blocks/receiptSlot'
 import { needsImage } from './blocks/registry'
 import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideMobileStyle } from './blocks/register'
 import { SRC_KEY, blockType, fieldsFor, isGrouping, writeSetting } from './inspector/settings'
@@ -133,6 +136,10 @@ interface EmailDesignerProps {
   exportName?: string
   /** something went right and is worth a toast: a download, a copied tag */
   onSuccess?: (title: string, detail?: string) => void
+  /** E-Receipt: the receipt slot's panel opens Receipt layout and shows which layout fills the slot */
+  onOpenReceiptLayout?: () => void
+  receiptPreset?: ReceiptSlotPreset
+  onReceiptPresetChange?: (preset: ReceiptSlotPreset) => void
 }
 
 /** GrapesJS's ids for the devices the toolbar offers */
@@ -408,6 +415,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     // Before anything is loaded: it rebuilds the component classes, so only components made afterwards use them.
     keepChosenValues(editor)
     registerBlocks(editor, { channel })
+    registerReceiptSlotType(editor, { channel })
+    registerReceiptBlockTypes(editor, { channel })
     // A Desktop frame as wide as the canvas would make the email reflow narrower on a small window; at a fixed
     // width the layout is always the 600px one, and fit zoom scales it to the room there is.
     for (const device of DEVICES) editor.Devices.get(DEVICE_IDS[device.id])?.set('width', `${frameWidthFor(device)}px`)
@@ -979,6 +988,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
             panel: (
               <BlockPalette
                 blocks={blocksFor(props.channel ?? 'EMAIL')}
+                flat={props.channel === 'E_RECEIPT'}
                 disabled={props.readOnly}
                 message={paletteMessage}
                 onDragStart={beginBlockDrag}
@@ -1100,6 +1110,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
         focusKey={focusSetting}
         hasFields={inspector.hasFields}
         tagPicker={{ tags: props.tags, channel: props.channel ?? 'EMAIL', recent: props.recentTags ?? [], onPick: props.onTagUsed }}
+        receiptSlot={{ preset: props.receiptPreset ?? 'STANDARD', onPresetChange: props.onReceiptPresetChange, onOpenLayout: props.onOpenReceiptLayout }}
       />
       )}
       {code !== null ?
@@ -1110,7 +1121,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
           onCheck={(text) => {
             const editor = editorRef.current
             // no editor means nothing could compile the code, which is itself a reason not to apply it
-            return editor ? checkMjml(text, { compile: compileWith(editor), catalogue: props.tags }) : { ok: false, message: 'The editor is not ready.', details: [] }
+            return editor ? checkMjml(text, { compile: compileWith(editor), catalogue: props.tags, channel: props.channel ?? 'EMAIL' }) : { ok: false, message: 'The editor is not ready.', details: [] }
           }}
           onApply={applyMjml}
           onDownloadHtml={downloadHtml}
@@ -1157,8 +1168,10 @@ interface MappedNode extends InsertNode {
   children: MappedNode[]
 }
 
+/** A receipt's own blocks sit in mj-body the way sections do, so an insert treats them as sections. */
 function toTree(component: Component): MappedNode {
-  return { type: String(component.get('type') ?? ''), component, children: component.components().map(toTree) }
+  const type = String(component.get('type') ?? '')
+  return { type: RECEIPT_BODY_TYPES.has(type) ? 'mj-section' : type, component, children: component.components().map(toTree) }
 }
 
 /** The selected component's child indices from mj-body down, or null when it is not in the tree. */

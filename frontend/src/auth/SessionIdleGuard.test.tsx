@@ -107,5 +107,6 @@ test('a resting pointer over the page while the warning is up does not silently 
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy() // still up: that mousedown did not reset the clock
 
   await vi.advanceTimersByTimeAsync(3_000)
+  await vi.advanceTimersByTimeAsync(50) // settles the sign-out -> redirect -> login-page render chain
   expect(screen.getByRole('heading', { name: 'Log in to CEP' })).toBeTruthy()
 })

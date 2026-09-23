@@ -6,6 +6,8 @@ import {
   Image,
   LayoutPanelTop,
   Link,
+  Lock,
+  Megaphone,
   Minus,
   MousePointerClick,
   MoveVertical,
@@ -28,6 +30,13 @@ const NAMES: Record<string, string> = {
   'mj-social': 'Social links',
   'mj-social-element': 'Social icon',
   link: 'Link',
+  'cep-receipt-slot': 'Receipt slot',
+  'cep-receipt-brand-header': 'Brand header',
+  'cep-marketing': 'Marketing',
+  'cep-receipt-button': 'Button',
+  'cep-receipt-image': 'Image',
+  'cep-receipt-divider': 'Divider',
+  'cep-receipt-footer': 'Footer',
 }
 
 const ICONS: Record<string, LucideIcon> = {
@@ -44,6 +53,13 @@ const ICONS: Record<string, LucideIcon> = {
   'mj-social-element': Share2,
   link: Link,
   'mj-heading': Heading,
+  'cep-receipt-slot': Lock,
+  'cep-receipt-brand-header': LayoutPanelTop,
+  'cep-marketing': Megaphone,
+  'cep-receipt-button': MousePointerClick,
+  'cep-receipt-image': Image,
+  'cep-receipt-divider': Minus,
+  'cep-receipt-footer': Rows3,
 }
 
 export const GENERIC_ICON = Box

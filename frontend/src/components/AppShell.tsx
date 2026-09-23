@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { ChevronsLeft, ChevronsRight, Menu, Search, X } from 'lucide-react'
+import { Bell, ChevronsLeft, ChevronsRight, Menu, Search, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -257,6 +257,15 @@ export function AppShell() {
               <span className="hidden text-ink-700 xl:inline">{me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
+            <button
+              type="button"
+              disabled
+              aria-label="Notifications"
+              title="Notifications are not available yet"
+              className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-300"
+            >
+              <Bell size={20} strokeWidth={1.5} aria-hidden />
+            </button>
             <Link to={SECURITY} title="Account security" className="hidden rounded-sm px-2 py-1 text-right leading-tight transition-colors hover:bg-surface-subtle lg:block">
               <p className="text-sm font-medium text-ink-900">{name}</p>
               <p className="text-xs text-ink-700">{me?.principal.email}</p>

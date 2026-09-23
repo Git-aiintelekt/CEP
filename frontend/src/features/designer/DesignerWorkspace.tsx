@@ -2,6 +2,7 @@
  * Everything around the canvas: subject line, save with version lock, findings, preview, tag catalogue, history.
  * Talks to a `DesignerBackend`, so the template page passes the API and the dev playground passes an in-memory one.
  */
+import { Eye, PencilRuler } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -12,7 +13,7 @@ import { formatUtcClock } from '@/lib/format'
 import type { Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
-import { EditorFrame, type EditorTab } from './EditorFrame'
+import { EditorFrame, type EditorTabDef } from './EditorFrame'
 import { EmailDesigner, type DesignerAsset, type EmailDesignerHandle } from './EmailDesigner'
 import { PREHEADER_ADVISORY, SUBJECT_ADVISORY, SUBJECT_MAX, blockTargetForIssue, blockTargetForLink, computeIssues, summarise, type Issue } from './issues'
 import { HistoryMenu } from './HistoryMenu'
@@ -37,6 +38,13 @@ export interface DesignerBackend {
   uploadAsset: (file: File) => Promise<DesignerAsset>
   activate?: () => Promise<void>
 }
+
+type EditorTab = 'content' | 'preview'
+
+const TABS: EditorTabDef<EditorTab>[] = [
+  { id: 'content', label: 'Content', Icon: PencilRuler },
+  { id: 'preview', label: 'Preview', Icon: Eye },
+]
 
 interface WorkspaceProps {
   templateName: string
@@ -404,6 +412,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
         event.preventDefault()
         guard.requestLeave(() => navigate(backTo))
       }}
+      tabs={TABS}
       tab={tab}
       onTabChange={(next) => void changeTab(next)}
       tabBarEnd={pillBar}
@@ -415,8 +424,10 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
         </>
       }
       footer={footer}
-      contentPane={contentPane}
-      previewPane={previewPane}
+      panes={[
+        { id: 'content', content: contentPane },
+        { id: 'preview', content: previewPane, scrolls: true },
+      ]}
       />
     </>
   )

@@ -7,6 +7,7 @@
  */
 import type { PersonalizationTag } from '@/lib/types'
 
+import { RECEIPT_SLOT_CSS_CLASS } from '../blocks/receiptSlot'
 import { asToken, extractTags, unknownTags } from '../tags'
 
 /** The server refuses a design over this many bytes of MJML. */
@@ -22,6 +23,8 @@ export const FORBIDDEN: readonly { pattern: RegExp; message: string }[] = [
 
 export const EMPTY_MESSAGE = 'There is no code to apply. Paste or write the email’s MJML first.'
 export const NOT_MJML_MESSAGE = 'This isn’t valid MJML. Check that the code starts with <mjml> and ends with </mjml>.'
+export const MISSING_RECEIPT_SLOT_MESSAGE =
+  'This code no longer includes the receipt content slot, which every E-Receipt design needs. Add it back, or make changes in Receipt Layout mode instead.'
 export const tooLargeMessage = (bytes: number) =>
   `The code is ${Math.ceil(bytes / 1024)} KB. The server accepts up to ${MAX_MJML_BYTES / 1024} KB. Move large images to the image library.`
 export const unknownFieldMessage = (keys: string[]) => `Unknown field${keys.length > 1 ? 's' : ''}: ${keys.map(asToken).join(', ')}`
@@ -83,8 +86,11 @@ export function plainLine(error: CompileError): string {
   return error.line ? `Line ${error.line}: ${problem}` : problem
 }
 
-/** a, b, c and d, in that order; the first that finds something is the answer */
-export function checkMjml(text: string, { compile, catalogue }: { compile: Compile; catalogue: PersonalizationTag[] }): CheckResult {
+/** a to e, in that order; the first that finds something is the answer */
+export function checkMjml(
+  text: string,
+  { compile, catalogue, channel }: { compile: Compile; catalogue: PersonalizationTag[]; channel?: string },
+): CheckResult {
   // a. nothing to apply — and the plugin would quietly compile the current design in its place
   if (text.trim() === '') return { ok: false, message: EMPTY_MESSAGE, details: [] }
 
@@ -122,6 +128,9 @@ export function checkMjml(text: string, { compile, catalogue }: { compile: Compi
     const at = text.search(new RegExp(`\\{\\{\\s*${unknown[0].replace(/\./g, '\\.')}\\s*\\}\\}`))
     return { ok: false, message: unknownFieldMessage(unknown), line: at >= 0 ? lineOf(text, at) : undefined, details: [] }
   }
+
+  // e. Receipt layout fills the slot, so an E-Receipt can never lose it
+  if (channel === 'E_RECEIPT' && !text.includes(RECEIPT_SLOT_CSS_CLASS)) return { ok: false, message: MISSING_RECEIPT_SLOT_MESSAGE, details: [] }
 
   return { ok: true }
 }

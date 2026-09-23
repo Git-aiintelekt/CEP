@@ -8,10 +8,12 @@ export type SelectFieldProps = Field<{
   options: SelectOption[]
   /** the row shown when the block sets nothing; picking it clears the setting */
   emptyLabel?: string
+  /** the block always has one of the options: no empty row, nothing to reset */
+  required?: boolean
 }>
 
 export function SelectField({
-  label, value, effective, onCommit, disabled = false, inherited = false, inheritedNote, options, emptyLabel = 'Default',
+  label, value, effective, onCommit, disabled = false, inherited = false, inheritedNote, options, emptyLabel = 'Default', required = false,
 }: SelectFieldProps) {
   const fromEmail = options.find((option) => option.value === effective)
 
@@ -19,7 +21,7 @@ export function SelectField({
     <FieldRow
       label={label}
       inheritedNote={inherited && value === null ? (inheritedNote ?? INHERITED_NOTE) : undefined}
-      canReset={value !== null}
+      canReset={!required && value !== null}
       onReset={() => onCommit(null)}
       disabled={disabled}
     >
@@ -32,7 +34,7 @@ export function SelectField({
           onChange={(event) => onCommit(event.target.value === '' ? null : event.target.value)}
           className={controlClass(false, disabled)}
         >
-          <option value="">{fromEmail ? `${emptyLabel} (${fromEmail.label})` : emptyLabel}</option>
+          {required ? null : <option value="">{fromEmail ? `${emptyLabel} (${fromEmail.label})` : emptyLabel}</option>}
           {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}

@@ -21,6 +21,7 @@ function node(over: Partial<LayerNode> & Pick<LayerNode, 'id' | 'name'>): LayerN
     hiddenOnPhones: false,
     selected: false,
     removable: true,
+    draggable: true,
     canMoveUp: true,
     canMoveDown: true,
     ...over,

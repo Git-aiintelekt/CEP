@@ -381,3 +381,59 @@ test('view-only still shows which way a switch is set', () => {
   expect(on.getAttribute('aria-checked')).toBe('true')
   expect(on.className).not.toBe(off.className)
 })
+
+// ---- E-Receipt ------------------------------------------------------------
+
+const swatches = () => screen.getByRole('radiogroup', { name: 'Brand bar color' })
+
+test('the brand bar colour is four named swatches, the chosen one marked', () => {
+  renderFields(make('cep-receipt-brand-header', { 'background-color': '#20265d' }))
+
+  const options = [...swatches().querySelectorAll('[role=radio]')]
+  expect(options.map((option) => option.getAttribute('aria-label'))).toEqual(['Navy 700', 'Navy 900', 'Teal 600', 'Gray 900'])
+  expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false'])
+  expect(screen.getByRole('radio', { name: 'Navy 900' }).className).toContain('ring-brand-600')
+  expect(screen.getByRole('radio', { name: 'Teal 600' }).className).not.toContain('ring-2')
+})
+
+test('choosing a swatch writes its colour', async () => {
+  const user = userEvent.setup()
+  const header = make('cep-receipt-brand-header', { 'background-color': '#20265d' })
+  renderFields(header)
+
+  await user.click(screen.getByRole('radio', { name: 'Teal 600' }))
+  expect(header.getAttributes()['background-color']).toBe('#418eae')
+})
+
+test('the brand header aligns left or center only', () => {
+  renderFields(make('cep-receipt-brand-header'))
+  const align = document.querySelector('[data-setting="align"]') as HTMLElement
+  expect([...align.querySelectorAll('[role=radio]')].map((option) => option.getAttribute('aria-label'))).toEqual(['Left', 'Center'])
+})
+
+test('a receipt button takes its destination and style from fixed lists, with no empty row', () => {
+  renderFields(make('cep-receipt-button'))
+  const options = (label: string) => [...(screen.getByLabelText(label) as HTMLSelectElement).options].map((option) => option.textContent)
+
+  expect(options('Destination')).toEqual(['Order status page', 'Outerwear category', 'Loyalty hub', 'Start a return'])
+  expect(options('Style')).toEqual(['Primary', 'Outline'])
+  expect(screen.queryByRole('textbox', { name: 'Link' })).toBeNull()
+})
+
+test('the marketing body is a text area with the four tag chips', () => {
+  renderFields(make('cep-marketing'))
+  expect(screen.getByLabelText('Body').tagName).toBe('TEXTAREA')
+  for (const name of ['First name', 'Order number', 'Order total', 'Store name']) expect(screen.getByRole('button', { name: `Insert ${name}` })).toBeTruthy()
+  expect([...(screen.getByLabelText('Treatment') as HTMLSelectElement).options].map((option) => option.textContent)).toEqual(['Plain', 'Accent'])
+})
+
+test('a divider has nothing to set and says why; a footer says what it cannot carry', () => {
+  const { unmount } = renderFields(make('cep-receipt-divider'))
+  expect(screen.getByText(/Spacing is fixed by the design system/)).toBeTruthy()
+  expect(screen.queryAllByRole('button', { expanded: true })).toHaveLength(0)
+  unmount()
+
+  renderFields(make('cep-receipt-footer'))
+  expect(screen.getByText(/no unsubscribe link/)).toBeTruthy()
+  expect(screen.getByLabelText('Sender address').tagName).toBe('TEXTAREA')
+})

@@ -10,7 +10,8 @@ const WARNING_BUTTON = `${STRIP_BUTTON} border-warning bg-surface text-warning-t
 const DANGER_BUTTON = `${STRIP_BUTTON} border-danger bg-surface text-danger-text hover:bg-surface-subtle`
 const DISABLED_BUTTON = `${STRIP_BUTTON} cursor-not-allowed border-line bg-line-subtle text-ink-300`
 
-export function VersionStrip({ version, busy = false, onBackToLatest }: { version: number; busy?: boolean; onBackToLatest: () => void }) {
+/** `note` replaces the wording, for an editor holding more than one versioned thing. */
+export function VersionStrip({ version, busy = false, onBackToLatest, note }: { version: number; busy?: boolean; onBackToLatest: () => void; note?: string }) {
   return (
     <Notice
       tone="warning"
@@ -21,7 +22,7 @@ export function VersionStrip({ version, busy = false, onBackToLatest }: { versio
         </button>
       }
     >
-      {oldVersionNote(version)}
+      {note ?? oldVersionNote(version)}
     </Notice>
   )
 }
@@ -34,7 +35,7 @@ export function ReadOnlyStrip() {
   )
 }
 
-export function ConflictStrip({ busy = false, onLoadLatest }: { busy?: boolean; onLoadLatest: () => void }) {
+export function ConflictStrip({ busy = false, onLoadLatest, note }: { busy?: boolean; onLoadLatest: () => void; note?: string }) {
   return (
     <Notice
       tone="error"
@@ -44,7 +45,7 @@ export function ConflictStrip({ busy = false, onLoadLatest }: { busy?: boolean; 
         </button>
       }
     >
-      {CONFLICT_NOTE}
+      {note ?? CONFLICT_NOTE}
     </Notice>
   )
 }
