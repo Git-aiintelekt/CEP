@@ -293,7 +293,7 @@ class CampaignViewSet(views.CampaignViewSet):
         qs = (super().get_queryset().select_related("owner_user", "tenant").prefetch_related("campaign_targets")
               .annotate(list_count=Coalesce(Subquery(attached, output_field=IntegerField()), 0), next_run=Subquery(upcoming),
                         frozen_members=Subquery(frozen, output_field=IntegerField())))
-        if self.action != "list":
+        if self.action not in ("list", "calendar"):
             return qs
         params = self.request.query_params
         future_run = CampaignRun.objects.filter(campaign_id=OuterRef("pk"), test_mode=False, status="SCHEDULED", scheduled_at__gt=timezone.now())
@@ -324,7 +324,7 @@ class CampaignViewSet(views.CampaignViewSet):
             qs = qs.filter(owner_user_id=params["owner"])
         column = "scheduled_at" if params.get("date_field") == "scheduled" else "created_at"
         for name, lookup in (("date_from", "date__gte"), ("date_to", "date__lte")):
-            if params.get(name):
+            if params.get(name) and self.action == "list":      # for the calendar the dates are its window
                 try:
                     qs = qs.filter(**{f"{column}__{lookup}": serializers.DateField().to_internal_value(params[name])})
                 except serializers.ValidationError as exc:
@@ -355,6 +355,34 @@ class CampaignViewSet(views.CampaignViewSet):
             return fn(*args)
         except service.ActionError as exc:
             raise Conflict(str(exc)) from exc
+
+    # ------------------------------------------------------------ calendar
+    @extend_schema(parameters=[OpenApiParameter("date_from", str, description="first day, e.g. 2026-08-01"), OpenApiParameter("date_to", str, description="last day, at most 62 days later")],
+                   responses=dict)
+    @action(detail=False, methods=["get"], pagination_class=None)
+    def calendar(self, request, version=None):
+        """The month as the calendar view draws it: one span per campaign, with its sends. Takes the list's status, type, channel, tag and owner filters; days are the workspace's."""
+        from datetime import datetime, time, timedelta
+        from zoneinfo import ZoneInfo
+        days = {}
+        for name in ("date_from", "date_to"):
+            try:
+                days[name] = serializers.DateField().to_internal_value(request.query_params.get(name) or "")
+            except serializers.ValidationError as exc:
+                raise ValidationError({name: "Use a date like 2026-09-30."}) from exc
+        if not days["date_from"] <= days["date_to"] <= days["date_from"] + timedelta(days=62):
+            raise ValidationError({"date_to": "Ask for up to 62 days, the last day after the first."})
+        try:
+            zone = ZoneInfo(getattr(request, "tenant", {}).get("timezone") or "UTC")
+        except Exception:
+            zone = ZoneInfo("UTC")
+        start = datetime.combine(days["date_from"], time.min, tzinfo=zone)
+        end = datetime.combine(days["date_to"] + timedelta(days=1), time.min, tzinfo=zone)
+        campaigns = self.get_queryset().exclude(status="ARCHIVED").prefetch_related("campaign_runs")      # with the list's filters; the dates are the window here
+        term = request.query_params.get("search", "").strip()
+        if term:
+            campaigns = campaigns.filter(Q(name__icontains=term) | Q(code__icontains=term))
+        return Response({"date_from": days["date_from"], "date_to": days["date_to"], "timezone": zone.key, "spans": service.calendar_spans(campaigns, start, end)})
 
     # ------------------------------------------------------------ form options
     @extend_schema(responses=dict)

@@ -9,6 +9,7 @@ import { ArrowLeft, X } from 'lucide-react'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { asToken, extractTags, groupTags, unknownTags } from '@/features/designer/tags'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
@@ -237,7 +238,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 <ul className="mt-1 list-disc space-y-0.5 pl-5">{notice.items.map((item) => <li key={item}>{item}</li>)}</ul>
               )}
             </div>
-            <button type="button" aria-label="Dismiss" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-line-subtle" onClick={() => setNotice(null)}><X size={16} strokeWidth={1.5} aria-hidden /></button>
+            <button type="button" aria-label="Dismiss" className={`${iconButtonClass()} shrink-0`} onClick={() => setNotice(null)}><X size={16} strokeWidth={1.5} aria-hidden /></button>
           </div>
         )}
       </header>
@@ -282,7 +283,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
             {metrics.encoding === 'UCS-2' && canBePlain(metrics.nonGsmCharacters) && !readOnly && (
-              <button type="button" className="mt-3 text-sm font-medium text-brand-800 underline underline-offset-2" onClick={() => setBody(plainPunctuation(body))}>
+              <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} mt-3`} onClick={() => setBody(plainPunctuation(body))}>
                 Replace curly quotes, long dashes and ellipses with plain ones
               </button>
             )}
@@ -311,7 +312,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                     <p className="truncate font-medium text-ink-900">{media.file_name}</p>
                     <p className="text-xs text-ink-500">{kb(media.byte_size)}{media.width_px ? ` · ${media.width_px} × ${media.height_px}` : ''}</p>
                   </div>
-                  {!readOnly && <button type="button" className="text-sm font-medium text-danger-text hover:underline" onClick={() => setMedia(null)}>Remove</button>}
+                  {!readOnly && <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => setMedia(null)}>Remove</button>}
                 </div>
               ) : (
                 <p className="mt-3 rounded-lg border border-dashed border-ink-300 px-4 py-6 text-center text-sm text-ink-500">No picture attached.</p>
@@ -360,7 +361,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                       <span><span className="font-medium text-ink-900">Version {version.version_number}</span>
                         <span className="ml-2 text-xs text-ink-500">{formatDateTime(version.saved_at)}{version.saved_by ? ` · ${version.saved_by}` : ''}</span></span>
                       <button type="button" disabled={busy !== null || version.version_number === saved.shown} onClick={() => void loadVersion(version.version_number)}
-                        className="text-xs font-medium text-brand-800 hover:underline disabled:text-ink-500 disabled:no-underline">
+                        className={buttonClass({ variant: 'link', size: 'sm' })}>
                         {version.version_number === saved.shown ? 'Open' : 'Load'}
                       </button>
                     </li>

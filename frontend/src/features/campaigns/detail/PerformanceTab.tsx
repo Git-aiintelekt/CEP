@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
+import { SegmentedControl } from '@/components/SegmentedControl'
 import { RunResults, TextReplies } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
@@ -60,12 +61,7 @@ export function PerformanceTab({ campaign, live }: { campaign: Campaign; live: b
       </dl>
 
       <Panel title="Over time" actions={
-        <div role="group" aria-label="Chart detail" className="flex overflow-hidden rounded-sm border border-line text-sm">
-          {(['hour', 'day'] as const).map((value) => (
-            <button key={value} type="button" aria-pressed={bucket === value} onClick={() => setBucket(value)}
-              className={`h-8 px-3 font-medium transition-colors ${bucket === value ? 'bg-callout-bg text-brand-800' : 'bg-surface text-ink-700 hover:bg-surface-subtle'}`}>By {value}</button>
-          ))}
-        </div>
+        <SegmentedControl label="Chart detail" value={bucket} onChange={setBucket} options={[{ value: 'hour', label: 'By hour' }, { value: 'day', label: 'By day' }]} />
       }>
         {series.isError ? <ErrorState title="The chart could not be loaded" error={series.error} onRetry={() => void series.refetch()} />
           : !series.data ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading the chart</p>

@@ -393,6 +393,13 @@ class MeTenantSerializer(serializers.Serializer):
     db_status = serializers.CharField()
 
 
+class MeSessionSerializer(serializers.Serializer):
+    """How long the browser waits before warning of inactivity, and how long the warning stays up before signing out.
+    Global parameters (security.idle_timeout_minutes, security.idle_warning_seconds): change them without a deployment."""
+    idle_timeout_minutes = serializers.IntegerField(help_text="Minutes of no activity in the browser before the warning appears")
+    idle_warning_seconds = serializers.IntegerField(help_text="Seconds the warning stays up before the session ends")
+
+
 class MeSerializer(serializers.Serializer):
     principal = MePrincipalSerializer()
     tenant = MeTenantSerializer()
@@ -401,6 +408,7 @@ class MeSerializer(serializers.Serializer):
     terminology = serializers.DictField(child=serializers.CharField())
     mfa_setup_required = serializers.BooleanField()
     support_session = serializers.DictField(allow_null=True)
+    session = MeSessionSerializer()
 
 
 class JourneySerializer(TenantModelSerializer):

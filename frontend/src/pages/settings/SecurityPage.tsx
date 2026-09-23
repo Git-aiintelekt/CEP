@@ -6,6 +6,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { IdentityProvider, Role, SecuritySettings, SupportAccess } from '@/lib/types'
@@ -73,7 +74,7 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
         <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Redirect URI to register with your identity provider</p>
         <div className="mt-1 flex gap-2">
           <code className="min-w-0 flex-1 text-xs break-all text-ink-900">{settings.redirect_uri}</code>
-          <button type="button" className="text-xs font-medium text-brand-800 hover:underline" onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
+          <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

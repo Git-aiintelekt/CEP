@@ -222,6 +222,8 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('security.support_access_minutes',   '30',     'INTEGER', 'Security',   'Length of a support ("sign in as") session'),
     ('security.notify_user_on_support_access', 'true', 'BOOLEAN', 'Security', 'Email the user when platform staff open a support session on their account'),
     ('security.mfa_required_for_staff',   'false',  'BOOLEAN', 'Security',   'Platform staff must use multi-factor authentication (switch on once every staff member has enrolled)'),
+    ('security.idle_timeout_minutes',     '120',    'INTEGER', 'Security',   'Minutes of no activity in the browser before the frontend warns of a coming sign-out'),
+    ('security.idle_warning_seconds',     '60',     'INTEGER', 'Security',   'Seconds the inactivity warning stays up before the frontend signs the person out'),
     ('billing.invoice_due_days',          '14',     'INTEGER', 'Billing',    'Days between issuing an invoice and its due date'),
     ('billing.usage_warning_percent',     '80',     'INTEGER', 'Billing',    'Warn a tenant when usage reaches this share of a plan limit'),
     ('alerts.recipients',                 '[]',     'LIST',    'Alerts',     'Email addresses that receive platform alerts'),
@@ -643,6 +645,16 @@ GRANT ALL ON campaign_activity_log TO cep_admin;
 ALTER TABLE campaign ADD COLUMN IF NOT EXISTS setup_step SMALLINT NOT NULL DEFAULT 6;
 ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_setup_step;
 ALTER TABLE campaign ADD CONSTRAINT ck_campaign_setup_step CHECK (setup_step BETWEEN 0 AND 6);
+
+-- -------------------------------------------------------------------------------------
+-- 16. CAMPAIGN RESULTS: (tenant_id, campaign_id) INDEX
+--     campaigns.service.metrics()/timeseries() (the results tab and dashboard) filter mailer_execution/sms_execution by
+--     campaign, not by campaign_run: the existing (campaign_run_id, status) index does not serve that filter, so every
+--     call scanned the tenant's whole monthly partition. Declared on the partitioned parent, so PostgreSQL adds it to
+--     every existing and future per-tenant/per-month partition automatically.
+-- -------------------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_campaign ON mailer_execution(tenant_id, campaign_id);
+CREATE INDEX IF NOT EXISTS ix_sms_execution_campaign ON sms_execution(tenant_id, campaign_id);
 
 -- =====================================================================================
 -- End of platform operations layer.

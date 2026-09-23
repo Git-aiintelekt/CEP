@@ -12,6 +12,7 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
@@ -22,7 +23,7 @@ import { channelLabel, sendTypeLabel, typeLabel, whenText } from '../vocabulary'
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (step: number) => void; children: ReactNode }) {
   return (
-    <Panel title={title} actions={<button type="button" aria-label={`Edit ${title}`} className="text-sm font-medium text-brand-800 hover:underline" onClick={() => onEdit(step)}>Edit</button>}>
+    <Panel title={title} actions={<button type="button" aria-label={`Edit ${title}`} className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => onEdit(step)}>Edit</button>}>
       <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
     </Panel>
   )
