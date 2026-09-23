@@ -20,9 +20,14 @@ export default defineConfig(({ mode }) => {
     test: { environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA', VITE_LOADING_HOLD_MS: '0' }, testTimeout: 20_000 },
     server: {
       port: 5173,
-      // Same-origin in development: the browser talks to Vite, Vite forwards /api to Django (no CORS, no mixed hosts).
+      // Same-origin in development: the browser talks to Vite, Vite forwards Django's paths to Django (no CORS, no
+      // mixed hosts). The same split Nginx does in production: /api, /admin and /healthz to the API, /static to its
+      // collected files, /media to uploads.
       proxy: {
         '/api': { target: backend, changeOrigin: false },
+        '/admin': { target: backend, changeOrigin: false }, // the platform back-office (Django admin)
+        '/healthz': { target: backend, changeOrigin: false },
+        '/static': { target: backend, changeOrigin: false }, // the back-office's own CSS and JS (runserver serves them in DEBUG)
         '/media': { target: backend, changeOrigin: false }, // uploaded images in development (a CDN in production)
       },
     },
