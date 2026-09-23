@@ -9,6 +9,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const backend = env.VITE_DEV_BACKEND || 'http://localhost:8000'
+  // Names the dev server may be reached on besides localhost, e.g. a staging hostname in front of it (comma-separated).
+  // Vite refuses any other Host header, so a server behind a proxy sets this in its own frontend/.env.local, not here.
+  const allowedHosts = (env.VITE_DEV_ALLOWED_HOSTS || '').split(',').map((host) => host.trim()).filter(Boolean)
 
   return {
     plugins: [react(), tailwindcss()],
@@ -20,6 +23,7 @@ export default defineConfig(({ mode }) => {
     test: { environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA', VITE_LOADING_HOLD_MS: '0' }, testTimeout: 20_000 },
     server: {
       port: 5173,
+      ...(allowedHosts.length ? { allowedHosts } : {}),
       // Same-origin in development: the browser talks to Vite, Vite forwards Django's paths to Django (no CORS, no
       // mixed hosts). The same split Nginx does in production: /api, /admin and /healthz to the API, /static to its
       // collected files, /media to uploads.
