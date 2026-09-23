@@ -250,6 +250,35 @@ class TemplateViewSet(BaseTenantViewSet):
                          "saved_by": state.created_by.display_name if state and state.created_by else None})
         return Response(s.DesignVersionSerializer(rows, many=True).data)
 
+    @extend_schema(methods=["GET"], responses=s.ReceiptLayoutSerializer,
+                   parameters=[OpenApiParameter("version", int, description="a stored version; default latest")])
+    @extend_schema(methods=["POST"], request=s.ReceiptLayoutSaveSerializer, responses={201: s.ReceiptLayoutSerializer})
+    @action(detail=True, methods=["get", "post"])
+    def receipt(self, request, pk=None, version=None):
+        """GET the receipt layout the editor loads (latest, or ?version=n); POST saves a new version. The outer
+        shell (subject, MJML wrapper) is `design`, above -- this is only the line-item layout."""
+        template = self.get_object()
+        if request.method == "GET":
+            wanted = request.query_params.get("version")
+            if wanted is not None and not wanted.isdigit():
+                raise ValidationError({"version": "Expected a version number."})
+            return Response(design.receipt_payload(template, int(wanted) if wanted else None))
+        body = s.ReceiptLayoutSaveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        user = request.user
+        saved = design.save_receipt(template, None if hasattr(user, "has_scope") else user.id, **body.validated_data)
+        return Response(saved, status=201)
+
+    @extend_schema(responses=s.DesignVersionSerializer(many=True))
+    @action(detail=True, methods=["get"], url_path="receipt/versions", pagination_class=None)
+    def receipt_versions(self, request, pk=None, version=None):
+        template = self.get_object()
+        states = (TemplateDesignState.objects.filter(template=template, editor_state__kind="receipt").select_related("created_by")
+                  .order_by("-version_number")[:100])
+        rows = [{"version_number": state.version_number, "saved_at": state.created_at,
+                 "saved_by": state.created_by.display_name if state.created_by else None} for state in states]
+        return Response(s.DesignVersionSerializer(rows, many=True).data)
+
     @extend_schema(methods=["GET"], responses=s.MessageSerializer,
                    parameters=[OpenApiParameter("version", int, description="a stored version; default latest")])
     @extend_schema(methods=["POST"], request=s.MessageSaveSerializer, responses={201: s.MessageSerializer})
