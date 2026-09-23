@@ -55,7 +55,7 @@ function RowMenu({ list, onAction }: { list: ContactList; onAction: (action: 'op
   return (
     <div ref={box} className="relative inline-block" onClick={(event) => event.stopPropagation()}>
       <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`Actions for ${list.name}`} onClick={() => setOpen((value) => !value)}
-        className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 hover:bg-line-subtle">
+        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 hover:bg-line-subtle">
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
@@ -192,10 +192,10 @@ export function ContactListsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists" aria-label="Search lists"
-          className="h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm sm:w-64" />
+          className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
         <label className="flex items-center gap-2 text-sm text-ink-500">
           Type
-          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900">
+          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900">
             <option value="">All</option>
             <option value="PRODUCTION">Production</option>
             <option value="TEST">Test</option>
@@ -203,7 +203,7 @@ export function ContactListsPage() {
         </label>
         <label className="flex items-center gap-2 text-sm text-ink-500">
           Source
-          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900">
+          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900">
             <option value="">All</option>
             <option value="UPLOAD">Upload</option>
             <option value="BI">BI / Extraction</option>

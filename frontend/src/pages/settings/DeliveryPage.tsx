@@ -220,7 +220,7 @@ export function DeliveryPage() {
       <section aria-labelledby="providers-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="providers-heading" className="text-base font-semibold text-ink-900">Sending engines</h2>
+            <h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending engines</h2>
             <p className="text-sm text-ink-500">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add engine</button>
@@ -233,7 +233,7 @@ export function DeliveryPage() {
       <section aria-labelledby="senders-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="senders-heading" className="text-base font-semibold text-ink-900">Senders</h2>
+            <h2 id="senders-heading" className="font-display text-section-title font-semibold text-ink-900">Senders</h2>
             <p className="text-sm text-ink-500">Who a campaign comes from: a From name and address for email, a short code or number for texts. A sender must be verified before a campaign using it can be published.</p>
           </div>
           <button type="button" className={buttonSecondary} disabled={rows.every((row) => row.manageable === false)} onClick={() => setEditingSender('new')}>Add sender</button>

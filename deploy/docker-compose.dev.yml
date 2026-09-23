@@ -2,13 +2,13 @@
 #   docker compose -f deploy/docker-compose.dev.yml up -d
 services:
   postgres:
-    image: postgres:18
+    image: postgres:18-bookworm
     environment:
       POSTGRES_USER: cep
       POSTGRES_PASSWORD: cep
       POSTGRES_DB: cep_pool
-    ports: ["5432:5432"]
-    volumes: ["cep_pg:/var/lib/postgresql/data"]
+    ports: ["5433:5432"]
+    volumes: ["cep_pg:/var/lib/postgresql"]
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "max_connections=200"]
   redis:
     image: redis:7

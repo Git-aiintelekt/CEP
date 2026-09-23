@@ -21,7 +21,7 @@ None. This system deliberately ships no screens — nothing was supplied to recr
 
 The token spec names the surfaces the system is expected to cover, which is the intended component inventory: buttons, links, active states, focus rings, selected rows, active nav background, input backgrounds, table cells, tags, dashboard tiles/KPIs, dropdowns and overflow menus, side-panel drawers, toast notifications.
 
-Intended app shell (documented, not built): fixed **256px** left rail in Navy 900 (**64px** collapsed) with a 1px right border; fixed **56px** top bar matching the rail header height; one scrolling content column capped at **1440px** with 32px page padding. Drawers are **480px** pinned to the right edge; modals are **480px** centred. Nothing centres itself on the page except modals and empty states.
+Intended app shell (documented, not built): fixed **256px** left rail in Navy 900 (**64px** collapsed) with a 1px right border; fixed **56px** top bar matching the rail header height; one scrolling content column with the top bar's own side padding (16px, 32px from md) and no width cap, so page content lines up with the top bar's search and Sign out. Drawers are **480px** pinned to the right edge; modals are **480px** centred. Nothing centres itself on the page except modals and empty states.
 
 ---
 
@@ -117,7 +117,7 @@ Families: `--font-display: 'Plus Jakarta Sans'` (headings), `--font-body: 'Inter
 
 Weights: `--fw-regular 400`, `--fw-medium 500`, `--fw-semibold 600`, `--fw-bold 700`.
 
-Sizes: `--fs-page-title 32px` (`-sm 28px`) · `--fs-section-title 20px` (`-sm 16px`) · `--fs-body 14px` · `--fs-body-lg 16px` · `--fs-helper 13px` (`-sm 12px`) · `--fs-label 12px` · `--fs-stat 32px` (`-sm 24px`).
+Sizes: `--fs-page-title 26px` · `--fs-section-title 19px` (`-sm 16px`) · `--fs-card-title 15px` · `--fs-body 14px` · `--fs-body-lg 16px` · `--fs-helper 13px` (`-sm 12px`) · `--fs-label 12px` · `--fs-stat 32px` (`-sm 24px`).
 
 Line heights: `--lh-tight 1.2` · `--lh-heading 1.3` · `--lh-body 1.5` · `--lh-dense 1.4`. Letter spacing: `--ls-tight -0.02em` (display type), `--ls-label 0.02em`.
 
@@ -125,8 +125,9 @@ Composite roles (CSS `font` shorthand):
 
 | Token | Value |
 |---|---|
-| `--text-page-title` | 600 32px/1.2 Plus Jakarta Sans |
-| `--text-section-title` | 600 20px/1.3 Plus Jakarta Sans |
+| `--text-page-title` | 600 26px/1.25 Plus Jakarta Sans, -0.02em |
+| `--text-section-title` | 600 19px/1.3 Plus Jakarta Sans, -0.02em — a heading on the page itself |
+| `--text-card-title` | 600 15px/1.3 Inter — a title inside a bordered box |
 | `--text-body-role` | 400 14px/1.5 Inter |
 | `--text-helper` | 400 13px/1.4 Inter |
 | `--text-label` | 600 12px/1.4 Inter |
@@ -142,11 +143,11 @@ Semantic: `--gap-inline 4` · `--gap-icon-label 8` · `--pad-compact 12` · `--p
 
 Control heights — **three only**: `--control-h-sm 32px`, `--control-h-md 40px`, `--control-h-lg 48px`.
 Table rows — **two only**: `--row-h-compact 40px`, `--row-h 48px` (`--row-h-tall 56px` exists but is rare).
-Layout: `--sidenav-w 256px`, `--sidenav-w-collapsed 64px`, `--drawer-w 480px`, `--content-max 1440px`.
+Layout: `--sidenav-w 256px`, `--sidenav-w-collapsed 64px`, `--drawer-w 480px`, `--content-max` (no longer applied: see the app shell above).
 
 ### Shape, borders, elevation
 
-Radii: `--radius-xs 2px` (checkbox) · `--radius-sm 4px` (controls, tags, tooltips — the default) · `--radius-md 6px` (menus) · `--radius-lg 8px` (cards, modals, drawer bodies) · `--radius-xl 12px` · `--radius-pill 999px` (switch track, progress fill only). **Nothing is more rounded than 8px.** Aliases: `--radius-control`, `--radius-card`, `--radius-tag`, `--radius-modal`.
+Radii: `--radius-xs 2px` (checkbox) · `--radius-sm 4px` (tags, tooltips) · `--radius-md 6px` (menus) · `--radius-lg 8px` (cards, modals, drawer bodies) · `--radius-xl 12px` · `--radius-pill 999px` (switch track, progress fill only). **Buttons and controls round with their height:** 40px → 8px (`--radius-control-lg`), 32px → 6px (`--radius-control-md`), 24px and under → 4px (`--radius-control-sm`). The template editors keep 4px on every control. **Nothing is more rounded than 8px** (the Templates landing page is an approved exception). Aliases: `--radius-control`, `--radius-card`, `--radius-tag`, `--radius-modal`.
 
 Borders: `--border-w 1px`, `--border-w-strong 2px`, `--accent-bar-w 3px`.
 

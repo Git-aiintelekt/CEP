@@ -89,7 +89,7 @@ export function StepAudience({ onChangeType }: { onChangeType: () => void }) {
   const allShownPicked = pickable.length > 0 && pickable.every((item) => included.includes(item.id))
   const excludable = all.filter((item) => !included.includes(item.id))
   const testPicked = all.filter((item) => included.includes(item.id) && item.list_environment === 'TEST')
-  const control = 'h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900'
+  const control = 'h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900'
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">

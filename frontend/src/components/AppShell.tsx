@@ -37,7 +37,7 @@ function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'RE
       <p>
         Support session: {by} is acting as this user · {mode === 'WRITE' ? 'changes are allowed and recorded' : 'read-only'} · ends {formatDateTime(expiresAt)}
       </p>
-      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-sm bg-ink-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-ink-700 disabled:bg-line-subtle disabled:text-ink-300">
+      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-ink-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-ink-700 disabled:bg-line-subtle disabled:text-ink-300">
         End session
       </button>
     </div>
@@ -130,7 +130,7 @@ function PageSearch({ pages }: { pages: NavItem[] }) {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
-        className="h-8 w-full rounded-sm border border-line bg-surface-subtle pr-3 pl-8 text-sm text-ink-900 transition-colors focus-visible:border-brand-600"
+        className="h-8 w-full rounded-control-md border border-line bg-surface-subtle pr-3 pl-8 text-sm text-ink-900 transition-colors focus-visible:border-brand-600"
       />
       {open && term && (
         <ul className="absolute top-full right-0 left-0 z-40 mt-1 rounded-md border border-line bg-surface py-1 shadow-menu">
@@ -219,7 +219,7 @@ export function AppShell() {
               onClick={toggle}
               aria-label={toggleLabel}
               aria-expanded={isMd ? expanded : undefined}
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-white transition-colors hover:bg-brand-800"
+              className="flex h-8 w-8 items-center justify-center rounded-control-md text-white transition-colors hover:bg-brand-800"
             >
               <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
             </button>
@@ -243,7 +243,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label="Open navigation"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-ink-700 transition-colors hover:bg-line-subtle"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle"
               >
                 <Menu size={20} strokeWidth={1.5} aria-hidden />
               </button>
@@ -262,7 +262,7 @@ export function AppShell() {
               disabled
               aria-label="Notifications"
               title="Notifications are not available yet"
-              className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-300"
+              className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-300"
             >
               <Bell size={20} strokeWidth={1.5} aria-hidden />
             </button>
@@ -276,15 +276,15 @@ export function AppShell() {
             <button
               type="button"
               onClick={logout}
-              className="h-8 shrink-0 rounded-sm border border-line px-3 text-sm font-medium whitespace-nowrap text-ink-700 transition-colors hover:bg-surface-subtle"
+              className="h-8 shrink-0 rounded-control-md border border-line px-3 text-sm font-medium whitespace-nowrap text-ink-700 transition-colors hover:bg-surface-subtle"
             >
               Sign out
             </button>
           </div>
         </header>
 
-        {/* 1440 up to ~2100px wide, then grows with the viewport so ultra-wide screens are not mostly gutter */}
-        <main className="mx-auto w-full max-w-[clamp(1440px,68vw,2400px)] min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+        {/* same side padding as the header and no width cap, so content lines up with the search bar and Sign out */}
+        <main className="w-full min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
       </div>

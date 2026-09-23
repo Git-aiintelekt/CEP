@@ -94,7 +94,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType }: { options
                 <div role="group" aria-label="Days of the week" className="mt-1 flex flex-wrap gap-2">
                   {WEEKDAYS.map((day) => (
                     <button key={day.value} type="button" aria-pressed={recurring.weekdays.includes(day.value)} onClick={() => toggleDay(day.value)}
-                      className={`h-10 min-w-12 rounded-sm border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
                       {day.label}
                     </button>
                   ))}
@@ -146,7 +146,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType }: { options
                     {(ids) => <TextInput {...ids} maxLength={60} {...register(`drip.steps.${index}.label`)} />}
                   </Field>
                   <button type="button" aria-label={`Remove step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)}
-                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-sm border border-line bg-surface text-ink-700 transition-colors hover:bg-line-subtle disabled:text-ink-300">
+                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-700 transition-colors hover:bg-line-subtle disabled:text-ink-300">
                     <Trash2 size={18} strokeWidth={1.5} aria-hidden />
                   </button>
                 </li>

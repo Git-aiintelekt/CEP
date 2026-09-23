@@ -8,9 +8,10 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'link' | 'danger
 export type ButtonSize = 'sm' | 'md'
 
 const BASE =
-  'inline-flex shrink-0 items-center justify-center gap-2 rounded-sm text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard'
 
-const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3', md: 'h-10 px-4' }
+// corners round with height: 32px → 6px, 40px → 8px
+const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3 rounded-control-md', md: 'h-10 px-4 rounded-control-lg' }
 
 const ENABLED: Record<ButtonVariant, string> = {
   primary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
@@ -51,8 +52,8 @@ export type IconButtonVariant = 'ghost' | 'outline' | 'onBrand'
 /** sm is the 32px control; xs (24px) is only for a button nested inside another control or a dense row */
 export type IconButtonSize = 'sm' | 'xs'
 
-const ICON_BASE = 'inline-flex shrink-0 items-center justify-center rounded-sm transition-colors duration-fast ease-standard'
-const ICON_SIZE: Record<IconButtonSize, string> = { sm: 'h-8 w-8', xs: 'h-6 w-6' }
+const ICON_BASE = 'inline-flex shrink-0 items-center justify-center transition-colors duration-fast ease-standard'
+const ICON_SIZE: Record<IconButtonSize, string> = { sm: 'h-8 w-8 rounded-control-md', xs: 'h-6 w-6 rounded-control-sm' }
 
 const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; disabled: string }> = {
   ghost: {

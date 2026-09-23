@@ -90,7 +90,7 @@ export function UploadsIndicator() {
   return (
     <div ref={box} className="relative">
       <button type="button" aria-label={label} aria-haspopup="dialog" aria-expanded={open} title={label} onClick={() => setOpen((value) => !value)}
-        className="relative flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 transition-colors hover:bg-line-subtle">
+        className="relative flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle">
         <UploadCloud size={20} strokeWidth={1.5} aria-hidden />
         {(running > 0 || waiting > 0) && (
           <span aria-hidden className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white ${running > 0 ? 'bg-brand-600' : 'bg-warning'}`}>

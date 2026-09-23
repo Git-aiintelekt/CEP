@@ -52,7 +52,7 @@ export function TagPickerPopover<K extends string>({ dropdown, id, anchor, onPic
         event.stopPropagation()
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
       }}
-      className="fixed z-50 rounded-md border border-line bg-surface shadow-menu"
+      className="editor-radii fixed z-50 rounded-md border border-line bg-surface shadow-menu"
     >
       <TagPicker
         {...picker}

@@ -57,6 +57,23 @@
   --color-callout-link: #4139c2;
   --color-callout-text: #312e7c;
 
+  /*
+   * ---- channel colours: Templates landing page only. Flat tints, no gradient.
+   * tint = card header and thumbnail fill, halo = the solid circle behind a quick-create icon, icon = the glyph.
+   */
+  --color-channel-email-tint: #e8effd;
+  --color-channel-email-halo: #f7f9fe;
+  --color-channel-email-icon: #3863db;
+  --color-channel-sms-tint: #e4f5e8;
+  --color-channel-sms-halo: #f6fcf7;
+  --color-channel-sms-icon: #1d8043;
+  --color-channel-mms-tint: #efebfd;
+  --color-channel-mms-halo: #f9f8fe;
+  --color-channel-mms-icon: #6a4fd4;
+  --color-channel-receipt-tint: #fdf1e1;
+  --color-channel-receipt-halo: #fefaf5;
+  --color-channel-receipt-icon: #b3621b;
+
   /* ---- wordmark ---- */
   --color-wordmark-teal: #418eae;
   --color-wordmark-navy: #273fa8;
@@ -67,10 +84,23 @@
   --radius-md: 6px; /* menus */
   --radius-lg: 8px; /* cards, modals, drawer bodies */
   --radius-pill: 9999px; /* switch tracks and progress fills only */
+  /* buttons and controls round with their height: 40px → 8, 32px → 6, 24px and under → 4. The editors reset these to 4 (.editor-radii) */
+  --radius-control-lg: 8px;
+  --radius-control-md: 6px;
+  --radius-control-sm: 4px;
 
   /* ---- type: the one step between the 12px label and 14px body, for helper text, metadata and notices ---- */
   --text-helper: 13px;
   --text-helper--line-height: 1.4;
+  /* page title, section heading (on the page) and card title (inside a bordered box). Titles use the display font */
+  --text-page-title: 26px;
+  --text-page-title--line-height: 1.25;
+  --text-page-title--letter-spacing: -0.02em;
+  --text-section-title: 19px;
+  --text-section-title--line-height: 1.3;
+  --text-section-title--letter-spacing: -0.02em;
+  --text-card-title: 15px;
+  --text-card-title--line-height: 1.3;
 
   /* ---- exactly three shadows, each with one job. Cards and rows never carry one ---- */
   --shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
@@ -103,7 +133,8 @@
   --animate-fade-in: fade-in var(--duration-moderate) var(--ease-entrance);
   --animate-fade-out: fade-out var(--duration-fast) var(--ease-exit) both;
   --animate-slide-in-right: slide-in-right var(--duration-moderate) var(--ease-entrance);
-  --animate-step-in: step-in var(--duration-moderate) var(--ease-entrance) both;
+  /* backwards: no transform is left behind to trap position: fixed (see .cep-settle-in) */
+  --animate-step-in: step-in var(--duration-moderate) var(--ease-entrance) backwards;
   --animate-popover-in: fade-in var(--duration-base) var(--ease-entrance);
   --animate-popover-out: fade-out var(--duration-fast) var(--ease-exit) both;
   /* the design's toastIn keyframe: a fade with a 6px drop from above */
@@ -233,9 +264,13 @@
  * up 8px. Opacity and translate only — no scale, spring or overshoot (designnew.md §5).
  * Under prefers-reduced-motion the shell cross-fades with no movement at all.
  */
+/*
+ * `backwards`, never `both`: a transform kept after the animation, even translate3d(0,0,0), makes this element the
+ * frame for every position: fixed inside it, so dialogs pinned to the top of the page and opening one scrolled it up.
+ */
 .cep-settle-in {
   /* TEMPORARY: slowed from 240ms so the settle is easy to watch. Put back to 240ms. */
-  animation: cep-settle-in 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: cep-settle-in 1200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 @keyframes cep-settle-in {
@@ -315,6 +350,13 @@ h3,
 h4 {
   font-family: var(--font-display);
   letter-spacing: -0.02em;
+}
+
+/* The template editors keep their own rules: every button and control stays at 4px. */
+.editor-radii {
+  --radius-control-lg: 4px;
+  --radius-control-md: 4px;
+  --radius-control-sm: 4px;
 }
 
 /* Numerals line up in tables and KPI tiles. */

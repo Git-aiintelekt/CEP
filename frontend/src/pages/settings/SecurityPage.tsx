@@ -30,7 +30,7 @@ function MfaRule({ settings }: { settings: SecuritySettings }) {
   const refused = save.error instanceof ApiError ? save.error.fieldErrors.require_mfa : undefined
   return (
     <section aria-labelledby="mfa-rule" className="rounded-lg border border-line bg-surface p-5">
-      <h2 id="mfa-rule" className="text-sm font-semibold text-ink-900">Multi-factor authentication</h2>
+      <h2 id="mfa-rule" className="text-card-title font-semibold text-ink-900">Multi-factor authentication</h2>
       <div className="mt-3">
         <Toggle label="Require it for everyone in this workspace" checked={settings.require_mfa} disabled={save.isPending} onChange={(next) => save.mutate(next)}
           hint="People who have not set it up are asked to do so the next time they sign in, before anything else. Single sign-on users are covered by your identity provider." />
@@ -129,7 +129,7 @@ function SupportLog() {
   ]
   return (
     <section aria-labelledby="support-log">
-      <h2 id="support-log" className="text-sm font-semibold text-ink-900">Support access</h2>
+      <h2 id="support-log" className="text-card-title font-semibold text-ink-900">Support access</h2>
       <p className="mt-0.5 mb-3 text-sm text-ink-500">Every time someone from the platform's support team acted as one of your users, with their reason. Support can never manage users, roles, API keys or these settings.</p>
       {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
         : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
@@ -152,7 +152,7 @@ export function SecurityPage() {
     <div className="space-y-6">
       <MfaRule settings={data} />
       <section aria-labelledby="sso" className="rounded-lg border border-line bg-surface p-5">
-        <h2 id="sso" className="text-sm font-semibold text-ink-900">Single sign-on (OpenID Connect)</h2>
+        <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single sign-on (OpenID Connect)</h2>
         {!data.sso_available ? <p className="mt-1 text-sm text-ink-500">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
           : data.identity_provider || configuring ? <SsoForm settings={data} roles={roles.data ?? []} />
           : (<>

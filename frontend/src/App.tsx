@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthProvider } from '@/auth/AuthContext'
@@ -19,7 +19,8 @@ import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPa
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
 import { UploadsPage } from '@/features/contact-lists/UploadsPage'
-import { JourneysPage, TemplatesPage } from '@/pages/ListPages'
+import { JourneysPage } from '@/pages/ListPages'
+import { TemplatesPage } from '@/pages/TemplatesPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
@@ -53,11 +54,16 @@ const queryClient = new QueryClient({
   },
 })
 
+/** The template editors keep 4px corners on every button and control (see .editor-radii); `contents` adds no box. */
+function EditorScope({ children }: { children: ReactNode }) {
+  return <div className="editor-radii contents">{children}</div>
+}
+
 function NotFoundPage() {
   return (
     <div className="py-16 text-center">
       <p className="text-sm font-semibold text-brand-800">404</p>
-      <h1 className="mt-1 text-xl font-semibold text-ink-900">Page not found</h1>
+      <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">Page not found</h1>
       <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline">
         Back to overview
       </Link>
@@ -78,22 +84,22 @@ export default function App() {
             <Route path="/sso/complete" element={<TokenLandingPage kind="sso" />} />
             <Route path="/support-session" element={<TokenLandingPage kind="support" />} />
             {DesignerPlayground && (
-              <Route path="/dev/designer" element={<Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense>} />
+              <Route path="/dev/designer" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense></EditorScope>} />
             )}
             {MessagePlayground && (
-              <Route path="/dev/message" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><MessagePlayground /></Suspense>} />
+              <Route path="/dev/message" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the editor" />}><MessagePlayground /></Suspense></EditorScope>} />
             )}
             {ReceiptPlayground && (
-              <Route path="/dev/receipt" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><ReceiptPlayground /></Suspense>} />
+              <Route path="/dev/receipt" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the editor" />}><ReceiptPlayground /></Suspense></EditorScope>} />
             )}
             {DevFields && (
               <Route path="/dev/fields" element={<Suspense fallback={<FullPageSpinner label="Loading the fields" />}><DevFields /></Suspense>} />
             )}
             <Route element={<RequireAuth />}>
               {/* full-screen: outside the app shell */}
-              <Route path="templates/:id/message" element={<MessageEditorPage />} />
-              <Route path="templates/:id/design" element={<Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense>} />
-              <Route path="templates/:id/receipt" element={<Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense>} />
+              <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
+              <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
+              <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
               <Route element={<AppShell />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="campaigns" element={<CampaignListPage />} />

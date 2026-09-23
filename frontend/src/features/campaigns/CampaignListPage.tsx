@@ -76,7 +76,7 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   return (
     <div ref={box} className="relative inline-block">
       <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`Actions for ${campaign.name}`} onClick={() => setOpen((value) => !value)}
-        className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 hover:bg-line-subtle">
+        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 hover:bg-line-subtle">
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
@@ -99,7 +99,7 @@ function Upcoming() {
   if (rows.length === 0) return null
   return (
     <section aria-labelledby="upcoming-title" className="mb-6">
-      <h2 id="upcoming-title" className="mb-2 text-sm font-semibold text-ink-900">Upcoming campaigns</h2>
+      <h2 id="upcoming-title" className="mb-2 font-display text-section-title font-semibold text-ink-900">Upcoming campaigns</h2>
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((campaign) => (
           <li key={campaign.id}>
@@ -178,7 +178,7 @@ export function CampaignListPage() {
     else act.mutate({ campaign, action })
   }
 
-  const control = 'h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900'
+  const control = 'h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900'
   const dropdown = (label: string, key: keyof Filters, choices: { value: string; label: string }[]) => (
     <select aria-label={label} value={filters[key]} onChange={(event) => change(key, event.target.value)} className={control}>
       <option value="">{label}</option>

@@ -25,14 +25,14 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div role="alert" className="mx-auto max-w-xl px-4 py-20 text-center">
         <p className="text-sm font-semibold text-danger-text">Screen failed to render</p>
-        <h1 className="mt-1 text-xl font-semibold text-ink-900">This screen could not be shown</h1>
+        <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">This screen could not be shown</h1>
         <p className="mt-2 text-sm text-ink-500">{this.state.error.message}</p>
         <p className="mt-1 text-sm text-ink-500">Reload the page. If it fails again, go back to the overview.</p>
         <div className="mt-5 flex justify-center gap-3">
-          <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-sm bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800">
+          <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800">
             Reload
           </button>
-          <a href="/" className="inline-flex h-10 items-center rounded-sm border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle">
+          <a href="/" className="inline-flex h-10 items-center rounded-control-lg border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle">
             Go to the overview
           </a>
         </div>

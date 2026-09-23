@@ -20,7 +20,7 @@ test('every tone is a 32px control on the motion token, and only the neutral one
   for (const name of ['Links · 2', 'Review errors · 2', '2 warnings']) {
     expect(pill(name).className).toContain('h-8')
     expect(pill(name).className).toContain('duration-base')
-    expect(pill(name).className).toContain('rounded-sm')
+    expect(pill(name).className).toContain('rounded-control-md')
   }
   expect(pill('Links · 2').className).toContain('bg-surface')
   expect(pill('Review errors · 2').className).toContain('bg-danger-bg')

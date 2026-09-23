@@ -74,7 +74,7 @@ export function OverviewTab({ campaign, zone, live }: { campaign: Campaign; zone
       {campaign.campaign_type === 'E_RECEIPT' && <ReceiptApiPanel campaignRef={campaign.code ?? campaign.id} published={['PRODUCTION_PUBLISHED', 'ACTIVE'].includes(campaign.status)} />}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-ink-900">Runs{live && <span className="ml-2 text-xs font-normal text-ink-500">updating every few seconds</span>}</h2>
+        <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Runs{live && <span className="ml-2 text-xs font-normal text-ink-500">updating every few seconds</span>}</h2>
         {runs.length === 0
           ? <EmptyState title="No runs yet" hint="Publishing the campaign creates run #1 and the send engine starts it. Recurring and drip campaigns add a run per send." />
           : <DataTable columns={runColumns} rows={runs} rowKey={(run) => run.id} caption="Campaign runs" />}

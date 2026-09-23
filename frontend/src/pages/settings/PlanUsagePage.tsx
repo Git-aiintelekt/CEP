@@ -65,7 +65,7 @@ export function PlanUsagePage() {
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-ink-900">{plan ? `${plan.name} plan` : 'No plan'}</h2>
+          <h2 className="text-card-title font-semibold text-ink-900">{plan ? `${plan.name} plan` : 'No plan'}</h2>
           <p className="text-sm text-ink-500">
             {plan ? (plan.monthly_price ? `${money(plan.monthly_price, currency)} per month` : 'Custom pricing') : 'Usage is measured, but no limits apply.'} · usage for {monthName(month)}, refreshed every hour
           </p>
@@ -85,7 +85,7 @@ export function PlanUsagePage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-base font-semibold text-ink-900">Invoices</h2>
+        <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Invoices</h2>
         {invoices.isError ? <ErrorState error={invoices.error} onRetry={() => void invoices.refetch()} />
           : invoices.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading invoices</p>
           : invoices.data.length === 0 ? <EmptyState title="No invoices yet" hint="An invoice appears here once it has been issued, shortly after the end of each month." />

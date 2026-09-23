@@ -693,6 +693,31 @@ export interface TemplateStarter {
   sms_body: string | null
 }
 
+/** A CEP-supplied template the landing page offers next to the workspace's own. Built by features/templates/presetSource. */
+export interface Preset {
+  key: string
+  name: string
+  channel: Channel
+  category: string
+  description: string
+  purposeKey?: string
+  triggerFamily?: string
+  governanceClass?: 'MARKETING' | 'TRANSACTIONAL'
+  receiptLayout?: ReceiptLayout['layout_preset']
+  /** personalization tag keys the content uses; the preset is offered only when the workspace has all of them */
+  requiredTags: string[]
+  isSystem: true
+  /** set when the frontend owns the content: the copy is filled from this instead of the server's starter */
+  content?: PresetContent
+}
+
+/** What a frontend-owned preset puts into version 1 of its copy. */
+export type PresetContent =
+  | { kind: 'design'; mjml: string; subject_line: string; preheader: string }
+  | { kind: 'message'; sms_body: string; subject_line: string }
+  /** an e-receipt: the outer design, then the receipt layout that fills its slot */
+  | { kind: 'receipt'; subject_line: string; preheader: string; mjml: string; layout_preset: ReceiptLayoutPreset; sections: ReceiptSection[] }
+
 export interface PersonalizationTag {
   id: string
   tag_key: string

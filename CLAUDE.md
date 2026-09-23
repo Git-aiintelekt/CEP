@@ -19,7 +19,7 @@ Reproduce first. Console, then Network: wrong request = front end, wrong respons
 - Patterns: `pages/CampaignFormPage.tsx`, `pages/ListPages.tsx`, `src/test/mockApi.ts`
 
 ## Design
-Invoke the `cep-design` skill. Page background is white. Tailwind tokens only, never raw hex or palette classes. Flat, 1px hairlines, radii max 8px, Blue 600 is the only action colour, status tags never blue. Use `components/Form.tsx` primitives. Sentence case. Statuses: Draft / Test Published / Production Published / Scheduled. Unimplemented locked behaviour (design.md §9-10): raise it, don't build it silently.
+Invoke the `cep-design` skill. Page background is white. Tailwind tokens only, never raw hex or palette classes. Flat, 1px hairlines, radii max 8px, Blue 600 is the only action colour, status tags never blue. Use `components/Form.tsx` primitives. Sentence case. Statuses: Draft / Test Published / Production Published / Scheduled. Unimplemented locked behaviour (design.md §9): raise it, don't build it silently. design.md §10 ("clicking a preset instantly copies it, no confirmation, no preview") is superseded: as of the Templates preview modal, clicking a preset opens a read-only preview first, with a "Copy this template" button to proceed.
 
 ## Style
 Few comments; clear names.

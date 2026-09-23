@@ -83,7 +83,7 @@ function KeyReveal({ created, onClose }: { created: ApiKeyCreated; onClose: () =
       <div className="space-y-3 text-sm text-ink-700">
         <p><strong>{created.name}</strong> is ready. This is the only time the full key is shown: only a fingerprint of it is stored, so it cannot be recovered later.</p>
         <div className="flex gap-2">
-          <input aria-label="API key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-sm border border-line bg-surface-subtle px-3 cep-num text-xs" />
+          <input aria-label="API key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
           <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(created.key).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
         <p className="text-xs text-ink-500">Send it as <code className="cep-num">Authorization: Bearer {created.key_prefix}…</code> together with the <code className="cep-num">X-Tenant</code> header. If it leaks, revoke it here and create a new one.</p>

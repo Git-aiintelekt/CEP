@@ -98,7 +98,7 @@ export function PerformanceTab({ campaign, live }: { campaign: Campaign; live: b
       {texts && breakdown.note && <p className="text-xs text-ink-500">{breakdown.note}</p>}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-ink-900">Run by run</h2>
+        <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Run by run</h2>
         <div className="space-y-4">
           {[...production].sort((a, b) => b.run_number - a.run_number).slice(0, 5).map((run) => <RunResults key={run.id} run={run} />)}
           {texts && <TextReplies campaignId={campaign.id} />}

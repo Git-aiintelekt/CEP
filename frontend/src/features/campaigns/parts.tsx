@@ -87,7 +87,7 @@ export function Panel({ title, description, actions, children, className = '' }:
       {(title || actions) && (
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            {title && <h2 className="text-sm font-semibold text-ink-900">{title}</h2>}
+            {title && <h2 className="text-card-title font-semibold text-ink-900">{title}</h2>}
             {description && <p className="mt-0.5 max-w-2xl text-sm text-ink-500">{description}</p>}
           </div>
           {actions}

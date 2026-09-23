@@ -45,7 +45,7 @@ function TagsInput({ value, onChange, suggestions, error }: { value: string[]; o
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink-700">Tags</label>
-      <div className={`mt-1 flex min-h-10 flex-wrap items-center gap-1.5 rounded-sm border bg-surface px-2 py-1 focus-within:border-brand-600 ${error || problem ? 'border-danger' : 'border-line'}`}>
+      <div className={`mt-1 flex min-h-10 flex-wrap items-center gap-1.5 rounded-control-lg border bg-surface px-2 py-1 focus-within:border-brand-600 ${error || problem ? 'border-danger' : 'border-line'}`}>
         {value.map((tag) => (
           <span key={tag} className="inline-flex items-center gap-1 rounded-sm bg-line-subtle py-0.5 pl-1.5 pr-0.5 text-xs font-semibold text-ink-700">
             {tag}

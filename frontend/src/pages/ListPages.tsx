@@ -1,15 +1,9 @@
 /** Collection pages: each is a column definition over the shared <ResourceList>. */
-import { Link, useNavigate } from 'react-router-dom'
-
-import { useAuth } from '@/auth/AuthContext'
-
 import type { Column } from '@/components/DataTable'
-import { buttonPrimary } from '@/components/Form'
 import { ResourceList } from '@/components/ResourceList'
-import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { editorRouteFor } from '@/lib/editorRoute'
+import { StatusBadge } from '@/components/StatusBadge'
 import { formatDateTime, humanize } from '@/lib/format'
-import type { Journey, Template } from '@/lib/types'
+import type { Journey } from '@/lib/types'
 
 const options = (...values: string[]) => values.map((value) => ({ value, label: humanize(value) }))
 
@@ -19,54 +13,6 @@ function Title({ primary, secondary }: { primary: string; secondary?: string | n
       <p className="truncate font-medium text-ink-900">{primary}</p>
       {secondary && <p className="truncate text-xs text-ink-500">{secondary}</p>}
     </div>
-  )
-}
-
-
-function editorPathFor(row: Template): string {
-  return `/templates/${row.id}/${editorRouteFor(row.channel)}`
-}
-
-const templateColumns: Column<Template>[] = [
-  { key: 'name', header: 'Template', render: (row) => <Title primary={row.name} secondary={row.description} /> },
-  { key: 'channel', header: 'Channel', render: (row) => <Tag>{row.channel}</Tag> },
-  { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-  { key: 'version', header: 'Version', align: 'right', render: (row) => (row.latest_version ? `v${row.latest_version}` : '—') },
-  {
-    key: 'open',
-    header: 'Design',
-    render: (row) => (
-      <Link to={editorPathFor(row)} className="font-medium text-brand-800 hover:underline" onClick={(event) => event.stopPropagation()}>
-        {editorRouteFor(row.channel) === 'design' ? 'Open designer' : 'Open editor'}
-      </Link>
-    ),
-  },
-  { key: 'updated', header: 'Updated', render: (row) => formatDateTime(row.updated_at) },
-]
-
-export function TemplatesPage() {
-  const navigate = useNavigate()
-  const { can } = useAuth()
-  return (
-    <ResourceList<Template>
-      onRowClick={(row) => navigate(editorPathFor(row))}
-      actions={
-        can('template.edit') && (
-          <Link to="/templates/new" className={buttonPrimary}>
-            New template
-          </Link>
-        )
-      }
-      title="Templates"
-      description="Email and e-receipt templates open in the drag-and-drop designer; SMS and MMS open in the message editor. All use the same personalization tags."
-      resource="templates"
-      columns={templateColumns}
-      filters={[
-        { param: 'channel', label: 'Channel', options: options('EMAIL', 'SMS', 'MMS', 'E_RECEIPT') },
-        { param: 'status', label: 'Status', options: options('DRAFT', 'ACTIVE', 'ARCHIVED') },
-      ]}
-      emptyHint="Templates built in the designer appear here."
-    />
   )
 }
 

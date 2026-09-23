@@ -530,7 +530,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             onChange={(event) => setFilter(event.target.value)}
             placeholder={step === 'audience' ? 'Search audiences' : 'Search lists'}
             aria-label={step === 'audience' ? 'Search audiences' : 'Search lists'}
-            className="mb-3 h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm"
+            className="mb-3 h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm"
           />
           {(step === 'audience' ? audiences.isPending : lists.isPending) ? (
             <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
