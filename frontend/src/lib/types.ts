@@ -22,6 +22,16 @@ export interface Page<T> {
   results: T[]
 }
 
+export interface DashboardSummary {
+  campaigns_total: number
+  campaigns_live: number
+  contact_lists_total: number
+  audience_total: number
+  templates_total: number
+  journeys_total: number
+  journeys_active: number
+}
+
 export interface Me {
   principal: {
     kind: 'user' | 'api_client'
@@ -45,6 +55,8 @@ export interface Me {
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */
   support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
+  /** how long the browser waits before warning of inactivity, and how long the warning stays up before signing out (global parameters) */
+  session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
 }
 
 export type Feature = 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
@@ -442,6 +454,35 @@ export interface CampaignActivity {
   actor_name: string | null
   campaign_run_id: string | null
   occurred_at: string
+}
+
+/** GET /campaigns/calendar/ : one span per campaign that touches the window */
+export interface CalendarSpan {
+  campaign: string
+  name: string
+  code: string | null
+  channel: string
+  campaign_type: string
+  display_status: string
+  is_journey_generated: boolean
+  setup_step: number
+  setup_complete: boolean
+  actions: CampaignAction[]
+  timezone: string
+  start: string
+  /** null while the campaign goes on (an e-receipt campaign, a recurrence without an end) */
+  end: string | null
+  ongoing: boolean
+  /** every production send of it failed */
+  failed: boolean
+  sends: { at: string; state: 'SENT' | 'SENDING' | 'WAITING' | 'PLANNED' | 'PROJECTED'; label: string | null }[]
+}
+
+export interface CampaignCalendarData {
+  date_from: string
+  date_to: string
+  timezone: string
+  spans: CalendarSpan[]
 }
 
 export interface BulkResult {

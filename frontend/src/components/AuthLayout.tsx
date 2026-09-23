@@ -1,4 +1,4 @@
-import { CircleAlert, Eye, EyeOff } from 'lucide-react'
+import { CircleAlert, Clock, Eye, EyeOff } from 'lucide-react'
 import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 
 /**
@@ -204,6 +204,16 @@ export function AuthAlert({ children }: { children: ReactNode }) {
     <div role="alert" className="flex items-start gap-2 rounded-sm bg-danger-bg p-3">
       <CircleAlert size={16} strokeWidth={1.5} aria-hidden className="mt-px flex-none text-danger-plain" />
       <span className="text-[13px] leading-normal text-danger-plain">{children}</span>
+    </div>
+  )
+}
+
+/** A heads-up, not a failure: nothing was done wrong (e.g. signed out after being idle). Amber, not the alert's red. */
+export function AuthNotice({ children }: { children: ReactNode }) {
+  return (
+    <div role="status" className="flex items-start gap-2 rounded-sm bg-warning-bg p-3">
+      <Clock size={16} strokeWidth={1.5} aria-hidden className="mt-px flex-none text-warning-text" />
+      <span className="text-[13px] leading-normal text-warning-text">{children}</span>
     </div>
   )
 }

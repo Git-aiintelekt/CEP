@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { SIGNED_OUT_REASON_KEY } from '@/auth/SessionIdleGuard'
 import {
   AuthAlert,
   AuthField,
@@ -10,6 +11,7 @@ import {
   AuthHeading,
   AuthLayout,
   AuthLink,
+  AuthNotice,
   AuthPasswordField,
   AuthStep,
 } from '@/components/AuthLayout'
@@ -50,6 +52,16 @@ export function LoginPage() {
 
   const hostTenant = tenantFromHost()
   const [step, setStep] = useState<Step>('signin')
+  // read once and cleared: a refresh of this same page must not keep repeating a notice about a sign-out that already happened
+  const [idleNotice] = useState(() => {
+    try {
+      const reason = window.sessionStorage.getItem(SIGNED_OUT_REASON_KEY)
+      if (reason) window.sessionStorage.removeItem(SIGNED_OUT_REASON_KEY)
+      return reason === 'idle'
+    } catch {
+      return false
+    }
+  })
   const [tenant, setTenant] = useState(hostTenant ?? rememberedTenant)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -166,6 +178,7 @@ export function LoginPage() {
       {step === 'signin' && (
         <AuthStep>
           <AuthHeading title="Log in to CEP">Enter your email and password to continue.</AuthHeading>
+          {idleNotice && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
           {error && <AuthAlert>{error}</AuthAlert>}
 
           <form onSubmit={onPassword} className="flex flex-col gap-5">

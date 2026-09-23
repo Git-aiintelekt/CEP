@@ -8,6 +8,7 @@ import { buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } fr
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DeliveryProvider, DeliverySender, ProviderType } from '@/lib/types'
@@ -185,15 +186,15 @@ export function DeliveryPage() {
     { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched off" />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not checked yet" /> },
     { key: 'webhook', header: 'Callback address', render: (row) => row.webhook_url
-      ? <button type="button" className="text-left text-xs font-medium text-brand-800 hover:underline" title={row.webhook_url}
+      ? <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
           onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy webhook URL'}</button>
       : <span className="text-xs text-ink-500">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
-      <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-800 hover:underline" disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
+      <span className="flex justify-end gap-1">
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
         {row.manageable === false ? <Link to="/settings/email" className="text-brand-800 hover:underline">Email server</Link> : (<>
-          <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditing(row)}>Edit</button>
-          <button type="button" className="text-danger-text hover:underline" onClick={() => window.confirm(`Remove ${row.name}? Its senders are removed with it.`) && removeProvider.mutate(row)}>Remove</button>
+          <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing(row)}>Edit</button>
+          <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => window.confirm(`Remove ${row.name}? Its senders are removed with it.`) && removeProvider.mutate(row)}>Remove</button>
         </>)}
       </span>) },
   ]
@@ -205,10 +206,10 @@ export function DeliveryPage() {
     { key: 'status', header: 'Verification', render: (row) => <StatusBadge status={row.verification_status === 'VERIFIED' ? 'ACTIVE' : row.verification_status === 'FAILED' ? 'FAILED' : 'PAUSED'}
         label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification failed' : 'Not verified yet'} /> },
     { key: 'actions', header: '', align: 'right', render: (row) => row.provider_type === 'SMTP' ? <Link to="/settings/email" className="text-sm font-medium text-brand-800 hover:underline">Email server</Link> : (
-      <span className="flex justify-end gap-3 text-sm font-medium">
-        <button type="button" className="text-brand-800 hover:underline" disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify again' : 'Verify'}</button>
-        <button type="button" className="text-brand-800 hover:underline" onClick={() => setEditingSender(row)}>Edit</button>
-        <button type="button" className="text-danger-text hover:underline" onClick={() => window.confirm(`Remove the sender ${row.display_name}?`) && removeSender.mutate(row)}>Remove</button>
+      <span className="flex justify-end gap-1">
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify again' : 'Verify'}</button>
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditingSender(row)}>Edit</button>
+        <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => window.confirm(`Remove the sender ${row.display_name}?`) && removeSender.mutate(row)}>Remove</button>
       </span>) },
   ]
 

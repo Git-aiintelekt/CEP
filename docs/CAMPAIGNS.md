@@ -10,7 +10,7 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 
 | Screen | Route | What it does |
 |---|---|---|
-| Campaigns | `/campaigns` | *Upcoming campaigns*, then the table: search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns, pages of 50, a row action that fits the status, bulk **Clone** and **Archive** |
+| Campaigns | `/campaigns`, `/campaigns?view=calendar` | **Create Campaign**, the *List view / Calendar view* tabs, and *Upcoming campaigns* above both: the next four scheduled sends (channel icon and name, the date large, the time in the campaign's own time zone, recipients), or a line saying how a campaign gets there when nothing is scheduled. **List view:** search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns, pages of 50, a row action that fits the status, bulk **Clone** and **Archive**. **Calendar view:** the month, Monday first, with previous / next / Today; each campaign is a bar over the days it runs (a one-time send one day, a drip series or a recurrence its days, an e-receipt campaign or an open-ended recurrence to the edge of the month), coloured by status with a legend (green going out or sent, amber paused or test published, red failed or cancelled, grey a draft that plans a date); a bar opens the campaign; more than three campaigns on a day fold into *+n more*; the same search and filters apply, and the month replaces the created-date range; days are the workspace's time zone; below 768px the month is a list |
 | Setup | `/campaigns/new`, `/campaigns/:id/edit?step=n` | seven steps, below |
 | Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log. **Edit** opens the setup step that belongs to the tab in view (Overview and Activity Log → Basic Info, Audience → Audience, Content → Template, Settings → Scheduling & Delivery, Performance → Targets & Economics), and leaving the setup leads back to the matching tab |
 
@@ -101,6 +101,7 @@ All under `/api/v1/campaigns/`, tenant-scoped, pages of 50 (`?page=`, `?page_siz
 |---|---|
 | `GET /` | list. `search`, `status` (comma-separated, `SCHEDULED` allowed; archived hidden unless asked), `type`, `channel`, `triggered_by=manual|journey`, `tag`, `owner`, `date_from`, `date_to`, `date_field=created|scheduled`, `ordering` (`name`, `campaign_type`, `channel`, `status`, `scheduled_at`, `next_run`, `created_at`, `updated_at`, `list_count`) |
 | `POST /`, `GET/PATCH /{id}/`, `DELETE /{id}/` | create, read, update (drafts and test published, `row_version` lock), archive |
+| `GET /calendar/?date_from=&date_to=` | up to 62 days, with the list's search and filters: one span per campaign that touches the window (`start`, `end` or `ongoing`, `failed`, and its `sends` inside the window: `SENT`, `SENDING`, `WAITING`, `PLANNED` for a draft with a date, `PROJECTED` for occurrences of a recurrence that are not created yet) |
 | `GET /form-options/` | owners, tags in use, time zones |
 | `GET /audience-estimate/?include=&exclude=&channel=&solicitation_type=` | the estimate for lists that are not saved yet |
 | `GET /{id}/checklist/` | what stands between the campaign and a production publish |
@@ -147,13 +148,12 @@ completes the campaign.
 - `rate_limit_per_hour` and `timezone_optimization` are stored and shown but **not enforced yet**: they take effect with
   the email engine integration that follows this module. The pages say so.
 - Every drip step uses the campaign's one template; per-step content belongs to journeys.
-- The prototype's *Calendar view* is not built; *Upcoming campaigns* covers the near term.
 - Conversions and revenue come from `campaign_actual`, which the attribution feed fills; until then they read 0.
 - Carrier breakdown for texts arrives with the aggregator's delivery receipts.
 
 ## 8. Tests
 
-- Backend: `test_campaign_module.py` (33 checks, one rolled-back transaction, real sends through the sandbox text
+- Backend: `test_campaign_module.py` (35 checks, one rolled-back transaction, real sends through the sandbox text
   engine), plus the send engine, SMS engine, contact list and legacy campaign suites.
-- Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API) and `Campaigns.test.tsx` (list,
+- Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API), `calendarMath.test.ts` (the month grid, workspace days, bar rows) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.

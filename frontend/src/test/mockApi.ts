@@ -21,6 +21,7 @@ export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
                permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
+  session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
 
 export const templates: Template[] = [
@@ -389,6 +390,19 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.endsWith('/me/')) return json({ ...me, ...options.me })
+    if (path.endsWith('/dashboard/summary/')) {
+      const liveCampaigns = campaignState.campaigns.filter((item) => ['ACTIVE', 'PRODUCTION_PUBLISHED'].includes(item.status))
+      const realLists = listsNow.filter((item) => item.status !== 'DRAFT')
+      return json({
+        campaigns_total: campaignState.campaigns.length,
+        campaigns_live: liveCampaigns.length,
+        contact_lists_total: realLists.length,
+        audience_total: realLists.reduce((total, item) => total + (item.member_count ?? 0), 0),
+        templates_total: templates.length,
+        journeys_total: 0,
+        journeys_active: 0,
+      })
+    }
     const message = options.message ?? makeMessage()
     if (path.endsWith('/message/') && method === 'POST') {
       const custom = options.onSaveMessage?.(call)

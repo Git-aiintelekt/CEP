@@ -4,6 +4,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthProvider } from '@/auth/AuthContext'
 import { RequireAuth } from '@/auth/RequireAuth'
+import { SessionIdleGuard } from '@/auth/SessionIdleGuard'
 import { AppShell } from '@/components/AppShell'
 import { EditorLoading } from '@/features/designer/EditorStates'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -122,6 +123,7 @@ export default function App() {
             </Route>
           </Routes>
           <LoadingOverlayHost />
+          <SessionIdleGuard />
           </ToastProvider>
           </ErrorBoundary>
         </AuthProvider>
