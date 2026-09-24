@@ -14,6 +14,21 @@ export function formatDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '—' : dateOnly.format(date)
 }
 
+/** "just now", "5 min ago", "3 h ago", "2 days ago"; a date once it is more than a week old. */
+export function formatRelative(value: string | null | undefined, now = Date.now()): string {
+  if (!value) return '—'
+  const at = new Date(value).getTime()
+  if (Number.isNaN(at)) return '—'
+  const minutes = Math.floor((now - at) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 8) return days === 1 ? 'yesterday' : `${days} days ago`
+  return `on ${formatDate(value)}`
+}
+
 export function formatNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : number.format(value)
 }

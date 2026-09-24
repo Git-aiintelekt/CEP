@@ -17,7 +17,7 @@ interface InputGroupProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 's
   describedBy?: string
 }
 
-const HEIGHT: Record<ControlSize, string> = { sm: 'h-8', md: 'h-10' }
+const HEIGHT: Record<ControlSize, string> = { sm: 'h-8 rounded-control-md', md: 'h-10 rounded-control-lg' }
 
 /**
  * A text input with things inside its border. The wrapper carries the border and the focus ring (focus-within),
@@ -29,7 +29,7 @@ export function InputGroup({ start, end, suffix, controlSize = 'sm', tone = 'def
     : `${borderClass(invalid, warning)} ${tone === 'sunken' ? 'bg-surface-subtle focus-within:bg-surface' : 'bg-surface'}`
   return (
     <div
-      className={`flex w-full items-center gap-1 rounded-sm border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}
+      className={`flex w-full items-center gap-1 border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}
     >
       {start && <span className="flex shrink-0 items-center text-ink-700">{start}</span>}
       <input

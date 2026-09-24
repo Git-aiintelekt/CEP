@@ -34,7 +34,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
   const [copied, setCopied] = useState(false)
   return (
     <div className="rounded-lg border border-success bg-surface-subtle p-5">
-      <h2 className="text-sm font-semibold text-success-text">Multi-factor authentication is on</h2>
+      <h2 className="text-card-title font-semibold text-success-text">Multi-factor authentication is on</h2>
       <p className="mt-1 text-sm text-success-text">Keep these recovery codes somewhere safe, away from your phone. Each one signs you in once if you lose your authenticator. They are shown only now.</p>
       <ul aria-label="Recovery codes" className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg bg-surface px-4 py-3 cep-num text-sm text-ink-900 sm:grid-cols-5">
         {codes.map((code) => <li key={code}>{code}</li>)}
@@ -98,7 +98,7 @@ export function AccountSecurityPage() {
           <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-ink-900">Multi-factor authentication is on</h2>
+                <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is on</h2>
                 <p className="mt-0.5 text-sm text-ink-500">Since {formatDate(status.data.confirmed_at)} · {status.data.recovery_codes_left} recovery code{status.data.recovery_codes_left === 1 ? '' : 's'} left</p>
               </div>
               {!status.data.required && !turningOff && <button type="button" className={buttonDanger} onClick={() => { setTurningOff(true); setCode(''); disable.reset() }}>Turn off</button>}
@@ -144,7 +144,7 @@ export function AccountSecurityPage() {
           </form>
         ) : (
           <div className="rounded-lg border border-line bg-surface p-5">
-            <h2 className="text-sm font-semibold text-ink-900">Multi-factor authentication is off</h2>
+            <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is off</h2>
             <p className="mt-1 text-sm text-ink-500">With it on, a stolen password is not enough to get into your account.</p>
             {begin.isError && <div className="mt-3"><ErrorState title="Could not start the set-up" error={begin.error} /></div>}
             <button type="button" className={`mt-4 ${buttonPrimary}`} disabled={begin.isPending} onClick={() => begin.mutate()}>Set up</button>

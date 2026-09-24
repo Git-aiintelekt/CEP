@@ -2,6 +2,7 @@
  * Development only (/dev/receipt, not registered in production builds): the real receipt editor on an in-memory
  * backend. No sign-in and no API, so the editor can be worked on and checked visually in isolation.
  * ?state= readonly | conflict | loading | failed puts each state on screen without a server behind it.
+ * ?preset=receipt_bopis opens an e-receipt preset the way a fresh copy of it opens: its outer design and its layout.
  */
 import { useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -10,6 +11,7 @@ import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { ReceiptWorkspace, type ReceiptBackend } from '@/features/receipt/ReceiptWorkspace'
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
+import { RECEIPT_PRESETS } from '@/features/templates/presets'
 import { ApiError } from '@/lib/api'
 import type { Design, DesignVersion, PersonalizationTag, ReceiptLayout } from '@/lib/types'
 
@@ -25,6 +27,10 @@ const TAGS = [
   tag('order_total', 'Order total', 'SYSTEM', '$84.20'),
   tag('store_name', 'Store name', 'STANDARD', 'Northline Market'),
   tag('shop_url', 'Shop URL', 'SYSTEM', 'https://shop.example.com'),
+  // the receipt tags the server adds to a workspace (REQUIRED_TAGS in apps/templates/starters.py), with its samples
+  tag('receipt_number', 'Receipt number', 'SYSTEM', 'R-104-88213'),
+  tag('grand_total', 'Total', 'SYSTEM', '$72.58'),
+  tag('delivery_estimate', 'Delivery estimate', 'SYSTEM', 'Tuesday, Sep 22'),
 ]
 
 /** One picture, so the Image block has something to start from. */
@@ -51,6 +57,15 @@ export default function ReceiptPlayground() {
   const layouts = useRef<ReceiptLayout[]>([])
   const [params] = useSearchParams()
   const state = params.get('state')
+  const preset = RECEIPT_PRESETS.find((item) => item.key === params.get('preset'))?.content
+  const design = useMemo<Design>(
+    () => (preset?.kind === 'receipt' ? { ...EMPTY_DESIGN, editor_state: { kind: 'preset', key: params.get('preset') }, mjml_source: preset.mjml, subject_line: preset.subject_line, preheader: preset.preheader } : EMPTY_DESIGN),
+    [preset, params],
+  )
+  const receiptLayout = useMemo<ReceiptLayout>(
+    () => (preset?.kind === 'receipt' ? { ...EMPTY_LAYOUT, layout_preset: preset.layout_preset, sections: preset.sections } : EMPTY_LAYOUT),
+    [preset],
+  )
 
   const backend = useMemo<ReceiptBackend>(
     () => ({
@@ -88,8 +103,8 @@ export default function ReceiptPlayground() {
     <ReceiptWorkspace
       templateName="Playground receipt"
       status="DRAFT"
-      design={EMPTY_DESIGN}
-      receiptLayout={EMPTY_LAYOUT}
+      design={design}
+      receiptLayout={receiptLayout}
       tags={TAGS}
       assets={ASSETS}
       backend={backend}

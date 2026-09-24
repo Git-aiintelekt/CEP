@@ -110,7 +110,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
             <p>{link.data.email_configured !== false ? 'Or send' : 'Send'} this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
             <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-time link</label>
             <div className="flex gap-2">
-              <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-sm border border-line bg-surface-subtle px-3 cep-num text-xs" />
+              <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
               <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(url).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
             </div>
             <p className="text-xs text-ink-500">It works once, for {link.data.expires_in_hours} hours, and stops working as soon as they sign in. Anyone holding it can set the password, so do not post it in a shared channel.</p>

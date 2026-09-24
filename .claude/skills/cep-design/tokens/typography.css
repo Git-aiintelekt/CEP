@@ -3,7 +3,7 @@
 --font-body:'Inter','Inter Fallback',system-ui,sans-serif;
 --fw-regular:400;/* @kind font */--fw-medium:500;/* @kind font */--fw-semibold:600;/* @kind font */--fw-bold:700;/* @kind font */
 
---fs-page-title:32px;--fs-page-title-sm:28px;--fs-section-title:20px;--fs-section-title-sm:16px;
+--fs-page-title:26px;--fs-page-title-sm:28px;--fs-section-title:19px;--fs-section-title-sm:16px;--fs-card-title:15px;
 --fs-body:14px;--fs-body-lg:16px;--fs-helper:13px;--fs-helper-sm:12px;--fs-label:12px;
 --fs-stat:32px;--fs-stat-sm:24px;
 
@@ -11,8 +11,9 @@
 --ls-tight:-0.02em;--ls-label:0.02em;
 
 /* semantic type roles */
---text-page-title:var(--fw-semibold) var(--fs-page-title)/var(--lh-tight) var(--font-display);
+--text-page-title:var(--fw-semibold) var(--fs-page-title)/1.25 var(--font-display);
 --text-section-title:var(--fw-semibold) var(--fs-section-title)/var(--lh-heading) var(--font-display);
+--text-card-title:var(--fw-semibold) var(--fs-card-title)/var(--lh-heading) var(--font-body);
 --text-body-role:var(--fw-regular) var(--fs-body)/var(--lh-body) var(--font-body);
 --text-helper:var(--fw-regular) var(--fs-helper)/var(--lh-dense) var(--font-body);
 --text-label:var(--fw-semibold) var(--fs-label)/var(--lh-dense) var(--font-body);

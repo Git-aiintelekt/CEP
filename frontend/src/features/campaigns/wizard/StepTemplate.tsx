@@ -74,7 +74,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
             <>
               {usable.length > 6 && (
                 <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates" aria-label="Search templates"
-                  className="mb-3 h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm sm:w-64" />
+                  className="mb-3 h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
               )}
               <div role="radiogroup" aria-label="Template" className="grid max-h-[26rem] gap-3 overflow-y-auto sm:grid-cols-2">
                 {shown.map((item) => (

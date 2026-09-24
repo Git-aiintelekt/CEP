@@ -9,7 +9,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold text-ink-900">{title}</h1>
+        <h1 className="font-display text-page-title font-semibold text-ink-900">{title}</h1>
         {description && <p className="mt-1 max-w-2xl text-sm text-ink-500">{description}</p>}
       </div>
       {actions}
@@ -58,7 +58,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
             onChange={(event) => setSearch(event.target.value)}
             placeholder={`Search ${title.toLowerCase()}`}
             aria-label={`Search ${title.toLowerCase()}`}
-            className="h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm sm:w-64"
+            className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64"
           />
         )}
         {filters.map((filter) => (
@@ -67,7 +67,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
             <select
               value={selected[filter.param] ?? ''}
               onChange={(event) => setSelected((current) => ({ ...current, [filter.param]: event.target.value }))}
-              className="h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900"
+              className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900"
             >
               <option value="">All</option>
               {filter.options.map((option) => (
@@ -114,7 +114,7 @@ function PagerButton({ children, disabled, onClick }: { children: ReactNode; dis
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="h-8 rounded-sm border border-line bg-surface px-3 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300"
+      className="h-8 rounded-control-md border border-line bg-surface px-3 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300"
     >
       {children}
     </button>

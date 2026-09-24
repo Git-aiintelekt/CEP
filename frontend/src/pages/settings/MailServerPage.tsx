@@ -65,7 +65,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
   return (
     <form className="max-w-3xl space-y-6" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
       <section className="rounded-lg border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink-900">Outgoing email</h2>
+        <h2 className="text-card-title font-semibold text-ink-900">Outgoing email</h2>
         <p className="mt-1 text-sm text-ink-500">
           The server used for the messages this platform sends to people in your workspace: password links, sign-in notices and support notifications. Campaign email is sent through your delivery provider.
         </p>
@@ -86,7 +86,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
       {!shared && (
         <section className="rounded-lg border border-line bg-surface p-5">
-          <h2 className="text-sm font-semibold text-ink-900">Your SMTP server</h2>
+          <h2 className="text-card-title font-semibold text-ink-900">Your SMTP server</h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Field label="Server" required error={errors.host} hint="e.g. smtp.office365.com, smtp.gmail.com, email-smtp.us-east-1.amazonaws.com">
               {(ids) => <TextInput {...ids} value={form.host} onChange={(event) => set('host', event.target.value)} autoComplete="off" />}
@@ -114,7 +114,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       )}
 
       <section className="rounded-lg border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink-900">Sender</h2>
+        <h2 className="text-card-title font-semibold text-ink-900">Sender</h2>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Field label="From address" required error={errors.from_email} hint="Must be an address the server is allowed to send as.">
             {(ids) => <TextInput {...ids} type="email" value={form.from_email} onChange={(event) => set('from_email', event.target.value)} autoComplete="off" />}
@@ -134,7 +134,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       </section>
 
       <section className="rounded-lg border border-line bg-surface p-5">
-        <h2 className="text-sm font-semibold text-ink-900">Campaigns</h2>
+        <h2 className="text-card-title font-semibold text-ink-900">Campaigns</h2>
         <label className="mt-3 flex cursor-pointer items-start gap-3">
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.campaign_sender} onChange={(event) => set('campaign_sender', event.target.checked)} />
           <span>
@@ -161,7 +161,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
 
       {server && (
         <section aria-labelledby="mail-test" className="rounded-lg border border-line bg-surface p-5">
-          <h2 id="mail-test" className="text-sm font-semibold text-ink-900">Send a test message</h2>
+          <h2 id="mail-test" className="text-card-title font-semibold text-ink-900">Send a test message</h2>
           <p className="mt-1 text-sm text-ink-500">Uses the saved settings. Save first if you changed anything above.</p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div className="w-72"><Field label="To" required>{(ids) => <TextInput {...ids} type="email" value={testTo} onChange={(event) => setTestTo(event.target.value)} />}</Field></div>

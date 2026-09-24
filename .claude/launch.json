@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "cep-backend",
-      "runtimeExecutable": "backend/.venv/Scripts/python.exe",
+      "runtimeExecutable": "backend/.venv/bin/python",
       "runtimeArgs": [
         "backend/manage.py",
         "runserver",

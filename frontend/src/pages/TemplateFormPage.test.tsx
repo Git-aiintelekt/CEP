@@ -108,7 +108,7 @@ test('starters are grouped by category with counts, and a category narrows the g
   await screen.findByRole('radio', { name: /Sale announcement/ })
 
   const rows = screen.getAllByRole('button', { name: /, \d+ starters?$/ })
-  expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['All, 2 starters', 'Promotion, 1 starter', 'Newsletter, 1 starter'])
+  expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['All, 3 starters', 'Promotion, 1 starter', 'Newsletter, 1 starter', 'Loyalty, 1 starter'])
   expect(rows[0].getAttribute('aria-pressed')).toBe('true')
 
   await user.click(screen.getByRole('button', { name: 'Newsletter, 1 starter' }))

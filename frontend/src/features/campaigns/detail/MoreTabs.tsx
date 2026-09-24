@@ -125,7 +125,7 @@ export function ActivityTab({ campaign, live }: { campaign: Campaign; live: bool
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-500">Who did what, and what the send engine did, newest first. Entries are never changed or removed.</p>
-        <select aria-label="Show" value={only} onChange={(event) => setOnly(event.target.value)} className="h-10 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900">
+        <select aria-label="Show" value={only} onChange={(event) => setOnly(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900">
           <option value="">Everything</option><option value="WARNING">Warnings</option><option value="ERROR">Errors</option>
         </select>
       </div>

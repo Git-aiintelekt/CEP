@@ -177,7 +177,7 @@ export function ContactListDetailPage() {
 
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="truncate font-display text-xl font-semibold text-ink-900">{data.name}</h1>
+          <h1 className="truncate font-display text-page-title font-semibold text-ink-900">{data.name}</h1>
           {data.description && <p className="mt-1 max-w-2xl text-sm text-ink-500">{data.description}</p>}
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <TypeBadge environment={data.list_environment} />
@@ -226,7 +226,7 @@ export function ContactListDetailPage() {
 
       {attached > 0 && (
         <section aria-label="Attached campaigns" className="mb-4 rounded-lg border border-line bg-surface">
-          <h2 className="border-b border-line px-4 py-2 text-sm font-semibold text-ink-900">Attached campaigns</h2>
+          <h2 className="border-b border-line px-4 py-2 text-card-title font-semibold text-ink-900">Attached campaigns</h2>
           <ul className="divide-y divide-line-subtle">
             {usage.data?.campaigns.map((campaign) => (
               <li key={campaign.id} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
@@ -244,7 +244,7 @@ export function ContactListDetailPage() {
       {governance.data && governance.data.total > 0 && (
         <section aria-label="Governance check" className="mb-4 rounded-lg border border-line bg-surface p-4">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold text-ink-900">Governance check · marketing email, as of today</h2>
+            <h2 className="text-card-title font-semibold text-ink-900">Governance check · marketing email, as of today</h2>
             <p className="cep-num text-sm text-ink-700">{formatNumber(governance.data.sendable)} of {formatNumber(governance.data.total)} can receive it</p>
           </div>
           <div className="max-w-xl"><GovernanceLines statuses={governance.data.statuses} total={governance.data.total} sendable={governance.data.sendable} /></div>
@@ -256,7 +256,7 @@ export function ContactListDetailPage() {
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search contacts" aria-label="Search contacts"
-          className="h-10 w-full rounded-sm border border-line bg-surface px-3 text-sm sm:w-64" />
+          className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
         <span className="text-sm text-ink-500" aria-live="polite">{selected.length === 0 ? 'No contacts selected' : `${formatNumber(selected.length)} selected`}</span>
         {members.isFetching && <Spinner className="h-4 w-4" />}
       </div>

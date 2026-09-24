@@ -8,6 +8,7 @@ import { useSearchParams } from 'react-router-dom'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { extractTags, unknownTags } from '@/features/designer/tags'
+import { PRESET_DEFINITIONS } from '@/features/templates/presets'
 import { ApiError } from '@/lib/api'
 import type { Design, PersonalizationTag } from '@/lib/types'
 
@@ -20,6 +21,7 @@ const TAGS = [
   // one tag with a workspace default and the rest without, so the picker shows both of its fallback lines
   tag('first_name', 'First name', 'STANDARD', 'Jordan', 'there'),
   tag('loyalty_tier', 'Loyalty tier', 'STANDARD', 'Gold'),
+  tag('loyalty_points', 'Loyalty points', 'STANDARD', '1,250'),
   tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017'),
   tag('discount_pct', 'Discount %', 'CUSTOM', '20'),
   tag('client_logo', 'Client logo', 'STANDARD', 'https://placehold.co/320x80/2753e4/ffffff/png?text=Northwind'),
@@ -37,6 +39,12 @@ export default function DesignerPlayground() {
   // ?state= readonly | conflict | loading | failed puts each state on screen without a server behind it
   const [params] = useSearchParams()
   const state = params.get('state')
+  // ?preset=welcome opens an email preset the way a fresh copy of it opens: a non-GrapesJS editor_state, so from its MJML
+  const preset = PRESET_DEFINITIONS.find((item) => item.key === params.get('preset'))?.content
+  const design = useMemo<Design>(
+    () => (preset?.kind === 'design' ? { ...EMPTY, editor_state: { kind: 'preset', key: params.get('preset') }, mjml_source: preset.mjml, subject_line: preset.subject_line, preheader: preset.preheader } : EMPTY),
+    [preset, params],
+  )
 
   const backend = useMemo<DesignerBackend>(
     () => ({
@@ -70,7 +78,7 @@ export default function DesignerPlayground() {
       templateName="Playground template"
       channel="EMAIL"
       status="DRAFT"
-      design={EMPTY}
+      design={design}
       tags={TAGS}
       assets={[]}
       backend={backend}

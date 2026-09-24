@@ -86,6 +86,10 @@ const tag = (tag_key: string, label: string, tag_kind: string, sample_value: str
   default_value: null, static_value: null, is_active: true,
 })
 export const tags: PersonalizationTag[] = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017')]
+/** every tag the marketing presets use, with the sample values the SMS lengths are counted with */
+export const presetTags: PersonalizationTag[] = [...tags, tag('discount_pct', 'Discount %', 'CUSTOM', '20'), tag('shop_url', 'Shop URL', 'SYSTEM', 'https://shop.example.com'),
+  tag('unsubscribe_url', 'Unsubscribe URL', 'SYSTEM', 'https://example.com/unsubscribe'), tag('loyalty_points', 'Loyalty points', 'STANDARD', '1,250'),
+  tag('loyalty_tier', 'Loyalty tier', 'STANDARD', 'Gold')]
 
 export const mediaLibrary: MediaAsset[] = [
   { id: 'img-1', file_name: 'lookbook.jpg', mime_type: 'image/jpeg', byte_size: 180_000, width_px: 600, height_px: 400, url: 'http://cdn.test/lookbook.jpg', created_at: '2026-09-01T10:00:00Z' },
@@ -183,6 +187,9 @@ export const starters: TemplateStarter[] = [
     preheader: '', html_content: '<html><body><p>News for {{first_name}}</p></body></html>', sms_body: null },
   { key: 'sms_promotion', name: 'SMS offer', channel: 'SMS', category: 'Promotion', description: 'One-part text.', subject_line: '', preheader: '', html_content: null,
     sms_body: 'Hi {{first_name}}, code {{offer_code}}. Reply STOP to opt out.' },
+  // uses a tag the workspace does not have, so the landing page does not offer it as a preset
+  { key: 'points_update', name: 'Points balance update', channel: 'EMAIL', category: 'Loyalty', description: 'Monthly points summary.', subject_line: 'Your points',
+    preheader: '', html_content: '<html><body><p>You have {{ points_balance }} points</p></body></html>', sms_body: null },
 ]
 
 export function makeMessage(overrides: Partial<Message> = {}): Message {
@@ -245,6 +252,8 @@ interface MockOptions {
   message?: Message
   /** answer for POST /templates/{id}/message/ ; default echoes version n+1 */
   onSaveMessage?: (call: Call) => Response | null
+  /** the workspace's tag catalogue (GET /personalization-tags/); default: first_name and offer_code */
+  tags?: PersonalizationTag[]
   /** what GET /templates/{id}/design/ answers */
   design?: Design
   /** answer for POST /templates/{id}/design/ ; default echoes version n+1 */
@@ -432,7 +441,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/receipt/')) return json(receiptLayout)
     if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
-    if (path.endsWith('/personalization-tags/')) return json({ next: null, previous: null, results: tags })
+    if (path.endsWith('/personalization-tags/')) return json({ next: null, previous: null, results: options.tags ?? tags })
     if (path.endsWith('/template-starters/')) return json(starters.filter((item) => url.includes(`channel=${item.channel}`)))
     if (path.endsWith('/media-assets/') && method === 'POST') return json({ ...mediaLibrary[0], id: 'img-up', file_name: 'uploaded.png', mime_type: 'image/png' }, 201)
     if (path.endsWith('/media-assets/')) return json({ next: null, previous: null, results: mediaLibrary })
@@ -455,7 +464,13 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/templates/') && method === 'POST') {
       return options.onSaveTemplate?.(call) ?? json({ ...templates[0], ...(body as Partial<Template>), id: 'tpl-new', status: 'DRAFT', latest_version: 0 }, 201)
     }
-    if (path.endsWith('/templates/')) return json({ next: null, previous: null, results: templatesNow })
+    if (path.endsWith('/templates/')) {
+      const query = new URL(url, 'http://x').searchParams
+      const needle = (query.get('search') ?? '').toLowerCase()
+      const rows = templatesNow.filter((item) => (!query.get('channel') || item.channel === query.get('channel')) && (!query.get('status') || item.status === query.get('status'))
+        && item.name.toLowerCase().includes(needle))
+      return json({ next: null, previous: null, results: rows })
+    }
     if (path.endsWith('/sender-profiles/')) return json(senders)
     // ---- contact lists: stateful, so what a test creates is there afterwards
     if (path.includes('/contact-lists/')) {

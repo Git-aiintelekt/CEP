@@ -108,12 +108,12 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
 }
 
 export const authButtonPrimary =
-  'flex h-10 w-full items-center justify-center rounded-sm bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-line-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-line-subtle disabled:text-ink-300'
 export const authButtonSecondary =
-  'flex h-10 w-full items-center justify-center rounded-sm border border-line bg-surface text-sm font-semibold text-ink-900 transition-colors hover:bg-surface-subtle disabled:bg-line-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg border border-line bg-surface text-sm font-semibold text-ink-900 transition-colors hover:bg-surface-subtle disabled:bg-line-subtle disabled:text-ink-300'
 
 const CONTROL =
-  'h-10 w-full rounded-sm border bg-surface-subtle px-3 text-sm text-ink-900 transition-colors focus-visible:border-brand-600'
+  'h-10 w-full rounded-control-lg border bg-surface-subtle px-3 text-sm text-ink-900 transition-colors focus-visible:border-brand-600'
 
 /** A labelled control in the design's language: 13px label, sunken field, red border while the value is refused. */
 export function AuthField({
@@ -184,7 +184,7 @@ export function AuthPasswordField({
           type="button"
           onClick={() => setShown((current) => !current)}
           aria-label={shown ? 'Hide password' : 'Show password'}
-          className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-sm text-ink-700 transition-colors hover:bg-line-subtle"
+          className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle"
         >
           <Icon size={16} strokeWidth={1.5} aria-hidden />
         </button>

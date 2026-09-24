@@ -76,7 +76,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <h2 className="mb-3 text-sm font-semibold text-ink-900">Recent campaigns</h2>
+      <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Recent campaigns</h2>
       {campaigns.isError ? (
         <ErrorState error={campaigns.error} onRetry={() => void campaigns.refetch()} />
       ) : (

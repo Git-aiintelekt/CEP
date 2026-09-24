@@ -41,7 +41,7 @@ export function RunResults({ run }: { run: CampaignRun }) {
   return (
     <section aria-label={`Results of run ${run.run_number}`} className="rounded-lg border border-line bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-ink-900">Run #{run.run_number}</h3>
+        <h3 className="text-card-title font-semibold text-ink-900">Run #{run.run_number}</h3>
         <span className="flex items-center gap-2 text-xs text-ink-500">
           {LIVE.has(status) && <Spinner className="h-3.5 w-3.5" />}
           <StatusBadge status={status} /> {results.data.completed_at ? `finished ${formatDateTime(results.data.completed_at)}` : results.data.started_at ? `started ${formatDateTime(results.data.started_at)}` : 'waiting to start'}
@@ -87,7 +87,7 @@ export function ReceiptApiPanel({ campaignRef, published }: { campaignRef: strin
   }, null, 2)
   return (
     <section aria-label="Sending receipts" className="rounded-lg border border-line bg-surface p-5">
-      <h3 className="text-sm font-semibold text-ink-900">Sending receipts</h3>
+      <h3 className="text-card-title font-semibold text-ink-900">Sending receipts</h3>
       <p className="mt-1 text-sm text-ink-500">
         {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
         The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
@@ -109,7 +109,7 @@ export function TextReplies({ campaignId }: { campaignId: string }) {
   if (replies.isError || replies.isPending || replies.data.length === 0) return null
   return (
     <section aria-label="Replies" className="rounded-lg border border-line bg-surface p-5">
-      <h3 className="text-sm font-semibold text-ink-900">Replies</h3>
+      <h3 className="text-card-title font-semibold text-ink-900">Replies</h3>
       <p className="mt-1 text-sm text-ink-500">STOP and START are applied the moment they arrive: the person is opted out (or back in) and the number is blocked for every campaign.</p>
       <ul className="mt-3 divide-y divide-line text-sm">
         {replies.data.map((reply) => (

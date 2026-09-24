@@ -82,7 +82,7 @@ export function CampaignDetailPage() {
       </Link>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold text-ink-900">{data.name}</h1>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">{data.name}</h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-ink-500">
             <StatusBadge status={data.display_status} label={data.display_status_label} />
             <Tag>{channelLabel(data.channel)}</Tag>

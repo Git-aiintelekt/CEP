@@ -77,7 +77,7 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   expect(screen.getByRole('link', { name: 'Create Campaign' }).className).toContain('bg-brand-600')
   const upcoming = await screen.findByRole('region', { name: 'Upcoming campaigns' })
   expect(await within(upcoming).findByText('Winter Preview')).toBeTruthy()
-  expect(within(upcoming).getByText(/recipients/)).toBeTruthy()
+  expect(within(upcoming).getByText(/in the lists/)).toBeTruthy()
 
   await user.click(within(views).getByRole('tab', { name: 'Calendar view' }))
   expect(window.location.search).toBe('?view=calendar')

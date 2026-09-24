@@ -15,6 +15,7 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
 
+import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { canBePlain, describeCharacter, OPT_OUT_PATTERN, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
 
 export interface MessageBackend {
@@ -373,21 +374,15 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         </section>
 
         <aside aria-label="Preview" className="lg:sticky lg:top-6 lg:self-start">
-          <div className="mx-auto w-full max-w-[320px] rounded-[2rem] border-4 border-slate-800 bg-surface p-3">
-            <div className="mb-3 border-b border-line pb-2 text-center">
-              <p className="text-sm font-semibold text-ink-900">{senderName}</p>
-              <p className="text-xs text-ink-500">Text message</p>
-            </div>
-            <div className="min-h-[300px] space-y-1.5 px-1 pb-3">
-              {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />}
-              {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-700">{subject}</p>}
-              {sample.trim() ? (
-                <p data-testid="sms-preview" className="max-w-[85%] rounded-lg rounded-bl-md bg-line-subtle px-3.5 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900">{sample}</p>
-              ) : (
-                <p className="px-2 pt-10 text-center text-xs text-ink-500">Your message appears here as one recipient would see it.</p>
-              )}
-            </div>
-          </div>
+          <PhoneFrame sender={senderName}>
+            {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />}
+            {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-700">{subject}</p>}
+            {sample.trim() ? (
+              <p data-testid="sms-preview" className={BUBBLE}>{sample}</p>
+            ) : (
+              <p className="px-2 pt-10 text-center text-xs text-ink-500">Your message appears here as one recipient would see it.</p>
+            )}
+          </PhoneFrame>
           <p className="mx-auto mt-2 max-w-[320px] text-center text-xs text-ink-500">Tags show their sample values.</p>
         </aside>
       </div>
