@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -41,4 +41,51 @@ test('clicking an e-receipt row opens the receipt editor', async () => {
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-receipt/receipt')
+})
+
+test('the row menu duplicates a template as a draft copy and opens it in its editor, without opening the row itself', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates')
+  await screen.findByText('Fall Email')
+
+  await user.click(within(rowOf('Fall Email')).getByRole('button', { name: 'Actions for Fall Email' }))
+  expect(window.location.pathname).toBe('/templates') // the menu button did not open the designer under it
+  await user.click(screen.getByRole('menuitem', { name: /Duplicate/ }))
+
+  expect(await screen.findByText('designer opened')).toBeTruthy()
+  expect(window.location.pathname).toBe('/templates/tpl-email-copy/design')
+  expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/templates/tpl-email/clone/'))).toBe(true)
+})
+
+test('deleting asks first, then removes the row', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates')
+  await screen.findByText('Fall SMS')
+
+  await user.click(within(rowOf('Fall SMS')).getByRole('button', { name: 'Actions for Fall SMS' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+  expect(screen.getByRole('dialog', { name: 'Delete this template?' })).toBeTruthy()
+  expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
+
+  await user.click(screen.getByRole('button', { name: 'Delete template' }))
+  await waitFor(() => expect(screen.queryByText('Fall SMS')).toBeNull())
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(calls.some((call) => call.method === 'DELETE' && call.url.endsWith('/templates/tpl-sms/'))).toBe(true)
+})
+
+test('a template a campaign uses cannot be deleted: the dialog says why and stays open', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates')
+  await screen.findByText('Fall Email')
+
+  await user.click(within(rowOf('Fall Email')).getByRole('button', { name: 'Actions for Fall Email' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+  await user.click(screen.getByRole('button', { name: 'Delete template' }))
+
+  expect((await screen.findByRole('alert')).textContent).toContain('This template is used by a campaign. Archive it instead.')
+  expect(screen.getByRole('dialog', { name: 'Delete this template?' })).toBeTruthy()
+  expect(screen.getByText('Fall Email')).toBeTruthy()
 })

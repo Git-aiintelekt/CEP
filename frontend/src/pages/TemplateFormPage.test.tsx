@@ -101,6 +101,46 @@ test('a starter thumbnail falls back to the default when a tag’s sample is emp
   }
 })
 
+test('starters are grouped by category with counts, and a category narrows the gallery', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates/new')
+  await screen.findByRole('radio', { name: /Sale announcement/ })
+
+  const rows = screen.getAllByRole('button', { name: /, \d+ starters?$/ })
+  expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['All, 2 starters', 'Promotion, 1 starter', 'Newsletter, 1 starter'])
+  expect(rows[0].getAttribute('aria-pressed')).toBe('true')
+
+  await user.click(screen.getByRole('button', { name: 'Newsletter, 1 starter' }))
+  expect(screen.queryByRole('radio', { name: /Sale announcement/ })).toBeNull()
+  expect(screen.getByRole('radio', { name: /Monthly newsletter/ })).toBeTruthy()
+  expect(screen.getByRole('radio', { name: /Blank/ })).toBeTruthy() // Blank is always on offer
+
+  // another channel has categories of its own, and the filter starts over
+  await user.selectOptions(screen.getByLabelText(/^Channel/), 'SMS')
+  expect((await screen.findByRole('button', { name: 'All, 1 starter' })).getAttribute('aria-pressed')).toBe('true')
+})
+
+test('the preview button opens the whole starter in a dialog, from which it can be chosen', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates/new')
+  await screen.findByRole('radio', { name: /Sale announcement/ })
+
+  await user.click(screen.getByRole('button', { name: 'Preview Sale announcement' }))
+  const dialog = screen.getByRole('dialog', { name: 'Sale announcement' })
+  expect(dialog.textContent).toContain('Promotion · A time-limited offer.')
+  const frame = screen.getByTitle('Sale announcement full preview') as HTMLIFrameElement
+  expect(frame.srcdoc).toContain('Hi Jordan')
+  expect(frame.getAttribute('sandbox')).toBe('')
+  expect(screen.getByRole('radio', { name: /Sale announcement/ }).getAttribute('aria-checked')).toBe('false')
+
+  await user.click(screen.getByRole('button', { name: 'Use this starter' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(screen.getByRole('radio', { name: /Sale announcement/ }).getAttribute('aria-checked')).toBe('true')
+  expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Sale announcement')
+})
+
 test('changing the channel swaps the starters and clears the choice', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()

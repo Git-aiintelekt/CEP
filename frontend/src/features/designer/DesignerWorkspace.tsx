@@ -13,6 +13,7 @@ import { formatUtcClock } from '@/lib/format'
 import type { Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
+import { AUTOSAVE_MS, autosaveDue } from './autosave'
 import { EditorFrame, type EditorTabDef } from './EditorFrame'
 import { EmailDesigner, type DesignerAsset, type EmailDesignerHandle } from './EmailDesigner'
 import { PREHEADER_ADVISORY, SUBJECT_ADVISORY, SUBJECT_MAX, blockTargetForIssue, blockTargetForLink, computeIssues, summarise, type Issue } from './issues'
@@ -133,7 +134,12 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     setPreview(await buildPreview(editor.current))
   }
 
-  async function save() {
+  // the edits as they stand; an automatic save that fails remembers this, so the same edits are not retried every half minute
+  const editStamp = `${canvasTick}|${subject}|${preheader}`
+  const failedStamp = useRef<string | null>(null)
+
+  /** `auto`: the clock's save, which says nothing unless it fails and never toasts a success. */
+  async function save(auto = false) {
     if (!editor.current) return
     setBusy('save')
     try {
@@ -153,10 +159,12 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       setFindings(result.findings)
       setBlockers(undefined)
       setConflict(false)
-      setSavedAt(clockOf(result.saved_at) ?? clockOf(new Date().toISOString()))
-      toast.success(`Saved as version ${result.version_number}`)
+      const word = auto ? 'Autosaved' : 'Saved'
+      setSavedAt(clockOf(result.saved_at, word) ?? clockOf(new Date().toISOString(), word))
+      if (!auto) toast.success(`Saved as version ${result.version_number}`)
       refreshLinks()
     } catch (error) {
+      if (auto) failedStamp.current = editStamp
       if (error instanceof ApiError && error.status === 409) {
         setConflict(true)
         toast.error(error.message)
@@ -169,6 +177,18 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       setBusy(null)
     }
   }
+
+  // Autosave: half a minute after the last edit the draft is saved as a new version, the way the Save button would.
+  // The editor's listeners cannot see React state, so the save runs through a ref that always holds the latest one.
+  const saveRef = useRef(save)
+  useEffect(() => {
+    saveRef.current = save
+  })
+  useEffect(() => {
+    if (!autosaveDue({ dirty, readOnly, conflict, restored, busy: busy !== null, stamp: editStamp, failedStamp: failedStamp.current })) return
+    const timer = window.setTimeout(() => void saveRef.current(true), AUTOSAVE_MS)
+    return () => window.clearTimeout(timer)
+  }, [dirty, readOnly, conflict, restored, busy, editStamp])
 
   async function activate() {
     if (!backend.activate) return
@@ -434,8 +454,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
 }
 
 /** "Saved 06:38 UTC" — the zone is always spelled out, because the reader's is not the workspace's. */
-function clockOf(iso: string | null | undefined): string | null {
+function clockOf(iso: string | null | undefined, word = 'Saved'): string | null {
   const clock = formatUtcClock(iso)
-  return clock === null ? null : `Saved ${clock}`
+  return clock === null ? null : `${word} ${clock}`
 }
 

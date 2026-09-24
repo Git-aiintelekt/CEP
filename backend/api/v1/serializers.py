@@ -219,6 +219,10 @@ class TemplateStarterSerializer(serializers.Serializer):
     sms_body = serializers.CharField(allow_null=True, help_text="text for SMS / MMS starters")
 
 
+class TemplateCloneSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=True, max_length=200, help_text="name of the copy; default '<name> (copy)'")
+
+
 class TemplateSerializer(TenantModelSerializer):
     latest_version = serializers.IntegerField(read_only=True, default=0, help_text="0 until a design has been saved")
     starter = serializers.CharField(write_only=True, required=False, allow_blank=True,

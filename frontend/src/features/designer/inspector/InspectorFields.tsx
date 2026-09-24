@@ -16,18 +16,21 @@ import { LengthField } from './fields/LengthField'
 import { LinkField } from './fields/LinkField'
 import { PaddingField } from './fields/PaddingField'
 import { SelectField } from './fields/SelectField'
+import { SocialNetworksField } from './fields/SocialNetworksField'
 import { SwatchField } from './fields/SwatchField'
 import { TextField } from './fields/TextField'
 import { ToggleField } from './fields/ToggleField'
 import { ColorField } from './fields/color/ColorField'
 import { normaliseHex } from './fields/color/colorMath'
-import { FONT_WEIGHTS, type SelectOption } from './fields/options'
+import { FONT_FAMILIES, FONT_WEIGHTS, SOCIAL_MODES, type SelectOption } from './fields/options'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, type TagPickerSlot } from './fields/types'
 import {
-  CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_ON_CANVAS, blockType, fieldsFor, readEffective,
-  readSetting, type SettingField, type SettingSection,
+  CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
+  readEffective, readSetting, type SettingField, type SettingSection,
 } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
+import { forbiddenIn } from '../canvas/codeChecks'
+import { SOCIAL_NETWORKS } from './social'
 import { createSettingBinder } from './useSettingBinding'
 import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
 import type { GroupedEditor } from './settings'
@@ -42,7 +45,10 @@ const SECTIONS: { id: SettingSection; label: string }[] = [
 ]
 
 const SELECT_OPTIONS: Record<string, SelectOption[]> = {
+  'font-family': FONT_FAMILIES,
   'font-weight': FONT_WEIGHTS,
+  mode: SOCIAL_MODES,
+  name: SOCIAL_NETWORKS,
   destination: DESTINATIONS,
   'button-style': BUTTON_STYLES,
   treatment: TREATMENTS,
@@ -147,7 +153,12 @@ export function InspectorFields({
 
             {open ?
               <div className="px-3 pb-2">
-                {note ? <p className="py-2 text-sm text-ink-700">{CANVAS_TEXT_NOTE}</p> : null}
+                {note ?
+                  <div className="py-2">
+                    <p className="text-sm text-ink-700">{CANVAS_TEXT_NOTE}</p>
+                    <p className="mt-1 text-xs text-ink-500">{TEXT_LINK_NOTE}</p>
+                  </div>
+                : null}
                 {own.map((field) =>
                   field.kind === 'image' ?
                     <ImageBlock
@@ -243,6 +254,11 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
       return <SwatchField {...shared} swatches={field.swatches ?? []} />
     case 'link':
       return <LinkField {...shared} tagPicker={tagPicker} />
+    // commits on leaving the field: re-parsing the markup on every keystroke would fight the typing
+    case 'html':
+      return <TextField {...shared} multiline placeholder={field.help} validate={forbiddenIn} />
+    case 'networks':
+      return <SocialNetworksField disabled={disabled} onAdd={(network) => addSocialElement(component, network)} />
     default:
       return <TextField {...shared} placeholder={field.help} tagPicker={tagPicker} multiline={field.multiline} quickTags={field.quickTags} />
   }

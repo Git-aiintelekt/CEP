@@ -2,7 +2,7 @@ import type { Component } from 'grapesjs'
 import { expect, test, vi } from 'vitest'
 
 import {
-  ATTRIBUTE_RULES, HIDE_MOBILE_KEY, LABEL_KEY, SETTINGS_BY_BLOCK, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
+  ATTRIBUTE_RULES, HIDE_MOBILE_KEY, HTML_KEY, LABEL_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
   normaliseHex, readEffective, readSetting, sectionFields, unitsFor, writeContent, writeSetting,
 } from './settings'
 import { FOOTER_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
@@ -56,19 +56,27 @@ function wrapperWith(head: Record<string, Record<string, string>>): Component {
 
 test('a block kind maps to its ordered fields, and a heading is an mj-text', () => {
   expect(fieldsFor(make('mj-button')).map((field) => field.key)).toEqual([
-    LABEL_KEY, 'href', 'align', 'width', 'padding', 'background-color', 'color', 'border-radius', 'inner-padding',
+    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'font-family', 'font-size', 'background-color', 'color', 'border-radius', 'inner-padding',
   ])
-  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height'])
-  expect(fieldsFor(make('mj-raw'))).toEqual([])
+  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', 'padding'])
+  expect(fieldsFor(make('mj-raw')).map((field) => field.key)).toEqual([HTML_KEY])
+  expect(fieldsFor(make('mj-navbar'))).toEqual([])
   expect(blockType(make('mj-text'))).toBe('mj-text')
 })
 
+test('every block that can be selected has something to set: the body, a heading or text, and a link inside it', () => {
+  expect(fieldsFor(make('mj-body')).map((field) => field.key)).toEqual(['width', 'background-color'])
+  expect(fieldsFor(make('mj-text')).map((field) => field.key)).toContain('font-family')
+  expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title'])
+})
+
 test('every field label is sentence case and every kind is one we render', () => {
-  const kinds = new Set(['color', 'length', 'padding', 'align', 'valign', 'toggle', 'select', 'text', 'link', 'image', 'swatch'])
+  const kinds = new Set(['color', 'length', 'padding', 'align', 'valign', 'toggle', 'select', 'text', 'link', 'image', 'swatch', 'html', 'networks'])
   for (const [type, fields] of Object.entries(SETTINGS_BY_BLOCK)) {
     for (const field of fields) {
       expect(kinds.has(field.kind), `${type} ${field.key}`).toBe(true)
-      expect(field.label, `${type} ${field.key}`).toMatch(/^[A-Z][^A-Z]*$/)
+      // sentence case: one capital, unless the label is an acronym such as HTML
+      expect(field.label, `${type} ${field.key}`).toMatch(/^(?:[A-Z][^A-Z]*|[A-Z]{2,})$/)
     }
   }
 })
@@ -337,6 +345,50 @@ test('a swatch setting carries its fixed colours, and a receipt block offers onl
   expect(fieldsFor(make('cep-receipt-image')).map((field) => field.key)).toEqual(['src', 'alt', 'ratio'])
   expect(fieldsFor(make('cep-receipt-divider'))).toEqual([])
   expect(fieldsFor(make('cep-receipt-footer')).map((field) => field.key)).toEqual(['sender-address'])
+})
+
+// ---- social icons and custom HTML ----------------------------------------
+
+test('a social icon reads its network without MJML’s -noshare suffix and writes it back in the direct form', () => {
+  const icon = make('mj-social-element', { name: 'facebook-noshare' })
+  expect(readSetting(icon, 'name')).toBe('facebook')
+  expect(readSetting(make('mj-social-element', { name: 'instagram' }), 'name')).toBe('instagram')
+
+  expect(writeSetting(icon, 'name', 'youtube')).toBe(true)
+  expect(icon.getAttributes().name).toBe('youtube') // no sharer page for YouTube: the plain name already links directly
+  expect(writeSetting(icon, 'name', 'linkedin')).toBe(true)
+  expect(icon.getAttributes().name).toBe('linkedin-noshare')
+})
+
+test('a social icon’s label is optional: clearing it leaves the icon on its own', () => {
+  const icon = make('mj-social-element', {}, { children: [make('textnode', {}, { content: 'Facebook' })] })
+  expect(readSetting(icon, LABEL_KEY)).toBe('Facebook')
+  expect(writeSetting(icon, LABEL_KEY, null)).toBe(true)
+  expect(icon.calls).toEqual(['components:'])
+  // a button with no label is a button nobody can read
+  expect(writeSetting(make('mj-button'), LABEL_KEY, null)).toBe(false)
+})
+
+test('a custom HTML block reads its markup as it is and writes it unescaped', () => {
+  const raw = make('mj-raw')
+  ;(raw as unknown as { getInnerHTML: () => string }).getInnerHTML = () => ' <table><tr><td>Hi</td></tr></table> '
+  expect(readSetting(raw, HTML_KEY)).toBe('<table><tr><td>Hi</td></tr></table>')
+  expect(readEffective(raw, HTML_KEY, wrapperWith({ 'mj-all': { html: 'x' } }))).toEqual({ value: '<table><tr><td>Hi</td></tr></table>', source: 'block' })
+  expect(readSetting(make('mj-raw'), HTML_KEY)).toBe(null)
+
+  expect(writeSetting(raw, HTML_KEY, '<p>&amp; <b>bold</b></p>')).toBe(true)
+  expect(raw.calls).toEqual(['components:<p>&amp; <b>bold</b></p>'])
+})
+
+test('adding a network appends an icon in the direct form with no address yet', () => {
+  const appended: string[] = []
+  const social = make('mj-social')
+  ;(social as unknown as { append: (content: string) => void }).append = (content) => {
+    appended.push(content)
+  }
+  expect(addSocialElement(social, 'facebook')).toBe(true)
+  expect(appended).toEqual(['<mj-social-element name="facebook-noshare" href=""></mj-social-element>'])
+  expect(addSocialElement(make('mj-social'), 'facebook')).toBe(false)
 })
 
 test('the brand bar colour is written as the swatch value, straight onto the section', () => {

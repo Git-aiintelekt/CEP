@@ -9,7 +9,7 @@ import re
 
 import mrml
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.db.models.functions import Now
 from rest_framework.exceptions import ValidationError
 
@@ -65,7 +65,11 @@ def render_mjml(mjml_source: str) -> str:
 def latest_version(template: TemplateMaster) -> int:
     """The design half's own latest -- excludes receipt-layout saves, which share this template's version counter
     (the unique constraint is (template, version_number) globally) but are a sibling stream, not a design edit."""
-    return TemplateDesignState.objects.filter(template=template).exclude(editor_state__kind="receipt").aggregate(v=Max("version_number"))["v"] or 0
+    # Not exclude(editor_state__kind="receipt"): a design's editor_state is the bare GrapesJS project with no "kind" at
+    # all, and SQL's NULL = 'receipt' is neither true nor false, so that form dropped every design row and answered 0 --
+    # which every save then read as "saved by someone else". Spelled out as has-the-key AND is-a-receipt instead.
+    receipt = Q(editor_state__has_key="kind") & Q(editor_state__kind="receipt")
+    return TemplateDesignState.objects.filter(template=template).exclude(receipt).aggregate(v=Max("version_number"))["v"] or 0
 
 
 def _next_version(template: TemplateMaster) -> int:
@@ -152,6 +156,52 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
 
     TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())     # fires the touch trigger: row_version, updated_by
     return {**design_payload(template, number), "findings": findings}
+
+
+@transaction.atomic
+def clone_template(source: TemplateMaster, user_id, *, name: str | None = None) -> TemplateMaster:
+    """A DRAFT copy of `source`. Its latest design or message becomes version 1 of the copy and, for an E-Receipt, the
+    latest receipt layout version 2; older versions stay with the original, since a copy is a new template rather than
+    a second history. Tag and media links are carried over so publish checks and media deletion see the copy too."""
+    from apps.media.models import TemplateMediaAsset
+
+    if source.deleted_at is not None:
+        raise Conflict("This template has been deleted.")
+    wanted = (name or "").strip() or f"{source.name} (copy)"
+    stem, suffix = wanted, 2
+    while TemplateMaster.objects.filter(name__iexact=wanted, deleted_at__isnull=True).exists():    # == ux_template_master_name_live
+        wanted = f"{stem} {suffix}"
+        suffix += 1
+    if len(wanted) > 200:
+        raise ValidationError({"name": "Use at most 200 characters."})
+
+    copy = TemplateMaster.objects.create(tenant_id=source.tenant_id, name=wanted, description=source.description, channel=source.channel,
+                                         status=TemplateMaster.Status.DRAFT, cloned_from=source, created_by_id=user_id)
+    number = 0
+    latest = latest_content_version(source)
+    if latest:
+        number += 1
+        content = RenderedTemplateContent.objects.filter(template=source, version_number=latest).first()
+        state = TemplateDesignState.objects.filter(template=source, version_number=latest).first()
+        if content is not None:
+            RenderedTemplateContent.objects.create(template=copy, version_number=number, subject_line=content.subject_line, preheader=content.preheader,
+                                                   html_content=content.html_content, text_content=content.text_content,
+                                                   mjml_source=content.mjml_source, sms_body=content.sms_body)
+        if state is not None:
+            TemplateDesignState.objects.create(template=copy, version_number=number, editor_state=state.editor_state, created_by_id=user_id)
+    receipt = latest_receipt_version(source)
+    if receipt:
+        number += 1
+        state = TemplateDesignState.objects.get(template=source, version_number=receipt)
+        TemplateDesignState.objects.create(template=copy, version_number=number, editor_state=state.editor_state, created_by_id=user_id)
+
+    TemplateTag.objects.bulk_create([
+        TemplateTag(template=copy, tag_id=link.tag_id, tenant_id=copy.tenant_id, is_mandatory=link.is_mandatory, sequence=link.sequence, created_by_id=user_id)
+        for link in TemplateTag.objects.filter(template=source)])
+    TemplateMediaAsset.objects.bulk_create([
+        TemplateMediaAsset(template=copy, media_asset_id=link.media_asset_id, tenant_id=copy.tenant_id)
+        for link in TemplateMediaAsset.objects.filter(template=source)])
+    return copy
 
 
 def activation_blockers(template: TemplateMaster) -> dict:

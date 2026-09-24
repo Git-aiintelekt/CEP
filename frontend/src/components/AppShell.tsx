@@ -236,7 +236,8 @@ export function AppShell() {
 
       <div className={`flex min-h-screen min-w-0 flex-col ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
-        <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 md:px-8">
+        {/* stays put while the page scrolls under it, like the rail: search and the account are always one reach away */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 md:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {!isMd && (
               <button

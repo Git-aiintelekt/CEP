@@ -21,6 +21,11 @@ export const FORBIDDEN: readonly { pattern: RegExp; message: string }[] = [
   { pattern: /javascript\s*:/i, message: 'javascript: links aren’t allowed. Use a web address instead.' },
 ]
 
+/** The first of those the text trips, in our words, or null. The Custom HTML field says it before a save could fail on it. */
+export function forbiddenIn(text: string): string | null {
+  return FORBIDDEN.find((rule) => rule.pattern.test(text))?.message ?? null
+}
+
 export const EMPTY_MESSAGE = 'There is no code to apply. Paste or write the email’s MJML first.'
 export const NOT_MJML_MESSAGE = 'This isn’t valid MJML. Check that the code starts with <mjml> and ends with </mjml>.'
 export const MISSING_RECEIPT_SLOT_MESSAGE =

@@ -1,6 +1,7 @@
 /** What a layer row is called and which glyph it carries. Pure: no GrapesJS, no editor. */
 import {
   Box,
+  Code,
   Columns2,
   Heading,
   Image,
@@ -17,6 +18,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { networkLabel } from '../inspector/social'
+
 const NAMES: Record<string, string> = {
   'mj-body': 'Email body',
   'mj-section': 'Section',
@@ -29,6 +32,7 @@ const NAMES: Record<string, string> = {
   'mj-spacer': 'Spacer',
   'mj-social': 'Social links',
   'mj-social-element': 'Social icon',
+  'mj-raw': 'Custom HTML',
   link: 'Link',
   'cep-receipt-slot': 'Receipt slot',
   'cep-receipt-brand-header': 'Brand header',
@@ -51,6 +55,7 @@ const ICONS: Record<string, LucideIcon> = {
   'mj-spacer': MoveVertical,
   'mj-social': Share2,
   'mj-social-element': Share2,
+  'mj-raw': Code,
   link: Link,
   'mj-heading': Heading,
   'cep-receipt-slot': Lock,
@@ -66,8 +71,7 @@ export const GENERIC_ICON = Box
 
 /** mj-social-element -> "Facebook": the network is in the name attribute, which is far more useful than the tag. */
 function network(attributes: Record<string, unknown> | undefined): string | null {
-  const value = String(attributes?.name ?? '').trim()
-  return value === '' ? null : value.charAt(0).toUpperCase() + value.slice(1)
+  return networkLabel(String(attributes?.name ?? ''))
 }
 
 /** mj-social-element -> "Social element": a tag we have no name for still reads as words. */

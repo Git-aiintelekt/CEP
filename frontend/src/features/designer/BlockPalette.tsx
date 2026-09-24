@@ -1,6 +1,7 @@
 /** The block palette beside the canvas. Knows nothing about GrapesJS: dragging and inserting are the caller's. */
 import {
   AlignCenter,
+  Code,
   Columns2,
   Columns3,
   Columns4,
@@ -32,6 +33,7 @@ import { Tile } from './ui/Tile'
 /** Named one by one: importing the whole icon set would pull every glyph into the bundle. */
 const ICONS: Record<string, LucideIcon> = {
   AlignCenter,
+  Code,
   Columns2,
   Columns3,
   Columns4,

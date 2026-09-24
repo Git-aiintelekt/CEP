@@ -216,6 +216,11 @@ function nthOfTag(root: Component, tag: string, nth: number): Component | undefi
   return found
 }
 
+/** A wheel reports pixels, lines or pages; the frame scrolls in pixels. */
+function wheelUnit(event: WheelEvent): number {
+  return event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? 400 : 1
+}
+
 /** Newest first, no duplicates, eight at most: what the colour picker offers as recently used. */
 function rememberColor(recent: string[], hex: string): string[] {
   return [hex, ...recent.filter((item) => item !== hex)].slice(0, 8)
@@ -441,7 +446,12 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     let lastWheelStep = -Infinity
     const onWheel = (event: WheelEvent) => {
       const direction = wheelZoomDirection(event)
-      if (direction === null) return
+      if (direction === null) {
+        // The email's frame is the only thing that scrolls. Zoomed out it is narrower than the canvas, and a wheel
+        // over the gutter beside it — which is where this listener, not the frame's, hears it — would do nothing.
+        if (event.currentTarget === editor.Canvas.getElement()) editor.Canvas.getWindow()?.scrollBy({ top: event.deltaY * wheelUnit(event), left: event.deltaX * wheelUnit(event) })
+        return
+      }
       event.preventDefault() // the page must not zoom, whether or not this event is the one that steps
       const now = performance.now()
       if (!wheelStepDue(lastWheelStep, now)) return

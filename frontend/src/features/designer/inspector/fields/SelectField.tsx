@@ -16,6 +16,9 @@ export function SelectField({
   label, value, effective, onCommit, disabled = false, inherited = false, inheritedNote, options, emptyLabel = 'Default', required = false,
 }: SelectFieldProps) {
   const fromEmail = options.find((option) => option.value === effective)
+  // a value the design carries that the list does not offer (a font from an imported template) is still shown, as itself
+  const rows = value === null || options.some((option) => option.value === value) ? options : [{ value, label: value }, ...options]
+  const effectiveLabel = fromEmail?.label ?? effective ?? null
 
   return (
     <FieldRow
@@ -34,8 +37,8 @@ export function SelectField({
           onChange={(event) => onCommit(event.target.value === '' ? null : event.target.value)}
           className={controlClass(false, disabled)}
         >
-          {required ? null : <option value="">{fromEmail ? `${emptyLabel} (${fromEmail.label})` : emptyLabel}</option>}
-          {options.map((option) => (
+          {required ? null : <option value="">{effectiveLabel ? `${emptyLabel} (${effectiveLabel})` : emptyLabel}</option>}
+          {rows.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

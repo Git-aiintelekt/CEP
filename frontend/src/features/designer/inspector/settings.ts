@@ -18,12 +18,17 @@ import {
 import { normaliseHex } from './fields/color/colorMath'
 import type { LengthUnit } from './fields/length'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
+import { directName, networkOf, socialElementMjml } from './social'
 
 // one implementation, shared with the colour field: #ABC and #AABBCC both become #aabbcc
 export { normaliseHex }
 
 export type SettingKind =
   | 'color' | 'length' | 'padding' | 'align' | 'valign' | 'toggle' | 'select' | 'text' | 'link' | 'image' | 'swatch'
+  /** a Custom HTML block's markup, written as-is */
+  | 'html'
+  /** a social block's add-a-network list */
+  | 'networks'
 
 /** Where a setting belongs in the panel: what it says, where it sits, how it looks. */
 export type SettingSection = 'content' | 'layout' | 'appearance'
@@ -54,6 +59,12 @@ export interface SettingField {
 /** A button's label and an mj-text's words are component content, not an attribute. */
 export const LABEL_KEY = 'label'
 export const SRC_KEY = 'src'
+/** A Custom HTML block's markup: its children, read and written as HTML rather than as text. */
+export const HTML_KEY = 'html'
+/** The social block's add-a-network list. Not a value the block holds: the panel's name for the control. */
+export const NETWORKS_KEY = 'cep-add-network'
+/** mj-social-element's network. The attribute may carry MJML's "-noshare" suffix; the panel shows the network alone. */
+const NETWORK_KEY = 'name'
 
 /**
  * Hiding on phones is a css-class, not an MJML attribute, so it is read and written through that list rather
@@ -72,19 +83,25 @@ export interface EffectiveValue {
  * MJML's own defaults for the settings we edit, taken from the installed mjml-browser's defaultAttributes.
  * settings.defaults.test.ts reads them back out of the package and fails if this drifts.
  */
+const MJML_FONT = 'Ubuntu, Helvetica, Arial, sans-serif'
+
 export const MJML_DEFAULTS: Record<string, Record<string, string>> = {
+  'mj-body': { width: '600px' },
   'mj-section': { padding: '20px 0' },
   'mj-column': { 'vertical-align': 'top' },
-  'mj-text': { align: 'left', color: '#000000', 'font-size': '13px', 'line-height': '1', padding: '10px 25px' },
+  'mj-text': { align: 'left', color: '#000000', 'font-family': MJML_FONT, 'font-size': '13px', 'line-height': '1', padding: '10px 25px' },
   'mj-button': {
-    align: 'center', 'background-color': '#414141', 'border-radius': '3px', color: '#ffffff',
+    align: 'center', 'background-color': '#414141', 'border-radius': '3px', color: '#ffffff', 'font-family': MJML_FONT, 'font-size': '13px',
     'inner-padding': '10px 25px', padding: '10px 25px',
   },
-  'mj-image': { align: 'center', alt: '', padding: '10px 25px' },
-  'mj-divider': { 'border-color': '#000000', 'border-width': '4px', padding: '10px 25px' },
+  'mj-image': { align: 'center', alt: '', height: 'auto', padding: '10px 25px' },
+  'mj-divider': { align: 'center', 'border-color': '#000000', 'border-width': '4px', padding: '10px 25px', width: '100%' },
   'mj-spacer': { height: '20px' },
-  'mj-social': { align: 'center' },
-  'mj-social-element': {},
+  'mj-social': {
+    align: 'center', 'border-radius': '3px', color: '#333333', 'font-family': MJML_FONT, 'font-size': '13px', 'icon-size': '20px',
+    mode: 'horizontal', padding: '10px 25px',
+  },
+  'mj-social-element': { 'border-radius': '3px', color: '#000', 'font-size': '13px', padding: '4px' },
 }
 
 /** '' in units means the value may carry no unit at all, which is how MJML writes line-height. */
@@ -98,29 +115,50 @@ type AttributeRule = UnitRule | 'color' | 'free'
 
 const LENGTH: UnitRule = { units: ['px', '%'] }
 const PX: UnitRule = { units: ['px'] }
+/** an image's height: a pixel count, or MJML's own "auto" (which is what clearing the field gives) */
+const PX_OR_AUTO: UnitRule = { units: ['px', 'auto'] }
 const PADDING: UnitRule = { units: ['px', '%'], parts: 4 }
 const LINE_HEIGHT: UnitRule = { units: ['px', '%', ''] }
 
-/** Mirrors mjml's allowedAttributes for the settings we edit; the same drift test checks it. */
+/**
+ * Mirrors mjml's allowedAttributes for the settings we edit; the same drift test checks it.
+ *
+ * px and % are the only length units here because they are the only ones MJML accepts (em, rem, vh and vw are
+ * refused by its validator and by the server's renderer), and there is no margin: MJML lays blocks out with padding.
+ */
 export const ATTRIBUTE_RULES: Record<string, Record<string, AttributeRule>> = {
+  'mj-body': { width: PX, 'background-color': 'color' },
   'mj-section': { 'background-color': 'color', padding: PADDING, 'border-radius': 'free', 'full-width': 'free' },
-  'mj-column': { 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING },
+  'mj-column': { width: LENGTH, 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING },
   'mj-text': {
-    'font-size': PX, color: 'color', align: 'free', 'line-height': LINE_HEIGHT, padding: PADDING, 'font-weight': 'free',
+    'font-family': 'free', 'font-size': PX, color: 'color', align: 'free', 'line-height': LINE_HEIGHT, padding: PADDING, 'font-weight': 'free',
   },
   'mj-button': {
     href: 'free', 'background-color': 'color', color: 'color', 'border-radius': 'free', padding: PADDING,
-    'inner-padding': PADDING, align: 'free', width: LENGTH,
+    'inner-padding': PADDING, align: 'free', width: LENGTH, height: LENGTH, 'font-family': 'free', 'font-size': PX,
   },
-  'mj-image': { src: 'free', alt: 'free', href: 'free', align: 'free', width: PX, padding: PADDING },
-  'mj-divider': { 'border-color': 'color', 'border-width': PX, padding: PADDING },
-  'mj-spacer': { height: LENGTH },
-  'mj-social': { align: 'free' },
-  'mj-social-element': { href: 'free' },
+  'mj-image': {
+    src: 'free', alt: 'free', href: 'free', align: 'free', width: PX, height: PX_OR_AUTO, 'max-height': LENGTH, padding: PADDING, 'border-radius': PADDING,
+  },
+  'mj-divider': { 'border-color': 'color', 'border-width': PX, padding: PADDING, width: LENGTH, align: 'free' },
+  'mj-spacer': { height: LENGTH, padding: PADDING },
+  'mj-social': {
+    align: 'free', mode: 'free', 'icon-size': LENGTH, 'icon-padding': PADDING, padding: PADDING, 'border-radius': LENGTH, color: 'color',
+    'font-family': 'free', 'font-size': PX,
+  },
+  'mj-social-element': {
+    [NETWORK_KEY]: 'free', href: 'free', 'background-color': 'color', color: 'color', 'icon-size': LENGTH, padding: PADDING, 'border-radius': PX,
+    'font-size': PX,
+  },
+  // an anchor written inside a text block: an HTML element, so nothing here is MJML's to validate
+  link: { href: 'free', title: 'free' },
 }
 
 /** The one line shown instead of content fields for a block whose words are edited on the canvas. */
 export const CANVAS_TEXT_NOTE = 'Edit the text on the canvas.'
+/** Under it: how a link gets into the words, since that is the one thing the panel cannot do for a text block. */
+export const TEXT_LINK_NOTE = 'To link some words, select them on the canvas and press the toolbar’s link button; then select the link to set its address.'
+export const HTML_HELP = '<table role="presentation" width="100%"><tr><td>…</td></tr></table>'
 
 export const ALT_HELP = "Describe the image for people who can't see it."
 
@@ -134,6 +172,10 @@ export const LAYOUT_NOTES: Record<string, string> = { 'mj-section': STACK_NOTE }
 
 /** Every setting a block offers, in the order the panel shows it. A heading block is an mj-text. */
 export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
+  'mj-body': [
+    { key: 'width', label: 'Email width', kind: 'length', section: 'layout', min: 320, max: 800 },
+    { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
+  ],
   'mj-section': [
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'full-width', label: 'Full width', kind: 'toggle', section: 'layout' },
@@ -142,6 +184,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-column': [
+    { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'vertical-align', label: 'Vertical alignment', kind: 'valign', section: 'layout' },
     { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
@@ -150,6 +193,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   'mj-text': [
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'font-family', label: 'Font family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'font-weight', label: 'Font weight', kind: 'select', section: 'appearance' },
     { key: 'line-height', label: 'Line height', kind: 'length', section: 'appearance', min: 0 },
@@ -160,7 +204,10 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
+    { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'font-family', label: 'Font family', kind: 'select', section: 'appearance' },
+    { key: 'font-size', label: 'Font size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
     { key: 'color', label: 'Text color', kind: 'color', section: 'appearance' },
     { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
@@ -172,16 +219,49 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
+    { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
+    { key: 'max-height', label: 'Max height', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-divider': [
+    { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
+    { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'border-color', label: 'Line color', kind: 'color', section: 'appearance' },
     { key: 'border-width', label: 'Line width', kind: 'length', section: 'appearance', min: 0 },
   ],
-  'mj-spacer': [{ key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 }],
-  'mj-social': [{ key: 'align', label: 'Alignment', kind: 'align', section: 'layout' }],
-  'mj-social-element': [{ key: 'href', label: 'Link', kind: 'link', section: 'content' }],
+  'mj-spacer': [
+    { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
+    { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+  ],
+  'mj-social': [
+    { key: NETWORKS_KEY, label: 'Add a network', kind: 'networks', section: 'content' },
+    { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
+    { key: 'mode', label: 'Layout', kind: 'select', section: 'layout' },
+    { key: 'icon-size', label: 'Icon size', kind: 'length', section: 'layout', min: 8 },
+    { key: 'icon-padding', label: 'Icon padding', kind: 'padding', section: 'layout' },
+    { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'border-radius', label: 'Icon corner radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'font-family', label: 'Label font', kind: 'select', section: 'appearance' },
+    { key: 'font-size', label: 'Label size', kind: 'length', section: 'appearance', min: 1 },
+    { key: 'color', label: 'Label color', kind: 'color', section: 'appearance' },
+  ],
+  'mj-social-element': [
+    { key: NETWORK_KEY, label: 'Network', kind: 'select', section: 'content', required: true },
+    { key: 'href', label: 'Link', kind: 'link', section: 'content' },
+    { key: LABEL_KEY, label: 'Label', kind: 'text', section: 'content', help: 'Shown beside the icon; leave empty for the icon alone' },
+    { key: 'icon-size', label: 'Icon size', kind: 'length', section: 'layout', min: 8 },
+    { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'background-color', label: 'Icon background', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Icon corner radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'color', label: 'Label color', kind: 'color', section: 'appearance' },
+  ],
+  link: [
+    { key: 'href', label: 'Link', kind: 'link', section: 'content' },
+    { key: 'title', label: 'Hover text', kind: 'text', section: 'content' },
+  ],
+  'mj-raw': [{ key: HTML_KEY, label: 'HTML', kind: 'html', section: 'content', help: HTML_HELP }],
 
   // E-Receipt: each block offers only the choices a receipt allows (receiptSettings.ts reads and writes them)
   [RECEIPT_BRAND_HEADER_TYPE]: [
@@ -272,12 +352,23 @@ function textOf(component: Component): string | null {
   return joined === '' ? null : joined
 }
 
+/** A Custom HTML block's markup, as GrapesJS serialises its children. */
+function innerHtmlOf(component: Component): string | null {
+  const read = (component as { getInnerHTML?: () => string }).getInnerHTML
+  const html = typeof read === 'function' ? read.call(component).trim() : ''
+  return html === '' ? null : html
+}
+
+const isSocialIcon = (component: Component) => blockType(component) === 'mj-social-element'
+
 /** What this block sets on its own, ignoring anything it inherits. */
 export function readSetting(component: Component, key: string): string | null {
   const receipt = receiptAccessor(blockType(component), key)
   if (receipt) return receipt.read(component)
   if (key === LABEL_KEY) return textOf(component)
+  if (key === HTML_KEY) return innerHtmlOf(component)
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
+  if (key === NETWORK_KEY && isSocialIcon(component)) return networkOf(String(component.getAttributes()[key] ?? ''))
   const raw = component.getAttributes()[key] ?? (key === SRC_KEY ? component.get(SRC_KEY) : undefined)
   if (raw === undefined || raw === null || raw === '') return null
   return String(raw)
@@ -306,8 +397,8 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 /** What the recipient will see: the block's own value, else mj-attributes, else mj-all, else MJML's default. */
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
-  // hiding on phones and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HIDE_MOBILE_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  // hiding on phones, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
 
   const type = blockType(component)
   const forTag = headAttribute(wrapper, type, key)
@@ -347,8 +438,14 @@ export function writeSetting(component: Component, key: string, value: string | 
     return true
   }
   if (key === LABEL_KEY) {
-    if (value === null) return false
-    writeContent(component, value)
+    // a social icon's label is optional: cleared, the icon stands alone
+    if (value === null && !isSocialIcon(component)) return false
+    writeContent(component, value ?? '')
+    return true
+  }
+  // markup, not words: the reader asked for HTML, and the server refuses scripts and handlers on save
+  if (key === HTML_KEY) {
+    component.components(value ?? '')
     return true
   }
   // the class list, never the attribute map: every other class on the block, the footer's included, stays put
@@ -358,6 +455,11 @@ export function writeSetting(component: Component, key: string, value: string | 
   }
   if (value === null) {
     component.removeAttributes(key)
+    return true
+  }
+  // written in the direct form, so the icon links to the profile and not to a sharer page
+  if (key === NETWORK_KEY && isSocialIcon(component)) {
+    component.addAttributes({ [key]: directName(value) })
     return true
   }
 
@@ -381,6 +483,14 @@ const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;'
 /** Plain text only. Never set('content'): it appends to the children already there and can hang the canvas. */
 export function writeContent(component: Component, text: string): void {
   component.components(text.replace(/[&<>]/g, (character) => ESCAPES[character]))
+}
+
+/** Adds an icon for `network` at the end of a social block. False when the component cannot take children (a test double). */
+export function addSocialElement(component: Component, network: string): boolean {
+  const append = (component as { append?: (content: string) => unknown }).append
+  if (typeof append !== 'function') return false
+  append.call(component, socialElementMjml(network))
+  return true
 }
 
 /** The one edit in progress. A drag is the only thing that groups, and only one can be under way at a time. */
