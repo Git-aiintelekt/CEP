@@ -179,6 +179,8 @@ export const runResults: RunResults = {
 export const starters: TemplateStarter[] = [
   { key: 'promotion', name: 'Sale announcement', channel: 'EMAIL', category: 'Promotion', description: 'A time-limited offer.', subject_line: '{{first_name}}, a sale',
     preheader: '', html_content: '<html><body><p>Hi {{first_name}}</p></body></html>', sms_body: null },
+  { key: 'newsletter', name: 'Monthly newsletter', channel: 'EMAIL', category: 'Newsletter', description: 'News and updates.', subject_line: 'This month',
+    preheader: '', html_content: '<html><body><p>News for {{first_name}}</p></body></html>', sms_body: null },
   { key: 'sms_promotion', name: 'SMS offer', channel: 'SMS', category: 'Promotion', description: 'One-part text.', subject_line: '', preheader: '', html_content: null,
     sms_body: 'Hi {{first_name}}, code {{offer_code}}. Reply STOP to opt out.' },
 ]
@@ -289,6 +291,7 @@ export function installMockApi(options: MockOptions = {}) {
   let mfaEnabled = options.mfaEnabled ?? false
   const campaignState = { campaigns: options.campaigns ?? [campaign], make: makeCampaign }
   let listsNow: ContactList[] = [...contactLists]
+  let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
@@ -398,7 +401,7 @@ export function installMockApi(options: MockOptions = {}) {
         campaigns_live: liveCampaigns.length,
         contact_lists_total: realLists.length,
         audience_total: realLists.reduce((total, item) => total + (item.member_count ?? 0), 0),
-        templates_total: templates.length,
+        templates_total: templatesNow.length,
         journeys_total: 0,
         journeys_active: 0,
       })
@@ -434,11 +437,25 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/media-assets/') && method === 'POST') return json({ ...mediaLibrary[0], id: 'img-up', file_name: 'uploaded.png', mime_type: 'image/png' }, 201)
     if (path.endsWith('/media-assets/')) return json({ next: null, previous: null, results: mediaLibrary })
     if (path.endsWith('/activate/')) return json({ ...(options.template ?? templates[1]), status: 'ACTIVE' })
+    // templates are stateful: a copy or a deletion shows in the list afterwards
+    if (/\/templates\/[^/]+\/clone\/$/.test(path) && method === 'POST') {
+      const source = templatesNow.find((item) => path.includes(`/${item.id}/`)) ?? templates[0]
+      const copy: Template = { ...source, id: `${source.id}-copy`, name: `${source.name} (copy)`, status: 'DRAFT', cloned_from: source.id, latest_version: source.latest_version ?? 1 }
+      templatesNow = [copy, ...templatesNow]
+      return json(copy, 201)
+    }
+    if (/\/templates\/[^/]+\/$/.test(path) && method === 'DELETE') {
+      const id = /\/templates\/([^/]+)\/$/.exec(path)?.[1]
+      // Fall Email is the campaign's template, which the server refuses to delete
+      if (id === 'tpl-email') return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'This template is used by a campaign. Archive it instead.' }, 409)
+      templatesNow = templatesNow.filter((item) => item.id !== id)
+      return json(null, 204)
+    }
     if (/\/templates\/[^/]+\/$/.test(path) && method === 'GET') return json(options.template ?? templates[1])
     if (path.endsWith('/templates/') && method === 'POST') {
       return options.onSaveTemplate?.(call) ?? json({ ...templates[0], ...(body as Partial<Template>), id: 'tpl-new', status: 'DRAFT', latest_version: 0 }, 201)
     }
-    if (path.endsWith('/templates/')) return json({ next: null, previous: null, results: templates })
+    if (path.endsWith('/templates/')) return json({ next: null, previous: null, results: templatesNow })
     if (path.endsWith('/sender-profiles/')) return json(senders)
     // ---- contact lists: stateful, so what a test creates is there afterwards
     if (path.includes('/contact-lists/')) {

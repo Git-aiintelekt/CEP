@@ -30,6 +30,29 @@ export const ALIGN_OPTIONS: Record<AlignAxis, AlignOption[]> = {
   ],
 }
 
+/**
+ * Email-safe families, each with the fallbacks a mail client is expected to have. Web fonts are not offered: they
+ * need an mj-font in the head and most inboxes ignore them anyway. Ubuntu is here because it is MJML's own default,
+ * so the "Default (…)" row can name it.
+ */
+export const FONT_FAMILIES: SelectOption[] = [
+  { value: 'Arial, Helvetica, sans-serif', label: 'Arial' },
+  { value: 'Helvetica, Arial, sans-serif', label: 'Helvetica' },
+  { value: 'Verdana, Geneva, sans-serif', label: 'Verdana' },
+  { value: 'Tahoma, Geneva, sans-serif', label: 'Tahoma' },
+  { value: "'Trebuchet MS', Helvetica, sans-serif", label: 'Trebuchet MS' },
+  { value: 'Georgia, serif', label: 'Georgia' },
+  { value: "'Times New Roman', Times, serif", label: 'Times New Roman' },
+  { value: "'Courier New', Courier, monospace", label: 'Courier New' },
+  { value: 'Ubuntu, Helvetica, Arial, sans-serif', label: 'Ubuntu' },
+]
+
+/** How a social block lays its icons out. */
+export const SOCIAL_MODES: SelectOption[] = [
+  { value: 'horizontal', label: 'In a row' },
+  { value: 'vertical', label: 'Stacked' },
+]
+
 /** MJML takes the CSS keywords or the numbers; the numbers travel better, so those are what we write. */
 export const FONT_WEIGHTS: SelectOption[] = [
   { value: '300', label: 'Light' },

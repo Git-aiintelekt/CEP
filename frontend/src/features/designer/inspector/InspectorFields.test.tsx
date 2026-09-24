@@ -4,6 +4,7 @@ import type { Component } from 'grapesjs'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { CHOOSE_IMAGE_LABEL, InspectorFields, NO_IMAGE_NOTE } from './InspectorFields'
+import { ADD_NETWORK_LABEL } from './fields/SocialNetworksField'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, RESET_LABEL } from './fields/types'
 import { CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, STACK_NOTE, readSetting } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
@@ -76,16 +77,16 @@ test('each block kind offers its own settings', () => {
   const keys = () => [...document.querySelectorAll('[data-setting]')].map((node) => node.getAttribute('data-setting'))
 
   renderFields(make('mj-spacer'))
-  expect(keys()).toEqual(['height'])
+  expect(keys()).toEqual(['height', 'padding'])
   expect(sections()).toEqual(['Layout'])
 
   cleanup()
   renderFields(make('mj-divider'))
-  expect(keys()).toEqual(['padding', 'border-color', 'border-width'])
+  expect(keys()).toEqual(['width', 'align', 'padding', 'border-color', 'border-width'])
 
   cleanup()
   renderFields(make('mj-social-element'))
-  expect(keys()).toEqual(['href'])
+  expect(keys()).toEqual(['name', 'href', 'label', 'icon-size', 'padding', 'background-color', 'border-radius', 'color'])
 
   cleanup()
   renderFields(make('mj-section'))
@@ -182,6 +183,74 @@ test('font weight is a list of named weights, not free text', async () => {
 
   await user.selectOptions(select, '700')
   expect(readSetting(text, 'font-weight')).toBe('700')
+})
+
+test('font family is a list of email-safe families, the default row naming the email’s own', async () => {
+  const user = userEvent.setup()
+  const wrapper = make('wrapper', {}, {
+    children: [make('mj-head', {}, { children: [make('mj-attributes', {}, { children: [make('mj-all', { 'font-family': 'Georgia, serif' })] })] })],
+  })
+  const text = make('mj-text')
+  renderFields(text, { wrapper })
+
+  const select = screen.getByLabelText('Font family') as HTMLSelectElement
+  expect(select.options[0].textContent).toBe('Default (Georgia)')
+  expect([...select.options].map((option) => option.textContent)).toEqual(expect.arrayContaining(['Arial', 'Courier New', 'Georgia', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana']))
+
+  await user.selectOptions(select, 'Arial, Helvetica, sans-serif')
+  expect(readSetting(text, 'font-family')).toBe('Arial, Helvetica, sans-serif')
+})
+
+test('a font the design carries that the list does not offer is still shown, as itself', () => {
+  renderFields(make('mj-text', { 'font-family': 'Lato, sans-serif' }))
+  const select = screen.getByLabelText('Font family') as HTMLSelectElement
+  expect(select.value).toBe('Lato, sans-serif')
+  expect(select.options[select.selectedIndex].textContent).toBe('Lato, sans-serif')
+})
+
+test('the social block adds a network from a list, which appends an icon that links straight to the profile', async () => {
+  const user = userEvent.setup()
+  const appended: string[] = []
+  const social = make('mj-social')
+  ;(social as unknown as { append: (content: string) => void }).append = (content) => {
+    appended.push(content)
+  }
+  renderFields(social)
+
+  const add = screen.getByLabelText(ADD_NETWORK_LABEL) as HTMLSelectElement
+  expect([...add.options].map((option) => option.textContent)).toEqual(expect.arrayContaining(['YouTube', 'Instagram', 'LinkedIn', 'X']))
+  await user.selectOptions(add, 'linkedin')
+  expect(appended).toEqual(['<mj-social-element name="linkedin-noshare" href=""></mj-social-element>'])
+  expect(add.value).toBe('') // back on the prompt: it is an action, not a setting
+  expect(screen.getByLabelText('Layout')).toBeTruthy()
+  expect(screen.getByLabelText('Icon size')).toBeTruthy()
+})
+
+test('a social icon names its network from the same list, with no empty row', () => {
+  renderFields(make('mj-social-element', { name: 'facebook-noshare' }))
+  const network = screen.getByLabelText('Network') as HTMLSelectElement
+  expect(network.value).toBe('facebook')
+  expect(network.options[0].textContent).toBe('Facebook')
+  expect(screen.getByLabelText('Label')).toBeTruthy()
+  expect(screen.getByLabelText('Icon background')).toBeTruthy()
+})
+
+test('a custom HTML block takes markup in a text area, refusing what the server would refuse', async () => {
+  const user = userEvent.setup()
+  const raw = make('mj-raw')
+  renderFields(raw)
+
+  const field = screen.getByLabelText('HTML')
+  expect(field.tagName).toBe('TEXTAREA')
+  await user.type(field, '<script>alert(1)</script>')
+  await user.tab()
+  expect(screen.getByText('Scripts aren’t allowed in an email. Remove the <script> tag.')).toBeTruthy()
+  expect(raw.calls).toEqual([])
+
+  await user.clear(field)
+  await user.type(field, '<p>Hello</p>')
+  await user.tab()
+  expect(raw.calls).toEqual(['content:<p>Hello</p>'])
 })
 
 test('a column offers the vertical alignment choices, a section the horizontal ones', () => {

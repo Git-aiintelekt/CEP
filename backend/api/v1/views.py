@@ -300,6 +300,17 @@ class TemplateViewSet(BaseTenantViewSet):
         saved = design.save_message(template, None if hasattr(user, "has_scope") else user.id, **body.validated_data)
         return Response(saved, status=201)
 
+    @extend_schema(request=s.TemplateCloneSerializer, responses={201: s.TemplateSerializer})
+    @action(detail=True, methods=["post"])
+    def clone(self, request, pk=None, version=None):
+        """A DRAFT copy of this template: its latest design or message becomes version 1 of the copy."""
+        source = self.get_object()
+        body = s.TemplateCloneSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        user = request.user
+        copy = design.clone_template(source, None if hasattr(user, "has_scope") else user.id, **body.validated_data)
+        return Response(self.get_serializer(self.get_queryset().get(pk=copy.pk)).data, status=201)
+
     @extend_schema(request=None, responses=s.TemplateSerializer)
     @action(detail=True, methods=["post"])
     def activate(self, request, pk=None, version=None):

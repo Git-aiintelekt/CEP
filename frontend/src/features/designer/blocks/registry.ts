@@ -9,6 +9,7 @@ import { divider } from './divider'
 import { footer } from './footer'
 import { header } from './header'
 import { heading } from './heading'
+import { html } from './html'
 import { image } from './image'
 import { productCard } from './product-card'
 import { social } from './social'
@@ -28,6 +29,7 @@ export const CEP_BLOCKS: CepBlock[] = [
   text,
   image,
   button,
+  html,
   header,
   social,
   footer,
