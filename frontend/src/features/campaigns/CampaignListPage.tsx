@@ -3,7 +3,7 @@
  * filters, sorting, pages of 50, row actions by status and bulk clone / archive. Calendar view: the month, a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronsUpDown, Image, Mail, MessageSquare, MoreVertical, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, MoreVertical } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -26,6 +26,7 @@ import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { CampaignCalendar } from './CampaignCalendar'
 import { CONFIRM, useBulkAction, useCampaignAction, type StatusAction } from './useCampaignAction'
 import { CAMPAIGN_TYPES, campaignHome, channelLabel, hasAction, STATUS_FILTERS, typeLabel } from './vocabulary'
+import { formatInZone } from './zone'
 
 const PAGE_SIZE = 50
 const EMPTY_FILTERS = { status: '', type: '', channel: '', triggered_by: '', tag: '', owner: '', date_from: '', date_to: '' }
@@ -93,21 +94,7 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   )
 }
 
-const CHANNEL_ICON: Record<string, LucideIcon> = { EMAIL: Mail, SMS: MessageSquare, MMS: Image }
 const VIEWS = [{ id: 'list' as const, label: 'List view' }, { id: 'calendar' as const, label: 'Calendar view' }]
-
-/** "Aug 20" and "09:00 CDT": a send is announced in the campaign's own time zone, the one it was scheduled in */
-function sendDay(iso: string, zone: string) {
-  const at = new Date(iso)
-  const safe = (options: Intl.DateTimeFormatOptions) => {
-    try {
-      return new Intl.DateTimeFormat(undefined, { ...options, timeZone: zone }).format(at)
-    } catch {
-      return new Intl.DateTimeFormat(undefined, { ...options, timeZone: 'UTC' }).format(at)
-    }
-  }
-  return { day: safe({ month: 'short', day: 'numeric' }), time: safe({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }) }
-}
 
 function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: boolean }) {
   const upcoming = useQuery({
@@ -126,24 +113,18 @@ function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: 
         </p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {rows.map((campaign) => {
-            const Icon = CHANNEL_ICON[campaign.channel] ?? Mail
-            const when = sendDay(campaign.next_run_at as string, campaign.send_timezone || workspaceZone)
-            return (
-              <li key={campaign.id} className="min-w-0">
-                <Link to={`/campaigns/${campaign.id}`} className="block rounded-lg border border-line bg-surface p-4 transition-colors duration-fast hover:bg-surface-subtle">
-                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-700">
-                    <Icon size={16} strokeWidth={1.5} className="shrink-0" aria-hidden />
-                    <span className="truncate">{campaign.name}</span>
-                  </p>
-                  <p className="cep-num font-display text-3xl font-semibold text-ink-900">{when.day}</p>
-                  <p className="mt-1 truncate text-xs text-ink-500">
-                    {when.time}{campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} recipients` : ''}
-                  </p>
-                </Link>
-              </li>
-            )
-          })}
+          {rows.map((campaign) => (
+            <li key={campaign.id}>
+              <Link to={`/campaigns/${campaign.id}`} className="block rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:bg-surface-subtle">
+                <p className="truncate text-sm font-semibold text-ink-900">{campaign.name}</p>
+                <p className="cep-num mt-1 font-display text-lg font-semibold text-ink-900">{formatDate(campaign.next_run_at)}</p>
+                <p className="truncate text-xs text-ink-500">
+                  {formatInZone(campaign.next_run_at, campaign.send_timezone || workspaceZone).split(', ').pop()}
+                  {campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} in the lists` : ''}
+                </p>
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </section>
