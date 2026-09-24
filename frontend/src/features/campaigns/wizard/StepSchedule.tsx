@@ -5,6 +5,7 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 
+import { IconButton } from '@/components/Button'
 import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import type { CampaignFormOptions } from '@/lib/types'
 
@@ -94,7 +95,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType }: { options
                 <div role="group" aria-label="Days of the week" className="mt-1 flex flex-wrap gap-2">
                   {WEEKDAYS.map((day) => (
                     <button key={day.value} type="button" aria-pressed={recurring.weekdays.includes(day.value)} onClick={() => toggleDay(day.value)}
-                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+                      className={`inline-flex h-8 min-w-12 items-center justify-center rounded-sm border px-2 text-xs font-semibold transition-colors duration-base ease-standard ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle active:bg-line-subtle'}`}>
                       {day.label}
                     </button>
                   ))}
@@ -145,10 +146,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType }: { options
                   <Field label="Label" error={errors.drip?.steps?.[index]?.label?.message} hint="Shown on the run, e.g. Welcome, Reminder.">
                     {(ids) => <TextInput {...ids} maxLength={60} {...register(`drip.steps.${index}.label`)} />}
                   </Field>
-                  <button type="button" aria-label={`Remove step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)}
-                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-700 transition-colors hover:bg-line-subtle disabled:text-ink-300">
-                    <Trash2 size={18} strokeWidth={1.5} aria-hidden />
-                  </button>
+                  <IconButton variant="outline" icon={Trash2} label={`Remove step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)} className="mt-7" />
                 </li>
               ))}
             </ol>

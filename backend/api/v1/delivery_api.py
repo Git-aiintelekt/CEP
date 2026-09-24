@@ -32,7 +32,7 @@ def webhook_token(provider_id) -> str:
 
 
 def webhook_url(tenant_code: str, provider_id) -> str:
-    return f"{settings.API_PUBLIC_URL.rstrip('/')}/api/v1/webhooks/delivery/{tenant_code}/{provider_id}/{webhook_token(provider_id)}/"
+    return f"{params.public_api_url()}/api/v1/webhooks/delivery/{tenant_code}/{provider_id}/{webhook_token(provider_id)}/"
 
 
 # ------------------------------------------------------------------------------------------------------------ providers

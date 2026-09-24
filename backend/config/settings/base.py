@@ -13,6 +13,9 @@ environ.Env.read_env(REPO_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="change-me-in-.env")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# The back-office (session + CSRF) behind an HTTPS edge that proxies to plain HTTP: Django compares the browser's
+# Origin with what it sees, so the public https origin has to be listed here or every admin form answers 403.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 # ---------------------------------------------------------------- apps
 DOMAIN_APPS = [

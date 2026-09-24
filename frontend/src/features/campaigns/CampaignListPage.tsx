@@ -1,11 +1,11 @@
 /**
- * Campaigns landing (BRD 6.3): what is coming up, then every campaign with search, filters, sorting, pages of 50,
- * row actions by status and bulk clone / archive. Archived campaigns stay out unless the Status filter asks for them.
+ * Campaigns landing (BRD 6.3): what is coming up, then two views of the same filtered campaigns. List view: search,
+ * filters, sorting, pages of 50, row actions by status and bulk clone / archive. Calendar view: the month, a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronsUpDown, MoreVertical, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown, Image, Mail, MessageSquare, MoreVertical, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
@@ -13,15 +13,19 @@ import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { Tabs } from '@/components/Tabs'
+import { tabPanelId } from '@/components/tabIds'
+import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
+import { MenuRow } from '@/components/MenuRow'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignFormOptions, CountedPage } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
+import { CampaignCalendar } from './CampaignCalendar'
 import { CONFIRM, useBulkAction, useCampaignAction, type StatusAction } from './useCampaignAction'
 import { CAMPAIGN_TYPES, campaignHome, channelLabel, hasAction, STATUS_FILTERS, typeLabel } from './vocabulary'
-import { formatInZone } from './zone'
 
 const PAGE_SIZE = 50
 const EMPTY_FILTERS = { status: '', type: '', channel: '', triggered_by: '', tag: '', owner: '', date_from: '', date_to: '' }
@@ -63,7 +67,6 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
     }
   }, [open])
 
-  const item = 'block w-full px-3 py-2 text-left text-sm text-ink-900 hover:bg-surface-subtle'
   const entries: { label: string; run: () => void }[] = [{ label: 'Open', run: () => navigate(campaignHome(campaign, canEdit)) }]
   if (hasAction(campaign, 'results')) entries.push({ label: 'View results', run: () => navigate(`/campaigns/${campaign.id}?tab=performance`) })
   if (canEdit && hasAction(campaign, 'clone')) entries.push({ label: 'Clone', run: () => onAction('clone') })
@@ -76,13 +79,13 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   return (
     <div ref={box} className="relative inline-block">
       <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`Actions for ${campaign.name}`} onClick={() => setOpen((value) => !value)}
-        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 hover:bg-line-subtle">
+        className={iconButtonClass({ pressed: open })}>
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-line bg-surface shadow-menu">
           {entries.map((entry) => (
-            <button key={entry.label} type="button" role="menuitem" className={item} onClick={() => { setOpen(false); entry.run() }}>{entry.label}</button>
+            <MenuRow key={entry.label} role="menuitem" divider={false} title={entry.label} onClick={() => { setOpen(false); entry.run() }} />
           ))}
         </div>
       )}
@@ -90,37 +93,69 @@ function RowMenu({ campaign, canEdit, canPublish, onAction }: { campaign: Campai
   )
 }
 
-function Upcoming() {
+const CHANNEL_ICON: Record<string, LucideIcon> = { EMAIL: Mail, SMS: MessageSquare, MMS: Image }
+const VIEWS = [{ id: 'list' as const, label: 'List view' }, { id: 'calendar' as const, label: 'Calendar view' }]
+
+/** "Aug 20" and "09:00 CDT": a send is announced in the campaign's own time zone, the one it was scheduled in */
+function sendDay(iso: string, zone: string) {
+  const at = new Date(iso)
+  const safe = (options: Intl.DateTimeFormatOptions) => {
+    try {
+      return new Intl.DateTimeFormat(undefined, { ...options, timeZone: zone }).format(at)
+    } catch {
+      return new Intl.DateTimeFormat(undefined, { ...options, timeZone: 'UTC' }).format(at)
+    }
+  }
+  return { day: safe({ month: 'short', day: 'numeric' }), time: safe({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }) }
+}
+
+function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: boolean }) {
   const upcoming = useQuery({
     queryKey: ['campaigns', 'upcoming'],
     queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', { status: 'SCHEDULED', ordering: 'next_run', page_size: 4 }, signal),
   })
-  const rows = upcoming.data?.results ?? []
-  if (rows.length === 0) return null
+  const rows = (upcoming.data?.results ?? []).filter((campaign) => campaign.next_run_at)
   return (
     <section aria-labelledby="upcoming-title" className="mb-6">
       <h2 id="upcoming-title" className="mb-2 font-display text-section-title font-semibold text-ink-900">Upcoming campaigns</h2>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {rows.map((campaign) => (
-          <li key={campaign.id}>
-            <Link to={`/campaigns/${campaign.id}`} className="block rounded-lg border border-line bg-surface px-4 py-3 transition-colors hover:bg-surface-subtle">
-              <p className="truncate text-sm font-semibold text-ink-900">{campaign.name}</p>
-              <p className="cep-num mt-1 font-display text-lg font-semibold text-ink-900">{formatDate(campaign.next_run_at)}</p>
-              <p className="truncate text-xs text-ink-500">
-                {formatInZone(campaign.next_run_at, campaign.send_timezone || 'UTC').split(', ').pop()}
-                {campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} in the lists` : ''}
-              </p>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {upcoming.isError ? (
+        <ErrorState title="The upcoming campaigns could not be loaded" error={upcoming.error} onRetry={() => void upcoming.refetch()} />
+      ) : rows.length === 0 ? (
+        <p className="rounded-lg border border-line bg-surface px-4 py-4 text-sm text-ink-500">
+          {upcoming.isPending ? 'Loading' : `Nothing is scheduled. A campaign appears here once it is published with a send time ahead${canEdit ? ': choose “Schedule for later” or “Recurring” on the Scheduling step.' : '.'}`}
+        </p>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {rows.map((campaign) => {
+            const Icon = CHANNEL_ICON[campaign.channel] ?? Mail
+            const when = sendDay(campaign.next_run_at as string, campaign.send_timezone || workspaceZone)
+            return (
+              <li key={campaign.id} className="min-w-0">
+                <Link to={`/campaigns/${campaign.id}`} className="block rounded-lg border border-line bg-surface p-4 transition-colors duration-fast hover:bg-surface-subtle">
+                  <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-700">
+                    <Icon size={16} strokeWidth={1.5} className="shrink-0" aria-hidden />
+                    <span className="truncate">{campaign.name}</span>
+                  </p>
+                  <p className="cep-num font-display text-3xl font-semibold text-ink-900">{when.day}</p>
+                  <p className="mt-1 truncate text-xs text-ink-500">
+                    {when.time}{campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} recipients` : ''}
+                  </p>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
     </section>
   )
 }
 
 export function CampaignListPage() {
   const navigate = useNavigate()
-  const { can } = useAuth()
+  const { can, me } = useAuth()
+  const [params, setParams] = useSearchParams()
+  const view = params.get('view') === 'calendar' ? 'calendar' : 'list'
+  const workspaceZone = me?.tenant.timezone || 'UTC'
   const canEdit = can('campaign.edit')
   const canPublish = can('campaign.publish')
   const wide = useMinWidth(BREAKPOINT.md)
@@ -139,6 +174,7 @@ export function CampaignListPage() {
     queryKey: ['campaigns', 'list', query],
     queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', query, signal),
     placeholderData: keepPreviousData,
+    enabled: view === 'list',
   })
   const options = useQuery({
     queryKey: ['campaigns', 'form-options'],
@@ -200,10 +236,14 @@ export function CampaignListPage() {
       <PageHeader
         title="Campaigns"
         description="One-time, recurring, drip and e-receipt campaigns. Every send is a run of its campaign, against a Campaign List frozen when the run starts."
-        actions={canEdit && <Link to="/campaigns/new" className={buttonPrimary}><Plus size={16} strokeWidth={1.5} aria-hidden /> Create Campaign</Link>}
+        actions={canEdit && <Link to="/campaigns/new" className={`${buttonPrimary} px-5`}>Create Campaign</Link>}
       />
 
-      <Upcoming />
+      <div className="mb-5 flex border-b border-line">
+        <Tabs label="Campaign views" idPrefix="campaign-views" tabs={VIEWS} value={view} onChange={(next) => setParams(next === 'calendar' ? { view: 'calendar' } : {}, { replace: true })} />
+      </div>
+
+      <Upcoming workspaceZone={workspaceZone} canEdit={canEdit} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search by name or code" aria-label="Search campaigns" className={`${control} w-full sm:w-64`} />
@@ -213,30 +253,35 @@ export function CampaignListPage() {
         {dropdown('Triggered by', 'triggered_by', [{ value: 'manual', label: 'Manual' }, { value: 'journey', label: 'Journey' }])}
         {(options.data?.tags.length ?? 0) > 0 && dropdown('Tag', 'tag', (options.data?.tags ?? []).map((tag) => ({ value: tag, label: tag })))}
         {(options.data?.owners.length ?? 0) > 1 && dropdown('Owner', 'owner', (options.data?.owners ?? []).map((owner) => ({ value: owner.id, label: owner.name })))}
-        <label className="flex items-center gap-2 text-sm text-ink-500">Created from
+        {view === 'list' && <label className="flex items-center gap-2 text-sm text-ink-500">Created from
           <input type="date" value={filters.date_from} max={filters.date_to || undefined} onChange={(event) => change('date_from', event.target.value)} className={control} />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-ink-500">to
+        </label>}
+        {view === 'list' && <label className="flex items-center gap-2 text-sm text-ink-500">to
           <input type="date" value={filters.date_to} min={filters.date_from || undefined} onChange={(event) => change('date_to', event.target.value)} className={control} />
-        </label>
-        {filtered && <button type="button" className="text-sm font-medium text-brand-800 hover:underline" onClick={() => { setSearch(''); setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</button>}
-        {list.isFetching && <Spinner className="h-4 w-4" />}
+        </label>}
+        {filtered && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => { setSearch(''); setFilters(EMPTY_FILTERS); setPage(1) }}>Clear filters</button>}
+        {view === 'list' && list.isFetching && <Spinner className="h-4 w-4" />}
       </div>
 
       {notice && <p role="status" className="mb-3 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
       {act.isError && <div className="mb-3"><ErrorState title="That did not go through" error={act.error} /></div>}
       {bulk.isError && <div className="mb-3"><ErrorState title="The selected campaigns were not changed" error={bulk.error} /></div>}
 
-      {selected.length > 0 && (
+      {view === 'list' && selected.length > 0 && (
         <div role="region" aria-label="Bulk actions" className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-callout-bg px-4 py-2 text-sm text-callout-text">
           <span className="font-medium">{selected.length} selected</span>
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => bulk.mutate({ action: 'clone', ids: selected })}>Clone</button>
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => setBulkArchive(true)}>Archive</button>
-          <button type="button" className="font-medium underline underline-offset-2" onClick={() => setSelected([])}>Clear selection</button>
+          <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setSelected([])}>Clear selection</button>
         </div>
       )}
 
-      {list.isError ? (
+      {view === 'calendar' ? (
+        <div role="tabpanel" id={tabPanelId('campaign-views', 'calendar')} aria-label="Calendar view">
+          <CampaignCalendar zone={workspaceZone} canEdit={canEdit}
+            filters={Object.fromEntries(Object.entries({ search: search.trim(), status: filters.status, type: filters.type, channel: filters.channel, triggered_by: filters.triggered_by, tag: filters.tag, owner: filters.owner }).filter(([, value]) => value))} />
+        </div>
+      ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
       ) : list.isPending ? (
         <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-10 text-sm text-ink-500"><Spinner /> Loading campaigns</div>
@@ -313,20 +358,20 @@ export function CampaignListPage() {
                   <StatusBadge status={row.display_status} label={row.display_status_label} /><Tag>{channelLabel(row.channel)}</Tag>
                   <span>{typeLabel(row.campaign_type)}</span><span>{scheduledText(row)}</span>
                 </p>
-                <button type="button" className="mt-3 text-sm font-medium text-brand-800 hover:underline" onClick={() => navigate(main.to)}>{main.label}</button>
+                <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} mt-3`} onClick={() => navigate(main.to)}>{main.label}</button>
               </li>
             )
           })}
         </ul>
       )}
 
-      {total > 0 && (
+      {view === 'list' && total > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-500">
           <p aria-live="polite">{formatNumber((page - 1) * PAGE_SIZE + 1)} to {formatNumber(Math.min(page * PAGE_SIZE, total))} of {formatNumber(total)}</p>
           {total > PAGE_SIZE && (
             <div className="flex gap-2">
-              <button type="button" className={`${buttonSecondary} h-8`} disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
-              <button type="button" className={`${buttonSecondary} h-8`} disabled={page * PAGE_SIZE >= total} onClick={() => setPage(page + 1)}>Next</button>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
+              <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={page * PAGE_SIZE >= total} onClick={() => setPage(page + 1)}>Next</button>
             </div>
           )}
         </div>

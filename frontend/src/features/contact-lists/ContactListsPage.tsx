@@ -11,6 +11,8 @@ import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { iconButtonClass } from '@/components/buttonStyles'
+import { MenuRow } from '@/components/MenuRow'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
 import type { ContactList, ListStats } from '@/lib/types'
@@ -47,7 +49,6 @@ function RowMenu({ list, onAction }: { list: ContactList; onAction: (action: 'op
       document.removeEventListener('keydown', close)
     }
   }, [open])
-  const item = 'block w-full px-3 py-2 text-left text-sm text-ink-900 hover:bg-surface-subtle'
   const pick = (action: Parameters<typeof onAction>[0]) => () => {
     setOpen(false)
     onAction(action)
@@ -55,15 +56,15 @@ function RowMenu({ list, onAction }: { list: ContactList; onAction: (action: 'op
   return (
     <div ref={box} className="relative inline-block" onClick={(event) => event.stopPropagation()}>
       <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`Actions for ${list.name}`} onClick={() => setOpen((value) => !value)}
-        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 hover:bg-line-subtle">
+        className={iconButtonClass({ pressed: open })}>
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
         <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-line bg-surface shadow-menu">
-          <button type="button" role="menuitem" className={item} onClick={pick('open')}>Open</button>
-          <button type="button" role="menuitem" className={item} onClick={pick('clone')}>Clone</button>
-          <button type="button" role="menuitem" className={item} onClick={pick(list.status === 'ARCHIVED' ? 'restore' : 'archive')}>{list.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</button>
-          <button type="button" role="menuitem" className={`${item} text-danger-text`} onClick={pick('delete')}>Delete</button>
+          <MenuRow role="menuitem" divider={false} title="Open" onClick={pick('open')} />
+          <MenuRow role="menuitem" divider={false} title="Clone" onClick={pick('clone')} />
+          <MenuRow role="menuitem" divider={false} title={list.status === 'ARCHIVED' ? 'Restore' : 'Archive'} onClick={pick(list.status === 'ARCHIVED' ? 'restore' : 'archive')} />
+          <MenuRow role="menuitem" divider={false} tone="error" title="Delete" onClick={pick('delete')} />
         </div>
       )}
     </div>

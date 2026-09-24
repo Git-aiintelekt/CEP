@@ -6,6 +6,7 @@ import { buttonPrimary, buttonSecondary, Field, TextArea, TextInput } from '@/co
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, fromLocalInput } from '@/lib/format'
 import type { ApiKey, ApiKeyCreated } from '@/lib/types'
@@ -108,7 +109,7 @@ export function ApiKeysPage() {
     { key: 'used', header: 'Last used', render: (key) => formatDateTime(key.last_used_at).replace('—', 'Never') },
     { key: 'expires', header: 'Expires', render: (key) => formatDateTime(key.expires_at).replace('—', 'Never') },
     { key: 'actions', header: '', align: 'right', render: (key) => key.status !== 'REVOKED' && (
-      <button type="button" className="text-sm font-medium text-danger-text hover:underline" disabled={revoke.isPending}
+      <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} disabled={revoke.isPending}
         onClick={() => window.confirm(`Revoke "${key.name}"? Systems using it stop working immediately. This cannot be undone.`) && revoke.mutate(key)}>Revoke</button>) },
   ]
 

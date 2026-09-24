@@ -7,16 +7,17 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Sum
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from PIL import Image, UnidentifiedImageError
-from rest_framework import mixins
+from rest_framework import mixins, serializers
 from rest_framework.parsers import MultiPartParser
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from rest_framework.exceptions import ValidationError
 
@@ -28,6 +29,7 @@ from apps.platform_ops import billing, params
 from apps.templates import design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
+from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
 from apps.contact_lists.models import ContactList
 from apps.journeys.models import Journey
 from apps.templates.models import PersonalizationTag, TemplateMaster
@@ -248,6 +250,35 @@ class TemplateViewSet(BaseTenantViewSet):
                          "saved_by": state.created_by.display_name if state and state.created_by else None})
         return Response(s.DesignVersionSerializer(rows, many=True).data)
 
+    @extend_schema(methods=["GET"], responses=s.ReceiptLayoutSerializer,
+                   parameters=[OpenApiParameter("version", int, description="a stored version; default latest")])
+    @extend_schema(methods=["POST"], request=s.ReceiptLayoutSaveSerializer, responses={201: s.ReceiptLayoutSerializer})
+    @action(detail=True, methods=["get", "post"])
+    def receipt(self, request, pk=None, version=None):
+        """GET the receipt layout the editor loads (latest, or ?version=n); POST saves a new version. The outer
+        shell (subject, MJML wrapper) is `design`, above -- this is only the line-item layout."""
+        template = self.get_object()
+        if request.method == "GET":
+            wanted = request.query_params.get("version")
+            if wanted is not None and not wanted.isdigit():
+                raise ValidationError({"version": "Expected a version number."})
+            return Response(design.receipt_payload(template, int(wanted) if wanted else None))
+        body = s.ReceiptLayoutSaveSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        user = request.user
+        saved = design.save_receipt(template, None if hasattr(user, "has_scope") else user.id, **body.validated_data)
+        return Response(saved, status=201)
+
+    @extend_schema(responses=s.DesignVersionSerializer(many=True))
+    @action(detail=True, methods=["get"], url_path="receipt/versions", pagination_class=None)
+    def receipt_versions(self, request, pk=None, version=None):
+        template = self.get_object()
+        states = (TemplateDesignState.objects.filter(template=template, editor_state__kind="receipt").select_related("created_by")
+                  .order_by("-version_number")[:100])
+        rows = [{"version_number": state.version_number, "saved_at": state.created_at,
+                 "saved_by": state.created_by.display_name if state.created_by else None} for state in states]
+        return Response(s.DesignVersionSerializer(rows, many=True).data)
+
     @extend_schema(methods=["GET"], responses=s.MessageSerializer,
                    parameters=[OpenApiParameter("version", int, description="a stored version; default latest")])
     @extend_schema(methods=["POST"], request=s.MessageSaveSerializer, responses={201: s.MessageSerializer})
@@ -378,6 +409,35 @@ class JourneyViewSet(BaseTenantViewSet):
     search_fields = ["name", "code"]
 
 
+class DashboardSummaryView(APIView):
+    """Real totals for the overview page's stat cards. The list endpoints are cursor-paginated (a page is 50 rows,
+    on purpose — see api.pagination.DefaultCursorPagination), so counting rows returned by a list call only counts
+    that page; these are separate, cheap COUNT/SUM queries on tenant-scoped, unpartitioned tables."""
+    permission_classes = [IsAuthenticated, SameTenant]
+
+    @extend_schema(responses=inline_serializer("DashboardSummary", {
+        "campaigns_total": serializers.IntegerField(), "campaigns_live": serializers.IntegerField(),
+        "contact_lists_total": serializers.IntegerField(), "audience_total": serializers.IntegerField(),
+        "templates_total": serializers.IntegerField(),
+        "journeys_total": serializers.IntegerField(), "journeys_active": serializers.IntegerField(),
+    }))
+    def get(self, request, version=None):
+        tenant_id = context.require().tenant_id
+        campaigns = Campaign.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        lists = ContactList.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True).exclude(status=ContactList.Status.DRAFT)
+        templates = TemplateMaster.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        journeys = Journey.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True)
+        return Response({
+            "campaigns_total": campaigns.count(),
+            "campaigns_live": campaigns.filter(status__in=LIVE_CAMPAIGN_STATUSES).count(),
+            "contact_lists_total": lists.count(),
+            "audience_total": lists.aggregate(total=Sum("member_count"))["total"] or 0,
+            "templates_total": templates.count(),
+            "journeys_total": journeys.count(),
+            "journeys_active": journeys.filter(status=Journey.Status.ACTIVE).count(),
+        })
+
+
 class MeViewSet(viewsets.ViewSet):
     """GET /api/v1/me — the current principal, its tenant and effective permissions (what the React shell boots from)."""
     permission_classes = [IsAuthenticated]
@@ -402,4 +462,6 @@ class MeViewSet(viewsets.ViewSet):
                          "terminology": workspace["terminology"],
                          "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
                          "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
-                                             "reason": session.reason} if session else None})
+                                             "reason": session.reason} if session else None,
+                         "session": {"idle_timeout_minutes": int(params.get("security.idle_timeout_minutes", 120)),
+                                     "idle_warning_seconds": int(params.get("security.idle_warning_seconds", 60))}})

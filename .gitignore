@@ -7,6 +7,8 @@ backend/staticfiles/
 backend/schema.yml
 frontend/node_modules/
 frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
 .pytest_cache/
 .idea/
 .vscode/
