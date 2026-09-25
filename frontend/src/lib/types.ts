@@ -1125,6 +1125,23 @@ export interface IntegrationLogDetail extends IntegrationLogRow {
   worker: string | null
 }
 
+/** GET /integrations/{id}/metrics/: one bucket per step where there were calls */
+export interface IntegrationMetricBucket {
+  bucket: string
+  calls: number
+  ok: number
+  rejected: number
+  failed: number
+  throttled: number
+  p95_ms: number | null
+}
+
+export interface IntegrationMetrics {
+  hours: number
+  step_minutes: number
+  buckets: IntegrationMetricBucket[]
+}
+
 export interface IntegrationLogPage {
   results: IntegrationLogRow[]
   more: boolean
