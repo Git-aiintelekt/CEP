@@ -15,7 +15,7 @@ const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3 rounded-control-md', md
 
 const ENABLED: Record<ButtonVariant, string> = {
   primary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
-  secondary: 'border border-line bg-surface text-ink-900 hover:bg-surface-subtle active:bg-line-subtle',
+  secondary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',                        // the same blue as primary, by decision (2026-09-25)
   ghost: 'text-ink-700 hover:bg-line-subtle hover:text-ink-900 active:bg-line',
   link: 'text-brand-800 hover:bg-line-subtle active:bg-line',
   danger: 'border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg',
@@ -34,7 +34,7 @@ const DISABLED: Record<ButtonVariant, string> = {
 
 const NATIVE_DISABLED: Record<ButtonVariant, string> = {
   primary: 'disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300',
-  secondary: 'disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300',
+  secondary: 'disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300',
   danger: 'disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300',
   ghost: 'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300',
   link: 'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300',
@@ -62,9 +62,9 @@ const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; 
     disabled: 'cursor-not-allowed text-ink-300',
   },
   outline: {
-    enabled: 'border border-line bg-surface text-ink-700 hover:bg-surface-subtle hover:text-ink-900 active:bg-line-subtle',
-    pressed: 'border border-brand-600 bg-brand-100 text-brand-800',
-    disabled: 'cursor-not-allowed border border-line bg-line-subtle text-ink-300',
+    enabled: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
+    pressed: 'bg-brand-800 text-white',
+    disabled: 'cursor-not-allowed bg-line-subtle text-ink-300',
   },
   onBrand: {
     enabled: 'text-white hover:bg-brand-800 active:bg-brand-800',

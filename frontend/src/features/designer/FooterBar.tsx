@@ -9,8 +9,8 @@ import type { summarise } from './issues'
 type Summary = ReturnType<typeof summarise>
 
 const BUTTON = 'inline-flex h-9 shrink-0 items-center gap-2 rounded-sm text-[13px] font-semibold whitespace-nowrap transition-colors duration-base ease-standard'
-const SECONDARY = `${BUTTON} border border-line bg-surface px-[14px] text-ink-900 hover:bg-surface-subtle`
-const SECONDARY_BUSY = `${BUTTON} cursor-not-allowed border border-line bg-surface px-[14px] text-ink-300`
+const SECONDARY = `${BUTTON} bg-brand-600 px-[14px] text-white hover:bg-brand-800`
+const SECONDARY_BUSY = `${BUTTON} cursor-not-allowed bg-line-subtle px-[14px] text-ink-300`
 const PRIMARY = `${BUTTON} bg-brand-600 px-4 text-white hover:bg-brand-800`
 const PRIMARY_DISABLED = `${BUTTON} cursor-not-allowed bg-line px-4 text-ink-300`
 

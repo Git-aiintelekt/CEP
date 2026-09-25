@@ -110,7 +110,7 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
 export const authButtonPrimary =
   'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-line-subtle disabled:text-ink-300'
 export const authButtonSecondary =
-  'flex h-10 w-full items-center justify-center rounded-control-lg border border-line bg-surface text-sm font-semibold text-ink-900 transition-colors hover:bg-surface-subtle disabled:bg-line-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-line-subtle disabled:text-ink-300'
 
 const CONTROL =
   'h-10 w-full rounded-control-lg border bg-surface-sunken px-3 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600'

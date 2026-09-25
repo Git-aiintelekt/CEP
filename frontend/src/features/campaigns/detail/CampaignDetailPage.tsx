@@ -53,13 +53,13 @@ const LIVE_RUN = ['SCHEDULED', 'PREPARING', 'SENDING']
 function MainButton({ main, disabled, onAction }: { main: CampaignMainAction; disabled: boolean; onAction: (action: StatusAction) => void }) {
   const Icon = main.icon
   const content = main.iconAfter ? <>{main.label}<Icon size={16} strokeWidth={1.5} aria-hidden /></> : <><Icon size={16} strokeWidth={1.5} aria-hidden />{main.label}</>
-  const button = main.action ? <button type="button" className={buttonPrimary} disabled={disabled} onClick={() => onAction(main.action!)}>{content}</button>
+  const button = main.action ? <button type="button" data-main-action className={buttonPrimary} disabled={disabled} onClick={() => onAction(main.action!)}>{content}</button>
     : main.external ? (
-      <a href={main.to} target="_blank" rel="noreferrer" className={buttonPrimary} aria-label={`${main.label} (opens in a new tab)`}>
+      <a href={main.to} target="_blank" rel="noreferrer" data-main-action className={buttonPrimary} aria-label={`${main.label} (opens in a new tab)`}>
         {content}<ExternalLink size={16} strokeWidth={1.5} aria-hidden />
       </a>
     )
-    : <Link to={main.to!} className={buttonPrimary}>{content}</Link>
+    : <Link to={main.to!} data-main-action className={buttonPrimary}>{content}</Link>
   if (!main.hint) return button
   return (
     <div className="flex flex-col items-start gap-1 sm:items-end">

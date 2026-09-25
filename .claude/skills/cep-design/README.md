@@ -180,6 +180,7 @@ Prebuilt transitions: `--transition-control` (background-color, border-color, co
 
 State rules apply to every interactive control:
 
+- **Secondary buttons are the same solid Blue 600 as primary** (decision of 2026-09-25: "Make Add Contact List and Save and Close blue too. All secondary buttons also"); so are outline icon buttons and the designer's Save Draft. Primary and secondary differ only by position (the primary action comes last). Danger, ghost and link buttons keep their own looks.
 - **Hover** — `Blue 600` fills darken toward `Blue 800`; neutral surfaces go to `Gray 75`; ghost controls pick up `Blue 100`; icon buttons `Gray 100`.
 - **Press** — one step darker again. **Colour change only — never a scale or shrink transform.**
 - **Focus** — `Blue 600` border plus a 3px `rgba(56,99,219,0.24)` ring (`--focus-ring`). The ring is never removed, on any control. Base CSS also sets a `2px` `:focus-visible` outline at `1px` offset.

@@ -70,7 +70,7 @@ test.each(CASES)('$name', async ({ campaign, viewOnly, main, clone, menu, banner
   await renderAppAt('/campaigns/c1')
   const header = (await screen.findByRole('heading', { level: 1, name: made.name })).closest('header')!
 
-  const primary = [...header.querySelectorAll('a, button')].filter((element) => element.className.includes('bg-brand-600')).map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim())
+  const primary = [...header.querySelectorAll('[data-main-action]')].map((element) => element.getAttribute('aria-label') ?? element.textContent?.trim())   // every button is blue; the main action is marked
   expect(primary).toEqual(main ? [main] : [])
   expect(Boolean(within(header).queryByRole('button', { name: 'Clone' }))).toBe(clone)
   await user.click(within(header).getByRole('button', { name: 'More Actions' }))

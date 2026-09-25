@@ -55,18 +55,19 @@ test('it shows the note and, as designed, no back link of its own', () => {
   expect(note.className).toContain('text-danger-text')
 })
 
-test('Save Draft is the secondary button, as the design has it, whether or not Activate is there', () => {
+test('Save Draft is blue like every button (secondary buttons share the action blue, by decision), whether or not Activate is there', () => {
   renderFooter({ save: { onClick: () => {} } })
   const only = screen.getByRole('button', { name: /Save Draft/ })
-  expect(only.className).not.toContain('bg-brand-600')
-  expect(only.className).toContain('border-line')
+  expect(only.className).toContain('bg-brand-600')
+  expect(only.className).not.toContain('border-line')
 })
 
 test('Save Draft stays secondary once a primary action exists', () => {
   renderFooter({ save: { onClick: () => {} }, primary: { label: 'Activate', onClick: () => {} } })
 
-  expect(screen.getByRole('button', { name: /Save Draft/ }).className).not.toContain('bg-brand-600')
+  expect(screen.getByRole('button', { name: /Save Draft/ }).className).toContain('bg-brand-600')
   expect(screen.getByRole('button', { name: 'Activate' }).className).toContain('bg-brand-600')
+  expect(screen.getAllByRole('button').map((button) => button.textContent?.trim()).slice(-2)).toEqual(['Save Draft', 'Activate'])   // the primary action stays last
 })
 
 test('read-only shows neither button', () => {
