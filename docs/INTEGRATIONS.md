@@ -33,6 +33,10 @@ middleware mints one otherwise and every answer carries it.
 | `integration_log` | One per call in either direction. `direction`, `system`, `correlation_id`, `related_ref` (`receipt:<number>`, `mailer_execution:<id>`, `sms_execution:<id>`, `provider:<id>`), method, URL, request headers/body/bytes, response status/headers/body/bytes, `outcome`, `error_class`, `error_message`, `attempt`, `duration_ms`, `api_client_id`, `worker`. Partitioned by tenant (LIST) and month (the retention policy drops partitions older than 3 months). |
 | `integration_metric` | Per integration per minute, rolled up from the log. What the status cards and charts read; the log is never scanned for a chart. |
 
+One engine can hold two credentials (Postal: the API keys of a bulk and a transactional mail server); a message's `traffic`
+(BULK for marketing campaigns, TRANSACTIONAL for receipts and non-marketing campaigns) picks the key and the throttle lane.
+See `docs/DELIVERY_PROVIDERS.md` section 5.
+
 Outcomes: `OK`, `REJECTED` (4xx, the message's own fault), `RETRY` (5xx / timeout, retried), `ERROR`, `THROTTLED`,
 `BREAKER` (refused because the circuit is open), `PAUSED`.
 
@@ -45,7 +49,7 @@ whether one worker or ten are sending: a per-minute counter and a per-second bur
 |---|---|---|
 | `apikey:<client>` | `api_client.rate_limit_per_minute` (Settings → API keys) | 429, `Retry-After`, `X-RateLimit-Limit/Remaining/Reset` |
 | `inbound:<tenant>:<kind>` | the integration's `throttle_per_minute`, else `integrations.inbound_per_minute[plan]` (Starter 60, Growth 600, Enterprise unlimited) | same |
-| `provider:<engine id>` | the integration's `throttle_per_minute`, else the engine's `rate_limit_per_minute` | the worker waits up to 5 s for room, then hands the message back as retryable with a `THROTTLED` row |
+| `provider:<engine id>` (`:transactional` appended for receipts and other transactional mail when the engine holds a second credential, patch 0020) | the integration's `throttle_per_minute`, else the engine's `rate_limit_per_minute` | the worker waits up to 5 s for room, then hands the message back as retryable with a `THROTTLED` row |
 
 A second may carry the even pace or 10 calls, whichever is more, within the minute's limit; `throttle_burst` adds to
 that. Every answer of a throttled endpoint carries the `X-RateLimit-*` headers, so an integrator can pace itself.
@@ -82,6 +86,8 @@ Endpoints: `GET /api/v1/integrations/`, `GET /api/v1/integrations/log/?integrati
 Global parameters (Configuration → Global parameters): `integrations.inbound_per_minute`, `integrations.log_body_max_bytes`,
 `integrations.log_retention_days`, `integrations.metric_retention_months`.
 
+The POS sends one receipt per call to `POST /api/v1/receipts/send/`; there is no batch endpoint, by decision.
+
 ## 7. Adding an engine to the bridge
 
 An adapter that extends `EmailProvider` / `SmsProvider` and makes its HTTP calls through `self.new_session()` (a
@@ -95,9 +101,6 @@ from the caller so a row can be traced back to its message.
   every request with HMAC-SHA256 over a canonical string that the documentation shows only for query-string requests;
   the canonical form for a JSON body has to be confirmed with Digivize before the adapter can be finished. The adapter
   skeleton is in `providers/digivize.py`, unregistered.
-- A batch receipt endpoint (the POS sends one receipt per call).
-- Separate Postal API keys for bulk and transactional traffic per tenant: today a tenant registers two Postal engines
-  (one per key) and picks the transactional one on the receipt campaign; a first-class split is a later change.
 - Charts on the tenant page: the metrics endpoint exists; the page shows the day's figures and the log.
 - On a tenant with a dedicated database, an inbound row for a 5xx answer is rolled back with the request (the pool's
   tenants write theirs through the platform connection); the server log keeps the essentials.

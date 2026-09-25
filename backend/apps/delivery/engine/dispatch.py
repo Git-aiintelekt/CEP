@@ -12,7 +12,7 @@ from apps.campaigns.models import CampaignRun
 from apps.customers.models import CustomerMaster
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
-from ..providers import EmailMessage, Outcome, ProviderError, registry
+from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, registry
 from . import session, unsubscribe
 from .render import Renderer
 
@@ -112,7 +112,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                                        from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                                        subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=idempotency_key,
                                        tag=campaign.code or "", headers=unsubscribe.headers_for(token) if marketing else {},
-                                       metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)})
+                                       metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)}, traffic=TRAFFIC_BULK if marketing else TRAFFIC_TRANSACTIONAL)
                 result = provider.send_guarded(message, related_ref=f"mailer_execution:{execution_id}")
             except ProviderError as exc:                    # nothing more will go out: put this one back and stop
                 _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])

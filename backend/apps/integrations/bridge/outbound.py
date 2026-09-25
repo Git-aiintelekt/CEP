@@ -91,8 +91,11 @@ class Guard:
     def system(self) -> str:
         return self.adapter.provider_type or "PROVIDER"
 
-    def scope(self) -> str:
-        return f"provider:{self.adapter.provider_id or self.system}"
+    def scope(self, message=None) -> str:
+        """The throttle lane: an engine with a second credential gives transactional traffic its own, so receipts never wait behind a campaign."""
+        base = f"provider:{self.adapter.provider_id or self.system}"
+        carries = getattr(self.adapter, "carries_transactional", None)
+        return f"{base}:transactional" if message is not None and carries and carries(message) else base
 
     def rate(self) -> tuple[int | None, int | None]:
         """The engine's rate: the integration record's figure when set, else the provider row's own rate_limit_per_minute."""
@@ -159,7 +162,7 @@ def guarded_send(adapter, message, related_ref: str | None = None):
     integration = guard.integration
     synthetic_url = f"{guard.system.lower()}://{adapter.provider_id or 'engine'}"
     summary = {"to": getattr(message, "to_email", None) or getattr(message, "to_number", None), "subject": getattr(message, "subject", None),
-               "idempotency_key": getattr(message, "idempotency_key", None), "tag": getattr(message, "tag", None)}
+               "idempotency_key": getattr(message, "idempotency_key", None), "tag": getattr(message, "tag", None), "traffic": getattr(message, "traffic", None)}
 
     if integration and integration.get("status") == "PAUSED":
         guard.log(method="SEND", url=synthetic_url, request_body=summary, outcome="PAUSED", error_message="The integration is paused")
@@ -170,7 +173,7 @@ def guarded_send(adapter, message, related_ref: str | None = None):
         raise ProviderError(f"{guard.system}: the circuit is open after repeated failures; retried in {int(until - time.time())}s.", retryable=True)
     per_minute, burst = guard.rate()
     try:
-        throttle.wait(guard.scope(), per_minute, burst)
+        throttle.wait(guard.scope(message), per_minute, burst)
     except throttle.Throttled as exc:
         guard.log(method="SEND", url=synthetic_url, request_body=summary, outcome="THROTTLED", error_message=str(exc))
         raise ProviderError(f"{guard.system}: {exc}", retryable=True) from None

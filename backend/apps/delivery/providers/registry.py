@@ -28,7 +28,8 @@ def catalogue() -> list[dict]:
     _load()
     return [{"provider_type": cls.provider_type, "label": cls.label, "description": cls.description, "supports_webhooks": cls.supports_webhooks,
              "manageable": cls.manageable, "channel": cls.channel, "supports_mms": bool(getattr(cls, "supports_mms", False)),
-             "fields": [{"key": f.key, "label": f.label, "required": f.required, "secret": f.secret, "help": f.help, "placeholder": f.placeholder, "kind": f.kind}
+             "fields": [{"key": f.key, "label": f.label, "required": f.required, "secret": f.secret, "help": f.help, "placeholder": f.placeholder, "kind": f.kind,
+                         "credential": f.credential if f.secret else None}
                         for f in cls.config_fields]}
             for cls in sorted(_ADAPTERS.values(), key=lambda c: c.label)]
 
@@ -50,12 +51,21 @@ def resolve_secret(provider) -> str | None:
     return None
 
 
+def resolve_transactional_secret(provider) -> str | None:
+    """The second credential is only ever entered in the product (encrypted); no env: form for it."""
+    if getattr(provider, "transactional_secret_enc", None):
+        from apps.platform_ops import crypto
+        return crypto.decrypt(provider.transactional_secret_enc)
+    return None
+
+
 def for_provider(provider) -> EmailProvider:
-    """The adapter for one delivery_provider row, configured and holding its credential."""
+    """The adapter for one delivery_provider row, configured and holding its credential(s)."""
     cls = adapter_class(provider.provider_type)
     if not provider.is_active or provider.deleted_at is not None:
         raise ProviderError(f"The delivery provider {provider.name} is switched off.", retryable=False)
-    adapter = cls(config=provider.config or {}, secret=resolve_secret(provider), provider_id=str(provider.pk), tenant_id=str(provider.tenant_id))
+    adapter = cls(config=provider.config or {}, secret=resolve_secret(provider), provider_id=str(provider.pk), tenant_id=str(provider.tenant_id),
+                  transactional_secret=resolve_transactional_secret(provider) if cls.supports_transactional_credential() else None)
     adapter.provider_name = provider.name
     adapter.rate_limit_per_minute = provider.rate_limit_per_minute
     return adapter

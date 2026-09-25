@@ -27,14 +27,17 @@ class PostalProvider(EmailProvider):
     supports_webhooks = True
     config_fields = (
         ConfigField("endpoint", "Postal address", kind="url", placeholder="https://postal.example.com", help="Base address of your Postal installation."),
-        ConfigField("api_key", "Server API key", secret=True, help="Postal -> your mail server -> Credentials -> type API."),
+        ConfigField("api_key", "Server API key", secret=True, help="Postal -> your mail server -> Credentials -> type API. Carries campaigns (and everything else until a transactional key is set)."),
+        ConfigField("transactional_api_key", "Transactional server API key", required=False, secret=True, credential="transactional_secret",
+                    help="Optional. The API key of a second Postal mail server for receipts and other transactional email: they never queue behind a campaign "
+                         "and each server keeps its own sending reputation. Both servers use the same callback address."),
         ConfigField("webhook_public_key", "Webhook public key", required=False, kind="textarea",
                     help="Optional. PEM public key of the Postal installation (postal default-dkim-record): webhook signatures are then verified."),
     )
 
     def open(self) -> None:
         self._session = self.new_session()
-        self._session.headers.update({"X-Server-API-Key": self.secret or "", "Content-Type": "application/json"})
+        self._session.headers.update({"Content-Type": "application/json"})
 
     def close(self) -> None:
         session = getattr(self, "_session", None)
@@ -42,17 +45,18 @@ class PostalProvider(EmailProvider):
             session.close()
             self._session = None
 
-    def _post(self, path: str, body: dict):
+    def _post(self, path: str, body: dict, key: str | None = None):
         if getattr(self, "_session", None) is None:
             self.open()
-        return self._session.post(str(self.config.get("endpoint", "")).rstrip("/") + path, json=body, timeout=20)
+        return self._session.post(str(self.config.get("endpoint", "")).rstrip("/") + path, json=body, timeout=20,
+                                  headers={"X-Server-API-Key": key if key is not None else self.secret or ""})
 
     def send(self, message: EmailMessage) -> SendResult:
         body = {"to": [message.to_email], "from": message.sender, "subject": message.subject, "html_body": message.html, "plain_body": message.text,
                 "tag": message.tag or None, "reply_to": message.reply_to, "headers": {**message.headers, "X-CEP-Id": message.idempotency_key},
                 "attachments": [{"name": a.name, "content_type": a.content_type, "data": base64.b64encode(a.data).decode()} for a in message.attachments] or None}
         try:
-            response = self._post("/api/v1/send/message", {k: v for k, v in body.items() if v not in (None, "")})
+            response = self._post("/api/v1/send/message", {k: v for k, v in body.items() if v not in (None, "")}, key=self.secret_for(message))
         except requests.RequestException as exc:
             return SendResult.retry(f"{exc.__class__.__name__}: {exc}")
         if response.status_code == 429 or response.status_code >= 500:
@@ -70,17 +74,24 @@ class PostalProvider(EmailProvider):
         return SendResult.rejected(f"{code}: {text}".strip(": "))
 
     def check(self) -> tuple[bool, str]:
-        """An empty send is answered with a parameter error when the key is good, and with InvalidServerAPIKey when it is not."""
+        """An empty send is answered with a parameter error when the key is good, and with InvalidServerAPIKey when it is not.
+        Both keys are tried when two are set."""
+        keys = [("server API key", self.secret)] + ([("transactional server API key", self.transactional_secret)] if self.transactional_secret else [])
+        problems = []
         try:
-            answer = self._post("/api/v1/send/message", {}).json()
-        except (requests.RequestException, ValueError) as exc:
-            return False, f"Cannot reach Postal: {exc.__class__.__name__}: {exc}"
+            for label, key in keys:
+                try:
+                    answer = self._post("/api/v1/send/message", {}, key=key or "").json()
+                except (requests.RequestException, ValueError) as exc:
+                    return False, f"Cannot reach Postal: {exc.__class__.__name__}: {exc}"
+                code = str((answer.get("data") or {}).get("code") or "")
+                if code in FATAL_CODES:
+                    problems.append(f"Postal refused the {label} ({code}).")
         finally:
             self.close()
-        code = str((answer.get("data") or {}).get("code") or "")
-        if code in FATAL_CODES:
-            return False, f"Postal refused the API key ({code})."
-        return True, ""
+        if problems:
+            return False, " ".join(problems)
+        return True, "Both keys work." if len(keys) == 2 else ""
 
     # ---- webhooks
     def verify_webhook(self, headers: dict[str, str], body: bytes) -> bool:

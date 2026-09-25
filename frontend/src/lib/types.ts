@@ -155,7 +155,8 @@ export interface ProviderType {
   /** EMAIL, or SMS for text engines (they carry MMS too when supports_mms) */
   channel?: 'EMAIL' | 'SMS'
   supports_mms?: boolean
-  fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea' }[]
+  /** a secret field's `credential` says which of the engine's credentials it is: the main one, or the second one for transactional traffic */
+  fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea'; credential?: 'secret' | 'transactional_secret' | null }[]
 }
 
 export interface DeliveryProvider {
@@ -166,6 +167,8 @@ export interface DeliveryProvider {
   config: Record<string, string>
   /** the credential itself is write-only */
   has_secret: boolean
+  /** a second credential for receipts and other transactional email is stored (engines that offer one) */
+  has_transactional_secret?: boolean
   secret_ref: string | null
   rate_limit_per_minute: number | null
   is_default: boolean

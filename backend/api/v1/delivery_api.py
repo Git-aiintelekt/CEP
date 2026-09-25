@@ -41,17 +41,25 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
     channel = serializers.CharField(read_only=True)
     secret = serializers.CharField(write_only=True, required=False, allow_blank=True, help_text="API key; leave blank to keep the stored one")
     has_secret = serializers.SerializerMethodField()
+    transactional_secret = serializers.CharField(write_only=True, required=False, allow_blank=True,
+                                                 help_text="Second credential for transactional traffic (engines that offer one); leave blank to keep the stored one")
+    drop_transactional_secret = serializers.BooleanField(write_only=True, required=False, help_text="Remove the stored transactional credential")
+    has_transactional_secret = serializers.SerializerMethodField()
     webhook_url = serializers.SerializerMethodField()
     sender_count = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryProvider
-        fields = ("id", "provider_type", "channel", "name", "config", "secret", "has_secret", "secret_ref", "rate_limit_per_minute", "is_default", "is_active",
-                  "webhook_url", "sender_count", "last_checked_at", "last_check_ok", "last_check_error", "row_version")
+        fields = ("id", "provider_type", "channel", "name", "config", "secret", "has_secret", "secret_ref", "transactional_secret", "drop_transactional_secret",
+                  "has_transactional_secret", "rate_limit_per_minute", "is_default", "is_active", "webhook_url", "sender_count", "last_checked_at", "last_check_ok",
+                  "last_check_error", "row_version")
         read_only_fields = ("channel", "last_checked_at", "last_check_ok", "last_check_error", "row_version")
 
     def get_has_secret(self, provider) -> bool:
         return bool(provider.secret_enc or provider.secret_ref)
+
+    def get_has_transactional_secret(self, provider) -> bool:
+        return bool(provider.transactional_secret_enc)
 
     def get_webhook_url(self, provider) -> str | None:
         cls = registry.adapter_class(provider.provider_type) if provider.provider_type in {c["provider_type"] for c in registry.catalogue()} else None
@@ -80,10 +88,13 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
         config = {**(getattr(self.instance, "config", None) or {}), **(attrs.get("config") or {})}
         config = {k: (v.strip() if isinstance(v, str) else v) for k, v in config.items() if k in {f.key for f in cls.config_fields if not f.secret}}
         has_secret = bool(attrs.get("secret") or attrs.get("secret_ref") or getattr(self.instance, "secret_enc", None) or getattr(self.instance, "secret_ref", None))
-        errors = cls.validate_config(config, has_secret)
+        if attrs.get("transactional_secret") and not cls.supports_transactional_credential():
+            raise serializers.ValidationError({"transactional_secret": f"{cls.label} has one credential; it does not take a second one for transactional traffic."})
+        has_transactional = bool(attrs.get("transactional_secret")) or (bool(getattr(self.instance, "transactional_secret_enc", None)) and not attrs.get("drop_transactional_secret"))
+        errors = cls.validate_config(config, has_secret, has_transactional)
         if errors:
-            secret_keys = {f.key for f in cls.config_fields if f.secret}
-            raise serializers.ValidationError({("secret" if key in secret_keys else f"config.{key}"): message for key, message in errors.items()})
+            credential_of = {f.key: f.credential for f in cls.config_fields if f.secret}
+            raise serializers.ValidationError({(credential_of[key] if key in credential_of else f"config.{key}"): message for key, message in errors.items()})
         attrs["config"] = config
         return attrs
 
@@ -112,6 +123,11 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
         secret = serializer.validated_data.pop("secret", "")
         if secret:
             extra["secret_enc"] = crypto.encrypt(secret)
+        transactional = serializer.validated_data.pop("transactional_secret", "")
+        if serializer.validated_data.pop("drop_transactional_secret", False):
+            extra["transactional_secret_enc"] = None
+        if transactional:
+            extra["transactional_secret_enc"] = crypto.encrypt(transactional)
         tenant_id = context.require().tenant_id
         channel = extra.get("channel") or serializer.instance.channel
         if serializer.validated_data.get("is_default"):                     # one default engine per channel

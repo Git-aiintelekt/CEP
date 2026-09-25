@@ -160,16 +160,17 @@ export const supportAccess: SupportAccess[] = [
 export const providerCatalogue: ProviderType[] = [
   { provider_type: 'POSTAL', label: 'Postal', description: 'Self-hosted Postal server.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
     { key: 'endpoint', label: 'Postal address', required: true, secret: false, help: 'Base address of your Postal installation.', placeholder: 'https://postal.example.com', kind: 'url' },
-    { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text' }] },
+    { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text', credential: 'secret' },
+    { key: 'transactional_api_key', label: 'Transactional server API key', required: false, secret: true, help: 'Optional. A second Postal mail server for receipts.', placeholder: '', kind: 'text', credential: 'transactional_secret' }] },
   { provider_type: 'SENDGRID', label: 'SendGrid', description: 'Twilio SendGrid.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
-    { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text' },
+    { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text', credential: 'secret' },
     { key: 'api_base', label: 'API address', required: false, secret: false, help: 'Leave empty for the global region.', placeholder: 'https://api.sendgrid.com', kind: 'url' }] },
   { provider_type: 'SMTP', label: 'SMTP (your mail server)', description: 'Follows Settings -> Email server.', supports_webhooks: false, manageable: false, channel: 'EMAIL', fields: [] },
   { provider_type: 'SANDBOX_SMS', label: 'Sandbox (sends nothing)', description: 'Accepts SMS and MMS without sending them.', supports_webhooks: true, manageable: true, channel: 'SMS', supports_mms: true, fields: [
     { key: 'reject_numbers', label: 'Numbers to refuse', required: false, secret: false, help: 'Comma-separated.', placeholder: '', kind: 'text' }] },
 ]
 export const deliveryProviders: DeliveryProvider[] = [
-  { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, secret_ref: null,
+  { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, has_transactional_secret: false, secret_ref: null,
     rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-postal/tok/', sender_count: 1,
     last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 },
 ]
@@ -296,6 +297,8 @@ interface MockOptions {
   mailServer?: Partial<MailServerSettings>
   /** POST /delivery-providers/{id}/check/ answers a failure */
   providerCheckFails?: boolean
+  /** the Postal engine holds a second key for receipts */
+  providerHasTransactionalKey?: boolean
   /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
   texts?: boolean
   /** answer for POST /contact-lists/{id}/imports/ ; default: a six-row file, stored and queued */
@@ -372,10 +375,10 @@ export function installMockApi(options: MockOptions = {}) {
       if (!body?.secret) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { secret: ['API key is required.'] } }, 400)
       const { secret, ...rest } = body as Record<string, unknown>
       void secret
-      return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
+      return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, has_transactional_secret: Boolean(body.transactional_secret), is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
     }
-    if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], ...(body as Partial<DeliveryProvider>) })
-    if (path.endsWith('/delivery-providers/')) return json(options.texts ? [...deliveryProviders, textEngine] : deliveryProviders)
+    if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], has_transactional_secret: Boolean(options.providerHasTransactionalKey), ...(body as Partial<DeliveryProvider>) })
+    if (path.endsWith('/delivery-providers/')) return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders).map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item))
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
     if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)

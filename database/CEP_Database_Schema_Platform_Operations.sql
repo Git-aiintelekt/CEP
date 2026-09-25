@@ -281,7 +281,7 @@ DECLARE
     v_new     JSONB;
     v_changed TEXT[];
     v_tenant  UUID;
-    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes', 'password_enc', 'secret_enc'];
+    v_secret  TEXT[] := ARRAY['password_hash', 'key_hash', 'client_secret_enc', 'mfa_secret_enc', 'mfa_recovery_hashes', 'password_enc', 'secret_enc', 'transactional_secret_enc'];
 BEGIN
     IF TG_OP IN ('UPDATE', 'DELETE') THEN v_old := to_jsonb(OLD); END IF;
     IF TG_OP IN ('INSERT', 'UPDATE') THEN v_new := to_jsonb(NEW); END IF;
@@ -399,6 +399,11 @@ ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMP
 ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_check_ok BOOLEAN;
 ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS last_check_error TEXT;
 COMMENT ON COLUMN delivery_provider.secret_enc IS 'API key / password entered in the product, encrypted with FIELD_ENCRYPTION_KEY; wins over secret_ref';
+-- patch 0020: one engine, two credentials. Transactional traffic (receipts, non-marketing campaigns) is sent with this
+-- key when it is set: for Postal the API key of a second mail server, so receipts never queue behind a campaign and each
+-- server keeps its own reputation. NULL = the one key carries everything.
+ALTER TABLE delivery_provider ADD COLUMN IF NOT EXISTS transactional_secret_enc TEXT;
+COMMENT ON COLUMN delivery_provider.transactional_secret_enc IS 'Credential for transactional traffic (receipts, non-marketing campaigns), encrypted like secret_enc; NULL = secret_enc carries everything';
 
 ALTER TABLE delivery_provider DROP CONSTRAINT IF EXISTS ck_delivery_provider_provider_type;
 ALTER TABLE delivery_provider ADD CONSTRAINT ck_delivery_provider_provider_type
