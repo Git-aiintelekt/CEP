@@ -216,6 +216,7 @@ class DeliveryWebhookEvent(models.Model):
         PENDING = 'PENDING', 'Pending'
         PROCESSED = 'PROCESSED', 'Processed'
         FAILED = 'FAILED', 'Failed'
+        DUPLICATE = 'DUPLICATE', 'Duplicate'      # the provider delivered this event before: kept, not applied
 
     id = models.BigAutoField(primary_key=True)  # partitioned: real PK is (id, tenant_id, <partition key>)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.DO_NOTHING, db_column='tenant_id', related_name='+', db_constraint=False)
@@ -226,7 +227,8 @@ class DeliveryWebhookEvent(models.Model):
     raw_payload = models.JSONField()
     received_at = models.DateTimeField(db_default=Now())
     processed_at = models.DateTimeField(null=True, blank=True)
-    processing_status = models.CharField(max_length=20, default='PENDING', choices=ProcessingStatus.choices)  # PENDING, PROCESSED, FAILED
+    processing_status = models.CharField(max_length=20, default='PENDING', choices=ProcessingStatus.choices)  # PENDING, PROCESSED, FAILED, DUPLICATE
+    provider_event_id = models.CharField(max_length=100, null=True, blank=True)  # the provider's own id of the event (Postal: the webhook uuid)
 
     class Meta:
         managed = False
