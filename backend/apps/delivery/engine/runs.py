@@ -164,8 +164,10 @@ def queued_batches(tenant_id, run_id, batch_size: int = 100) -> list[list[int]]:
 
 
 def _activity(tenant_id, campaign_id, run_id, event_type, message, severity="INFO", detail=None) -> None:
+    """Under the tenant's transaction whatever the caller holds: outside one, the row-level policy would refuse the insert."""
     from apps.campaigns import service
-    service.record_run_event(tenant_id, campaign_id, run_id, event_type, message, severity, detail)
+    with session.tx():
+        service.record_run_event(tenant_id, campaign_id, run_id, event_type, message, severity, detail)
 
 
 def run_family(tenant_id, run_id) -> str:

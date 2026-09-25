@@ -1,0 +1,22 @@
+# CEP scheduler for a server WITHOUT Redis / Celery: campaign sends, list imports and every scheduled job, in one process.
+# A user-level unit, like cep-backend and cep-frontend on the dev server. Install as the service owner:
+#
+#   cp deploy/cep-jobs.service ~/.config/systemd/user/cep-jobs.service   # edit the two paths below first
+#   systemctl --user daemon-reload && systemctl --user enable --now cep-jobs
+#   systemctl --user status cep-jobs; tail -f /db/saadmin1/CEP/jobs.log
+#
+# A production server runs cep-worker and cep-beat (section 7 of the deployment guide) instead of this unit; never both.
+[Unit]
+Description=CEP scheduler without a broker (campaign runs, list imports, scheduled jobs)
+After=network.target
+
+[Service]
+WorkingDirectory=/db/saadmin1/CEP/backend
+ExecStart=/db/saadmin1/CEP/backend/.venv/bin/python manage.py run_scheduler --tick 15
+Restart=always
+RestartSec=5
+StandardOutput=append:/db/saadmin1/CEP/jobs.log
+StandardError=append:/db/saadmin1/CEP/jobs.log
+
+[Install]
+WantedBy=default.target
