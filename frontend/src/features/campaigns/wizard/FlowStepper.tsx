@@ -1,8 +1,9 @@
 /**
  * The setup's steps across the top: numbered circles joined by lines, a Blue 600 tick for a step that's done, the
- * current one ringed. A step that was reached can be revisited; the ones ahead open through Continue. While the flow
- * bar is under 1340px wide (it narrows with the global nav open), done steps show only their tick, with the name in a
- * tooltip. Under xl it folds into "Step 2 of 4 · Content", which opens a menu of the same steps, with a progress bar.
+ * current one ringed. A step that was reached can be revisited; the ones ahead open through Continue. Every step keeps
+ * its name; while the flow bar is under 1340px wide (it narrows with the global nav open) the connectors, gaps and
+ * type get smaller so the four names still fit. Under xl it folds into "Step 2 of 4 · Content", which opens a menu of
+ * the same steps, with a progress bar.
  */
 import { Check, ChevronDown } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
@@ -60,13 +61,12 @@ export function FlowStepper({ steps, current, reached, completed, onGo }: Steppe
           const done = index < completed
           return (
             <li key={label} className="flex shrink-0 items-center">
-              {index > 0 && <span aria-hidden data-connector className="mx-4 h-px w-14 shrink-0 bg-line-subtle @max-[1339px]:w-8" />}
+              {index > 0 && <span aria-hidden data-connector className="mx-4 h-px w-14 shrink-0 bg-line-subtle @max-[1339px]:mx-2 @max-[1339px]:w-5" />}
               <button type="button" disabled={index > reached} aria-current={state === 'current' ? 'step' : undefined} onClick={() => onGo(index)}
-                className="group relative flex items-center gap-3 rounded-control-md px-2 py-1 whitespace-nowrap transition-colors duration-fast ease-standard enabled:hover:bg-surface-subtle disabled:cursor-default">
+                className="group relative flex items-center gap-3 rounded-control-md px-2 py-1 whitespace-nowrap transition-colors duration-fast ease-standard enabled:hover:bg-surface-subtle disabled:cursor-default @max-[1339px]:gap-2 @max-[1339px]:px-1">
                 <StepCircle state={state} number={index + 1} />
-                <span data-step-label className={`text-card-title ${LABEL[state]} ${state === 'done' ? '@max-[1339px]:sr-only' : ''}`}>{label}</span>
+                <span data-step-label className={`text-card-title @max-[1339px]:text-sm ${LABEL[state]}`}>{label}</span>
                 {done && <span className="sr-only">, completed</span>}
-                {state === 'done' && <HoverTip label={label} show="@max-[1339px]:group-hover:block @max-[1339px]:group-focus-visible:block" />}
               </button>
             </li>
           )
