@@ -250,24 +250,22 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Audience')
 })
 
-test('a flow bar under 1340px: done steps keep only the tick (name for screen readers and in a tooltip), shorter connectors, no subtitle, Details as an icon', async () => {
+test('a flow bar under 1340px: every step keeps its name (smaller type, shorter connectors), no subtitle, Details as an icon', async () => {
   installMockApi({ campaign: draft() })
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
 
   const bar = document.querySelector<HTMLElement>('[data-flow-bar]')!
   const steps = within(within(bar).getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button')
-  const doneLabel = steps[0].querySelector('[data-step-label]')!
-  expect(doneLabel.className).toContain('@max-[1339px]:sr-only')
-  expect(steps[0].querySelector('[data-tooltip]')?.textContent).toBe('Audience')
-  expect(steps[0].querySelector('[data-tooltip]')?.className).toContain('@max-[1339px]:group-hover:block')
-  expect(steps[0].querySelector('[data-tooltip]')?.className).toContain('@max-[1339px]:group-focus-visible:block')
-  expect(screen.getByRole('button', { name: 'Audience, completed' })).toBeTruthy()                  // still named
-  for (const index of [2, 3]) {
-    expect(steps[index].querySelector('[data-step-label]')!.className).not.toContain('sr-only')    // current and ahead keep their names
-    expect(steps[index].querySelector('[data-tooltip]')).toBeNull()
+  expect(steps.map((step) => step.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Targets', 'Test & Publish'])
+  for (const step of steps) {
+    const label = step.querySelector('[data-step-label]')!
+    expect(label.className).not.toContain('sr-only')                                               // done, current and ahead all show their names
+    expect(label.className).toContain('@max-[1339px]:text-sm')
+    expect(step.querySelector('[data-tooltip]')).toBeNull()                                        // nothing to reveal on hover
   }
-  expect(bar.querySelector('[data-connector]')!.className).toContain('@max-[1339px]:w-8')
+  expect(screen.getByRole('button', { name: 'Audience, completed' })).toBeTruthy()                  // a done step still says so
+  expect(bar.querySelector('[data-connector]')!.className).toContain('@max-[1339px]:w-5')
 
   const details = within(bar).getByRole('button', { name: 'Edit Details' })
   expect(details.querySelector('.lucide-pencil')).toBeTruthy()
