@@ -23,7 +23,9 @@ per-tenant log with the request and the answer. Code: `backend/apps/integrations
 ```
 
 The same `X-Correlation-Id` ties a receipt's inbound row to the outbound send it caused: the caller may send one; the
-middleware mints one otherwise and every answer carries it.
+middleware mints one otherwise and every answer carries it. A Postal callback's row carries the send's own reference
+(`receipt:<number>`, `mailer_execution:<id>`), read back from the tag map the message carried, so one search finds the
+call in, the send out and what the provider reported.
 
 ## 2. Tables
 

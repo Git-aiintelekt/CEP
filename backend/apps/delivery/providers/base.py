@@ -117,6 +117,8 @@ class DeliveryEvent:
     ip_address: str | None = None
     user_agent: str = ""
     raw: dict = field(default_factory=dict)
+    execution_id: int | None = None     # our execution row, when the provider echoed it (Postal's tag map): the surest way back
+    tag: dict = field(default_factory=dict)   # what the message carried, read back: campaign, run, party, purpose, receipt, store
 
 
 @dataclass

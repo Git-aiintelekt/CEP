@@ -99,7 +99,7 @@ link all come from the engine.
 | Type | Send | Callbacks | Credential | Notes |
 |---|---|---|---|---|
 | `SMTP` | The workspace's mail server (or the platform's shared one) via `mail_server`; one connection per batch; own `Message-ID` | none (bounces arrive as mail at the From address) | encrypted in `mail_server` | Switched on with **Settings → Email server → Offer this server as a campaign sender**. 5xx recipient = rejected, 4xx = retry. |
-| `POSTAL` | `POST {endpoint}/api/v1/send/message`, header `X-Server-API-Key`, one recipient per call | `MessageSent, MessageDelayed, MessageDeliveryFailed, MessageBounced, MessageHeld, MessageLoaded, MessageLinkClicked` | API key | Optional `webhook_public_key` (PEM): `X-Postal-Signature` (RSA-SHA1 over the raw body) is verified. Postal answers HTTP 200 for application errors; `InvalidServerAPIKey` / `ServerSuspended` stop the run. |
+| `POSTAL` | `POST {endpoint}/api/v1/send/message`, header `X-Server-API-Key`, one recipient per call; the `tag` is a compact JSON map of the message (`x` our execution id, `c` campaign code, `u` purpose marketing / transactional / receipt, `p` party, `n` receipt number, `s` store, `r` run, `t` workspace), trimmed from the end to fit Postal's 250 characters; Postal echoes it on every event (`message.tag`, or `original_message.tag` on a bounce), the callback is matched on `x` before any other id, and the integration log's callback row carries the send's own reference (`receipt:<number>`, `mailer_execution:<id>`) | `MessageSent, MessageDelayed, MessageDeliveryFailed, MessageBounced, MessageHeld, MessageLoaded, MessageLinkClicked` | API key | Optional `webhook_public_key` (PEM): `X-Postal-Signature` (RSA-SHA1 over the raw body) is verified. Postal answers HTTP 200 for application errors; `InvalidServerAPIKey` / `ServerSuspended` stop the run. |
 | `SENDGRID` | `POST {api_base}/v3/mail/send`, bearer key; our id travels as `custom_args.cep_id`, the campaign code as category | Event Webhook: `delivered, bounce (type blocked = soft), deferred, dropped, spamreport, open, click, unsubscribe` | API key with *Mail Send* | Optional `webhook_public_key`: Signed Event Webhook (ECDSA P-256 over timestamp + body) is verified. `api_base` for the EU region. |
 
 ## 5. Credentials
@@ -185,6 +185,20 @@ POST /api/v1/receipts/send/          Authorization: Bearer cep_in_...   (API key
   address is still refused.
 * Idempotency key: `receipt.number`, else `receipt.order_number`, else `idempotency_key`. A failed attempt is tried
   again on the same execution row, so one receipt is always one row.
+* **The receipt layout is rendered at send time.** An E-Receipt template's outer design carries a receipt slot (two
+  comment markers); `engine/receipt_layout.py`, the Python twin of the editor's `receiptEmailHtml.ts`, fills the
+  template's saved layout (sections and their settings, or the Standard preset) with the receipt the point of sale
+  sent and puts it into the slot before the tags are filled, so the sent email is what Preview & Test showed. The
+  payload maps as the editor's sample transactions do: `number` -> receipt id, `order_number`, `transaction_at` ->
+  date, `store.name`, `shipping_address` / `pickup_location` / `delivery_estimate`, `items[]` (`description`, `sku`,
+  `quantity`, `unit_price`, `total`, `image_url`), `subtotal`, `discount_total` (+ `discount_code`), `shipping_total`,
+  `tax_total`, `tip_total`, `grand_total`, `tender_summary`, `authorized_at`, `billing_address`, `loyalty`
+  (`points_earned`, `points_balance`, `tier_progress`). A Custom HTML layout goes in as it is. A design without a slot
+  is used as it is, so an older template's `{{receipt_body}}` still works.
+* **The return barcode** (Returns & support section, switched on in the layout) is a Code 128 image of the receipt
+  number: `<img>` pointing at `GET /api/v1/public/barcode/<number>.png` on this installation (built from the public
+  address), no sign-in, cached for a year, rendered with `python-barcode` + Pillow. A `data:` image would be refused
+  by Gmail, which is why it is served. The editor's preview and Preview & Test show the same image.
 * One Postal engine can carry both: enter the API key of a second Postal mail server as the *Transactional server API
   key* (Settings → Sending engines) and receipts go out through that server, in their own throttle lane, while
   campaigns use the first. Both servers post callbacks to the engine's one callback address. A separate engine and
