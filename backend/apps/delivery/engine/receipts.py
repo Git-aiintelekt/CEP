@@ -20,7 +20,7 @@ from apps.campaigns.models import Campaign, CampaignRun
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import TRAFFIC_TRANSACTIONAL, Attachment, EmailMessage, Outcome, ProviderError, registry
-from . import session
+from . import receipt_layout, session
 from .render import Renderer
 
 MAX_ATTACHMENTS = 5
@@ -151,7 +151,10 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
         known = CustomerMaster.objects.filter(tenant_id=tenant_id, party_id=party_id).values("party_id", "first_name", "last_name", "custom_attributes").first()
         if known:
             customer = {**known, "email": to, "first_name": known["first_name"] or customer["first_name"]}
-    rendered = Renderer(campaign=campaign, run=run, content=content, tags=tags).render(
+    renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags)
+    # the receipt layout goes into the outer design's slot before the tags are filled; a design without a slot keeps its {{receipt_body}}
+    renderer.html = receipt_layout.apply(campaign.template, renderer.html, receipt, store, currency)
+    rendered = renderer.render(
         customer=customer, member={"custom_value_pairs": {}}, system={"email": to},
         sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}}, html_blocks={"receipt_body": items_html(receipt.get("items") or [], currency)})
 
@@ -171,7 +174,9 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
 
     message = EmailMessage(traffic=TRAFFIC_TRANSACTIONAL, to_email=to, to_name=name, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                            subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=key, tag=campaign.code or "receipt",
-                           metadata={"cep_tenant": campaign.tenant.code, "cep_run": str(run.pk)}, attachments=files)
+                           metadata={"cep_tenant": campaign.tenant.code, "cep_run": str(run.pk), "cep_execution": str(execution_id), "cep_party": str(party_id or ""),
+                                     "cep_campaign": campaign.code or "", "cep_purpose": "receipt", "cep_receipt": number,
+                                     "cep_store": str((store or {}).get("code") or (store or {}).get("name") or "")}, attachments=files)
     try:
         with registry.for_provider(sender.delivery_provider) as provider:
             result = provider.send_guarded(message, related_ref=f"receipt:{number}")

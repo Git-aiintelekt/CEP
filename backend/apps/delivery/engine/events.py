@@ -26,9 +26,10 @@ def _plausible(moment):
 
 
 def find_execution(tenant_id, event: DeliveryEvent):
-    """-> (id, party_id, email, status, campaign_id, run_id) or None. The echoed idempotency key is preferred: it is ours."""
+    """-> (id, party_id, email, status, campaign_id, run_id) or None. What is ours is preferred: the execution id a Postal tag
+    echoed, then the idempotency key, then the provider's message id."""
     with session.connection().cursor() as cursor:
-        for column, value in (("idempotency_key", event.idempotency_key), ("provider_message_id", event.provider_message_id)):
+        for column, value in (("id", event.execution_id), ("idempotency_key", event.idempotency_key), ("provider_message_id", event.provider_message_id)):
             if not value:
                 continue
             cursor.execute(f"""SELECT id, party_id, email_address, status, campaign_id, campaign_run_id FROM mailer_execution

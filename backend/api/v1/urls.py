@@ -41,6 +41,7 @@ urlpatterns = [
     path("campaign-runs/<uuid:pk>/results/", delivery_api.CampaignRunResultsView.as_view(), name="campaign-run-results"),
     path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
+    path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),
     path("receipts/send/", delivery_api.ReceiptSendView.as_view(), name="receipt-send"),
     path("integrations/", integrations_api.IntegrationListView.as_view(), name="integration-list"),
     path("integrations/log/", integrations_api.IntegrationLogListView.as_view(), name="integration-log"),

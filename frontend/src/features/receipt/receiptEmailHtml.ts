@@ -9,6 +9,7 @@
 import { HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE } from '@/features/designer/blocks/register'
 import type { ReceiptItemsSection, ReceiptSection } from '@/lib/types'
 
+import { barcodeUrl } from './barcode'
 import { inOrder } from './receiptPresets'
 import { formatMoney, fulfillmentOf, showsSection, totalsRows } from './receiptRules'
 import type { SampleTransaction } from './sampleReceiptData'
@@ -159,9 +160,10 @@ function support(section: Extract<ReceiptSection, { key: 'support' }>, transacti
   const policy = section.policy_text.trim() ?
       `<p style="margin:4px 0 0;font-size:14px;line-height:20px;color:${COLOR.muted};">${escapeHtml(section.policy_text).replace(/\r?\n/g, '<br />')}</p>`
     : ''
+  // a Code 128 of the receipt number, served by the API (a data: image would be refused by Gmail); the sent email carries the same block
   const barcode =
     section.barcode ?
-      `<table ${TABLE} style="margin-top:12px;"><tr><td align="center" style="padding:12px;border:1px dashed ${COLOR.rule};border-radius:4px;font-size:12px;line-height:16px;color:${COLOR.muted};text-align:center;">In-store return barcode<br /><span style="${NUMERIC}">${escapeHtml(transaction.receipt_id)}</span></td></tr></table>`
+      `<table ${TABLE} style="margin-top:12px;"><tr><td align="center" style="padding:12px;border:1px dashed ${COLOR.rule};border-radius:4px;text-align:center;"><img src="${escapeHtml(barcodeUrl(transaction.receipt_id))}" alt="Barcode ${escapeHtml(transaction.receipt_id)}" width="240" height="64" style="display:block;margin:0 auto 6px;width:240px;height:64px;border:0;" /><span style="font-size:12px;line-height:16px;color:${COLOR.muted};${NUMERIC}">${escapeHtml(transaction.receipt_id)}</span></td></tr></table>`
     : ''
   return `${title('Returns & support')}${policy}${barcode}`
 }

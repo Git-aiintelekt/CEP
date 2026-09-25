@@ -2,11 +2,12 @@
  * The receipt as the layout draws it, filled from one sample transaction. A structured layout, not compiled
  * email: it shows what each setting does, section by section.
  */
-import { Barcode, ImageIcon } from 'lucide-react'
+import { ImageIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import type { ReceiptItemsSection, ReceiptSection } from '@/lib/types'
 
+import { barcodeUrl } from './barcode'
 import { inOrder } from './receiptPresets'
 import { formatMoney, fulfillmentOf, showsSection, totalsRows } from './receiptRules'
 import type { SampleTransaction } from './sampleReceiptData'
@@ -156,7 +157,7 @@ function SectionBody({ section, transaction }: { section: ReceiptSection; transa
           {section.policy_text.trim() ? <p className="whitespace-pre-line text-ink-700">{section.policy_text}</p> : null}
           {section.barcode ?
             <div data-testid="return-barcode" className="flex flex-col items-center gap-1 rounded-sm border border-dashed border-ink-300 p-3 text-ink-500">
-              <Barcode size={40} strokeWidth={1.25} aria-hidden />
+              <img src={barcodeUrl(transaction.receipt_id)} alt="" width={240} height={64} className="h-16 w-60 max-w-full" />
               <span className="text-xs tabular-nums">{transaction.receipt_id}</span>
               <span className="sr-only">In-store return barcode</span>
             </div>

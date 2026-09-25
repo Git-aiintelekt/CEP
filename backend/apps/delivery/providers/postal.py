@@ -7,6 +7,7 @@ Webhooks: {"event": "MessageSent", "timestamp": 1.0, "payload": {"message": {"me
           signed with the installation's RSA key: header X-Postal-Signature = base64(RSA-SHA1(raw body)).
 """
 import base64
+import json
 from datetime import datetime, timezone
 
 import requests
@@ -17,6 +18,37 @@ from .registry import register
 FATAL_CODES = {"InvalidServerAPIKey", "ServerSuspended", "AccessDenied"}                  # nothing will go out until someone fixes the provider
 EVENTS = {"MessageSent": EventType.DELIVERED, "MessageDelayed": EventType.DEFERRED, "MessageDeliveryFailed": EventType.BOUNCED,
           "MessageBounced": EventType.BOUNCED, "MessageHeld": EventType.DROPPED, "MessageLoaded": EventType.OPENED, "MessageLinkClicked": EventType.CLICKED}
+
+
+TAG_MAX = 250                                                # Postal's tag column is a short string
+# what a Postal message carries, so a callback comes back self-describing: our execution row first, then who and why
+TAG_KEYS = (("x", "cep_execution"), ("c", "cep_campaign"), ("u", "cep_purpose"), ("p", "cep_party"), ("n", "cep_receipt"), ("s", "cep_store"),
+            ("r", "cep_run"), ("t", "cep_tenant"))
+
+
+def tag_for(message: EmailMessage) -> str | None:
+    """The tag map as compact JSON; the least useful keys are dropped from the end until it fits. A message with no
+    metadata keeps its plain campaign code."""
+    pairs = [(short, str(message.metadata[long])) for short, long in TAG_KEYS if message.metadata.get(long)]
+    if not pairs:
+        return message.tag or None
+    while pairs:
+        text = json.dumps(dict(pairs), separators=(",", ":"))
+        if len(text) <= TAG_MAX:
+            return text
+        pairs.pop()
+    return message.tag or None
+
+
+def read_tag(value) -> dict:
+    """The tag map back from a callback: JSON with our keys, or nothing for a plain tag."""
+    if not isinstance(value, str) or not value.startswith("{"):
+        return {}
+    try:
+        found = json.loads(value)
+    except ValueError:
+        return {}
+    return found if isinstance(found, dict) else {}
 
 
 @register
@@ -53,7 +85,7 @@ class PostalProvider(EmailProvider):
 
     def send(self, message: EmailMessage) -> SendResult:
         body = {"to": [message.to_email], "from": message.sender, "subject": message.subject, "html_body": message.html, "plain_body": message.text,
-                "tag": message.tag or None, "reply_to": message.reply_to, "headers": {**message.headers, "X-CEP-Id": message.idempotency_key},
+                "tag": tag_for(message), "reply_to": message.reply_to, "headers": {**message.headers, "X-CEP-Id": message.idempotency_key},
                 "attachments": [{"name": a.name, "content_type": a.content_type, "data": base64.b64encode(a.data).decode()} for a in message.attachments] or None}
         try:
             response = self._post("/api/v1/send/message", {k: v for k, v in body.items() if v not in (None, "")}, key=self.secret_for(message))
@@ -116,11 +148,13 @@ class PostalProvider(EmailProvider):
         body = payload.get("payload") or {}
         message = body.get("original_message") or body.get("message") or {}
         kind = EVENTS[payload["event"]]
+        tag = read_tag(message.get("tag"))
         stamp = payload.get("timestamp") or body.get("timestamp")
         event = DeliveryEvent(kind, provider_message_id=str(message.get("message_id") or ""), email=str(message.get("to") or ""),
                               occurred_at=datetime.fromtimestamp(float(stamp), tz=timezone.utc) if stamp else None,
                               reason=str(body.get("details") or body.get("output") or "")[:200], url=str(body.get("url") or ""),
-                              ip_address=body.get("ip_address") or None, user_agent=str(body.get("user_agent") or ""), raw=payload)
+                              ip_address=body.get("ip_address") or None, user_agent=str(body.get("user_agent") or ""), raw=payload,
+                              execution_id=int(tag["x"]) if str(tag.get("x") or "").isdigit() else None, tag=tag)
         if kind is EventType.BOUNCED:
             # MessageBounced = a bounce message came back (hard). MessageDeliveryFailed = Postal gave up: hard unless it says soft.
             event.bounce_type = "SOFT" if str(body.get("status", "")).lower() == "softfail" else "HARD"
