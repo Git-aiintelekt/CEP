@@ -418,6 +418,15 @@ ALTER TABLE campaign_list_member ADD COLUMN IF NOT EXISTS suppression_reason VAR
 ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS delivery_provider_id UUID;
 ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS ix_mailer_execution_provider_message ON mailer_execution(tenant_id, provider_message_id) WHERE provider_message_id IS NOT NULL;
+-- patch 0021: the provider's own id of a callback (Postal: the webhook request's uuid). Postal retries a callback on anything but a 2xx, so
+-- the same event can arrive twice; the second arrival is kept as a DUPLICATE row for the audit trail and never applied, so an open or a
+-- click is counted once. Not a unique index: the table is partitioned by tenant and month, and a unique index would have to carry the
+-- month; the endpoint checks under an advisory lock instead.
+ALTER TABLE delivery_webhook_event ADD COLUMN IF NOT EXISTS provider_event_id VARCHAR(100);
+CREATE INDEX IF NOT EXISTS ix_webhook_event_provider_event ON delivery_webhook_event(tenant_id, provider, provider_event_id) WHERE provider_event_id IS NOT NULL;
+ALTER TABLE delivery_webhook_event DROP CONSTRAINT IF EXISTS ck_delivery_webhook_event_processing_status;
+ALTER TABLE delivery_webhook_event ADD CONSTRAINT ck_delivery_webhook_event_processing_status CHECK (processing_status IN ('PENDING', 'PROCESSED', 'FAILED', 'DUPLICATE'));
+COMMENT ON COLUMN delivery_webhook_event.provider_event_id IS 'The provider''s own id of the event (Postal: the webhook uuid); a second arrival is stored as DUPLICATE and not applied';
 
 -- -------------------------------------------------------------------------------------
 -- 10. SMS / MMS SENDING

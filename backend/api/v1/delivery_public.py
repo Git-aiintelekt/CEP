@@ -51,7 +51,7 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
         return JsonResponse({"title": "The body is not JSON", "status": 400}, status=400)
 
     texts = adapter.channel == "SMS"
-    outcome = {"received": 0, "applied": 0, "ignored": 0, "unmatched": 0, "failed": 0}
+    outcome = {"received": 0, "applied": 0, "ignored": 0, "unmatched": 0, "failed": 0, "duplicate": 0}
     if texts:                                               # what people texted back: STOP / START / HELP and free replies
         outcome["inbound"] = 0
         for message in adapter.parse_inbound(payload):
@@ -65,11 +65,20 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     parsed = adapter.parse_webhook(payload)
     for event in parsed:
         outcome["received"] += 1
+        ref = (event.idempotency_key or event.provider_message_id or "unknown")[:200]
+        own_id = (event.provider_event_id or "")[:100] or None
         with session.connection().cursor() as cursor:
-            cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload)
-                              VALUES (%s, %s, %s, %s, %s, %s::jsonb) RETURNING id, received_at""",
-                           [tenant_id, provider.provider_type, "SMS" if texts else "MAILER", (event.idempotency_key or event.provider_message_id or "unknown")[:200], event.event_type.value,
-                            json.dumps(event.raw, default=str)])
+            if own_id and _seen_before(cursor, tenant_id, provider.provider_type, own_id):
+                # the provider delivered this event before (Postal retries on anything but a 2xx): kept for the audit trail, never applied again
+                cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload, provider_event_id,
+                                                                     processed_at, processing_status)
+                                  VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, now(), 'DUPLICATE')""",
+                               [tenant_id, provider.provider_type, "SMS" if texts else "MAILER", ref, event.event_type.value, json.dumps(event.raw, default=str), own_id])
+                outcome["duplicate"] += 1
+                continue
+            cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload, provider_event_id)
+                              VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s) RETURNING id, received_at""",
+                           [tenant_id, provider.provider_type, "SMS" if texts else "MAILER", ref, event.event_type.value, json.dumps(event.raw, default=str), own_id])
             event_id, received_at = cursor.fetchone()
         try:
             with session.tx():                              # a savepoint: one bad event must not undo the others
@@ -84,6 +93,14 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
                            [status, tenant_id, event_id, received_at])
     _log_callback(tenant_id, provider, request, body, outcome, watch, _callback_ref(provider, parsed))
     return JsonResponse(outcome)                            # always 200 once authenticated: providers retry on anything else
+
+
+def _seen_before(cursor, tenant_id, provider_type: str, own_id: str) -> bool:
+    """Has this provider event been stored already? Under an advisory lock for the request's transaction, so two deliveries
+    of the same event arriving together cannot both pass (the table's month partitions rule out a unique index)."""
+    cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [f"{tenant_id}:{provider_type}:{own_id}"])
+    cursor.execute("SELECT 1 FROM delivery_webhook_event WHERE tenant_id = %s AND provider = %s AND provider_event_id = %s LIMIT 1", [tenant_id, provider_type, own_id])
+    return cursor.fetchone() is not None
 
 
 def _callback_ref(provider, events_parsed) -> str:

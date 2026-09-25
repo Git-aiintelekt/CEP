@@ -118,6 +118,7 @@ class DeliveryEvent:
     user_agent: str = ""
     raw: dict = field(default_factory=dict)
     execution_id: int | None = None     # our execution row, when the provider echoed it (Postal's tag map): the surest way back
+    provider_event_id: str = ""         # the provider's own id of this event, so a redelivered callback is recognised and applied once
     tag: dict = field(default_factory=dict)   # what the message carried, read back: campaign, run, party, purpose, receipt, store
 
 

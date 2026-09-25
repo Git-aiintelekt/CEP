@@ -3,7 +3,7 @@
 Send:     POST {endpoint}/api/v1/send/message      header X-Server-API-Key, JSON body, one recipient per call
           -> {"status": "success", "data": {"message_id": "...", "messages": {"<rcpt>": {"id": 1, "token": "..."}}}}
           Postal answers HTTP 200 for application errors too: {"status": "parameter-error" | "error", "data": {"code", "message"}}
-Webhooks: {"event": "MessageSent", "timestamp": 1.0, "payload": {"message": {"message_id", "to", "tag", ...}, "details", ...}}
+Webhooks: {"event": "MessageSent", "timestamp": 1.0, "uuid": "<the webhook request's own id>", "payload": {"message": {"message_id", "to", "tag", ...}, "details", ...}}
           signed with the installation's RSA key: header X-Postal-Signature = base64(RSA-SHA1(raw body)).
 """
 import base64
@@ -154,7 +154,8 @@ class PostalProvider(EmailProvider):
                               occurred_at=datetime.fromtimestamp(float(stamp), tz=timezone.utc) if stamp else None,
                               reason=str(body.get("details") or body.get("output") or "")[:200], url=str(body.get("url") or ""),
                               ip_address=body.get("ip_address") or None, user_agent=str(body.get("user_agent") or ""), raw=payload,
-                              execution_id=int(tag["x"]) if str(tag.get("x") or "").isdigit() else None, tag=tag)
+                              execution_id=int(tag["x"]) if str(tag.get("x") or "").isdigit() else None, tag=tag,
+                              provider_event_id=str(payload.get("uuid") or "")[:100])
         if kind is EventType.BOUNCED:
             # MessageBounced = a bounce message came back (hard). MessageDeliveryFailed = Postal gave up: hard unless it says soft.
             event.bounce_type = "SOFT" if str(body.get("status", "")).lower() == "softfail" else "HARD"
