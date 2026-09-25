@@ -32,6 +32,7 @@ JOBS = {
     "plan-recurring-runs": ("Plans the next send of recurring campaigns", 30 * 60),
     "refresh-audience-lists": ("Brings contact lists that follow an audience in line with it", 3 * 3600),
     "process-list-imports": ("Reads, checks and imports uploaded contact list files", 10 * 60),
+    "rollup-integration-metrics": ("Rolls the integration log up into per-minute figures and prunes both", 20 * 60),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}

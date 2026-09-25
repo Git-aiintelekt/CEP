@@ -196,9 +196,20 @@ def check_operations():
     return _result("Tenant operations", OK, "No failed or stuck exports, moves or offboardings")
 
 
+def check_integrations():
+    """Integrations failing hard in the last 15 minutes: a circuit open, or a quarter of the calls failing."""
+    from apps.integrations.bridge import metrics
+    problems = metrics.platform_problems()
+    if problems:
+        shown = "; ".join(f"{p['tenant']} {p['integration']}: {p['problem']}" for p in problems[:4])
+        return _result("Integrations", WARN, f"{len(problems)} integration{'s' if len(problems) != 1 else ''} failing", shown + ". See Integrations, Integration log.")
+    return _result("Integrations", OK, "No integration is failing or has its circuit open")
+
+
 CHECKS = (("Database", check_database), ("Tenant isolation", check_app_role), ("Migrations", check_migrations), ("Partitions", check_partitions),
           ("Event outbox", check_outbox), ("Failed messages", check_dead_letters), ("Cache", check_cache), ("Background workers", check_workers),
-          ("Configuration", check_configuration), ("Email", check_email), ("Secrets at rest", check_secrets), ("Tenant operations", check_operations))
+          ("Configuration", check_configuration), ("Email", check_email), ("Secrets at rest", check_secrets), ("Tenant operations", check_operations),
+          ("Integrations", check_integrations))
 
 
 def collect(include_jobs: bool = True) -> dict:

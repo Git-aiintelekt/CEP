@@ -109,6 +109,14 @@ link all come from the engine.
 * Kept outside the database → `secret_ref = env:NAME` reads the environment variable `NAME` on the workers. Other
   schemes (a vault) plug into `registry.resolve_secret`.
 * `secret_enc` wins when both are present.
+* **Two credentials on one engine (patch 0020).** An adapter may declare a second secret field with
+  `credential="transactional_secret"` (Postal: *Transactional server API key*). It is stored encrypted in
+  `delivery_provider.transactional_secret_enc`, write-only as `transactional_secret` (`has_transactional_secret` tells the
+  form; `drop_transactional_secret: true` removes it), never in the audit trail. When it is set, every message whose
+  `EmailMessage.traffic` is `TRANSACTIONAL` (receipts, and campaigns whose solicitation type is not marketing) goes out
+  with it: `adapter.secret_for(message)`. The integration bridge gives that traffic its own throttle lane
+  (`provider:<id>:transactional`), so receipts never queue behind a campaign. Without a second credential the one key
+  carries everything in one lane. **Check** tries both keys and names the one that is refused.
 
 ## 6. Callback address
 
@@ -177,8 +185,10 @@ POST /api/v1/receipts/send/          Authorization: Bearer cep_in_...   (API key
   address is still refused.
 * Idempotency key: `receipt.number`, else `receipt.order_number`, else `idempotency_key`. A failed attempt is tried
   again on the same execution row, so one receipt is always one row.
-* Tip: keep a separate email engine (for Postal: a separate mail server with its own API key) and sender for receipts,
-  so marketing volume and reputation never delay a receipt.
+* One Postal engine can carry both: enter the API key of a second Postal mail server as the *Transactional server API
+  key* (Settings → Sending engines) and receipts go out through that server, in their own throttle lane, while
+  campaigns use the first. Both servers post callbacks to the engine's one callback address. A separate engine and
+  sender for receipts still works, but is no longer needed.
 
 ## 10. SMS and MMS
 
@@ -227,8 +237,8 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 | Endpoint | Permission | |
 |---|---|---|
 | `GET /delivery-providers/catalogue/` | `provider.edit` | installed adapters and their form fields |
-| `GET, POST /delivery-providers/` · `PATCH, DELETE /delivery-providers/{id}/` | `provider.edit` | `secret` write-only; `webhook_url`, `has_secret`, last check |
-| `POST /delivery-providers/{id}/check/` | `provider.edit` | validates address + credential |
+| `GET, POST /delivery-providers/` · `PATCH, DELETE /delivery-providers/{id}/` | `provider.edit` | `secret` and `transactional_secret` write-only, `drop_transactional_secret`; `webhook_url`, `has_secret`, `has_transactional_secret`, last check |
+| `POST /delivery-providers/{id}/check/` | `provider.edit` | validates address + credential(s) |
 | `GET, POST /delivery-senders/` · `PATCH, DELETE /delivery-senders/{id}/` | `provider.edit` | From name / address / reply-to per provider |
 | `POST /delivery-senders/{id}/verify/` | `provider.edit` | sends a real message from the address; accepted = `VERIFIED` (required to publish) |
 | `GET /sender-profiles/` | `campaign.edit` | what the campaign form lists |

@@ -24,6 +24,8 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
   const [name, setName] = useState(provider?.name ?? '')
   const [config, setConfig] = useState<Record<string, string>>(provider?.config ?? {})
   const [secret, setSecret] = useState('')
+  const [transactionalSecret, setTransactionalSecret] = useState('')
+  const [dropTransactional, setDropTransactional] = useState(false)
   const [rate, setRate] = useState(provider?.rate_limit_per_minute ? String(provider.rate_limit_per_minute) : '')
   const [isDefault, setIsDefault] = useState(provider?.is_default ?? false)
   const [isActive, setIsActive] = useState(provider?.is_active ?? true)
@@ -31,7 +33,8 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
 
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), config, rate_limit_per_minute: rate ? Number(rate) : null, is_default: isDefault, is_active: isActive, ...(secret ? { secret } : {}) }
+      const body = { name: name.trim(), config, rate_limit_per_minute: rate ? Number(rate) : null, is_default: isDefault, is_active: isActive, ...(secret ? { secret } : {}),
+        ...(transactionalSecret ? { transactional_secret: transactionalSecret } : {}), ...(dropTransactional && !transactionalSecret ? { drop_transactional_secret: true } : {}) }
       return provider ? api.patch<DeliveryProvider>(`/delivery-providers/${provider.id}/`, body) : api.post<DeliveryProvider>('/delivery-providers/', { ...body, provider_type: type })
     },
     onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['delivery'] }); onClose() },
@@ -58,11 +61,18 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
           </Field>
         </div>
         {spec?.fields.map((field) => {
-          const error = errors[field.secret ? 'secret' : `config.${field.key}`] ?? errors[field.key]
-          const hint = field.secret && provider?.has_secret ? 'A credential is stored. Leave this empty to keep it.' : field.help
+          const second = field.secret && field.credential === 'transactional_secret'
+          const stored = second ? Boolean(provider?.has_transactional_secret) && !dropTransactional : Boolean(provider?.has_secret)
+          const error = errors[field.secret ? (second ? 'transactional_secret' : 'secret') : `config.${field.key}`] ?? errors[field.key]
+          const hint = field.secret && stored ? (second ? 'A transactional key is stored. Leave this empty to keep it.' : 'A credential is stored. Leave this empty to keep it.') : field.help
           return (
-            <Field key={field.key} label={field.label} required={field.required && !(field.secret && provider?.has_secret)} error={error} hint={hint}>
-              {(ids) => field.secret
+            <Field key={field.key} label={field.label} required={field.required && !(field.secret && stored)} error={error} hint={hint}>
+              {(ids) => second
+                ? <div className="flex items-end gap-2">
+                    <TextInput {...ids} type="password" value={transactionalSecret} onChange={(event) => setTransactionalSecret(event.target.value)} autoComplete="new-password" placeholder={stored ? '••••••••' : ''} />
+                    {stored && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setDropTransactional(true)}>Remove</button>}
+                  </div>
+                : field.secret
                 ? <TextInput {...ids} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} autoComplete="new-password" placeholder={provider?.has_secret ? '••••••••' : ''} />
                 : field.kind === 'textarea'
                   ? <TextArea {...ids} rows={3} className="cep-num text-xs" value={config[field.key] ?? ''} onChange={(event) => setConfig({ ...config, [field.key]: event.target.value })} />
@@ -182,7 +192,7 @@ export function DeliveryPage() {
   const providerColumns: Column<DeliveryProvider>[] = [
     { key: 'name', header: 'Provider', render: (row) => (
       <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'Texts' : 'Email'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
-        <p className="text-xs text-ink-500">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}</p></div>) },
+        <p className="text-xs text-ink-500">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
     { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
     { key: 'webhook', header: 'Callback Address', render: (row) => row.webhook_url

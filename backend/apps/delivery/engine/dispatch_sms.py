@@ -6,7 +6,6 @@ the values merged in for this person, the sender number, and the aggregator's an
 """
 import json
 import logging
-import time
 from types import SimpleNamespace
 
 from django.utils import timezone
@@ -79,7 +78,6 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         return {"skipped": len(execution_ids), "reason": f"run is {run.status}"}
     provider_row = campaign.sender_profile.delivery_provider
     renderer = Renderer(campaign=campaign, run=run, content=text_content(content), tags=tags)
-    pause = 60.0 / provider_row.rate_limit_per_minute if provider_row.rate_limit_per_minute else 0.0
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0, "parts": 0}
     retry_ids, retry_reason = [], ""
 
@@ -112,9 +110,9 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                             reason="The message is empty after personalization" if not text else f"The message is {len(text)} characters after personalization (at most {design.MAX_MESSAGE_CHARS})")
                     counts["failed"] += 1
                     continue
-                result = provider.send(SmsMessage(to_number=phone, from_sender=from_sender or "", text=text, media_url=media_url if message_type == "MMS" else None,
+                result = provider.send_guarded(SmsMessage(to_number=phone, from_sender=from_sender or "", text=text, media_url=media_url if message_type == "MMS" else None,
                                                   subject=rendered["subject"] if message_type == "MMS" else "", idempotency_key=idempotency_key, tag=campaign.code or "",
-                                                  metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)}))
+                                                  metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)}), related_ref=f"sms_execution:{execution_id}")
             except ProviderError as exc:
                 _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
                 if exc.retryable:
@@ -144,8 +142,6 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 retry_ids.append(execution_id)
                 retry_reason = result.reason
                 counts["retry"] += 1
-            if pause:
-                time.sleep(min(pause, 5.0))
     finally:
         provider.close()
     if retry_ids:

@@ -142,6 +142,8 @@ UNFOLD = {
                 _link("Generated runs", "auto_mode", "journeys_journeygeneratedcampaignrun"),
             ]},
             {"title": "Integrations and reporting", "separator": False, "collapsible": True, "items": [
+                _link("Integrations", "hub", "integrations_integration"),
+                _link("Integration log", "receipt_long", "integrations_integrationlog"),
                 _link("Webhook subscriptions", "webhook", "integrations_webhooksubscription"),
                 _link("Webhook deliveries", "outbox", "integrations_outboundwebhookdelivery"),
                 _link("Domain events", "stream", "integrations_domainevent"),
