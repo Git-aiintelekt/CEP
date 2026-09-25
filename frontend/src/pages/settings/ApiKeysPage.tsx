@@ -41,11 +41,11 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
   const other = create.isError && !(create.error instanceof ApiError && create.error.status === 400) ? create.error : null
 
   return (
-    <Modal size="lg" title="New API key" onClose={onClose}
+    <Modal size="lg" title="New API Key" onClose={onClose}
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="key-form" className={buttonPrimary} disabled={create.isPending}>
-          {create.isPending && <Spinner size="sm" tone="onBrand" />}Create key
+          {create.isPending && <Spinner size="sm" tone="onBrand" />}Create Key
         </button>
       </>}>
       <form id="key-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -65,7 +65,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
           </ul>
         </fieldset>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Allowed IP addresses" error={errors.allowed_ip_cidrs} hint="Optional. Addresses or CIDR ranges, separated by commas or new lines. Empty means any address.">
+          <Field label="Allowed IP Addresses" error={errors.allowed_ip_cidrs} hint="Optional. Addresses or CIDR ranges, separated by commas or new lines. Empty means any address.">
             {(ids) => <TextArea {...ids} rows={2} value={cidrs} onChange={(event) => setCidrs(event.target.value)} placeholder="203.0.113.0/24" className="cep-num" />}
           </Field>
           <Field label="Expires" error={errors.expires_at} hint="Optional. Your local time.">
@@ -80,11 +80,11 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
 function KeyReveal({ created, onClose }: { created: ApiKeyCreated; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   return (
-    <Modal title="Copy the key now" onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>I have stored it</button>}>
+    <Modal title="Copy the Key Now" onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>I Have Stored It</button>}>
       <div className="space-y-3 text-sm text-ink-700">
         <p><strong>{created.name}</strong> is ready. This is the only time the full key is shown: only a fingerprint of it is stored, so it cannot be recovered later.</p>
         <div className="flex gap-2">
-          <input aria-label="API key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
+          <input aria-label="API Key" readOnly value={created.key} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
           <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(created.key).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
         <p className="text-xs text-ink-500">Send it as <code className="cep-num">Authorization: Bearer {created.key_prefix}…</code> together with the <code className="cep-num">X-Tenant</code> header. If it leaks, revoke it here and create a new one.</p>
@@ -104,9 +104,9 @@ export function ApiKeysPage() {
   const columns: Column<ApiKey>[] = [
     { key: 'name', header: 'Key', render: (key) => <div><p className="font-medium text-ink-900">{key.name}</p><p className="cep-num text-xs text-ink-500">{key.key_prefix}…</p></div> },
     { key: 'scopes', header: 'Scopes', render: (key) => <span className="flex max-w-xs flex-wrap gap-1">{key.scopes.map((scope) => <Tag key={scope}>{scope}</Tag>)}</span> },
-    { key: 'ips', header: 'Allowed from', render: (key) => key.allowed_ip_cidrs?.length ? <span className="cep-num text-xs">{key.allowed_ip_cidrs.join(', ')}</span> : <span className="text-ink-500">Any address</span> },
+    { key: 'ips', header: 'Allowed From', render: (key) => key.allowed_ip_cidrs?.length ? <span className="cep-num text-xs">{key.allowed_ip_cidrs.join(', ')}</span> : <span className="text-ink-500">Any address</span> },
     { key: 'status', header: 'Status', render: (key) => <StatusBadge status={STATUS_TONE[key.status]} label={key.status === 'ACTIVE' ? 'Active' : key.status === 'EXPIRED' ? 'Expired' : 'Revoked'} /> },
-    { key: 'used', header: 'Last used', render: (key) => formatDateTime(key.last_used_at).replace('—', 'Never') },
+    { key: 'used', header: 'Last Used', render: (key) => formatDateTime(key.last_used_at).replace('—', 'Never') },
     { key: 'expires', header: 'Expires', render: (key) => formatDateTime(key.expires_at).replace('—', 'Never') },
     { key: 'actions', header: '', align: 'right', render: (key) => key.status !== 'REVOKED' && (
       <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} disabled={revoke.isPending}
@@ -118,12 +118,12 @@ export function ApiKeysPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-ink-500">Keys let other systems call the API for this workspace. A key can never manage users, roles or other keys.</p>
-        <button type="button" className={buttonPrimary} onClick={() => setCreating(true)}>New API key</button>
+        <button type="button" className={buttonPrimary} onClick={() => setCreating(true)}>New API Key</button>
       </div>
       {revoke.isError && <div className="mb-4"><ErrorState title="Could not revoke the key" error={revoke.error} /></div>}
       {keys.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading keys</p>
         : keys.data.length === 0 ? <EmptyState title="No API keys yet" hint="Create one when a system such as the POS or the data warehouse needs to call the API." />
-        : <DataTable columns={columns} rows={keys.data} rowKey={(key) => key.id} caption="API keys" />}
+        : <DataTable columns={columns} rows={keys.data} rowKey={(key) => key.id} caption="API Keys" />}
       {creating && <CreateKey scopes={scopes.data?.scopes ?? []} onClose={() => setCreating(false)} onCreated={(key) => { setCreating(false); setCreated(key) }} />}
       {created && <KeyReveal created={created} onClose={() => setCreated(null)} />}
     </div>

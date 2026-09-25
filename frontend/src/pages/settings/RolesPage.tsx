@@ -11,10 +11,10 @@ import { formatNumber } from '@/lib/format'
 import type { PermissionDef, Role } from '@/lib/types'
 
 const AREA_LABEL: Record<string, string> = {
-  campaign: 'Campaigns', list: 'Contact lists', template: 'Templates', journey: 'Journeys', consent: 'Consent', governance: 'Sending rules',
-  provider: 'Delivery providers', report: 'Reports', user: 'Administration',
+  campaign: 'Campaigns', list: 'Contact Lists', template: 'Templates', journey: 'Journeys', consent: 'Consent', governance: 'Sending Rules',
+  provider: 'Delivery Providers', report: 'Reports', user: 'Administration',
 }
-const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and edit', publish: 'Publish', activate: 'Activate', import: 'Import', admin: 'Manage users, roles and API keys' }
+const ACTION_LABEL: Record<string, string> = { view: 'View', edit: 'Create and Edit', publish: 'Publish', activate: 'Activate', import: 'Import', admin: 'Manage Users, Roles and API Keys' }
 
 type Editing = { role: Role | null } | null
 
@@ -53,11 +53,11 @@ function RoleForm({ role, catalogue, onClose }: { role: Role | null; catalogue: 
   const other = save.isError && !(save.error instanceof ApiError && save.error.status === 400) ? save.error : null
 
   return (
-    <Modal size="lg" title={role ? `Edit ${role.name}` : 'New role'} onClose={onClose}
+    <Modal size="lg" title={role ? `Edit ${role.name}` : 'New Role'} onClose={onClose}
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="role-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner size="sm" tone="onBrand" />}{role ? 'Save changes' : 'Create role'}
+          {save.isPending && <Spinner size="sm" tone="onBrand" />}{role ? 'Save Changes' : 'Create Role'}
         </button>
       </>}>
       <form id="role-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -118,7 +118,7 @@ export function RolesPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-ink-500">A role is a named set of permissions. People can hold several roles: they get the sum.</p>
-        <button type="button" className={buttonPrimary} onClick={() => setEditing({ role: null })}>New role</button>
+        <button type="button" className={buttonPrimary} onClick={() => setEditing({ role: null })}>New Role</button>
       </div>
       {remove.isError && <div className="mb-4"><ErrorState title="Could not delete the role" error={remove.error} /></div>}
       {roles.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading roles</p>

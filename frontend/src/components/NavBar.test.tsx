@@ -28,8 +28,8 @@ test('the bar carries the five destinations, with the editor’s own section mar
   renderBar()
   const bar = screen.getByRole('navigation', { name: 'Main' })
   expect([...bar.querySelectorAll('a')].map((a) => a.getAttribute('aria-label'))).toEqual([
-    'CEP overview',
-    'Overview',
+    'CEP home',
+    'Home',
     'Campaigns',
     'Journeys',
     'Templates',
@@ -38,8 +38,10 @@ test('the bar carries the five destinations, with the editor’s own section mar
 
   const templates = screen.getByRole('link', { name: 'Templates' })
   expect(templates.getAttribute('aria-current')).toBe('page')
-  expect(templates.className).toContain('bg-brand-600')
-  expect(screen.getByRole('link', { name: 'Campaigns' }).className).toContain('text-sidebar-icon')
+  expect(templates.className).toContain('bg-sidebar-selected')
+  expect(templates.querySelector('[data-current-bar]')).toBeTruthy()                                     // the 3px left bar
+  expect(screen.getByRole('link', { name: 'Campaigns' }).className).toContain('text-sidebar-text')
+  expect(screen.getByRole('link', { name: 'Campaigns' }).querySelector('[data-current-bar]')).toBeNull()
 })
 
 test('a destination behind a flag that is off is not offered', () => {
@@ -57,21 +59,33 @@ test('every link hands the destination back so the page can hold it', async () =
   await user.click(screen.getByRole('link', { name: 'Campaigns' }))
   expect(onNavigate).toHaveBeenCalledWith('/campaigns', expect.anything())
 
-  await user.click(screen.getByRole('link', { name: 'CEP overview' }))
+  await user.click(screen.getByRole('link', { name: 'CEP home' }))
   expect(onNavigate).toHaveBeenCalledWith('/', expect.anything())
 })
 
-test('the targets are the design’s 44px tiles on the navy bar, with 22px icons', () => {
+test('the bar is the app rail collapsed: 64px, 40px items with 4px corners, 20px icons, no labels', () => {
   renderBar()
   const bar = screen.getByRole('navigation', { name: 'Main' })
-  expect(bar.className).toContain('w-[72px]')
+  expect(bar.className).toContain('w-16')
   expect(bar.className).toContain('bg-sidebar')
 
   const templates = screen.getByRole('link', { name: 'Templates' })
-  expect(templates.className).toContain('h-11')
-  expect(templates.className).toContain('w-11')
-  expect(templates.className).toContain('rounded-lg')
-  expect(templates.querySelector('svg')?.getAttribute('width')).toBe('22')
+  expect(templates.className).toContain('h-10')
+  expect(templates.className).toContain('w-10')
+  expect(templates.className).toContain('rounded-sm')
+  expect(templates.querySelector('svg')?.getAttribute('width')).toBe('20')
+  expect(templates.textContent).toBe('')
+})
+
+test('a collapsed item names itself in a tooltip on keyboard focus, and Escape hides it', async () => {
+  const user = userEvent.setup()
+  renderBar()
+  await user.tab()                                                                                      // the mark
+  await user.tab()
+  expect(document.activeElement?.getAttribute('aria-label')).toBe('Home')
+  expect(document.querySelector('[data-rail-tooltip]')?.textContent).toBe('Home')
+  await user.keyboard('{Escape}')
+  expect(document.querySelector('[data-rail-tooltip]')).toBeNull()
 })
 
 /** The bar wired the way the editor wires it: every destination goes through the unsaved-work guard. */
@@ -100,7 +114,7 @@ test('with unsaved work a link opens the leave dialog instead of leaving', async
   expect(screen.getByRole('dialog', { name: 'Leave without saving?' })).toBeTruthy()
   expect(screen.getByText('still here')).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: 'Leave without saving' }))
+  await user.click(screen.getByRole('button', { name: 'Leave Without Saving' }))
   expect(screen.getByText('left for /campaigns')).toBeTruthy()
 })
 

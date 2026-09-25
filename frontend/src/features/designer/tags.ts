@@ -19,7 +19,7 @@ export function unknownTags(used: string[], catalogue: PersonalizationTag[]): st
 
 const KIND_ORDER = ['STANDARD', 'CUSTOM', 'SYSTEM', 'SEGMENT', 'INNER_TEMPLATE']
 const KIND_LABEL: Record<string, string> = {
-  STANDARD: 'Customer', CUSTOM: 'Campaign list', SYSTEM: 'System', SEGMENT: 'Segment', INNER_TEMPLATE: 'Content blocks',
+  STANDARD: 'Customer', CUSTOM: 'Campaign List', SYSTEM: 'System', SEGMENT: 'Segment', INNER_TEMPLATE: 'Content Blocks',
 }
 
 export function groupTags(catalogue: PersonalizationTag[], channel = 'EMAIL'): { kind: string; label: string; tags: PersonalizationTag[] }[] {

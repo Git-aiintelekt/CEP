@@ -31,9 +31,9 @@ export function ErrorsPill({ issues, controller, onJump }: { issues: Issue[]; co
   }
 
   const { tone, icon, label } =
-    errors.length > 0 ? { tone: 'danger' as const, icon: CircleAlert, label: `Review errors · ${errors.length}` }
-    : warnings.length > 0 ? { tone: 'warning' as const, icon: TriangleAlert, label: `${warnings.length} ${warnings.length === 1 ? 'warning' : 'warnings'}` }
-    : { tone: 'neutral' as const, icon: CircleCheck, label: 'No errors' }
+    errors.length > 0 ? { tone: 'danger' as const, icon: CircleAlert, label: `Review Errors · ${errors.length}` }
+    : warnings.length > 0 ? { tone: 'warning' as const, icon: TriangleAlert, label: `${warnings.length} ${warnings.length === 1 ? 'Warning' : 'Warnings'}` }
+    : { tone: 'neutral' as const, icon: CircleCheck, label: 'No Errors' }
 
   return (
     <div className="relative">
@@ -126,7 +126,7 @@ export function LinksPill({ links, tags, controller, onJump }: { links: LinkEntr
         icon={flagged.length > 0 ? TriangleAlert : Link2}
         open={open}
       >
-        {flagged.length > 0 ? `Review links · ${flagged.length}` : `Links · ${links.length}`}
+        {flagged.length > 0 ? `Review Links · ${flagged.length}` : `Links · ${links.length}`}
       </Pill>
 
       {open && (
@@ -136,7 +136,7 @@ export function LinksPill({ links, tags, controller, onJump }: { links: LinkEntr
               'No links yet'
             : flagged.length > 0 ?
               `${flagged.length} of ${links.length} need a look`
-            : `${links.length} ${links.length === 1 ? 'link' : 'links'}`}
+            : `${links.length} ${links.length === 1 ? 'Link' : 'Links'}`}
           </PopoverHeading>
           {links.length === 0 ?
             <div className="px-3 py-3">

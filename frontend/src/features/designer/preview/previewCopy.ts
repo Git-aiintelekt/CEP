@@ -19,14 +19,14 @@ export const PREVIEW_FRAME_WIDTH: Record<PreviewDevice, number> = {
   mobile: frameWidthFor(DEVICES[DEVICES.length - 1]),
 }
 
-export const PREVIEW_FRAME_TITLE = 'Email preview'
-export const PREVIEW_AS_LABEL = 'Preview as'
+export const PREVIEW_FRAME_TITLE = 'Email Preview'
+export const PREVIEW_AS_LABEL = 'Preview As'
 export const DEVICE_LABEL = 'Device'
 export const LOADING_LABEL = 'Building the preview'
 export const EMPTY_TITLE = 'There is nothing to preview yet.'
 export const EMPTY_HINT = 'Add a block to see it here.'
 export const FAILED_NOTE = 'This email can’t be previewed yet because one of its blocks has a problem.'
-export const SHOW_DETAILS = 'Show details'
-export const HIDE_DETAILS = 'Hide details'
+export const SHOW_DETAILS = 'Show Details'
+export const HIDE_DETAILS = 'Hide Details'
 export const EMPTY_LINK_NOTE = 'A link is empty for this contact.'
 export const FOOTNOTE = 'This is a preview. The email that is sent is built by the server when you save.'

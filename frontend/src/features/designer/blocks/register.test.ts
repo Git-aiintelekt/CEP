@@ -61,7 +61,7 @@ test('a receipt is offered its own six blocks, in its grid order', () => {
   expect(added.map((item) => item.id)).toEqual([
     'receipt-brand-header', 'receipt-marketing', 'receipt-button', 'receipt-footer', 'receipt-image', 'receipt-divider',
   ])
-  expect(added.map((item) => item.props.label)).toEqual(['Brand header', 'Marketing', 'Button', 'Footer', 'Image', 'Divider'])
+  expect(added.map((item) => item.props.label)).toEqual(['Brand Header', 'Marketing', 'Button', 'Footer', 'Image', 'Divider'])
 })
 
 test('none of the Email palette is offered to a receipt', () => {

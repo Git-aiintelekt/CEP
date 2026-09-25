@@ -144,7 +144,7 @@ test('a unit MJML refuses shows the error, and leaves nothing written once the f
   const text = make('mj-text')
   renderFields(text)
 
-  await user.type(screen.getByLabelText('Font size'), '2em')
+  await user.type(screen.getByLabelText('Font Size'), '2em')
   expect(screen.getByText('Use a number in px')).toBeTruthy()
   await user.keyboard('{Enter}')
 
@@ -156,11 +156,11 @@ test('a unit MJML refuses shows the error, and leaves nothing written once the f
 test('a length offers only the units MJML accepts for that setting', () => {
   renderFields(make('mj-text'))
   // font-size is px only, so there is no unit switch to offer
-  expect(screen.queryByRole('radiogroup', { name: 'Font size unit' })).toBeNull()
+  expect(screen.queryByRole('radiogroup', { name: 'Font Size Unit' })).toBeNull()
 
   cleanup()
   renderFields(make('mj-spacer'))
-  expect(screen.getByRole('radiogroup', { name: 'Height unit' })).toBeTruthy()
+  expect(screen.getByRole('radiogroup', { name: 'Height Unit' })).toBeTruthy()
 })
 
 test('Reset clears the setting', async () => {
@@ -177,7 +177,7 @@ test('font weight is a list of named weights, not free text', async () => {
   const text = make('mj-text')
   renderFields(text)
 
-  const select = screen.getByLabelText('Font weight') as HTMLSelectElement
+  const select = screen.getByLabelText('Font Weight') as HTMLSelectElement
   expect([...select.options].map((option) => option.textContent))
     .toEqual(['Default', 'Light', 'Regular', 'Medium', 'Semibold', 'Bold'])
 
@@ -193,7 +193,7 @@ test('font family is a list of email-safe families, the default row naming the e
   const text = make('mj-text')
   renderFields(text, { wrapper })
 
-  const select = screen.getByLabelText('Font family') as HTMLSelectElement
+  const select = screen.getByLabelText('Font Family') as HTMLSelectElement
   expect(select.options[0].textContent).toBe('Default (Georgia)')
   expect([...select.options].map((option) => option.textContent)).toEqual(expect.arrayContaining(['Arial', 'Courier New', 'Georgia', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana']))
 
@@ -203,7 +203,7 @@ test('font family is a list of email-safe families, the default row naming the e
 
 test('a font the design carries that the list does not offer is still shown, as itself', () => {
   renderFields(make('mj-text', { 'font-family': 'Lato, sans-serif' }))
-  const select = screen.getByLabelText('Font family') as HTMLSelectElement
+  const select = screen.getByLabelText('Font Family') as HTMLSelectElement
   expect(select.value).toBe('Lato, sans-serif')
   expect(select.options[select.selectedIndex].textContent).toBe('Lato, sans-serif')
 })
@@ -223,7 +223,7 @@ test('the social block adds a network from a list, which appends an icon that li
   expect(appended).toEqual(['<mj-social-element name="linkedin-noshare" href=""></mj-social-element>'])
   expect(add.value).toBe('') // back on the prompt: it is an action, not a setting
   expect(screen.getByLabelText('Layout')).toBeTruthy()
-  expect(screen.getByLabelText('Icon size')).toBeTruthy()
+  expect(screen.getByLabelText('Icon Size')).toBeTruthy()
 })
 
 test('a social icon names its network from the same list, with no empty row', () => {
@@ -232,7 +232,7 @@ test('a social icon names its network from the same list, with no empty row', ()
   expect(network.value).toBe('facebook')
   expect(network.options[0].textContent).toBe('Facebook')
   expect(screen.getByLabelText('Label')).toBeTruthy()
-  expect(screen.getByLabelText('Icon background')).toBeTruthy()
+  expect(screen.getByLabelText('Icon Background')).toBeTruthy()
 })
 
 test('a custom HTML block takes markup in a text area, refusing what the server would refuse', async () => {
@@ -294,7 +294,7 @@ test('alt text and the link sit with the image, and an empty alt clears the sett
   const image = make('mj-image', { src: 'https://cdn.test/a.png', alt: 'A logo' })
   renderFields(image)
 
-  await user.clear(screen.getByLabelText('Alt text'))
+  await user.clear(screen.getByLabelText('Alt Text'))
   await user.keyboard('{Enter}')
   expect('alt' in image.getAttributes()).toBe(false)
 
@@ -333,7 +333,7 @@ test('read-only greys every control and offers no Reset', () => {
     expect(control.className).not.toContain('opacity')
   }
   expect(screen.queryByRole('button', { name: RESET_LABEL })).toBeNull()
-  expect(screen.getByRole('switch', { name: 'Full width' }).className).toContain('bg-line-subtle')
+  expect(screen.getByRole('switch', { name: 'Full Width' }).className).toContain('bg-line-subtle')
 })
 
 test('read-only leaves the image chooser inert too', async () => {
@@ -349,7 +349,7 @@ test('read-only leaves the image chooser inert too', async () => {
 test('a setting named by an issue row is opened and focused', () => {
   const image = make('mj-image', { src: 'https://cdn.test/a.png' })
   renderFields(image, { focusKey: 'alt' })
-  expect(document.activeElement).toBe(screen.getByLabelText('Alt text'))
+  expect(document.activeElement).toBe(screen.getByLabelText('Alt Text'))
 })
 
 test('values re-read when the editor says the model moved', () => {
@@ -446,14 +446,14 @@ test('view-only values stay readable: grey fill, darker grey text, never faded',
 test('view-only still shows which way a switch is set', () => {
   renderFields(make('mj-section', { 'css-class': HIDE_MOBILE_CLASS }), { disabled: true })
   const on = screen.getByRole('switch', { name: HIDE_MOBILE_LABEL })
-  const off = screen.getByRole('switch', { name: 'Full width' })
+  const off = screen.getByRole('switch', { name: 'Full Width' })
   expect(on.getAttribute('aria-checked')).toBe('true')
   expect(on.className).not.toBe(off.className)
 })
 
 // ---- E-Receipt ------------------------------------------------------------
 
-const swatches = () => screen.getByRole('radiogroup', { name: 'Brand bar color' })
+const swatches = () => screen.getByRole('radiogroup', { name: 'Brand Bar Color' })
 
 test('the brand bar colour is four named swatches, the chosen one marked', () => {
   renderFields(make('cep-receipt-brand-header', { 'background-color': '#20265d' }))
@@ -484,7 +484,7 @@ test('a receipt button takes its destination and style from fixed lists, with no
   renderFields(make('cep-receipt-button'))
   const options = (label: string) => [...(screen.getByLabelText(label) as HTMLSelectElement).options].map((option) => option.textContent)
 
-  expect(options('Destination')).toEqual(['Order status page', 'Outerwear category', 'Loyalty hub', 'Start a return'])
+  expect(options('Destination')).toEqual(['Order Status Page', 'Outerwear Category', 'Loyalty Hub', 'Start a Return'])
   expect(options('Style')).toEqual(['Primary', 'Outline'])
   expect(screen.queryByRole('textbox', { name: 'Link' })).toBeNull()
 })
@@ -492,7 +492,7 @@ test('a receipt button takes its destination and style from fixed lists, with no
 test('the marketing body is a text area with the four tag chips', () => {
   renderFields(make('cep-marketing'))
   expect(screen.getByLabelText('Body').tagName).toBe('TEXTAREA')
-  for (const name of ['First name', 'Order number', 'Order total', 'Store name']) expect(screen.getByRole('button', { name: `Insert ${name}` })).toBeTruthy()
+  for (const name of ['First Name', 'Order Number', 'Order Total', 'Store Name']) expect(screen.getByRole('button', { name: `Insert ${name}` })).toBeTruthy()
   expect([...(screen.getByLabelText('Treatment') as HTMLSelectElement).options].map((option) => option.textContent)).toEqual(['Plain', 'Accent'])
 })
 
@@ -504,5 +504,5 @@ test('a divider has nothing to set and says why; a footer says what it cannot ca
 
   renderFields(make('cep-receipt-footer'))
   expect(screen.getByText(/no unsubscribe link/)).toBeTruthy()
-  expect(screen.getByLabelText('Sender address').tagName).toBe('TEXTAREA')
+  expect(screen.getByLabelText('Sender Address').tagName).toBe('TEXTAREA')
 })

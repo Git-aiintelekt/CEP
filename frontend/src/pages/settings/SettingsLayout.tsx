@@ -11,11 +11,11 @@ import type { Feature, Workspace } from '@/lib/types'
 const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/users', label: 'Users' },
   { to: '/settings/roles', label: 'Roles' },
-  { to: '/settings/api-keys', label: 'API keys', feature: 'api_access' },
-  { to: '/settings/plan', label: 'Plan & usage' },
+  { to: '/settings/api-keys', label: 'API Keys', feature: 'api_access' },
+  { to: '/settings/plan', label: 'Plan & Usage' },
   { to: '/settings/security', label: 'Security' },
-  { to: '/settings/email', label: 'Email server' },
-  { to: '/settings/delivery', label: 'Sending engines' },
+  { to: '/settings/email', label: 'Email Server' },
+  { to: '/settings/delivery', label: 'Sending Engines' },
 ]
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -44,9 +44,9 @@ export function SettingsLayout() {
         <dl className="mb-5 grid grid-cols-2 gap-4 rounded-lg border border-line bg-surface p-4 lg:grid-cols-5">
           <Fact label="Workspace" value={`${data.name} (${data.code})`} />
           <Fact label="Plan" value={data.plan ?? 'No plan'} />
-          <Fact label="Active users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
-          <Fact label="Time zone" value={data.timezone} />
-          <Fact label="Active API keys" value={formatNumber(data.active_api_keys)} />
+          <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
+          <Fact label="Time Zone" value={data.timezone} />
+          <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
         </dl>
       )}
       <nav aria-label="Settings sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-line whitespace-nowrap">

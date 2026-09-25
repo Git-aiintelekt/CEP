@@ -52,7 +52,7 @@ function setup({ backend = makeBackend(), readOnly = false, status = 'DRAFT', la
 
 const note = () => document.querySelector('header .cep-num')?.textContent ?? ''
 const tab = (name: string) => screen.getByRole('tab', { name })
-const save = () => screen.getByRole('button', { name: 'Save draft' })
+const save = () => screen.getByRole('button', { name: 'Save Draft' })
 const hideLoyalty = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('switch', { name: 'Show Loyalty' }))
 const removeFooter = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('button', { name: 'Remove the footer' }))
 
@@ -61,8 +61,8 @@ afterEach(cleanup)
 
 test('opens on the outer design, with three tabs and both parts\' versions', () => {
   setup()
-  expect(screen.getAllByRole('tab').map((item) => item.textContent)).toEqual(['Outer design', 'Receipt layout', 'Preview & test'])
-  expect(tab('Outer design').getAttribute('aria-selected')).toBe('true')
+  expect(screen.getAllByRole('tab').map((item) => item.textContent)).toEqual(['Outer Design', 'Receipt Layout', 'Preview & Test'])
+  expect(tab('Outer Design').getAttribute('aria-selected')).toBe('true')
   expect(note()).toContain('Outer design v1 · receipt layout v1')
   expect(note()).not.toContain('unsaved')
   expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy()
@@ -76,7 +76,7 @@ test('a change in any mode makes the whole editor unsaved', async () => {
   cleanup()
   resetFakeCanvas()
   const second = setup()
-  await second.user.click(tab('Receipt layout'))
+  await second.user.click(tab('Receipt Layout'))
   await hideLoyalty(second.user)
   expect(note()).toContain('unsaved changes')
   // switching it back is no change at all: the layout is compared, not merely touched
@@ -87,7 +87,7 @@ test('a change in any mode makes the whole editor unsaved', async () => {
 test('Save saves both parts, says so once, and leaves nothing unsaved', async () => {
   const { user, backend } = setup()
   await removeFooter(user)
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
   await user.click(save())
 
@@ -102,7 +102,7 @@ test('Save saves both parts, says so once, and leaves nothing unsaved', async ()
 
 test('a change to one part saves that part alone', async () => {
   const { user, backend } = setup()
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
   await user.click(save())
 
@@ -122,12 +122,12 @@ test('a conflict on the outer design names it, while the layout still saves', as
   const backend = makeBackend({ saveDesign: vi.fn(async () => Promise.reject(new ApiError(409, { title: 'Conflict', detail: 'Someone else saved.' }))) })
   const { user } = setup({ backend })
   await removeFooter(user)
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
   await user.click(save())
 
-  expect(await screen.findByText(conflictNote('Outer design'))).toBeTruthy()
-  expect(screen.queryByText(conflictNote('Receipt layout'))).toBeNull()
+  expect(await screen.findByText(conflictNote('Outer Design'))).toBeTruthy()
+  expect(screen.queryByText(conflictNote('Receipt Layout'))).toBeNull()
   await waitFor(() => expect(note()).toContain('receipt layout v2'))
   // the design's changes are still unsaved; the layout's are not
   expect(note()).toContain('Outer design v1')
@@ -137,11 +137,11 @@ test('a conflict on the outer design names it, while the layout still saves', as
 test('a conflict on the receipt layout names the layout', async () => {
   const backend = makeBackend({ saveReceiptLayout: vi.fn(async () => Promise.reject(new ApiError(409, { title: 'Conflict', detail: 'Someone else saved.' }))) })
   const { user } = setup({ backend })
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
   await user.click(save())
-  expect(await screen.findByText(conflictNote('Receipt layout'))).toBeTruthy()
-  expect(screen.queryByText(conflictNote('Outer design'))).toBeNull()
+  expect(await screen.findByText(conflictNote('Receipt Layout'))).toBeTruthy()
+  expect(screen.queryByText(conflictNote('Outer Design'))).toBeNull()
 })
 
 test('a refused design is explained, with the server\'s words', async () => {
@@ -167,35 +167,35 @@ test('Activate waits for a save, then activates', async () => {
 
 test('leaving with unsaved work asks first', async () => {
   const { user } = setup()
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
-  await user.click(screen.getByRole('link', { name: 'Back to templates' }))
+  await user.click(screen.getByRole('link', { name: 'Back to Templates' }))
   expect(await screen.findByRole('dialog', { name: 'Leave without saving?' })).toBeTruthy()
 })
 
 test('switching tabs never remounts the canvas or loses the layout\'s selection', async () => {
   const { user } = setup()
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await user.click(screen.getByRole('button', { name: 'Payment' }))
-  await user.click(tab('Preview & test'))
-  await user.click(tab('Outer design'))
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Preview & Test'))
+  await user.click(tab('Outer Design'))
+  await user.click(tab('Receipt Layout'))
 
   expect(fakeCanvas.mounts).toBe(1)
   expect(screen.getByRole('button', { name: 'Payment' }).getAttribute('aria-pressed')).toBe('true')
 })
 
-test('the slot\'s Open Receipt layout switches to that tab', async () => {
+test('the slot\'s Open Receipt Layout switches to that tab', async () => {
   const { user } = setup()
-  await user.click(screen.getByRole('button', { name: 'Open Receipt layout' }))
-  expect(tab('Receipt layout').getAttribute('aria-selected')).toBe('true')
+  await user.click(screen.getByRole('button', { name: 'Open Receipt Layout' }))
+  expect(tab('Receipt Layout').getAttribute('aria-selected')).toBe('true')
 })
 
 test('Preview & test shows the real outer email with the receipt in its slot, and its head carries the phone rule', async () => {
   const { user } = setup()
-  await user.click(tab('Receipt layout'))
+  await user.click(tab('Receipt Layout'))
   await hideLoyalty(user)
-  await user.click(tab('Preview & test'))
+  await user.click(tab('Preview & Test'))
 
   const frame = (await screen.findByTitle(COMBINED_FRAME_TITLE)) as HTMLIFrameElement
   expect(frame.getAttribute('sandbox')).toBe('')
@@ -215,7 +215,7 @@ test('the footer check follows the canvas: remove the footer and it fails', asyn
 
   await removeFooter(user)
   await waitFor(() => expect(status()).toBe('fail'), { timeout: 5000 })
-  expect(await screen.findByText('1 of 5 checks to fix · see Preview & test.')).toBeTruthy()
+  expect(await screen.findByText('1 of 5 checks to fix · see Preview & Test.')).toBeTruthy()
 })
 
 test('an older version of one part is loaded on its own, and says which part it is', async () => {
@@ -224,12 +224,12 @@ test('an older version of one part is loaded on its own, and says which part it 
     { version_number: 2, saved_at: '2026-09-03T10:00:00Z', saved_by: 'Aby John' },
     { version_number: 1, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' },
   ])
-  await user.click(screen.getByRole('button', { name: /Layout history/ }))
-  const menu = await screen.findByRole('region', { name: 'Receipt layout versions' })
+  await user.click(screen.getByRole('button', { name: /Layout History/ }))
+  const menu = await screen.findByRole('region', { name: 'Receipt Layout Versions' })
   await user.click(within(menu).getByRole('button', { name: 'Load' }))
 
   await waitFor(() => expect(backend.loadReceiptLayoutVersion).toHaveBeenCalledWith(1))
-  expect(await screen.findByText(olderNote('Receipt layout', 1))).toBeTruthy()
+  expect(await screen.findByText(olderNote('Receipt Layout', 1))).toBeTruthy()
   expect(backend.loadDesignVersion).not.toHaveBeenCalled()
   expect(note()).toContain('receipt layout v1 of 2')
 })
@@ -237,6 +237,6 @@ test('an older version of one part is loaded on its own, and says which part it 
 test('read-only: a strip says so, and there is nothing to save or activate', () => {
   setup({ readOnly: true })
   expect(screen.getByText('You can view this template but not edit it')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Save draft' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Save Draft' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull()
 })

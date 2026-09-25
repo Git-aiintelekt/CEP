@@ -104,6 +104,6 @@ test('fulfillment names delivery or pickup from the address mode', () => {
 test('inside the email shell the receipt sits in a dimmed stand-in, labelled', () => {
   render(<ReceiptPreview sections={defaultSectionsFor('STANDARD')} transaction={DEFAULT_SAMPLE_TRANSACTION} insideShell />)
   expect(screen.getByTestId('email-shell')).toBeTruthy()
-  expect(screen.getByText('Receipt layout')).toBeTruthy()
+  expect(screen.getByText('Receipt Layout')).toBeTruthy()
   expect(screen.getByTestId('email-shell').querySelector('.opacity-40')).toBeTruthy()
 })

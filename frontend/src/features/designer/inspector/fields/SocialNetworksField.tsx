@@ -4,8 +4,8 @@ import { useId } from 'react'
 import { SOCIAL_NETWORKS } from '../social'
 import { controlClass } from './controls'
 
-export const ADD_NETWORK_LABEL = 'Add a network'
-export const ADD_NETWORK_PROMPT = 'Choose a network…'
+export const ADD_NETWORK_LABEL = 'Add a Network'
+export const ADD_NETWORK_PROMPT = 'Choose a Network…'
 export const SOCIAL_ICONS_NOTE = 'Select an icon on the canvas to set its link, label or network; its toolbar deletes it.'
 
 export function SocialNetworksField({ disabled = false, onAdd }: { disabled?: boolean; onAdd: (network: string) => void }) {

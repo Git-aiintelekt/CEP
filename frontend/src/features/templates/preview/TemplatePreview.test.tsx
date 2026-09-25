@@ -31,14 +31,14 @@ afterEach(() => {
 })
 
 const factsIn = (dialog: HTMLElement) => {
-  const found = dialog.querySelector<HTMLElement>('[aria-label="Message facts"]')
+  const found = dialog.querySelector<HTMLElement>('[aria-label="Message Facts"]')
   if (!found) throw new Error('no facts card yet')
   return found
 }
 
 /** Presets are copied on click, so their preview lives in the list view's row menu. */
 async function previewPresetFromList(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const trigger = await screen.findByRole('button', { name: `Actions for ${name}` })
   await user.click(trigger)
   await user.click(within(screen.getByRole('region', { name: `Actions for ${name}` })).getByRole('button', { name: 'Preview' }))
@@ -53,7 +53,7 @@ test('a preset preview: its name and tags, the resolved message in a phone, the 
   const trigger = await previewPresetFromList(user, 'SMS offer')
 
   const dialog = await screen.findByRole('dialog', { name: 'SMS offer' })
-  for (const tag of ['SMS', 'Promotion', 'CEP preset']) expect(within(dialog).getByText(tag)).toBeTruthy()
+  for (const tag of ['SMS', 'Promotion', 'CEP Preset']) expect(within(dialog).getByText(tag)).toBeTruthy()
   const resolved = renderWithSamples(smsBody, presetTags)
   expect((await within(dialog).findByTestId('preview-bubble')).textContent).toBe(resolved)
 
@@ -62,7 +62,7 @@ test('a preset preview: its name and tags, the resolved message in a phone, the 
   expect(within(facts).getByText('Characters').nextElementSibling?.textContent).toBe(String(counted.units))
   expect(within(facts).getByText('Segments').nextElementSibling?.textContent).toBe('1')
   expect(within(facts).getByText('Media').nextElementSibling?.textContent).toBe('None')
-  expect(within(facts).getByText('Opt-out').nextElementSibling?.textContent).toBe('In message body')
+  expect(within(facts).getByText('Opt-Out').nextElementSibling?.textContent).toBe('In message body')
   expect(within(dialog).queryByRole('button', { name: /^(Edit|Open|Save|Activate|Use this template)/ })).toBeNull()
 
   await user.keyboard('{Escape}')
@@ -74,19 +74,19 @@ test('a template preview reads its saved findings, and its footer offers Edit an
   const findings = { ...makeMessage().findings, units: 212, segments: 2, per_segment: 153 }
   await openLanding({ message: makeMessage({ findings }) })
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const row = screen.getByRole('button', { name: 'Fall SMS' }).closest('tr') as HTMLElement
   const trigger = within(row).getByRole('button', { name: 'Actions for Fall SMS' })
   await user.click(trigger)
   const menu = screen.getByRole('region', { name: 'Actions for Fall SMS' })
-  expect(within(menu).getAllByRole('button').map((button) => button.textContent)).toEqual(['Preview', 'Open editor', 'DuplicateA draft copy of the latest version', 'Delete'])
+  expect(within(menu).getAllByRole('button').map((button) => button.textContent)).toEqual(['Preview', 'Open Editor', 'DuplicateA draft copy of the latest version', 'Delete'])
   await user.click(within(menu).getByRole('button', { name: 'Preview' }))
 
   const dialog = await screen.findByRole('dialog', { name: 'Fall SMS' })
   const facts = await waitFor(() => factsIn(dialog))
   expect(within(facts).getByText('Characters').nextElementSibling?.textContent).toBe('212')
   expect(within(facts).getByText('Segments').nextElementSibling?.textContent).toBe('2')
-  expect(within(facts).getByText('Segment limit').nextElementSibling?.textContent).toBe('153 characters')
+  expect(within(facts).getByText('Segment Limit').nextElementSibling?.textContent).toBe('153 characters')
   expect(within(dialog).getByText('Active')).toBeTruthy()
   expect(within(dialog).getByText(/^Edited /)).toBeTruthy()
   expect(within(dialog).queryByText(/archive|duplicate|used \d/i)).toBeNull()
@@ -139,10 +139,10 @@ test('e-receipts have no preview: the card and row still open the editor, and th
   const user = userEvent.setup()
   expect(screen.getByText('Northline order receipt').closest('a')?.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
 
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const row = screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
   await user.click(within(row).getByRole('button', { name: 'Actions for Northline order receipt' }))
-  expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).getAllByRole('button').map((button) => button.textContent)).toEqual(['Open editor', 'DuplicateA draft copy of the latest version', 'Delete'])
+  expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).getAllByRole('button').map((button) => button.textContent)).toEqual(['Open Editor', 'DuplicateA draft copy of the latest version', 'Delete'])
 })
 
 test('SMS and MMS cards show the first line of the real message; email and e-receipt show a content skeleton', async () => {
@@ -161,7 +161,7 @@ test('SMS and MMS cards show the first line of the real message; email and e-rec
 test('list rows start with the name: no leading tile for any channel', async () => {
   await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const rows = await screen.findAllByRole('row')
   expect(rows.length).toBeGreaterThan(10)
   expect(document.querySelectorAll('table [data-tile]')).toHaveLength(0)
@@ -172,12 +172,12 @@ test('list rows start with the name: no leading tile for any channel', async () 
 test('clicking a preset card opens its preview, not a copy; the footer offers the copy and no edited time', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP preset' }))
+  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP Preset' }))
 
   const dialog = await screen.findByRole('dialog', { name: 'SMS offer' })
   expect(posts(calls)).toEqual([])
   expect(window.location.pathname).toBe('/templates')
-  expect(within(dialog).getByRole('button', { name: 'Copy this template' })).toBeTruthy()
+  expect(within(dialog).getByRole('button', { name: 'Copy This Template' })).toBeTruthy()
   expect(within(dialog).queryByText(/Edited/)).toBeNull()
   expect(within(dialog).queryByRole('button', { name: 'Edit' })).toBeNull()
 })
@@ -185,7 +185,7 @@ test('clicking a preset card opens its preview, not a copy; the footer offers th
 test('clicking a preset row in the list opens its preview, not a copy', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const row = (await screen.findByRole('button', { name: 'Welcome a new member' })).closest('tr') as HTMLElement
   await user.click(within(row).getByText('Starter'))
 
@@ -193,11 +193,11 @@ test('clicking a preset row in the list opens its preview, not a copy', async ()
   expect(posts(calls)).toEqual([])
 })
 
-test('Copy this template makes the copy through the same path, closes the preview and opens the new draft', async () => {
+test('Copy This Template makes the copy through the same path, closes the preview and opens the new draft', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP preset' }))
-  const copy = within(await screen.findByRole('dialog', { name: 'SMS offer' })).getByRole('button', { name: 'Copy this template' })
+  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP Preset' }))
+  const copy = within(await screen.findByRole('dialog', { name: 'SMS offer' })).getByRole('button', { name: 'Copy This Template' })
   await user.click(copy)
   await user.click(copy) // a second press while the copy runs does nothing
 
@@ -209,12 +209,12 @@ test('Copy this template makes the copy through the same path, closes the previe
 test('without template.edit a preset card does nothing on click, and its preview has no copy button', async () => {
   await openLanding({ me: { principal: { ...me.principal, kind: 'user', permissions: me.principal.permissions.filter((code) => code !== 'template.edit') } } })
   const user = userEvent.setup()
-  expect(screen.queryByRole('button', { name: 'SMS offer, CEP preset' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'SMS offer, CEP Preset' })).toBeNull()
 
   // the list row's menu still previews, read-only
   await previewPresetFromList(user, 'SMS offer')
   const dialog = await screen.findByRole('dialog', { name: 'SMS offer' })
-  expect(within(dialog).queryByRole('button', { name: 'Copy this template' })).toBeNull()
+  expect(within(dialog).queryByRole('button', { name: 'Copy This Template' })).toBeNull()
 })
 
 // ---- email and e-receipt thumbnails: the real email, scaled down, loaded only once in view ----
@@ -270,7 +270,7 @@ test('an e-receipt gets a real thumbnail, with its receipt in the slot, and stil
   // the card still opens the editor directly, and no menu offers a preview
   expect(cardOf('Northline order receipt').querySelector('a')?.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   const row = screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
   await user.click(within(row).getByRole('button', { name: 'Actions for Northline order receipt' }))
   expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).queryByRole('button', { name: 'Preview' })).toBeNull()
@@ -294,7 +294,7 @@ test('the thumbnail frame is sandboxed and inert: a click on it reaches the card
 test('list rows still carry no tile, and never load a thumbnail', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   await act(async () => scrollIntoView())
   expect(document.querySelectorAll('table [data-tile], table iframe')).toHaveLength(0)
   expect(calls.some((call) => /\/(design|receipt)\/$/.test(call.url.split('?')[0]))).toBe(false)

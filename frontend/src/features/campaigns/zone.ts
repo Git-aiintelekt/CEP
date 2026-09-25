@@ -49,3 +49,35 @@ export function formatInZone(iso: string | null | undefined, zone: string): stri
   const safe = isKnownZone(zone) ? zone : 'UTC'
   return `${new Intl.DateTimeFormat(undefined, { timeZone: safe, dateStyle: 'medium', timeStyle: 'short' }).format(at)} (${safe})`
 }
+
+/**
+ * "09:39 EDT": the time of day in `zone` with its short name, for tight spaces. Intl will not combine timeStyle with
+ * timeZoneName, and most locales other than US English name American zones "GMT-4"; so the time follows the reader's
+ * locale and the zone name comes from US English.
+ */
+export function timeInZone(iso: string | null | undefined, zone: string): string {
+  if (!iso) return '—'
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return '—'
+  const safe = isKnownZone(zone) ? zone : 'UTC'
+  const time = new Intl.DateTimeFormat(undefined, { timeZone: safe, timeStyle: 'short' }).format(at)
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: safe, timeZoneName: 'short' }).formatToParts(at).find((part) => part.type === 'timeZoneName')?.value ?? safe
+  return `${time} ${name}`
+}
+
+/** "2 Nov 2026, 09:00 CST": the date in `zone`, then timeInZone */
+/** "18 Sept 2026", the day as it was in `zone` */
+export function dateInZone(iso: string | null | undefined, zone: string): string {
+  if (!iso) return '—'
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return '—'
+  return new Intl.DateTimeFormat(undefined, { timeZone: isKnownZone(zone) ? zone : 'UTC', dateStyle: 'medium' }).format(at)
+}
+
+export function dateTimeInZone(iso: string | null | undefined, zone: string): string {
+  if (!iso) return '—'
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return '—'
+  const safe = isKnownZone(zone) ? zone : 'UTC'
+  return `${new Intl.DateTimeFormat(undefined, { timeZone: safe, dateStyle: 'medium' }).format(at)}, ${timeInZone(iso, safe)}`
+}

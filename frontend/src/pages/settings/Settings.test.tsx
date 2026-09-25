@@ -42,16 +42,16 @@ test('add a user with a role: no password field exists, and the chosen roles are
   const user = userEvent.setup()
   await renderAppAt('/settings/users')
 
-  await user.click(await screen.findByRole('button', { name: 'Add user' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Add a user' })
+  await user.click(await screen.findByRole('button', { name: 'Add User' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add a User' })
   expect(dialog.querySelector('input[type="password"]')).toBeNull()
-  await user.click(within(dialog).getByRole('button', { name: 'Add user' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Add User' }))
   expect(within(dialog).getByText('Enter an email address.')).toBeTruthy()
 
   await user.type(within(dialog).getByLabelText(/^Email/), 'new.person@example.com')
   await user.type(within(dialog).getByLabelText(/^Name/), 'New Person')
   await user.click(within(dialog).getByRole('checkbox', { name: /Analyst/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Add user' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Add User' }))
 
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/users/'))?.body).toEqual({ email: 'new.person@example.com', display_name: 'New Person', roles: ['role-analyst'] })
@@ -63,8 +63,8 @@ test('a password link is created on demand and shown as a full URL to copy', asy
   await renderAppAt('/settings/users')
 
   const row = (await screen.findByText('devon@example.com')).closest('tr') as HTMLElement
-  await user.click(within(row).getByRole('button', { name: 'Password link' }))
-  const field = (await screen.findByLabelText('One-time link')) as HTMLInputElement
+  await user.click(within(row).getByRole('button', { name: 'Password Link' }))
+  const field = (await screen.findByLabelText('One-Time Link')) as HTMLInputElement
   expect(field.value).toBe(`${window.location.origin}/set-password?tenant=NWA&uid=dTI&token=abc-123`)
   expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/users/u2/password-link/'))).toBe(true)
 })
@@ -79,7 +79,7 @@ test('the API refusing to strip the last administrator is shown in the dialog', 
   const dialog = await screen.findByRole('dialog')
   expect((within(dialog).getByLabelText(/^Email/) as HTMLInputElement).disabled).toBe(true)
   await user.click(within(dialog).getByRole('checkbox', { name: /Marketing Admin/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Save Changes' }))
   expect(await within(dialog).findByText(/last active administrator/)).toBeTruthy()
 })
 
@@ -91,14 +91,14 @@ test('roles: permissions are grouped by area, posted as codes, and a role in use
   const inUse = (await screen.findByText('Marketing Admin')).closest('tr') as HTMLElement
   expect((within(inUse).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true)
 
-  await user.click(screen.getByRole('button', { name: 'New role' }))
-  const dialog = await screen.findByRole('dialog', { name: 'New role' })
+  await user.click(screen.getByRole('button', { name: 'New Role' }))
+  const dialog = await screen.findByRole('dialog', { name: 'New Role' })
   expect(within(dialog).getByText('Campaigns')).toBeTruthy()
   expect(within(dialog).getByText('Administration')).toBeTruthy()
   await user.type(within(dialog).getByLabelText(/^Name/), 'Template Designer')
   await user.click(within(dialog).getByRole('checkbox', { name: /template\.edit/ }))
   await user.click(within(dialog).getByRole('checkbox', { name: /campaign\.view/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Create role' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Role' }))
 
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/roles/'))?.body).toEqual({ name: 'Template Designer', description: null, permissions: ['template.edit', 'campaign.view'] })
@@ -110,21 +110,21 @@ test('API keys: the full key is shown exactly once after creation, and a key can
   await renderAppAt('/settings/api-keys')
 
   expect(await screen.findByText('cep_in_AbC123…')).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'New API key' }))
-  const dialog = await screen.findByRole('dialog', { name: 'New API key' })
-  await user.click(within(dialog).getByRole('button', { name: 'Create key' }))
+  await user.click(screen.getByRole('button', { name: 'New API Key' }))
+  const dialog = await screen.findByRole('dialog', { name: 'New API Key' })
+  await user.click(within(dialog).getByRole('button', { name: 'Create Key' }))
   expect(within(dialog).getByText('Choose at least one scope.')).toBeTruthy()
 
   await user.type(within(dialog).getByLabelText(/^Name/), 'Warehouse sync')
   await user.click(within(dialog).getByRole('checkbox', { name: 'events:ingest' }))
-  await user.type(within(dialog).getByLabelText('Allowed IP addresses'), '203.0.113.7, 10.0.0.0/8')
-  await user.click(within(dialog).getByRole('button', { name: 'Create key' }))
+  await user.type(within(dialog).getByLabelText('Allowed IP Addresses'), '203.0.113.7, 10.0.0.0/8')
+  await user.click(within(dialog).getByRole('button', { name: 'Create Key' }))
 
-  const reveal = await screen.findByRole('dialog', { name: 'Copy the key now' })
-  expect((within(reveal).getByLabelText('API key') as HTMLInputElement).value).toBe('cep_in_NeW456secretsecretsecret')
+  const reveal = await screen.findByRole('dialog', { name: 'Copy the Key Now' })
+  expect((within(reveal).getByLabelText('API Key') as HTMLInputElement).value).toBe('cep_in_NeW456secretsecretsecret')
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/api-clients/'))?.body).toEqual(
     { name: 'Warehouse sync', scopes: ['events:ingest'], expires_at: null, allowed_ip_cidrs: ['203.0.113.7', '10.0.0.0/8'] })
-  await user.click(within(reveal).getByRole('button', { name: 'I have stored it' }))
+  await user.click(within(reveal).getByRole('button', { name: 'I Have Stored It' }))
   expect(screen.queryByDisplayValue('cep_in_NeW456secretsecretsecret')).toBeNull()
 
   await user.click(screen.getByRole('button', { name: 'Revoke' }))
@@ -149,19 +149,19 @@ test('set password (public): mismatch is caught locally, an expired link is expl
   const user = userEvent.setup()
   await renderAppAt('/set-password?tenant=NWA&uid=dTI&token=abc-123', false)
 
-  await user.type(await screen.findByLabelText(/^New password/), 'a long enough passphrase')
-  await user.type(screen.getByLabelText(/^Confirm password/), 'a different passphrase')
-  await user.click(screen.getByRole('button', { name: 'Update password' }))
+  await user.type(await screen.findByLabelText(/^New Password/), 'a long enough passphrase')
+  await user.type(screen.getByLabelText(/^Confirm Password/), 'a different passphrase')
+  await user.click(screen.getByRole('button', { name: 'Update Password' }))
   expect(screen.getByText("Passwords don't match")).toBeTruthy()
   expect(calls.length).toBe(0)
 
-  await user.clear(screen.getByLabelText(/^Confirm password/))
-  await user.type(screen.getByLabelText(/^Confirm password/), 'a long enough passphrase')
-  await user.click(screen.getByRole('button', { name: 'Update password' }))
+  await user.clear(screen.getByLabelText(/^Confirm Password/))
+  await user.type(screen.getByLabelText(/^Confirm Password/), 'a long enough passphrase')
+  await user.click(screen.getByRole('button', { name: 'Update Password' }))
   expect((await screen.findByRole('alert')).textContent).toContain('not valid any more')
 
-  await user.click(screen.getByRole('button', { name: 'Update password' }))
-  expect(await screen.findByText('Password updated')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Update Password' }))
+  expect(await screen.findByText('Password Updated')).toBeTruthy()
   const post = calls.at(-1)
   expect(post?.body).toEqual({ uid: 'dTI', token: 'abc-123', password: 'a long enough passphrase' })
   expect(post?.headers['X-Tenant']).toBe('NWA')

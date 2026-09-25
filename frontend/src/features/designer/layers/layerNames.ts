@@ -21,21 +21,21 @@ import {
 import { networkLabel } from '../inspector/social'
 
 const NAMES: Record<string, string> = {
-  'mj-body': 'Email body',
+  'mj-body': 'Email Body',
   'mj-section': 'Section',
   'mj-column': 'Column',
-  'mj-group': 'Column group',
+  'mj-group': 'Column Group',
   'mj-text': 'Text',
   'mj-button': 'Button',
   'mj-image': 'Image',
   'mj-divider': 'Divider',
   'mj-spacer': 'Spacer',
-  'mj-social': 'Social links',
-  'mj-social-element': 'Social icon',
+  'mj-social': 'Social Links',
+  'mj-social-element': 'Social Icon',
   'mj-raw': 'Custom HTML',
   link: 'Link',
-  'cep-receipt-slot': 'Receipt slot',
-  'cep-receipt-brand-header': 'Brand header',
+  'cep-receipt-slot': 'Receipt Slot',
+  'cep-receipt-brand-header': 'Brand Header',
   'cep-marketing': 'Marketing',
   'cep-receipt-button': 'Button',
   'cep-receipt-image': 'Image',
@@ -74,11 +74,11 @@ function network(attributes: Record<string, unknown> | undefined): string | null
   return networkLabel(String(attributes?.name ?? ''))
 }
 
-/** mj-social-element -> "Social element": a tag we have no name for still reads as words. */
+/** mj-social-element -> "Social Element": a tag we have no name for still reads as words. */
 export function humanise(kind: string): string {
   const words = kind.replace(/^mj-/, '').replace(/[-_]+/g, ' ').trim()
   if (words === '') return 'Block'
-  return words.charAt(0).toUpperCase() + words.slice(1)
+  return words.replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
 }
 
 export function defaultNameFor(kind: string, attributes?: Record<string, unknown>): string {

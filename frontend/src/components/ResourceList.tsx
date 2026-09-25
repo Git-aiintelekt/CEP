@@ -67,7 +67,7 @@ export function ResourceList<T extends { id: string }>(props: ResourceListProps<
             <select
               value={selected[filter.param] ?? ''}
               onChange={(event) => setSelected((current) => ({ ...current, [filter.param]: event.target.value }))}
-              className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900"
+              className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900"
             >
               <option value="">All</option>
               {filter.options.map((option) => (

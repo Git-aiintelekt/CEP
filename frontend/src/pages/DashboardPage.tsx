@@ -60,7 +60,7 @@ export function DashboardPage() {
           loading={summary.isPending}
         />
         <StatCard
-          label="Contact lists"
+          label="Contact Lists"
           value={summary.data?.contact_lists_total ?? 0}
           hint={`${formatNumber(summary.data?.audience_total ?? 0)} members in total`}
           to="/contact-lists"
@@ -76,7 +76,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Recent campaigns</h2>
+      <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Recent Campaigns</h2>
       {campaigns.isError ? (
         <ErrorState error={campaigns.error} onRetry={() => void campaigns.refetch()} />
       ) : (
@@ -85,7 +85,7 @@ export function DashboardPage() {
           rows={campaigns.rows.slice(0, 5)}
           rowKey={(row) => row.id}
           onRowClick={(row) => navigate(`/campaigns/${row.id}`)}
-          caption="Recent campaigns"
+          caption="Recent Campaigns"
         />
       )}
     </section>

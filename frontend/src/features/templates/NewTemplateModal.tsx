@@ -54,7 +54,7 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
 
   return (
     <Modal
-      title={`New ${look.label} template`}
+      title={`New ${look.label} Template`}
       subtitle="Step 1 of 2 · name it before you design"
       onClose={onClose}
       leading={
@@ -67,23 +67,23 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
           <button type="button" onClick={onClose} className={buttonSecondary}>Cancel</button>
           <button type="submit" form={FORM_ID} disabled={name.trim() === '' || create.isPending} className={buttonPrimary}>
             {create.isPending && <Spinner size="sm" tone="onBrand" />}
-            Continue to editor
+            Continue to Editor
           </button>
         </>
       }
     >
       <form id={FORM_ID} onSubmit={onSubmit} noValidate className="space-y-4">
-        <Field label="Template name" required error={errors.name} hint="Shown in the template list and when picking a template in a campaign">
+        <Field label="Template Name" required error={errors.name} hint="Shown in the template list and when picking a template in a campaign">
           {(ids) => (
             <TextInput {...ids} value={name} maxLength={200} placeholder="Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />
           )}
         </Field>
-        <Field label="Description (optional)" error={errors.description}>
+        <Field label="Description (Optional)" error={errors.description}>
           {(ids) => <TextArea {...ids} rows={3} value={description} placeholder="What this template is for, and when to use it" onChange={(event) => setDescription(event.target.value)} />}
         </Field>
 
         <fieldset>
-          <legend className="text-sm font-medium text-ink-700">Tags (optional)</legend>
+          <legend className="text-sm font-medium text-ink-700">Tags (Optional)</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {TAG_CHOICES.map((tag) => {
               const on = picked.includes(tag)

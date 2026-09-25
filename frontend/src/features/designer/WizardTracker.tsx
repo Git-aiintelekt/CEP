@@ -17,12 +17,12 @@ export const WIZARD_STEPS: WizardStep[] = [
   { label: 'Audience' },
   { label: 'Template' },
   { label: 'Targets' },
-  { label: 'Test and publish' },
+  { label: 'Test and Publish' },
 ]
 
 export function WizardTracker({ steps, currentIndex }: WizardTrackerProps) {
   return (
-    <nav aria-label="Campaign steps">
+    <nav aria-label="Campaign Steps">
       <ol className="flex items-center gap-2">
         {steps.map((step, index) => {
           const done = index < currentIndex

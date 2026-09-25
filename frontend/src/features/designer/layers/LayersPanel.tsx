@@ -9,7 +9,7 @@ import type { LayerNode } from './types'
 export const HIDDEN_NOTE = 'Hidden here only. It is still in the email.'
 /** Deliberately unlike HIDDEN_NOTE: this one ships and sends, and only phones are told not to draw it. */
 export const PHONES_NOTE = 'Hidden on phones. It is sent, but phones do not show it.'
-export const PHONES_MARKER_LABEL = 'Hidden on phones'
+export const PHONES_MARKER_LABEL = 'Hidden on Phones'
 export const EMPTY_NOTE = 'Nothing here yet. Drag a block onto the canvas.'
 
 interface LayersPanelProps {
@@ -182,7 +182,7 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
               trailing={
                 <>
                   {node.visible ? null : (
-                    <span title="Hidden on canvas" className="ml-[2px] flex shrink-0 text-ink-300">
+                    <span title="Hidden on Canvas" className="ml-[2px] flex shrink-0 text-ink-300">
                       <EyeOff size={13} strokeWidth={1.5} aria-hidden />
                     </span>
                   )}
@@ -196,7 +196,7 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
               actions={
                 <>
                   <RowAction
-                    label={node.visible ? `Hide on canvas: ${node.name}` : `Show on canvas: ${node.name}`}
+                    label={node.visible ? `Hide on Canvas: ${node.name}` : `Show on Canvas: ${node.name}`}
                     disabled={disabled}
                     onActivate={() => onToggleVisible(node.id)}
                   >
@@ -204,10 +204,10 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
                       <EyeOff size={13} strokeWidth={1.5} aria-hidden />
                     : <Eye size={13} strokeWidth={1.5} aria-hidden />}
                   </RowAction>
-                  <RowAction label={`Move up: ${node.name}`} disabled={disabled || !node.canMoveUp} onActivate={() => onMove(node.id, 'up')}>
+                  <RowAction label={`Move Up: ${node.name}`} disabled={disabled || !node.canMoveUp} onActivate={() => onMove(node.id, 'up')}>
                     <ChevronUp size={13} strokeWidth={1.5} aria-hidden />
                   </RowAction>
-                  <RowAction label={`Move down: ${node.name}`} disabled={disabled || !node.canMoveDown} onActivate={() => onMove(node.id, 'down')}>
+                  <RowAction label={`Move Down: ${node.name}`} disabled={disabled || !node.canMoveDown} onActivate={() => onMove(node.id, 'down')}>
                     <ChevronDown size={13} strokeWidth={1.5} aria-hidden />
                   </RowAction>
                   {/* the footer keeps its delete, greyed, so the row never changes shape and the reason can be read */}

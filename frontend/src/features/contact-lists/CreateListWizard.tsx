@@ -34,19 +34,19 @@ const STEPS: Record<ListSource, Step[]> = {
 
 const TITLES: Record<Step, [string, string]> = {
   method: ['New Contact List', ''],
-  file: ['Add your file', 'Upload the CSV that holds your contacts.'],
-  map: ['Match your columns', 'Tell CEP what each column in your file means.'],
-  review: ['Review before importing', 'Check what comes in and what gets held back.'],
-  importing: ['Importing your contacts', 'This runs in the background. You can keep working.'],
-  audience: ['Choose an audience', 'Pick an audience your data team already defined.'],
-  clone: ['Choose a list to copy', 'Pick the list you want to start from.'],
-  done: ['List created', "Here's where to find it and what happens next."],
+  file: ['Add Your File', 'Upload the CSV that holds your contacts.'],
+  map: ['Match Your Columns', 'Tell CEP what each column in your file means.'],
+  review: ['Review Before Importing', 'Check what comes in and what gets held back.'],
+  importing: ['Importing Your Contacts', 'This runs in the background. You can keep working.'],
+  audience: ['Choose an Audience', 'Pick an audience your data team already defined.'],
+  clone: ['Choose a List to Copy', 'Pick the list you want to start from.'],
+  done: ['List Created', "Here's where to find it and what happens next."],
 }
 
 const SOURCES: { value: ListSource; title: string; text: string; icon: ReactNode; badge?: string }[] = [
-  { value: 'UPLOAD', title: 'Upload a file', text: 'Import a CSV, map the columns, review before adding.', icon: <Upload size={18} strokeWidth={1.5} aria-hidden />, badge: 'Most common' },
-  { value: 'BI', title: 'BI or extraction tool', text: 'Choose an audience someone already defined.', icon: <Database size={18} strokeWidth={1.5} aria-hidden /> },
-  { value: 'CLONE', title: 'Clone a list', text: 'Copy a list you have and adjust from there.', icon: <Copy size={18} strokeWidth={1.5} aria-hidden /> },
+  { value: 'UPLOAD', title: 'Upload a File', text: 'Import a CSV, map the columns, review before adding.', icon: <Upload size={18} strokeWidth={1.5} aria-hidden />, badge: 'Most Common' },
+  { value: 'BI', title: 'BI or Extraction Tool', text: 'Choose an audience someone already defined.', icon: <Database size={18} strokeWidth={1.5} aria-hidden /> },
+  { value: 'CLONE', title: 'Clone a List', text: 'Copy a list you have and adjust from there.', icon: <Copy size={18} strokeWidth={1.5} aria-hidden /> },
 ]
 
 const TYPES = [
@@ -88,9 +88,13 @@ interface WizardProps {
   resume?: { listId: string; importId: string }
   /** which way of making a list is chosen when the wizard opens (it can still be changed on the first step) */
   initialSource?: ListSource
+  /** the ways of making a list offered on the first step (default: all three) */
+  sources?: ListSource[]
+  /** drawn inside another dialog (the campaign's Add Contact List pop-up) instead of its own */
+  embedded?: boolean
 }
 
-export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD' }: WizardProps) {
+export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false }: WizardProps) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<Step>('method')
   const [source, setSource] = useState<ListSource>(initialSource)
@@ -289,9 +293,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     step === 'method' ? { label: 'Continue', action: fromMethod, disabled: name.trim() === '' }
     : step === 'file' ? { label: 'Continue', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
     : step === 'map' ? { label: 'Continue', action: review, disabled: !emailMapped }
-    : step === 'review' ? { label: 'Import contacts', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
-    : step === 'audience' ? { label: 'Create list', action: fromAudience, disabled: audience === '' }
-    : step === 'clone' ? { label: 'Create list', action: fromClone, disabled: parent === '' }
+    : step === 'review' ? { label: 'Import Contacts', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
+    : step === 'audience' ? { label: 'Create List', action: fromAudience, disabled: audience === '' }
+    : step === 'clone' ? { label: 'Create List', action: fromClone, disabled: parent === '' }
     : null
 
   const footer =
@@ -314,7 +318,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         <span className="grow" />
         {(step === 'importing' || (step === 'review' && job?.working)) && job?.status !== 'FAILED' && (
           <button type="button" className={buttonSecondary} onClick={leaveRunning}>
-            Continue in the background
+            Continue in the Background
           </button>
         )}
         {busy && <Spinner className="h-4 w-4" />}
@@ -332,8 +336,18 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const review_ = job?.working ? null : job?.review
   const failed = job?.status === 'FAILED'
 
-  return (
-    <Modal title={title} onClose={step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon} footer={footer} size="lg">
+  const close = step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon
+  // a function, not a component: a component made here would remount the fields on every keystroke
+  const frame = (children: ReactNode) => embedded ? (
+    <div data-embedded-wizard>
+      <h3 className="mb-1 text-card-title font-semibold text-ink-900">{title}</h3>
+      {children}
+      <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-line-subtle pt-4">{footer}</div>
+    </div>
+  ) : <Modal title={title} onClose={close} footer={footer} size="lg">{children}</Modal>
+
+  return frame(
+    <>
       <p className="mb-4 text-xs text-ink-500" aria-live="polite">
         {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
       </p>
@@ -345,7 +359,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
       {step === 'method' && (
         <div className="space-y-5">
-          <Field label="List name" required>
+          <Field label="List Name" required>
             {(ids) => (
               <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={200} autoFocus />
             )}
@@ -356,16 +370,16 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             )}
           </Field>
           <div>
-            <p id="cl-source" className="mb-2 text-sm font-semibold text-ink-900">Where the contacts come from</p>
-            <div role="radiogroup" aria-labelledby="cl-source" className="grid gap-3 sm:grid-cols-3">
-              {SOURCES.map((item) => (
+            <p id="cl-source" className="mb-2 text-sm font-semibold text-ink-900">Where the Contacts Come From</p>
+            <div role="radiogroup" aria-labelledby="cl-source" className={`grid gap-3 ${sources && sources.length < 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+              {SOURCES.filter((item) => !sources || sources.includes(item.value)).map((item) => (
                 <ChoiceCard key={item.value} selected={source === item.value} onSelect={() => !draft && setSource(item.value)} {...item} />
               ))}
             </div>
             {draft && <p className="mt-2 text-xs text-ink-500">The file upload has started for this list. Cancel to choose another source.</p>}
           </div>
           <div>
-            <p id="cl-type" className="mb-2 text-sm font-semibold text-ink-900">List type</p>
+            <p id="cl-type" className="mb-2 text-sm font-semibold text-ink-900">List Type</p>
             <div role="radiogroup" aria-labelledby="cl-type" className="grid gap-3 sm:grid-cols-2">
               {TYPES.map((item) => (
                 <ChoiceCard key={item.value} selected={environment === item.value} onSelect={() => setEnvironment(item.value)} title={item.title} text={item.text} />
@@ -377,10 +391,10 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
       {step === 'file' && (
         <div>
-          <input ref={picker} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV file" onChange={(event) => takeFile(event.target.files?.[0])} />
+          <input ref={picker} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV File" onChange={(event) => takeFile(event.target.files?.[0])} />
           {upload ? (
             <div className="rounded-lg border border-line p-4">
-              <p className="mb-2 text-xs font-semibold text-ink-700">Attached file</p>
+              <p className="mb-2 text-xs font-semibold text-ink-700">Attached File</p>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-line-subtle text-ink-700"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
                 <div className="min-w-0 grow">
@@ -411,7 +425,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <p className="text-sm font-semibold text-ink-900">Drag and drop your file here, or browse</p>
               <p className="text-xs text-ink-500">CSV only · up to 50 MB · 250,000 rows</p>
               <button type="button" className={buttonSecondary} onClick={() => picker.current?.click()} disabled={busy}>
-                {busy ? 'Reading the file' : 'Choose file'}
+                {busy ? 'Reading the file' : 'Choose File'}
               </button>
             </div>
           )}
@@ -425,8 +439,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <caption className="sr-only">Columns of {upload.file_name} and what they mean</caption>
               <thead className="bg-surface-subtle text-xs font-semibold text-ink-700">
                 <tr>
-                  <th scope="col" className="px-3 py-2">Column in your file</th>
-                  <th scope="col" className="px-3 py-2">CEP property</th>
+                  <th scope="col" className="px-3 py-2">Column in Your File</th>
+                  <th scope="col" className="px-3 py-2">CEP Property</th>
                   <th scope="col" className="px-3 py-2">Status</th>
                 </tr>
               </thead>
@@ -440,8 +454,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                         <span className="block max-w-[240px] truncate text-xs font-normal text-ink-500">{column.samples.join(', ') || 'no values'}</span>
                       </th>
                       <td className="px-3 py-2 align-top">
-                        <Select aria-label={`CEP property for ${column.name}`} value={property} onChange={(event) => choose(column.name, event.target.value)}>
-                          <option value="">Skip this column</option>
+                        <Select aria-label={`CEP Property for ${column.name}`} value={property} onChange={(event) => choose(column.name, event.target.value)}>
+                          <option value="">Skip This Column</option>
                           {upload.properties.map((item) => (
                             <option key={item.key} value={item.key}>
                               {item.label}{item.required ? ' (required)' : ''}
@@ -487,7 +501,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       {step === 'review' && review_ && upload && job && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line px-4 py-3">
-            <p className="text-sm text-ink-700">Ready to import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
+            <p className="text-sm text-ink-700">Ready to Import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
             <p className="cep-num text-sm text-ink-500">{formatNumber(review_.held_back)} rows held back</p>
           </div>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -503,13 +517,13 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           </dl>
           {(job.issues ?? []).length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-ink-700">Rows to look at{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
+              <p className="mb-1 text-xs font-semibold text-ink-700">Rows to Look At{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
               <ul className="max-h-44 divide-y divide-line-subtle overflow-y-auto rounded-lg border border-line text-sm">
                 {(job.issues ?? []).map((issue) => (
                   <li key={`${issue.line}-${issue.kind}`} className="flex items-start gap-3 px-3 py-1.5">
                     <span className="cep-num w-14 shrink-0 text-xs text-ink-500">Line {issue.line}</span>
                     <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-semibold ${issue.kind === 'error' ? 'bg-danger-bg text-danger-text' : 'bg-warning-bg text-warning-text'}`}>
-                      {issue.kind === 'error' ? 'Held back' : 'Warning'}
+                      {issue.kind === 'error' ? 'Held Back' : 'Warning'}
                     </span>
                     <span className="min-w-0 text-ink-700">{issue.message}{issue.value ? <span className="text-ink-500"> · {issue.value}</span> : null}</span>
                   </li>
@@ -565,7 +579,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <>
                 {job?.summary && <div className="mb-3"><UploadReport job={job} /></div>}
                 <p className="cep-num">{formatNumber(job?.applied_count ?? 0)} contacts imported · {formatNumber(job?.review?.held_back ?? 0)} rows skipped</p>
-                <p>{inCampaign ? 'It came from an upload, so it is not attached to this campaign yet. Check it, then attach it from the note above the lists.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
+                <p>{inCampaign ? 'It came from an upload, so it waits in Send To as Needs review. Check it, then confirm it there.' : "This list came from an upload, so you'll need to pick it manually when you attach it to a campaign."}</p>
               </>
             )}
             {source === 'BI' && (
@@ -583,6 +597,6 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           </div>
         </div>
       )}
-    </Modal>
+    </>,
   )
 }

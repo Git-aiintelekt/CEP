@@ -49,7 +49,7 @@ export const FONT_FAMILIES: SelectOption[] = [
 
 /** How a social block lays its icons out. */
 export const SOCIAL_MODES: SelectOption[] = [
-  { value: 'horizontal', label: 'In a row' },
+  { value: 'horizontal', label: 'In a Row' },
   { value: 'vertical', label: 'Stacked' },
 ]
 

@@ -14,11 +14,11 @@ import type { PanelProps } from '@/lib/useSingleDropdown'
 import { clamp, hexToHsv, hsvToHex, normaliseHex } from './colorMath'
 import { SWATCH_GROUPS, nameForHex } from './palette'
 
-export const NO_COLOR_LABEL = 'No colour'
+export const NO_COLOR_LABEL = 'No Colour'
 export const RECENT_LABEL = 'Recent'
-export const AREA_LABEL = 'Saturation and brightness'
+export const AREA_LABEL = 'Saturation and Brightness'
 export const HUE_LABEL = 'Hue'
-export const HEX_LABEL = 'Hex colour'
+export const HEX_LABEL = 'Hex Colour'
 export const HEX_ERROR = 'Use a six-digit hex colour'
 export const RECENT_LIMIT = 8
 
@@ -150,7 +150,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
     <div
       {...panelProps}
       role="region"
-      aria-label="Colour picker"
+      aria-label="Colour Picker"
       onKeyDown={(event) => {
         if (event.key === 'Escape') {
           // closing takes focus back to the swatch, which blurs whatever was being arrowed: that blur must

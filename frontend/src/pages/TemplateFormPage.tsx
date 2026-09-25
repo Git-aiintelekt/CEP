@@ -16,16 +16,16 @@ import type { Template } from '@/lib/types'
 
 const CHANNELS = [
   { value: 'EMAIL', label: 'Email', hint: 'Opens the drag-and-drop email designer.' },
-  { value: 'E_RECEIPT', label: 'E-receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
+  { value: 'E_RECEIPT', label: 'E-Receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
   { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
   { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
 ]
 
 /** What the create button promises, by the editor the new template opens in. */
 const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
-  design: 'Create and open the designer',
-  receipt: 'Create and open the receipt editor',
-  message: 'Create and write the message',
+  design: 'Create and Open the Designer',
+  receipt: 'Create and Open the Receipt Editor',
+  message: 'Create and Write the Message',
 }
 
 export function TemplateFormPage() {
@@ -72,7 +72,7 @@ export function TemplateFormPage() {
   return (
     <section className="max-w-5xl">
       <Link to="/templates" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
-      <PageHeader title="New template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." />
+      <PageHeader title="New Template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." />
       {otherError !== null && (
         <div className="mb-4">
           <ErrorState title="Could not create the template" error={otherError} />

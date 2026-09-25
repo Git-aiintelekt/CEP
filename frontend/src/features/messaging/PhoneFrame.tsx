@@ -14,7 +14,7 @@ export function PhoneFrame({ sender, children }: { sender: string; children: Rea
     <DeviceFrame className="w-full max-w-[320px] p-3">
       <div className="mb-3 border-b border-line pb-2 text-center">
         <p className="text-sm font-semibold text-ink-900">{sender}</p>
-        <p className="text-xs text-ink-500">Text message</p>
+        <p className="text-xs text-ink-500">Text Message</p>
       </div>
       <div className="min-h-[300px] space-y-1.5 px-1 pb-3">{children}</div>
     </DeviceFrame>

@@ -1,6 +1,6 @@
 /**
  * Read-only preview of a template or preset: nothing here saves or activates. A template's footer offers Edit, which
- * opens its editor; a preset's offers Copy this template, the same copy-and-open as the Templates page always used.
+ * opens its editor; a preset's offers Copy This Template, the same copy-and-open as the Templates page always used.
  */
 import { Monitor, Smartphone } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
@@ -60,7 +60,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
   const tags = (
     <>
       <Tag>{lookOf(channel).label}</Tag>
-      {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP preset</Tag></> : <StatusTag status={item.template.status} />}
+      {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP Preset</Tag></> : <StatusTag status={item.template.status} />}
     </>
   )
 
@@ -78,7 +78,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
         <Button variant="primary" onClick={() => navigate(editorPathFor(item.template))}>{canEdit ? 'Edit' : 'Open'}</Button>
       </div>
     ) : canEdit ? (
-      <Button variant="primary" loading={busy} onClick={() => void copy()}>Copy this template</Button>
+      <Button variant="primary" loading={busy} onClick={() => void copy()}>Copy This Template</Button>
     ) : undefined
 
   return (
@@ -138,9 +138,9 @@ function MessagePreview({ content, tags }: { content: Extract<PreviewContent, { 
     ['Characters', formatNumber(facts.units)],
     ['Segments', formatNumber(facts.segments)],
     ['Encoding', facts.encoding],
-    ['Segment limit', `${facts.perSegment} characters`],
+    ['Segment Limit', `${facts.perSegment} characters`],
     ['Media', isMms ? (media ? `${media.file_name}${size}` : 'No image attached yet') : 'None'],
-    ['Opt-out', facts.missingOptOut ? 'Missing' : 'In message body'],
+    ['Opt-Out', facts.missingOptOut ? 'Missing' : 'In message body'],
   ]
 
   return (
@@ -159,11 +159,11 @@ function MessagePreview({ content, tags }: { content: Extract<PreviewContent, { 
       </PhoneFrame>
 
       <div className="space-y-3">
-        <dl aria-label="Message facts" className="divide-y divide-line-subtle rounded-lg border border-line text-sm">
+        <dl aria-label="Message Facts" className="divide-y divide-line-subtle rounded-lg border border-line text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
               <dt className="text-ink-500">{label}</dt>
-              <dd className={`cep-num text-right font-semibold ${label === 'Opt-out' && facts.missingOptOut ? 'text-danger-text' : 'text-ink-900'}`}>{value}</dd>
+              <dd className={`cep-num text-right font-semibold ${label === 'Opt-Out' && facts.missingOptOut ? 'text-danger-text' : 'text-ink-900'}`}>{value}</dd>
             </div>
           ))}
         </dl>

@@ -14,7 +14,7 @@ import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
-import { formatNumber } from '@/lib/format'
+import { formatMoney, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
 
 import { AudiencePicture } from '../AudiencePicture'
@@ -29,7 +29,8 @@ function Section({ title, step, onEdit, children }: { title: string; step: numbe
   )
 }
 
-export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (step: number) => void }) {
+/** `onEdit` gets the old step index of the section (0 Basic Info … 4 Targets); `beforePublish` stores unsaved changes first (false: stay) */
+export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Campaign; onEdit: (step: number) => void; beforePublish?: () => Promise<boolean> }) {
   const { can, me } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -59,8 +60,8 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
   const excluded = campaign.contact_list_details.filter((item) => item.role === 'EXCLUDE')
   const targets = campaign.targets
   const targetLines = targets
-    ? [['Revenue', targets.target_revenue && `$${targets.target_revenue}`], ['Conversions', targets.target_conversions], ['Opens', targets.target_opens], ['Clicks', targets.target_clicks],
-       ['Redemptions', targets.target_redemptions], ['Planned cost', targets.planned_cost && `$${targets.planned_cost}`], ['Planned offer cost', targets.planned_offer_cost && `$${targets.planned_offer_cost}`]]
+    ? [['Revenue', targets.target_revenue && formatMoney(targets.target_revenue)], ['Conversions', targets.target_conversions], ['Opens', targets.target_opens], ['Clicks', targets.target_clicks],
+       ['Redemptions', targets.target_redemptions], ['Planned Cost', targets.planned_cost && formatMoney(targets.planned_cost)], ['Planned Offer Cost', targets.planned_offer_cost && formatMoney(targets.planned_offer_cost)]]
         .filter(([, value]) => value !== null && value !== undefined && value !== '') as [string, string | number][]
     : []
   const ready = checklist.data?.ready ?? false
@@ -73,15 +74,15 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
           <Definition label="Name">{campaign.name}</Definition>
           <Definition label="Type">{typeLabel(campaign.campaign_type)}</Definition>
           <Definition label="Channel"><Tag>{channelLabel(campaign.channel)}</Tag></Definition>
-          <Definition label="Message purpose">{campaign.solicitation_type.charAt(0) + campaign.solicitation_type.slice(1).toLowerCase()}</Definition>
+          <Definition label="Message Purpose">{campaign.solicitation_type.charAt(0) + campaign.solicitation_type.slice(1).toLowerCase()}</Definition>
           <Definition label="Owner">{campaign.owner_name ?? 'No owner'}</Definition>
           <Definition label="Tags">{campaign.tags.length ? <span className="flex flex-wrap gap-1">{campaign.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</span> : 'None'}</Definition>
         </Section>
         {!isReceipt && (
           <Section title="Audience" step={1} onEdit={onEdit}>
-            <Definition label="Send to">{included.length ? included.map((item) => `${item.name} (${formatNumber(item.member_count)})`).join(', ') : 'No list attached'}</Definition>
+            <Definition label="Send To">{included.length ? included.map((item) => `${item.name} (${formatNumber(item.member_count)})`).join(', ') : 'No list attached'}</Definition>
             <Definition label="Exclude">{excluded.length ? excluded.map((item) => item.name).join(', ') : 'Nobody'}</Definition>
-            <Definition label="Estimated recipients">{audience.data ? formatNumber(audience.data.estimated_recipients) : included.length ? 'Counting' : '—'}</Definition>
+            <Definition label="Estimated Recipients">{audience.data ? formatNumber(audience.data.estimated_recipients) : included.length ? 'Counting' : '—'}</Definition>
           </Section>
         )}
         <Section title="Template" step={2} onEdit={onEdit}>
@@ -89,10 +90,10 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
           <Definition label="Sender">{campaign.sender_profile_name ?? 'Not chosen yet'}</Definition>
         </Section>
         <Section title="Scheduling & Delivery" step={3} onEdit={onEdit}>
-          <Definition label="Send type">{isReceipt ? 'Triggered by a purchase' : sendTypeLabel(campaign.send_type)}</Definition>
+          <Definition label="Send Type">{isReceipt ? 'Triggered by a purchase' : sendTypeLabel(campaign.send_type)}</Definition>
           <Definition label="When">{when}</Definition>
-          <Definition label="Frequency limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Definition>
-          <Definition label="Messages per hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Definition>
+          <Definition label="Frequency Limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Definition>
+          <Definition label="Messages per Hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Definition>
         </Section>
         <Section title="Targets & Economics" step={4} onEdit={onEdit}>
           {targetLines.length ? targetLines.map(([label, value]) => <Definition key={label} label={label}>{typeof value === 'number' ? formatNumber(value) : value}</Definition>) : <Definition label="Targets">None set</Definition>}
@@ -100,13 +101,13 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
       </div>
 
       <div className="space-y-5 self-start">
-        <Panel title="Before you publish">
+        <Panel title="Before You Publish">
           {checklist.isPending ? (
             <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Checking</p>
           ) : checklist.isError ? (
             <ErrorState title="The checklist could not be loaded" error={checklist.error} onRetry={() => void checklist.refetch()} />
           ) : (
-            <ul className="space-y-3" aria-label="Pre-publish checklist">
+            <ul className="space-y-3" aria-label="Pre-Publish Checklist">
               {checklist.data.items.map((item) => (
                 <li key={item.key} className="flex items-start gap-2.5 text-sm">
                   {item.ok ? <CircleCheck size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-success-text" aria-hidden />
@@ -123,12 +124,12 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
           )}
         </Panel>
 
-        {audience.data && <Panel title="Audience estimate"><AudiencePicture audience={audience.data} /></Panel>}
+        {audience.data && <Panel title="Audience Estimate"><AudiencePicture audience={audience.data} /></Panel>}
 
         {publish.isError && <ErrorState title="The campaign was not published" error={publish.error} />}
         {can('campaign.publish') ? (
           <div>
-            <button type="button" className={`${buttonPrimary} w-full`} disabled={!ready || publish.isPending} onClick={() => setConfirming(true)}>Publish to production</button>
+            <button type="button" className={`${buttonPrimary} w-full`} disabled={!ready || publish.isPending} onClick={() => void (async () => { if (!beforePublish || await beforePublish()) setConfirming(true) })()}>Publish to Production</button>
             {!ready && checklist.data && <p className="mt-2 text-xs text-ink-500">Finish the items marked above first.</p>}
           </div>
         ) : (
@@ -142,7 +143,7 @@ export function StepReview({ campaign, onEdit }: { campaign: Campaign; onEdit: (
           onClose={() => setConfirming(false)}
           footer={
             <>
-              <button type="button" className={buttonSecondary} onClick={() => setConfirming(false)}>Not yet</button>
+              <button type="button" className={buttonSecondary} onClick={() => setConfirming(false)}>Not Yet</button>
               <button type="button" className={buttonPrimary} disabled={publish.isPending} onClick={() => publish.mutate()}>
                 {publish.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}Publish
               </button>

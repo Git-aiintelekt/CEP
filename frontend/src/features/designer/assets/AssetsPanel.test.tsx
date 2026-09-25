@@ -58,7 +58,7 @@ test('the upload button opens the hidden input, which accepts only the image typ
   expect(input.multiple).toBe(true)
 
   const click = vi.spyOn(input, 'click')
-  await user.click(screen.getByRole('button', { name: 'Upload image' }))
+  await user.click(screen.getByRole('button', { name: 'Upload Image' }))
   expect(click).toHaveBeenCalled()
 })
 
@@ -124,7 +124,7 @@ test('read-only greys everything out, keeps it focusable, and does nothing', asy
   const user = userEvent.setup()
   const { onUse, onUpload } = renderPanel({ disabled: true })
 
-  const upload = screen.getByRole('button', { name: 'Upload image' })
+  const upload = screen.getByRole('button', { name: 'Upload Image' })
   const image = tile('logo.png')
   for (const control of [upload, image]) {
     expect(control.getAttribute('aria-disabled')).toBe('true')

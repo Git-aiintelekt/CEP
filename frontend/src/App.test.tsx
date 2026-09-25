@@ -24,7 +24,7 @@ test('anonymous visitors are sent to the login form, and a wrong password is exp
   const user = userEvent.setup()
   render(<App />)
 
-  expect(await screen.findByText('Log in to CEP')).toBeTruthy()
+  expect(await screen.findByText('Log In to CEP')).toBeTruthy()
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'nope')
   await user.click(screen.getByRole('button', { name: 'Log In' }))
@@ -46,11 +46,13 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   expect(screen.getByText('NWA')).toBeTruthy()
 
   await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Campaigns'))
-  await user.click(await screen.findByRole('link', { name: 'Fall Launch' }))
+  await user.click(await screen.findByRole('button', { name: 'Fall Launch' }))                        // the list opens a preview first
+  await user.click(within(await screen.findByRole('dialog', { name: 'Fall Launch' })).getByRole('link', { name: 'View Details' }))
 
   // the detail page sends to the last step of the setup, where the checklist is; publishing asks once more
-  await user.click(await screen.findByRole('link', { name: 'Production Publish' }))
-  const publish = await screen.findByRole('button', { name: 'Publish to production' })
+  await user.click(await screen.findByRole('button', { name: 'More Actions' }))
+  await user.click(within(screen.getByRole('region', { name: 'More Actions' })).getByRole('button', { name: 'Production Publish' }))
+  const publish = await screen.findByRole('button', { name: 'Publish to Production' })
   await vi.waitFor(() => expect((publish as HTMLButtonElement).disabled).toBe(false))
   await user.click(publish)
   await user.click(within(await screen.findByRole('dialog', { name: 'Publish to production?' })).getByRole('button', { name: 'Publish' }))

@@ -1,10 +1,15 @@
 /** Form primitives: a labelled field with hint + error wiring, and consistently styled controls. */
+import { CircleAlert } from 'lucide-react'
 import { useId, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
 import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
 
 interface FieldProps {
   label: string
+  /** 14px semibold Gray 900 label, and the error led by a 16px alert icon (the campaign setup pop-up) */
+  strong?: boolean
+  /** at the end of the label row: a counter such as "12 / 2,000" */
+  labelEnd?: ReactNode
   hint?: string
   error?: string
   required?: boolean
@@ -12,26 +17,31 @@ interface FieldProps {
   children: (ids: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode
 }
 
-export function Field({ label, hint, error, required, children }: FieldProps) {
+export function Field({ label, hint, error, required, strong = false, labelEnd, children }: FieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined
 
+  const labelText = (
+    <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-sm font-medium text-ink-700'}>
+      {label}
+      {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
+    </label>
+  )
+
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-ink-700">
-        {label}
-        {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
-      </label>
-      {children({ id, describedBy, invalid: Boolean(error) })}
+      {labelEnd ? <div className="flex items-baseline justify-between gap-3">{labelText}{labelEnd}</div> : labelText}
+      {strong ? <div className="mt-1.5">{children({ id, describedBy, invalid: Boolean(error) })}</div> : children({ id, describedBy, invalid: Boolean(error) })}
       {hint && !error && (
-        <p id={hintId} className="mt-1 text-xs text-ink-500">
+        <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-500' : 'mt-1 text-xs text-ink-500'}>
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} className="mt-1 text-xs font-medium text-danger-text">
+        <p id={errorId} className={strong ? 'mt-1.5 flex items-start gap-1.5 text-helper font-medium text-danger-text' : 'mt-1 text-xs font-medium text-danger-text'}>
+          {strong && <CircleAlert size={16} strokeWidth={1.5} aria-hidden className="mt-px shrink-0" />}
           {error}
         </p>
       )}

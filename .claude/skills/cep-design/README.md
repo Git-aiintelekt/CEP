@@ -1,6 +1,6 @@
 # Handoff: CEP Design System
 
-> **designnew.md (the latest design.md) overrides this file** where they differ: page background is White (Gray 50 is removed), brand tokens are named `--brand-100/600/700/800`, navy and teal are `--color-sidebar` and `--color-wordmark-*`, and CEP's vocabulary is campaign / journey / template / contact list / audience. Nav sections are ENGAGE / MANAGE.
+> **designnew.md (the latest design.md) overrides this file** where they differ: page background is White (Gray 50 is removed), brand tokens are named `--brand-100/600/700/800`, navy and teal are `--color-sidebar` and `--color-wordmark-*`, and CEP's vocabulary is campaign / journey / template / contact list / audience. The nav rail has no section headings: Home, Campaigns, Journeys, Templates, Contact lists, then a divider and Settings (admins).
 
 ## Overview
 CEP is a flat, data-dense enterprise design language for a multi-tenant customer engagement platform (email/SMS campaigns). This bundle is the **foundation layer only** — design tokens (colour, type, spacing, shape, motion) plus specimen cards that show each token in use. There are no product screens and no component library here; the job of this handoff is to get the token layer and the usage rules into a real codebase so components built there are consistent from day one.
@@ -21,7 +21,7 @@ None. This system deliberately ships no screens — nothing was supplied to recr
 
 The token spec names the surfaces the system is expected to cover, which is the intended component inventory: buttons, links, active states, focus rings, selected rows, active nav background, input backgrounds, table cells, tags, dashboard tiles/KPIs, dropdowns and overflow menus, side-panel drawers, toast notifications.
 
-Intended app shell (documented, not built): fixed **256px** left rail in Navy 900 (**64px** collapsed) with a 1px right border; fixed **56px** top bar matching the rail header height; one scrolling content column with the top bar's own side padding (16px, 32px from md) and no width cap, so page content lines up with the top bar's search and Sign out. Drawers are **480px** pinned to the right edge; modals are **480px** centred. Nothing centres itself on the page except modals and empty states.
+App shell: fixed **240px** left rail in Navy 900 (**64px** collapsed), no border or shadow, following the nav rail spec (2026-09-25): a 32px brand-blue "CEP" mark with "Customer Engagement", 40px items with 4px corners and 20px icons, the current page on a solid fill with a 3px left bar, tooltips on collapsed items, a 32px collapse toggle straddling the rail's edge, and a 240ms width change with labels leaving first and returning last. The template editors use the same rail, always collapsed; fixed **56px** top bar matching the rail header height; one scrolling content column with the top bar's own side padding (16px, 32px from md) and no width cap, so page content lines up with the top bar's search and Sign out. Drawers are **480px** pinned to the right edge; modals are **480px** centred. Nothing centres itself on the page except modals and empty states.
 
 ---
 
@@ -36,7 +36,7 @@ Neutrals:
 | Token | Hex | Role |
 |---|---|---|
 | `--white` | `#FFFFFF` | card/panel surfaces |
-| `--gray-75` | `#F9FAFB` | subtle / alternating surfaces, sunken inputs |
+| `--gray-75` | `#F9FAFB` | subtle / alternating surfaces, row hover |
 | `--gray-100` | `#EEEFF5` | subtle borders, icon-button hover |
 | `--gray-150` | `#E7E8EF` | default borders, hairlines |
 | `--gray-400` | `#9EA2AD` | emphasis borders, placeholders, disabled text |
@@ -104,12 +104,15 @@ Always consume these in component code, not the primitives.
 | `--status-error-plain-text` | `--red-600` |
 | `--status-danger-dark-accent` | `--maroon-700` |
 | `--status-high-accent` / `-bg` | `--orange-600` / `--orange-100` |
+| `--status-draft-bg` / `-text` | `--orange-100` / `#8A3A12` (dark orange, 5.56:1 on its background; pending sign-off) |
 | `--callout-bg` / `-icon` / `-link` / `-text` | periwinkle 100 / 500 / 700 / 800 |
 | `--row-flagged-bg` | `--yellow-50` |
 
 Derived convenience roles also exist for links, focus, icons and legacy surface names: `--surface-page`, `--surface-card`, `--surface-subtle`, `--surface-hover`, `--surface-selected`, `--surface-inverse`, `--sidebar-bg`, `--icon-on-dark`, `--text-tertiary`, `--text-placeholder`, `--text-disabled`, `--text-inverse`, `--text-link`, `--text-link-hover`, `--border-strong`, `--border-focus`, `--focus-ring`, `--icon-default`, `--icon-strong`, `--icon-brand`, `--icon-disabled`. See `tokens/colors.css` for the exact mapping.
 
 **Rule: no colour is decorative.** If something is coloured, it carries meaning. Callouts are periwinkle, never a blue-tinted info box — blue is reserved for action.
+
+**Status tags:** Draft is orange (`Orange 100` with the dark orange text above); Test Published and Paused amber; Production Published, Active and Completed green; Cancelled and Failed red; Archived grey. Status tags are never blue, except Scheduled (`Blue 100` / `Blue 800`), an approved exception (2026-09-24).
 
 ### Typography
 
@@ -143,7 +146,7 @@ Semantic: `--gap-inline 4` · `--gap-icon-label 8` · `--pad-compact 12` · `--p
 
 Control heights — **three only**: `--control-h-sm 32px`, `--control-h-md 40px`, `--control-h-lg 48px`.
 Table rows — **two only**: `--row-h-compact 40px`, `--row-h 48px` (`--row-h-tall 56px` exists but is rare).
-Layout: `--sidenav-w 256px`, `--sidenav-w-collapsed 64px`, `--drawer-w 480px`, `--content-max` (no longer applied: see the app shell above).
+Layout: `--sidenav-w 240px`, `--sidenav-w-collapsed 64px`, `--drawer-w 480px`, `--content-max` (no longer applied: see the app shell above).
 
 ### Shape, borders, elevation
 
@@ -159,7 +162,7 @@ Elevation — **exactly three shadows, each with one job**:
 | `--elev-modal` | `-12px 0 32px rgba(20,23,31,0.14)` | right-edge drawers (cast leftward) |
 | `--elev-toast` | `0 8px 24px rgba(20,23,31,0.16)` | toasts |
 
-`--scrim: rgba(19,21,27,0.45)`. Cards, tiles, table rows and headers **never** carry a shadow, hover or otherwise — structure comes from 1px hairlines. No inner shadows; "sunken" is a `Gray 75` fill.
+`--scrim: rgba(19,21,27,0.45)`. Cards, tiles, table rows and headers **never** carry a shadow, hover or otherwise — structure comes from 1px hairlines. No inner shadows; "sunken" (search and header fields) is a `Gray 100` fill with a transparent border at rest, white while focused. Disabled fields are also `Gray 100` but keep their visible `Gray 150` border and `Gray 400` text, which is what tells them apart.
 
 ### Motion
 
@@ -189,6 +192,35 @@ Transparency & blur: **almost never.** The only alpha in the system is the 45%-b
 
 Backgrounds & imagery: **there are none.** No photography, illustration, patterns, textures or gradients — flat colour fields only. The only "graphics" are data itself (bars, progress fills, tags).
 
+## Charts
+
+Every chart, now and later, uses the shared kit in `frontend/src/components/charts/` (`Chart`, with line, area and bar series) and looks and behaves the same. No chart library, and never a chart styled on its own: a new chart is a new use of the kit. Future prompts say "use the chart kit".
+
+**Design**
+- **No chart border.** The card is the frame. Gridlines are 1px `Gray 100` (`line-subtle`), horizontal only, on round steps from 0.
+- **Axis labels** are 12px `Gray 700` with tabular figures. The x axis shows only as many labels as fit.
+- **Palette**, fixed and ordered, defined once as tokens (`--chart-1`…`6` here, `--color-chart-1`…`6` in `index.css`): Blue 600, Green 500, Amber 500, Gray 400, wordmark teal, Periwinkle 500. Series n takes chart-n unless it names one. Blue is only ever the first or primary series. A status colour never stands for something with a different meaning.
+- **Lines** are 2px with no dots, except the hovered point: a 6px dot with a 2px white ring. **Areas** sit under their line at no more than 12% opacity, the one alpha fill allowed besides the scrim and shadows. **Bars** are grouped per category, 4px apart, with a 2px radius on the top corners only.
+- **Legend**, above the chart: 10px square swatches with 13px labels. Clicking an item shows or hides its series (`aria-pressed`); a hidden series has a hollow swatch and a struck-through label.
+- **States**, the same for every chart:
+  - loading: a Gray 100 skeleton block at the chart's height;
+  - empty: one line of `Gray 700` text saying what will fill it;
+  - error: inline "The chart could not be loaded." with the reason and Retry.
+
+**Interaction**
+- **Hover** shows a 1px `Gray 400` vertical guide at the nearest point and a tooltip:
+  - a white card with a 1px hairline, 8px radius and the toast shadow;
+  - the time or category in 12px `Gray 700`, then one row per series (swatch, label, value);
+  - it stays inside the chart area and flips to the other side of the guide near the right edge.
+- **Keyboard:**
+  - the plot takes focus (with the focus ring);
+  - ← and → move between points with the same guide and tooltip, and Home and End jump to the ends;
+  - Escape hides the tooltip;
+  - the point in view is announced politely.
+- **Touch:** tap a point to show it; tap outside the chart to hide it.
+- **Numbers:** every chart carries its data as a table. It is visually hidden for screen readers until someone presses "Show the numbers".
+- **Motion:** nothing animates its drawing, so `prefers-reduced-motion` has nothing to turn off.
+
 ## State Management
 Not applicable — this bundle has no application logic. Components built from it should follow the target codebase's existing state conventions. The only state the tokens care about is the visual state set above (rest / hover / press / focus / selected / disabled), which should map to whatever state model the target framework uses.
 
@@ -198,7 +230,24 @@ Not applicable — this bundle has no application logic. Components built from i
 
 These matter as much as the visuals; CEP writes like a competent colleague leaving a handover note — short, factual, numeric, never chirpy.
 
-- **Sentence case everywhere.** Buttons, headings, table headers, tabs. Exception: 11px uppercase side-nav section headings (`ENGAGE`, `MANAGE`).
+- **Title case for UI labels; full sentences stay sentences** (replaces sentence case, 2026-09-25).
+  - **Title case on** interface labels, the short names of things and actions:
+    - buttons, and links that perform an action ("Create Campaign", "Save and Close");
+    - page, pop-up, drawer, card and section titles;
+    - tabs and step names ("Test & Publish");
+    - navigation items;
+    - field labels, and placeholder-style labels in selects ("All Sources");
+    - table and column headers;
+    - menu items, segmented-control options and filter chips;
+    - legend labels;
+    - tags and badges we write, including status names ("Test Published").
+  - **Casing:** capitalise every word except a, an, the, and, but, or, nor, for, to, of, in, on, at, by, as, via, per, vs, from, with, into, onto, over and upon, which stay lowercase unless first or last ("Add List to Leave Out", "From an Audience or a Clone", "Choose from Library", "Log In with Okta").
+    - Both parts of a hyphenated word are capitalised ("E-Receipt", "Auto-Attached").
+    - "&" stays as it is.
+  - **Sentences stay sentences:** help text, hints, descriptions, notices, errors, toasts, confirmations, empty-state messages, tooltips that are sentences, and anything ending in a full stop ("Internal name, visible to your team only"). A title that is a whole question or sentence stays sentence-style ("When should this go out?").
+  - **Never changed:** user and API data (campaign, list, template and person names, server messages), codes, emails and URLs.
+  - **Accessible names** (aria-label) follow the visible text they describe.
+  - The nav rail has no section headings.
 - **Second person for instructions; the product never says "we" or "I".** "3 campaigns are scheduled today."
 - **Lead with the number**, always with its unit, tabular figures and thousands separators. Percentages one decimal ("97.4%"); currency two in tables ("12,480.00"), abbreviated in tiles ("$4.82M").
 - **Verbs for actions, nouns for places.** "Send test", "Publish campaign" / "Dashboard", "Contact lists".

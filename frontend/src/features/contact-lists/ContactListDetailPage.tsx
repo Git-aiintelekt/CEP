@@ -10,7 +10,7 @@ import { Modal } from '@/components/Modal'
 import { ErrorState, FullPageSpinner, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
-import { formatDate, formatNumber, humanize } from '@/lib/format'
+import { formatDate, formatNumber, titleize } from '@/lib/format'
 import type { ContactList, ListGovernance, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
 
 import { CloneDialog, TypeBadge } from './ContactListsPage'
@@ -31,7 +31,7 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
   const errors = save.isError ? problemText(save.error) : undefined
   return (
     <Modal
-      title="Edit details"
+      title="Edit Details"
       onClose={onClose}
       footer={
         <>
@@ -41,7 +41,7 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
       }
     >
       <div className="space-y-4">
-        <Field label="List name" required error={errors}>
+        <Field label="List Name" required error={errors}>
           {(ids) => (
             <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={200} autoFocus />
           )}
@@ -51,7 +51,7 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
             <TextArea {...ids} value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
           )}
         </Field>
-        <Field label="List type" hint="Production lists can go out in production sends. A Test list is for test sends only: publishing a campaign to production with a Test list attached is refused.">
+        <Field label="List Type" hint="Production lists can go out in production sends. A Test list is for test sends only: publishing a campaign to production with a Test list attached is refused.">
           {(ids) => (
             <Select {...ids} value={environment} onChange={(event) => setEnvironment(event.target.value)}>
               <option value="PRODUCTION">Production</option>
@@ -79,18 +79,18 @@ function AddContacts({ list, onClose, onAdded }: { list: ContactList; onClose: (
   })
   return (
     <Modal
-      title="Add contacts"
+      title="Add Contacts"
       onClose={onClose}
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
           <button type="button" className={buttonPrimary} disabled={lines.length === 0 || add.isPending} onClick={() => add.mutate()}>
-            Add {lines.length > 0 ? formatNumber(lines.length) : ''} contact{lines.length === 1 ? '' : 's'}
+            Add {lines.length > 0 ? formatNumber(lines.length) : ''} Contact{lines.length === 1 ? '' : 's'}
           </button>
         </>
       }
     >
-      <Field label="Email addresses" hint="One per line. Optionally add first and last name after commas: ana@example.com, Ana, Lopez. Up to 500 at a time; for more, make a list from a file."
+      <Field label="Email Addresses" hint="One per line. Optionally add first and last name after commas: ana@example.com, Ana, Lopez. Up to 500 at a time; for more, make a list from a file."
         error={add.isError ? problemText(add.error) : undefined}>
           {(ids) => (
             <TextArea {...ids} value={text} onChange={(event) => setText(event.target.value)} rows={8} placeholder={'ana@example.com, Ana, Lopez\nben@example.com'} autoFocus />
@@ -190,13 +190,13 @@ export function ContactListDetailPage() {
           <div className="flex flex-wrap gap-2">
             {followsAudience && (
               <button type="button" className={buttonSecondary} onClick={() => sync.mutate()} disabled={sync.isPending || archived}>
-                <RefreshCw size={16} strokeWidth={1.5} aria-hidden /> Refresh now
+                <RefreshCw size={16} strokeWidth={1.5} aria-hidden /> Refresh Now
               </button>
             )}
             <button type="button" className={buttonSecondary} onClick={() => setDialog('clone')}>Clone</button>
-            <button type="button" className={buttonSecondary} onClick={() => setDialog('edit')}>Edit details</button>
+            <button type="button" className={buttonSecondary} onClick={() => setDialog('edit')}>Edit Details</button>
             <button type="button" className={buttonPrimary} onClick={() => setDialog('add')} disabled={archived}>
-              <Plus size={16} strokeWidth={2} aria-hidden /> Add contacts
+              <Plus size={16} strokeWidth={2} aria-hidden /> Add Contacts
             </button>
           </div>
         )}
@@ -216,7 +216,7 @@ export function ContactListDetailPage() {
       </div>
 
       <dl className="mb-4 grid gap-3 sm:grid-cols-3">
-        {([['Contacts', data.member_count], ['Added this week', usage.data?.added_this_week], ['Attached campaigns', usage.data?.attached_campaigns]] as const).map(([label, value]) => (
+        {([['Contacts', data.member_count], ['Added This Week', usage.data?.added_this_week], ['Attached Campaigns', usage.data?.attached_campaigns]] as const).map(([label, value]) => (
           <div key={label} className="rounded-lg border border-line bg-surface px-4 py-3">
             <dt className="text-xs font-semibold text-ink-700">{label}</dt>
             <dd className="cep-num mt-1 font-display text-2xl font-semibold text-ink-900">{value === undefined ? '–' : formatNumber(value)}</dd>
@@ -225,8 +225,8 @@ export function ContactListDetailPage() {
       </dl>
 
       {attached > 0 && (
-        <section aria-label="Attached campaigns" className="mb-4 rounded-lg border border-line bg-surface">
-          <h2 className="border-b border-line px-4 py-2 text-card-title font-semibold text-ink-900">Attached campaigns</h2>
+        <section aria-label="Attached Campaigns" className="mb-4 rounded-lg border border-line bg-surface">
+          <h2 className="border-b border-line px-4 py-2 text-card-title font-semibold text-ink-900">Attached Campaigns</h2>
           <ul className="divide-y divide-line-subtle">
             {usage.data?.campaigns.map((campaign) => (
               <li key={campaign.id} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
@@ -242,9 +242,9 @@ export function ContactListDetailPage() {
       )}
 
       {governance.data && governance.data.total > 0 && (
-        <section aria-label="Governance check" className="mb-4 rounded-lg border border-line bg-surface p-4">
+        <section aria-label="Governance Check" className="mb-4 rounded-lg border border-line bg-surface p-4">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-card-title font-semibold text-ink-900">Governance check · marketing email, as of today</h2>
+            <h2 className="text-card-title font-semibold text-ink-900">Governance Check · Marketing Email, as of Today</h2>
             <p className="cep-num text-sm text-ink-700">{formatNumber(governance.data.sendable)} of {formatNumber(governance.data.total)} can receive it</p>
           </div>
           <div className="max-w-xl"><GovernanceLines statuses={governance.data.statuses} total={governance.data.total} sendable={governance.data.sendable} /></div>
@@ -275,11 +275,11 @@ export function ContactListDetailPage() {
                     className="h-4 w-4 accent-brand-600" />
                 </th>
                 <th scope="col" className="px-3 py-2">Email</th>
-                <th scope="col" className="px-3 py-2">First name</th>
-                <th scope="col" className="px-3 py-2">Last name</th>
-                <th scope="col" className="px-3 py-2 text-right">Added on</th>
+                <th scope="col" className="px-3 py-2">First Name</th>
+                <th scope="col" className="px-3 py-2">Last Name</th>
+                <th scope="col" className="px-3 py-2 text-right">Added On</th>
                 <th scope="col" className="px-3 py-2">Source</th>
-                <th scope="col" className="px-3 py-2">Marketing email</th>
+                <th scope="col" className="px-3 py-2">Marketing Email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
@@ -293,12 +293,12 @@ export function ContactListDetailPage() {
                   <td className="px-3 py-2 text-ink-700">{row.first_name ?? '—'}</td>
                   <td className="px-3 py-2 text-ink-700">{row.last_name ?? '—'}</td>
                   <td className="cep-num px-3 py-2 text-right text-ink-700">{formatDate(row.added_at)}</td>
-                  <td className="px-3 py-2"><Tag>{MEMBER_SOURCE[row.source] ?? humanize(row.source)}</Tag></td>
+                  <td className="px-3 py-2"><Tag>{MEMBER_SOURCE[row.source] ?? titleize(row.source)}</Tag></td>
                   <td className="px-3 py-2">
                     {row.email_status_label && (
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${row.sendable ? 'text-success-text' : 'text-warning-text'}`}>
                         <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${row.sendable ? 'bg-success' : 'bg-warning'}`} />
-                        {row.sendable ? 'Can receive' : row.email_status_label}
+                        {row.sendable ? 'Can Receive' : row.email_status_label}
                       </span>
                     )}
                   </td>
@@ -319,8 +319,8 @@ export function ContactListDetailPage() {
                   <button type="button" className={buttonSecondary} disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</button>
                 </>
               )}
-              <button type="button" className={buttonSecondary} onClick={() => void exportSelected()} disabled={total === 0}>{selected.length > 0 ? 'Export selected' : 'Export all'}</button>
-              {editable && <button type="button" className={buttonDanger} disabled={selected.length === 0 || archived} onClick={() => { remove.reset(); setDialog('remove') }}>Remove from list</button>}
+              <button type="button" className={buttonSecondary} onClick={() => void exportSelected()} disabled={total === 0}>{selected.length > 0 ? 'Export Selected' : 'Export All'}</button>
+              {editable && <button type="button" className={buttonDanger} disabled={selected.length === 0 || archived} onClick={() => { remove.reset(); setDialog('remove') }}>Remove from List</button>}
             </span>
           </div>
         </div>
@@ -346,7 +346,7 @@ export function ContactListDetailPage() {
           onClose={() => setDialog(null)}
           footer={
             <>
-              <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>Keep them</button>
+              <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>Keep Them</button>
               <button type="button" className={buttonDanger} disabled={remove.isPending} onClick={() => remove.mutate()}>Remove {formatNumber(selected.length)}</button>
             </>
           }

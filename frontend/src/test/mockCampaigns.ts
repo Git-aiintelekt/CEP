@@ -12,11 +12,12 @@ const LABEL: Record<string, string> = {
 }
 
 /** the fields the API derives from the status: what a campaign shows as, and what can be done with it */
-export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step'>): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
+export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step'> & { is_journey_generated?: boolean }): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
   const next = campaign.runs.filter((run) => !run.test_mode && run.status === 'SCHEDULED' && run.scheduled_at && new Date(run.scheduled_at).getTime() > Date.now())
     .map((run) => run.scheduled_at as string).sort()[0] ?? null
   const shown = campaign.status === 'PRODUCTION_PUBLISHED' && next ? 'SCHEDULED' : campaign.status
-  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status, actions: ACTIONS[shown] ?? [], next_run_at: next,
+  // journey campaigns: view and clone only, as the API says
+  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status, actions: (ACTIONS[shown] ?? []).filter((action) => !campaign.is_journey_generated || action === 'clone' || action === 'results'), next_run_at: next,
            setup_complete: !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status) || campaign.setup_step >= 6 }
 }
 
@@ -51,7 +52,16 @@ export const activityLog: CampaignActivity[] = [
 ]
 
 interface Request { path: string; url: string; method: string; body: Record<string, unknown> | null }
-interface State { campaigns: Campaign[]; make: (overrides: Partial<Campaign>) => Campaign; onSave?: (call: never) => Response | null }
+interface State {
+  campaigns: Campaign[]; tags?: string[]; make: (overrides: Partial<Campaign>) => Campaign; onSave?: (call: never) => Response | null
+  /** merged over the audience answer */
+  audience?: Partial<CampaignAudience>
+  audienceExportFails?: boolean
+  metrics?: Partial<CampaignMetrics>
+  activity?: CampaignActivity[]
+  activityFails?: boolean
+  estimate?: Partial<CampaignAudience>
+}
 
 const json = (body: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const conflict = (detail: string) => json({ type: 'about:blank', title: 'Conflict', status: 409, detail }, 409)
@@ -73,7 +83,7 @@ export function handleCampaigns(request: Request, state: State): Response | null
   }
 
   if (path.endsWith('/campaigns/form-options/')) {
-    return json({ owners: [{ id: 'u1', name: 'Aby John', email: 'aby.john@aiintelekt.com' }, { id: 'u2', name: 'Devon Okafor', email: 'devon@example.com' }], tags: ['Fall', 'VIP'],
+    return json({ owners: [{ id: 'u1', name: 'Aby John', email: 'aby.john@aiintelekt.com' }, { id: 'u2', name: 'Devon Okafor', email: 'devon@example.com' }], tags: state.tags ?? ['Fall', 'VIP'],
                   timezones: ['America/Chicago', 'America/New_York', 'Asia/Kolkata', 'Europe/London'], workspace_timezone: 'America/New_York' })
   }
   if (path.endsWith('/campaigns/calendar/')) {
@@ -91,7 +101,7 @@ export function handleCampaigns(request: Request, state: State): Response | null
   }
   if (path.endsWith('/campaigns/audience-estimate/')) {
     const excluded = (query.get('exclude') ?? '').split(',').filter(Boolean).length
-    return json({ ...audienceEstimate, excluded_by_list: excluded * 10, after_exclusions: 100 - excluded * 10, estimated_recipients: 88 - excluded * 10 })
+    return json({ ...audienceEstimate, excluded_by_list: excluded * 10, after_exclusions: 100 - excluded * 10, estimated_recipients: 88 - excluded * 10, ...state.estimate })
   }
   if (path.endsWith('/campaigns/bulk/') && method === 'POST') {
     const ids = (body?.ids as string[]) ?? []
@@ -124,18 +134,26 @@ export function handleCampaigns(request: Request, state: State): Response | null
     }
     return json(answer)
   }
-  if (action === 'audience') return json({ ...audienceEstimate, ...(campaign.actions.includes('results') ? { frozen: { members: 100, generated_at: '2026-09-18T10:00:00Z', eligible: 88, suppressed: { UNSUBSCRIBED: 9, HARD_BOUNCE: 3 } } } : {}) })
+  if (action === 'audience') return json({ ...audienceEstimate, ...(campaign.actions.includes('results') ? { frozen: { members: 100, generated_at: '2026-09-18T10:00:00Z', eligible: 88, suppressed: { UNSUBSCRIBED: 9, HARD_BOUNCE: 3 } } } : {}), ...state.audience })
+  if (action === 'audience/export') {
+    return state.audienceExportFails ? json({ type: 'about:blank', title: 'Export failed', status: 503, detail: 'The export service is not answering.' }, 503)
+      : new Response('party_id,email\nP-1,d.alvarez@northwind.example\n', { headers: { 'Content-Type': 'text/csv' } })
+  }
   if (action === 'sample-customers') return json([{ party_id: 'P-1', name: 'Dolores Alvarez', address: 'd.alvarez@northwind.example' }])
   if (action === 'preview') {
     if (!campaign.template && !query.get('template')) return conflict('Choose a template first.')
     const text = campaign.channel === 'SMS' || campaign.channel === 'MMS'
     const who = query.get('party_id') ? 'Dolores' : 'Jordan'
+    const templateId = query.get('template') || campaign.template
+    const templateChannel = templateId === 'tpl-sms' ? 'SMS' : templateId === 'tpl-receipt' ? 'E_RECEIPT' : 'EMAIL'
     return json({ subject: text ? null : `Fall is here, ${who}`, html: text ? null : `<p>Hello ${who}</p>`, text: `Northwind: Hi ${who}. Reply STOP to opt out.`, version: 3,
-                  template: query.get('template') === 'tpl-sms' ? 'Fall SMS' : 'Fall Email', tags_used: ['first_name'], customer: query.get('party_id') })
+                  template: templateId === 'tpl-sms' ? 'Fall SMS' : 'Fall Email', template_id: templateId, channel: templateChannel, tags_used: ['first_name'], customer: query.get('party_id') })
   }
-  if (action === 'metrics') return json(metrics)
+  if (action === 'metrics') return json({ ...metrics, ...state.metrics })
   if (action === 'metrics/timeseries') return json({ bucket: query.get('bucket') ?? 'hour', points: [{ at: '2026-09-18T10:00:00Z', sent: 50, delivered: 48, opened: 20, clicked: 5 }, { at: '2026-09-18T11:00:00Z', sent: 30, delivered: 28, opened: 20, clicked: 7 }] })
-  if (action === 'activity') return json(activityLog)
+  if (action === 'activity') {
+    return state.activityFails ? json({ type: 'about:blank', title: 'Unavailable', status: 503, detail: 'The activity service is not answering.' }, 503) : json(state.activity ?? activityLog)
+  }
   if (method !== 'POST') return null
 
   if (action === 'test-publish') {
@@ -163,14 +181,15 @@ export function handleCampaigns(request: Request, state: State): Response | null
   return null
 }
 
-/** GET /campaigns/ : status / search / type filters, ordering by name, and numbered pages */
+/** GET /campaigns/ : status (a comma list) / search / type / channel / tag / owner / triggered_by filters, ordering by name, and numbered pages */
 export function listCampaigns(url: string, campaigns: Campaign[]): Response {
   const query = new URL(url, 'http://mock').searchParams
-  const status = query.get('status')
+  const statuses = query.get('status')?.split(',') ?? []
   const search = (query.get('search') ?? '').toLowerCase()
-  let rows = campaigns.filter((item) => (status ? item.display_status === status : item.status !== 'ARCHIVED'))
+  let rows = campaigns.filter((item) => (statuses.length ? statuses.includes(item.display_status) : item.status !== 'ARCHIVED'))
     .filter((item) => item.name.toLowerCase().includes(search) && (!query.get('type') || item.campaign_type === query.get('type')) && (!query.get('channel') || item.channel === query.get('channel'))
-      && (!query.get('tag') || item.tags.includes(query.get('tag') as string)))
+      && (!query.get('tag') || item.tags.includes(query.get('tag') as string)) && (!query.get('owner') || item.owner_user === query.get('owner'))
+      && (!query.get('triggered_by') || item.triggered_by === query.get('triggered_by')!.toUpperCase()))
   const ordering = query.get('ordering') ?? ''
   if (ordering.replace('-', '') === 'name') rows = [...rows].sort((a, b) => a.name.localeCompare(b.name) * (ordering.startsWith('-') ? -1 : 1))
   const size = Number(query.get('page_size') ?? 50)

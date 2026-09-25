@@ -44,7 +44,7 @@ test('a field row describes its control with the error before the note, and hide
 
 test('a stepper is one tab stop; its buttons step by pointer', () => {
   const onIncrement = vi.fn()
-  render(<Stepper aria-label="Font size" value="16" onChange={() => {}} onDecrement={() => {}} onIncrement={onIncrement} unit="px" canDecrement={false} />)
+  render(<Stepper aria-label="Font Size" value="16" onChange={() => {}} onDecrement={() => {}} onIncrement={onIncrement} unit="px" canDecrement={false} />)
   const increase = screen.getByRole('button', { name: 'Increase' })
   expect(increase.getAttribute('tabindex')).toBe('-1')
   fireEvent.click(increase)
@@ -53,8 +53,8 @@ test('a stepper is one tab stop; its buttons step by pointer', () => {
 })
 
 test('an empty swatch still has a name', () => {
-  render(<Swatch label="No colour" aria-pressed={false} />)
-  expect(screen.getByRole('button', { name: 'No colour' })).toBeTruthy()
+  render(<Swatch label="No Colour" aria-pressed={false} />)
+  expect(screen.getByRole('button', { name: 'No Colour' })).toBeTruthy()
 })
 
 test('a collapsible section header is a disclosure button', () => {

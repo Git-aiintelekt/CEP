@@ -118,16 +118,16 @@ test('the eye toggles, and a hidden row explains that the block still ships', as
   const user = userEvent.setup()
   const { onToggleVisible } = renderPanel()
 
-  await user.click(action('Text', 'Hide on canvas: Text'))
+  await user.click(action('Text', 'Hide on Canvas: Text'))
   expect(onToggleVisible).toHaveBeenCalledWith('t1')
 
   cleanup()
   renderPanel({ nodes: [{ ...TREE[0], visible: false, children: TREE[0].children }, TREE[1]] })
   const label = within(row('Section')).getByTitle(`Section — ${HIDDEN_NOTE}`)
   expect(label.className).toContain('text-ink-300')
-  expect(within(row('Section')).getByTitle('Hidden on canvas')).toBeTruthy()
+  expect(within(row('Section')).getByTitle('Hidden on Canvas')).toBeTruthy()
   expect(screen.getByText(HIDDEN_NOTE)).toBeTruthy()
-  expect(within(row('Section')).getByRole('button', { name: 'Show on canvas: Section' })).toBeTruthy()
+  expect(within(row('Section')).getByRole('button', { name: 'Show on Canvas: Section' })).toBeTruthy()
 })
 
 test('F2 renames: Enter commits, Escape keeps the old name', async () => {
@@ -179,7 +179,7 @@ test('the move buttons and Alt+arrows reorder, and go inert at the ends', async 
   const user = userEvent.setup()
   const { onMove } = renderPanel()
 
-  await user.click(action('Button', 'Move up: Button'))
+  await user.click(action('Button', 'Move Up: Button'))
   expect(onMove).toHaveBeenNthCalledWith(1, 'b1', 'up')
 
   row('Text').focus()
@@ -187,9 +187,9 @@ test('the move buttons and Alt+arrows reorder, and go inert at the ends', async 
   expect(onMove).toHaveBeenNthCalledWith(2, 't1', 'down')
 
   // Text is first in its column and Button is last: each has one end it cannot pass
-  expect(action('Text', 'Move up: Text').getAttribute('aria-disabled')).toBe('true')
-  expect(action('Button', 'Move down: Button').getAttribute('aria-disabled')).toBe('true')
-  await user.click(action('Text', 'Move up: Text'))
+  expect(action('Text', 'Move Up: Text').getAttribute('aria-disabled')).toBe('true')
+  expect(action('Button', 'Move Down: Button').getAttribute('aria-disabled')).toBe('true')
+  await user.click(action('Text', 'Move Up: Text'))
   row('Button').focus()
   await user.keyboard('{Alt>}{ArrowDown}{/Alt}')
   expect(onMove).toHaveBeenCalledTimes(2)
@@ -267,14 +267,14 @@ test('read-only still selects and expands, but every mutating action is inert an
   await user.click(within(row('Section')).getByRole('button', { name: 'Collapse Section' }))
   expect(onToggleOpen).toHaveBeenCalledWith('s1')
 
-  const eye = action('Text', 'Hide on canvas: Text')
+  const eye = action('Text', 'Hide on Canvas: Text')
   expect(eye.getAttribute('aria-disabled')).toBe('true')
   expect(eye.className).toContain('bg-line-subtle')
   expect(eye.className).not.toContain('opacity')
 
   await user.click(eye)
   await user.click(action('Text', 'Delete: Text'))
-  await user.click(action('Button', 'Move up: Button'))
+  await user.click(action('Button', 'Move Up: Button'))
   row('Text').focus()
   await user.keyboard('{Delete}{F2}')
   await user.keyboard('{Alt>}{ArrowDown}{/Alt}')
@@ -333,7 +333,7 @@ test('the two kinds of hiding are marked apart on one row', () => {
   renderPanel({ nodes: [node({ id: 's1', name: 'Promo', visible: false, hiddenOnPhones: true })] })
 
   expect(screen.getByLabelText(PHONES_MARKER_LABEL)).toBeTruthy()
-  expect(screen.getByTitle('Hidden on canvas')).toBeTruthy()
+  expect(screen.getByTitle('Hidden on Canvas')).toBeTruthy()
   expect(screen.getByText(PHONES_NOTE)).toBeTruthy()
   expect(screen.getByText(HIDDEN_NOTE)).toBeTruthy()
 })

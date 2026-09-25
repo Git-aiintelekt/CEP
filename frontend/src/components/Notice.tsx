@@ -17,6 +17,8 @@ const LAYOUT = {
   box: 'items-start gap-2 rounded-sm border px-3 py-2 text-xs',
   /** under a grid in a side panel: inset from the panel's own padding */
   panel: 'mx-2 mb-2 items-start gap-2 rounded-sm border px-2.5 py-2 text-xs',
+  /** on a page, between its header and its content: a title line and a line of detail */
+  banner: 'flex-wrap items-center gap-3 rounded-lg border px-4 py-3 text-helper',
 }
 
 interface NoticeProps {
@@ -29,18 +31,27 @@ interface NoticeProps {
   icon?: LucideIcon
   /** usually a small secondary Button, pushed to the far end */
   action?: ReactNode
+  /** banner: the bold first line */
+  title?: ReactNode
+  /** banner: sets the icon on a 32px white square */
+  iconTile?: boolean
   children: ReactNode
 }
 
 /** Errors interrupt (role=alert); info and warnings are announced politely. */
-export function Notice({ tone = 'info', layout = 'strip', icon, iconClass, textClass, action, children }: NoticeProps) {
+export function Notice({ tone = 'info', layout = 'strip', icon, iconClass, textClass, action, title, iconTile = false, children }: NoticeProps) {
   const style = TONE[tone]
   const Icon = icon ?? style.Icon
+  const large = layout === 'strip' || layout === 'banner'
+  const glyph = <Icon size={large ? 16 : 14} strokeWidth={1.5} aria-hidden className={`shrink-0 ${iconClass ?? style.icon} ${layout === 'banner' && !iconTile ? 'mt-0.5 self-start' : large ? '' : 'mt-px'}`} />
   return (
     <div role={tone === 'error' ? 'alert' : 'status'} className={`flex shrink-0 ${LAYOUT[layout]} ${style.frame}`}>
-      <Icon size={layout === 'strip' ? 16 : 14} strokeWidth={1.5} aria-hidden className={`shrink-0 ${iconClass ?? style.icon} ${layout === 'strip' ? '' : 'mt-px'}`} />
-      <div className={`min-w-0 flex-1 ${textClass ?? style.text}`}>{children}</div>
-      {action && <div className="shrink-0">{action}</div>}
+      {iconTile ? <span className="flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-md bg-surface">{glyph}</span> : glyph}
+      <div className={`min-w-0 flex-1 ${textClass ?? style.text}`}>
+        {title && <p className="text-card-title font-semibold">{title}</p>}
+        {children}
+      </div>
+      {action && <div className={`shrink-0 ${layout === 'banner' ? `max-sm:basis-full ${iconTile ? 'max-sm:pl-11' : 'max-sm:pl-7'}` : ''}`}>{action}</div>}
     </div>
   )
 }

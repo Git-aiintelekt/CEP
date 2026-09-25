@@ -37,7 +37,7 @@ test('sign-in with a second factor: the password alone stores no token; a wrong 
   await renderAppAt('/login', false)
 
   await fillLogin(user, 'needs-a-code')
-  const code = await screen.findByLabelText('Authentication code')
+  const code = await screen.findByLabelText('Authentication Code')
   expect(window.localStorage.getItem('cep.access')).toBeNull()
 
   await user.type(code, '000000')
@@ -62,7 +62,7 @@ test('a workspace with single sign-on shows its button; when it is required the 
   const workspace = await screen.findByLabelText('Workspace')
   await user.clear(workspace)
   await user.type(workspace, 'NWA')
-  const button = await screen.findByRole('link', { name: 'Log in with Okta' })
+  const button = await screen.findByRole('link', { name: 'Log In with Okta' })
   expect(button.getAttribute('href')).toContain('/auth/sso/start/?tenant=NWA&next=%2F')
   expect(screen.queryByLabelText('Password')).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Administrator? Log in with a password' }))
@@ -118,8 +118,8 @@ test('features switched off for the workspace disappear from navigation, setting
   cleanup()
   await renderAppAt('/settings')
   const tabs = await screen.findByRole('navigation', { name: 'Settings sections' })
-  expect(within(tabs).queryByText('API keys')).toBeNull()
-  expect(within(tabs).getByText('Plan & usage')).toBeTruthy()
+  expect(within(tabs).queryByText('API Keys')).toBeNull()
+  expect(within(tabs).getByText('Plan & Usage')).toBeTruthy()
 })
 
 test('someone who must enrol in MFA is taken to account security and nowhere else; enrolling shows the recovery codes once', async () => {
@@ -131,18 +131,18 @@ test('someone who must enrol in MFA is taken to account security and nowhere els
   expect(window.location.pathname).toBe('/account/security')
   expect(screen.getByRole('navigation', { name: 'Main' }).querySelectorAll('a').length).toBe(0)
 
-  await user.click(await screen.findByRole('button', { name: 'Set up' }))
+  await user.click(await screen.findByRole('button', { name: 'Set Up' }))
   expect(await screen.findByText('JBSW Y3DP EHPK 3PXP')).toBeTruthy()
   await waitFor(() => expect(screen.getByRole('img', { name: /QR code/ }).querySelector('svg')).toBeTruthy(), { timeout: 5000 })
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
 
   await user.type(screen.getByLabelText(/^Code/), '111111')
-  await user.click(screen.getByRole('button', { name: 'Turn on' }))
+  await user.click(screen.getByRole('button', { name: 'Turn On' }))
   expect(await screen.findByText(/Check the time on your phone/)).toBeTruthy()
 
   await user.clear(screen.getByLabelText(/^Code/))
   await user.type(screen.getByLabelText(/^Code/), MFA_CODE)
-  await user.click(screen.getByRole('button', { name: 'Turn on' }))
+  await user.click(screen.getByRole('button', { name: 'Turn On' }))
   const codes = await screen.findByRole('list', { name: 'Recovery codes' })
   expect(within(codes).getAllByRole('listitem').length).toBe(3)
   expect(calls.filter((call) => call.url.endsWith('/auth/mfa/') && call.method === 'POST').map((call) => call.body?.action)).toEqual(['setup', 'confirm', 'confirm'])
@@ -152,7 +152,7 @@ test('plan and usage: meters with their state, the channel breakdown and issued 
   installMockApi()
   await renderAppAt('/settings/plan')
 
-  expect(await screen.findByRole('heading', { name: 'Growth plan' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: 'Growth Plan' })).toBeTruthy()
   const meters = within(screen.getByRole('list', { name: 'Usage' })).getAllByRole('listitem')
   expect(meters.length).toBe(4)
   expect(within(meters[0]).getByText('Close to the limit')).toBeTruthy()
@@ -169,10 +169,10 @@ test('security: requiring MFA without having it yourself is refused with a way f
   const user = userEvent.setup()
   await renderAppAt('/settings/security')
 
-  await user.click(await screen.findByLabelText(/Require it for everyone/))
+  await user.click(await screen.findByLabelText(/Require for Everyone/))
   const alert = await screen.findByRole('alert')
   expect(alert.textContent).toContain('on your own account first')
-  expect(within(alert).getByRole('link', { name: 'Set it up now' }).getAttribute('href')).toBe('/account/security')
+  expect(within(alert).getByRole('link', { name: 'Set It Up Now' }).getAttribute('href')).toBe('/account/security')
 })
 
 test('security: single sign-on is configured with a write-only secret, and the support access log is visible', async () => {
@@ -180,25 +180,25 @@ test('security: single sign-on is configured with a write-only secret, and the s
   const user = userEvent.setup()
   await renderAppAt('/settings/security')
 
-  await user.click(await screen.findByRole('button', { name: 'Set up single sign-on' }))
+  await user.click(await screen.findByRole('button', { name: 'Set Up Single Sign-On' }))
   expect(screen.getByText('http://localhost:8000/api/v1/auth/sso/callback/')).toBeTruthy()
-  await user.type(screen.getByLabelText(/Name on the sign-in button/), 'Okta')
+  await user.type(screen.getByLabelText(/Name on the Sign-In Button/), 'Okta')
   await user.type(screen.getByLabelText(/^Issuer/), 'https://login.example.com')
   await user.type(screen.getByLabelText(/^Client ID/), 'cep-client')
-  await user.type(screen.getByLabelText(/^Client secret/), 's3cret')
-  await user.type(screen.getByLabelText(/Allowed email domains/), 'example.com, partner.example')
-  await user.click(screen.getByRole('button', { name: 'Save single sign-on' }))
+  await user.type(screen.getByLabelText(/^Client Secret/), 's3cret')
+  await user.type(screen.getByLabelText(/Allowed Email Domains/), 'example.com, partner.example')
+  await user.click(screen.getByRole('button', { name: 'Save Single Sign-On' }))
 
   expect(await screen.findByText('Saved')).toBeTruthy()
   const put = calls.filter((call) => call.method === 'PUT').at(-1)
   expect(put?.body?.identity_provider).toMatchObject({ display_name: 'Okta', issuer: 'https://login.example.com', client_id: 'cep-client', client_secret: 's3cret',
                                                        allowed_email_domains: ['example.com', 'partner.example'], is_active: true, enforce_sso: false })
-  expect((screen.getByLabelText(/^Client secret/) as HTMLInputElement).value).toBe('')
+  expect((screen.getByLabelText(/^Client Secret/) as HTMLInputElement).value).toBe('')
   expect(screen.getByText('A secret is stored. Leave this empty to keep it.')).toBeTruthy()
 
-  const log = await screen.findByRole('table', { name: 'Support access' })
+  const log = await screen.findByRole('table', { name: 'Support Access' })
   expect(within(log).getByText('Ticket 4821: cannot find a campaign')).toBeTruthy()
-  expect(within(log).getByText('Read-only')).toBeTruthy()
+  expect(within(log).getByText('Read-Only')).toBeTruthy()
 })
 
 test('a password link can be emailed by the platform instead of being copied by hand', async () => {
@@ -207,10 +207,10 @@ test('a password link can be emailed by the platform instead of being copied by 
   await renderAppAt('/settings/users')
 
   const row = within(await screen.findByRole('table', { name: 'Users' })).getByText('devon@example.com').closest('tr') as HTMLElement
-  await user.click(within(row).getByRole('button', { name: 'Password link' }))
+  await user.click(within(row).getByRole('button', { name: 'Password Link' }))
   const dialog = await screen.findByRole('dialog')
-  await user.click(await within(dialog).findByRole('button', { name: 'Email the link' }))
+  await user.click(await within(dialog).findByRole('button', { name: 'Email the Link' }))
   expect((await within(dialog).findByRole('status')).textContent).toContain('Sent to devon@example.com')
   expect(calls.filter((call) => call.url.endsWith('/password-link/')).map((call) => call.body)).toEqual([{}, { send: true }])
-  expect((within(dialog).getByLabelText('One-time link') as HTMLInputElement).value).toContain('token=mailed-456')
+  expect((within(dialog).getByLabelText('One-Time Link') as HTMLInputElement).value).toContain('token=mailed-456')
 })

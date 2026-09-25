@@ -55,7 +55,7 @@ export function MessageEditorPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
         <ErrorState title="This is not a text message template" error={new Error(`"${template.data.name}" is ${template.data.channel}. Open it in the email designer instead.`)} />
-        <Link to={`/templates/${id}/design`} className="mt-4 mr-4 inline-block text-sm font-medium text-brand-800 hover:underline">Open the email designer</Link>
+        <Link to={`/templates/${id}/design`} className="mt-4 mr-4 inline-block text-sm font-medium text-brand-800 hover:underline">Open the Email Designer</Link>
         {back}
       </div>
     )

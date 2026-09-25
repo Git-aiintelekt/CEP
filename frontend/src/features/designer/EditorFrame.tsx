@@ -92,7 +92,7 @@ export function EditorFrame<T extends string>({
     <Link
       to={backTo}
       onClick={onBack}
-      aria-label="Back to templates"
+      aria-label="Back to Templates"
       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-line text-ink-700 transition-colors duration-base ease-standard hover:bg-line-subtle hover:text-ink-900 active:bg-line"
     >
       <ArrowLeft size={18} strokeWidth={1.5} aria-hidden />
@@ -104,7 +104,7 @@ export function EditorFrame<T extends string>({
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
         <p className="max-w-sm text-sm text-ink-700">The template editor needs a wider window. Widen it to at least 1024 px to continue.</p>
         <Link to={backTo} onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:underline">
-          <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Back to templates
+          <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Back to Templates
         </Link>
       </div>
     )
@@ -131,7 +131,7 @@ export function EditorFrame<T extends string>({
       )}
 
       <div className="sticky top-0 z-10 flex shrink-0 items-stretch gap-6 border-b border-line bg-surface px-6">
-        <div role="tablist" aria-label="Editor view" className="flex items-stretch gap-6">
+        <div role="tablist" aria-label="Editor View" className="flex items-stretch gap-6">
           {tabs.map(({ id, label, Icon }) => {
             const active = tab === id
             return (

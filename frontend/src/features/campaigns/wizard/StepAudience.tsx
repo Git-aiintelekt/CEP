@@ -1,32 +1,100 @@
 /**
- * Step 2: tick the contact lists the campaign is sent to; optionally tick lists whose people are kept out. A new list
- * is made with the contact list wizard itself (the same CSV upload as in Contact Lists), never a second copy of it. The estimate on the
- * right is asked from the API for the lists as they are picked here, saved or not: merged, counted once per
- * person, exclusions removed, then today's governance check. The real Campaign List is frozen when a send starts.
+ * Audience: the lists the campaign is sent to (Send To), the lists whose people are left out (Don't Send To), and the
+ * audience they make, live as lists change. Lists are added from the Add Contact List pop-up: existing ones, a CSV
+ * upload, or one made from an audience or a clone (the Contact lists page's own wizard). An uploaded list waits as
+ * Needs review until it is confirmed, because file data isn't checked upstream. The estimate is the API's, for the lists
+ * as they are here, saved or not; the real Campaign List is frozen when a send starts.
  */
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Upload } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { buttonSecondary } from '@/components/Form'
-import { ErrorState, Spinner } from '@/components/States'
-import { Tag } from '@/components/StatusBadge'
-import { CreateListWizard } from '@/features/contact-lists/CreateListWizard'
+import { Button } from '@/components/Button'
+import { Notice } from '@/components/Notice'
+import { SkeletonLine } from '@/components/States'
 import { api } from '@/lib/api'
-import { formatDate, formatNumber } from '@/lib/format'
-import type { CampaignAudience, ContactList, ListSource, Page } from '@/lib/types'
+import { formatNumber } from '@/lib/format'
+import type { Campaign, ContactList, Page } from '@/lib/types'
 
 import { AudiencePicture } from '../AudiencePicture'
-import { Panel } from '../parts'
+import { estimateSummary, useAudienceEstimate } from '../audienceNumbers'
+import { AudienceSummary } from '../detail/AudienceSummary'
+import { CardError, DetailCard, Fact } from '../parts'
 import type { CampaignFormValues } from '../schema'
+import { AddListDialog } from './audience/AddListDialog'
+import { ListsTable, type ListRow } from './audience/ListsTable'
 
-type Role = 'INCLUDE' | 'EXCLUDE' | 'NONE'
+const plural = (count: number, word: string) => `${formatNumber(count)} ${word}${count === 1 ? '' : 's'}`
 
-export function StepAudience({ onChangeType }: { onChangeType: () => void }) {
-  const { can } = useAuth()
+function ReceiptMessage({ onChangeType }: { onChangeType?: () => void }) {
+  return (
+    <DetailCard title="No Contact Lists for E-Receipts">
+      <div className="flex flex-col gap-4">
+        <Notice tone="info" layout="banner" title="This is an E-Receipt campaign, so there is no contact list to attach">
+          <p>
+            An e-receipt goes to the customer of each purchase: the point of sale or the web shop asks for every receipt, one at a time. Contact lists are for campaigns
+            that are sent to an audience. To attach existing lists or upload a new one, the campaign type has to be Regular Marketing, Drip or Other.
+          </p>
+        </Notice>
+        <p className="flex flex-wrap items-center gap-3">
+          {onChangeType && <Button onClick={onChangeType}>Change the Campaign Type</Button>}
+          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
+        </p>
+      </div>
+    </DetailCard>
+  )
+}
+
+function SummaryCard({ included, pending, estimate }: { included: number; pending: number; estimate: ReturnType<typeof useAudienceEstimate> }) {
+  const [open, setOpen] = useState(false)
+  let body
+  if (included === 0) body = <p className="text-sm text-ink-500">{pending > 0 ? 'Confirm the uploaded list to see how many people the campaign would reach.' : 'Add a contact list to see how many people the campaign would reach.'}</p>
+  else if (estimate.isError) body = <CardError what="the estimate" error={estimate.error} onRetry={() => void estimate.refetch()} />
+  else if (!estimate.data) body = <div aria-busy className="flex flex-col gap-3"><SkeletonLine width="45%" /><SkeletonLine width="100%" /><SkeletonLine width="70%" /></div>
+  else {
+    const data = estimate.data
+    body = (
+      <div className={`flex flex-col gap-5 transition-opacity duration-base ${estimate.isFetching ? 'opacity-60' : ''}`} aria-busy={estimate.isFetching || undefined}>
+        <AudienceSummary numbers={estimateSummary(data)} />
+        <dl className="grid grid-cols-1 gap-4 border-t border-line-subtle pt-4 sm:grid-cols-3 lg:grid-cols-1">
+          <Fact label="In Your Lists">{formatNumber(data.gross)}</Fact>
+          <Fact label="Unique People" secondary="After duplicates and excluded lists">{formatNumber(data.after_exclusions)}</Fact>
+          <Fact label="Estimated Recipients">{formatNumber(data.estimated_recipients)}</Fact>
+        </dl>
+        <div className="border-t border-line-subtle pt-4">
+          <button type="button" aria-expanded={open} aria-controls="audience-breakdown" onClick={() => setOpen(!open)}
+            className="flex items-center gap-2 rounded-control-sm text-sm font-semibold text-ink-900">
+            {open ? <ChevronDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.5} aria-hidden />}
+            How the Number Is Worked Out
+          </button>
+          {open && <div id="audience-breakdown" className="mt-3"><AudiencePicture audience={data} /></div>}
+        </div>
+      </div>
+    )
+  }
+  return (
+    <DetailCard title="Audience">
+      {pending > 0 && <p className="mb-4 text-helper text-warning-text">{plural(pending, 'contact')} not counted until you confirm the uploaded list.</p>}
+      {body}
+    </DetailCard>
+  )
+}
+
+
+interface StepAudienceProps {
+  campaign?: Campaign
+  onChangeType?: () => void
+  /** uploads made here that wait for a confirmation (kept by the setup, which asks about them before moving on) */
+  pending: ContactList[]
+  onPendingChange: (lists: ContactList[]) => void
+}
+
+export function StepAudience({ campaign, onChangeType, pending, onPendingChange }: StepAudienceProps) {
+  const { can, me } = useAuth()
+  const zone = campaign?.send_timezone || me?.tenant.timezone || 'UTC'
   const { watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const included = watch('contact_lists')
   const excluded = watch('excluded_lists')
@@ -34,210 +102,137 @@ export function StepAudience({ onChangeType }: { onChangeType: () => void }) {
   const purpose = watch('solicitation_type')
   const isReceipt = watch('campaign_type') === 'E_RECEIPT'
 
-  const [search, setSearch] = useState('')
-  const [source, setSource] = useState('')
-  const [environment, setEnvironment] = useState('')
-  /** the contact list wizard, opened on the way of making a list that was asked for */
-  const [wizard, setWizard] = useState<ListSource | null>(null)
-  /** a list made here from an upload: file data is not checked upstream, so it waits for the operator to attach it */
-  const [uploaded, setUploaded] = useState<ContactList | null>(null)
+  const [adding, setAdding] = useState<'send' | 'leave-out' | null>(null)
+  // uploads made here: file data isn't checked upstream, so each waits for a confirmation before it counts
+  const setPending = (change: (now: ContactList[]) => ContactList[]) => onPendingChange(change(pending))
+  /** lists made here from an audience or a clone: attached at once */
+  const [auto, setAuto] = useState<string[]>([])
   const [notice, setNotice] = useState('')
 
   const lists = useQuery({
     queryKey: ['contact-lists', 'options'],
     queryFn: ({ signal }) => api.get<Page<ContactList>>('/contact-lists/', { status: 'ACTIVE', page_size: 200 }, signal),
   })
-  const estimate = useQuery({
-    queryKey: ['campaigns', 'audience-estimate', [...included].sort().join(','), [...excluded].sort().join(','), channel, purpose],
-    queryFn: ({ signal }) =>
-      api.get<CampaignAudience>('/campaigns/audience-estimate/', { include: included.join(','), exclude: excluded.join(','), channel: channel === 'MMS' ? 'SMS' : channel === 'MULTI' ? 'EMAIL' : channel, solicitation_type: purpose }, signal),
-    enabled: included.length > 0,
-    placeholderData: keepPreviousData,
-  })
+  const estimate = useAudienceEstimate(included, excluded, channel, purpose)
 
-  if (isReceipt) {
-    return (
-      <Panel title="This is an E-Receipt campaign, so there is no contact list to attach">
-        <p className="max-w-3xl text-sm text-ink-700">
-          An e-receipt goes to the customer of each purchase: the point of sale or the web shop asks for every receipt, one at a time. Contact lists are for campaigns
-          that are sent to an audience. To attach existing lists or upload a new one, the campaign type has to be Regular Marketing, Drip or Other.
-        </p>
-        <p className="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" className={buttonSecondary} onClick={onChangeType}>Change the campaign type</button>
-          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
-        </p>
-      </Panel>
-    )
-  }
+  if (isReceipt) return <ReceiptMessage onChangeType={onChangeType} />
 
-  function setRole(list: ContactList, role: Role) {
-    const touch = { shouldDirty: true, shouldValidate: true }
-    setValue('contact_lists', role === 'INCLUDE' ? [...included.filter((item) => item !== list.id), list.id] : included.filter((item) => item !== list.id), touch)
-    setValue('excluded_lists', role === 'EXCLUDE' ? [...excluded.filter((item) => item !== list.id), list.id] : excluded.filter((item) => item !== list.id), touch)
-  }
-  function pickMany(items: ContactList[], picked: boolean) {
-    const ids = items.map((item) => item.id)
-    setValue('contact_lists', picked ? [...new Set([...included, ...ids])] : included.filter((item) => !ids.includes(item)), { shouldDirty: true, shouldValidate: true })
-  }
-  const roleOf = (list: ContactList): Role => (included.includes(list.id) ? 'INCLUDE' : excluded.includes(list.id) ? 'EXCLUDE' : 'NONE')
-
+  const touch = { shouldDirty: true, shouldValidate: true }
   const all = lists.data?.results ?? []
-  const needle = search.trim().toLowerCase()
-  const shown = all.filter((item) => item.name.toLowerCase().includes(needle) && (source === '' || (source === 'BI' ? ['BI', 'EXTRACTION', 'SEGMENT'].includes(item.source_type) : item.source_type === source))
-    && (environment === '' || item.list_environment === environment))
-  const pickable = shown.filter((item) => !excluded.includes(item.id))
-  const allShownPicked = pickable.length > 0 && pickable.every((item) => included.includes(item.id))
-  const excludable = all.filter((item) => !included.includes(item.id))
-  const testPicked = all.filter((item) => included.includes(item.id) && item.list_environment === 'TEST')
-  const control = 'h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900'
+  const stored = campaign?.contact_list_details ?? []
+  function rowOf(id: string, state: ListRow['state']): ListRow | null {
+    const list = all.find((item) => item.id === id) ?? pending.find((item) => item.id === id)
+    const saved = stored.find((item) => item.id === id)
+    if (!list && !saved) return null
+    return {
+      id, name: list?.name ?? saved!.name, source_type: list?.source_type ?? saved?.list_kind ?? '', list_environment: list?.list_environment ?? saved?.list_environment ?? 'PRODUCTION',
+      member_count: list?.member_count ?? saved?.member_count ?? 0, updated_at: list?.updated_at ?? null, state, attachedAt: saved?.attached_at ?? null,
+    }
+  }
+  const sendRows = [...included.map((id) => rowOf(id, auto.includes(id) ? 'auto' : 'attached')), ...pending.map((list) => rowOf(list.id, 'review'))].filter((row): row is ListRow => Boolean(row))
+  const leaveOutRows = excluded.map((id) => rowOf(id, 'attached')).filter((row): row is ListRow => Boolean(row))
+  const testPicked = sendRows.filter((row) => row.state !== 'review' && row.list_environment === 'TEST')
+  const counted = sendRows.filter((row) => row.state !== 'review')
+  const pendingContacts = pending.reduce((sum, list) => sum + list.member_count, 0)
+  const nobody = included.length > 0 && estimate.data?.estimated_recipients === 0 && !estimate.isFetching
+  const canMake = can('list.edit')
+  const listError = errors.contact_lists?.message ?? errors.excluded_lists?.message
+
+  const addButton = <Button size="sm" iconStart={Plus} onClick={() => setAdding('send')}>Add Contact List</Button>
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <Panel
-        title="Contact lists"
-        description="Tick every list this campaign goes to. The same list can serve any number of campaigns, and overlapping lists never cause duplicate messages: each person is counted once."
-        actions={can('list.edit') && (
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={buttonSecondary} onClick={() => setWizard('UPLOAD')}><Upload size={16} strokeWidth={1.5} aria-hidden /> Upload a CSV file</button>
-            <button type="button" className={buttonSecondary} onClick={() => setWizard('BI')}>From an audience or a clone</button>
-          </div>
-        )}
-      >
-        {notice && <p role="status" className="mb-3 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
-        {uploaded && !included.includes(uploaded.id) && (
-          <div role="group" aria-label="Uploaded list waiting to be attached" className="mb-3 rounded-lg border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
-            <p><strong>{uploaded.name}</strong> ({formatNumber(uploaded.member_count)} contacts) came from an uploaded file. File data is not checked upstream, so it is not attached until you confirm.</p>
-            <p className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className={buttonSecondary} onClick={() => { setRole(uploaded, 'INCLUDE'); setNotice(`“${uploaded.name}” is attached.`); setUploaded(null) }}>I have checked it: attach to this campaign</button>
-              <a className={buttonSecondary} href={`/contact-lists/${uploaded.id}`} target="_blank" rel="noreferrer">Open the list</a>
-              <button type="button" className={buttonSecondary} onClick={() => setUploaded(null)}>Not now</button>
-            </p>
-          </div>
-        )}
-        {(errors.contact_lists?.message || errors.excluded_lists?.message) && <p role="alert" className="mb-3 text-xs font-medium text-danger-text">{errors.contact_lists?.message ?? errors.excluded_lists?.message}</p>}
+    <div className="flex flex-col gap-6">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="order-first lg:sticky lg:top-6 lg:order-last" data-audience-summary>
+          <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} />
+        </div>
 
-        {lists.isPending ? (
-          <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading contact lists</p>
-        ) : lists.isError ? (
-          <ErrorState error={lists.error} onRetry={() => void lists.refetch()} />
-        ) : all.length === 0 ? (
-          <p className="text-sm text-ink-500">No active contact lists yet. {can('list.edit') ? 'Upload a CSV file, or make one from an audience, with the buttons above.' : <Link to="/contact-lists" className="font-medium text-brand-800 underline">See contact lists</Link>}</p>
-        ) : (
-          <>
-            <div className="mb-3 flex flex-wrap items-center gap-3">
-              <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists" aria-label="Search contact lists" className={`${control} w-full sm:w-64`} />
-              <select aria-label="Source" value={source} onChange={(event) => setSource(event.target.value)} className={control}>
-                <option value="">All sources</option><option value="UPLOAD">Upload</option><option value="BI">BI / Extraction</option><option value="CLONE">Clone</option>
-              </select>
-              <select aria-label="Test or Production" value={environment} onChange={(event) => setEnvironment(event.target.value)} className={control}>
-                <option value="">Test / Production</option><option value="PRODUCTION">Production</option><option value="TEST">Test</option>
-              </select>
-            </div>
-            <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-line">
-              <table className="w-full table-fixed divide-y divide-line text-sm">
-                <caption className="sr-only">Contact lists this campaign is sent to</caption>
-                <thead className="sticky top-0 z-10 bg-surface-subtle">
-                  <tr>
-                    <th scope="col" className="w-10 px-3">
-                      <input type="checkbox" aria-label="Select every list shown" className="h-4 w-4 accent-brand-600" checked={allShownPicked} disabled={pickable.length === 0}
-                        onChange={(event) => pickMany(pickable, event.target.checked)} />
-                    </th>
-                    <th scope="col" className="h-10 px-3 text-left text-xs font-semibold text-ink-700">List name</th>
-                    <th scope="col" className="hidden h-10 w-32 px-3 text-left text-xs font-semibold text-ink-700 sm:table-cell">Source</th>
-                    <th scope="col" className="h-10 w-24 px-3 text-right text-xs font-semibold text-ink-700">Contacts</th>
-                    <th scope="col" className="hidden h-10 w-32 px-3 text-left text-xs font-semibold text-ink-700 md:table-cell">Updated</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {shown.map((item) => {
-                    const role = roleOf(item)
-                    const boxId = `send-to-${item.id}`
-                    return (
-                      <tr key={item.id} className={role === 'INCLUDE' ? 'bg-brand-100' : 'hover:bg-surface-subtle'}>
-                        <td className="px-3 py-2.5 align-top">
-                          <input id={boxId} type="checkbox" aria-label={`Send to ${item.name}`} className="mt-0.5 h-4 w-4 accent-brand-600" checked={role === 'INCLUDE'} disabled={role === 'EXCLUDE'}
-                            onChange={(event) => setRole(item, event.target.checked ? 'INCLUDE' : 'NONE')} />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <label htmlFor={boxId} className={`block truncate font-medium text-ink-900 ${role === 'EXCLUDE' ? '' : 'cursor-pointer'}`}>{item.name}</label>
-                          <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
-                            {role === 'EXCLUDE' && <Tag>Excluded below</Tag>}
-                            {item.list_environment === 'TEST' && <Tag>Test: not for production sends</Tag>}
-                            {(item.live_campaigns ?? 0) > 0 && <span>on {item.live_campaigns} live campaign{item.live_campaigns === 1 ? '' : 's'}</span>}
-                          </p>
-                        </td>
-                        <td className="hidden px-3 py-2.5 text-ink-700 sm:table-cell">{item.source_label ?? item.list_kind}</td>
-                        <td className="cep-num px-3 py-2.5 text-right text-ink-700">{formatNumber(item.member_count)}</td>
-                        <td className="hidden whitespace-nowrap px-3 py-2.5 text-ink-700 md:table-cell">{formatDate(item.updated_at)}</td>
-                      </tr>
-                    )
-                  })}
-                  {shown.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-sm text-ink-500">No list matches these filters.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-sm text-ink-700" aria-live="polite">
-              {included.length === 0 ? 'No list selected yet. A draft can be saved without one; publishing needs at least one.'
-                : `${included.length} list${included.length === 1 ? '' : 's'} selected, ${formatNumber(all.filter((item) => included.includes(item.id)).reduce((sum, item) => sum + item.member_count, 0))} contacts before duplicates and governance`}
-            </p>
-
-            <details className="mt-4 rounded-lg border border-line bg-surface-subtle px-4 py-3" open={excluded.length > 0}>
-              <summary className="cursor-pointer text-sm font-medium text-ink-900">
-                Keep people out of this campaign (optional){excluded.length > 0 && `: ${excluded.length} list${excluded.length === 1 ? '' : 's'} excluded`}
-              </summary>
-              <p className="mt-2 text-sm text-ink-500">Everyone in a list ticked here is left out, even when they are also in a list the campaign is sent to. Use it for a do-not-contact list, or for people who already bought.</p>
-              {excludable.length === 0 ? <p className="mt-2 text-sm text-ink-500">Every list is selected above, so there is none left to exclude.</p> : (
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Lists to exclude">
-                  {excludable.map((item) => (
-                    <li key={item.id}>
-                      <label className="flex cursor-pointer items-start gap-2 text-sm text-ink-900">
-                        <input type="checkbox" aria-label={`Exclude ${item.name}`} className="mt-0.5 h-4 w-4 accent-brand-600" checked={excluded.includes(item.id)}
-                          onChange={(event) => setRole(item, event.target.checked ? 'EXCLUDE' : 'NONE')} />
-                        <span className="min-w-0"><span className="block truncate">{item.name}</span><span className="cep-num text-xs text-ink-500">{formatNumber(item.member_count)} contacts</span></span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
+        <div className="flex min-w-0 flex-col gap-6">
+          <DetailCard title="Send To" actions={addButton} flush={sendRows.length > 0}>
+            <div className={sendRows.length > 0 ? 'flex flex-col md:gap-0' : 'flex flex-col gap-4'}>
+              {notice && <p role="status" className={`text-sm text-ink-900 ${sendRows.length > 0 ? 'px-0 pb-4 md:px-6 md:pt-4' : ''}`}>{notice}</p>}
+              {pending.length > 0 && (
+                <div className="pb-4 md:px-6 md:pt-4">
+                  <Notice tone="warning" layout="banner"><p>File data isn’t checked upstream, so an uploaded list is only counted once you confirm it.</p></Notice>
+                </div>
               )}
-            </details>
-            {testPicked.length > 0 && (
-              <p className="mt-2 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
-                Marked as Test: {testPicked.map((item) => item.name).join(', ')}. Fine for a test publish; a production publish is refused until the list is changed to Production or detached.
-              </p>
+              {listError && <p role="alert" className="pb-4 text-helper font-medium text-danger-text md:px-6 md:pt-4">{listError}</p>}
+              {lists.isPending && included.length > 0 ? (
+                <div aria-busy className="flex flex-col gap-3 p-0 md:p-6"><SkeletonLine width="60%" /><SkeletonLine width="80%" /></div>
+              ) : lists.isError ? (
+                <div className="md:p-6"><CardError what="the contact lists" error={lists.error} onRetry={() => void lists.refetch()} /></div>
+              ) : sendRows.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface-subtle px-6 py-10 text-center" data-empty="send-to">
+                  <p className="text-sm font-semibold text-ink-900">No contact lists yet</p>
+                  <p className="text-helper text-ink-500">Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.</p>
+                  {lists.data && all.length === 0 && !canMake && (
+                    <p className="text-helper text-ink-500">This workspace has no active contact lists yet. <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link></p>
+                  )}
+                  <div className="mt-2">{addButton}</div>
+                </div>
+              ) : (
+                <ListsTable rows={sendRows} caption="Lists this campaign is sent to" zone={zone}
+                  onRemove={(row) => {
+                    if (row.state === 'review') setPending((now) => now.filter((list) => list.id !== row.id))
+                    else setValue('contact_lists', included.filter((id) => id !== row.id), touch)
+                  }}
+                  onConfirm={(row) => {
+                    setValue('contact_lists', [...included.filter((id) => id !== row.id), row.id], touch)
+                    setPending((now) => now.filter((list) => list.id !== row.id))
+                    setNotice(`“${row.name}” is attached.`)
+                  }} />
+              )}
+              {sendRows.length > 0 && (
+                <p className="cep-num pt-4 text-helper text-ink-500 md:border-t md:border-line-subtle md:px-6 md:py-4" aria-live="polite">
+                  {counted.length === 0 ? 'Nothing is counted yet: confirm the uploaded list first.'
+                    : `${plural(counted.length, 'list')} selected, ${formatNumber(counted.reduce((sum, row) => sum + row.member_count, 0))} contacts before duplicates and governance`}
+                </p>
+              )}
+              {testPicked.length > 0 && (
+                <div className="pt-4 md:px-6 md:pb-6">
+                  <Notice tone="warning" layout="banner">
+                    <p>Marked as Test: {testPicked.map((row) => row.name).join(', ')}. Fine for a test publish; a production publish is refused until the list is changed to Production or detached.</p>
+                  </Notice>
+                </div>
+              )}
+            </div>
+          </DetailCard>
+
+          <DetailCard title="Don’t Send To" description="People in these lists are left out, even if they’re in a list above."
+            actions={<Button size="sm" iconStart={Plus} onClick={() => setAdding('leave-out')}>Add List to Leave Out</Button>} flush={leaveOutRows.length > 0}>
+            {leaveOutRows.length === 0 ? <p className="text-sm text-ink-500" data-empty="leave-out">Nobody is left out by a list.</p> : (
+              <ListsTable rows={leaveOutRows} caption="Lists whose people are left out" zone={zone}
+                onRemove={(row) => setValue('excluded_lists', excluded.filter((id) => id !== row.id), touch)} />
             )}
-          </>
-        )}
-      </Panel>
+          </DetailCard>
+        </div>
+      </div>
 
-      <Panel title="Audience estimate" className="self-start">
-        {included.length === 0 ? (
-          <p className="text-sm text-ink-500">Tick at least one list to see how many people the campaign would reach.</p>
-        ) : estimate.isError ? (
-          <ErrorState title="The estimate could not be worked out" error={estimate.error} onRetry={() => void estimate.refetch()} />
-        ) : !estimate.data ? (
-          <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Counting</p>
-        ) : (
-          <div className={estimate.isFetching ? 'opacity-60 transition-opacity' : 'transition-opacity'}><AudiencePicture audience={estimate.data} /></div>
-        )}
-      </Panel>
+      {nobody && (
+        <Notice tone="warning" layout="banner">
+          <p>Nobody in these lists can receive this campaign today. Check the reasons in the audience summary.</p>
+        </Notice>
+      )}
 
-      {wizard && (
-        <CreateListWizard
-          inCampaign
-          initialSource={wizard}
-          onClose={() => setWizard(null)}
+      {adding && (
+        <AddListDialog purpose={adding} lists={all} sendTo={[...included, ...pending.map((list) => list.id)]} leftOut={excluded} canMake={canMake} onClose={() => setAdding(null)}
+          onAdd={(ids) => {
+            if (adding === 'send') setValue('contact_lists', [...new Set([...included, ...ids])], touch)
+            else setValue('excluded_lists', [...new Set([...excluded, ...ids])], touch)
+            setNotice('')
+          }}
           onCreated={(created) => {
             void lists.refetch()
             if (created.vetted) {
               // an audience or a clone is already vetted: it joins this campaign without asking
-              setRole(created, 'INCLUDE')
+              setValue('contact_lists', [...new Set([...included, created.id])], touch)
+              setAuto((now) => [...now, created.id])
               setNotice(`“${created.name}” is attached: it comes from ${created.source_type === 'CLONE' ? 'a list you already had' : 'a vetted audience'}.`)
             } else {
-              setUploaded(created)
+              setPending((now) => [...now.filter((list) => list.id !== created.id), created])
               setNotice('')
             }
-          }}
-        />
+          }} />
       )}
     </div>
   )

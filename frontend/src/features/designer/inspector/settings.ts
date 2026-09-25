@@ -162,7 +162,7 @@ export const HTML_HELP = '<table role="presentation" width="100%"><tr><td>…</t
 
 export const ALT_HELP = "Describe the image for people who can't see it."
 
-export const HIDE_MOBILE_LABEL = 'Hide on phones'
+export const HIDE_MOBILE_LABEL = 'Hide on Phones'
 
 /** Stacking is MJML's own doing below 480px, so it is something to say, not something to switch. */
 export const STACK_NOTE = 'Columns stack on phones automatically.'
@@ -173,31 +173,31 @@ export const LAYOUT_NOTES: Record<string, string> = { 'mj-section': STACK_NOTE }
 /** Every setting a block offers, in the order the panel shows it. A heading block is an mj-text. */
 export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   'mj-body': [
-    { key: 'width', label: 'Email width', kind: 'length', section: 'layout', min: 320, max: 800 },
-    { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
+    { key: 'width', label: 'Email Width', kind: 'length', section: 'layout', min: 320, max: 800 },
+    { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-section': [
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'full-width', label: 'Full width', kind: 'toggle', section: 'layout' },
+    { key: 'full-width', label: 'Full Width', kind: 'toggle', section: 'layout' },
     { key: HIDE_MOBILE_KEY, label: HIDE_MOBILE_LABEL, kind: 'toggle', section: 'layout' },
-    { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
-    { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-column': [
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'vertical-align', label: 'Vertical alignment', kind: 'valign', section: 'layout' },
-    { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
-    { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'vertical-align', label: 'Vertical Alignment', kind: 'valign', section: 'layout' },
+    { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-text': [
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'font-family', label: 'Font family', kind: 'select', section: 'appearance' },
-    { key: 'font-size', label: 'Font size', kind: 'length', section: 'appearance', min: 1 },
-    { key: 'font-weight', label: 'Font weight', kind: 'select', section: 'appearance' },
-    { key: 'line-height', label: 'Line height', kind: 'length', section: 'appearance', min: 0 },
-    { key: 'color', label: 'Text color', kind: 'color', section: 'appearance' },
+    { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
+    { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
+    { key: 'font-weight', label: 'Font Weight', kind: 'select', section: 'appearance' },
+    { key: 'line-height', label: 'Line Height', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
   ],
   'mj-button': [
     { key: LABEL_KEY, label: 'Label', kind: 'text', section: 'content' },
@@ -206,69 +206,69 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'font-family', label: 'Font family', kind: 'select', section: 'appearance' },
-    { key: 'font-size', label: 'Font size', kind: 'length', section: 'appearance', min: 1 },
-    { key: 'background-color', label: 'Background color', kind: 'color', section: 'appearance' },
-    { key: 'color', label: 'Text color', kind: 'color', section: 'appearance' },
-    { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
-    { key: 'inner-padding', label: 'Inner padding', kind: 'padding', section: 'appearance' },
+    { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
+    { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
+    { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'inner-padding', label: 'Inner Padding', kind: 'padding', section: 'appearance' },
   ],
   'mj-image': [
     { key: SRC_KEY, label: 'Image', kind: 'image', section: 'content' },
-    { key: 'alt', label: 'Alt text', kind: 'text', section: 'content', help: ALT_HELP },
+    { key: 'alt', label: 'Alt Text', kind: 'text', section: 'content', help: ALT_HELP },
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
-    { key: 'max-height', label: 'Max height', kind: 'length', section: 'layout', min: 0 },
+    { key: 'max-height', label: 'Max Height', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'border-radius', label: 'Corner radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-divider': [
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'border-color', label: 'Line color', kind: 'color', section: 'appearance' },
-    { key: 'border-width', label: 'Line width', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'border-color', label: 'Line Color', kind: 'color', section: 'appearance' },
+    { key: 'border-width', label: 'Line Width', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-spacer': [
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
   ],
   'mj-social': [
-    { key: NETWORKS_KEY, label: 'Add a network', kind: 'networks', section: 'content' },
+    { key: NETWORKS_KEY, label: 'Add a Network', kind: 'networks', section: 'content' },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'mode', label: 'Layout', kind: 'select', section: 'layout' },
-    { key: 'icon-size', label: 'Icon size', kind: 'length', section: 'layout', min: 8 },
-    { key: 'icon-padding', label: 'Icon padding', kind: 'padding', section: 'layout' },
+    { key: 'icon-size', label: 'Icon Size', kind: 'length', section: 'layout', min: 8 },
+    { key: 'icon-padding', label: 'Icon Padding', kind: 'padding', section: 'layout' },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'border-radius', label: 'Icon corner radius', kind: 'length', section: 'appearance', min: 0 },
-    { key: 'font-family', label: 'Label font', kind: 'select', section: 'appearance' },
-    { key: 'font-size', label: 'Label size', kind: 'length', section: 'appearance', min: 1 },
-    { key: 'color', label: 'Label color', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Icon Corner Radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'font-family', label: 'Label Font', kind: 'select', section: 'appearance' },
+    { key: 'font-size', label: 'Label Size', kind: 'length', section: 'appearance', min: 1 },
+    { key: 'color', label: 'Label Color', kind: 'color', section: 'appearance' },
   ],
   'mj-social-element': [
     { key: NETWORK_KEY, label: 'Network', kind: 'select', section: 'content', required: true },
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: LABEL_KEY, label: 'Label', kind: 'text', section: 'content', help: 'Shown beside the icon; leave empty for the icon alone' },
-    { key: 'icon-size', label: 'Icon size', kind: 'length', section: 'layout', min: 8 },
+    { key: 'icon-size', label: 'Icon Size', kind: 'length', section: 'layout', min: 8 },
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
-    { key: 'background-color', label: 'Icon background', kind: 'color', section: 'appearance' },
-    { key: 'border-radius', label: 'Icon corner radius', kind: 'length', section: 'appearance', min: 0 },
-    { key: 'color', label: 'Label color', kind: 'color', section: 'appearance' },
+    { key: 'background-color', label: 'Icon Background', kind: 'color', section: 'appearance' },
+    { key: 'border-radius', label: 'Icon Corner Radius', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'color', label: 'Label Color', kind: 'color', section: 'appearance' },
   ],
   link: [
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
-    { key: 'title', label: 'Hover text', kind: 'text', section: 'content' },
+    { key: 'title', label: 'Hover Text', kind: 'text', section: 'content' },
   ],
   'mj-raw': [{ key: HTML_KEY, label: 'HTML', kind: 'html', section: 'content', help: HTML_HELP }],
 
   // E-Receipt: each block offers only the choices a receipt allows (receiptSettings.ts reads and writes them)
   [RECEIPT_BRAND_HEADER_TYPE]: [
-    { key: 'wordmark', label: 'Wordmark text', kind: 'text', section: 'content' },
+    { key: 'wordmark', label: 'Wordmark Text', kind: 'text', section: 'content' },
     { key: 'tagline', label: 'Tagline', kind: 'toggle', section: 'content' },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout', only: ['left', 'center'] },
-    { key: 'background-color', label: 'Brand bar color', kind: 'swatch', section: 'appearance', swatches: SWATCHES },
+    { key: 'background-color', label: 'Brand Bar Color', kind: 'swatch', section: 'appearance', swatches: SWATCHES },
   ],
   [RECEIPT_MARKETING_TYPE]: [
     { key: 'headline', label: 'Headline', kind: 'text', section: 'content' },
@@ -284,11 +284,11 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   ],
   [RECEIPT_IMAGE_TYPE]: [
     { key: SRC_KEY, label: 'Image', kind: 'image', section: 'content' },
-    { key: 'alt', label: 'Alt text', kind: 'text', section: 'content', help: ALT_REQUIRED_HELP },
+    { key: 'alt', label: 'Alt Text', kind: 'text', section: 'content', help: ALT_REQUIRED_HELP },
     { key: 'ratio', label: 'Ratio', kind: 'select', section: 'layout', required: true },
   ],
   [RECEIPT_DIVIDER_TYPE]: [],
-  [RECEIPT_FOOTER_TYPE]: [{ key: 'sender-address', label: 'Sender address', kind: 'text', section: 'content', multiline: true }],
+  [RECEIPT_FOOTER_TYPE]: [{ key: 'sender-address', label: 'Sender Address', kind: 'text', section: 'content', multiline: true }],
 }
 
 /** The blocks whose words belong to the canvas, not to a field. */

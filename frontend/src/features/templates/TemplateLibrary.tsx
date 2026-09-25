@@ -13,7 +13,7 @@ import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { api } from '@/lib/api'
 import { editorPathFor, editorRouteFor } from '@/lib/editorRoute'
-import { formatRelative, humanize } from '@/lib/format'
+import { formatRelative, titleize } from '@/lib/format'
 import type { Preset, Template } from '@/lib/types'
 import { useCursorList } from '@/lib/useCursorList'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
@@ -32,7 +32,7 @@ type Item = PreviewItem
 const STATUSES = ['DRAFT', 'ACTIVE', 'ARCHIVED']
 const VIEW_KEY = 'cep.templates.view'
 
-const openLabel = (template: Template) => (editorRouteFor(template.channel) === 'design' ? 'Open designer' : 'Open editor')
+const openLabel = (template: Template) => (editorRouteFor(template.channel) === 'design' ? 'Open Designer' : 'Open Editor')
 const editorName = (template: Template) => (editorRouteFor(template.channel) === 'design' ? 'designer' : 'editor')
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : 'The server did not answer.')
 
@@ -118,7 +118,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search templates"
-            className="h-9 w-full rounded-lg border border-line bg-surface-subtle pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600"
+            className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600"
           />
         </label>
       </div>
@@ -150,12 +150,12 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             onChange={(event) => setStatus(event.target.value)}
             className="h-8 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-subtle focus-visible:border-brand-600"
           >
-            <option value="">All statuses</option>
-            {STATUSES.map((value) => <option key={value} value={value}>{humanize(value)}</option>)}
+            <option value="">All Statuses</option>
+            {STATUSES.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
           </select>
           <div className="flex overflow-hidden rounded-lg border border-line">
-            <ViewButton icon={LayoutGrid} label="Grid view" pressed={view === 'grid'} onClick={() => setView('grid')} />
-            <ViewButton icon={List} label="List view" pressed={view === 'list'} onClick={() => setView('list')} />
+            <ViewButton icon={LayoutGrid} label="Grid View" pressed={view === 'grid'} onClick={() => setView('grid')} />
+            <ViewButton icon={List} label="List View" pressed={view === 'list'} onClick={() => setView('list')} />
           </div>
         </div>
       </div>
@@ -191,8 +191,8 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
           onClose={() => setDeleting(null)}
           footer={
             <>
-              <Button onClick={() => setDeleting(null)}>Keep it</Button>
-              <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate(deleting)}>Delete template</Button>
+              <Button onClick={() => setDeleting(null)}>Keep It</Button>
+              <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate(deleting)}>Delete Template</Button>
             </>
           }
         >
@@ -298,13 +298,13 @@ function TemplateGrid({ items, canEdit, onPreset, onPreview, actions }: ItemsPro
         const body = (
           <>
             <ItemTile item={item} />
-            <CardBody name={preset.name} meta="Starter" tags={<><Tag>CEP preset</Tag><Tag>{lookOf(preset.channel).label}</Tag></>} />
+            <CardBody name={preset.name} meta="Starter" tags={<><Tag>CEP Preset</Tag><Tag>{lookOf(preset.channel).label}</Tag></>} />
           </>
         )
         return (
           <li key={`preset-${preset.key}`} className="min-w-0">
             {canEdit ? (
-              <button type="button" onClick={() => openPreset(item, { onPreview, onPreset })} aria-label={`${preset.name}, CEP preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
+              <button type="button" onClick={() => openPreset(item, { onPreview, onPreset })} aria-label={`${preset.name}, CEP Preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
             ) : (
               <div className={`${CARD} h-full`}>{body}</div>
             )}
@@ -336,7 +336,7 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
   )
 }
 
-// the same header as DataTable: 12px, sentence case
+// the same header as DataTable: 12px, title case
 const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-700'
 const CELL = 'h-14 px-4 align-middle'
 
@@ -353,7 +353,7 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
             <th scope="col" className={HEAD}>Template</th>
             <th scope="col" className={HEAD}>Channel</th>
             <th scope="col" className={HEAD}>Status</th>
-            <th scope="col" className={HEAD}>Last edited</th>
+            <th scope="col" className={HEAD}>Last Edited</th>
             <th scope="col" className={`${HEAD} w-12`}><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -404,7 +404,7 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
                   </span>
                 </td>
                 <td className={CELL}><Tag>{lookOf(preset.channel).label}</Tag></td>
-                <td className={CELL}><Tag>CEP preset</Tag></td>
+                <td className={CELL}><Tag>CEP Preset</Tag></td>
                 <td className={`${CELL} text-ink-500`}>Starter</td>
                 <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                   {canPreview(item) && <RowMenu menus={menus} id={`preset-${preset.key}`} name={preset.name}>

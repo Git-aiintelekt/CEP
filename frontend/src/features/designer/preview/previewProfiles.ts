@@ -19,10 +19,10 @@ export interface PreviewProfile {
 }
 
 export const PREVIEW_PROFILES: readonly PreviewProfile[] = [
-  { id: 'sample', label: 'Sample values', values: 'samples' },
+  { id: 'sample', label: 'Sample Values', values: 'samples' },
   {
     id: 'full',
-    label: 'Full profile',
+    label: 'Full Profile',
     values: {
       first_name: 'Aaliyah',
       last_name: 'Johnson',
@@ -35,7 +35,7 @@ export const PREVIEW_PROFILES: readonly PreviewProfile[] = [
     },
   },
   // only the address the email goes to: everything else falls back to its default, or goes blank
-  { id: 'empty', label: 'Empty profile', values: { email: 'no.details@example.com', email_address: 'no.details@example.com' } },
+  { id: 'empty', label: 'Empty Profile', values: { email: 'no.details@example.com', email_address: 'no.details@example.com' } },
 ]
 
 export const DEFAULT_PROFILE: PreviewProfile = PREVIEW_PROFILES[0]

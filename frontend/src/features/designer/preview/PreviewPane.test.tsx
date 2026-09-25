@@ -88,25 +88,25 @@ test('the device switch is the shared segmented control, one radio per width', (
 
 // ---- profiles ------------------------------------------------------------
 
-test('Preview as opens on sample values and offers the three profiles', () => {
+test('Preview As opens on sample values and offers the three profiles', () => {
   renderPane()
   const group = screen.getByRole('radiogroup', { name: PREVIEW_AS_LABEL })
   expect(group).toBeTruthy()
-  expect(['Sample values', 'Full profile', 'Empty profile'].map((name) => radio(name).getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
+  expect(['Sample Values', 'Full Profile', 'Empty Profile'].map((name) => radio(name).getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
 })
 
 test('choosing a profile re-fills the email, the subject and the preheader for that contact', async () => {
   const user = userEvent.setup()
   renderPane()
   expect(frame().getAttribute('srcdoc')).toContain('Jordan')
-  expect(screen.getByRole('group', { name: 'Inbox row' }).textContent).toContain('Jordan, your Gold offer')
+  expect(screen.getByRole('group', { name: 'Inbox Row' }).textContent).toContain('Jordan, your Gold offer')
 
-  await user.click(radio('Full profile'))
+  await user.click(radio('Full Profile'))
   expect(frame().getAttribute('srcdoc')).toContain('Aaliyah')
-  expect(screen.getByRole('group', { name: 'Inbox row' }).textContent).toContain('Aaliyah, your GOLD offer')
+  expect(screen.getByRole('group', { name: 'Inbox Row' }).textContent).toContain('Aaliyah, your GOLD offer')
 
-  await user.click(radio('Empty profile'))
-  const row = screen.getByRole('group', { name: 'Inbox row' })
+  await user.click(radio('Empty Profile'))
+  const row = screen.getByRole('group', { name: 'Inbox Row' })
   expect(row.querySelector('[data-fill="default"]')?.textContent).toBe('there')
   expect(row.querySelector('[data-fill="blank"]')?.textContent).toBe('(no value)')
 })
@@ -116,7 +116,7 @@ test('a link that comes out empty for the contact is called out above the email'
   renderPane()
   expect(screen.queryByText(EMPTY_LINK_NOTE)).toBeNull()
 
-  await user.click(radio('Empty profile'))
+  await user.click(radio('Empty Profile'))
   expect(screen.getByText(EMPTY_LINK_NOTE)).toBeTruthy()
 })
 
@@ -124,7 +124,7 @@ test('a link that comes out empty for the contact is called out above the email'
 
 test('the inbox row has a placeholder sender, the subject, the preheader and a time, and no character counts', () => {
   renderPane()
-  const row = screen.getByRole('group', { name: 'Inbox row' })
+  const row = screen.getByRole('group', { name: 'Inbox Row' })
   expect(row.textContent).toContain(SENDER_PLACEHOLDER)
   expect(row.textContent).toContain('Ends soon')
   expect(row.textContent).toContain('04:12 UTC')
@@ -133,7 +133,7 @@ test('the inbox row has a placeholder sender, the subject, the preheader and a t
 
 test('an empty subject and preheader keep their own wording', () => {
   renderPane(READY, { subject: ' ', preheader: '' })
-  const row = screen.getByRole('group', { name: 'Inbox row' })
+  const row = screen.getByRole('group', { name: 'Inbox Row' })
   expect(row.textContent).toContain(NO_SUBJECT)
   expect(row.textContent).toContain(NO_PREHEADER)
 })
@@ -153,7 +153,7 @@ test('an empty template says there is nothing yet, instead of a white box', () =
   expect(screen.queryByTitle(PREVIEW_FRAME_TITLE)).toBeNull()
 })
 
-test('broken email code is one plain line, the compiler text behind Show details, and no half-rendered email', async () => {
+test('broken email code is one plain line, the compiler text behind Show Details, and no half-rendered email', async () => {
   const user = userEvent.setup()
   renderPane({ status: 'failed', details: ['mj-text cannot be used inside mj-body'] })
 

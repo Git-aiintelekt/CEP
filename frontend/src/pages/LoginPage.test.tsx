@@ -34,10 +34,10 @@ test('the password is hidden until the reveal toggle is pressed', async () => {
   const password = await screen.findByLabelText('Password')
   expect(password.getAttribute('type')).toBe('password')
 
-  await user.click(screen.getByRole('button', { name: 'Show password' }))
+  await user.click(screen.getByRole('button', { name: 'Show Password' }))
   expect(password.getAttribute('type')).toBe('text')
 
-  await user.click(screen.getByRole('button', { name: 'Hide password' }))
+  await user.click(screen.getByRole('button', { name: 'Hide Password' }))
   expect(password.getAttribute('type')).toBe('password')
 })
 
@@ -72,8 +72,8 @@ test('a workspace that requires a code asks for one instead of signing in', asyn
 
   await fillCredentials(user, 'needs-a-code')
 
-  expect(await screen.findByText('Enter your code')).toBeTruthy()
-  await user.type(screen.getByLabelText('Authentication code'), MFA_CODE)
+  expect(await screen.findByText('Enter Your Code')).toBeTruthy()
+  await user.type(screen.getByLabelText('Authentication Code'), MFA_CODE)
   await user.click(screen.getByRole('button', { name: 'Verify' }))
 
   expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
@@ -86,13 +86,13 @@ test('a wrong code is explained and sign in can be started again', async () => {
   const user = await renderApp()
 
   await fillCredentials(user, 'needs-a-code')
-  await user.type(await screen.findByLabelText('Authentication code'), '111111')
+  await user.type(await screen.findByLabelText('Authentication Code'), '111111')
   await user.click(screen.getByRole('button', { name: 'Verify' }))
 
   expect((await screen.findByRole('alert')).textContent).toContain('Codes change every 30 seconds')
 
-  await user.click(screen.getByRole('button', { name: '← Back to log in' }))
-  expect(await screen.findByText('Log in to CEP')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: '← Back to Log In' }))
+  expect(await screen.findByText('Log In to CEP')).toBeTruthy()
 })
 
 test('forgot password: the address is checked here, and the missing endpoint is reported honestly', async () => {
@@ -100,21 +100,21 @@ test('forgot password: the address is checked here, and the missing endpoint is 
   const user = await renderApp()
 
   await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
-  expect(await screen.findByText('Reset your password')).toBeTruthy()
+  expect(await screen.findByText('Reset Your Password')).toBeTruthy()
 
   // a malformed address never reaches the API
   await user.type(screen.getByLabelText('Email'), 'not-an-address')
-  await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+  await user.click(screen.getByRole('button', { name: 'Send Reset Link' }))
   expect(screen.getByText('Enter a valid email address')).toBeTruthy()
   expect(calls.some((call) => call.url.includes('/auth/forgot-password/'))).toBe(false)
 
   // with a real one it is attempted, and the 404 is not dressed up as a sent email
   await user.clear(screen.getByLabelText('Email'))
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
-  await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+  await user.click(screen.getByRole('button', { name: 'Send Reset Link' }))
 
   expect(await screen.findByText(/not switched on yet/)).toBeTruthy()
-  expect(screen.queryByText('Check your email')).toBeNull()
+  expect(screen.queryByText('Check Your Email')).toBeNull()
   expect(calls.some((call) => call.url.includes('/auth/forgot-password/'))).toBe(true)
 })
 
@@ -124,12 +124,12 @@ test('once the endpoint exists the reset link is confirmed as sent', async () =>
 
   await user.click(await screen.findByRole('button', { name: 'Forgot password?' }))
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
-  await user.click(screen.getByRole('button', { name: 'Send reset link' }))
+  await user.click(screen.getByRole('button', { name: 'Send Reset Link' }))
 
-  expect(await screen.findByText('Check your email')).toBeTruthy()
+  expect(await screen.findByText('Check Your Email')).toBeTruthy()
   expect(screen.getByText('aby.john@aiintelekt.com')).toBeTruthy()
   expect(calls.find((call) => call.url.includes('/auth/forgot-password/'))?.body).toEqual({ email: 'aby.john@aiintelekt.com' })
 
-  await user.click(screen.getByRole('button', { name: 'Resend link' }))
+  await user.click(screen.getByRole('button', { name: 'Resend Link' }))
   expect(await screen.findByText(/Link resent at/)).toBeTruthy()
 })

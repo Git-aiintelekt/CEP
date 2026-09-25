@@ -36,7 +36,7 @@ const headings = () => screen.getAllByRole('heading', { level: 3 }).map((heading
 
 test('tags are grouped by kind under the catalogue headings, sorted by label', () => {
   renderPicker()
-  expect(headings()).toEqual(['Customer', 'Campaign list', 'System'])
+  expect(headings()).toEqual(['Customer', 'Campaign List', 'System'])
   expect(rowNames()).toEqual(['First name', 'Loyalty tier', 'Offer code', 'Shop URL'])
 })
 

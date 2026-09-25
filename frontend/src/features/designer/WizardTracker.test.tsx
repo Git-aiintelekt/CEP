@@ -8,7 +8,7 @@ const steps = [
   { label: 'Audience', href: '/campaigns/1/audience' },
   { label: 'Template', href: '/campaigns/1/template' },
   { label: 'Targets', href: '/campaigns/1/targets' },
-  { label: 'Test and publish', href: '/campaigns/1/publish' },
+  { label: 'Test and Publish', href: '/campaigns/1/publish' },
 ]
 
 function renderAt(currentIndex: number) {
@@ -22,7 +22,7 @@ function renderAt(currentIndex: number) {
 afterEach(cleanup)
 
 test('the four steps are named in order', () => {
-  expect(WIZARD_STEPS.map((step) => step.label)).toEqual(['Audience', 'Template', 'Targets', 'Test and publish'])
+  expect(WIZARD_STEPS.map((step) => step.label)).toEqual(['Audience', 'Template', 'Targets', 'Test and Publish'])
 })
 
 test('completed steps are links back', () => {
@@ -43,10 +43,10 @@ test('the current step is marked and is not a link', () => {
 test('later steps are shown, disabled and not links', () => {
   renderAt(2)
 
-  const later = screen.getByText('Test and publish')
+  const later = screen.getByText('Test and Publish')
   expect(later.getAttribute('aria-disabled')).toBe('true')
   expect(later.getAttribute('aria-current')).toBeNull()
-  expect(screen.queryByRole('link', { name: 'Test and publish' })).toBeNull()
+  expect(screen.queryByRole('link', { name: 'Test and Publish' })).toBeNull()
 })
 
 test('a completed step without an href is not a link', () => {

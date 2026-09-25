@@ -66,7 +66,7 @@ function NotFoundPage() {
       <p className="text-sm font-semibold text-brand-800">404</p>
       <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">Page not found</h1>
       <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline">
-        Back to overview
+        Back to Overview
       </Link>
     </div>
   )
@@ -104,9 +104,9 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
-                <Route path="campaigns/new" element={<CampaignWizardPage key="new" />} />
+                <Route path="campaigns/new" element={<CampaignListPage creating />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
-                <Route path="campaigns/:id/edit" element={<CampaignWizardPage key="edit" />} />
+                <Route path="campaigns/:id/edit" element={<CampaignWizardPage />} />
                 <Route path="contact-lists" element={<ContactListsPage />} />
                 <Route path="contact-lists/uploads" element={<UploadsPage />} />
                 <Route path="contact-lists/:id" element={<ContactListDetailPage />} />

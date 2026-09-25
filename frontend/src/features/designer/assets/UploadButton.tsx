@@ -4,7 +4,7 @@ import { useRef } from 'react'
 
 import { ACCEPTED_TYPES, acceptedImages } from './assetAction'
 
-export const UPLOAD_LABEL = 'Upload image'
+export const UPLOAD_LABEL = 'Upload Image'
 
 export function UploadButton({ disabled = false, onUpload }: { disabled?: boolean; onUpload: (files: File[]) => void }) {
   const input = useRef<HTMLInputElement>(null)

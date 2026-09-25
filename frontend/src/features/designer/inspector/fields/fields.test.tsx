@@ -28,7 +28,7 @@ test('alignment offers the three horizontal choices, each with a name a reader c
 })
 
 test('the vertical axis offers the vertical choices instead', () => {
-  render(<AlignField label="Vertical alignment" value="middle" axis="vertical" onCommit={vi.fn()} />)
+  render(<AlignField label="Vertical Alignment" value="middle" axis="vertical" onCommit={vi.fn()} />)
   expect(screen.getAllByRole('radio').map((node) => node.getAttribute('aria-label'))).toEqual(['Top', 'Middle', 'Bottom'])
 })
 
@@ -96,29 +96,29 @@ test('a disabled group commits nothing, by click or by key', async () => {
 // --- ToggleField --------------------------------------------------------
 
 test('a switch reads as on when the value is the one it writes', () => {
-  render(<ToggleField label="Full width" value="full-width" onValue="full-width" onCommit={vi.fn()} />)
-  expect(screen.getByRole('switch', { name: 'Full width' }).getAttribute('aria-checked')).toBe('true')
+  render(<ToggleField label="Full Width" value="full-width" onValue="full-width" onCommit={vi.fn()} />)
+  expect(screen.getByRole('switch', { name: 'Full Width' }).getAttribute('aria-checked')).toBe('true')
 })
 
 test('switching on writes the value, and switching off clears the setting', async () => {
   const user = userEvent.setup()
   const { onCommit } = spies()
-  const { rerender } = render(<ToggleField label="Full width" value={null} onValue="full-width" onCommit={onCommit} />)
+  const { rerender } = render(<ToggleField label="Full Width" value={null} onValue="full-width" onCommit={onCommit} />)
 
-  await user.click(screen.getByRole('switch', { name: 'Full width' }))
+  await user.click(screen.getByRole('switch', { name: 'Full Width' }))
   expect(onCommit).toHaveBeenCalledExactlyOnceWith('full-width')
 
-  rerender(<ToggleField label="Full width" value="full-width" onValue="full-width" onCommit={onCommit} />)
-  await user.click(screen.getByRole('switch', { name: 'Full width' }))
+  rerender(<ToggleField label="Full Width" value="full-width" onValue="full-width" onCommit={onCommit} />)
+  await user.click(screen.getByRole('switch', { name: 'Full Width' }))
   expect(onCommit).toHaveBeenLastCalledWith(null)
 })
 
 test('a disabled switch is grey rather than faded and does not move', async () => {
   const user = userEvent.setup()
   const { onCommit } = spies()
-  render(<ToggleField label="Full width" value={null} onValue="full-width" disabled onCommit={onCommit} />)
+  render(<ToggleField label="Full Width" value={null} onValue="full-width" disabled onCommit={onCommit} />)
 
-  const control = screen.getByRole('switch', { name: 'Full width' })
+  const control = screen.getByRole('switch', { name: 'Full Width' })
   expect(control.className).toContain('bg-line-subtle')
   expect(control.className).not.toContain('opacity')
   await user.click(control)
@@ -130,12 +130,12 @@ test('a disabled switch is grey rather than faded and does not move', async () =
 test('plain text commits on Enter and clears when emptied', async () => {
   const user = userEvent.setup()
   const { onCommit } = spies()
-  render(<TextField label="Alt text" value={null} onCommit={onCommit} />)
+  render(<TextField label="Alt Text" value={null} onCommit={onCommit} />)
 
-  await user.type(screen.getByLabelText('Alt text'), 'A logo{Enter}')
+  await user.type(screen.getByLabelText('Alt Text'), 'A logo{Enter}')
   expect(onCommit).toHaveBeenCalledExactlyOnceWith('A logo')
 
-  await user.clear(screen.getByLabelText('Alt text'))
+  await user.clear(screen.getByLabelText('Alt Text'))
   await user.keyboard('{Enter}')
   expect(onCommit).toHaveBeenLastCalledWith(null)
 })
@@ -208,8 +208,8 @@ test('Escape drops the bad text and the error with it', async () => {
 // --- SelectField --------------------------------------------------------
 
 test('a select offers every option plus a row that clears the setting', () => {
-  render(<SelectField label="Font weight" value="700" options={FONT_WEIGHTS} onCommit={vi.fn()} />)
-  const control = screen.getByLabelText('Font weight') as HTMLSelectElement
+  render(<SelectField label="Font Weight" value="700" options={FONT_WEIGHTS} onCommit={vi.fn()} />)
+  const control = screen.getByLabelText('Font Weight') as HTMLSelectElement
 
   expect([...control.options].map((option) => option.textContent))
     .toEqual(['Default', 'Light', 'Regular', 'Medium', 'Semibold', 'Bold'])
@@ -217,25 +217,25 @@ test('a select offers every option plus a row that clears the setting', () => {
 })
 
 test('the empty row names what the email would send instead', () => {
-  render(<SelectField label="Font weight" value={null} effective="400" options={FONT_WEIGHTS} onCommit={vi.fn()} />)
-  expect((screen.getByLabelText('Font weight') as HTMLSelectElement).options[0].textContent).toBe('Default (Regular)')
+  render(<SelectField label="Font Weight" value={null} effective="400" options={FONT_WEIGHTS} onCommit={vi.fn()} />)
+  expect((screen.getByLabelText('Font Weight') as HTMLSelectElement).options[0].textContent).toBe('Default (Regular)')
 })
 
 test('picking an option commits it and picking the empty row clears it', async () => {
   const user = userEvent.setup()
   const { onCommit } = spies()
-  render(<SelectField label="Font weight" value="400" options={FONT_WEIGHTS} onCommit={onCommit} />)
+  render(<SelectField label="Font Weight" value="400" options={FONT_WEIGHTS} onCommit={onCommit} />)
 
-  await user.selectOptions(screen.getByLabelText('Font weight'), '600')
+  await user.selectOptions(screen.getByLabelText('Font Weight'), '600')
   expect(onCommit).toHaveBeenCalledExactlyOnceWith('600')
 
-  await user.selectOptions(screen.getByLabelText('Font weight'), '')
+  await user.selectOptions(screen.getByLabelText('Font Weight'), '')
   expect(onCommit).toHaveBeenLastCalledWith(null)
 })
 
 test('a disabled select is grey rather than faded', () => {
-  render(<SelectField label="Font weight" value="400" options={FONT_WEIGHTS} disabled onCommit={vi.fn()} />)
-  const control = screen.getByLabelText('Font weight')
+  render(<SelectField label="Font Weight" value="400" options={FONT_WEIGHTS} disabled onCommit={vi.fn()} />)
+  const control = screen.getByLabelText('Font Weight')
   expect((control as HTMLSelectElement).disabled).toBe(true)
   expect(control.className).toContain('bg-line-subtle')
   expect(control.className).not.toContain('opacity')

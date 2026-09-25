@@ -67,27 +67,27 @@ export function UploadReport({ job }: { job: ListImport }) {
   }
 
   return (
-    <section aria-label="Upload report" className="space-y-4">
+    <section aria-label="Upload Report" className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-line p-3">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">The file</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">The File</h3>
           <dl>
-            <Line label="Rows in the file" value={summary.rows} strong />
-            <Line label="Held back" value={held.total} />
+            <Line label="Rows in the File" value={summary.rows} strong />
+            <Line label="Held Back" value={held.total} />
             {held.reasons.filter((reason) => reason.count > 0).map((reason) => <Line key={reason.code} label={reason.label} value={reason.count} indent muted />)}
-            <Line label={result ? 'Imported' : 'Ready to import'} value={ready.total} strong />
+            <Line label={result ? 'Imported' : 'Ready to Import'} value={ready.total} strong />
             <Line label="New to CEP" value={ready.new} indent muted />
-            <Line label="Already known" value={ready.existing} indent muted />
+            <Line label="Already Known" value={ready.existing} indent muted />
             {result && (
               <>
-                <Line label="Added to the list" value={result.added} />
-                <Line label="Already in the list" value={result.already_in_list} />
+                <Line label="Added to the List" value={result.added} />
+                <Line label="Already in the List" value={result.already_in_list} />
               </>
             )}
           </dl>
         </div>
         <div className="rounded-lg border border-line p-3">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">Governance check · marketing email, as of today</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">Governance Check · Marketing Email, as of Today</h3>
           <GovernanceLines statuses={governance.statuses} total={ready.total} sendable={governance.sendable} />
           {summary.mobile && (
             <p className="mt-2 border-t border-line-subtle pt-2 text-xs text-ink-500">
@@ -104,7 +104,7 @@ export function UploadReport({ job }: { job: ListImport }) {
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" className={buttonSecondary} onClick={() => void download()}>
-          <Download size={16} strokeWidth={1.5} aria-hidden /> Download the row-by-row report
+          <Download size={16} strokeWidth={1.5} aria-hidden /> Download the Row-by-Row Report
         </button>
         {problem && <span role="alert" className="text-sm font-medium text-danger-plain">{problem}</span>}
       </div>

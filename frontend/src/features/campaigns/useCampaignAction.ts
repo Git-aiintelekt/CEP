@@ -18,7 +18,7 @@ const DONE: Record<StatusAction, (before: Campaign, after: Campaign) => string> 
 /** what the confirm dialog asks before an action that stops or hides something; the others run at once */
 export const CONFIRM: Partial<Record<StatusAction, { title: string; text: (campaign: Campaign) => string; button: string }>> = {
   pause: { title: 'Pause this campaign?', button: 'Pause', text: (c) => `Sending of “${c.name}” stops. Messages already handed to the provider still go out. You can resume it later.` },
-  'cancel-schedule': { title: 'Cancel the scheduled send?', button: 'Cancel the send', text: (c) => `“${c.name}” goes back to a draft, and can be edited and published again.` },
+  'cancel-schedule': { title: 'Cancel the scheduled send?', button: 'Cancel the Send', text: (c) => `“${c.name}” goes back to a draft, and can be edited and published again.` },
   archive: { title: 'Archive this campaign?', button: 'Archive', text: (c) => `“${c.name}” leaves the everyday list. Nothing is deleted: its results stay available, and it can be restored.` },
 }
 

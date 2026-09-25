@@ -70,13 +70,17 @@ test('every block that can be selected has something to set: the body, a heading
   expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title'])
 })
 
-test('every field label is sentence case and every kind is one we render', () => {
+const SMALL_WORDS = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'as', 'via', 'per', 'vs'])
+
+test('every field label is title case and every kind is one we render', () => {
   const kinds = new Set(['color', 'length', 'padding', 'align', 'valign', 'toggle', 'select', 'text', 'link', 'image', 'swatch', 'html', 'networks'])
   for (const [type, fields] of Object.entries(SETTINGS_BY_BLOCK)) {
     for (const field of fields) {
       expect(kinds.has(field.kind), `${type} ${field.key}`).toBe(true)
-      // sentence case: one capital, unless the label is an acronym such as HTML
-      expect(field.label, `${type} ${field.key}`).toMatch(/^(?:[A-Z][^A-Z]*|[A-Z]{2,})$/)
+      // title case: every word capitalised except a small word inside the label; an acronym such as HTML stays as it is
+      const words = field.label.split(' ')
+      const cased = words.every((word, index) => /^[A-Z]/.test(word) || (SMALL_WORDS.has(word) && index > 0 && index < words.length - 1))
+      expect(cased, `${type} ${field.key}: ${field.label}`).toBe(true)
     }
   }
 })

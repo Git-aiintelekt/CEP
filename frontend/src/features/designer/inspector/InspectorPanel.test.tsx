@@ -36,7 +36,7 @@ function renderPanel(over: Partial<React.ComponentProps<typeof InspectorPanel>> 
   return { onSelectParent, ...result }
 }
 
-const panel = () => screen.getByRole('complementary', { name: 'Block settings' })
+const panel = () => screen.getByRole('complementary', { name: 'Block Settings' })
 
 test('nothing selected says what to do about it', () => {
   renderPanel({ kind: null, component: null })
@@ -136,7 +136,7 @@ test('view-only keeps the way out: select parent and deselect still work', async
   const onSelectParent = vi.fn()
   const onDeselect = vi.fn()
   renderPanel({ disabled: true, canSelectParent: true, onSelectParent, onDeselect })
-  await user.click(screen.getByRole('button', { name: /Select parent/ }))
+  await user.click(screen.getByRole('button', { name: /Select Parent/ }))
   await user.click(screen.getByRole('button', { name: DESELECT_LABEL }))
   expect(onSelectParent).toHaveBeenCalledTimes(1)
   expect(onDeselect).toHaveBeenCalledTimes(1)
@@ -146,15 +146,15 @@ test('the receipt slot says it is fixed, opens Receipt layout and switches the l
   const user = userEvent.setup()
   const onOpenLayout = vi.fn()
   const onPresetChange = vi.fn()
-  renderPanel({ kind: 'cep-receipt-slot', name: 'Receipt slot', component: make('cep-receipt-slot'), receiptSlot: { preset: 'STANDARD', onOpenLayout, onPresetChange } })
+  renderPanel({ kind: 'cep-receipt-slot', name: 'Receipt Slot', component: make('cep-receipt-slot'), receiptSlot: { preset: 'STANDARD', onOpenLayout, onPresetChange } })
 
   expect(screen.getByText(/This slot is fixed/)).toBeTruthy()
   expect(screen.queryByText(NO_SETTINGS_NOTE)).toBeNull()
 
-  await user.click(screen.getByRole('button', { name: 'Open Receipt layout' }))
+  await user.click(screen.getByRole('button', { name: 'Open Receipt Layout' }))
   expect(onOpenLayout).toHaveBeenCalledTimes(1)
 
-  const select = screen.getByLabelText('Current layout') as HTMLSelectElement
+  const select = screen.getByLabelText('Current Layout') as HTMLSelectElement
   expect(select.value).toBe('STANDARD')
   expect([...select.options].map((option) => option.textContent)).toEqual(['Compact', 'Standard', 'Itemized'])
   await user.selectOptions(select, 'ITEMIZED')

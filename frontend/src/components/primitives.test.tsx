@@ -5,14 +5,17 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { Button, IconButton } from './Button'
 import { buttonClass } from './buttonStyles'
+import { controlClass } from './controlStyles'
 import { buttonDanger, buttonPrimary, buttonSecondary } from './Form'
 import { InputGroup } from './InputGroup'
 import { MenuRow } from './MenuRow'
+import { Modal } from './Modal'
 import { Notice } from './Notice'
 import { Popover } from './Popover'
 import { ProgressBar } from './ProgressBar'
 import { SegmentedControl } from './SegmentedControl'
 import { Spinner } from './States'
+import { StatusBadge } from './StatusBadge'
 import { Switch } from './Switch'
 import { Tabs } from './Tabs'
 import { tabPanelId } from './tabIds'
@@ -172,4 +175,76 @@ test('an input group keeps its wiring on the input and marks it invalid', () => 
   expect(input.getAttribute('aria-invalid')).toBe('true')
   expect(input.getAttribute('aria-describedby')).toBe('note')
   expect(screen.getByText('px')).toBeTruthy()
+})
+
+test('status tags: Draft is orange, Scheduled the one blue status, the rest by severity; the locked wording wins', () => {
+  render(
+    <>
+      <StatusBadge status="DRAFT" label="draft" />
+      <StatusBadge status="SCHEDULED" />
+      <StatusBadge status="TEST_PUBLISHED" />
+      <StatusBadge status="PRODUCTION_PUBLISHED" />
+      <StatusBadge status="CANCELLED" />
+      <StatusBadge status="ARCHIVED" />
+    </>,
+  )
+  expect(screen.getByText('Draft').className).toContain('bg-draft-bg text-draft-text')
+  expect(screen.getByText('Scheduled').className).toContain('bg-brand-100 text-brand-800')
+  expect(screen.getByText('Test Published').className).toContain('bg-warning-bg')
+  expect(screen.getByText('Production Published').className).toContain('bg-success-bg')
+  expect(screen.getByText('Cancelled').className).toContain('bg-danger-bg')
+  expect(screen.getByText('Archived').className).toContain('bg-line-subtle')
+})
+
+test('a sunken field is Gray 100 with no border at rest and white while focused; a disabled one keeps its border and grey text', () => {
+  render(
+    <>
+      <InputGroup aria-label="Search" tone="sunken" />
+      <InputGroup aria-label="Search, refused" tone="sunken" invalid />
+      <InputGroup aria-label="Search, off" tone="sunken" disabled />
+    </>,
+  )
+  const shell = (name: string) => screen.getByRole('textbox', { name }).parentElement as HTMLElement
+  expect(shell('Search').className).toContain('border-transparent bg-surface-sunken focus-within:bg-surface')
+  expect(shell('Search, refused').className).toContain('border-danger')
+  expect(shell('Search, off').className).toContain('border-line bg-line-subtle text-ink-300')
+  expect(shell('Search, off').className).not.toContain('border-transparent')
+
+  const sunken = controlClass({ tone: 'sunken' })
+  expect(sunken).toContain('bg-surface-sunken focus:bg-surface')
+  expect(sunken).toContain('border-transparent')
+  expect(sunken).toContain('disabled:border-line')
+  expect(controlClass({ tone: 'sunken', invalid: true })).not.toContain('border-transparent')
+})
+
+test('only live statuses (Active, Sending, Preparing) carry the green dot', () => {
+  const statuses = ['ACTIVE', 'SENDING', 'PREPARING', 'DRAFT', 'TEST_PUBLISHED', 'PRODUCTION_PUBLISHED', 'SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED', 'ARCHIVED', 'FAILED']
+  const { container } = render(<>{statuses.map((status) => <StatusBadge key={status} status={status} />)}</>)
+  const withDot = [...container.querySelectorAll('[data-live-dot]')].map((dot) => dot.parentElement?.textContent)
+  expect(withDot).toEqual(['Active', 'Sending', 'Preparing'])
+  const dot = container.querySelector('[data-live-dot]') as HTMLElement
+  expect(dot.getAttribute('aria-hidden')).toBe('true')
+  expect(dot.className).toContain('bg-success')
+  expect(dot.className).toContain('h-1.5 w-1.5')
+})
+
+test('an ordinary modal still dims the page and closes from its backdrop, Escape and ×, handing focus back', () => {
+  const opener = document.createElement('button')
+  document.body.appendChild(opener)
+  opener.focus()
+  const onClose = vi.fn()
+  const { unmount } = render(<Modal title="Archive this campaign?" onClose={onClose}><p>Nothing is deleted.</p></Modal>)
+  const dialog = screen.getByRole('dialog', { name: 'Archive this campaign?' })
+  expect(dialog.getAttribute('aria-modal')).toBe('true')
+  const backdrop = dialog.parentElement as HTMLElement
+  expect(backdrop.className).toContain('bg-scrim')
+  expect(backdrop.className).toContain('fixed inset-0')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }))
+  fireEvent.mouseDown(backdrop)
+  fireEvent.keyDown(document, { key: 'Escape' })
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+  expect(onClose).toHaveBeenCalledTimes(3)
+  unmount()
+  expect(document.activeElement).toBe(opener)
+  opener.remove()
 })

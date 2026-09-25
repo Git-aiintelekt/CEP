@@ -11,17 +11,14 @@ export interface NavItem {
   feature?: Feature
 }
 
-export const OVERVIEW: NavItem = { to: '/', label: 'Overview', icon: LayoutDashboard, end: true }
-
-export const ENGAGE: NavItem[] = [
+/** The first group of the rail: everyone's everyday pages, in the nav rail spec's order */
+export const MAIN_NAV: NavItem[] = [
+  { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
   { to: '/journeys', label: 'Journeys', icon: GitBranch, feature: 'journeys' },
   { to: '/templates', label: 'Templates', icon: FileText },
+  { to: '/contact-lists', label: 'Contact lists', icon: Users },
 ]
 
-export const MANAGE: NavItem[] = [{ to: '/contact-lists', label: 'Contact lists', icon: Users }]
-
+/** The second group, below the divider: for workspace admins only */
 export const SETTINGS: NavItem = { to: '/settings', label: 'Settings', icon: Settings }
-
-/** Every destination the editor's 72px bar offers, in the shell's own order. */
-export const MAIN_NAV: NavItem[] = [OVERVIEW, ...ENGAGE, ...MANAGE]

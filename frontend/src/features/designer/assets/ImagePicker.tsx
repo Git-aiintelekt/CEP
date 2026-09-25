@@ -10,7 +10,7 @@ import type { DesignerAsset } from '../EmailDesigner'
 import { AssetGrid } from './AssetGrid'
 import { UploadButton } from './UploadButton'
 
-export const PICKER_TITLE = 'Choose an image'
+export const PICKER_TITLE = 'Choose an Image'
 export const PICKER_HELP = 'Pick one from the library, or upload a new one. An upload is kept in the library.'
 export const PICKER_CANCEL = 'Cancel'
 

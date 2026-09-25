@@ -65,7 +65,7 @@ export function taglineMjml(text: string, align: string): string {
 
 const brandHeader: CepBlock = {
   id: 'receipt-brand-header',
-  label: 'Brand header',
+  label: 'Brand Header',
   category: 'brand',
   icon: 'PanelTop',
   mjml: `<mj-section css-class="${RECEIPT_BRAND_HEADER_TYPE}" background-color="${RECEIPT_SWATCHES[1].value}" padding="24px">

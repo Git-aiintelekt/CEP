@@ -22,10 +22,10 @@ export interface ReceiptAccessor {
 }
 
 export const DESTINATIONS: SelectOption[] = [
-  { value: 'order-status', label: 'Order status page' },
-  { value: 'outerwear', label: 'Outerwear category' },
-  { value: 'loyalty', label: 'Loyalty hub' },
-  { value: 'returns', label: 'Start a return' },
+  { value: 'order-status', label: 'Order Status Page' },
+  { value: 'outerwear', label: 'Outerwear Category' },
+  { value: 'loyalty', label: 'Loyalty Hub' },
+  { value: 'returns', label: 'Start a Return' },
 ]
 export const BUTTON_STYLES: SelectOption[] = [
   { value: 'primary', label: 'Primary' },
@@ -43,10 +43,10 @@ export const RATIOS: SelectOption[] = [
 
 /** The four tags the Marketing body offers one tap away. */
 export const MARKETING_TAGS = [
-  { key: 'first_name', label: 'First name' },
-  { key: 'order_number', label: 'Order number' },
-  { key: 'order_total', label: 'Order total' },
-  { key: 'store_name', label: 'Store name' },
+  { key: 'first_name', label: 'First Name' },
+  { key: 'order_number', label: 'Order Number' },
+  { key: 'order_total', label: 'Order Total' },
+  { key: 'store_name', label: 'Store Name' },
 ]
 
 export const SWATCHES = RECEIPT_SWATCHES.map((swatch) => ({ ...swatch }))
@@ -64,8 +64,8 @@ export interface ReceiptSlotControls {
   onOpenLayout?: () => void
 }
 
-export const OPEN_RECEIPT_LAYOUT_LABEL = 'Open Receipt layout'
-export const CURRENT_LAYOUT_LABEL = 'Current layout'
+export const OPEN_RECEIPT_LAYOUT_LABEL = 'Open Receipt Layout'
+export const CURRENT_LAYOUT_LABEL = 'Current Layout'
 
 export const RECEIPT_PRESETS: { value: ReceiptSlotPreset; label: string }[] = [
   { value: 'COMPACT', label: 'Compact' },
@@ -73,7 +73,7 @@ export const RECEIPT_PRESETS: { value: ReceiptSlotPreset; label: string }[] = [
   { value: 'ITEMIZED', label: 'Itemized' },
 ]
 
-export const RECEIPT_SLOT_NOTE = 'This slot is fixed. The itemized receipt is built in Receipt layout and inserted here.'
+export const RECEIPT_SLOT_NOTE = 'This slot is fixed. The itemized receipt is built in Receipt Layout and inserted here.'
 
 /** Works for a Backbone collection and for a plain array, so tests can use ordinary objects. */
 function children(component: Component): Component[] {

@@ -20,7 +20,7 @@ import type { CampaignFormValues } from '../schema'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
 
 
-const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'designer', receipt: 'receipt editor', message: 'message editor' }
+const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'Designer', receipt: 'Receipt Editor', message: 'Message Editor' }
 
 export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const { can } = useAuth()
@@ -54,9 +54,9 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel
-          title="Use an existing template"
+          title="Use an Existing Template"
           description="Both the template and the sender are needed to publish, not to save a draft."
-          actions={can('template.edit') && <Link to="/templates/new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">New template <ExternalLink size={14} strokeWidth={1.5} aria-hidden /></Link>}
+          actions={can('template.edit') && <Link to="/templates/new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">New Template <ExternalLink size={14} strokeWidth={1.5} aria-hidden /></Link>}
         >
           {errors.template?.message && <p role="alert" className="mb-3 text-xs font-medium text-danger-text">{errors.template.message}</p>}
           {wrongChannel && (
@@ -97,11 +97,11 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
         </Panel>
 
         <Panel title="Sender">
-          <Field label="Send from" error={errors.sender_profile?.message}
+          <Field label="Send From" error={errors.sender_profile?.message}
             hint={senders.isPending ? 'Loading senders' : senderOptions.length === 0 ? `No ${channel} sender is set up yet. An administrator adds one under Settings, Delivery.` : undefined}>
             {(ids) => (
               <Select key={senders.data ? 'ready' : 'loading'} {...ids} {...register('sender_profile')}>
-                <option value="">Choose later</option>
+                <option value="">Choose Later</option>
                 {senderOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.display_name} · {item.from_address ?? item.sender_id ?? item.channel}{item.provider_type === 'SMTP' ? ' · your mail server' : ''}{item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}

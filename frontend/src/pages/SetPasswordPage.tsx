@@ -56,9 +56,9 @@ export function SetPasswordPage() {
           <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-success">
             <Check size={20} strokeWidth={1.5} className="text-white" />
           </span>
-          <AuthHeading title="Password updated">Log in with your new password to continue.</AuthHeading>
+          <AuthHeading title="Password Updated">Log in with your new password to continue.</AuthHeading>
           <button type="button" onClick={() => navigate('/login')} className={authButtonPrimary}>
-            Back to log in
+            Back to Log In
           </button>
         </AuthStep>
       ) : missing ? (
@@ -66,16 +66,16 @@ export function SetPasswordPage() {
           <AuthHeading title="This link is incomplete">
             Ask your administrator for a new one, then open it from the message they send.
           </AuthHeading>
-          <AuthLink onClick={() => navigate('/login')}>← Back to log in</AuthLink>
+          <AuthLink onClick={() => navigate('/login')}>← Back to Log In</AuthLink>
         </AuthStep>
       ) : (
         <AuthStep>
-          <AuthHeading title="Set a new password">Choose a password you haven't used on CEP before.</AuthHeading>
+          <AuthHeading title="Set a New Password">Choose a password you haven't used on CEP before.</AuthHeading>
           {errors.link && <AuthAlert>{errors.link}</AuthAlert>}
 
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
             <AuthPasswordField
-              label="New password"
+              label="New Password"
               autoComplete="new-password"
               placeholder={`At least ${MIN_LENGTH} characters`}
               value={password}
@@ -83,7 +83,7 @@ export function SetPasswordPage() {
               error={errors.password}
             />
             <AuthPasswordField
-              label="Confirm password"
+              label="Confirm Password"
               autoComplete="new-password"
               placeholder="Re-enter your password"
               value={again}
@@ -91,11 +91,11 @@ export function SetPasswordPage() {
               error={errors.again}
             />
             <button type="submit" disabled={busy} className={authButtonPrimary}>
-              Update password
+              Update Password
             </button>
           </form>
 
-          <AuthLink onClick={() => navigate('/login')}>← Back to log in</AuthLink>
+          <AuthLink onClick={() => navigate('/login')}>← Back to Log In</AuthLink>
         </AuthStep>
       )}
     </AuthLayout>

@@ -53,7 +53,7 @@ function EmailShell({ children }: { children: ReactNode }) {
         </div>
       </div>
       <div className="relative my-3 rounded-lg outline-2 outline-offset-4 outline-brand-600">
-        <span className="absolute -top-3 left-3 z-10 rounded-sm border border-brand-600 bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-800">Receipt layout</span>
+        <span className="absolute -top-3 left-3 z-10 rounded-sm border border-brand-600 bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-800">Receipt Layout</span>
         {children}
       </div>
       <div aria-hidden className="flex flex-col items-center gap-1.5 py-2 opacity-40">

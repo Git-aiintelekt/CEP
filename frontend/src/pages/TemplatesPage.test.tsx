@@ -27,9 +27,9 @@ const cardNames = () => Array.from(document.querySelectorAll('ul > li .truncate'
 
 /** A preset opens its preview; the copy is the preview's footer button. */
 async function copyPreset(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await screen.findByRole('button', { name: `${name}, CEP preset` }))
+  await user.click(await screen.findByRole('button', { name: `${name}, CEP Preset` }))
   const dialog = await screen.findByRole('dialog', { name })
-  await user.click(within(dialog).getByRole('button', { name: 'Copy this template' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Copy This Template' }))
 }
 
 const FRONTEND_PRESETS = [
@@ -55,8 +55,8 @@ test('shows the workspace templates, then the presets the workspace can fill', a
   expect(cardNames()).toEqual(['Fall Email', 'Fall SMS', 'Retired Email', 'Northline order receipt', ...serverFirst, ...FRONTEND_PRESETS.filter((name) => !serverFirst.includes(name)), ...RECEIPT_PRESET_NAMES])
   // a server-only starter that uses {{points_balance}}, which the workspace has no tag for
   expect(screen.queryByText('Points balance update')).toBeNull()
-  const preset = screen.getByRole('button', { name: 'Announce a sale, CEP preset' })
-  expect(within(preset).getByText('CEP preset')).toBeTruthy()
+  const preset = screen.getByRole('button', { name: 'Announce a sale, CEP Preset' })
+  expect(within(preset).getByText('CEP Preset')).toBeTruthy()
   expect(within(preset).getByText('Starter')).toBeTruthy()
 })
 
@@ -209,11 +209,11 @@ test('the create dialog needs a name, sends the description but not the tags, an
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: /^New SMS/ }))
 
-  const dialog = await screen.findByRole('dialog', { name: 'New SMS template' })
-  const submit = within(dialog).getByRole('button', { name: 'Continue to editor' }) as HTMLButtonElement
+  const dialog = await screen.findByRole('dialog', { name: 'New SMS Template' })
+  const submit = within(dialog).getByRole('button', { name: 'Continue to Editor' }) as HTMLButtonElement
   expect(submit.disabled).toBe(true)
 
-  await user.type(within(dialog).getByLabelText(/^Template name/), 'Weekend flash')
+  await user.type(within(dialog).getByLabelText(/^Template Name/), 'Weekend flash')
   await user.type(within(dialog).getByLabelText(/^Description/), 'Saturday only')
   await user.click(within(dialog).getByRole('button', { name: 'Loyalty' }))
   expect(within(dialog).getByRole('button', { name: 'Loyalty' }).getAttribute('aria-pressed')).toBe('true')
@@ -229,30 +229,30 @@ test('the create dialog shows the server refusing the name under the field', asy
   await openLanding({ onSaveTemplate: () => problem(400, { title: 'Invalid input', errors: { name: ['A template with this name already exists.'] } }) })
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: /^New Email/ }))
-  const dialog = await screen.findByRole('dialog', { name: 'New Email template' })
-  await user.type(within(dialog).getByLabelText(/^Template name/), 'Fall Email')
-  await user.click(within(dialog).getByRole('button', { name: 'Continue to editor' }))
+  const dialog = await screen.findByRole('dialog', { name: 'New Email Template' })
+  await user.type(within(dialog).getByLabelText(/^Template Name/), 'Fall Email')
+  await user.click(within(dialog).getByRole('button', { name: 'Continue to Editor' }))
 
   expect(await within(dialog).findByText('A template with this name already exists.')).toBeTruthy()
-  expect(within(dialog).getByLabelText(/^Template name/).getAttribute('aria-invalid')).toBe('true')
+  expect(within(dialog).getByLabelText(/^Template Name/).getAttribute('aria-invalid')).toBe('true')
 })
 
 test('list view keeps the open-editor link in each row menu', async () => {
   await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
 
   const row = screen.getByRole('button', { name: 'Fall Email' }).closest('tr') as HTMLElement
   expect(within(row).getByText('Active')).toBeTruthy()
   await user.click(within(row).getByRole('button', { name: 'Actions for Fall Email' }))
-  await user.click(screen.getByRole('button', { name: 'Open designer' }))
+  await user.click(screen.getByRole('button', { name: 'Open Designer' }))
   expect(await screen.findByText('designer opened')).toBeTruthy()
 })
 
 test('the row menu duplicates a template as a draft copy and opens it in its editor, without opening the row itself', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
 
   await user.click(screen.getByRole('button', { name: 'Actions for Fall Email' }))
   expect(window.location.pathname).toBe('/templates') // the menu button did not open the preview or the designer under it
@@ -269,20 +269,20 @@ test('a grid card carries the same menu, so Duplicate is one click away in eithe
   await user.click(screen.getByRole('button', { name: 'Actions for Fall SMS' }))
   expect(screen.getByRole('button', { name: /Duplicate/ })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Open editor' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Open Editor' })).toBeTruthy()
 })
 
 test('deleting asks first, then removes the row', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
 
   await user.click(screen.getByRole('button', { name: 'Actions for Fall SMS' }))
   await user.click(screen.getByRole('button', { name: 'Delete' }))
   expect(screen.getByRole('dialog', { name: 'Delete this template?' })).toBeTruthy()
   expect(calls.some((call) => call.method === 'DELETE')).toBe(false)
 
-  await user.click(screen.getByRole('button', { name: 'Delete template' }))
+  await user.click(screen.getByRole('button', { name: 'Delete Template' }))
   await waitFor(() => expect(screen.queryByText('Fall SMS')).toBeNull())
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(calls.some((call) => call.method === 'DELETE' && call.url.endsWith('/templates/tpl-sms/'))).toBe(true)
@@ -291,11 +291,11 @@ test('deleting asks first, then removes the row', async () => {
 test('a template a campaign uses cannot be deleted: the dialog says why and stays open', async () => {
   await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
 
   await user.click(screen.getByRole('button', { name: 'Actions for Fall Email' }))
   await user.click(screen.getByRole('button', { name: 'Delete' }))
-  await user.click(screen.getByRole('button', { name: 'Delete template' }))
+  await user.click(screen.getByRole('button', { name: 'Delete Template' }))
 
   expect((await screen.findByRole('alert')).textContent).toContain('This template is used by a campaign. Archive it instead.')
   expect(screen.getByRole('dialog', { name: 'Delete this template?' })).toBeTruthy()
@@ -305,17 +305,17 @@ test('a template a campaign uses cannot be deleted: the dialog says why and stay
 test('without template.edit the menu offers no Duplicate or Delete', async () => {
   await openLanding({ me: { principal: { ...me.principal, kind: 'user', permissions: ['campaign.view'] } } })
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   await user.click(screen.getByRole('button', { name: 'Actions for Fall SMS' }))
   expect(screen.queryByRole('button', { name: /Duplicate/ })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'Open editor' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Open Editor' })).toBeTruthy()
 })
 
 test('list view: clicking an e-receipt row opens the receipt editor', async () => {
   await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'List view' }))
+  await user.click(screen.getByRole('button', { name: 'List View' }))
   await user.click(within(screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement).getByText('E-Receipt'))
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
@@ -353,7 +353,7 @@ test('the four e-receipt presets are offered whether or not the workspace has th
 
 test('an e-receipt preset is created, then filled with its outer design, then its receipt layout, in that order', async () => {
   const { calls, user } = await openReceiptTab({ tags: withReceiptTags })
-  await user.click(await screen.findByRole('button', { name: 'BOPIS, CEP preset' }))
+  await user.click(await screen.findByRole('button', { name: 'BOPIS, CEP Preset' }))
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')
@@ -369,7 +369,7 @@ test('an e-receipt preset is created, then filled with its outer design, then it
 
 test('when the receipt layout fails to save, the draft still opens, with the same toast as any failed fill', async () => {
   const { user } = await openReceiptTab({ tags: withReceiptTags, onSaveReceiptLayout: () => problem(500, { title: 'Server error', detail: 'The receipt service is down.' }) })
-  await user.click(await screen.findByRole('button', { name: 'Online order, CEP preset' }))
+  await user.click(await screen.findByRole('button', { name: 'Online order, CEP Preset' }))
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')

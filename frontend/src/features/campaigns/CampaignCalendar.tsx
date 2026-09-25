@@ -34,7 +34,7 @@ function tone(span: CalendarSpan): string {
   return 'bg-success-bg text-success-text'
 }
 const LEGEND = [
-  ['bg-success-bg', 'Scheduled, sending or sent'], ['bg-warning-bg', 'Paused or test published'], ['bg-danger-bg', 'Failed or cancelled'], ['bg-line-subtle', 'Draft with a planned date'],
+  ['bg-success-bg', 'Scheduled, Sending or Sent'], ['bg-warning-bg', 'Paused or Test Published'], ['bg-danger-bg', 'Failed or Cancelled'], ['bg-line-subtle', 'Draft with a Planned Date'],
 ] as const
 
 function describe(span: CalendarSpan, zone: string): string {
@@ -80,9 +80,9 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
   return (
     <section aria-label="Campaign calendar" className="rounded-lg border border-line bg-surface p-4">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <IconButton variant="outline" icon={ChevronLeft} label="Previous month" onClick={() => setMonth(shiftMonth(month, -1))} />
+        <IconButton variant="outline" icon={ChevronLeft} label="Previous Month" onClick={() => setMonth(shiftMonth(month, -1))} />
         <h2 aria-live="polite" className="min-w-40 text-center font-display text-lg font-semibold text-ink-900">{title}</h2>
-        <IconButton variant="outline" icon={ChevronRight} label="Next month" onClick={() => setMonth(shiftMonth(month, 1))} />
+        <IconButton variant="outline" icon={ChevronRight} label="Next Month" onClick={() => setMonth(shiftMonth(month, 1))} />
         <Button size="sm" onClick={() => setMonth(monthOf(today))} disabled={monthOf(today).year === month.year && monthOf(today).month === month.month}>Today</Button>
         {calendar.isFetching && <Spinner size="sm" />}
         <span className="ml-auto text-xs text-ink-500">Days are in the workspace's time zone, {zone}.</span>
@@ -124,7 +124,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
                         </span>
                         {hidden.length > 0 && (
                           <button type="button" onClick={() => setDayOpen(key)} className={`${buttonClass({ variant: 'link', size: 'sm' })} relative z-10 -mx-1 self-start`}>
-                            +{hidden.length} more
+                            +{hidden.length} More
                           </button>
                         )}
                       </div>

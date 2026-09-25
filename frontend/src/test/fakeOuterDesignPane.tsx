@@ -57,7 +57,7 @@ export const OuterDesignPane = forwardRef<EmailDesignerHandle, FakeProps>(functi
         Remove the footer
       </button>
       <button type="button" onClick={props.onOpenReceiptLayout}>
-        Open Receipt layout
+        Open Receipt Layout
       </button>
     </div>
   )

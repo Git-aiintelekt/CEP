@@ -24,13 +24,22 @@
 
   /* ---- surfaces and borders ---- */
   --color-surface: #ffffff;
-  --color-surface-subtle: #f9fafb; /* Gray 75 — alternating rows, sunken inputs */
+  --color-surface-subtle: #f9fafb; /* Gray 75 — alternating rows, row hover */
+  --color-surface-sunken: #eeeff5; /* Gray 100 — search and header fields at rest */
   --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
   --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
   --color-sidebar: #20265d; /* Navy 900 — the only dark surface */
-  /* the design's two sidebar tints: an idle icon and the hover fill behind it */
-  --color-sidebar-icon: rgb(255 255 255 / 0.62);
-  --color-sidebar-hover: rgb(255 255 255 / 0.1);
+  /* the navigation rail, all solid (no transparency): rest text and icon, hover / pressed / current-page fills,
+     the current page's 3px left bar and the focus outline, and the divider between the two groups.
+     Picked to the nav rail spec's roles; its exact values were not legible, so confirm before sign-off */
+  --color-sidebar-text: #e7e8ef;
+  --color-sidebar-icon: #a9afd0;
+  --color-sidebar-hover: #2c336f;
+  --color-sidebar-pressed: #363e82;
+  --color-sidebar-selected: #313c8e;
+  --color-sidebar-selected-hover: #3a46a0;
+  --color-sidebar-accent: #9fb0ff;
+  --color-sidebar-divider: #3a4178;
   --color-line: #e7e8ef; /* Gray 150 — default hairline */
   --color-line-subtle: #eeeff5; /* Gray 100 — subtle border, icon-button hover */
 
@@ -42,6 +51,9 @@
   --color-warning: #e8a13b;
   --color-warning-bg: #fcf4cb;
   --color-warning-text: #87451d;
+  /* NEW, pending sign-off: the Draft status tag (Orange 100 with a dark orange text, 5.56:1) */
+  --color-draft-bg: #f6d5a4;
+  --color-draft-text: #8a3a12;
   --color-danger: #dd514c;
   --color-danger-bg: #fae2e2;
   --color-danger-text: #a92e26;
@@ -78,6 +90,14 @@
   --color-wordmark-teal: #418eae;
   --color-wordmark-navy: #273fa8;
 
+  /* ---- chart palette, in order: series n takes chart-n. Blue only ever leads; no status colour means anything else ---- */
+  --color-chart-1: #3863db; /* Blue 600 */
+  --color-chart-2: #5ec16a; /* Green 500 */
+  --color-chart-3: #e8a13b; /* Amber 500 */
+  --color-chart-4: #9ea2ad; /* Gray 400 */
+  --color-chart-5: #418eae; /* wordmark teal */
+  --color-chart-6: #7570d4; /* Periwinkle 500 */
+
   /* ---- radii. Nothing is more rounded than 8px; pill is for switch tracks and progress fills ---- */
   --radius-xs: 2px; /* checkbox */
   --radius-sm: 4px; /* controls, tags, tooltips — the default */
@@ -101,6 +121,10 @@
   --text-section-title--letter-spacing: -0.02em;
   --text-card-title: 15px;
   --text-card-title--line-height: 1.3;
+  /* a card's own heading, above values set at card-title size: display font, 18px */
+  --text-card-heading: 18px;
+  --text-card-heading--line-height: 1.3;
+  --text-card-heading--letter-spacing: -0.02em;
 
   /* ---- exactly three shadows, each with one job. Cards and rows never carry one ---- */
   --shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
@@ -133,6 +157,7 @@
   --animate-fade-in: fade-in var(--duration-moderate) var(--ease-entrance);
   --animate-fade-out: fade-out var(--duration-fast) var(--ease-exit) both;
   --animate-slide-in-right: slide-in-right var(--duration-moderate) var(--ease-entrance);
+  --animate-sheet-up: sheet-up var(--duration-moderate) var(--ease-entrance);
   /* backwards: no transform is left behind to trap position: fixed (see .cep-settle-in) */
   --animate-step-in: step-in var(--duration-moderate) var(--ease-entrance) backwards;
   --animate-popover-in: fade-in var(--duration-base) var(--ease-entrance);
@@ -163,6 +188,9 @@
   @keyframes fade-out {
     from { opacity: 1; }
     to { opacity: 0; }
+  }
+  @keyframes sheet-up {
+    from { transform: translateY(100%); }
   }
   @keyframes slide-in-right {
     from { transform: translateX(100%); }
@@ -400,4 +428,23 @@ h4 {
 
 ::placeholder {
   color: var(--color-ink-300);
+}
+
+/*
+ * One dropdown chevron everywhere. Native selects draw the browser's own arrow (a different size, weight and inset
+ * from our buttons' Lucide chevron), so every single-choice select gets the same 16px ChevronDown, 1.5 stroke, in
+ * ink-500 (Gray 700), its box 10px from the right edge, as the dropdown buttons have. Unlayered on purpose, so it
+ * wins over the padding utilities on each select. The data URI can't read a token: #6b6f7b is --color-ink-500, #9ea2ad (disabled) is --color-ink-300.
+ */
+select:not([multiple]):not([size]) {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6f7b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px 16px;
+  padding-right: 34px;
+}
+select:not([multiple]):not([size]):disabled {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ea2ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }

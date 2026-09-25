@@ -185,7 +185,7 @@ interface ViewState {
 }
 
 const VIEW_DEFAULTS: ViewState = { zoomMode: 'fit', zoom: 100, device: 'Desktop', outlines: true, canUndo: false, canRedo: false }
-const EMAIL_BODY_NAME = 'Email body'
+const EMAIL_BODY_NAME = 'Email Body'
 const OUTLINES_COMMAND = 'sw-visibility'
 
 /** The frame's width as the device defines it: the frame element itself lags a device change by a frame. */
@@ -976,7 +976,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     <div ref={designer} className="flex h-full min-h-0 bg-surface">
       <LeftRail
         ref={rail}
-        aria-label="Designer panels"
+        aria-label="Designer Panels"
         storageKey="cep.designer.rail"
         autoCollapse={!railFits}
         forceCollapsed={fullscreen}

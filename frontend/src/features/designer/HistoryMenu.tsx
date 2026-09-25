@@ -11,7 +11,7 @@ import type { SingleDropdown } from '@/lib/useSingleDropdown'
 import type { PillKey } from './IssuePills'
 
 export const HISTORY_LABEL = 'History'
-export const HISTORY_HEADING = 'Version history'
+export const HISTORY_HEADING = 'Version History'
 export const HISTORY_EMPTY = 'Nothing saved yet.'
 export const HISTORY_FAILED = 'The server did not answer. Your last saved version is safe.'
 export const CURRENT_LABEL = 'Current'

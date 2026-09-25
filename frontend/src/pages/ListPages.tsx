@@ -2,10 +2,10 @@
 import type { Column } from '@/components/DataTable'
 import { ResourceList } from '@/components/ResourceList'
 import { StatusBadge } from '@/components/StatusBadge'
-import { formatDateTime, humanize } from '@/lib/format'
+import { formatDateTime, titleize } from '@/lib/format'
 import type { Journey } from '@/lib/types'
 
-const options = (...values: string[]) => values.map((value) => ({ value, label: humanize(value) }))
+const options = (...values: string[]) => values.map((value) => ({ value, label: titleize(value) }))
 
 function Title({ primary, secondary }: { primary: string; secondary?: string | null }) {
   return (
@@ -18,8 +18,8 @@ function Title({ primary, secondary }: { primary: string; secondary?: string | n
 
 const journeyColumns: Column<Journey>[] = [
   { key: 'name', header: 'Journey', render: (row) => <Title primary={row.name} secondary={row.code} /> },
-  { key: 'population', header: 'Population', render: (row) => humanize(row.population_mode) },
-  { key: 'reentry', header: 'Re-entry', render: (row) => humanize(row.reentry_policy) },
+  { key: 'population', header: 'Population', render: (row) => titleize(row.population_mode) },
+  { key: 'reentry', header: 'Re-entry', render: (row) => titleize(row.reentry_policy) },
   { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
   { key: 'updated', header: 'Updated', render: (row) => formatDateTime(row.updated_at) },
 ]

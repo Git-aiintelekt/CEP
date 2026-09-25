@@ -62,7 +62,7 @@ test('search filters by category label, case-insensitively', async () => {
   renderPalette()
 
   await user.type(search(), 'COMMERCE')
-  expect(tile('Product card')).toBeTruthy()
+  expect(tile('Product Card')).toBeTruthy()
   expect(tile('Coupon')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Heading' })).toBeNull()
 })
@@ -75,7 +75,7 @@ test('a search that matches nothing says so, and clearing brings the blocks back
   expect(screen.getByText('No blocks match')).toBeTruthy()
   expect(screen.queryByRole('heading', { name: 'Content' })).toBeNull()
 
-  await user.click(screen.getByRole('button', { name: 'Clear search' }))
+  await user.click(screen.getByRole('button', { name: 'Clear Search' }))
   expect(screen.queryByText('No blocks match')).toBeNull()
   expect(tile('Button')).toBeTruthy()
   expect((search() as HTMLInputElement).value).toBe('')
@@ -85,16 +85,16 @@ test('the clear button only appears once something is typed', async () => {
   const user = userEvent.setup()
   renderPalette()
 
-  expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Clear Search' })).toBeNull()
   await user.type(search(), 'a')
-  expect(screen.getByRole('button', { name: 'Clear search' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Clear Search' })).toBeTruthy()
 })
 
 test('pressing the primary pointer button starts a drag with the block id', async () => {
   const user = userEvent.setup()
   const { onDragStart, onInsert } = renderPalette()
 
-  await user.pointer({ keys: '[MouseLeft>]', target: tile('Two columns') })
+  await user.pointer({ keys: '[MouseLeft>]', target: tile('Two Columns') })
   expect(onDragStart).toHaveBeenCalledTimes(1)
   expect(onDragStart.mock.calls[0][0]).toBe('columns-2')
   expect(onInsert).not.toHaveBeenCalled()

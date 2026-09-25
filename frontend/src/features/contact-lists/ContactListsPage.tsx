@@ -79,19 +79,19 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
   })
   return (
     <Modal
-      title="Clone this list"
+      title="Clone This List"
       onClose={onClose}
       footer={
         <>
           <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-          <button type="button" className={buttonPrimary} disabled={name.trim() === '' || clone.isPending} onClick={() => clone.mutate()}>Create the copy</button>
+          <button type="button" className={buttonPrimary} disabled={name.trim() === '' || clone.isPending} onClick={() => clone.mutate()}>Create the Copy</button>
         </>
       }
     >
       <p className="mb-4 text-sm text-ink-700">
         The copy starts with the {formatNumber(source.member_count)} contacts that are in “{source.name}” now. It is a snapshot: the two lists are independent from here on.
       </p>
-      <Field label="Name of the copy" required error={clone.isError ? problemText(clone.error) : undefined}>
+      <Field label="Name of the Copy" required error={clone.isError ? problemText(clone.error) : undefined}>
         {(ids) => (
           <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={200} autoFocus />
         )}
@@ -185,10 +185,10 @@ export function ContactListsPage() {
         }
       />
 
-      <dl className="mb-4 grid gap-3 sm:grid-cols-3" aria-label="Contact list totals">
-        <StatCard label="Total lists" value={stats.data?.total_lists} />
-        <StatCard label="Total contacts" value={stats.data?.total_contacts} />
-        <StatCard label="Attached to live campaigns" value={stats.data?.attached_to_live_campaigns} />
+      <dl className="mb-4 grid gap-3 sm:grid-cols-3" aria-label="Contact List Totals">
+        <StatCard label="Total Lists" value={stats.data?.total_lists} />
+        <StatCard label="Total Contacts" value={stats.data?.total_contacts} />
+        <StatCard label="Attached to Live Campaigns" value={stats.data?.attached_to_live_campaigns} />
       </dl>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -196,7 +196,7 @@ export function ContactListsPage() {
           className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
         <label className="flex items-center gap-2 text-sm text-ink-500">
           Type
-          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900">
+          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
             <option value="">All</option>
             <option value="PRODUCTION">Production</option>
             <option value="TEST">Test</option>
@@ -204,7 +204,7 @@ export function ContactListsPage() {
         </label>
         <label className="flex items-center gap-2 text-sm text-ink-500">
           Source
-          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-2.5 text-sm text-ink-900">
+          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
             <option value="">All</option>
             <option value="UPLOAD">Upload</option>
             <option value="BI">BI / Extraction</option>
@@ -249,8 +249,8 @@ export function ContactListsPage() {
           onClose={() => setDeleting(null)}
           footer={
             <>
-              <button type="button" className={buttonSecondary} onClick={() => setDeleting(null)}>Keep it</button>
-              <button type="button" className={buttonDanger} disabled={remove.isPending} onClick={() => remove.mutate(deleting)}>Delete list</button>
+              <button type="button" className={buttonSecondary} onClick={() => setDeleting(null)}>Keep It</button>
+              <button type="button" className={buttonDanger} disabled={remove.isPending} onClick={() => remove.mutate(deleting)}>Delete List</button>
             </>
           }
         >

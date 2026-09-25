@@ -35,40 +35,40 @@ function Pills({ issues = [] as Issue[], links = [] as LinkEntry[], onIssue = ()
   )
 }
 
-const errorsPill = () => screen.getByRole('button', { name: /No errors|Review errors/ })
-const linksPill = () => screen.getByRole('button', { name: /Links ·|Review links/ })
+const errorsPill = () => screen.getByRole('button', { name: /No Errors|Review Errors/ })
+const linksPill = () => screen.getByRole('button', { name: /Links ·|Review Links/ })
 
 afterEach(cleanup)
 
-test('with no issues the errors pill is neutral and reads "No errors"', () => {
+test('with no issues the errors pill is neutral and reads "No Errors"', () => {
   render(<Pills />)
-  expect(errorsPill().textContent).toBe('No errors')
+  expect(errorsPill().textContent).toBe('No Errors')
   expect(errorsPill().className).toContain('bg-surface')
   expect(errorsPill().className).not.toContain('bg-danger-bg')
 })
 
 test('errors put the pill in the danger tone with a count', () => {
   render(<Pills issues={[issue(), issue({ id: 'not-saved' })]} />)
-  expect(errorsPill().textContent).toBe('Review errors · 2')
+  expect(errorsPill().textContent).toBe('Review Errors · 2')
   expect(errorsPill().className).toContain('bg-danger-bg')
 })
 
 test('warnings alone put the pill in the warning tone and never in the danger one', () => {
   render(<Pills issues={[warning(), warning({ id: 'may-be-clipped' })]} />)
-  const pill = screen.getByRole('button', { name: /warnings/ })
-  expect(pill.textContent).toBe('2 warnings')
+  const pill = screen.getByRole('button', { name: /Warnings/ })
+  expect(pill.textContent).toBe('2 Warnings')
   expect(pill.className).toContain('bg-warning-bg')
   expect(pill.className).not.toContain('bg-danger-bg')
 })
 
 test('one warning is counted in the singular', () => {
   render(<Pills issues={[warning()]} />)
-  expect(screen.getByRole('button', { name: /warning/ }).textContent).toBe('1 warning')
+  expect(screen.getByRole('button', { name: /Warning/ }).textContent).toBe('1 Warning')
 })
 
 test('an error outranks a warning in the pill', () => {
   render(<Pills issues={[issue(), warning()]} />)
-  expect(errorsPill().textContent).toBe('Review errors · 1')
+  expect(errorsPill().textContent).toBe('Review Errors · 1')
   expect(errorsPill().className).toContain('bg-danger-bg')
 })
 
@@ -129,7 +129,7 @@ test('the panel switches to the empty state in place when the last issue clears'
 
   expect(screen.getByRole('region', { name: 'Errors' })).toBeTruthy()
   expect(screen.getByText('Nothing to fix — all required content resolves.')).toBeTruthy()
-  expect(errorsPill().textContent).toBe('No errors')
+  expect(errorsPill().textContent).toBe('No Errors')
 })
 
 test('opening one pill closes the other', async () => {
@@ -176,7 +176,7 @@ test('the links pill counts links when none are flagged', () => {
 test('the links pill counts only flagged links and is warning, never danger', () => {
   render(<Pills links={[link(), link({ id: '1:x', url: 'http://b.example.com', flags: ['insecure'] })]} />)
 
-  expect(linksPill().textContent).toBe('Review links · 1')
+  expect(linksPill().textContent).toBe('Review Links · 1')
   expect(linksPill().className).toContain('bg-warning-bg')
   expect(linksPill().className).not.toContain('danger')
   expect(linksPill().className).not.toContain('brand')
