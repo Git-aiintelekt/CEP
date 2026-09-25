@@ -10,7 +10,7 @@ import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
-import type { Integration, IntegrationHealth, IntegrationLogDetail, IntegrationLogPage, IntegrationLogRow, IntegrationOutcome } from '@/lib/types'
+import type { Integration, IntegrationHealth, IntegrationLogDetail, IntegrationLogPage, IntegrationLogRow, IntegrationMetrics, IntegrationOutcome } from '@/lib/types'
 
 const INTEGRATIONS = ['integrations']
 
@@ -43,6 +43,65 @@ const ms = (n: number | null | undefined) => n == null ? '—' : `${formatNumber
 function pretty(text: string | null): string {
   if (!text) return ''
   try { return JSON.stringify(JSON.parse(text), null, 2) } catch { return text }
+}
+
+// ---------------------------------------------------------------------------------------------------- the day's chart
+const STEP = 15
+const SLOTS = (24 * 60) / STEP
+const BAR = 6
+const CHART_H = 44
+
+/** 24 hours of 15-minute bars: calls, with the failed and throttled share on top in their own colours. One scale for every bar. */
+function DayChart({ integrationId, name }: { integrationId: string; name: string }) {
+  const metrics = useQuery({
+    queryKey: [...INTEGRATIONS, 'metrics', integrationId],
+    queryFn: ({ signal }) => api.get<IntegrationMetrics>(`/integrations/${integrationId}/metrics/`, { hours: 24 }, signal),
+    refetchInterval: 60_000,
+  })
+  const now = metrics.dataUpdatedAt || 0                                              // the fetch time, stable across renders
+  const start = Math.floor((now - 24 * 60 * 60_000) / (STEP * 60_000)) * STEP * 60_000
+  const slots = Array.from({ length: SLOTS }, () => ({ calls: 0, failed: 0, throttled: 0, p95: 0 }))
+  for (const bucket of metrics.data?.buckets ?? []) {
+    const index = Math.floor((new Date(bucket.bucket).getTime() - start) / (STEP * 60_000))
+    if (index < 0 || index >= SLOTS) continue
+    slots[index].calls += bucket.calls
+    slots[index].failed += bucket.failed
+    slots[index].throttled += bucket.throttled
+    slots[index].p95 = Math.max(slots[index].p95, bucket.p95_ms ?? 0)
+  }
+  const peak = Math.max(1, ...slots.map((slot) => slot.calls))
+  const busiest = slots.reduce((best, slot, index) => (slot.calls > slots[best].calls ? index : best), 0)
+  const total = slots.reduce((sum, slot) => sum + slot.calls, 0)
+  if (metrics.isPending) return <div className="mt-3 h-[60px] animate-pulse rounded-sm bg-surface-subtle" aria-busy><span className="sr-only">Loading the day's chart</span></div>
+  if (metrics.isError) return <p className="mt-3 text-xs text-danger-text">The chart could not be loaded.</p>
+  if (total === 0) return <p className="mt-3 text-xs text-ink-500">No calls in the last 24 hours.</p>
+  const width = SLOTS * BAR
+  const y = (value: number) => CHART_H - (value / peak) * CHART_H
+  return (
+    <figure className="mt-3" data-day-chart>
+      <svg viewBox={`0 0 ${width} ${CHART_H}`} preserveAspectRatio="none" className="block h-[52px] w-full" role="img"
+        aria-label={`${name}: calls per 15 minutes over the last 24 hours, up to ${formatNumber(peak)} at the busiest`}>
+        {slots.map((slot, index) => slot.calls > 0 && (
+          <g key={index}>
+            <rect x={index * BAR + 1} y={y(slot.calls)} width={BAR - 2} height={CHART_H - y(slot.calls)} className="fill-brand-100" />
+            {slot.throttled > 0 && <rect x={index * BAR + 1} y={y(slot.throttled)} width={BAR - 2} height={CHART_H - y(slot.throttled)} className="fill-warning" />}
+            {slot.failed > 0 && <rect x={index * BAR + 1} y={y(slot.failed)} width={BAR - 2} height={CHART_H - y(slot.failed)} className="fill-danger-plain" />}
+          </g>
+        ))}
+        <line x1="0" x2={width} y1={CHART_H - 0.5} y2={CHART_H - 0.5} className="stroke-line" strokeWidth="1" />
+      </svg>
+      <figcaption className="mt-1 flex flex-wrap items-center justify-between gap-x-3 text-xs text-ink-500">
+        <span>24 h ago</span>
+        <span className="cep-num">Busiest {formatNumber(slots[busiest].calls)} calls at {formatDateTime(new Date(start + busiest * STEP * 60_000).toISOString())}{slots[busiest].p95 ? ` · p95 ${formatNumber(slots[busiest].p95)} ms` : ''}</span>
+        <span>Now</span>
+      </figcaption>
+      <p className="mt-1 flex items-center gap-3 text-xs text-ink-500">
+        <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-xs bg-brand-100" aria-hidden />Calls</span>
+        <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-xs bg-danger-plain" aria-hidden />Failed</span>
+        <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-xs bg-warning" aria-hidden />Throttled</span>
+      </p>
+    </figure>
+  )
 }
 
 // ---------------------------------------------------------------------------------------------------- status cards
@@ -81,6 +140,7 @@ function IntegrationCard({ item, onToggle, onShowLog, busy }: { item: Integratio
         <Figure label="Throttled" value={formatNumber(item.throttled_24h)} tone={item.throttled_24h > 0 ? 'warning' : 'default'} />
       </dl>
       <p className="mt-3 text-xs text-ink-500">Last Call: {lastCall}</p>
+      <DayChart integrationId={item.id} name={item.name} />
       {item.breaker_open_seconds > 0 && <p className="mt-1 text-xs font-medium text-danger-text">Circuit open for {item.breaker_open_seconds} s more after {item.breaker_failures} failures in a row. Resume closes it now.</p>}
       {item.last_error && item.health !== 'healthy' && <p className="mt-1 truncate text-xs text-danger-text" title={item.last_error}>{item.last_error}</p>}
       <div className="mt-3 flex justify-end gap-1 border-t border-line-subtle pt-3">

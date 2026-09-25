@@ -74,7 +74,7 @@ the last-call fields.
 
 | Page | Who | Shows |
 |---|---|---|
-| Settings → Integrations (`/settings/integrations`, permission `provider.edit`) | tenant administrator | A card per integration: health (healthy / degraded ≥5 % failures / circuit open / paused / no calls), calls, failure rate, p95, throttled, last call, effective limit; Pause / Resume. The call log with filters (integration, direction, failures only, correlation id or reference); a call opens with its request and answer. |
+| Settings → Integrations (`/settings/integrations`, permission `provider.edit`) | tenant administrator | A card per integration: health (healthy / degraded ≥5 % failures / circuit open / paused / no calls), calls, failure rate, p95, throttled, last call, effective limit; Pause / Resume; a 24-hour chart of calls per 15 minutes with the failed and throttled share, from `/integrations/{id}/metrics/`. The call log with filters (integration, direction, failures only, correlation id or reference); a call opens with its request and answer. |
 | Back-office → Integrations | platform staff | Every tenant's records; edit throttle, retries, breaker and log policy; pause / resume / close the circuit. |
 | Back-office → Integration log | platform staff | Every call across tenants, searchable by correlation id, reference or URL. |
 | Back-office home → Integrations check; `alerts` | platform staff | Warns when an integration has its circuit open or a quarter of its calls failed in the last 15 minutes. |
@@ -97,10 +97,5 @@ from the caller so a row can be traced back to its message.
 
 ## 8. Not in this release
 
-- The Digivize SMS adapter: the External API (documented at documenter.getpostman.com/view/2956319/2sBYAsyXk4) signs
-  every request with HMAC-SHA256 over a canonical string that the documentation shows only for query-string requests;
-  the canonical form for a JSON body has to be confirmed with Digivize before the adapter can be finished. The adapter
-  skeleton is in `providers/digivize.py`, unregistered.
-- Charts on the tenant page: the metrics endpoint exists; the page shows the day's figures and the log.
 - On a tenant with a dedicated database, an inbound row for a 5xx answer is rolled back with the request (the pool's
   tenants write theirs through the platform connection); the server log keeps the essentials.

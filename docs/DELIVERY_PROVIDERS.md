@@ -217,7 +217,7 @@ country code are matched. A repeated callback changes nothing. Confirmation and 
 | Type | |
 |---|---|
 | `SANDBOX_SMS` | Accepts SMS and MMS and **sends nothing**: for trying text campaigns before an aggregator is connected. Not metered. Config: numbers to refuse / to fail temporarily. Simulate the aggregator by posting to its callback address: `{"events": [{"type": "delivered", "message_id": "sbx-..."}, {"type": "failed", "message_id": "...", "reason": "...", "permanent": true}, {"type": "inbound", "from": "+14045550001", "to": "55123", "text": "STOP"}]}` |
-| `DIGIVIZE` | **Not installed.** `providers/digivize.py` is a skeleton with the five places to fill in (send SMS, send MMS, receipts, inbound, limits); it is not registered, so a campaign whose sender points at a Digivize engine fails at start with "No adapter is installed", before anyone is queued. Once the Digivize API specification (or the code that sends to Digivize today) is available: fill it in, add it to `registry._load()`, test it like `postal.py`. |
+| `DIGIVIZE` | Digivize External SMS/MMS API: `POST {endpoint}/api/v1/external/sms/send` signed with `X-Api-Key`, `X-Timestamp`, `X-Signature` (HMAC-SHA256 with the secret key). The documentation shows the headers but not the string that is signed for a JSON request, so **Check** probes the known forms against `GET sms/status/<made-up id>` until Digivize accepts one and stores it on the engine (`signature_scheme`; it can also be typed). Config: API key, store number, the callback address to send per message, an optional webhook secret (`X-Signature` over the body is then verified). Answers: `tracking_id` = the message id; 401/403 or "Invalid signature" stops the run; 429/5xx retry; other errors reject the message. Receipts: `{event, timestamp, data: {tracking_id, status, error_code}}` with `sms.delivered`, `sms.failed` / `undelivered` / `expired` (HARD for `invalid_number`, `landline`, `blocked`, `opted_out`, `suppressed`, else SOFT), `sms.opted_out` (HARD); a status-only callback is read too. No free-text reply webhook. Rate: 60 per minute per key, the engine's default. |
 
 MMS needs a template with a picture that has a public address (the aggregator fetches it) and an engine with `supports_mms`.
 
@@ -251,7 +251,7 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 
 ## 13. Not in this version
 
-* The Digivize adapter itself (section 10): everything around it is in place.
+* Digivize's exact signature string, once they confirm it: today Check finds it by probing (section 10).
 * Link shortening and click tracking in texts; automatic HELP / STOP confirmation texts (left to the aggregator).
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's
   tracking through webhooks, so SMTP sends report neither.

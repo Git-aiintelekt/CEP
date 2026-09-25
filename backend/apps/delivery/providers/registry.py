@@ -67,7 +67,7 @@ def for_provider(provider) -> EmailProvider:
     adapter = cls(config=provider.config or {}, secret=resolve_secret(provider), provider_id=str(provider.pk), tenant_id=str(provider.tenant_id),
                   transactional_secret=resolve_transactional_secret(provider) if cls.supports_transactional_credential() else None)
     adapter.provider_name = provider.name
-    adapter.rate_limit_per_minute = provider.rate_limit_per_minute
+    adapter.rate_limit_per_minute = provider.rate_limit_per_minute or getattr(cls, "default_rate_limit_per_minute", None)   # the engine's own limit when none is set
     return adapter
 
 
@@ -77,5 +77,5 @@ _loaded = False
 def _load() -> None:
     global _loaded
     if not _loaded:
-        from . import postal, sandbox_sms, sendgrid, smtp  # noqa: F401  (importing registers them; digivize.py joins once its API is known)
+        from . import digivize, postal, sandbox_sms, sendgrid, smtp  # noqa: F401  (importing registers them)
         _loaded = True

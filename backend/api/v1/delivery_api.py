@@ -158,12 +158,18 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
     def check(self, request, pk=None, version=None):
         """Validates the address and credential with the provider, without sending anything."""
         provider = self.get_object()
+        learned = {}
         try:
-            ok, detail = registry.for_provider(provider).check()
+            adapter = registry.for_provider(provider)
+            ok, detail = adapter.check()
+            learned = getattr(adapter, "detected_config", None) or {}          # what the check found out (Digivize's signature form)
         except ProviderError as exc:
             ok, detail = False, str(exc)
-        DeliveryProvider.objects.filter(pk=provider.pk).update(last_checked_at=timezone.now(), last_check_ok=ok, last_check_error=detail or None)
-        return Response({"ok": ok, "detail": detail or None})
+        fields = {"last_checked_at": timezone.now(), "last_check_ok": ok, "last_check_error": detail or None}
+        if ok and learned and any((provider.config or {}).get(key) != value for key, value in learned.items()):
+            fields["config"] = {**(provider.config or {}), **learned}
+        DeliveryProvider.objects.filter(pk=provider.pk).update(**fields)
+        return Response({"ok": ok, "detail": detail or None, **({"config": fields["config"]} if "config" in fields else {})})
 
 
 # ------------------------------------------------------------------------------------------------------------ senders

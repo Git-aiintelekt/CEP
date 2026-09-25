@@ -437,6 +437,14 @@ export function installMockApi(options: MockOptions = {}) {
       const item = integrations.find((row) => path.includes(`/${row.id}/`)) ?? integrations[0]
       return json({ ...item, status: path.endsWith('/pause/') ? 'PAUSED' : 'ACTIVE', health: path.endsWith('/pause/') ? 'paused' : 'healthy', breaker_open_seconds: 0 })
     }
+    if (/\/integrations\/[^/]+\/metrics\/$/.test(path)) {
+      const minute = 60_000
+      const at = (minutesAgo: number) => new Date(Math.floor((Date.now() - minutesAgo * minute) / (15 * minute)) * 15 * minute).toISOString()
+      const busy = path.includes('/int-postal/')
+      return json({ hours: 24, step_minutes: 15, buckets: busy
+        ? [{ bucket: at(30), calls: 120, ok: 110, rejected: 0, failed: 10, throttled: 0, p95_ms: 640 }, { bucket: at(15), calls: 80, ok: 70, rejected: 0, failed: 4, throttled: 6, p95_ms: 410 }]
+        : [] })
+    }
     if (/\/integrations\/log\/\d+\/$/.test(path)) {
       const found = integrationLog.find((row) => path.endsWith(`/${row.id}/`))
       return found ? json(found) : json({ type: 'about:blank', title: 'Not found', status: 404 }, 404)

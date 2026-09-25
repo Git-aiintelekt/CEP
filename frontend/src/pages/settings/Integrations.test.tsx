@@ -69,3 +69,23 @@ test('the call log lists both directions, filters by what a card asks for, and o
   await user.type(screen.getByLabelText('Correlation ID or Reference'), 'nothing-here{Enter}')
   expect(await screen.findByText('No Calls Match')).toBeTruthy()
 })
+
+test('each card charts the last 24 hours from the metrics endpoint: bars to one scale, failed and throttled on top, or a plain note when there were no calls', async () => {
+  const calls = installMockApi()
+  await renderAppAt('/settings/integrations')
+
+  const cards = await screen.findByRole('list', { name: 'Integrations' })
+  const postal = within(cards).getByRole('listitem', { name: 'Postal (self-hosted)' })
+  const chart = await within(postal).findByRole('img', { name: /Postal \(self-hosted\): calls per 15 minutes over the last 24 hours, up to 120 at the busiest/ })
+  const bars = [...chart.querySelectorAll('rect')]
+  expect(bars.filter((bar) => bar.classList.contains('fill-brand-100'))).toHaveLength(2)                 // two buckets had calls
+  expect(bars.filter((bar) => bar.classList.contains('fill-danger-plain'))).toHaveLength(2)
+  expect(bars.filter((bar) => bar.classList.contains('fill-warning'))).toHaveLength(1)                    // only one bucket was throttled
+  const tallest = bars.find((bar) => bar.classList.contains('fill-brand-100'))!
+  expect(tallest.getAttribute('height')).toBe('44')                                                       // the busiest bucket fills the height
+  expect(within(postal).getByText(/Busiest 120 calls at .* · p95 640 ms/)).toBeTruthy()
+  expect(calls.some((call) => call.url.includes('/integrations/int-postal/metrics/?hours=24'))).toBe(true)
+
+  const pos = within(cards).getByRole('listitem', { name: 'POS receipts' })
+  expect(await within(pos).findByText('No calls in the last 24 hours.')).toBeTruthy()
+})
