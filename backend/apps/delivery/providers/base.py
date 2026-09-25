@@ -21,6 +21,10 @@ class Attachment:
     data: bytes
 
 
+TRAFFIC_BULK = "BULK"                                       # marketing campaigns
+TRAFFIC_TRANSACTIONAL = "TRANSACTIONAL"                     # receipts, and campaigns that are not marketing
+
+
 @dataclass
 class EmailMessage:
     to_email: str
@@ -36,6 +40,7 @@ class EmailMessage:
     tag: str = ""                                               # campaign code: shows up in the provider's own reports
     metadata: dict[str, str] = field(default_factory=dict)      # tenant, campaign_run: echoed by providers that support it
     attachments: list[Attachment] = field(default_factory=list)  # receipts (PDF copy); campaigns send none
+    traffic: str = TRAFFIC_BULK                                 # which credential and throttle lane carry it (an engine may hold two)
 
     @property
     def sender(self) -> str:
@@ -136,6 +141,7 @@ class ConfigField:
     help: str = ""
     placeholder: str = ""
     kind: str = "text"                  # text | url | textarea
+    credential: str = "secret"          # for secret fields: "secret" (the engine's credential) or "transactional_secret" (the second one)
 
 
 class ProviderError(Exception):
@@ -155,8 +161,38 @@ class EmailProvider(ABC):
     manageable: bool = True             # False: created by another screen (SMTP comes from Settings -> Email server)
     max_batch: int = 100                # how many executions one Celery task should take
 
-    def __init__(self, *, config: dict, secret: str | None, provider_id: str = "", tenant_id: str = ""):
+    def __init__(self, *, config: dict, secret: str | None, provider_id: str = "", tenant_id: str = "", transactional_secret: str | None = None):
         self.config, self.secret, self.provider_id, self.tenant_id = config or {}, secret, provider_id, tenant_id
+        self.transactional_secret = transactional_secret or None
+        # set by registry.for_provider from the delivery_provider row; the integration bridge reads them
+        self.provider_name: str | None = None
+        self.rate_limit_per_minute: int | None = None
+        self.guard = None
+
+    # ---- the integration bridge (apps.integrations.bridge): every call logged, throttled and behind a circuit breaker
+    def new_session(self):
+        """The requests session an HTTP adapter should use: each call is timed and written to the integration log."""
+        from apps.integrations.bridge.outbound import Guard, LoggedSession
+        if self.guard is None:
+            self.guard = Guard(self)
+        return LoggedSession(self.guard)
+
+    def send_guarded(self, message, *, related_ref: str | None = None):
+        """What the engine calls: send() with the integration's pause, breaker and throttle in front and a log row behind."""
+        from apps.integrations.bridge.outbound import guarded_send
+        return guarded_send(self, message, related_ref)
+
+    # ---- two credentials on one engine
+    @classmethod
+    def supports_transactional_credential(cls) -> bool:
+        return any(f.secret and f.credential == "transactional_secret" for f in cls.config_fields)
+
+    def carries_transactional(self, message) -> bool:
+        """True when this message goes out on the second credential: transactional traffic, and a second credential is set."""
+        return bool(self.transactional_secret) and getattr(message, "traffic", TRAFFIC_BULK) == TRAFFIC_TRANSACTIONAL
+
+    def secret_for(self, message) -> str | None:
+        return self.transactional_secret if self.carries_transactional(message) else self.secret
 
     # ---- lifecycle: one open/close around a batch, so SMTP can keep its connection and HTTP its session
     def open(self) -> None:             # noqa: B027  (optional hook)
@@ -193,10 +229,11 @@ class EmailProvider(ABC):
 
     # ---- validation of the settings form
     @classmethod
-    def validate_config(cls, config: dict, has_secret: bool) -> dict[str, str]:
+    def validate_config(cls, config: dict, has_secret: bool, has_transactional_secret: bool = False) -> dict[str, str]:
         errors = {}
         for item in cls.config_fields:
-            present = has_secret if item.secret else bool(str(config.get(item.key) or "").strip())
+            present = (has_transactional_secret if item.credential == "transactional_secret" else has_secret) if item.secret \
+                else bool(str(config.get(item.key) or "").strip())
             if item.required and not present:
                 errors[item.key] = f"{item.label} is required."
             if item.kind == "url" and config.get(item.key) and not str(config[item.key]).startswith("https://"):

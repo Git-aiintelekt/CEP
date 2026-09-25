@@ -35,6 +35,7 @@ class DeliveryProvider(models.Model):
     config = models.JSONField(default=dict)  # non-secret settings: endpoint, webhook path, sending domain
     secret_ref = models.CharField(max_length=200, null=True, blank=True)  # env:NAME / vault key for credentials kept outside the database
     secret_enc = models.TextField(null=True, blank=True)  # credential entered in the product, encrypted with FIELD_ENCRYPTION_KEY; wins over secret_ref
+    transactional_secret_enc = models.TextField(null=True, blank=True)  # second credential for transactional traffic (receipts); NULL = secret_enc carries everything
     last_checked_at = models.DateTimeField(null=True, blank=True)
     last_check_ok = models.BooleanField(null=True, blank=True)
     last_check_error = models.TextField(null=True, blank=True)

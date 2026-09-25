@@ -1,6 +1,8 @@
 """Tenant onboarding used by the platform back-office (Django Admin) and the management commands."""
 from django.db import connections
 
+from apps.tenants import context
+
 from apps.identity.models import Permission, Role, RolePermission
 
 from .models import TenantDatabase
@@ -39,6 +41,12 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
             wanted = catalogue.values() if codes is None else [catalogue[code] for code in codes if code in catalogue]
             RolePermission.objects.using(using).bulk_create([RolePermission(role=role, permission=p) for p in wanted])
             created_roles.append(name)
+    from apps.integrations.bridge import logbook
+    token = context.set_current(str(tenant.id), using)
+    try:
+        logbook.ensure_defaults(tenant.id)                 # the POS receipts record, and one per sending engine the tenant has
+    finally:
+        context.reset(token)
     return {"partition_sets": partitions, "roles": created_roles}
 
 

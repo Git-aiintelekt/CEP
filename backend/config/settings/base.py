@@ -45,6 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.integrations.bridge.correlation.CorrelationIdMiddleware",   # X-Correlation-Id in, the id used out; on every integration log row
     "apps.tenants.middleware.PlatformAdminMiddleware",    # /admin/ -> BYPASSRLS platform connection (before sessions/auth)
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -139,7 +140,8 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"] + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
     "EXCEPTION_HANDLER": "api.exceptions.problem_json_exception_handler",
-    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "rest_framework.throttling.AnonRateThrottle"],
+    "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.UserRateThrottle", "rest_framework.throttling.AnonRateThrottle",
+                                 "apps.integrations.bridge.inbound.ApiKeyRateThrottle"],       # api_client.rate_limit_per_minute, enforced
     "DEFAULT_THROTTLE_RATES": {"user": "600/min", "anon": "30/min"},
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
     "DEFAULT_VERSION": "v1",
@@ -197,6 +199,7 @@ CELERY_BEAT_SCHEDULE = {
     "plan-recurring-runs": {"task": "workers.campaign.plan_recurring_runs", "schedule": 300},          # recurring campaigns: one Run per occurrence
     "refresh-audience-lists": {"task": "workers.campaign.refresh_audience_lists", "schedule": 900},    # lists made from a BI / extraction audience
     "process-list-imports": {"task": "workers.lists.process_imports", "schedule": 30},                 # the net under the API's own hand-off
+    "rollup-integration-metrics": {"task": "workers.platform.rollup_integration_metrics", "schedule": 300},  # per-minute integration figures from the log
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

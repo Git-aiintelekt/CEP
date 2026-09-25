@@ -40,7 +40,7 @@ class SendGridProvider(EmailProvider):
         return str(self.config.get("api_base") or "https://api.sendgrid.com").rstrip("/")
 
     def open(self) -> None:
-        self._session = requests.Session()
+        self._session = self.new_session()
         self._session.headers.update({"Authorization": f"Bearer {self.secret or ''}", "Content-Type": "application/json"})
 
     def close(self) -> None:

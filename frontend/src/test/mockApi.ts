@@ -5,7 +5,7 @@ import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockC
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, Design, GovernanceLine, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -112,6 +112,24 @@ export const settingsUsers: SettingsUser[] = [
   settingsUser({}),
   settingsUser({ id: 'u2', email: 'devon@example.com', display_name: 'Devon Okafor', roles: ['role-analyst'], role_names: ['Analyst'], has_password: false, is_self: false, last_login: null }),
 ]
+export const integrations: Integration[] = [
+  { id: 'int-pos', kind: 'POS_RECEIPTS', name: 'POS receipts', direction: 'IN', system: 'POS', status: 'ACTIVE', environment: null, delivery_provider_id: null, throttle_per_minute: null, throttle_burst: null,
+    effective_limit_per_minute: 600, log_level: 'FULL', log_retention_days: 90, last_call_at: '2026-09-25T09:58:00Z', last_outcome: 'OK', last_error: null, breaker_failures: 5, breaker_cooldown_seconds: 60,
+    breaker_open_seconds: 0, calls_24h: 1240, ok_24h: 1231, rejected_24h: 6, retried_24h: 0, errors_24h: 0, throttled_24h: 3, error_rate_24h: 0, p95_ms: 212, max_ms: 890, bytes_in_24h: 2_400_000, bytes_out_24h: 180_000, health: 'healthy' },
+  { id: 'int-postal', kind: 'PROVIDER', name: 'Postal (self-hosted)', direction: 'OUT', system: 'POSTAL', status: 'ACTIVE', environment: null, delivery_provider_id: 'prov-postal', throttle_per_minute: 600, throttle_burst: null,
+    log_level: 'FULL', log_retention_days: 90, last_call_at: '2026-09-25T09:57:30Z', last_outcome: 'RETRY', last_error: 'Postal answered 503', breaker_failures: 5, breaker_cooldown_seconds: 60,
+    breaker_open_seconds: 42, calls_24h: 8_120, ok_24h: 7_600, rejected_24h: 0, retried_24h: 520, errors_24h: 0, throttled_24h: 0, error_rate_24h: 6.4, p95_ms: 640, max_ms: 5_000, bytes_in_24h: 900_000, bytes_out_24h: 41_000_000, health: 'circuit_open' },
+]
+export const integrationLog: IntegrationLogDetail[] = [
+  { id: 52, integration_id: 'int-pos', direction: 'IN', kind: 'POS_RECEIPTS', system: 'POS', correlation_id: 'pos-corr-0001', related_ref: 'receipt:R-1001', method: 'POST', url: '/api/v1/receipts/send/', response_status: 201, outcome: 'OK',
+    error_class: null, error_message: null, attempt: 1, duration_ms: 184, request_bytes: 212, response_bytes: 83, api_client_id: 'key-1', started_at: '2026-09-25T09:58:00Z',
+    request_headers: { 'Content-Type': 'application/json', Authorization: '***' }, request_body: '{"campaign": "RCPT", "to": "buyer@x.test", "receipt": {"number": "R-1001", "card_number": "***"}}',
+    response_headers: { 'X-RateLimit-Limit': '600' }, response_body: '{"status": "SUBMITTED", "execution_id": 7}', worker: 'web-1' },
+  { id: 51, integration_id: 'int-postal', direction: 'OUT', kind: 'PROVIDER', system: 'POSTAL', correlation_id: 'pos-corr-0001', related_ref: 'receipt:R-1001', method: 'POST', url: 'https://postal.example/api/v1/send/message', response_status: 503, outcome: 'RETRY',
+    error_class: null, error_message: 'Postal answered 503', attempt: 1, duration_ms: 1_204, request_bytes: 4_100, response_bytes: 40, api_client_id: null, started_at: '2026-09-25T09:57:30Z',
+    request_headers: { 'X-Server-API-Key': '***' }, request_body: '{"to": ["buyer@x.test"], "subject": "Your receipt"}', response_headers: {}, response_body: '{"status": "error"}', worker: 'worker-1' },
+]
+
 export const apiKeys: ApiKey[] = [
   { id: 'key-1', name: 'POS integration', client_type: 'INTEGRATION', key_prefix: 'cep_in_AbC123', scopes: ['events:ingest'], allowed_ip_cidrs: ['203.0.113.0/24'], rate_limit_per_minute: 600,
     expires_at: null, revoked_at: null, last_used_at: null, created_at: '2026-09-01T10:00:00Z', status: 'ACTIVE' },
@@ -142,16 +160,17 @@ export const supportAccess: SupportAccess[] = [
 export const providerCatalogue: ProviderType[] = [
   { provider_type: 'POSTAL', label: 'Postal', description: 'Self-hosted Postal server.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
     { key: 'endpoint', label: 'Postal address', required: true, secret: false, help: 'Base address of your Postal installation.', placeholder: 'https://postal.example.com', kind: 'url' },
-    { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text' }] },
+    { key: 'api_key', label: 'Server API key', required: true, secret: true, help: 'Credentials -> type API.', placeholder: '', kind: 'text', credential: 'secret' },
+    { key: 'transactional_api_key', label: 'Transactional server API key', required: false, secret: true, help: 'Optional. A second Postal mail server for receipts.', placeholder: '', kind: 'text', credential: 'transactional_secret' }] },
   { provider_type: 'SENDGRID', label: 'SendGrid', description: 'Twilio SendGrid.', supports_webhooks: true, manageable: true, channel: 'EMAIL', fields: [
-    { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text' },
+    { key: 'api_key', label: 'API key', required: true, secret: true, help: 'Needs the Mail Send permission.', placeholder: '', kind: 'text', credential: 'secret' },
     { key: 'api_base', label: 'API address', required: false, secret: false, help: 'Leave empty for the global region.', placeholder: 'https://api.sendgrid.com', kind: 'url' }] },
   { provider_type: 'SMTP', label: 'SMTP (your mail server)', description: 'Follows Settings -> Email server.', supports_webhooks: false, manageable: false, channel: 'EMAIL', fields: [] },
   { provider_type: 'SANDBOX_SMS', label: 'Sandbox (sends nothing)', description: 'Accepts SMS and MMS without sending them.', supports_webhooks: true, manageable: true, channel: 'SMS', supports_mms: true, fields: [
     { key: 'reject_numbers', label: 'Numbers to refuse', required: false, secret: false, help: 'Comma-separated.', placeholder: '', kind: 'text' }] },
 ]
 export const deliveryProviders: DeliveryProvider[] = [
-  { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, secret_ref: null,
+  { id: 'prov-postal', provider_type: 'POSTAL', channel: 'EMAIL', name: 'Postal (self-hosted)', config: { endpoint: 'https://postal.cep.example.com' }, has_secret: true, has_transactional_secret: false, secret_ref: null,
     rate_limit_per_minute: null, is_default: true, is_active: true, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-postal/tok/', sender_count: 1,
     last_checked_at: null, last_check_ok: null, last_check_error: null, row_version: 1 },
 ]
@@ -278,6 +297,8 @@ interface MockOptions {
   mailServer?: Partial<MailServerSettings>
   /** POST /delivery-providers/{id}/check/ answers a failure */
   providerCheckFails?: boolean
+  /** the Postal engine holds a second key for receipts */
+  providerHasTransactionalKey?: boolean
   /** the workspace also has a text engine and sender; run results and replies are those of a text campaign */
   texts?: boolean
   /** answer for POST /contact-lists/{id}/imports/ ; default: a six-row file, stored and queued */
@@ -354,10 +375,10 @@ export function installMockApi(options: MockOptions = {}) {
       if (!body?.secret) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { secret: ['API key is required.'] } }, 400)
       const { secret, ...rest } = body as Record<string, unknown>
       void secret
-      return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
+      return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, has_transactional_secret: Boolean(body.transactional_secret), is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
     }
-    if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], ...(body as Partial<DeliveryProvider>) })
-    if (path.endsWith('/delivery-providers/')) return json(options.texts ? [...deliveryProviders, textEngine] : deliveryProviders)
+    if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], has_transactional_secret: Boolean(options.providerHasTransactionalKey), ...(body as Partial<DeliveryProvider>) })
+    if (path.endsWith('/delivery-providers/')) return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders).map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item))
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
     if (/\/delivery-senders\/[^/]+\/verify\/$/.test(path)) return json({ ok: true, detail: null, to: body?.to, verification_status: 'VERIFIED' })
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
@@ -396,6 +417,21 @@ export function installMockApi(options: MockOptions = {}) {
       return json(securityNow)
     }
     if (path.endsWith('/workspace/')) return json(workspace)
+    if (/\/integrations\/[^/]+\/(pause|resume)\/$/.test(path)) {
+      const item = integrations.find((row) => path.includes(`/${row.id}/`)) ?? integrations[0]
+      return json({ ...item, status: path.endsWith('/pause/') ? 'PAUSED' : 'ACTIVE', health: path.endsWith('/pause/') ? 'paused' : 'healthy', breaker_open_seconds: 0 })
+    }
+    if (/\/integrations\/log\/\d+\/$/.test(path)) {
+      const found = integrationLog.find((row) => path.endsWith(`/${row.id}/`))
+      return found ? json(found) : json({ type: 'about:blank', title: 'Not found', status: 404 }, 404)
+    }
+    if (path.endsWith('/integrations/log/')) {
+      const query = new URL(url, 'http://test.local').searchParams
+      const rows = integrationLog.filter((row) => (!query.get('integration') || row.integration_id === query.get('integration')) && (!query.get('direction') || row.direction === query.get('direction'))
+        && (query.get('failed') !== '1' || row.outcome !== 'OK') && (!query.get('q') || row.correlation_id === query.get('q') || row.related_ref === query.get('q')))
+      return json({ results: rows.map(({ request_headers: _rh, request_body: _rb, response_headers: _sh, response_body: _sb, worker: _w, ...row }) => row), more: false, next_before: null })
+    }
+    if (path.endsWith('/integrations/')) return json(integrations)
     if (path.endsWith('/users/')) return json(settingsUsers)
     if (path.endsWith('/roles/permissions/')) return json(permissionCatalogue)
     if (path.endsWith('/roles/')) return json(roles)

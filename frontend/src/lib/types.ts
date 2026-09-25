@@ -155,7 +155,8 @@ export interface ProviderType {
   /** EMAIL, or SMS for text engines (they carry MMS too when supports_mms) */
   channel?: 'EMAIL' | 'SMS'
   supports_mms?: boolean
-  fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea' }[]
+  /** a secret field's `credential` says which of the engine's credentials it is: the main one, or the second one for transactional traffic */
+  fields: { key: string; label: string; required: boolean; secret: boolean; help: string; placeholder: string; kind: 'text' | 'url' | 'textarea'; credential?: 'secret' | 'transactional_secret' | null }[]
 }
 
 export interface DeliveryProvider {
@@ -166,6 +167,8 @@ export interface DeliveryProvider {
   config: Record<string, string>
   /** the credential itself is write-only */
   has_secret: boolean
+  /** a second credential for receipts and other transactional email is stored (engines that offer one) */
+  has_transactional_secret?: boolean
   secret_ref: string | null
   rate_limit_per_minute: number | null
   is_default: boolean
@@ -1051,3 +1054,79 @@ export type PermissionCode =
   | 'journey.edit'
   | 'user.admin'
   | (string & {})
+
+// ---------------------------------------------------------------------------------------------------- integrations
+export type IntegrationHealth = 'healthy' | 'degraded' | 'circuit_open' | 'paused' | 'idle'
+export type IntegrationOutcome = 'OK' | 'REJECTED' | 'RETRY' | 'ERROR' | 'THROTTLED' | 'BREAKER' | 'PAUSED'
+
+/** GET /integrations/: one line per integration with the last day's figures */
+export interface Integration {
+  id: string
+  kind: 'POS_RECEIPTS' | 'PROVIDER'
+  name: string
+  direction: 'IN' | 'OUT'
+  system: string
+  status: 'ACTIVE' | 'PAUSED'
+  environment: string | null
+  delivery_provider_id: string | null
+  throttle_per_minute: number | null
+  throttle_burst: number | null
+  /** inbound only: the workspace's own limit, else the plan's default */
+  effective_limit_per_minute?: number | null
+  log_level: 'FULL' | 'ERRORS' | 'NONE'
+  log_retention_days: number
+  last_call_at: string | null
+  last_outcome: IntegrationOutcome | null
+  last_error: string | null
+  breaker_failures: number
+  breaker_cooldown_seconds: number
+  breaker_open_seconds: number
+  calls_24h: number
+  ok_24h: number
+  rejected_24h: number
+  retried_24h: number
+  errors_24h: number
+  throttled_24h: number
+  error_rate_24h: number
+  p95_ms: number | null
+  max_ms: number | null
+  bytes_in_24h: number
+  bytes_out_24h: number
+  health: IntegrationHealth
+}
+
+export interface IntegrationLogRow {
+  id: number
+  integration_id: string | null
+  direction: 'IN' | 'OUT'
+  kind: string
+  system: string
+  correlation_id: string | null
+  related_ref: string | null
+  method: string
+  url: string
+  response_status: number | null
+  outcome: IntegrationOutcome
+  error_class: string | null
+  error_message: string | null
+  attempt: number
+  duration_ms: number | null
+  request_bytes: number | null
+  response_bytes: number | null
+  api_client_id: string | null
+  started_at: string
+}
+
+export interface IntegrationLogDetail extends IntegrationLogRow {
+  request_headers: Record<string, string> | null
+  request_body: string | null
+  response_headers: Record<string, string> | null
+  response_body: string | null
+  worker: string | null
+}
+
+export interface IntegrationLogPage {
+  results: IntegrationLogRow[]
+  more: boolean
+  next_before: string | null
+}

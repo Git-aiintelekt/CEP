@@ -3,12 +3,9 @@
   "configurations": [
     {
       "name": "cep-backend",
-      "runtimeExecutable": "backend/.venv/bin/python",
+      "runtimeExecutable": "node",
       "runtimeArgs": [
-        "backend/manage.py",
-        "runserver",
-        "8000",
-        "--noreload"
+        ".claude/dev-backend.mjs"
       ],
       "port": 8000
     },

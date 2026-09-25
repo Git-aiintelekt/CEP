@@ -19,7 +19,7 @@ from django.utils import timezone
 from apps.campaigns.models import Campaign, CampaignRun
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
-from ..providers import Attachment, EmailMessage, Outcome, ProviderError, registry
+from ..providers import TRAFFIC_TRANSACTIONAL, Attachment, EmailMessage, Outcome, ProviderError, registry
 from . import session
 from .render import Renderer
 
@@ -169,16 +169,17 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
                             str(sender.delivery_provider_id)])
         execution_id, created_at = cursor.fetchone()
 
-    message = EmailMessage(to_email=to, to_name=name, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
+    message = EmailMessage(traffic=TRAFFIC_TRANSACTIONAL, to_email=to, to_name=name, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                            subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=key, tag=campaign.code or "receipt",
                            metadata={"cep_tenant": campaign.tenant.code, "cep_run": str(run.pk)}, attachments=files)
     try:
         with registry.for_provider(sender.delivery_provider) as provider:
-            result = provider.send(message)
+            result = provider.send_guarded(message, related_ref=f"receipt:{number}")
             for _ in range(2):                              # a receipt is wanted now: two quick retries, then the caller decides
                 if result.outcome is not Outcome.RETRY:
                     break
-                result = provider.send(message)
+                provider.guard.attempt += 1
+                result = provider.send_guarded(message, related_ref=f"receipt:{number}")
     except ProviderError as exc:
         result = None
         failure = str(exc)
