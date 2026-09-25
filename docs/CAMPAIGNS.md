@@ -16,6 +16,13 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 
 ### The seven steps
 
+The setup a person sees (since 2026-09-25) is the Create Campaign pop-up (Basic Info) and then five steps: **Audience → Content →
+Targets → Test → Review & Publish**. Test holds the preview and the test send; Review & Publish holds the schedule and delivery
+settings, the summary with its Edit links, the checklist and the publish. The table below lists what is decided by the
+original seven groups, which the API still counts progress in (`setup_step`: 1 created, 2 audience, 3 content, 4 targets,
+5 the Test step passed — a test sent or Continue, 6 the schedule saved on Review & Publish, which completes the setup; an
+e-receipt, having no schedule, is complete once its Test step is passed).
+
 | # | Step | What is decided |
 |---|---|---|
 | 1 | Basic Info | name (unique in the workspace), code, description, type and channel (cards), message purpose, owner (defaults to the creator), tags |

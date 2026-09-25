@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800">
             Reload
           </button>
-          <a href="/" className="inline-flex h-10 items-center rounded-control-lg border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle">
+          <a href="/" className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-800">
             Go to the Overview
           </a>
         </div>

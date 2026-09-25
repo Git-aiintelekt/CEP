@@ -27,7 +27,7 @@ import type { Campaign, CampaignFormOptions, ContactList } from '@/lib/types'
 import { CardSubheading } from '../parts'
 import { campaignSchema, emptyValues, formFieldOf, fromCampaign, STEP_FIELDS, stepOfApiField, toInput, type CampaignFormValues } from '../schema'
 import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
-import { placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, SETUP_DONE, setupHref, stepsDone, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
+import { placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, setupHref, stepsDone, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
 import { hasAction, tabOfStep } from '../vocabulary'
 import { FlowProgress, FlowStepMenu, FlowStepper, HoverTip } from './FlowStepper'
 import { StepAudience } from './StepAudience'
@@ -41,10 +41,11 @@ const INTRO: Record<FlowStep, string> = {
   audience: 'Attach the contact lists to send to, and the ones to keep out.',
   content: 'Choose the message and who it comes from.',
   targets: 'Set what this campaign should achieve, and what it may cost.',
-  publish: 'Decide when it goes out, send yourself a test, then publish to production.',
+  test: 'See the message as a recipient will, and send yourself a test before it goes to anyone else.',
+  publish: 'Decide when it goes out, check everything once more, then publish to production.',
 }
 /** the form fields each step owns: "Continue" (or saving a section) checks these and nothing else */
-const FIELDS: Record<FlowStep, readonly (keyof CampaignFormValues)[]> = { audience: STEP_FIELDS[1], content: STEP_FIELDS[2], targets: STEP_FIELDS[4], publish: STEP_FIELDS[3] }
+const FIELDS: Record<FlowStep, readonly (keyof CampaignFormValues)[]> = { audience: STEP_FIELDS[1], content: STEP_FIELDS[2], targets: STEP_FIELDS[4], test: [], publish: STEP_FIELDS[3] }
 /** where the API's field messages belong, by the old wizard's step index */
 const PLACE_OF_OLD_INDEX: (FlowStep | 'details')[] = ['details', 'audience', 'content', 'publish', 'targets']
 
@@ -112,7 +113,7 @@ export function CampaignWizardPage() {
     shownStep.current = current
   }, [current, loaded])
 
-  // a link to a part of Test & publish brings it into view
+  // a link to a part of Review & Publish brings it into view
   useEffect(() => {
     if (!section || !loaded) return
     const target = document.getElementById(`publish-${section}`)
@@ -200,7 +201,7 @@ export function CampaignWizardPage() {
   async function go(index: number) {
     if (index <= step) return show(steps[index].key)
     if (current === 'publish') return
-    const campaign = await commit(FIELDS[current], progressAfter(current))
+    const campaign = await commit(FIELDS[current], progressAfter(current, type))
     if (!campaign) return
     const furthest = campaign.setup_complete ? steps.length - 1 : steps.findIndex((item) => item.key === resumeStep(campaign.setup_step, campaign.campaign_type))
     show(steps[Math.min(index, furthest)].key)
@@ -211,11 +212,12 @@ export function CampaignWizardPage() {
     if (campaign) navigate(campaign.setup_complete ? `/campaigns/${campaign.id}?tab=${tabOfStep(current, campaign)}` : '/campaigns') // an unfinished setup has no campaign page to go to yet
   }
 
-  /** a test went out: the setup is done (the API's setup_step 6), so the campaign page opens from now on */
+  /** a test went out: the Test step counts as passed (an e-receipt's setup is then done, having no schedule to save) */
   async function markTested() {
     const fresh = await queryClient.fetchQuery({ queryKey: ['campaigns', 'detail', id], queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${id}/`, undefined, signal), staleTime: 0 })
-    if (fresh.setup_step >= SETUP_DONE) return
-    const done = await api.patch<Campaign>(`/campaigns/${id}/`, { setup_step: SETUP_DONE, row_version: fresh.row_version })
+    const tested = progressAfter('test', fresh.campaign_type)
+    if (fresh.setup_step >= tested) return
+    const done = await api.patch<Campaign>(`/campaigns/${id}/`, { setup_step: tested, row_version: fresh.row_version })
     queryClient.setQueryData(['campaigns', 'detail', id], done)
   }
 
@@ -307,6 +309,7 @@ export function CampaignWizardPage() {
                 {current === 'audience' && <StepAudience campaign={loaded} onChangeType={canChangeType ? () => openDetails(true) : undefined} pending={pendingUploads} onPendingChange={setPendingUploads} />}
                 {current === 'content' && <StepTemplate campaign={loaded} />}
                 {current === 'targets' && <StepTargets />}
+                {current === 'test' && <StepTest campaign={loaded} options={options.data} onTested={() => void markTested()} />}
                 {current === 'publish' && (
                   <div className="flex flex-col gap-10">
                     {PUBLISH_SECTIONS.map((part) => (
@@ -322,7 +325,6 @@ export function CampaignWizardPage() {
                             )}
                           </>
                         )}
-                        {part.key === 'test' && <StepTest campaign={loaded} options={options.data} onTested={() => void markTested()} />}
                         {part.key === 'review' && (
                           <StepReview campaign={loaded} onEdit={goToOld}
                             beforePublish={async () => Boolean(await commit(FIELDS.publish, receipt ? null : PROGRESS.schedule))} />

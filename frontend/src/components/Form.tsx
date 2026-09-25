@@ -103,6 +103,6 @@ export function FormSection({ title, description, children }: { title: string; d
 export const buttonPrimary =
   'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-line bg-surface text-ink-900 hover:bg-surface-subtle active:bg-line-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300'
 export const buttonDanger =
   'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'

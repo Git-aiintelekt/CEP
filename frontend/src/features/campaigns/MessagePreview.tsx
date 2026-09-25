@@ -5,11 +5,14 @@
  * toolbar, the whole email at its own 600px layout shrunk to the column's width, texts as the phone bubble.
  * With `controls` the caller owns the customer and the device (the campaign page's Content tab puts them in its card
  * header): no toolbar, the email at the chosen width and its own height in a 1px frame, texts on the Templates phone.
+ * With `enlarge` (the Test step) a click on the message, or the Enlarge button, opens it whole in a wide pop-up.
  */
-import { Monitor, Smartphone } from 'lucide-react'
+import { Maximize2, Monitor, Smartphone } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 
+import { buttonClass } from '@/components/buttonStyles'
 import { Select } from '@/components/Form'
+import { Modal } from '@/components/Modal'
 import { ErrorState, SkeletonLine, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { SegmentedControl } from '@/components/SegmentedControl'
@@ -102,13 +105,16 @@ interface MessagePreviewProps {
   templateId?: string
   withCustomers?: boolean
   compact?: boolean
+  /** a click on the message opens it large in a pop-up */
+  enlarge?: boolean
   /** `image`: an MMS's picture (null: none yet); left out for every other channel */
   controls?: { party: string; device: PreviewDevice; sender: string; image?: string | null }
 }
 
-export function MessagePreview({ campaignId, templateId, withCustomers = false, compact = false, controls }: MessagePreviewProps) {
+export function MessagePreview({ campaignId, templateId, withCustomers = false, compact = false, enlarge = false, controls }: MessagePreviewProps) {
   const [ownParty, setParty] = useState('')
   const [ownDevice, setDevice] = useState<PreviewDevice>('desktop')
+  const [large, setLarge] = useState(false)
   const party = controls?.party ?? ownParty
   const device = controls?.device ?? ownDevice
 
@@ -183,20 +189,55 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
             <SegmentedControl label="Preview Size" iconOnly value={device} onChange={setDevice}
               options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
           )}
+          {enlarge && (
+            <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} onClick={() => setLarge(true)}>
+              <Maximize2 size={14} strokeWidth={1.5} aria-hidden />Enlarge
+            </button>
+          )}
         </div>
       </div>
 
-      {isEmail ? (
-        <div className="rounded-lg border border-line bg-surface-subtle p-3">
-          <iframe title="Email preview" sandbox="" srcDoc={data.html ?? ''} className={`mx-auto block h-[560px] rounded-sm border border-line bg-surface ${device === 'mobile' ? 'w-[375px] max-w-full' : 'w-full'}`} />
-        </div>
-      ) : (
-        <div className="rounded-lg border border-line bg-surface-subtle p-5">
-          <p aria-label="Text message preview" className="ml-auto max-w-sm whitespace-pre-wrap rounded-lg rounded-br-sm bg-line-subtle px-4 py-3 text-sm text-ink-900">{data.text}</p>
-        </div>
-      )}
+      <div className="group relative">
+        {isEmail ? (
+          <div className="rounded-lg border border-line bg-surface-subtle p-3">
+            <iframe title="Email preview" sandbox="" srcDoc={data.html ?? ''} className={`mx-auto block h-[560px] rounded-sm border border-line bg-surface ${device === 'mobile' ? 'w-[375px] max-w-full' : 'w-full'}`} />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-line bg-surface-subtle p-5">
+            <p aria-label="Text message preview" className="ml-auto max-w-sm whitespace-pre-wrap rounded-lg rounded-br-sm bg-line-subtle px-4 py-3 text-sm text-ink-900">{data.text}</p>
+          </div>
+        )}
+        {enlarge && (
+          // over the message: a click anywhere on it opens the large view (the frame itself swallows clicks)
+          <button type="button" aria-label="Open a Larger Preview" onClick={() => setLarge(true)}
+            className="absolute inset-0 flex cursor-zoom-in items-end justify-center rounded-lg pb-4 transition-colors duration-fast ease-standard hover:bg-ink-900/5 focus-visible:bg-ink-900/5">
+            <span aria-hidden className="rounded-sm bg-ink-900 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-within:opacity-100">Click to see it large</span>
+          </button>
+        )}
+      </div>
 
       {tagsLine}
+
+      {large && (
+        <Modal title={data.template} subtitle={isEmail && data.subject ? `Subject: ${data.subject}` : `Version ${data.version}`} size="xl" scrollBody onClose={() => setLarge(false)}
+          toolbar={isEmail ? (
+            <div className="flex min-h-8 items-center justify-end">
+              <SegmentedControl label="Preview Size" value={device} onChange={setDevice}
+                options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
+            </div>
+          ) : undefined}>
+          {isEmail ? (
+            <div className="rounded-lg bg-line-subtle p-4"><FittedEmail key={device} html={data.html ?? ''} device={device} /></div>
+          ) : (
+            <div className="rounded-lg bg-surface-sunken p-6">
+              <div className="mx-auto w-full max-w-[320px]">
+                <PhoneFrame sender={data.template}><p aria-label="Text message preview" className={BUBBLE}>{data.text}</p></PhoneFrame>
+              </div>
+            </div>
+          )}
+          {tagsLine}
+        </Modal>
+      )}
     </div>
   )
 }

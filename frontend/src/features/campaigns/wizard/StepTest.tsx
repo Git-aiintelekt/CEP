@@ -1,4 +1,4 @@
-/** Step 6: see the message as a recipient would, then send a test to internal people. */
+/** The Test step: the message as a recipient would get it (three quarters of the width; a click opens it large), and the test send beside it. */
 import { useAuth } from '@/auth/AuthContext'
 import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
@@ -10,9 +10,9 @@ export function StepTest({ campaign, options, onTested }: { campaign: Campaign; 
   const { me } = useAuth()
   const tested = campaign.runs.some((run) => run.test_mode)
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <Panel title="Preview" description="With the catalogue's sample values, or as one customer of the audience would get it.">
-        <MessagePreview campaignId={campaign.id} withCustomers={campaign.campaign_type !== 'E_RECEIPT'} />
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]" data-test-step-layout>
+      <Panel title="Preview" description="With the catalogue's sample values, or as one customer of the audience would get it. Click the message to see it large.">
+        <MessagePreview campaignId={campaign.id} withCustomers={campaign.campaign_type !== 'E_RECEIPT'} enlarge />
       </Panel>
       <Panel title="Send a Test" className="self-start" description={tested ? 'A test has been sent for this campaign. Send another one after every change to the content.' : undefined}>
         <TestPublishBox campaign={campaign} people={options?.owners ?? []} defaultTo={me?.principal.email ?? ''} onSent={onTested} />

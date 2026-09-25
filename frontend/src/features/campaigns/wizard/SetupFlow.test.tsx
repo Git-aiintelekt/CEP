@@ -1,5 +1,5 @@
 /**
- * The setup after Create Campaign: Audience → Content → Targets → Test & Publish, through the real app against the
+ * The setup after Create Campaign: Audience → Content → Targets → Test → Review & Publish, through the real app against the
  * in-memory API. What each Continue records (setup_step), where an unfinished setup resumes, and where old links land.
  */
 import { cleanup, render, screen, within } from '@testing-library/react'
@@ -33,17 +33,17 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('four steps on the rail, one at a time; each Continue says where it goes and records the step', async () => {
+test('five steps on the rail, one at a time; each Continue says where it goes and records the step', async () => {
   const calls = installMockApi({ campaign: draft({ contact_lists: [], contact_list_details: [] }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit')
 
   expect(await stepHeading('Audience')).toBeTruthy()
-  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Targets', 'Test & Publish'])
+  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
   expect(railButtons()[0].getAttribute('aria-current')).toBe('step')
-  expect(railButtons().map((button) => button.querySelector('[data-marker]')?.getAttribute('data-marker'))).toEqual(['current', 'ahead', 'ahead', 'ahead'])
-  expect(railButtons().slice(1).map((button) => (button as HTMLButtonElement).disabled)).toEqual([true, true, true])   // steps ahead open through Continue
-  expect(screen.getByText('Step 1 of 4')).toBeTruthy()
+  expect(railButtons().map((button) => button.querySelector('[data-marker]')?.getAttribute('data-marker'))).toEqual(['current', 'ahead', 'ahead', 'ahead', 'ahead'])
+  expect(railButtons().slice(1).map((button) => (button as HTMLButtonElement).disabled)).toEqual([true, true, true, true])   // steps ahead open through Continue
+  expect(screen.getByText('Step 1 of 5')).toBeTruthy()
   await user.click((await screen.findAllByRole('button', { name: 'Add Contact List' }))[0])
   const picker = await screen.findByRole('dialog', { name: 'Add Contact List' })
   await user.click(await within(picker).findByRole('checkbox', { name: 'Fall Master Audience' }))
@@ -62,22 +62,36 @@ test('four steps on the rail, one at a time; each Continue says where it goes an
   expect(await stepHeading('Targets')).toBeTruthy()
   expect(patches(calls).at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: 'snd-email', setup_step: 3 })
   await user.type(screen.getByLabelText('Clicks'), '40')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test & Publish' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
 
-  expect(await stepHeading('Test & Publish')).toBeTruthy()
+  expect(await stepHeading('Test')).toBeTruthy()
   expect(patches(calls).at(-1)?.body).toMatchObject({ targets: { target_clicks: 40 }, setup_step: 4 })
+  expect(await screen.findByRole('group', { name: 'Send a Test' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))              // a test is not required
+
+  expect(await stepHeading('Review & Publish')).toBeTruthy()
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 5 }))
   expect(screen.queryByRole('button', { name: /^Continue/ })).toBeNull()                             // the last step publishes instead
-  expect(screen.getAllByRole('heading', { level: 3 }).slice(0, 3).map((heading) => heading.textContent)).toEqual(['When and How It Goes Out', 'Preview and Test', 'Review and Publish'])
+  expect(screen.getAllByRole('heading', { level: 3 }).slice(0, 2).map((heading) => heading.textContent)).toEqual(['When and How It Goes Out', 'Summary and Publish'])
   await user.click(screen.getByRole('button', { name: 'Back' }))
-  expect(await stepHeading('Targets')).toBeTruthy()
+  expect(await stepHeading('Test')).toBeTruthy()
   expect(document.activeElement).toBe(document.querySelector('h1[tabindex="-1"]'))     // focus follows the step
 })
 
-test('Test & Publish: saving the schedule records 5, a test sent records 6 (the setup is done), and the publish asks once more', async () => {
+test('Test: a test sent records 5; Review & Publish: saving the schedule records 6 (the setup is done), and the publish asks once more', async () => {
   const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 4 }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit')
-  expect(await stepHeading('Test & Publish')).toBeTruthy()
+  expect(await stepHeading('Test')).toBeTruthy()
+
+  const test = await screen.findByRole('group', { name: 'Send a Test' })
+  await user.clear(within(test).getByLabelText('Other Addresses'))
+  await user.click(await within(test).findByRole('checkbox', { name: /Devon Okafor/ }))
+  await user.click(within(test).getByRole('button', { name: 'Send Test' }))
+  expect(await within(test).findByText('Sent to devon@example.com')).toBeTruthy()
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toEqual({ setup_step: 5, row_version: expect.any(Number) }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
+  expect(await stepHeading('Review & Publish')).toBeTruthy()
 
   await user.click(screen.getByRole('radio', { name: /Schedule for Later/ }))
   await user.click(screen.getByRole('button', { name: 'Save Schedule' }))
@@ -85,14 +99,7 @@ test('Test & Publish: saving the schedule records 5, a test sent records 6 (the 
   await user.selectOptions(screen.getByLabelText('Time Zone'), 'America/Chicago')
   await user.type(screen.getByLabelText(/^Send At\*/), '2099-11-02T09:00')
   await user.click(screen.getByRole('button', { name: 'Save Schedule' }))
-  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ send_type: 'SCHEDULED', send_timezone: 'America/Chicago', scheduled_at: '2099-11-02T15:00:00.000Z', setup_step: 5 }))
-
-  const test = await screen.findByRole('group', { name: 'Send a Test' })
-  await user.clear(within(test).getByLabelText('Other Addresses'))
-  await user.click(await within(test).findByRole('checkbox', { name: /Devon Okafor/ }))
-  await user.click(within(test).getByRole('button', { name: 'Send Test' }))
-  expect(await within(test).findByText('Sent to devon@example.com')).toBeTruthy()
-  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toEqual({ setup_step: 6, row_version: expect.any(Number) }))
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ send_type: 'SCHEDULED', send_timezone: 'America/Chicago', scheduled_at: '2099-11-02T15:00:00.000Z', setup_step: 6 }))
 
   const checklist = await screen.findByRole('list', { name: 'Pre-Publish Checklist' })
   expect(within(checklist).getByText('Test message sent and reviewed').nextElementSibling?.textContent).toBe(': done')
@@ -108,7 +115,7 @@ test('publishing with an unsaved schedule stores it first', async () => {
   const calls = installMockApi({ campaign: makeCampaign({ status: 'TEST_PUBLISHED', setup_step: 6, runs: [{ id: 'rt', test_mode: true, status: 'COMPLETED', run_number: 1 }] as never }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=publish&section=review')
-  await stepHeading('Test & Publish')
+  await stepHeading('Review & Publish')
   await user.click(await screen.findByRole('checkbox', { name: /Each Recipient's Local Time/ }))
   await user.click(await screen.findByRole('button', { name: 'Publish to Production' }))
   expect(await screen.findByRole('dialog', { name: 'Publish to production?' })).toBeTruthy()
@@ -116,20 +123,20 @@ test('publishing with an unsaved schedule stores it first', async () => {
 })
 
 test('an e-receipt skips Audience; its schedule section says there is none', async () => {
-  installMockApi({ campaign: draft({ campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [], setup_step: 4 }) })
+  installMockApi({ campaign: draft({ campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [], setup_step: 5 }) })
   await renderAppAt('/campaigns/c1/edit')
-  expect(await stepHeading('Test & Publish')).toBeTruthy()
-  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Targets', 'Test & Publish'])
+  expect(await stepHeading('Review & Publish')).toBeTruthy()
+  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Targets', 'Test', 'Review & Publish'])
   expect(await screen.findByText('This is an E-Receipt campaign, so there is no schedule to set')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Change the campaign type' })).toBeNull()                // the type is fixed after creation
   expect(screen.queryByRole('button', { name: 'Save Schedule' })).toBeNull()
 })
 
-test('resume: 1 → Audience (Content for an e-receipt), 2 → Content, 3 → Targets, 4 or 5 → Test & Publish; complete → the campaign page', async () => {
-  expect([0, 1, 2, 3, 4, 5, 6].map((progress) => resumeStep(progress, 'REGULAR_MARKETING'))).toEqual(['audience', 'audience', 'content', 'targets', 'publish', 'publish', 'publish'])
+test('resume: 1 → Audience (Content for an e-receipt), 2 → Content, 3 → Targets, 4 → Test, 5 → Review & Publish; complete → the campaign page', async () => {
+  expect([0, 1, 2, 3, 4, 5, 6].map((progress) => resumeStep(progress, 'REGULAR_MARKETING'))).toEqual(['audience', 'audience', 'content', 'targets', 'test', 'publish', 'publish'])
   expect(resumeStep(1, 'E_RECEIPT')).toBe('content')
 
-  for (const [progress, heading] of [[1, 'Audience'], [2, 'Content'], [3, 'Targets'], [5, 'Test & Publish']] as const) {
+  for (const [progress, heading] of [[1, 'Audience'], [2, 'Content'], [3, 'Targets'], [4, 'Test'], [5, 'Review & Publish']] as const) {
     installMockApi({ campaigns: [draft({ setup_step: progress })] })
     await renderAppAt('/campaigns/c1')                                                                   // a bookmark or a typed address
     expect(await stepHeading(heading)).toBeTruthy()
@@ -159,11 +166,11 @@ test('old links (?step=1..7) land in the new places, and the address is rewritte
   const at = (step: string) => placeFromParams(new URLSearchParams({ step }), 'REGULAR_MARKETING')
   expect(['1', '2', '3', '4', '5', '6', '7'].map(at)).toEqual([
     { step: 'audience', details: true }, { step: 'audience' }, { step: 'content' }, { step: 'publish', section: 'schedule' },
-    { step: 'targets' }, { step: 'publish', section: 'test' }, { step: 'publish', section: 'review' }])
+    { step: 'targets' }, { step: 'test' }, { step: 'publish', section: 'review' }])
   expect(placeFromParams(new URLSearchParams({ step: '1' }), 'E_RECEIPT')).toEqual({ step: 'content', details: true })
 
   for (const [old, heading, search] of [['1', 'Audience', '?step=audience&details=1'], ['3', 'Content', '?step=content'], ['5', 'Targets', '?step=targets'],
-    ['4', 'Test & Publish', '?step=publish&section=schedule'], ['7', 'Test & Publish', '?step=publish&section=review']] as const) {
+    ['4', 'Review & Publish', '?step=publish&section=schedule'], ['6', 'Test', '?step=test'], ['7', 'Review & Publish', '?step=publish&section=review']] as const) {
     installMockApi({ campaign })
     await renderAppAt(`/campaigns/c1/edit?step=${old}`)
     expect(await stepHeading(heading)).toBeTruthy()
@@ -179,7 +186,7 @@ test('the API’s field messages open where the field is: a step, or the Details
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test & Publish' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
   const details = await screen.findByRole('dialog', { name: 'Edit Details' })
   expect(within(details).getByText('Another campaign already has this name.')).toBeTruthy()
 
@@ -187,7 +194,7 @@ test('the API’s field messages open where the field is: a step, or the Details
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }), onSave: () => problem(400, { title: 'Invalid input', errors: { contact_lists: ['One of the lists no longer exists.'] } }) })
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test & Publish' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
   expect(await stepHeading('Audience')).toBeTruthy()
 })
 
@@ -212,12 +219,12 @@ test('a conflict (409) offers to reload the stored version', async () => {
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test & Publish' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
   expect(await screen.findByText('Someone else changed this campaign. Reload to see their version.')).toBeTruthy()
   expect(screen.getByRole('button', { name: /Reload the Latest Version/ })).toBeTruthy()
 })
 
-test('a drip series is set in Test & Publish, as it was on Scheduling & Delivery', async () => {
+test('a drip series is set in Review & Publish, as it was on Scheduling & Delivery', async () => {
   const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'DRIP', send_type: 'DRIP', drip_config: { time: '10:00', steps: [{ day: 0, label: 'Welcome' }] } }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=publish')
@@ -250,9 +257,10 @@ test('every field of the old seven steps is still reachable', async () => {
   expect(await screen.findByLabelText('Send From')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /^Targets/ }))                                     // old step 5
   for (const label of [/^Target Revenue/, /^Clicks/, /^Conversions/, /^Offer Redemptions/]) expect(await screen.findByLabelText(label)).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: /^Test & Publish/ }))                              // old steps 4, 6 and 7
-  expect(await screen.findByRole('radiogroup', { name: 'When to Send' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: /^Test\b/ }))                                        // old step 6
   expect(await screen.findByRole('group', { name: 'Send a Test' })).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: /^Review & Publish/ }))                            // old steps 4 and 7
+  expect(await screen.findByRole('radiogroup', { name: 'When to Send' })).toBeTruthy()
   expect(await screen.findByRole('list', { name: 'Pre-Publish Checklist' })).toBeTruthy()
   await user.click(screen.getByRole('button', { name: /^Audience/ }))                                    // old step 2
   expect(await screen.findByRole('link', { name: 'Fall Master Audience (opens in a new tab)' })).toBeTruthy()
@@ -266,7 +274,7 @@ test('the setup-in-progress line says how far the setup got, and the back button
   await stepHeading('Targets')
   expect(screen.queryByTestId('setup-progress')).toBeNull()
   await user.click(screen.getByRole('button', { name: /^Audience/ }))
-  expect((await screen.findByTestId('setup-progress')).textContent).toBe('Setup in progress: 2 of 4 steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.')
+  expect((await screen.findByTestId('setup-progress')).textContent).toBe('Setup in progress: 2 of 5 steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.')
   const back = screen.getByRole('link', { name: 'Back to Campaigns' })                                   // the flow bar's back button
   expect(back.getAttribute('href')).toBe('/campaigns')
   expect(back.querySelector('svg')?.getAttribute('class')).toContain('lucide-arrow-left')
