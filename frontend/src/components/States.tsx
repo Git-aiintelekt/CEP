@@ -23,6 +23,14 @@ export function Spinner({ size, tone = 'default', label = 'Loading', className =
   return <span role="status" aria-label={label} className={`inline-block shrink-0 animate-spin rounded-full border-2 ${sizeClass} ${toneClass} ${className}`} />
 }
 
+/**
+ * A grey bar standing in for a value that is still on its way: flat Gray 100, no shimmer (the design is flat, and
+ * reduced-motion users see the same). Vary `width` between neighbours so a column of them doesn't read as a grid.
+ */
+export function SkeletonLine({ width = '70%', height }: { width?: string; height?: number }) {
+  return <span aria-hidden data-skeleton className="my-1 block h-3.5 rounded-sm bg-surface-sunken" style={{ width, height }} />
+}
+
 export function FullPageSpinner({ label }: { label: string }) {
   return (
     <div className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-surface-subtle text-sm font-semibold text-ink-700">
@@ -83,7 +91,7 @@ export function ErrorState({ error, onRetry, title }: { error: unknown; onRetry?
       )}
       {onRetry && !forbidden && (
         <button type="button" onClick={onRetry} className="mt-3 font-medium underline underline-offset-2">
-          Try again
+          Try Again
         </button>
       )}
     </div>

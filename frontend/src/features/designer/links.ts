@@ -72,7 +72,7 @@ export function extractLinks(mjml: string, tags: PersonalizationTag[]): LinkEntr
       if (tag === 'a' && url === '') continue
       found.push({
         url,
-        label: labelOf(text, tag === 'mj-image' ? 'Image link' : 'Link'),
+        label: labelOf(text, tag === 'mj-image' ? 'Image Link' : 'Link'),
         element: tag === 'mj-button' ? 'button' : social ? 'social' : 'link',
         empty: (tag === 'mj-button' || social) && url === '',
         block: tag === 'a' ? null : { tag, nth },

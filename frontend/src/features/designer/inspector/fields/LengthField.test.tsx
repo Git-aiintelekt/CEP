@@ -13,12 +13,12 @@ function renderField(over: Partial<React.ComponentProps<typeof LengthField>> = {
   const onPreview = vi.fn()
   const onCancel = vi.fn()
   const result = render(
-    <LengthField label="Font size" value="15px" onCommit={onCommit} onPreview={onPreview} onCancel={onCancel} {...over} />,
+    <LengthField label="Font Size" value="15px" onCommit={onCommit} onPreview={onPreview} onCancel={onCancel} {...over} />,
   )
   return { onCommit, onPreview, onCancel, ...result }
 }
 
-const input = () => screen.getByLabelText('Font size') as HTMLInputElement
+const input = () => screen.getByLabelText('Font Size') as HTMLInputElement
 
 test('the number is shown without its unit, which sits beside it', () => {
   renderField()
@@ -158,7 +158,7 @@ test('a percentage is offered only where the unit list allows one', async () => 
   const user = userEvent.setup()
   const { onCommit } = renderField({ value: '50%', units: ['px', '%'] })
 
-  const group = screen.getByRole('radiogroup', { name: 'Font size unit' })
+  const group = screen.getByRole('radiogroup', { name: 'Font Size Unit' })
   expect(group).toBeTruthy()
   expect(screen.getByRole('radio', { name: '%' }).getAttribute('aria-checked')).toBe('true')
 

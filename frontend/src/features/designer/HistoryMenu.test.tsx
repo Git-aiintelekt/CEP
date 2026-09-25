@@ -125,7 +125,7 @@ test('only one of History and the pills is open at a time', async () => {
   render(<Harness withPill />)
   await user.click(trigger())
   expect(screen.queryByRole('region', { name: HISTORY_HEADING })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: /No errors/ }))
+  await user.click(screen.getByRole('button', { name: /No Errors/ }))
   expect(screen.queryByRole('region', { name: HISTORY_HEADING })).toBeNull()
   expect(screen.getByRole('region', { name: 'Errors' })).toBeTruthy()
 })

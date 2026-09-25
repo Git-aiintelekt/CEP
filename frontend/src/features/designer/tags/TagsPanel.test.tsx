@@ -49,7 +49,7 @@ test('the list is the picker, inline: search at the top, headings, and rows of n
   renderPanel({ recent: ['offer_code'] })
   // the design's pop-up search: a 32px grey field around a bare input
   expect((screen.getByRole('searchbox', { name: SEARCH_LABEL }).parentElement as HTMLElement).className).toContain('h-8')
-  expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([RECENT_LABEL, 'Customer', 'Campaign list'])
+  expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([RECENT_LABEL, 'Customer', 'Campaign List'])
 
   // the sample and the default moved into the row's title, so the row itself is just the name and its token
   expect(row(/First name/).textContent).toBe('First name{{first_name}}')

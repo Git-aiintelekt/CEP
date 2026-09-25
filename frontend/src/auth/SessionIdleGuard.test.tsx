@@ -50,7 +50,7 @@ test('idle warning: appears after the configured idle time, counts down, and "St
   await vi.advanceTimersByTimeAsync(1_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' }).textContent).toContain('2 seconds')
 
-  fireEvent.click(screen.getByRole('button', { name: 'Stay signed in' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Stay Signed In' }))
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
   expect(window.localStorage.getItem('cep.access')).toBe('access-1') // still signed in
 
@@ -67,7 +67,7 @@ test('idle warning: no response before it runs out signs the person out and the 
   await vi.advanceTimersByTimeAsync(3_000) // the whole warning window, untouched
   await vi.advanceTimersByTimeAsync(50) // settles the sign-out -> redirect -> login-page render chain
 
-  expect(screen.getByRole('heading', { name: 'Log in to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
   expect(screen.getByRole('status').textContent).toContain('signed out after some time without activity')
   expect(window.localStorage.getItem('cep.access')).toBeNull() // the token is really gone, not just the screen changed
 })
@@ -77,9 +77,9 @@ test('idle warning: "Sign out now" ends the session immediately, without waiting
   await vi.advanceTimersByTimeAsync(60_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Sign out now' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Sign Out Now' }))
   await vi.advanceTimersByTimeAsync(50)
-  expect(screen.getByRole('heading', { name: 'Log in to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
 })
 
 test('idle warning: activity recorded in another tab (the shared timestamp) stands a warning down in this one', async () => {
@@ -108,5 +108,5 @@ test('a resting pointer over the page while the warning is up does not silently 
 
   await vi.advanceTimersByTimeAsync(3_000)
   await vi.advanceTimersByTimeAsync(50) // settles the sign-out -> redirect -> login-page render chain
-  expect(screen.getByRole('heading', { name: 'Log in to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
 })

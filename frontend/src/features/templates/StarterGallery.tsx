@@ -22,8 +22,8 @@ interface StarterGalleryProps {
   onChange: (key: string, starter: TemplateStarter | null) => void
 }
 
-export const CATEGORIES_LABEL = 'Starter categories'
-export const USE_STARTER_LABEL = 'Use this starter'
+export const CATEGORIES_LABEL = 'Starter Categories'
+export const USE_STARTER_LABEL = 'Use This Starter'
 
 const CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg border-2 bg-surface text-left transition-colors'
 const state = (selected: boolean) => (selected ? 'border-brand-600 ring-2 ring-brand-100' : 'border-line hover:border-brand-600')
@@ -103,7 +103,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
 
   return (
     <fieldset className="rounded-lg border border-line bg-surface p-5">
-      <legend className="px-1 text-sm font-semibold text-ink-900">Start from</legend>
+      <legend className="px-1 text-sm font-semibold text-ink-900">Start From</legend>
       <p className="mb-4 text-sm text-ink-500">A starter is only a beginning: it becomes version 1 of your template and you can change everything in it.</p>
 
       {starters.isPending ? (
@@ -134,7 +134,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
             </ul>
           </nav>
 
-          <div role="radiogroup" aria-label="Starting point" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div role="radiogroup" aria-label="Starting Point" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <button type="button" role="radio" aria-checked={value === ''} onClick={() => onChange('', null)} className={`${CARD} ${state(value === '')}`}>
               <div aria-hidden className="flex h-52 items-center justify-center border-b border-line bg-surface-subtle text-4xl font-light text-ink-300">+</div>
               <div className="p-3">

@@ -5,7 +5,7 @@ import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockC
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { ApiKey, Audience, AuthOptions, Campaign, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -262,6 +262,22 @@ interface MockOptions {
   campaign?: Campaign
   /** the workspace's campaigns (GET /campaigns/); default: the one campaign above */
   campaigns?: Campaign[]
+  /** the tags GET /campaigns/form-options/ offers; default Fall and VIP */
+  campaignTags?: string[]
+  /** merged over the default GET /campaigns/{id}/audience/ answer */
+  audience?: Partial<CampaignAudience>
+  /** GET /campaigns/{id}/audience/export/ fails with a 503 */
+  audienceExportFails?: boolean
+  /** merged over the campaign results (GET /campaigns/{id}/metrics/) */
+  metrics?: Partial<CampaignMetrics>
+  /** GET /campaigns/{id}/activity/ answers these instead of the default two entries */
+  activity?: CampaignActivity[]
+  /** the workspace's contact lists (default: Fall Master Audience and Georgia only) */
+  lists?: ContactList[]
+  /** merged over GET /campaigns/audience-estimate/ */
+  estimate?: Partial<CampaignAudience>
+  /** GET /campaigns/{id}/activity/ fails with a 503 */
+  activityFails?: boolean
   /** answer for POST /campaigns/ and PATCH /campaigns/{id}/ ; default echoes a saved campaign */
   onSave?: (call: Call) => Response | null
   /** answer for POST /templates/ ; default echoes a created draft */
@@ -319,8 +335,8 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
-  const campaignState = { campaigns: options.campaigns ?? [campaign], make: makeCampaign }
-  let listsNow: ContactList[] = [...contactLists]
+  const campaignState = { campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate }
+  let listsNow: ContactList[] = [...(options.lists ?? contactLists)]
   let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]

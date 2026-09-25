@@ -11,7 +11,7 @@ export const ELLIPSIS = '…'
 export const CRUMBS_SHOWN = 4
 
 /** Worded apart from the layers tree's canvas-only hiding: this block ships and sends. */
-export const PHONES_TAG_LABEL = 'Hidden on phones'
+export const PHONES_TAG_LABEL = 'Hidden on Phones'
 export const PHONES_TAG_NOTE = 'Hidden on phones. It is sent, but phones do not show it.'
 
 export interface Crumb {

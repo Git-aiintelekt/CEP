@@ -51,7 +51,7 @@ export function registerReceiptSlotType(editor: Editor, { channel }: { channel: 
     extend: 'mj-raw',
     isComponent: (el: HTMLElement) => el.tagName === 'MJ-RAW' && el.getAttribute('css-class') === RECEIPT_SLOT_CSS_CLASS,
     model: {
-      defaults: { name: 'Receipt slot', draggable: false, removable: false, copyable: false, editable: false, droppable: false, highlightable: true, layerable: true },
+      defaults: { name: 'Receipt Slot', draggable: false, removable: false, copyable: false, editable: false, droppable: false, highlightable: true, layerable: true },
       init(this: Component) {
         raw?.init?.call(this)
         this.components().forEach(makeInert)

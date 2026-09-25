@@ -27,7 +27,7 @@ const empty = profileById('empty')
 // ---- the three profiles --------------------------------------------------
 
 test('there are three profiles, and the preview opens on sample values', () => {
-  expect(PREVIEW_PROFILES.map((profile) => profile.label)).toEqual(['Sample values', 'Full profile', 'Empty profile'])
+  expect(PREVIEW_PROFILES.map((profile) => profile.label)).toEqual(['Sample Values', 'Full Profile', 'Empty Profile'])
   expect(DEFAULT_PROFILE.id).toBe('sample')
 })
 

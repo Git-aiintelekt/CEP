@@ -29,18 +29,18 @@ test('the MJML tags get their CEP names, not humanised ones', () => {
   expect(defaultNameFor('mj-image')).toBe('Image')
   expect(defaultNameFor('mj-divider')).toBe('Divider')
   expect(defaultNameFor('mj-spacer')).toBe('Spacer')
-  expect(defaultNameFor('mj-social')).toBe('Social links')
-  expect(defaultNameFor('mj-body')).toBe('Email body')
+  expect(defaultNameFor('mj-social')).toBe('Social Links')
+  expect(defaultNameFor('mj-body')).toBe('Email Body')
 })
 
 test('a social icon is named after its network when it has one', () => {
   expect(defaultNameFor('mj-social-element', { name: 'facebook' })).toBe('Facebook')
-  expect(defaultNameFor('mj-social-element', { name: '  ' })).toBe('Social icon')
-  expect(defaultNameFor('mj-social-element')).toBe('Social icon')
+  expect(defaultNameFor('mj-social-element', { name: '  ' })).toBe('Social Icon')
+  expect(defaultNameFor('mj-social-element')).toBe('Social Icon')
 })
 
 test('an unknown tag still reads as words rather than markup', () => {
-  expect(defaultNameFor('mj-carousel-image')).toBe('Carousel image')
+  expect(defaultNameFor('mj-carousel-image')).toBe('Carousel Image')
   expect(humanise('mj-')).toBe('Block')
   expect(iconFor('mj-carousel-image')).toBe(GENERIC_ICON)
 })
@@ -53,6 +53,6 @@ test('a name the reader typed wins, and clearing it brings the default back', ()
 })
 
 test('the locked receipt slot reads as a receipt slot with a lock', () => {
-  expect(defaultNameFor('cep-receipt-slot')).toBe('Receipt slot')
+  expect(defaultNameFor('cep-receipt-slot')).toBe('Receipt Slot')
   expect(iconFor('cep-receipt-slot')).toBe(Lock)
 })

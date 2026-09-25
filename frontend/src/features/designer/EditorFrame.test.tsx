@@ -79,13 +79,13 @@ test('the top bar shows the name, status and save note', () => {
   expect(screen.getByRole('heading', { name: 'Autumn rewards' })).toBeTruthy()
   expect(screen.getByText('Draft')).toBeTruthy()
   expect(screen.getByText('Version 3 · unsaved changes')).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Back to templates' }).getAttribute('href')).toBe('/templates')
+  expect(screen.getByRole('link', { name: 'Back to Templates' }).getAttribute('href')).toBe('/templates')
 })
 
 test('the tabs carry the expected roles and wiring', () => {
   render(<Frame />)
 
-  expect(screen.getByRole('tablist', { name: 'Editor view' })).toBeTruthy()
+  expect(screen.getByRole('tablist', { name: 'Editor View' })).toBeTruthy()
   expect(tab('Content').getAttribute('aria-selected')).toBe('true')
   expect(tab('Preview').getAttribute('aria-selected')).toBe('false')
   // roving tabindex: only the active tab is in the tab order
@@ -159,7 +159,7 @@ test('arrow keys, Home and End move and activate the tabs', async () => {
 test('the optional slots render only when given', () => {
   const { unmount } = render(<Frame />)
   expect(screen.queryByText('save here')).toBeNull()
-  expect(screen.queryByRole('navigation', { name: 'Campaign steps' })).toBeNull()
+  expect(screen.queryByRole('navigation', { name: 'Campaign Steps' })).toBeNull()
   unmount()
 
   render(
@@ -173,7 +173,7 @@ test('the optional slots render only when given', () => {
   expect(screen.getByRole('button', { name: 'save here' })).toBeTruthy()
   expect(screen.getByText('pills here')).toBeTruthy()
   expect(screen.getByText('footer here')).toBeTruthy()
-  expect(screen.getByRole('navigation', { name: 'Campaign steps' })).toBeTruthy()
+  expect(screen.getByRole('navigation', { name: 'Campaign Steps' })).toBeTruthy()
 })
 
 test('a window under 1024px gets a message instead of the frame', () => {
@@ -182,12 +182,12 @@ test('a window under 1024px gets a message instead of the frame', () => {
 
   expect(screen.getByText('The template editor needs a wider window. Widen it to at least 1024 px to continue.')).toBeTruthy()
   expect(screen.queryByRole('tablist')).toBeNull()
-  expect(screen.getByRole('link', { name: 'Back to templates' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Back to Templates' })).toBeTruthy()
 })
 
 test('a window at 1024px gets the full frame', () => {
   setViewport(1024)
   render(<Frame />)
 
-  expect(screen.getByRole('tablist', { name: 'Editor view' })).toBeTruthy()
+  expect(screen.getByRole('tablist', { name: 'Editor View' })).toBeTruthy()
 })

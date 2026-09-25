@@ -42,7 +42,7 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   await user.clear(body)
   await user.type(body, 'Use  today')
   body.setSelectionRange(4, 4)
-  await user.selectOptions(screen.getByLabelText('Insert personalization tag'), '{{offer_code}}')
+  await user.selectOptions(screen.getByLabelText('Insert Personalization Tag'), '{{offer_code}}')
   expect(body.value).toBe('Use {{offer_code}} today')
 
   await user.click(body)
@@ -51,7 +51,8 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   expect(screen.getByText(/outside the standard SMS alphabet/)).toBeTruthy()
   expect(screen.getByText(/No opt-out wording/)).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: /Replace curly quotes/ }))
+  expect(screen.getByText(/Swaps curly quotes, long dashes and ellipses for plain ones/)).toBeTruthy()      // the hint says what the button does
+  await user.click(screen.getByRole('button', { name: 'Use Plain Punctuation' }))
   expect(counter()).toContain('GSM-7')
   expect(body.value).toBe('Use {{offer_code}} today - it\'s "yours"')
 
@@ -71,7 +72,7 @@ test('MMS: only MMS-safe pictures are offered, the chosen one is previewed and s
   await user.type(screen.getByLabelText(/^Subject/), 'Fall lookbook')
   expect(screen.getByText(/No picture yet/)).toBeTruthy()
 
-  await user.click(screen.getByRole('button', { name: 'Choose from library' }))
+  await user.click(screen.getByRole('button', { name: 'Choose from Library' }))
   expect(screen.queryByRole('button', { name: 'Use modern.webp' })).toBeNull() // WebP is not reliably delivered over MMS
   await user.click(await screen.findByRole('button', { name: 'Use lookbook.jpg' }))
   expect(screen.queryByText(/No picture yet/)).toBeNull()
@@ -107,5 +108,5 @@ test('an email template is pointed to the email designer instead', async () => {
   await renderAppAt('/templates/tpl-email/message')
 
   expect(await screen.findByText('This is not a text message template')).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Open the email designer' }).getAttribute('href')).toBe('/templates/tpl-email/design')
+  expect(screen.getByRole('link', { name: 'Open the Email Designer' }).getAttribute('href')).toBe('/templates/tpl-email/design')
 })

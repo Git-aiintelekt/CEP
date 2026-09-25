@@ -55,32 +55,32 @@ test('it shows the note and, as designed, no back link of its own', () => {
   expect(note.className).toContain('text-danger-text')
 })
 
-test('Save draft is the secondary button, as the design has it, whether or not Activate is there', () => {
+test('Save Draft is the secondary button, as the design has it, whether or not Activate is there', () => {
   renderFooter({ save: { onClick: () => {} } })
-  const only = screen.getByRole('button', { name: /Save draft/ })
+  const only = screen.getByRole('button', { name: /Save Draft/ })
   expect(only.className).not.toContain('bg-brand-600')
   expect(only.className).toContain('border-line')
 })
 
-test('Save draft stays secondary once a primary action exists', () => {
+test('Save Draft stays secondary once a primary action exists', () => {
   renderFooter({ save: { onClick: () => {} }, primary: { label: 'Activate', onClick: () => {} } })
 
-  expect(screen.getByRole('button', { name: /Save draft/ }).className).not.toContain('bg-brand-600')
+  expect(screen.getByRole('button', { name: /Save Draft/ }).className).not.toContain('bg-brand-600')
   expect(screen.getByRole('button', { name: 'Activate' }).className).toContain('bg-brand-600')
 })
 
 test('read-only shows neither button', () => {
   renderFooter()
-  expect(screen.queryByRole('button', { name: /Save draft/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Save Draft/ })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Activate' })).toBeNull()
 })
 
-test('Save draft is disabled only while busy', async () => {
+test('Save Draft is disabled only while busy', async () => {
   const onClick = vi.fn()
   const user = userEvent.setup()
   const { rerender } = renderFooter({ save: { onClick } })
 
-  await user.click(screen.getByRole('button', { name: /Save draft/ }))
+  await user.click(screen.getByRole('button', { name: /Save Draft/ }))
   expect(onClick).toHaveBeenCalledTimes(1)
 
   rerender(
@@ -93,7 +93,7 @@ test('Save draft is disabled only while busy', async () => {
   expect(busy.disabled).toBe(true)
   expect(busy.textContent).toContain('Saving…')
   expect(busy.querySelector('.animate-spin')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /Save draft/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Save Draft/ })).toBeNull()
 })
 
 test('a disabled primary stays focusable, does nothing when clicked and explains itself', async () => {

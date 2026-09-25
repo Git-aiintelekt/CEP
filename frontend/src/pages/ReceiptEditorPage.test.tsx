@@ -33,7 +33,7 @@ test('opens the real receipt editor on the template, its outer design and its re
 
   // the editor is a lazy route: under a full test run it can take a moment to arrive
   expect(await screen.findByRole('heading', { name: 'Northline order receipt' }, { timeout: 5000 })).toBeTruthy()
-  expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Outer design', 'Receipt layout', 'Preview & test'])
+  expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Outer Design', 'Receipt Layout', 'Preview & Test'])
   expect(screen.queryByText(/coming soon/i)).toBeNull()
   expect(document.querySelector('header .cep-num')?.textContent).toContain('Outer design v1 · receipt layout v1')
 
@@ -50,9 +50,9 @@ test('Save sends both parts to their own endpoints, each with its version lock',
   await screen.findByRole('heading', { name: 'Northline order receipt' }, { timeout: 5000 })
 
   await user.click(screen.getByRole('button', { name: 'Remove the footer' }))
-  await user.click(screen.getByRole('tab', { name: 'Receipt layout' }))
+  await user.click(screen.getByRole('tab', { name: 'Receipt Layout' }))
   await user.click(screen.getByRole('switch', { name: 'Show Loyalty' }))
-  await user.click(screen.getByRole('button', { name: 'Save draft' }))
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
 
   await waitFor(() => expect(document.querySelector('header .cep-num')?.textContent).toContain('Outer design v2 · receipt layout v2'))
   const posted = (path: string) => calls.find((call) => call.method === 'POST' && call.url.endsWith(path))?.body
@@ -66,7 +66,7 @@ test('an email template sent here says it belongs elsewhere', async () => {
   installMockApi({ template: templates.find((item) => item.id === 'tpl-email') })
   await renderAppAt('/templates/tpl-email/receipt')
   expect(await screen.findByText('This is not an e-receipt template')).toBeTruthy()
-  expect(screen.queryByRole('tab', { name: 'Outer design' })).toBeNull()
+  expect(screen.queryByRole('tab', { name: 'Outer Design' })).toBeNull()
 })
 
 test('the mock receipt endpoints answer the layout, its versions, and a first save as version 1', async () => {

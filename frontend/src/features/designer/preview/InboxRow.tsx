@@ -35,7 +35,7 @@ interface InboxRowProps {
 
 export function InboxRow({ subject, preheader, catalogue, profile, time }: InboxRowProps) {
   return (
-    <div aria-label="Inbox row" role="group" className="flex gap-3 border-b border-line bg-surface px-4 py-3">
+    <div aria-label="Inbox Row" role="group" className="flex gap-3 border-b border-line bg-surface px-4 py-3">
       <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-line text-sm font-semibold text-ink-700">
         {SENDER_PLACEHOLDER.charAt(0)}
       </span>

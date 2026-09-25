@@ -4,7 +4,7 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
-import { formatDate, formatNumber } from '@/lib/format'
+import { formatDate, formatNumber, titleize } from '@/lib/format'
 import type { Invoice, Usage, UsageMeter } from '@/lib/types'
 
 const money = (amount: number | string, currency: string) => new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(amount))
@@ -65,18 +65,18 @@ export function PlanUsagePage() {
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-card-title font-semibold text-ink-900">{plan ? `${plan.name} plan` : 'No plan'}</h2>
+          <h2 className="text-card-title font-semibold text-ink-900">{plan ? `${plan.name} Plan` : 'No Plan'}</h2>
           <p className="text-sm text-ink-500">
             {plan ? (plan.monthly_price ? `${money(plan.monthly_price, currency)} per month` : 'Custom pricing') : 'Usage is measured, but no limits apply.'} · usage for {monthName(month)}, refreshed every hour
           </p>
         </div>
-        {plan && plan.status !== 'ACTIVE' && <StatusBadge status="SCHEDULED" label={plan.status} />}
+        {plan && plan.status !== 'ACTIVE' && <StatusBadge status="SCHEDULED" label={titleize(plan.status)} />}
       </div>
 
       <ul aria-label="Usage" className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">{meters.map((meter) => <Meter key={meter.label} meter={meter} currency={currency} />)}</ul>
 
       <div className="rounded-lg border border-line bg-surface p-4">
-        <h3 className="text-sm font-medium text-ink-700">Messages by channel</h3>
+        <h3 className="text-sm font-medium text-ink-700">Messages by Channel</h3>
         <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
           {Object.entries(breakdown).map(([label, value]) => (
             <div key={label}><dt className="text-xs text-ink-500">{label}</dt><dd className="text-sm font-semibold text-ink-900">{formatNumber(value)}</dd></div>

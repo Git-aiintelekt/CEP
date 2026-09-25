@@ -1,8 +1,9 @@
 import { X } from 'lucide-react'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import { IconButton } from './Button'
+import { useDialogBehaviour } from './useDialogBehaviour'
 
 interface ModalProps {
   title: string
@@ -12,8 +13,8 @@ interface ModalProps {
   children: ReactNode
   /** sticky footer, usually the action buttons */
   footer?: ReactNode
-  /** md is the 480px dialog; lg is the wider variant for forms with long option lists; xl fits a 600px email preview */
-  size?: 'md' | 'lg' | 'xl'
+  /** md is the 480px dialog; picker (640px) holds a searchable list to choose from; lg is the wider variant for forms with long option lists; xl fits a 600px email preview */
+  size?: 'md' | 'picker' | 'lg' | 'xl'
   /** a tile before the title (the Templates create dialog's channel tile); the title steps up to 18px with it */
   leading?: ReactNode
   /** a row under the title, such as tags */
@@ -24,9 +25,7 @@ interface ModalProps {
   scrollBody?: boolean
 }
 
-const WIDTH = { md: 'md:max-w-[480px]', lg: 'md:max-w-3xl', xl: 'md:max-w-[880px]' }
-
-const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+const WIDTH = { md: 'md:max-w-[480px]', picker: 'md:max-w-[640px]', lg: 'md:max-w-3xl', xl: 'md:max-w-[880px]' }
 
 /**
  * Accessible dialog: labelled, Escape closes, Tab stays inside, focus moves in on open and returns to the opener on close.
@@ -37,39 +36,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
   const subtitleId = `${titleId}-subtitle`
   const panel = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null
-    const first = panel.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button')
-    first?.focus()
-    const onKey = (event: KeyboardEvent) => {
-      // a dialog opened on top of this one (a confirmation) owns the keyboard until it closes
-      const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]')
-      if (open.length > 0 && open[open.length - 1] !== panel.current) return
-      if (event.key === 'Escape') {
-        onClose()
-        return
-      }
-      if (event.key !== 'Tab' || !panel.current) return
-      const stops = Array.from(panel.current.querySelectorAll<HTMLElement>(FOCUSABLE))
-      if (stops.length === 0) return
-      const firstStop = stops[0]
-      const lastStop = stops[stops.length - 1]
-      if (event.shiftKey && document.activeElement === firstStop) {
-        event.preventDefault()
-        lastStop.focus()
-      } else if (!event.shiftKey && document.activeElement === lastStop) {
-        event.preventDefault()
-        firstStop.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      opener?.focus?.()
-    }
-    // onClose identity changes every render of the parent; the dialog is mounted once per opening
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useDialogBehaviour(panel, onClose)
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 md:p-10" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>

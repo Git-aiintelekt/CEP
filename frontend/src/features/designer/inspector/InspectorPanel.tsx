@@ -52,7 +52,7 @@ export function InspectorPanel({
   disabled = false, recent, onRecentUse, onChooseImage, version, focusKey, hasFields = true, tagPicker, receiptSlot,
 }: InspectorPanelProps) {
   return (
-    <aside aria-label="Block settings" className="flex h-full min-h-0 w-[296px] shrink-0 flex-col border-l border-line bg-surface max-[1439px]:w-[272px] max-[1199px]:w-[264px]">
+    <aside aria-label="Block Settings" className="flex h-full min-h-0 w-[296px] shrink-0 flex-col border-l border-line bg-surface max-[1439px]:w-[272px] max-[1199px]:w-[264px]">
       {disabled ? <p className="shrink-0 border-b border-line-subtle px-3 py-2 text-xs text-ink-700">{VIEW_ONLY_NOTE}</p> : null}
       {kind === null || component === null || editor === null ?
         <p className="flex min-h-0 flex-1 items-center justify-center p-3 text-center text-sm text-ink-700">{disabled ? VIEW_ONLY_EMPTY_NOTE : EMPTY_NOTE}</p>
@@ -67,7 +67,7 @@ export function InspectorPanel({
                 className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-brand-800 transition-colors duration-base ease-standard hover:underline"
               >
                 <ChevronUp size={14} strokeWidth={1.5} aria-hidden />
-                Select parent
+                Select Parent
               </button>
             : null}
             {onDeselect ?

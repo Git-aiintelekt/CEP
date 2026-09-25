@@ -28,7 +28,7 @@ test('an email template is created as a draft and the designer opens on it', asy
 
   await user.type(await screen.findByLabelText(/^Name/), 'Holiday Email')
   await user.type(screen.getByLabelText('Description'), 'Early access')
-  await user.click(screen.getByRole('button', { name: 'Create and open the designer' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Open the Designer' }))
 
   expect(await screen.findByText('designer opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/design')
@@ -42,7 +42,7 @@ test('an SMS template is created and the message editor opens on it', async () =
 
   await user.type(await screen.findByLabelText(/^Name/), 'Holiday SMS')
   await user.selectOptions(screen.getByLabelText(/^Channel/), 'SMS')
-  await user.click(screen.getByRole('button', { name: 'Create and write the message' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Write the Message' }))
 
   await screen.findByLabelText('Message')
   expect(window.location.pathname).toBe('/templates/tpl-new/message')
@@ -57,7 +57,7 @@ test('an e-receipt template opens the receipt editor, not the email designer', a
   await user.type(await screen.findByLabelText(/^Name/), 'Store receipt')
   await user.selectOptions(screen.getByLabelText(/^Channel/), 'E_RECEIPT')
   expect(screen.getByText('Transactional receipt email. Opens the receipt editor.')).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Create and open the receipt editor' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Open the Receipt Editor' }))
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')
@@ -79,7 +79,7 @@ test('a starter is offered for the channel, previewed with sample values, pre-fi
   expect(card.getAttribute('aria-checked')).toBe('true')
   expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Sale announcement')
 
-  await user.click(screen.getByRole('button', { name: 'Create and open the designer' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Open the Designer' }))
   expect(await screen.findByText('designer opened')).toBeTruthy()
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body).toMatchObject({ name: 'Sale announcement', channel: 'EMAIL', starter: 'promotion' })
 })
@@ -135,7 +135,7 @@ test('the preview button opens the whole starter in a dialog, from which it can 
   expect(frame.getAttribute('sandbox')).toBe('')
   expect(screen.getByRole('radio', { name: /Sale announcement/ }).getAttribute('aria-checked')).toBe('false')
 
-  await user.click(screen.getByRole('button', { name: 'Use this starter' }))
+  await user.click(screen.getByRole('button', { name: 'Use This Starter' }))
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.getByRole('radio', { name: /Sale announcement/ }).getAttribute('aria-checked')).toBe('true')
   expect((screen.getByLabelText(/^Name/) as HTMLInputElement).value).toBe('Sale announcement')
@@ -152,7 +152,7 @@ test('changing the channel swaps the starters and clears the choice', async () =
   expect(screen.getByText('Hi Jordan, code FALL017. Reply STOP to opt out.')).toBeTruthy()
   expect(screen.getByRole('radio', { name: /Blank/ }).getAttribute('aria-checked')).toBe('true')
 
-  await user.click(screen.getByRole('button', { name: 'Create and write the message' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Write the Message' }))
   await screen.findByLabelText('Message')
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body).not.toHaveProperty('starter')
 })
@@ -163,7 +163,7 @@ test('a duplicate name reported by the API is shown on the name field', async ()
   await renderAppAt('/templates/new')
 
   await user.type(await screen.findByLabelText(/^Name/), 'Fall Email')
-  await user.click(screen.getByRole('button', { name: 'Create and open the designer' }))
+  await user.click(screen.getByRole('button', { name: 'Create and Open the Designer' }))
 
   expect(await screen.findByText('Another template already has this name.')).toBeTruthy()
   expect(screen.getByLabelText(/^Name/).getAttribute('aria-invalid')).toBe('true')

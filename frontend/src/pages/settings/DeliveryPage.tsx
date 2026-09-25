@@ -43,10 +43,10 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
 
   return (
-    <Modal title={provider ? `Edit ${provider.name}` : 'Add a sending engine'} onClose={onClose} size="lg"
+    <Modal title={provider ? `Edit ${provider.name}` : 'Add a Sending Engine'} onClose={onClose} size="lg"
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}{provider ? 'Save changes' : 'Add engine'}</button>
+        <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}{provider ? 'Save Changes' : 'Add Engine'}</button>
       </>}>
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the provider" error={other} />}
@@ -81,12 +81,12 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
           )
         })}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Messages per minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts.">
+          <Field label="Messages per Minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts.">
             {(ids) => <TextInput {...ids} type="number" min={1} value={rate} onChange={(event) => setRate(event.target.value)} />}
           </Field>
           <div className="space-y-2 self-end pb-1 text-sm text-ink-900">
-            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default engine for {spec?.channel === 'SMS' ? 'texts' : 'email'}</label>
-            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /> In use</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Engine for {spec?.channel === 'SMS' ? 'Texts' : 'Email'}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /> In Use</label>
           </div>
         </div>
       </form>
@@ -116,34 +116,34 @@ function SenderForm({ providers, sender, onClose }: { providers: DeliveryProvide
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
   return (
-    <Modal title={sender ? `Edit ${sender.display_name}` : 'Add a sender'} onClose={onClose}
+    <Modal title={sender ? `Edit ${sender.display_name}` : 'Add a Sender'} onClose={onClose}
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
-        <button type="submit" form="sender-form" className={buttonPrimary} disabled={save.isPending}>{sender ? 'Save changes' : 'Add sender'}</button>
+        <button type="submit" form="sender-form" className={buttonPrimary} disabled={save.isPending}>{sender ? 'Save Changes' : 'Add Sender'}</button>
       </>}>
       <form id="sender-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the sender" error={other} />}
-        <Field label="Sends through" required error={errors.delivery_provider}>
+        <Field label="Sends Through" required error={errors.delivery_provider}>
           {(ids) => <Select {...ids} value={provider} onChange={(event) => setProvider(event.target.value)}>
             {usable.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>}
         </Field>
-        <Field label={texts ? 'Name' : 'From name'} required error={errors.display_name} hint={texts ? 'How this sender is listed in campaigns, e.g. Northwind texts.' : 'What people see in their inbox, e.g. Northwind Rewards.'}>
+        <Field label={texts ? 'Name' : 'From Name'} required error={errors.display_name} hint={texts ? 'How this sender is listed in campaigns, e.g. Northwind texts.' : 'What people see in their inbox, e.g. Northwind Rewards.'}>
           {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} />}
         </Field>
         {texts ? (
-          <Field label="Sender number" required error={errors.sender_id} hint="The number texts come from: a short code (55123), a long number with country code (+14045550100) or an alphanumeric sender (up to 11 characters). It must be registered with your aggregator.">
+          <Field label="Sender Number" required error={errors.sender_id} hint="The number texts come from: a short code (55123), a long number with country code (+14045550100) or an alphanumeric sender (up to 11 characters). It must be registered with your aggregator.">
             {(ids) => <TextInput {...ids} value={senderId} onChange={(event) => setSenderId(event.target.value)} autoComplete="off" />}
           </Field>
         ) : (<>
-          <Field label="From address" required error={errors.from_address} hint="Must belong to a domain your provider is allowed to send for. Changing it needs a new verification.">
+          <Field label="From Address" required error={errors.from_address} hint="Must belong to a domain your provider is allowed to send for. Changing it needs a new verification.">
             {(ids) => <TextInput {...ids} type="email" value={from} onChange={(event) => setFrom(event.target.value)} autoComplete="off" />}
           </Field>
-          <Field label="Reply-to address" error={errors.reply_to_address}>
+          <Field label="Reply-To Address" error={errors.reply_to_address}>
             {(ids) => <TextInput {...ids} type="email" value={replyTo} onChange={(event) => setReplyTo(event.target.value)} autoComplete="off" />}
           </Field>
         </>)}
-        <label className="flex items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default sender for {texts ? 'texts' : 'email'}</label>
+        <label className="flex items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={isDefault} onChange={(event) => setIsDefault(event.target.checked)} /> Default Sender for {texts ? 'Texts' : 'Email'}</label>
       </form>
     </Modal>
   )
@@ -191,18 +191,18 @@ export function DeliveryPage() {
 
   const providerColumns: Column<DeliveryProvider>[] = [
     { key: 'name', header: 'Provider', render: (row) => (
-      <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'TEXTS' : 'EMAIL'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>DEFAULT</Tag></span>}</p>
+      <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'Texts' : 'Email'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
         <p className="text-xs text-ink-500">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
-    { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched off" />
-      : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not checked yet" /> },
-    { key: 'webhook', header: 'Callback address', render: (row) => row.webhook_url
+    { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
+      : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
+    { key: 'webhook', header: 'Callback Address', render: (row) => row.webhook_url
       ? <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
-          onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy webhook URL'}</button>
+          onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
       : <span className="text-xs text-ink-500">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
       <span className="flex justify-end gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
-        {row.manageable === false ? <Link to="/settings/email" className="text-brand-800 hover:underline">Email server</Link> : (<>
+        {row.manageable === false ? <Link to="/settings/email" className="text-brand-800 hover:underline">Email Server</Link> : (<>
           <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing(row)}>Edit</button>
           <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => window.confirm(`Remove ${row.name}? Its senders are removed with it.`) && removeProvider.mutate(row)}>Remove</button>
         </>)}
@@ -210,14 +210,14 @@ export function DeliveryPage() {
   ]
   const senderColumns: Column<DeliverySender>[] = [
     { key: 'name', header: 'Sender', render: (row) => (
-      <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{row.channel === 'EMAIL' ? 'EMAIL' : 'TEXTS'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>DEFAULT</Tag></span>}</p>
+      <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{row.channel === 'EMAIL' ? 'Email' : 'Texts'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
         <p className="text-xs text-ink-500">{row.from_address ?? row.sender_id}</p></div>) },
-    { key: 'provider', header: 'Sends through', render: (row) => row.provider_name },
+    { key: 'provider', header: 'Sends Through', render: (row) => row.provider_name },
     { key: 'status', header: 'Verification', render: (row) => <StatusBadge status={row.verification_status === 'VERIFIED' ? 'ACTIVE' : row.verification_status === 'FAILED' ? 'FAILED' : 'PAUSED'}
-        label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification failed' : 'Not verified yet'} /> },
-    { key: 'actions', header: '', align: 'right', render: (row) => row.provider_type === 'SMTP' ? <Link to="/settings/email" className="text-sm font-medium text-brand-800 hover:underline">Email server</Link> : (
+        label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification Failed' : 'Not Verified Yet'} /> },
+    { key: 'actions', header: '', align: 'right', render: (row) => row.provider_type === 'SMTP' ? <Link to="/settings/email" className="text-sm font-medium text-brand-800 hover:underline">Email Server</Link> : (
       <span className="flex justify-end gap-1">
-        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify again' : 'Verify'}</button>
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={verify.isPending} onClick={() => startVerify(row)}>{row.verification_status === 'VERIFIED' ? 'Verify Again' : 'Verify'}</button>
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditingSender(row)}>Edit</button>
         <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => window.confirm(`Remove the sender ${row.display_name}?`) && removeSender.mutate(row)}>Remove</button>
       </span>) },
@@ -231,14 +231,14 @@ export function DeliveryPage() {
       <section aria-labelledby="providers-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending engines</h2>
+            <h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2>
             <p className="text-sm text-ink-500">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
           </div>
-          <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add engine</button>
+          <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add Engine</button>
         </div>
         {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading providers</p>
           : rows.length === 0 ? <EmptyState title="No sending engine yet" hint="Add Postal or SendGrid for email or a text engine here, or offer your own mail server as a campaign sender under Email server." />
-          : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Sending engines" />}
+          : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Sending Engines" />}
       </section>
 
       <section aria-labelledby="senders-heading">
@@ -247,7 +247,7 @@ export function DeliveryPage() {
             <h2 id="senders-heading" className="font-display text-section-title font-semibold text-ink-900">Senders</h2>
             <p className="text-sm text-ink-500">Who a campaign comes from: a From name and address for email, a short code or number for texts. A sender must be verified before a campaign using it can be published.</p>
           </div>
-          <button type="button" className={buttonSecondary} disabled={rows.every((row) => row.manageable === false)} onClick={() => setEditingSender('new')}>Add sender</button>
+          <button type="button" className={buttonSecondary} disabled={rows.every((row) => row.manageable === false)} onClick={() => setEditingSender('new')}>Add Sender</button>
         </div>
         {senders.isError ? <ErrorState error={senders.error} onRetry={() => void senders.refetch()} />
           : senders.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading senders</p>

@@ -43,11 +43,11 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
 
   const other = save.isError && !(save.error instanceof ApiError && save.error.status === 400) ? save.error : null
   return (
-    <Modal title={user ? `Edit ${user.display_name}` : 'Add a user'} onClose={onClose}
+    <Modal title={user ? `Edit ${user.display_name}` : 'Add a User'} onClose={onClose}
       footer={<>
         <button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button>
         <button type="submit" form="user-form" className={buttonPrimary} disabled={save.isPending}>
-          {save.isPending && <Spinner size="sm" tone="onBrand" />}{user ? 'Save changes' : 'Add user'}
+          {save.isPending && <Spinner size="sm" tone="onBrand" />}{user ? 'Save Changes' : 'Add User'}
         </button>
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
@@ -90,7 +90,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
   const url = current ? `${window.location.origin}${current.path}` : ''
 
   return (
-    <Modal title={`Password link for ${user.display_name}`} onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>Done</button>}>
+    <Modal title={`Password Link for ${user.display_name}`} onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>Done</button>}>
       {link.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Creating the link</p>
         : link.isError ? <ErrorState title="Could not create a link" error={link.error} />
         : (
@@ -101,14 +101,14 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
                   : (<div className="flex flex-wrap items-center justify-between gap-3">
                       <p>Email the link to <strong>{user.email}</strong>: you never have to handle it.</p>
                       <button type="button" className={buttonPrimary} disabled={email.isPending} onClick={() => email.mutate()}>
-                        {email.isPending && <Spinner size="sm" tone="onBrand" />}Email the link
+                        {email.isPending && <Spinner size="sm" tone="onBrand" />}Email the Link
                       </button>
                     </div>)}
                 {(email.isError || email.data?.emailed === false) && <p role="alert" className="mt-2 text-xs font-medium text-danger-text">The email could not be sent. Copy the link below instead.</p>}
               </div>
             )}
             <p>{link.data.email_configured !== false ? 'Or send' : 'Send'} this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
-            <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-time link</label>
+            <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-Time Link</label>
             <div className="flex gap-2">
               <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
               <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(url).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
@@ -138,11 +138,11 @@ export function UsersPage() {
         <p className="text-xs text-ink-500">{user.email}</p></div>) },
     { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-500">No role</span> },
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
-    { key: 'signin', header: 'Sign-in', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
+    { key: 'signin', header: 'Sign-In', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
     { key: 'actions', header: '', align: 'right', render: (user) => (
       <span className="flex justify-end gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setEditing({ mode: 'edit', user })}>Edit</button>
-        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setLinkFor(user)}>Password link</button>}
+        {user.is_active && user.auth_provider === 'LOCAL' && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setLinkFor(user)}>Password Link</button>}
         {!user.is_self && <button type="button" className={buttonClass({ variant: user.is_active ? 'danger' : 'link', size: 'sm' })} disabled={toggle.isPending}
           onClick={() => (user.is_active ? window.confirm(`Deactivate ${user.display_name}? They will not be able to sign in.`) : true) && toggle.mutate(user)}>{user.is_active ? 'Deactivate' : 'Activate'}</button>}
       </span>) },
@@ -153,7 +153,7 @@ export function UsersPage() {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-sm text-ink-500">Users are deactivated, never deleted, so everything they created keeps its author.</p>
-        <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add user</button>
+        <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add User</button>
       </div>
       {toggle.isError && <div className="mb-4"><ErrorState title="Could not change the user" error={toggle.error} /></div>}
       {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading users</p>

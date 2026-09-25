@@ -1,47 +1,167 @@
 /**
  * The message as a recipient would get it. Email HTML is shown in a sandboxed frame (no scripts, no navigation),
  * a text message as a phone bubble. `party` previews as one customer of the audience; without it the
- * personalization tags show their catalogue sample values.
+ * personalization tags show their catalogue sample values. `compact` is the campaign preview pop-up's version: no
+ * toolbar, the whole email at its own 600px layout shrunk to the column's width, texts as the phone bubble.
+ * With `controls` the caller owns the customer and the device (the campaign page's Content tab puts them in its card
+ * header): no toolbar, the email at the chosen width and its own height in a 1px frame, texts on the Templates phone.
  */
-import { useQuery } from '@tanstack/react-query'
 import { Monitor, Smartphone } from 'lucide-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import { Select } from '@/components/Form'
-import { ErrorState, Spinner } from '@/components/States'
+import { ErrorState, SkeletonLine, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { SegmentedControl } from '@/components/SegmentedControl'
-import { api, ApiError } from '@/lib/api'
-import type { CampaignPreview } from '@/lib/types'
+import { BUBBLE, PhoneFrame } from '@/features/messaging/PhoneFrame'
+import { ApiError } from '@/lib/api'
 
-interface Person { party_id: string; name: string; address: string | null }
+import { CardError } from './parts'
+import { useCampaignPreview, useSampleCustomers } from './useCampaignPreview'
 
-export function MessagePreview({ campaignId, templateId, withCustomers = false }: { campaignId: string; templateId?: string; withCustomers?: boolean }) {
-  const [party, setParty] = useState('')
-  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop')
+export type PreviewDevice = 'desktop' | 'mobile'
 
-  const people = useQuery({
-    queryKey: ['campaigns', 'sample-customers', campaignId],
-    queryFn: ({ signal }) => api.get<Person[]>(`/campaigns/${campaignId}/sample-customers/`, undefined, signal),
-    enabled: withCustomers,
-  })
-  const preview = useQuery({
-    queryKey: ['campaigns', 'preview', campaignId, templateId ?? '', party],
-    queryFn: ({ signal }) => api.get<CampaignPreview & { channel?: string }>(`/campaigns/${campaignId}/preview/`, { template: templateId, party_id: party }, signal),
-    retry: false,
-  })
+const EMAIL_WIDTH = 600
+const FIRST_GUESS_HEIGHT = 900
+
+/**
+ * The email at its own 600px layout, shrunk to the column's width, shown whole: the frame takes the email's full
+ * height, so a long email makes the column scroll rather than the frame. allow-same-origin lets us read that height;
+ * with no allow-scripts nothing in the email runs.
+ */
+function ScaledEmail({ html }: { html: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState<number | null>(null)
+  const [height, setHeight] = useState(FIRST_GUESS_HEIGHT)
+  useLayoutEffect(() => {
+    const element = box.current
+    if (!element) return
+    const measure = () => setRoom(element.clientWidth)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const scale = room ? Math.min(1, room / EMAIL_WIDTH) : 0.55
+  return (
+    <div ref={box} className="relative overflow-hidden" style={{ height: height * scale }}>
+      <iframe title="Email preview" sandbox="allow-same-origin" srcDoc={html} scrolling="no"
+        onLoad={(event) => {
+          // the body's own height: the document's is never less than the frame's, so it could not shrink to a short email
+          const body = event.currentTarget.contentDocument?.body
+          if (!body) return
+          const style = body.ownerDocument.defaultView?.getComputedStyle(body)
+          const margins = (parseFloat(style?.marginTop ?? '0') || 0) + (parseFloat(style?.marginBottom ?? '0') || 0)
+          setHeight(Math.ceil(body.scrollHeight + margins) || FIRST_GUESS_HEIGHT)
+        }}
+        className="absolute top-0 left-0 border-0 bg-surface"
+        style={{ width: EMAIL_WIDTH, height, transform: `scale(${scale})`, transformOrigin: 'top left' }} />
+    </div>
+  )
+}
+
+/**
+ * The email at the chosen width, exactly as tall as it is: the frame is measured once the email has loaded, and again
+ * whenever its width changes (the email reflows). allow-same-origin lets us read the height; nothing in the email runs.
+ */
+function FittedEmail({ html, device }: { html: string; device: PreviewDevice }) {
+  const frame = useRef<HTMLIFrameElement>(null)
+  const [height, setHeight] = useState(FIRST_GUESS_HEIGHT)
+  const measure = () => {
+    const body = frame.current?.contentDocument?.body
+    if (!body) return
+    const style = body.ownerDocument.defaultView?.getComputedStyle(body)
+    const margins = (parseFloat(style?.marginTop ?? '0') || 0) + (parseFloat(style?.marginBottom ?? '0') || 0)
+    const measured = Math.ceil(body.scrollHeight + margins)
+    if (measured > 0) setHeight(measured)
+  }
+  useLayoutEffect(() => {
+    const element = frame.current
+    if (!element || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => measure())
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <iframe ref={frame} title="Email preview" sandbox="allow-same-origin" srcDoc={html} scrolling="no" onLoad={measure} data-fitted-email
+      className={`mx-auto block border border-line bg-surface ${device === 'mobile' ? 'w-[375px] max-w-full' : 'w-full max-w-[680px]'}`}
+      style={{ height: height + 2 }} />
+  )
+}
+
+/** an MMS's picture above its text, as the phone shows it; "No image yet" until the template has one */
+export function MmsImage({ url }: { url: string | null }) {
+  return url
+    ? <img src={url} alt="Attached image" className="max-h-56 max-w-[85%] rounded-lg rounded-bl-md object-cover" />
+    : <p className="flex h-32 w-32 items-center justify-center rounded-lg rounded-bl-md bg-surface-sunken px-3 text-center text-xs text-ink-500">No image yet</p>
+}
+
+interface MessagePreviewProps {
+  campaignId: string
+  templateId?: string
+  withCustomers?: boolean
+  compact?: boolean
+  /** `image`: an MMS's picture (null: none yet); left out for every other channel */
+  controls?: { party: string; device: PreviewDevice; sender: string; image?: string | null }
+}
+
+export function MessagePreview({ campaignId, templateId, withCustomers = false, compact = false, controls }: MessagePreviewProps) {
+  const [ownParty, setParty] = useState('')
+  const [ownDevice, setDevice] = useState<PreviewDevice>('desktop')
+  const party = controls?.party ?? ownParty
+  const device = controls?.device ?? ownDevice
+
+  const people = useSampleCustomers(campaignId, withCustomers && !controls)
+  const preview = useCampaignPreview(campaignId, { templateId, party })
 
   if (preview.isPending) {
+    // the Content tab's card: a grey block, as every card on the campaign page loads
+    if (controls) return <div aria-busy><span className="sr-only">Loading the preview</span><SkeletonLine width="100%" height={480} /></div>
     return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading the preview</p>
   }
   if (preview.isError) {
     // 409: no template yet, or no saved content. That is a state of the campaign, not a failure.
     if (preview.error instanceof ApiError && preview.error.status === 409) return <p className="text-sm text-ink-500">{preview.error.message}</p>
+    if (controls) return <CardError what="the preview" error={preview.error} onRetry={() => void preview.refetch()} />
     return <ErrorState title="The preview could not be built" error={preview.error} onRetry={() => void preview.refetch()} />
   }
 
   const data = preview.data
   const isEmail = Boolean(data.html)
+  if (compact) {
+    return (
+      <div className="overflow-hidden border border-line bg-surface">
+        {isEmail ? <ScaledEmail html={data.html ?? ''} /> : (
+          <div className="p-4">
+            <p aria-label="Text message preview" className="max-w-[88%] whitespace-pre-wrap rounded-lg rounded-bl-sm bg-line-subtle px-3.5 py-3 text-helper text-ink-900">{data.text}</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+  const tagsLine = data.tags_used.length > 0 && (
+    <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
+      Personalization tags in this message: {data.tags_used.map((tag) => <Tag key={tag}>{`{{${tag}}}`}</Tag>)}
+    </p>
+  )
+  if (controls) {
+    return (
+      <div>
+        {isEmail ? <FittedEmail key={device} html={data.html ?? ''} device={device} /> : (
+          <div className="rounded-lg bg-surface-sunken p-6">
+            <div className="mx-auto w-full max-w-[320px]">
+              <PhoneFrame sender={controls.sender}>
+                {controls.image !== undefined && <MmsImage url={controls.image} />}
+                <p aria-label="Text message preview" className={BUBBLE}>{data.text}</p>
+              </PhoneFrame>
+            </div>
+          </div>
+        )}
+        {tagsLine}
+      </div>
+    )
+  }
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
@@ -52,15 +172,15 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false }
         <div className="flex flex-wrap items-end gap-3">
           {withCustomers && (people.data?.length ?? 0) > 0 && (
             <label className="text-xs font-medium text-ink-700">
-              Preview as
+              Preview As
               <Select value={party} onChange={(event) => setParty(event.target.value)} className="w-56">
-                <option value="">Sample values</option>
+                <option value="">Sample Values</option>
                 {people.data?.map((person) => <option key={person.party_id} value={person.party_id}>{person.name}</option>)}
               </Select>
             </label>
           )}
           {isEmail && (
-            <SegmentedControl label="Preview size" iconOnly value={device} onChange={setDevice}
+            <SegmentedControl label="Preview Size" iconOnly value={device} onChange={setDevice}
               options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
           )}
         </div>
@@ -76,11 +196,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false }
         </div>
       )}
 
-      {data.tags_used.length > 0 && (
-        <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
-          Personalization tags in this message: {data.tags_used.map((tag) => <Tag key={tag}>{`{{${tag}}}`}</Tag>)}
-        </p>
-      )}
+      {tagsLine}
     </div>
   )
 }

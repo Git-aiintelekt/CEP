@@ -11,7 +11,7 @@ import type { SingleDropdown } from '@/lib/useSingleDropdown'
 import { TagPicker, type TagPickerProps } from './TagPicker'
 import { POPOVER_WIDTH, placePopover, type Placement } from './placement'
 
-export const PICKER_LABEL = 'Insert tag'
+export const PICKER_LABEL = 'Insert Tag'
 
 export interface TagPickerPopoverProps<K extends string> extends Omit<TagPickerProps, 'onClose'> {
   dropdown: SingleDropdown<K>

@@ -35,9 +35,9 @@ test('the strip shows exactly the tabs it was given, in order', () => {
 })
 
 test('the tablist is vertical, named, and its panels are labelled by their tab', () => {
-  renderRail({ 'aria-label': 'Designer panels' })
+  renderRail({ 'aria-label': 'Designer Panels' })
 
-  const list = screen.getByRole('tablist', { name: 'Designer panels' })
+  const list = screen.getByRole('tablist', { name: 'Designer Panels' })
   expect(list.getAttribute('aria-orientation')).toBe('vertical')
   for (const item of TABS) {
     expect(panel(item.label), item.id).toBeTruthy()
@@ -249,7 +249,7 @@ test('a single tab still works, and arrow keys stay on it', async () => {
   expect(selected()).toEqual([])
 })
 
-const FOUR: RailTab[] = [...TABS, { id: 'tags', label: 'Tags', icon: Braces, panel: <input aria-label="Search tags" /> }]
+const FOUR: RailTab[] = [...TABS, { id: 'tags', label: 'Tags', icon: Braces, panel: <input aria-label="Search Tags" /> }]
 
 test('a Tags tab sits after Assets and its panel is wired like the rest', () => {
   renderRail({ tabs: FOUR })
@@ -279,7 +279,7 @@ test('openTab("tags") opens the Tags panel from outside, expanding a collapsed r
   act(() => ref.current?.openTab('tags'))
   expect(selected()).toEqual(['Tags'])
   expect(panel('Tags').hasAttribute('hidden')).toBe(false)
-  expect(screen.getByLabelText('Search tags')).toBeTruthy()
+  expect(screen.getByLabelText('Search Tags')).toBeTruthy()
 })
 
 // --- folding itself when the viewport is too narrow, without ever overwriting what the viewer chose ---

@@ -81,13 +81,13 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
 
   return (
     <div className="flex h-full min-h-0 bg-canvas">
-      <aside aria-label="Sample transaction" className="flex h-full w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
-        <h2 className="px-3 pt-3 pb-2 text-xs font-semibold text-ink-500">Sample transaction</h2>
+      <aside aria-label="Sample Transaction" className="flex h-full w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
+        <h2 className="px-3 pt-3 pb-2 text-xs font-semibold text-ink-500">Sample Transaction</h2>
         <div className="flex flex-col gap-1.5 px-3 pb-3">
           <p id={sourceLabel} className="text-xs text-ink-500">
-            Data source
+            Data Source
           </p>
-          <SegmentedControl label="Data source" labelledBy={sourceLabel} options={SOURCES} value={source} onChange={chooseSource} stretch />
+          <SegmentedControl label="Data Source" labelledBy={sourceLabel} options={SOURCES} value={source} onChange={chooseSource} stretch />
         </div>
         <div role="radiogroup" aria-label="Samples" className="flex flex-col gap-1.5 px-2 pb-3">
           {samples.map((sample) => {

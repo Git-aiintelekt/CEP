@@ -62,10 +62,10 @@ export function formatPadding(top: string, right: string, bottom: string, left: 
 export const EMPTY_PADDING: Padding = { top: '', right: '', bottom: '', left: '' }
 
 export const PADDING_SIDES = [
-  { key: 'top', label: 'Top padding', letter: 'T' },
-  { key: 'right', label: 'Right padding', letter: 'R' },
-  { key: 'bottom', label: 'Bottom padding', letter: 'B' },
-  { key: 'left', label: 'Left padding', letter: 'L' },
+  { key: 'top', label: 'Top Padding', letter: 'T' },
+  { key: 'right', label: 'Right Padding', letter: 'R' },
+  { key: 'bottom', label: 'Bottom Padding', letter: 'B' },
+  { key: 'left', label: 'Left Padding', letter: 'L' },
 ] as const
 
 export type PaddingSide = (typeof PADDING_SIDES)[number]['key']

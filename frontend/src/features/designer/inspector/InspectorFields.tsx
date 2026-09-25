@@ -35,7 +35,7 @@ import { createSettingBinder } from './useSettingBinding'
 import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
 import type { GroupedEditor } from './settings'
 
-export const CHOOSE_IMAGE_LABEL = 'Choose image'
+export const CHOOSE_IMAGE_LABEL = 'Choose Image'
 export const NO_IMAGE_NOTE = 'No image yet'
 
 const SECTIONS: { id: SettingSection; label: string }[] = [

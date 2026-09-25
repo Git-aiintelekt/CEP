@@ -11,7 +11,7 @@ import type { Design, Message, MessageFindings, Page, PersonalizationTag, Preset
 export type PreviewItem = { kind: 'preset'; preset: Preset } | { kind: 'template'; template: Template }
 
 export type PreviewContent =
-  | { kind: 'email'; html: string; subject: string; preheader: string }
+  | { kind: 'email'; html: string; subject: string; preheader: string; receipt?: { preset: ReceiptLayout['layout_preset']; sections: ReceiptSection[] } }
   | { kind: 'message'; channel: string; body: string; subject: string; media: Message['media_asset']; findings: MessageFindings | null }
 
 export const channelOf = (item: PreviewItem) => (item.kind === 'preset' ? item.preset.channel : item.template.channel)
@@ -43,7 +43,7 @@ async function load(item: PreviewItem, queryClient: QueryClient, signal: AbortSi
     const { preset } = item
     const content = preset.content
     if (content?.kind === 'design') return { kind: 'email', html: await compile(content.mjml), subject: content.subject_line, preheader: content.preheader }
-    if (content?.kind === 'receipt') return { kind: 'email', html: await withReceipt(await compile(content.mjml), content.sections), subject: content.subject_line, preheader: content.preheader }
+    if (content?.kind === 'receipt') return { kind: 'email', html: await withReceipt(await compile(content.mjml), content.sections), subject: content.subject_line, preheader: content.preheader, receipt: { preset: content.layout_preset, sections: content.sections } }
     if (content?.kind === 'message') return { kind: 'message', channel: preset.channel, body: content.sms_body, subject: content.subject_line, media: null, findings: null }
 
     // a server-only starter: the gallery's list is usually cached already
@@ -70,7 +70,7 @@ async function load(item: PreviewItem, queryClient: QueryClient, signal: AbortSi
   ])
   const outer = design.html_content || (design.mjml_source ? await compile(design.mjml_source) : '')
   const html = layout && outer ? await withReceipt(outer, layout.sections) : outer
-  return { kind: 'email', html, subject: design.subject_line, preheader: design.preheader }
+  return { kind: 'email', html, subject: design.subject_line, preheader: design.preheader, ...(layout ? { receipt: { preset: layout.layout_preset, sections: layout.sections } } : {}) }
 }
 
 function keyOf(item: PreviewItem) {
@@ -96,5 +96,6 @@ export function usePreviewContent(item: PreviewItem, { enabled = true, anyChanne
     queryKey: ['personalization-tags', 'all'],
     queryFn: ({ signal }) => api.get<Page<PersonalizationTag>>('/personalization-tags/', { page_size: 200 }, signal),
   })
-  return { ...content, tags: tags.data?.results ?? [] }
+  // tagsReady: the catalogue has answered (or failed), so tags can be filled in rather than shown raw
+  return { ...content, tags: tags.data?.results ?? [], tagsReady: !tags.isPending }
 }

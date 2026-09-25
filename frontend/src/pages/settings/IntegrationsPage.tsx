@@ -17,9 +17,9 @@ const INTEGRATIONS = ['integrations']
 const HEALTH: Record<IntegrationHealth, { status: string; label: string }> = {
   healthy: { status: 'ACTIVE', label: 'Healthy' },
   degraded: { status: 'PAUSED', label: 'Degraded' },
-  circuit_open: { status: 'FAILED', label: 'Circuit open' },
+  circuit_open: { status: 'FAILED', label: 'Circuit Open' },
   paused: { status: 'PAUSED', label: 'Paused' },
-  idle: { status: 'ARCHIVED', label: 'No calls yet' },
+  idle: { status: 'ARCHIVED', label: 'No Calls Yet' },
 }
 
 const OUTCOME: Record<IntegrationOutcome, { status: string; label: string }> = {
@@ -28,7 +28,7 @@ const OUTCOME: Record<IntegrationOutcome, { status: string; label: string }> = {
   RETRY: { status: 'PAUSED', label: 'Retried' },
   ERROR: { status: 'FAILED', label: 'Error' },
   THROTTLED: { status: 'PAUSED', label: 'Throttled' },
-  BREAKER: { status: 'FAILED', label: 'Circuit open' },
+  BREAKER: { status: 'FAILED', label: 'Circuit Open' },
   PAUSED: { status: 'ARCHIVED', label: 'Paused' },
 }
 
@@ -61,14 +61,14 @@ function IntegrationCard({ item, onToggle, onShowLog, busy }: { item: Integratio
   const limit = item.direction === 'IN' ? item.effective_limit_per_minute ?? item.throttle_per_minute : item.throttle_per_minute
   const lastCall = item.last_call_at
     ? `${formatRelative(item.last_call_at)}${item.last_outcome ? ` · ${OUTCOME[item.last_outcome]?.label ?? item.last_outcome}` : ''}`
-    : 'No calls yet'
+    : 'No Calls Yet'
   return (
     <li className="rounded-lg border border-line bg-surface p-4" aria-label={item.name}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-card-title font-semibold text-ink-900">{item.name}</h3>
           <p className="mt-0.5 flex items-center gap-2 text-xs text-ink-500">
-            <Tag>{item.direction === 'IN' ? 'RECEIVES' : 'SENDS'}</Tag>
+            <Tag>{item.direction === 'IN' ? 'Receives' : 'Sends'}</Tag>
             <span>{item.system}{limit ? ` · ${formatNumber(limit)} per minute` : ' · no limit'}</span>
           </p>
         </div>
@@ -80,11 +80,11 @@ function IntegrationCard({ item, onToggle, onShowLog, busy }: { item: Integratio
         <Figure label="p95" value={ms(item.p95_ms)} />
         <Figure label="Throttled" value={formatNumber(item.throttled_24h)} tone={item.throttled_24h > 0 ? 'warning' : 'default'} />
       </dl>
-      <p className="mt-3 text-xs text-ink-500">Last call: {lastCall}</p>
+      <p className="mt-3 text-xs text-ink-500">Last Call: {lastCall}</p>
       {item.breaker_open_seconds > 0 && <p className="mt-1 text-xs font-medium text-danger-text">Circuit open for {item.breaker_open_seconds} s more after {item.breaker_failures} failures in a row. Resume closes it now.</p>}
       {item.last_error && item.health !== 'healthy' && <p className="mt-1 truncate text-xs text-danger-text" title={item.last_error}>{item.last_error}</p>}
       <div className="mt-3 flex justify-end gap-1 border-t border-line-subtle pt-3">
-        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={onShowLog}>View log</button>
+        <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={onShowLog}>View Log</button>
         <button type="button" className={buttonClass({ variant: item.status === 'PAUSED' ? 'link' : 'danger', size: 'sm' })} disabled={busy} onClick={onToggle}>
           {item.status === 'PAUSED' ? 'Resume' : 'Pause'}
         </button>
@@ -103,7 +103,7 @@ function Block({ title, headers, body, size }: { title: string; headers: Record<
           {Object.entries(headers).map(([key, value]) => <div key={key} className="contents"><dt className="text-ink-500">{key}</dt><dd className="break-all text-ink-900">{value}</dd></div>)}
         </dl>
       )}
-      <pre className="cep-num max-h-80 overflow-auto px-3 py-2 text-xs whitespace-pre-wrap break-all text-ink-900">{body ? pretty(body) : <span className="text-ink-500">No body</span>}</pre>
+      <pre className="cep-num max-h-80 overflow-auto px-3 py-2 text-xs whitespace-pre-wrap break-all text-ink-900">{body ? pretty(body) : <span className="text-ink-500">No body.</span>}</pre>
     </section>
   )
 }
@@ -113,7 +113,7 @@ function LogDetail({ id, onClose }: { id: number; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   const data = row.data
   return (
-    <Modal title={data ? `${data.method} ${data.direction === 'IN' ? 'received' : 'sent'} · ${formatDateTime(data.started_at)}` : 'Call'} size="lg" scrollBody onClose={onClose}
+    <Modal title={data ? `${data.method} ${data.direction === 'IN' ? 'Received' : 'Sent'} · ${formatDateTime(data.started_at)}` : 'Call'} size="lg" scrollBody onClose={onClose}
       subtitle={data ? `${data.system}${data.related_ref ? ` · ${data.related_ref}` : ''}${data.attempt > 1 ? ` · attempt ${data.attempt}` : ''}` : undefined}
       footer={<button type="button" className={buttonSecondary} onClick={onClose}>Close</button>}>
       {row.isError ? <ErrorState error={row.error} onRetry={() => void row.refetch()} />
@@ -124,7 +124,7 @@ function LogDetail({ id, onClose }: { id: number; onClose: () => void }) {
               <div><dt className="text-xs text-ink-500">Outcome</dt><dd className="mt-0.5"><OutcomeBadge outcome={data.outcome} /></dd></div>
               <div><dt className="text-xs text-ink-500">Status</dt><dd className="cep-num mt-0.5 font-medium text-ink-900">{data.response_status ?? '—'}</dd></div>
               <div><dt className="text-xs text-ink-500">Duration</dt><dd className="cep-num mt-0.5 font-medium text-ink-900">{ms(data.duration_ms)}</dd></div>
-              <div><dt className="text-xs text-ink-500">Correlation id</dt>
+              <div><dt className="text-xs text-ink-500">Correlation ID</dt>
                 <dd className="mt-0.5 flex items-center gap-1 font-medium break-all text-ink-900">{data.correlation_id ?? '—'}
                   {data.correlation_id && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })}
                     onClick={() => void navigator.clipboard?.writeText(data.correlation_id as string).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>}
@@ -132,8 +132,8 @@ function LogDetail({ id, onClose }: { id: number; onClose: () => void }) {
             </dl>
             <p className="break-all text-sm text-ink-700">{data.url}</p>
             {data.error_message && <p className="rounded-lg border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">{data.error_class ? `${data.error_class}: ` : ''}{data.error_message}</p>}
-            <Block title={data.direction === 'IN' ? 'What was received' : 'What was sent'} headers={data.request_headers} body={data.request_body} size={data.request_bytes} />
-            <Block title={data.direction === 'IN' ? 'What was answered' : 'What came back'} headers={data.response_headers} body={data.response_body} size={data.response_bytes} />
+            <Block title={data.direction === 'IN' ? 'What Was Received' : 'What Was Sent'} headers={data.request_headers} body={data.request_body} size={data.request_bytes} />
+            <Block title={data.direction === 'IN' ? 'What Was Answered' : 'What Came Back'} headers={data.response_headers} body={data.response_body} size={data.response_bytes} />
             <p className="text-xs text-ink-500">Credentials and card numbers are masked before a call is stored. Bodies above the integration's cap keep their start and a digest.{data.worker ? ` Handled by ${data.worker}.` : ''}</p>
           </div>
         )}
@@ -199,7 +199,7 @@ export function IntegrationsPage() {
           <p className="text-sm text-ink-500">Every outside system this workspace exchanges data with: the point of sale that sends receipts in, and the engines that carry email and texts out. Figures are for the last 24 hours. Pausing an integration is the kill switch: inbound calls are refused with 503, outbound sends wait. Limits and log retention are set per workspace by the platform team.</p>
         </div>
         {integrations.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading integrations</p>
-          : items.length === 0 ? <EmptyState title="No integration yet" hint="Add a sending engine under Sending engines, or send the first receipt from the point of sale, and it appears here." />
+          : items.length === 0 ? <EmptyState title="No Integration Yet" hint="Add a sending engine under Sending engines, or send the first receipt from the point of sale, and it appears here." />
           : <ul aria-label="Integrations" className="grid gap-4 lg:grid-cols-2">
               {items.map((item) => <IntegrationCard key={item.id} item={item} busy={toggle.isPending} onToggle={() => toggleWithConfirm(item)}
                 onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
@@ -208,18 +208,18 @@ export function IntegrationsPage() {
 
       <section aria-labelledby="log-heading">
         <div className="mb-3">
-          <h2 id="log-heading" className="font-display text-section-title font-semibold text-ink-900">Call log</h2>
+          <h2 id="log-heading" className="font-display text-section-title font-semibold text-ink-900">Call Log</h2>
           <p className="text-sm text-ink-500">Every request and answer in either direction, newest first. Open a call to see exactly what was sent and what came back. Search by the correlation id a caller sent, or by a reference such as receipt:R-1001.</p>
         </div>
         <form className="mb-3 grid gap-3 rounded-lg border border-line bg-surface-subtle p-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end" noValidate
           onSubmit={(event: FormEvent) => { event.preventDefault(); setFilters({ ...filters, q: search.trim() }) }}>
           <Field label="Integration">
             {(ids) => <Select {...ids} controlSize="sm" value={filters.integration} onChange={(event) => setFilters({ ...filters, integration: event.target.value })}>
-              <option value="">All integrations</option>
+              <option value="">All Integrations</option>
               {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>}
           </Field>
-          <Field label="Correlation id or reference">
+          <Field label="Correlation ID or Reference">
             {(ids) => <TextInput {...ids} controlSize="sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="receipt:R-1001" autoComplete="off" />}
           </Field>
           <Field label="Direction">
@@ -227,16 +227,16 @@ export function IntegrationsPage() {
               <option value="">Both</option><option value="IN">Received</option><option value="OUT">Sent</option>
             </Select>}
           </Field>
-          <label className="flex h-8 items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={filters.failed} onChange={(event) => setFilters({ ...filters, failed: event.target.checked })} /> Failures only</label>
+          <label className="flex h-8 items-center gap-2 text-sm text-ink-900"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={filters.failed} onChange={(event) => setFilters({ ...filters, failed: event.target.checked })} /> Failures Only</label>
           <button type="submit" className="sr-only">Search</button>
         </form>
         {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
           : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading the log</p>
-          : rows.length === 0 ? <EmptyState title="No calls match" hint={filters.q || filters.integration || filters.direction || filters.failed ? 'Widen the filters, or check the correlation id.' : 'Calls appear here as soon as the point of sale sends a receipt or a campaign goes out.'} />
+          : rows.length === 0 ? <EmptyState title="No Calls Match" hint={filters.q || filters.integration || filters.direction || filters.failed ? 'Widen the filters, or check the correlation id.' : 'Calls appear here as soon as the point of sale sends a receipt or a campaign goes out.'} />
           : (<>
-              <DataTable columns={columns} rows={rows} rowKey={(row) => String(row.id)} caption="Call log" onRowClick={(row) => setOpen(row.id)} />
+              <DataTable columns={columns} rows={rows} rowKey={(row) => String(row.id)} caption="Call Log" onRowClick={(row) => setOpen(row.id)} />
               {log.hasNextPage && <div className="mt-3 flex justify-center">
-                <button type="button" className={buttonSecondary} disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()}>{log.isFetchingNextPage ? 'Loading' : 'Show older calls'}</button>
+                <button type="button" className={buttonSecondary} disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()}>{log.isFetchingNextPage ? 'Loading' : 'Show Older Calls'}</button>
               </div>}
             </>)}
       </section>

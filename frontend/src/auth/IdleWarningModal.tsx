@@ -12,8 +12,8 @@ export function IdleWarningModal({ secondsLeft, totalSeconds, onStay, onSignOut 
     <Modal title="Still there?" subtitle="Nothing has happened in this tab for a while." onClose={onStay}
       footer={
         <>
-          <Button variant="secondary" onClick={onSignOut}>Sign out now</Button>
-          <Button variant="primary" onClick={onStay} autoFocus>Stay signed in</Button>
+          <Button variant="secondary" onClick={onSignOut}>Sign Out Now</Button>
+          <Button variant="primary" onClick={onStay} autoFocus>Stay Signed In</Button>
         </>
       }>
       <p aria-live="polite" className="text-sm text-ink-700">

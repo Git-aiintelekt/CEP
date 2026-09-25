@@ -31,8 +31,8 @@ test('a workspace enters its own SMTP server: the password is sent once and neve
   await user.type(screen.getByLabelText(/^Server/), 'smtp.office365.com')
   await user.type(screen.getByLabelText(/^Username/), 'mailer@nwa.example')
   await user.type(screen.getByLabelText(/^Password/), 'app-password-1')
-  await user.type(screen.getByLabelText(/^From address/), 'hello@nwa.example')
-  await user.type(screen.getByLabelText(/From name/), 'Northwind')
+  await user.type(screen.getByLabelText(/^From Address/), 'hello@nwa.example')
+  await user.type(screen.getByLabelText(/From Name/), 'Northwind')
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
   expect(await screen.findByText('Saved')).toBeTruthy()
@@ -42,10 +42,10 @@ test('a workspace enters its own SMTP server: the password is sent once and neve
   expect(screen.getByText('A password is stored. Leave this empty to keep it.')).toBeTruthy()
   expect(screen.getByText(/through your own server/)).toBeTruthy()
 
-  const testSection = screen.getByRole('heading', { name: 'Send a test message' }).closest('section') as HTMLElement
+  const testSection = screen.getByRole('heading', { name: 'Send a Test Message' }).closest('section') as HTMLElement
   expect((within(testSection).getByLabelText(/^To/) as HTMLInputElement).value).toBe('aby.john@aiintelekt.com')
-  await user.click(within(testSection).getByRole('button', { name: 'Send test' }))
-  expect(await within(testSection).findByText('Last test passed')).toBeTruthy()
+  await user.click(within(testSection).getByRole('button', { name: 'Send Test' }))
+  expect(await within(testSection).findByText('Last Test Passed')).toBeTruthy()
   expect(calls.filter((call) => call.url.endsWith('/mail-server/test/')).at(-1)?.body).toEqual({ to: 'aby.john@aiintelekt.com' })
 })
 
@@ -55,12 +55,12 @@ test('a failed test shows the reason; a field error lands on its field', async (
   const user = userEvent.setup()
   await renderAppAt('/settings/email')
 
-  const testSection = (await screen.findByRole('heading', { name: 'Send a test message' })).closest('section') as HTMLElement
-  await user.click(within(testSection).getByRole('button', { name: 'Send test' }))
+  const testSection = (await screen.findByRole('heading', { name: 'Send a Test Message' })).closest('section') as HTMLElement
+  await user.click(within(testSection).getByRole('button', { name: 'Send Test' }))
   expect((await within(testSection).findByRole('alert')).textContent).toContain('ConnectionRefusedError')
 
-  await user.clear(screen.getByLabelText(/^From address/))
-  await user.type(screen.getByLabelText(/^From address/), 'bad')
+  await user.clear(screen.getByLabelText(/^From Address/))
+  await user.type(screen.getByLabelText(/^From Address/), 'bad')
   await user.click(screen.getByRole('button', { name: 'Save' }))
   expect(await screen.findByText('Enter a valid email address.')).toBeTruthy()
 })
@@ -70,10 +70,11 @@ test('when the platform shares its server, the workspace can use it with its own
   const user = userEvent.setup()
   await renderAppAt('/settings/email')
 
-  await user.click(await screen.findByLabelText(/Use the platform's mail server \(smtp.cep.example\)/))
+  await user.click(await screen.findByLabelText(/Use the Platform's Mail Server/))
+  expect(screen.getByText(/Sends through smtp.cep.example/)).toBeTruthy()                                // the host, in the hint
   expect(screen.queryByLabelText(/^Server/)).toBeNull()
   expect(screen.queryByLabelText(/^Password/)).toBeNull()
-  await user.type(screen.getByLabelText(/^From address/), 'hello@nwa.example')
+  await user.type(screen.getByLabelText(/^From Address/), 'hello@nwa.example')
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
   expect(await screen.findByText('Saved')).toBeTruthy()
@@ -88,15 +89,15 @@ test('offered as a campaign sender: pending until a test passes, then verified; 
   await renderAppAt('/settings/email')
 
   await user.type(await screen.findByLabelText(/^Server/), 'smtp.office365.com')
-  await user.type(screen.getByLabelText(/^From address/), 'hello@nwa.example')
-  await user.type(screen.getByLabelText(/From name/), 'Northwind')
-  await user.click(screen.getByLabelText(/Offer this server as a campaign sender/))
+  await user.type(screen.getByLabelText(/^From Address/), 'hello@nwa.example')
+  await user.type(screen.getByLabelText(/From Name/), 'Northwind')
+  await user.click(screen.getByLabelText(/Offer as a Campaign Sender/))
   await user.click(screen.getByRole('button', { name: 'Save' }))
 
-  expect(await screen.findByText('Sender not verified yet')).toBeTruthy()
+  expect(await screen.findByText('Sender Not Verified Yet')).toBeTruthy()
   expect(calls.filter((call) => call.method === 'PUT').at(-1)?.body).toMatchObject({ campaign_sender: true })
-  const testSection = screen.getByRole('heading', { name: 'Send a test message' }).closest('section') as HTMLElement
-  await user.click(within(testSection).getByRole('button', { name: 'Send test' }))
-  expect(await screen.findByText('Verified sender')).toBeTruthy()
+  const testSection = screen.getByRole('heading', { name: 'Send a Test Message' }).closest('section') as HTMLElement
+  await user.click(within(testSection).getByRole('button', { name: 'Send Test' }))
+  expect(await screen.findByText('Verified Sender')).toBeTruthy()
   expect(screen.getByText(/Northwind · hello@nwa.example/)).toBeTruthy()
 })

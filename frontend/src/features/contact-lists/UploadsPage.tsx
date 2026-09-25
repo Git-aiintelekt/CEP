@@ -48,7 +48,7 @@ export function UploadsPage() {
         <Link to="/contact-lists" className="font-medium text-brand-800 hover:underline">Contact Lists</Link> <span aria-hidden>/</span> Uploads
       </nav>
       <PageHeader
-        title="List uploads"
+        title="List Uploads"
         description="Files are read, checked and imported in the background, a few at a time and one per workspace, so a large list never slows CEP down. You can leave this page: you get an alert when an upload is done."
       />
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
@@ -62,10 +62,10 @@ export function UploadsPage() {
       ) : (
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <caption className="sr-only">List uploads</caption>
+            <caption className="sr-only">List Uploads</caption>
             <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-700">
               <tr>
-                <th scope="col" className="px-3 py-2">List and file</th>
+                <th scope="col" className="px-3 py-2">List and File</th>
                 <th scope="col" className="px-3 py-2">Status</th>
                 <th scope="col" className="w-56 px-3 py-2">Progress</th>
                 <th scope="col" className="px-3 py-2">Uploaded</th>
@@ -82,7 +82,7 @@ export function UploadsPage() {
                       <p className="truncate font-medium text-ink-900">{job.list_name}</p>
                       <p className="truncate text-xs text-ink-500">{job.file_name}{job.row_count ? ` · ${formatNumber(job.row_count)} rows` : ''}</p>
                     </th>
-                    <td className="px-3 py-2"><StatusBadge status={job.working ? 'SENDING' : (TONE[job.status] ?? job.status)} label={job.working ? 'In progress' : job.status === 'APPLIED' ? 'Imported' : job.status === 'REVIEW' || job.status === 'STAGED' ? 'Waiting for you' : undefined} /></td>
+                    <td className="px-3 py-2"><StatusBadge status={job.working ? 'SENDING' : (TONE[job.status] ?? job.status)} label={job.working ? 'In Progress' : job.status === 'APPLIED' ? 'Imported' : job.status === 'REVIEW' || job.status === 'STAGED' ? 'Waiting for You' : undefined} /></td>
                     <td className="px-3 py-2">
                       <p className="mb-1 text-xs text-ink-700">{jobSummary(job)}</p>
                       {job.working && <ProgressBar job={job} />}
@@ -92,7 +92,7 @@ export function UploadsPage() {
                       <span className="flex flex-wrap justify-end gap-2">
                         {resume && canImport && <button type="button" className={buttonSecondary} onClick={() => setParams({ resume: `${job.contact_list}:${job.id}` })}>Continue</button>}
                         {job.summary && <button type="button" className={buttonSecondary} onClick={() => setReportOf(job.id)}>Report</button>}
-                        {job.status === 'APPLIED' && <Link to={`/contact-lists/${job.contact_list}`} className={buttonSecondary}>Open the list</Link>}
+                        {job.status === 'APPLIED' && <Link to={`/contact-lists/${job.contact_list}`} className={buttonSecondary}>Open the List</Link>}
                         {!over && job.status !== 'APPLYING' && canImport && <button type="button" className={buttonSecondary} disabled={cancel.isPending} onClick={() => cancel.mutate(job)}>Cancel</button>}
                       </span>
                     </td>
@@ -105,7 +105,7 @@ export function UploadsPage() {
       )}
 
       {reportOf && rows.find((job) => job.id === reportOf) && (
-        <Modal title="Upload report" size="lg" onClose={() => setReportOf(null)} footer={<button type="button" className={buttonPrimary} onClick={() => setReportOf(null)}>Close</button>}>
+        <Modal title="Upload Report" size="lg" onClose={() => setReportOf(null)} footer={<button type="button" className={buttonPrimary} onClick={() => setReportOf(null)}>Close</button>}>
           <p className="mb-3 text-sm text-ink-700">
             <strong className="text-ink-900">{rows.find((job) => job.id === reportOf)?.list_name}</strong> · {rows.find((job) => job.id === reportOf)?.file_name}
           </p>

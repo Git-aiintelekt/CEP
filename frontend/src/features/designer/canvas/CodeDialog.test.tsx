@@ -48,7 +48,7 @@ async function openEditor(user: ReturnType<typeof userEvent.setup>) {
 
 // ---- reading ---------------------------------------------------------------
 
-test('Email code opens on the MJML, with the HTML a tab away, and says the sent HTML is built on save', async () => {
+test('Email Code opens on the MJML, with the HTML a tab away, and says the sent HTML is built on save', async () => {
   const user = userEvent.setup()
   renderDialog()
   expect(dialogNamed(CODE_TITLE)).toBeTruthy()
@@ -162,7 +162,7 @@ test('the editor is plain code: no spellcheck, no wrapping, the system monospace
   expect(numbers?.children).toHaveLength(MJML.split('\n').length)
 })
 
-test('Apply changes stays grey until the code differs from the design', async () => {
+test('Apply Changes stays grey until the code differs from the design', async () => {
   const user = userEvent.setup()
   const props = renderDialog()
   const area = await openEditor(user)
@@ -245,7 +245,7 @@ test.each([
   ['Discard', async (user: ReturnType<typeof userEvent.setup>) => user.click(button(DISCARD_LABEL))],
   ['closing the dialog', async (user: ReturnType<typeof userEvent.setup>) => user.click(within(dialogNamed(CODE_TITLE)).getAllByRole('button', { name: CLOSE_LABEL })[0])],
   ['switching tab', async (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole('tab', { name: HTML_TAB }))],
-])('%s with unapplied changes asks first, and Keep editing keeps them', async (_name, leave) => {
+])('%s with unapplied changes asks first, and Keep Editing keeps them', async (_name, leave) => {
   const user = userEvent.setup()
   const props = renderDialog()
   const area = await openEditor(user)

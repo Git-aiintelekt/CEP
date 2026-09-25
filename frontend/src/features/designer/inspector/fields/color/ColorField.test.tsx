@@ -25,7 +25,7 @@ function renderField(over: Partial<React.ComponentProps<typeof ColorField>> = {}
   const onRecentUse = vi.fn()
   const result = render(
     <ColorField
-      label="Text color" value="#2753e4"
+      label="Text Color" value="#2753e4"
       onCommit={onCommit} onPreview={onPreview} onCancel={onCancel} onRecentUse={onRecentUse}
       {...over}
     />,
@@ -34,7 +34,7 @@ function renderField(over: Partial<React.ComponentProps<typeof ColorField>> = {}
 }
 
 const swatch = () => screen.getByRole('button', { name: new RegExp(SWATCH_LABEL) })
-const hexInput = () => screen.getByLabelText('Text color') as HTMLInputElement
+const hexInput = () => screen.getByLabelText('Text Color') as HTMLInputElement
 const area = () => screen.getByRole('slider', { name: AREA_LABEL })
 const hue = () => screen.getByRole('slider', { name: HUE_LABEL })
 
@@ -43,14 +43,14 @@ const hue = () => screen.getByRole('slider', { name: HUE_LABEL })
 test('the swatch carries the colour and names it', () => {
   renderField()
   expect(swatch().style.backgroundColor).toBe('rgb(39, 83, 228)')
-  expect(swatch().getAttribute('aria-label')).toBe(`${SWATCH_LABEL}: Brand blue`)
+  expect(swatch().getAttribute('aria-label')).toBe(`${SWATCH_LABEL}: Brand Blue`)
 })
 
 test('no colour shows a slash on white rather than a fill', () => {
   renderField({ value: null })
   expect(swatch().style.backgroundColor).toBe('')
   expect(swatch().querySelector('svg')).toBeTruthy()
-  expect(swatch().getAttribute('aria-label')).toBe(`${SWATCH_LABEL}: No colour`)
+  expect(swatch().getAttribute('aria-label')).toBe(`${SWATCH_LABEL}: No Colour`)
 })
 
 test('a typed hex is normalised to six lowercase digits when it commits', async () => {
@@ -111,12 +111,12 @@ test('the swatch opens the picker, and a disabled swatch does not', async () => 
   const user = userEvent.setup()
   renderField()
   await user.click(swatch())
-  expect(screen.getByRole('region', { name: 'Colour picker' })).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Colour Picker' })).toBeTruthy()
 
   cleanup()
   renderField({ disabled: true })
   await user.click(swatch())
-  expect(screen.queryByRole('region', { name: 'Colour picker' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Colour Picker' })).toBeNull()
   // and it did not quietly open behind the guard that hides it
   expect(swatch().getAttribute('aria-expanded')).toBe('false')
   expect(swatch().getAttribute('aria-disabled')).toBe('true')
@@ -127,7 +127,7 @@ test('a swatch in the grid commits that colour once and remembers it', async () 
   const { onCommit, onRecentUse } = renderField({ value: null })
 
   await user.click(swatch())
-  await user.click(screen.getByRole('button', { name: 'Heading navy' }))
+  await user.click(screen.getByRole('button', { name: 'Heading Navy' }))
 
   expect(onCommit).toHaveBeenCalledExactlyOnceWith('#0f172a')
   expect(onRecentUse).toHaveBeenCalledExactlyOnceWith('#0f172a')
@@ -210,10 +210,10 @@ test('closing puts focus back on the swatch', async () => {
   renderField()
 
   await user.click(swatch())
-  expect(screen.getByRole('region', { name: 'Colour picker' })).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Colour Picker' })).toBeTruthy()
   await user.keyboard('{Escape}')
 
-  expect(screen.queryByRole('region', { name: 'Colour picker' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Colour Picker' })).toBeNull()
   expect(document.activeElement).toBe(swatch())
 })
 
@@ -228,7 +228,7 @@ test('the hex inside the picker commits a normalised value', async () => {
   expect(onCommit).toHaveBeenLastCalledWith('#ffffff')
 })
 
-test('No colour clears the setting', async () => {
+test('No Colour clears the setting', async () => {
   const user = userEvent.setup()
   const { onCommit } = renderField()
 

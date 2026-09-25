@@ -26,7 +26,8 @@ const HEIGHT: Record<ControlSize, string> = { sm: 'h-8 rounded-control-md', md: 
 export function InputGroup({ start, end, suffix, controlSize = 'sm', tone = 'default', invalid = false, warning = false, describedBy, disabled, className = '', ...props }: InputGroupProps) {
   const fill =
     disabled ? 'border-line bg-line-subtle text-ink-300'
-    : `${borderClass(invalid, warning)} ${tone === 'sunken' ? 'bg-surface-subtle focus-within:bg-surface' : 'bg-surface'}`
+    : tone === 'sunken' ? `${invalid || warning ? borderClass(invalid, warning) : 'border-transparent'} bg-surface-sunken focus-within:bg-surface`
+    : `${borderClass(invalid, warning)} bg-surface`
   return (
     <div
       className={`flex w-full items-center gap-1 border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}

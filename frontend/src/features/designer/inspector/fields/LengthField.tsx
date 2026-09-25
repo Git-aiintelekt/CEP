@@ -145,7 +145,7 @@ export function LengthField({
           />
           {units.length === 1 ?
             <span className={`shrink-0 text-xs ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>{unit}</span>
-          : <div role="radiogroup" aria-label={`${label} unit`} className="flex shrink-0 items-center gap-0.5">
+          : <div role="radiogroup" aria-label={`${label} Unit`} className="flex shrink-0 items-center gap-0.5">
               {units.map((option) => (
                 <button
                   key={option}

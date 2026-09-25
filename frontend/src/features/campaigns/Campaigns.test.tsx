@@ -1,9 +1,9 @@
-/** The campaign module through the real app shell against the in-memory API: the list, the seven-step setup, and the campaign page. */
+/** The campaign module through the real app shell against the in-memory API: the list and the campaign page (the setup has SetupFlow.test.tsx). */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeCampaign, me, problem, signIn } from '@/test/mockApi'
+import { installMockApi, makeCampaign, me, signIn } from '@/test/mockApi'
 
 /** The API client reads its session when the module loads, so each test signs in first and imports the app fresh. */
 async function renderAppAt(path: string) {
@@ -16,6 +16,20 @@ async function renderAppAt(path: string) {
 const soon = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString()
 const run = (overrides: Record<string, unknown>) => ({ id: 'r1', campaign: 'c1', tenant: 't1', run_number: 1, run_type: 'ONE_TIME', status: 'COMPLETED', test_mode: false, scheduled_at: null,
   started_at: '2026-09-18T10:00:00Z', completed_at: '2026-09-18T10:02:00Z', created_at: '2026-09-18T10:00:00Z', updated_at: '2026-09-18T10:02:00Z', row_version: 1, ...overrides })
+
+/** the ⋮ menu of one campaign, open, and what it offers */
+const rowMenu = () => screen.getByRole('region', { name: /^Actions for / })
+const menuItems = () => within(rowMenu()).getAllByRole('button').map((item) => item.textContent)
+const filterBar = () => screen.getByRole('search', { name: 'Filter campaigns' })
+/** the campaign page's ⋮ menu, opened */
+async function openMore(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'More Actions' }))
+  return screen.getByRole('region', { name: 'More Actions' })
+}
+async function openMenu(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole('button', { name: `Actions for ${name}` }))
+  return rowMenu()
+}
 
 const workspace = () => [
   makeCampaign({ id: 'c1', name: 'Fall Launch', tags: ['Fall'] }),
@@ -37,31 +51,51 @@ test('list: what is coming up, locked status wording, the action that fits each 
   const user = userEvent.setup()
   await renderAppAt('/campaigns')
 
-  const upcoming = await screen.findByRole('region', { name: 'Upcoming campaigns' })
+  const upcoming = await screen.findByRole('region', { name: 'Upcoming Campaigns' })
   expect(await within(upcoming).findByText('Winter Preview')).toBeTruthy()                          // the block is there at once; its cards arrive with the data
   expect(within(upcoming).queryByText('Fall Launch')).toBeNull()
 
   const table = await screen.findByRole('table', { name: 'Campaigns' })
-  const row = (name: string) => within(table).getByRole('link', { name }).closest('tr') as HTMLElement
+  const row = (name: string) => within(table).getByRole('button', { name }).closest('tr') as HTMLElement
   expect(within(row('Fall Launch')).getByText('Draft')).toBeTruthy()
-  expect(within(row('Fall Launch')).getByRole('link', { name: 'Edit' })).toBeTruthy()                 // a draft whose setup is finished; an unfinished one says Continue setup
   expect(within(row('Winter Preview')).getByText('Scheduled')).toBeTruthy()                          // stored as production published, shown as scheduled
-  expect(within(row('Labor Day SMS Blast')).getByRole('link', { name: 'View results' })).toBeTruthy()
-  expect(within(row('Welcome Series Email 1')).getByText('Journey-generated · not editable')).toBeTruthy()
+  expect(within(row('Fall Launch')).queryByRole('link', { name: 'Edit' })).toBeNull()                // the row's jobs live in its ⋮ menu
+  await openMenu(user, 'Fall Launch')
+  expect(menuItems()).toEqual(['Edit', 'Clone', 'Archive'])                                           // a draft whose setup is finished; no Open, no Retry
+  await openMenu(user, 'Labor Day SMS Blast')                                                          // one menu open at a time
+  expect(screen.getAllByRole('region', { name: /^Actions for / })).toHaveLength(1)
+  expect(menuItems()).toContain('View Results')
+  await openMenu(user, 'Welcome Series Email 1')
+  expect(menuItems()[0]).toBe('View Journey')
+  expect(menuItems()).not.toContain('Edit')
+  await user.click(within(rowMenu()).getByRole('button', { name: 'View Journey' }))
+  expect(window.location.pathname).toBe('/journeys')
+  window.history.back()
+  expect(within(row('Welcome Series Email 1')).queryByText('Journey-generated · not editable')).toBeNull()      // no line under the name; Triggered by says Journey
+  expect(within(row('Fall Launch')).queryByText('CMP-2026-0001')).toBeNull()
+  const header = (name: string) => within(table).getAllByRole('columnheader').find((cell) => cell.textContent === name) as HTMLElement
+  expect(header('Audience').className).toContain('text-left')
+  expect(header('Campaign Name').className).toContain('text-sm')                                   // 14px headers on this table
   expect(within(row('Welcome Series Email 1')).getByText('Production Published')).toBeTruthy()
   expect(within(table).queryByText('Old Spring Sale')).toBeNull()
-  expect(screen.getByText('1 to 4 of 4')).toBeTruthy()
+  expect((await screen.findByText('Showing 1–4 of 4 campaigns')).getAttribute('aria-live')).toBe('polite')
+  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(true)   // nothing to clear yet
 
-  await user.selectOptions(screen.getByLabelText('Status'), 'ARCHIVED')
+  await user.click(within(filterBar()).getByRole('button', { name: 'Status' }))
+  await user.click(within(screen.getByRole('region', { name: 'Status' })).getByRole('button', { name: 'Archived' }))
   expect(await within(await screen.findByRole('table', { name: 'Campaigns' })).findByText('Old Spring Sale')).toBeTruthy()
-  await user.selectOptions(screen.getByLabelText('Status'), '')
-  await user.selectOptions(screen.getByLabelText('Channel'), 'SMS')
-  await vi.waitFor(() => expect(screen.getByText('1 to 1 of 1')).toBeTruthy())
-  await user.click(screen.getByRole('button', { name: 'Clear filters' }))
-  await user.click(await screen.findByRole('button', { name: 'Campaign name' }))
+  await user.click(within(screen.getByRole('region', { name: 'Status' })).getByRole('button', { name: 'Archived' }))   // the menu stays open while ticking
+  await user.keyboard('{Escape}')
+  await user.click(within(filterBar()).getByRole('button', { name: 'Channel' }))
+  await user.click(within(screen.getByRole('region', { name: 'Channel' })).getByRole('button', { name: 'SMS' }))
+  await vi.waitFor(() => expect(screen.getByText('Showing 1–1 of 1 campaign')).toBeTruthy())
+  expect(within(filterBar()).getByRole('button', { name: 'SMS' }).className).toContain('text-brand-800')             // the button shows the value it holds
+  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(false)
+  await user.click(within(filterBar()).getByRole('button', { name: 'Clear Filters' }))
+  await user.click(await screen.findByRole('button', { name: 'Campaign Name' }))
   await vi.waitFor(() => expect(calls.some((call) => call.url.includes('ordering=name') && !call.url.includes('ordering=-name'))).toBe(true))
-  expect(screen.getByRole('columnheader', { name: 'Campaign name' }).getAttribute('aria-sort')).toBe('ascending')
-  expect(calls.some((call) => call.url.includes('channel=SMS') && call.url.includes('page_size=50'))).toBe(true)
+  expect(screen.getByRole('columnheader', { name: 'Campaign Name' }).getAttribute('aria-sort')).toBe('ascending')
+  expect(calls.some((call) => call.url.includes('channel=SMS') && call.url.includes('page_size=25'))).toBe(true)   // 25 rows a page to start with
 })
 
 test('calendar view: a tab of the same page, the month as a grid with a bar per campaign, the same filters, and the upcoming block above both views', async () => {
@@ -73,16 +107,16 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   await renderAppAt('/campaigns')
 
   const views = await screen.findByRole('tablist', { name: 'Campaign views' })
-  expect(within(views).getByRole('tab', { name: 'List view', selected: true })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Create Campaign' }).className).toContain('bg-brand-600')
-  const upcoming = await screen.findByRole('region', { name: 'Upcoming campaigns' })
+  expect(within(views).getByRole('tab', { name: 'List View', selected: true })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Create Campaign' }).className).toContain('bg-brand-600')
+  const upcoming = await screen.findByRole('region', { name: 'Upcoming Campaigns' })
   expect(await within(upcoming).findByText('Winter Preview')).toBeTruthy()
   expect(within(upcoming).getByText(/in the lists/)).toBeTruthy()
 
-  await user.click(within(views).getByRole('tab', { name: 'Calendar view' }))
+  await user.click(within(views).getByRole('tab', { name: 'Calendar View' }))
   expect(window.location.search).toBe('?view=calendar')
   const calendar = await screen.findByRole('region', { name: 'Campaign calendar' })
-  expect(screen.getByRole('region', { name: 'Upcoming campaigns' })).toBeTruthy()                       // stays above the calendar too
+  expect(screen.getByRole('region', { name: 'Upcoming Campaigns' })).toBeTruthy()                       // stays above the calendar too
   expect(screen.queryByRole('table', { name: 'Campaigns' })).toBeNull()
   const title = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date())
   expect(within(calendar).getByRole('heading', { name: title })).toBeTruthy()
@@ -93,13 +127,14 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   expect(within(calendar).getByRole('link', { name: /^Texts today: Paused/ }).className).toContain('bg-warning-bg')   // status is a colour and a word, never blue
   expect(within(calendar).queryByRole('link', { name: /^Fall Launch/ })).toBeNull()                       // a draft without a date is not on the calendar
 
-  await user.selectOptions(screen.getByLabelText('Channel'), 'SMS')                                       // the filters above drive the calendar as they drive the list
+  await user.click(within(filterBar()).getByRole('button', { name: 'Channel' }))                                       // the filters above drive the calendar as they drive the list
+  await user.click(within(screen.getByRole('region', { name: 'Channel' })).getByRole('button', { name: 'SMS' }))
   await vi.waitFor(() => expect(within(calendar).queryByRole('link', { name: /^Sent today/ })).toBeNull())
   expect(within(calendar).getByRole('link', { name: /^Texts today/ })).toBeTruthy()
   expect(calls.some((call) => call.url.includes('/campaigns/calendar/') && call.url.includes('channel=SMS') && call.url.includes('date_from='))).toBe(true)
-  expect(screen.queryByLabelText(/Created from/)).toBeNull()                                              // in the calendar the month is the date range
+  expect(within(filterBar()).queryByRole('button', { name: 'Date Created' })).toBeNull()                               // in the calendar the month is the date range
 
-  await user.click(within(calendar).getByRole('button', { name: 'Next month' }))
+  await user.click(within(calendar).getByRole('button', { name: 'Next Month' }))
   const next = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
   expect(await within(calendar).findByRole('heading', { name: new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(next) })).toBeTruthy()
   await user.click(within(calendar).getByRole('button', { name: 'Today' }))
@@ -109,7 +144,7 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   installMockApi({ campaigns: [makeCampaign({})] })
   await renderAppAt('/campaigns?view=calendar')                                                           // the view is part of the address
   expect(await screen.findByRole('region', { name: 'Campaign calendar' })).toBeTruthy()
-  expect(await within(screen.getByRole('region', { name: 'Upcoming campaigns' })).findByText(/Nothing is scheduled/)).toBeTruthy()
+  expect(await within(screen.getByRole('region', { name: 'Upcoming Campaigns' })).findByText(/Nothing is scheduled/)).toBeTruthy()
 })
 
 test('list: pausing asks first and then shows Paused with Resume; bulk clone and bulk archive report what happened', async () => {
@@ -119,16 +154,19 @@ test('list: pausing asks first and then shows Paused with Resume; bulk clone and
   const table = await screen.findByRole('table', { name: 'Campaigns' })
 
   await user.click(within(table).getByRole('button', { name: 'Actions for Labor Day SMS Blast' }))
-  expect(screen.queryByRole('menuitem', { name: 'Resume' })).toBeNull()
-  await user.click(screen.getByRole('menuitem', { name: 'Pause' }))
+  expect(menuItems()).not.toContain('Resume')
+  await user.click(within(rowMenu()).getByRole('button', { name: 'Pause' }))
   const dialog = await screen.findByRole('dialog', { name: 'Pause this campaign?' })
   expect(calls.some((call) => call.url.endsWith('/pause/'))).toBe(false)                              // nothing until confirmed
   await user.click(within(dialog).getByRole('button', { name: 'Pause' }))
   expect((await screen.findByRole('status')).textContent).toContain('“Labor Day SMS Blast” is paused')
-  await vi.waitFor(() => expect(within(within(screen.getByRole('table', { name: 'Campaigns' })).getByRole('link', { name: 'Labor Day SMS Blast' }).closest('tr') as HTMLElement).getByText('Paused')).toBeTruthy())
-  await user.click(screen.getByRole('button', { name: 'Actions for Labor Day SMS Blast' }))
-  expect(screen.getByRole('menuitem', { name: 'Resume' })).toBeTruthy()
+  await vi.waitFor(() => expect(within(within(screen.getByRole('table', { name: 'Campaigns' })).getByRole('button', { name: 'Labor Day SMS Blast' }).closest('tr') as HTMLElement).getByText('Paused')).toBeTruthy())
+  const trigger = screen.getByRole('button', { name: 'Actions for Labor Day SMS Blast' })
+  await user.click(trigger)
+  expect(menuItems()).toContain('Resume')
   await user.keyboard('{Escape}')
+  expect(screen.queryByRole('region', { name: /^Actions for / })).toBeNull()
+  expect(document.activeElement).toBe(trigger)                                                         // focus goes back to the ⋮ button
 
   await user.click(screen.getByRole('checkbox', { name: 'Select Fall Launch' }))
   await user.click(screen.getByRole('checkbox', { name: 'Select Winter Preview' }))
@@ -137,292 +175,84 @@ test('list: pausing asks first and then shows Paused with Resume; bulk clone and
   await user.click(within(bar).getByRole('button', { name: 'Clone' }))
   await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('2 campaigns cloned.'))
   expect(calls.find((call) => call.url.endsWith('/campaigns/bulk/'))?.body).toEqual({ action: 'clone', ids: ['c1', 'c3'] })
-  expect(await screen.findByRole('link', { name: 'Copy of Fall Launch' })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Copy of Fall Launch' })).toBeTruthy()
 
   await user.click(screen.getByRole('checkbox', { name: 'Select Copy of Fall Launch' }))
   await user.click(within(screen.getByRole('region', { name: 'Bulk actions' })).getByRole('button', { name: 'Archive' }))
   await user.click(within(await screen.findByRole('dialog', { name: 'Archive 1 campaign?' })).getByRole('button', { name: 'Archive' }))
   await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('1 campaign archived.'))
-  await vi.waitFor(() => expect(screen.queryByRole('link', { name: 'Copy of Fall Launch' })).toBeNull())
+  await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Copy of Fall Launch' })).toBeNull())
 })
 
-test('setup, steps 1 to 4: the draft is created on the first Continue and saved on each one after; lists to send to and to exclude; a schedule in the campaign time zone', async () => {
-  const calls = installMockApi({ campaigns: [] })
-  const user = userEvent.setup()
-  await renderAppAt('/campaigns/new')
-
-  // 1. Basic Info: a short name stops here, nothing is sent
-  await user.type(await screen.findByLabelText(/^Campaign name/), 'ab')
-  await user.click(screen.getByRole('button', { name: 'Create draft and continue' }))
-  expect(await screen.findByText('Use at least 3 characters.')).toBeTruthy()
-  expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/campaigns/'))).toBe(false)
-  expect((screen.getByRole('button', { name: /Audience/ }) as HTMLButtonElement).disabled).toBe(true)  // steps ahead open through Continue
-  await user.type(screen.getByLabelText(/^Campaign name/), ' Holiday Preview')
-  expect(screen.getByRole('radio', { name: /Regular Marketing/ }).getAttribute('aria-checked')).toBe('true')
-  expect(screen.getByRole('radio', { name: /^Email/ }).getAttribute('aria-checked')).toBe('true')
-  await user.type(screen.getByLabelText('Tags'), 'Holiday{Enter}vip,')
-  expect(screen.getByRole('button', { name: 'Remove the tag Holiday' })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Create draft and continue' }))
-
-  // 2. Audience
-  expect(await screen.findByRole('heading', { name: 'Audience' })).toBeTruthy()
-  const post = calls.find((call) => call.method === 'POST' && call.url.endsWith('/campaigns/'))
-  expect(post?.body).toMatchObject({ name: 'ab Holiday Preview', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: 'u1', tags: ['Holiday', 'vip'], send_type: 'IMMEDIATE', setup_step: 1 })
-  expect(post?.body).not.toHaveProperty('row_version')
-  expect(window.location.pathname).toBe('/campaigns/c-new/edit')
-  expect((screen.getByRole('button', { name: /Template/ }) as HTMLButtonElement).disabled).toBe(true)     // one step at a time
-  await user.click(await screen.findByRole('checkbox', { name: 'Select every list shown' }))       // more than one list at once
-  expect((screen.getByRole('checkbox', { name: 'Send to Fall Master Audience' }) as HTMLInputElement).checked).toBe(true)
-  expect(screen.getByText(/2 lists selected, 120 contacts before duplicates and governance/)).toBeTruthy()
-  await user.click(screen.getByRole('checkbox', { name: 'Send to Georgia only' }))                    // and one off again
-  await user.click(screen.getByText(/Keep people out of this campaign/))
-  await user.click(await screen.findByRole('checkbox', { name: 'Exclude Georgia only' }))
-  expect((screen.getByRole('checkbox', { name: 'Send to Georgia only' }) as HTMLInputElement).disabled).toBe(true)   // a list is sent to, or excluded, never both
-  const estimate = await screen.findByLabelText('Audience estimate')
-  await vi.waitFor(() => expect(within(estimate).getByText('Estimated recipients').nextElementSibling?.textContent).toBe('78'))
-  expect(calls.some((call) => call.url.includes('/campaigns/audience-estimate/') && call.url.includes('include=cl-master') && call.url.includes('exclude=cl-ga'))).toBe(true)
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-
-  // 3. Template: only what fits the channel; the preview is of the template picked here, saved or not
-  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ contact_lists: ['cl-master'], excluded_lists: ['cl-ga'], row_version: 2, setup_step: 2 })
-  const cards = await screen.findByRole('radiogroup', { name: 'Template' })
-  expect(within(cards).queryByRole('radio', { name: /Fall SMS/ })).toBeNull()
-  expect(within(cards).queryByRole('radio', { name: /Retired Email/ })).toBeNull()
-  await user.click(within(cards).getByRole('radio', { name: /Fall Email/ }))
-  expect(await screen.findByTitle('Email preview')).toBeTruthy()
-  expect(calls.some((call) => call.url.includes('/campaigns/c-new/preview/') && call.url.includes('template=tpl-email'))).toBe(true)
-  await user.selectOptions(screen.getByLabelText('Send from'), 'snd-email')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-
-  // 4. Scheduling: 09:00 in Chicago is 15:00 UTC in November
-  expect(await screen.findByRole('heading', { name: 'Scheduling & Delivery' })).toBeTruthy()
-  await user.click(screen.getByRole('radio', { name: /Schedule for later/ }))
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByText('Choose the date and time of the send.')).toBeTruthy()
-  await user.selectOptions(screen.getByLabelText('Time zone'), 'America/Chicago')
-  await user.type(screen.getByLabelText(/^Send at\*/), '2099-11-02T09:00')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByRole('heading', { name: 'Targets & Economics' })).toBeTruthy()
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: 'snd-email', send_type: 'SCHEDULED', send_timezone: 'America/Chicago',
-    scheduled_at: '2099-11-02T15:00:00.000Z', respect_governance: true, setup_step: 4 })
-})
-
-test('setup, steps 5 to 7: targets, a test publish to colleagues, the checklist, and a production publish that asks once more', async () => {
-  const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }) })
-  const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1/edit?step=5')
-
-  await user.type(await screen.findByLabelText('Revenue (USD)'), '25000')
-  await user.type(screen.getByLabelText('Planned campaign cost (USD)'), '5000')
-  expect(screen.getByText('5.0 : 1')).toBeTruthy()
-  await user.type(screen.getByLabelText('Clicks'), '4x')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByText('Enter a whole number, zero or more.')).toBeTruthy()
-  await user.clear(screen.getByLabelText('Clicks'))
-  await user.type(screen.getByLabelText('Clicks'), '40')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-
-  expect(await screen.findByRole('heading', { name: 'Test & Preview' })).toBeTruthy()
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ targets: { target_revenue: '25000', planned_cost: '5000', target_clicks: 40, target_opens: null } })
-  const test = await screen.findByRole('group', { name: 'Send a test' })
-  await user.clear(within(test).getByLabelText('Other addresses'))
-  await user.click(await within(test).findByRole('checkbox', { name: /Devon Okafor/ }))
-  await user.click(within(test).getByRole('button', { name: 'Send test' }))
-  expect(await within(test).findByText('Sent to devon@example.com')).toBeTruthy()
-  expect(calls.find((call) => call.url.endsWith('/test-publish/'))?.body).toEqual({ to: [], user_ids: ['u2'] })
-  expect(await screen.findByText('Test Published')).toBeTruthy()                                        // the draft moved on
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-
-  expect(await screen.findByRole('heading', { name: 'Review & Publish' })).toBeTruthy()
-  const checklist = await screen.findByRole('list', { name: 'Pre-publish checklist' })
-  expect(within(checklist).getByText('Test message sent and reviewed').nextElementSibling?.textContent).toBe(': done')
-  await user.click(screen.getByRole('button', { name: 'Publish to production' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Publish to production?' })
-  expect(within(dialog).getByText(/goes to about/).textContent).toContain('88')
-  expect(calls.some((call) => call.url.endsWith('/publish/'))).toBe(false)
-  await user.click(within(dialog).getByRole('button', { name: 'Publish' }))
-  expect(await screen.findByRole('tab', { name: 'Overview' })).toBeTruthy()                             // landed on the campaign page
-  expect(screen.getByText('Production Published')).toBeTruthy()
-  expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
-})
-
-test('setup: the checklist holds a campaign back, the API\'s field messages open the step they belong to, a published campaign is not editable', async () => {
-  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', template: null, template_name: null }) })
-  const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1/edit?step=7')
-  const checklist = await screen.findByRole('list', { name: 'Pre-publish checklist' })
-  expect(within(checklist).getByText('Choose a template.')).toBeTruthy()
-  expect((screen.getByRole('button', { name: 'Publish to production' }) as HTMLButtonElement).disabled).toBe(true)
-  await user.click(screen.getByRole('button', { name: 'Edit Template' }))
-  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-
-  cleanup()
-  installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }), onSave: () => problem(400, { title: 'Invalid input', errors: { name: ['Another campaign already has this name.'] } }) })
-  await renderAppAt('/campaigns/c1/edit?step=5')
-  await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByRole('heading', { name: 'Basic Info' })).toBeTruthy()
-  expect(screen.getByText('Another campaign already has this name.')).toBeTruthy()
-
-  cleanup()
-  installMockApi({ campaign: makeCampaign({ status: 'ACTIVE' }) })
-  await renderAppAt('/campaigns/c1/edit')
-  expect(await screen.findByText(/This campaign is active, so it can no longer be edited/)).toBeTruthy()
-})
-
-test('setup: a drip campaign sends as a series of steps; an e-receipt needs no list and no schedule', async () => {
-  const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'DRIP', send_type: 'DRIP', drip_config: { time: '10:00', steps: [{ day: 0, label: 'Welcome' }] } }) })
-  const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1/edit?step=4')
-  expect(await screen.findByRole('radio', { name: /Drip series/ })).toBeTruthy()
-  expect(screen.queryByRole('radio', { name: /Send immediately/ })).toBeNull()
-  expect((screen.getByLabelText('Label') as HTMLInputElement).value).toBe('Welcome')
-  await user.click(screen.getByRole('button', { name: 'Add a step' }))
-  expect((screen.getByLabelText(/^Step 2: day/) as HTMLInputElement).value).toBe('3')
-  await user.clear(screen.getByLabelText(/^Step 2: day/))
-  await user.type(screen.getByLabelText(/^Step 2: day/), '0')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByText('Another step is already on this day.')).toBeTruthy()
-  await user.clear(screen.getByLabelText(/^Step 2: day/))
-  await user.type(screen.getByLabelText(/^Step 2: day/), '7')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  await screen.findByRole('heading', { name: 'Targets & Economics' })
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ send_type: 'DRIP', drip_config: { time: '10:00', steps: [{ day: 0, label: 'Welcome' }, { day: 7 }] } })
-
-  cleanup()
-  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [] }) })
-  await renderAppAt('/campaigns/c1/edit?step=2')
-  expect(await screen.findByText('This is an E-Receipt campaign, so there is no contact list to attach')).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /Upload a CSV file/ })).toBeNull()
-  await user.click(screen.getByRole('button', { name: /Scheduling & Delivery/ }))
-  expect(await screen.findByText('This is an E-Receipt campaign, so there is no schedule to set')).toBeTruthy()
-
-  // the way out is on the page: change the type, and the lists are there to attach or to create
-  await user.click(screen.getByRole('button', { name: /Audience/ }))
-  await user.click(await screen.findByRole('button', { name: 'Change the campaign type' }))
-  expect(await screen.findByRole('heading', { name: 'Basic Info' })).toBeTruthy()
-  await user.click(screen.getByRole('radio', { name: /Regular Marketing/ }))
-  expect((screen.getByLabelText(/^Message purpose/) as HTMLSelectElement).value).toBe('MARKETING')
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))
-  expect(await screen.findByRole('checkbox', { name: 'Send to Fall Master Audience' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: /Upload a CSV file/ })).toBeTruthy()
-})
-
-test('an unfinished setup opens where it stopped, from the list and from the campaign address; the campaign page opens once every step before the publish is done', async () => {
-  const half = () => makeCampaign({ id: 'c1', name: 'Fall Launch', status: 'DRAFT', setup_step: 2, template: null, template_name: null, sender_profile: null, sender_profile_name: null })
-  const calls = installMockApi({ campaigns: [half()] })
-  const user = userEvent.setup()
-  await renderAppAt('/campaigns')
-  const table = await screen.findByRole('table', { name: 'Campaigns' })
-  expect(within(table).getByText('Setup not finished: step 3 of 7')).toBeTruthy()
-  expect(within(table).getByRole('link', { name: 'Continue setup' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=3')
-  await user.click(within(table).getByRole('link', { name: 'Fall Launch' }))                          // the name leads to the setup too
-  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-  expect(screen.getByText(/Setup in progress: 2 of 6 steps done/)).toBeTruthy()
-  expect((screen.getByRole('button', { name: /Audience/ }) as HTMLButtonElement).disabled).toBe(false)  // what was done can be revisited
-  expect(screen.getByRole('button', { name: 'Basic Info, completed' })).toBeTruthy()                   // and says so
-  expect(screen.getByRole('button', { name: 'Audience, completed' })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /Template, completed/ })).toBeNull()                     // the step in hand is not done yet
-  expect((screen.getByRole('button', { name: /Scheduling & Delivery/ }) as HTMLButtonElement).disabled).toBe(true)
-  expect(screen.queryByRole('link', { name: 'Back to the campaign' })).toBeNull()
-
-  cleanup()
-  installMockApi({ campaigns: [half()] })
-  await renderAppAt('/campaigns/c1?tab=performance')                                                  // a bookmark or a typed address
-  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-  expect(window.location.pathname + window.location.search).toBe('/campaigns/c1/edit?step=3')
-  expect(screen.queryByRole('tablist')).toBeNull()
-
-  cleanup()
-  installMockApi({ campaigns: [half()] })
-  await renderAppAt('/campaigns/c1/edit?step=7')                                                       // no jumping ahead to the publish
-  expect(await screen.findByRole('heading', { name: 'Template' })).toBeTruthy()
-  await user.click(await screen.findByRole('radio', { name: /Fall Email/ }))
-  await user.click(screen.getByRole('button', { name: 'Save and close' }))                             // keeps the place, does not move it on
-  expect(await screen.findByRole('table', { name: 'Campaigns' })).toBeTruthy()
-  expect(screen.getByText('Setup not finished: step 3 of 7')).toBeTruthy()
-  expect(calls.length).toBeGreaterThan(0)
-
-  cleanup()
-  const last = installMockApi({ campaigns: [makeCampaign({ id: 'c1', name: 'Fall Launch', status: 'DRAFT', setup_step: 5 })] })
-  await renderAppAt('/campaigns/c1')
-  expect(await screen.findByRole('heading', { name: 'Test & Preview' })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Save and continue' }))                          // nothing was changed: the step is still recorded as done
-  expect(await screen.findByRole('heading', { name: 'Review & Publish' })).toBeTruthy()
-  expect(last.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ setup_step: 6 })
-  await user.click(screen.getByRole('link', { name: 'Back to the campaign' }))                        // every step but the publish is done: the page is there
-  expect(await screen.findByRole('tablist', { name: 'Campaign sections' })).toBeTruthy()
-  expect(screen.getByRole('link', { name: 'Production Publish' })).toBeTruthy()
-})
-
-test('an unfinished setup, for someone who may not edit: the campaign page, with a note that the setup is not finished', async () => {
-  installMockApi({ campaigns: [makeCampaign({ id: 'c1', status: 'DRAFT', setup_step: 2 })], me: { principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
-  await renderAppAt('/campaigns/c1')
-  expect(await screen.findByText(/The setup of this campaign is not finished: 2 of 6 steps are done/)).toBeTruthy()
-  expect(screen.getByRole('tablist', { name: 'Campaign sections' })).toBeTruthy()
-})
-
-test('campaign page: six tabs; results against targets with a chart and its numbers; the frozen Campaign List; the log, filtered', async () => {
+test('campaign page: five tabs; results against targets with a chart and its numbers; the frozen Campaign List; the log, filtered', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'COMPLETED', completed_at: '2026-09-18T10:02:00Z', runs: [run({})] as never,
     targets: { target_revenue: '25000.00', target_opens: null, target_clicks: 40, target_conversions: null, target_redemptions: null, planned_cost: null, planned_offer_cost: null, notes: null } }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1')
 
   const tabs = await screen.findByRole('tablist', { name: 'Campaign sections' })
-  expect(within(tabs).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Overview', 'Performance', 'Audience', 'Content', 'Settings', 'Activity Log'])
-  expect(await screen.findByText('Delivery rate')).toBeTruthy()
+  expect(within(tabs).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Overview', 'Performance', 'Audience', 'Content', 'Activity Log'])
+  expect(await screen.findByText('Delivery Rate')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Clone' })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull()
-  expect(screen.queryByRole('link', { name: 'Production Publish' })).toBeNull()
+  expect(within(await openMore(user)).getAllByRole('button').map((item) => item.textContent)).toEqual(['Archive', 'Copy Campaign ID'])   // nothing to pause or publish
+  await user.keyboard('{Escape}')
 
   await user.click(within(tabs).getByRole('tab', { name: 'Performance' }))
-  expect(await screen.findByRole('img', { name: /Messages sent, delivered, opened, clicked per hour/ })).toBeTruthy()
+  expect(await screen.findByRole('group', { name: /Messages sent, delivered, opened, clicked per hour/ })).toBeTruthy()
   expect(screen.getByRole('progressbar', { name: 'Clicks against target' }).getAttribute('aria-valuenow')).toBe('30')
   expect(screen.getByText('52.6% of delivered')).toBeTruthy()
   expect(screen.getByText('northwind.example')).toBeTruthy()
-  await user.click(screen.getByRole('radio', { name: 'By day' }))                                      // the shared segmented control: one choice of two
+  await user.click(screen.getByRole('radio', { name: 'By Day' }))                                      // the shared segmented control: one choice of two
   expect(window.location.search).toBe('?tab=performance')
 
   await user.keyboard('{ArrowRight}')                                                                  // tabs follow the arrow keys once one has focus
   await user.click(within(tabs).getByRole('tab', { name: 'Audience' }))
-  expect(await screen.findByText('Frozen Campaign List')).toBeTruthy()
-  expect(screen.getByText('Left out: Unsubscribed')).toBeTruthy()
+  await user.click(await screen.findByRole('button', { name: /excluded of .* in your lists/ }))          // the breakdown holds the frozen Campaign List
+  expect(screen.getByText('At the Last Send')).toBeTruthy()
+  expect(screen.getByText('Left Out: Unsubscribed')).toBeTruthy()
   expect(screen.getByRole('button', { name: /Export CSV/ })).toBeTruthy()
 
   await user.click(within(tabs).getByRole('tab', { name: 'Activity Log' }))
-  const log = await screen.findByRole('list', { name: 'Activity log' })
-  expect(within(log).getAllByRole('listitem')).toHaveLength(2)
-  await user.selectOptions(screen.getByLabelText('Show'), 'WARNING')
-  expect(within(screen.getByRole('list', { name: 'Activity log' })).getAllByRole('listitem')).toHaveLength(1)
+  const log = await screen.findByRole('region', { name: 'Activity Log' })
+  expect(await within(log).findAllByRole('listitem')).toHaveLength(2)
+  await user.click(within(log).getByRole('radio', { name: 'Warnings' }))
+  expect(within(log).getAllByRole('listitem')).toHaveLength(1)
 })
 
-test('campaign page: Edit opens the setup step that belongs to the tab in view, and the setup leads back to that tab', async () => {
+test('campaign page: Edit campaign (⋮) opens the part of the setup that holds the tab in view, and the setup leads back to that tab', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1')
-  const tabs = await screen.findByRole('tablist', { name: 'Campaign sections' })
-  const header = () => screen.getAllByRole('link', { name: 'Edit' })[0]                                // the Settings tab has an Edit of its own on each panel
-  const editStep = () => header().getAttribute('href')
-  expect(editStep()).toBe('/campaigns/c1/edit?step=1')                                                // Overview: Basic Info
-  for (const [tab, step] of [['Performance', 5], ['Content', 3], ['Settings', 4], ['Activity Log', 1], ['Audience', 2]] as const) {
-    await user.click(within(tabs).getByRole('tab', { name: tab }))
-    expect(editStep()).toBe(`/campaigns/c1/edit?step=${step}`)
+  await screen.findByRole('tablist', { name: 'Campaign sections' })
+  const editFrom = async (tab: string) => {
+    await user.click(within(screen.getByRole('tablist', { name: 'Campaign sections' })).getByRole('tab', { name: tab }))
+    await user.click(within(await openMore(user)).getByRole('button', { name: 'Edit Campaign' }))
   }
+  for (const tab of ['Overview', 'Activity Log']) {                                                  // the details, in the pop-up over the page
+    await editFrom(tab)
+    const dialog = await screen.findByRole('dialog', { name: 'Edit Details' })
+    expect(window.location.pathname).toBe('/campaigns/c1')
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit Details' })).toBeNull())
+  }
+  await editFrom('Content')
+  expect(window.location.pathname + window.location.search).toBe('/campaigns/c1/edit?step=content')
+  window.history.back()
+  await screen.findByRole('tablist', { name: 'Campaign sections' })
 
-  await user.click(header())                                                                           // from the Audience tab
-  expect(await screen.findByRole('heading', { name: 'Audience' })).toBeTruthy()
-  for (const name of ['Basic Info', 'Audience', 'Template', 'Scheduling & Delivery', 'Targets & Economics', 'Test & Preview']) expect(screen.getByRole('button', { name: `${name}, completed` })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /Review & Publish, completed/ })).toBeNull()              // the publish is never 'done' on a draft
-  expect(await screen.findByRole('checkbox', { name: 'Send to Fall Master Audience' })).toBeTruthy()
-  await user.click(screen.getByRole('link', { name: 'Back to the campaign' }))
+  await editFrom('Audience')
+  expect(window.location.search).toBe('?step=audience')
+  expect(await screen.findByRole('heading', { level: 2, name: 'Send To' })).toBeTruthy()                   // the Audience step
+  for (const name of ['Audience', 'Content', 'Targets', 'Test & Publish']) expect(screen.getByRole('button', { name: `${name}, completed` })).toBeTruthy()   // a finished setup
+  expect(await screen.findByRole('link', { name: 'Fall Master Audience (opens in a new tab)' })).toBeTruthy()
+  await user.click(screen.getByRole('link', { name: 'Back to the Campaign' }))
   expect(await screen.findByRole('tab', { name: 'Audience', selected: true })).toBeTruthy()          // and back where it started
 
-  await user.click(header())
-  await user.click(await screen.findByRole('button', { name: /Scheduling & Delivery/ }))
-  expect(await screen.findByRole('heading', { name: 'Scheduling & Delivery' })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Save and close' }))
-  expect(await screen.findByRole('tab', { name: 'Settings', selected: true })).toBeTruthy()
+  await editFrom('Audience')
+  await user.click(await screen.findByRole('button', { name: /Test & Publish/ }))
+  expect(await screen.findByRole('heading', { level: 1, name: 'Test & Publish' })).toBeTruthy()
+  await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
+  expect(await screen.findByRole('tab', { name: 'Overview', selected: true })).toBeTruthy()           // scheduling lives on Overview
 })
 
 test('campaign page: actions by status: a scheduled send can be cancelled, a paused one resumed, an archived one restored, a clone opens in the setup', async () => {
@@ -432,9 +262,9 @@ test('campaign page: actions by status: a scheduled send can be cancelled, a pau
   const header = (await screen.findByRole('heading', { name: 'Winter Preview' })).parentElement as HTMLElement
   expect(within(header).getByText('Scheduled')).toBeTruthy()
   expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
-  await user.click(screen.getByRole('button', { name: 'Cancel schedule' }))
-  await user.click(within(await screen.findByRole('dialog', { name: 'Cancel the scheduled send?' })).getByRole('button', { name: 'Cancel the send' }))
-  expect((await screen.findByRole('status')).textContent).toContain('The campaign is a draft again')
+  await user.click(screen.getByRole('button', { name: 'Cancel Schedule' }))
+  await user.click(within(await screen.findByRole('dialog', { name: 'Cancel the scheduled send?' })).getByRole('button', { name: 'Cancel the Send' }))
+  expect(await screen.findByText(/The campaign is a draft again/)).toBeTruthy()
   expect(await screen.findByRole('link', { name: 'Edit' })).toBeTruthy()
 
   cleanup()
@@ -447,12 +277,12 @@ test('campaign page: actions by status: a scheduled send can be cancelled, a pau
   cleanup()
   installMockApi({ campaign: makeCampaign({ status: 'ARCHIVED' }) })
   await renderAppAt('/campaigns/c1')
-  await user.click(await screen.findByRole('button', { name: 'Unarchive' }))
-  expect((await screen.findByRole('status')).textContent).toContain('is back as Draft')
+  await user.click(within(await openMore(user)).getByRole('button', { name: 'Unarchive' }))
+  expect(await screen.findByText(/is back as Draft/)).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Clone' }))
-  expect(await screen.findByRole('heading', { name: 'Basic Info' })).toBeTruthy()
-  expect(window.location.pathname).toBe('/campaigns/c1-copy/edit')
-  expect((screen.getByLabelText(/^Campaign name/) as HTMLInputElement).value).toBe('Copy of Fall Launch')
+  const details = await screen.findByRole('dialog', { name: 'Edit Details' })                           // the copy opens with its details, to rename it
+  expect(window.location.pathname + window.location.search).toBe('/campaigns/c1-copy/edit?step=audience&details=1')
+  expect((within(details).getByLabelText(/^Campaign Name/) as HTMLInputElement).value).toBe('Copy of Fall Launch')
 })
 
 test('permissions: without campaign.edit there is nothing to create, select or change; without campaign.publish nothing to pause or publish', async () => {
@@ -461,17 +291,17 @@ test('permissions: without campaign.edit there is nothing to create, select or c
   const user = userEvent.setup()
   await renderAppAt('/campaigns')
   const table = await screen.findByRole('table', { name: 'Campaigns' })
-  expect(screen.queryByRole('link', { name: /Create Campaign/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /Create Campaign/ })).toBeNull()
   expect(within(table).queryByRole('checkbox')).toBeNull()
-  expect(within(table).queryByRole('link', { name: 'Continue setup' })).toBeNull()
   await user.click(within(table).getByRole('button', { name: 'Actions for Labor Day SMS Blast' }))
-  expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Open', 'View results'])
+  expect(menuItems()).toEqual(['View Results'])
+  expect(within(table).queryByRole('button', { name: 'Actions for Fall Launch' })).toBeNull()        // a draft offers a viewer nothing, so it has no ⋮ at all
 
   cleanup()
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }), me: { principal: { ...me.principal, permissions: ['campaign.view', 'campaign.edit'] } } as never })
   await renderAppAt('/campaigns/c1/edit?step=7')
   expect(await screen.findByText(/Publishing needs the campaign.publish permission/)).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Publish to production' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Publish to Production' })).toBeNull()
 })
 
 test('setup: a picked template opens in its own editor, an e-receipt in the receipt editor', async () => {
@@ -481,6 +311,212 @@ test('setup: a picked template opens in its own editor, an e-receipt in the rece
 
   const cards = await screen.findByRole('radiogroup', { name: 'Template' })
   await user.click(within(cards).getByRole('radio', { name: /Northline order receipt/ }))
-  const open = await screen.findByRole('link', { name: /Open in the receipt editor/ })
+  const open = await screen.findByRole('link', { name: /Open in the Receipt Editor/ })
   expect(open.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
+})
+
+test('list filters: Status is a multi-select sent as one comma list; Date created presets and a custom range fill date_from / date_to; every change goes back to page 1', async () => {
+  const calls = installMockApi({ campaigns: workspace() })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('table', { name: 'Campaigns' })
+  const listCalls = () => calls.filter((call) => call.url.includes('/campaigns/?') && !call.url.includes('page_size=4'))
+
+  const statusButton = within(filterBar()).getByRole('button', { name: 'Status' })
+  await user.click(statusButton)
+  const status = screen.getByRole('region', { name: 'Status' })
+  await user.click(within(status).getByRole('button', { name: 'Scheduled' }))
+  expect(statusButton.textContent).toBe('Scheduled')                                                     // one status: its name
+  await user.click(within(status).getByRole('button', { name: 'Draft' }))
+  expect(within(status).getByRole('button', { name: 'Draft' }).getAttribute('aria-pressed')).toBe('true')
+  expect(statusButton.textContent).toBe('Status · 2')
+  await vi.waitFor(() => expect(listCalls().some((call) => new URL(call.url, 'http://x').searchParams.get('status') === 'DRAFT,SCHEDULED')).toBe(true))
+  const table = await screen.findByRole('table', { name: 'Campaigns' })
+  await vi.waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3))                       // Fall Launch and Winter Preview, under the header
+  await user.keyboard('{Escape}')
+
+  const zone = me.tenant.timezone
+  const { rangeDates } = await import('./listFilters')
+  await user.click(within(filterBar()).getByRole('button', { name: 'Date Created' }))
+  await user.click(within(screen.getByRole('region', { name: 'Date Created' })).getByRole('button', { name: 'Last 30 Days' }))
+  const last30 = rangeDates('last30', zone)
+  await vi.waitFor(() => expect(listCalls().some((call) => call.url.includes(`date_from=${last30.date_from}`) && call.url.includes(`date_to=${last30.date_to}`))).toBe(true))
+  expect(within(filterBar()).getByRole('button', { name: 'Last 30 Days' }).className).toContain('text-brand-800')
+
+  await user.click(within(filterBar()).getByRole('button', { name: 'Last 30 Days' }))
+  await user.click(within(screen.getByRole('region', { name: 'Date Created' })).getByRole('button', { name: 'This Quarter' }))
+  const quarter = rangeDates('quarter', zone)
+  await vi.waitFor(() => expect(listCalls().some((call) => call.url.includes(`date_from=${quarter.date_from}`))).toBe(true))
+
+  await user.click(within(filterBar()).getByRole('button', { name: 'This Quarter' }))
+  const created = screen.getByRole('region', { name: 'Date Created' })
+  await user.click(within(created).getByRole('button', { name: 'Custom Range' }))
+  await user.type(within(created).getByLabelText('From'), '2026-08-01')
+  await user.type(within(created).getByLabelText('To'), '2026-08-31')
+  await user.click(within(created).getByRole('button', { name: 'Apply' }))
+  await vi.waitFor(() => expect(listCalls().some((call) => call.url.includes('date_from=2026-08-01') && call.url.includes('date_to=2026-08-31'))).toBe(true))
+  expect(within(filterBar()).getByRole('button', { name: '2026-08-01 – 2026-08-31' })).toBeTruthy()
+  expect(listCalls().every((call) => new URL(call.url, 'http://x').searchParams.get('page') === '1')).toBe(true)
+  expect(listCalls().some((call) => call.url.includes('created='))).toBe(false)                           // the preset's name stays on this side
+
+  await user.click(within(filterBar()).getByRole('button', { name: 'Clear Filters' }))
+  expect(within(filterBar()).getByRole('button', { name: 'Status' })).toBeTruthy()
+  expect(within(filterBar()).getByRole('button', { name: 'Date Created' })).toBeTruthy()
+  expect((within(filterBar()).getByRole('button', { name: 'Clear Filters' }) as HTMLButtonElement).disabled).toBe(true)
+})
+
+test('list pages: 25 rows to start, 50 or 100 on request (back to page 1), previous and next, and "Showing x–y of n"', async () => {
+  const many = Array.from({ length: 60 }, (_, index) => makeCampaign({ id: `m${index}`, name: `Campaign ${String(index + 1).padStart(2, '0')}`, code: `CMP-${index}` }))
+  const calls = installMockApi({ campaigns: many })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('table', { name: 'Campaigns' })
+
+  expect(screen.getByText('Showing 1–25 of 60 campaigns')).toBeTruthy()
+  expect(screen.getByText('Page 1 of 3')).toBeTruthy()
+  const sizes = screen.getByRole('group', { name: 'Rows per Page' })
+  expect(within(sizes).getByRole('button', { name: '25' }).getAttribute('aria-pressed')).toBe('true')
+  expect((screen.getByRole('button', { name: 'Previous Page' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.click(screen.getByRole('button', { name: 'Next Page' }))
+  expect(await screen.findByText('Showing 26–50 of 60 campaigns')).toBeTruthy()
+  expect(screen.getByText('Page 2 of 3')).toBeTruthy()
+
+  await user.click(within(sizes).getByRole('button', { name: '50' }))
+  expect(await screen.findByText('Showing 1–50 of 60 campaigns')).toBeTruthy()
+  expect(calls.some((call) => call.url.includes('page_size=50') && call.url.includes('page=1&'))).toBe(true)
+  expect(within(sizes).getByRole('button', { name: '50' }).className).toContain('bg-brand-100')
+  await user.click(within(sizes).getByRole('button', { name: '100' }))
+  expect(await screen.findByText('Showing 1–60 of 60 campaigns')).toBeTruthy()
+  expect((screen.getByRole('button', { name: 'Next Page' }) as HTMLButtonElement).disabled).toBe(true)
+})
+
+test('list rows: a click anywhere on the row opens the preview, but not on the ⋮ button, the checkbox or the menu; the table reads Type, Triggered by and the owner', async () => {
+  installMockApi({ campaigns: [...workspace(), makeCampaign({ id: 'c8', name: 'Failed Teaser', code: 'CMP-2026-0008', channel: 'MMS', status: 'FAILED', owner_name: 'Priya Raman', actions: ['results', 'clone', 'archive'] })] })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  const table = await screen.findByRole('table', { name: 'Campaigns' })
+  const row = (name: string) => within(table).getByRole('button', { name }).closest('tr') as HTMLElement
+
+  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['', 'Campaign Name', 'Type', 'Channel', 'Status', 'Triggered By', 'Audience', 'Scheduled', 'Created', 'Actions'])
+  expect(within(row('Welcome Series Email 1')).getByText('Automated')).toBeTruthy()
+  expect(row('Welcome Series Email 1').className).toContain('bg-surface-subtle')                          // journey rows rest on grey
+  expect(within(row('Failed Teaser')).getByText('Priya Raman')).toBeTruthy()
+  expect(within(row('Failed Teaser')).getByText('Manual')).toBeTruthy()
+  await openMenu(user, 'Failed Teaser')
+  expect(menuItems()).not.toContain('Retry')
+  expect(menuItems()).not.toContain('Open')
+  await user.keyboard('{Escape}')
+
+  await user.click(within(row('Winter Preview')).getByRole('button', { name: 'Actions for Winter Preview' }))
+  expect(window.location.pathname).toBe('/campaigns')
+  await user.click(rowMenu())                                                                          // the menu panel itself, between its rows
+  expect(window.location.pathname).toBe('/campaigns')
+  await user.keyboard('{Escape}')
+  await user.click(within(row('Winter Preview')).getByRole('checkbox'))
+  expect(window.location.pathname).toBe('/campaigns')
+  expect(screen.queryByRole('dialog')).toBeNull()
+  await user.click(within(row('Winter Preview')).getByText('Scheduled'))
+  expect(await screen.findByRole('dialog', { name: 'Winter Preview' })).toBeTruthy()                     // the row opens the preview
+  expect(window.location.search).toBe('?preview=c3')
+})
+
+test('empty states: no campaigns at all invites the first one; filters that match nothing offer to clear them', async () => {
+  installMockApi({ campaigns: [] })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  expect(await screen.findByRole('heading', { name: 'You haven’t created any campaigns yet' })).toBeTruthy()
+  expect(screen.getByText('Build an email, SMS or MMS campaign, or let a journey generate one for you.')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Create Your First Campaign' }))                   // the Create Campaign pop-up
+  expect(await screen.findByRole('dialog', { name: 'Create Campaign' })).toBeTruthy()
+  await user.keyboard('{Escape}')
+  expect(screen.queryByText(/Showing/)).toBeNull()
+
+  cleanup()
+  installMockApi({ campaigns: workspace() })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('table', { name: 'Campaigns' })
+  await user.type(within(filterBar()).getByRole('searchbox', { name: 'Search campaigns' }), 'zzz')
+  expect(await screen.findByRole('heading', { name: 'No matching campaigns' })).toBeTruthy()
+  expect(screen.getByText('Try widening the date range or clearing filters.')).toBeTruthy()
+  const clear = screen.getAllByRole('button', { name: 'Clear Filters' }).find((button) => !filterBar().contains(button)) as HTMLElement
+  await user.click(clear)
+  expect(await screen.findByRole('table', { name: 'Campaigns' })).toBeTruthy()
+  expect((within(filterBar()).getByRole('searchbox', { name: 'Search campaigns' }) as HTMLInputElement).value).toBe('')
+
+  cleanup()
+  installMockApi({ campaigns: [], me: { principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
+  await renderAppAt('/campaigns')
+  expect(await screen.findByRole('heading', { name: 'You haven’t created any campaigns yet' })).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Create Your First Campaign' })).toBeNull()
+})
+
+test('Triggered by holds the owner: Manual narrows to one owner, Journey or Any clears it; Tag is its own filter, only when the workspace has tags', async () => {
+  const calls = installMockApi({ campaigns: [...workspace(), makeCampaign({ id: 'c9', name: 'Devon’s Promo', code: 'CMP-2026-0009', owner_user: 'u2', owner_name: 'Devon Okafor' })] })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('table', { name: 'Campaigns' })
+  const listCall = (test: (params: URLSearchParams) => boolean) => calls.some((call) => call.url.includes('/campaigns/?') && test(new URL(call.url, 'http://x').searchParams))
+
+  expect(within(filterBar()).queryByRole('button', { name: /More filters/ })).toBeNull()
+  const trigger = within(filterBar()).getByRole('button', { name: 'Triggered By' })
+  await user.click(trigger)
+  let menu = screen.getByRole('region', { name: 'Triggered By' })
+  expect(within(menu).getAllByRole('button').map((row) => row.textContent)).toEqual(['Any', 'Journey', 'Manual (Any Owner)', 'Aby John', 'Devon Okafor'])
+  expect(within(menu).getByRole('group', { name: 'Owner' })).toBeTruthy()
+  await user.click(within(menu).getByRole('button', { name: 'Devon Okafor' }))
+  await vi.waitFor(() => expect(listCall((params) => params.get('triggered_by') === 'manual' && params.get('owner') === 'u2')).toBe(true))
+  expect(trigger.textContent).toBe('Manual · Devon Okafor')
+  expect(trigger.getAttribute('title')).toBe('Manual · Devon Okafor')
+  expect(trigger.className).toContain('text-brand-800')
+  await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Campaigns' })).getAllByRole('row')).toHaveLength(2))
+
+  await user.click(trigger)
+  menu = screen.getByRole('region', { name: 'Triggered By' })
+  expect(within(menu).getByRole('button', { name: 'Manual (Any Owner)' }).getAttribute('aria-pressed')).toBe('true')   // both ticked
+  expect(within(menu).getByRole('button', { name: 'Devon Okafor' }).getAttribute('aria-pressed')).toBe('true')
+  await user.click(within(menu).getByRole('button', { name: 'Journey' }))
+  expect(trigger.textContent).toBe('Journey')
+  await vi.waitFor(() => expect(listCall((params) => params.get('triggered_by') === 'journey' && !params.get('owner'))).toBe(true))
+
+  await user.click(trigger)
+  await user.click(within(screen.getByRole('region', { name: 'Triggered By' })).getByRole('button', { name: 'Devon Okafor' }))
+  await user.click(trigger)
+  await user.click(within(screen.getByRole('region', { name: 'Triggered By' })).getByRole('button', { name: 'Manual (Any Owner)' }))
+  expect(trigger.textContent).toBe('Manual')                                                             // Manual on its own drops the owner
+
+  await user.click(within(filterBar()).getByRole('button', { name: 'Tag' }))
+  await user.click(within(screen.getByRole('region', { name: 'Tag' })).getByRole('button', { name: 'Fall' }))
+  await vi.waitFor(() => expect(listCall((params) => params.get('tag') === 'Fall')).toBe(true))
+  expect(within(filterBar()).getByRole('button', { name: 'Fall' }).className).toContain('text-brand-800')
+  const buttons = within(filterBar()).getAllByRole('button').map((button) => button.textContent)
+  expect(buttons.indexOf('Fall')).toBe(buttons.indexOf('Date Created') + 1)                              // after Date created
+  await user.click(within(filterBar()).getByRole('button', { name: 'Clear Filters' }))
+  expect(trigger.textContent).toBe('Triggered By')
+  expect(within(filterBar()).getByRole('button', { name: 'Tag' })).toBeTruthy()
+
+  cleanup()
+  installMockApi({ campaigns: workspace(), campaignTags: [] })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('table', { name: 'Campaigns' })
+  expect(within(filterBar()).queryByRole('button', { name: 'Tag' })).toBeNull()
+})
+
+test('the list says "Regular" where the setup keeps "Regular Marketing"; upcoming cards read the time with a short zone name', async () => {
+  installMockApi({ campaigns: workspace() })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  const table = await screen.findByRole('table', { name: 'Campaigns' })
+  const cell = within(within(table).getByRole('button', { name: 'Fall Launch' }).closest('tr') as HTMLElement).getByText('Regular')
+  expect(cell.className).toContain('whitespace-nowrap')
+  expect(within(table).queryByText('Regular Marketing')).toBeNull()
+  await user.click(within(filterBar()).getByRole('button', { name: 'Type' }))
+  expect(within(screen.getByRole('region', { name: 'Type' })).getAllByRole('button').map((row) => row.textContent)).toEqual(['Regular', 'Drip', 'E-Receipt', 'Other'])
+  await user.click(within(screen.getByRole('region', { name: 'Type' })).getByRole('button', { name: 'Regular' }))
+  expect(within(filterBar()).getByRole('button', { name: 'Regular' })).toBeTruthy()
+  expect(within(screen.getByRole('region', { name: 'Upcoming Campaigns' })).getByText(/ C[DS]T · 90 in the lists$/)).toBeTruthy()   // Winter Preview is sent in Chicago time
+
+  cleanup()
+  installMockApi({ campaigns: [] })
+  await renderAppAt('/campaigns/new')
+  expect(await screen.findByRole('radio', { name: /Regular Marketing/ })).toBeTruthy()
 })

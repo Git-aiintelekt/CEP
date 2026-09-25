@@ -1,16 +1,37 @@
 import { useMutation } from '@tanstack/react-query'
 import { Bell, ChevronsLeft, ChevronsRight, Menu, Search, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import { ENGAGE, MANAGE, OVERVIEW, SETTINGS, type NavItem } from './navItems'
+import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
+import { RailGroup, RailMark } from './Rail'
 
 const SECURITY = '/account/security'
+const RAIL_EXPANDED = 240
+const RAIL_COLLAPSED = 64
+
+/**
+ * Labels leave at the start of a collapse and come back at the end of an expand (240ms, the width's own
+ * transition), so text never squeezes while the rail moves. With reduced motion they follow at once.
+ */
+function useLabelsAfterWidth(expanded: boolean): boolean {
+  const [ready, setReady] = useState(expanded)
+  useEffect(() => {
+    if (!expanded) return
+    const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => setReady(true), reduced ? 0 : 240)
+    return () => {
+      window.clearTimeout(timer)
+      setReady(false)
+    }
+  }, [expanded])
+  return expanded && ready
+}
 const COLLAPSED_KEY = 'cep.nav.collapsed'
 
 function readCollapsed(): boolean {
@@ -51,37 +72,6 @@ function initials(name: string | undefined): string {
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join('')
-}
-
-function NavGroup({ label, items, expanded }: { label: string; items: NavItem[]; expanded: boolean }) {
-  if (items.length === 0) return null
-  return (
-    <div className="flex flex-col gap-1">
-      <p className={`px-3 pt-4 pb-1 text-[11px] font-semibold tracking-[0.02em] text-ink-300 uppercase ${expanded ? '' : 'invisible h-4 py-0'}`}>{label}</p>
-      {items.map((item) => (
-        <SideLink key={item.to} item={item} expanded={expanded} />
-      ))}
-    </div>
-  )
-}
-
-function SideLink({ item, expanded }: { item: NavItem; expanded: boolean }) {
-  const Icon = item.icon
-  return (
-    <NavLink
-      to={item.to}
-      end={item.end}
-      title={expanded ? undefined : item.label}
-      className={({ isActive }) =>
-        `flex h-10 items-center gap-2 rounded-sm text-sm font-medium whitespace-nowrap transition-colors ${expanded ? 'px-3' : 'justify-center'} ${
-          isActive ? 'bg-brand-100 text-brand-800' : 'text-white hover:bg-brand-800'
-        }`
-      }
-    >
-      <Icon size={20} strokeWidth={1.5} aria-hidden className="shrink-0" />
-      <span className={expanded ? '' : 'sr-only'}>{item.label}</span>
-    </NavLink>
-  )
 }
 
 /** Finds pages, not records: it matches the menu the person can already see. */
@@ -130,7 +120,7 @@ function PageSearch({ pages }: { pages: NavItem[] }) {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
-        className="h-8 w-full rounded-control-md border border-line bg-surface-subtle pr-3 pl-8 text-sm text-ink-900 transition-colors focus-visible:border-brand-600"
+        className="h-8 w-full rounded-control-md border border-transparent bg-surface-sunken pr-3 pl-8 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600"
       />
       {open && term && (
         <ul className="absolute top-full right-0 left-0 z-40 mt-1 rounded-md border border-line bg-surface py-1 shadow-menu">
@@ -157,7 +147,7 @@ export function AppShell() {
   const location = useLocation()
   const isXl = useMinWidth(BREAKPOINT.xl)
   const isMd = useMinWidth(BREAKPOINT.md)
-  // xl and up: the rail is 256px unless the person collapsed it. Below xl it is 64px icon-only, and opening it
+  // xl and up: the rail is 240px unless the person collapsed it. Below xl it is 64px icon-only, and opening it
   // expands it over the content (never pushing it). Below md there is no rail until the menu button opens it.
   const [userCollapsed, setUserCollapsed] = useState(readCollapsed)
   // the menu is open only for the page it was opened on, so navigating closes it without an effect
@@ -175,10 +165,10 @@ export function AppShell() {
   const allowed = (item: NavItem) => !item.feature || has(item.feature)
   // support never manages users, roles, keys or security: the API refuses, so the menu does not offer it
   const showSettings = !enrolFirst && can('user.admin') && !support
-  const engage = enrolFirst ? [] : ENGAGE.filter(allowed)
-  const manage = enrolFirst ? [] : [...MANAGE.filter(allowed), ...(showSettings ? [SETTINGS] : [])]
-  const overview = enrolFirst ? [] : [OVERVIEW]
-  const pages = [...overview, ...engage, ...manage]
+  const main = enrolFirst ? [] : MAIN_NAV.filter(allowed)
+  const admin = showSettings ? [SETTINGS] : []
+  const pages = [...main, ...admin]
+  const labels = useLabelsAfterWidth(expanded)
   const name = me?.principal.display_name ?? me?.principal.email
 
   useEffect(() => {
@@ -204,37 +194,36 @@ export function AppShell() {
 
   const toggleLabel = !isMd ? 'Close navigation' : expanded ? 'Collapse navigation' : 'Expand navigation'
   const ToggleIcon = !isMd ? X : expanded ? ChevronsLeft : ChevronsRight
-  const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-64' : 'pl-16'
+  const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
 
   return (
     <div className="cep-settle-in min-h-screen">
       {overlay && <div aria-hidden className="fixed inset-0 z-30 animate-fade-in bg-scrim" onClick={() => setOpen(false)} />}
 
       {showRail && (
-        <aside aria-label="Sidebar" className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-y-auto border-r border-line bg-sidebar ${expanded ? 'w-64' : 'w-16'}`}>
-          <div className={`flex h-14 shrink-0 items-center ${expanded ? 'justify-between px-4' : 'justify-center'}`}>
-            <span className={`font-display text-xl font-bold tracking-[-0.03em] text-white ${expanded ? '' : 'sr-only'}`}>CEP</span>
-            <button
-              type="button"
-              onClick={toggle}
-              aria-label={toggleLabel}
-              aria-expanded={isMd ? expanded : undefined}
-              className="flex h-8 w-8 items-center justify-center rounded-control-md text-white transition-colors hover:bg-brand-800"
-            >
-              <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
-            </button>
-          </div>
-          <nav aria-label="Main" className="flex flex-col gap-1 px-3 pb-3">
-            {overview.map((item) => (
-              <SideLink key={item.to} item={item} expanded={expanded} />
-            ))}
-            <NavGroup label="Engage" items={engage} expanded={expanded} />
-            <NavGroup label="Manage" items={manage} expanded={expanded} />
-          </nav>
-        </aside>
+        <>
+          <aside aria-label="Sidebar"
+            className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar py-5 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'}`}>
+            <div className="mb-8 shrink-0 px-4"><RailMark expanded={labels} /></div>
+            <nav aria-label="Main" className="flex flex-col px-3">
+              <RailGroup label="Pages" items={main} expanded={labels} />
+              <RailGroup label="Administration" items={admin} expanded={labels} divided={main.length > 0} />
+            </nav>
+          </aside>
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={toggleLabel}
+            aria-expanded={isMd ? expanded : undefined}
+            style={{ left: (expanded ? RAIL_EXPANDED : RAIL_COLLAPSED) - 16 }}
+            className="fixed top-5 z-50 flex h-8 w-8 items-center justify-center rounded-sm border border-sidebar-divider bg-sidebar text-sidebar-text transition-[left,background-color] duration-moderate ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed motion-reduce:transition-none"
+          >
+            <ToggleIcon size={16} strokeWidth={1.5} aria-hidden />
+          </button>
+        </>
       )}
 
-      <div className={`flex min-h-screen min-w-0 flex-col ${contentOffset}`}>
+      <div className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {/* stays put while the page scrolls under it, like the rail: search and the account are always one reach away */}
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 md:px-8">

@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
             Reload
           </button>
           <a href="/" className="inline-flex h-10 items-center rounded-control-lg border border-line bg-surface px-4 text-sm font-medium text-ink-700 transition-colors hover:bg-surface-subtle">
-            Go to the overview
+            Go to the Overview
           </a>
         </div>
       </div>

@@ -33,11 +33,42 @@ export function formatNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '—' : number.format(value)
 }
 
+/**
+ * US dollars as "$25,000.00" in every locale: narrowSymbol keeps a British or Indian browser from writing "US$".
+ * `whole` drops the cents, for tiles and meters. Money arrives from the API as a string, so both are accepted.
+ */
+export function formatMoney(value: number | string | null | undefined, { whole = false }: { whole?: boolean } = {}): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const amount = Number(value)
+  if (Number.isNaN(amount)) return '—'
+  return amount.toLocaleString(undefined, { style: 'currency', currency: 'USD', currencyDisplay: 'narrowSymbol', ...(whole ? { maximumFractionDigits: 0 } : {}) })
+}
+
 /** PRODUCTION_PUBLISHED -> Production published */
 export function humanize(code: string | null | undefined): string {
   if (!code) return '—'
   const text = code.replace(/_/g, ' ').toLowerCase()
   return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+const SMALL_WORDS = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'as', 'via', 'per', 'vs', 'from', 'with', 'into', 'onto', 'over', 'upon'])
+
+/** "add list to leave out" -> "Add List to Leave Out": the UI's label casing (small words lowercase unless first or last; both halves of a hyphenated word) */
+export function titleCase(text: string): string {
+  const words = text.split(' ')
+  return words
+    .map((word, index) => {
+      const small = SMALL_WORDS.has(word.toLowerCase()) && index > 0 && index < words.length - 1
+      if (small) return word.toLowerCase()
+      return word.split('-').map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part)).join('-')
+    })
+    .join(' ')
+}
+
+/** ONE_TIME -> "One Time": humanize for a label (a tag, a badge, a table cell); humanize stays for words inside a sentence */
+export function titleize(code: string | null | undefined): string {
+  if (!code) return '—'
+  return titleCase(code.replace(/_/g, ' ').toLowerCase())
 }
 
 /** ISO timestamp -> value for <input type="datetime-local"> in the browser's time zone. */

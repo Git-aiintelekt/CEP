@@ -40,6 +40,9 @@
 --callout-bg:var(--periwinkle-100);--callout-icon:var(--periwinkle-500);--callout-link:var(--periwinkle-700);--callout-text:var(--periwinkle-800);
 --row-flagged-bg:var(--yellow-50);
 
+/* ---- Chart palette, in order: series n takes chart-n (see README "Charts") ---- */
+--chart-1:var(--brand-600);--chart-2:var(--green-500);--chart-3:var(--amber-500);--chart-4:var(--gray-400);--chart-5:var(--color-wordmark-teal);--chart-6:var(--periwinkle-500);
+
 /* ---- Derived roles (kept for existing specimens) ---- */
 --surface-page:var(--bg-page);--surface-card:var(--bg-surface);--surface-subtle:var(--bg-surface-subtle);--surface-hover:var(--gray-75);--surface-selected:var(--brand-100);--surface-inverse:var(--color-sidebar);
 --sidebar-bg:var(--bg-sidebar);--icon-on-dark:var(--white);

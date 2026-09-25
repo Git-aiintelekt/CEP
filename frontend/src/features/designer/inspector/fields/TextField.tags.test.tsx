@@ -18,7 +18,7 @@ const tags = [tag('first_name', 'First name'), tag('shop_url', 'Shop URL')]
 const slot = (onPick = vi.fn()) => ({ tags, channel: 'EMAIL', recent: [], onPick })
 
 const input = () => screen.getByRole('textbox', { name: 'Label' }) as HTMLInputElement
-const picker = () => screen.getByRole('button', { name: 'Insert tag' })
+const picker = () => screen.getByRole('button', { name: 'Insert Tag' })
 
 /** the field puts focus back in the input a tick later, so the caret can be checked */
 const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)))
@@ -34,7 +34,7 @@ test('the button sits inside the row and opens the picker', async () => {
   render(<TextField label="Label" value="Shop now" onCommit={vi.fn()} tagPicker={slot()} />)
   expect(picker().className).toContain('h-8 w-8')
   await user.click(picker())
-  expect(screen.getByRole('region', { name: 'Insert tag' })).toBeTruthy()
+  expect(screen.getByRole('region', { name: 'Insert Tag' })).toBeTruthy()
 })
 
 test.each([
@@ -81,10 +81,10 @@ test('read-only shows the button greyed and it opens nothing', async () => {
   expect(picker().className).toContain('bg-line-subtle')
   expect(picker().className).not.toContain('opacity')
   await user.click(picker())
-  expect(screen.queryByRole('region', { name: 'Insert tag' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Insert Tag' })).toBeNull()
 })
 
 test('without the slot there is no button', () => {
   render(<TextField label="Label" value="Shop now" onCommit={vi.fn()} />)
-  expect(screen.queryByRole('button', { name: 'Insert tag' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Insert Tag' })).toBeNull()
 })

@@ -1,45 +1,84 @@
 /**
- * One campaign: header with the actions its status allows, and six tabs (Overview, Performance, Audience, Content,
- * Settings, Activity Log). The API says what is allowed (campaign.actions); permissions decide who may ask.
+ * One campaign: a header with its main action, Clone and a ⋮ menu, the banners its state calls for, and five tabs
+ * (Overview, Performance once there are results (as Overview's Metrics card), Audience except for e-receipts, Content, Activity log).
+ * The API says what is allowed (campaign.actions); permissions decide who may ask.
  */
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ChevronLeft, Clock, Copy, EllipsisVertical, ExternalLink, Hand, Workflow } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { Button, IconButton } from '@/components/Button'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
+import { MenuRow } from '@/components/MenuRow'
 import { Modal } from '@/components/Modal'
+import { Notice } from '@/components/Notice'
+import { Popover } from '@/components/Popover'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { Tabs, type TabItem } from '@/components/Tabs'
 import { tabId, tabPanelId } from '@/components/tabIds'
+import { useToast } from '@/components/Toast'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
 import type { Campaign } from '@/lib/types'
+import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
+import { campaignPageActions, type CampaignMainAction, type CampaignPageMenuItem } from '../campaignMenu'
+import { channelIconOf } from '../channelIcons'
+import { CopyId } from '../CopyId'
 import { CONFIRM, useCampaignAction, type StatusAction } from '../useCampaignAction'
-import { campaignHome, channelLabel, hasAction, SETUP_STEPS, STEP_OF_TAB, typeLabel } from '../vocabulary'
+import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
+import { setupHref, setupProgressText, stepsFor } from '../setupFlow'
+import { campaignHome, channelLabel, EDIT_PLACE_OF_TAB, hasAction, hasResults, latestFailedRun, typeLabel } from '../vocabulary'
+import { dateTimeInZone } from '../zone'
 import { AudienceTab } from './AudienceTab'
-import { ActivityTab, ContentTab, SettingsTab } from './MoreTabs'
+import { ContentTab } from './ContentTab'
+import { FailedRunBanner } from './FailedRunBanner'
+import { ActivityTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
 import { PerformanceTab } from './PerformanceTab'
 
-type TabKey = 'overview' | 'performance' | 'audience' | 'content' | 'settings' | 'activity'
+type TabKey = 'overview' | 'performance' | 'audience' | 'content' | 'activity'
 const TABS: TabItem<TabKey>[] = [
   { id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'audience', label: 'Audience' },
-  { id: 'content', label: 'Content' }, { id: 'settings', label: 'Settings' }, { id: 'activity', label: 'Activity Log' },
+  { id: 'content', label: 'Content' }, { id: 'activity', label: 'Activity Log' },
 ]
+
+const tabsFor = (campaign: Campaign) => TABS.filter((item) =>
+  (item.id !== 'performance' || hasResults(campaign)) && (item.id !== 'audience' || campaign.campaign_type !== 'E_RECEIPT'))
 const LIVE_RUN = ['SCHEDULED', 'PREPARING', 'SENDING']
+
+function MainButton({ main, disabled, onAction }: { main: CampaignMainAction; disabled: boolean; onAction: (action: StatusAction) => void }) {
+  const Icon = main.icon
+  const content = main.iconAfter ? <>{main.label}<Icon size={16} strokeWidth={1.5} aria-hidden /></> : <><Icon size={16} strokeWidth={1.5} aria-hidden />{main.label}</>
+  const button = main.action ? <button type="button" className={buttonPrimary} disabled={disabled} onClick={() => onAction(main.action!)}>{content}</button>
+    : main.external ? (
+      <a href={main.to} target="_blank" rel="noreferrer" className={buttonPrimary} aria-label={`${main.label} (opens in a new tab)`}>
+        {content}<ExternalLink size={16} strokeWidth={1.5} aria-hidden />
+      </a>
+    )
+    : <Link to={main.to!} className={buttonPrimary}>{content}</Link>
+  if (!main.hint) return button
+  return (
+    <div className="flex flex-col items-start gap-1 sm:items-end">
+      {button}
+      <span className="text-xs text-ink-500">{main.hint}</span>
+    </div>
+  )
+}
 
 export function CampaignDetailPage() {
   const { id = '' } = useParams()
   const { can, me } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
   const [params, setParams] = useSearchParams()
-  const tab: TabKey = TABS.some((item) => item.id === params.get('tab')) ? (params.get('tab') as TabKey) : 'overview'
   const [notice, setNotice] = useState<ReactNode>('')
   const [confirming, setConfirming] = useState<StatusAction | null>(null)
+  const menus = useSingleDropdown<'more'>()
+  const [focusTest, setFocusTest] = useState(0)
 
   const campaign = useQuery({
     queryKey: ['campaigns', 'detail', id],
@@ -49,9 +88,18 @@ export function CampaignDetailPage() {
   })
   const act = useCampaignAction((message, after, action) => {
     setConfirming(null)
-    if (action === 'clone') navigate(`/campaigns/${after.id}/edit`)
+    if (action === 'clone') navigate(setupHref(after.id, { step: stepsFor(after.campaign_type)[0].key, details: true })) // the copy opens with its details, to rename it
     else setNotice(message)
   })
+
+  const requested = params.get('tab')
+  const tabs = campaign.data ? tabsFor(campaign.data) : TABS
+  const tab: TabKey = tabs.find((item) => item.id === requested)?.id ?? 'overview'
+  // a hidden or unknown tab (an old ?tab=settings bookmark, Performance before a send) opens Overview
+  const misplaced = Boolean(campaign.data && requested && requested !== tab && campaignHome(campaign.data, can('campaign.edit')) === `/campaigns/${campaign.data.id}`)
+  useEffect(() => {
+    if (misplaced) setParams((current) => { current.delete('tab'); return current }, { replace: true })
+  }, [misplaced, setParams])
 
   if (campaign.isPending) return <p className="flex items-center gap-3 text-sm text-ink-500"><Spinner /> Loading campaign</p>
   if (campaign.isError) return <ErrorState error={campaign.error} onRetry={() => void campaign.refetch()} />
@@ -62,8 +110,16 @@ export function CampaignDetailPage() {
   if (home !== `/campaigns/${data.id}`) return <Navigate to={home} replace />
   const zone = data.send_timezone || me?.tenant.timezone || 'UTC'
   const live = data.runs.some((run) => ['PREPARING', 'SENDING'].includes(run.status))
-  const canEdit = can('campaign.edit') && !data.is_journey_generated
-  const canPublish = can('campaign.publish') && !data.is_journey_generated
+  const journey = data.is_journey_generated
+  const rights = { edit: can('campaign.edit'), publish: can('campaign.publish') }
+  const { main, clone, menu } = campaignPageActions(data, rights, EDIT_PLACE_OF_TAB[tab])
+  const editable = rights.edit && !journey && hasAction(data, 'edit')
+  const editingDetails = editable && params.get('edit') === 'details'
+  const setEditingDetails = (open: boolean) => setParams((current) => { if (open) current.set('edit', 'details'); else current.delete('edit'); return current }, { replace: true })
+  // the Content tab's Send a test card shows under the same rule
+  const canTest = rights.edit && hasAction(data, 'test_publish')
+  const canCancelSchedule = rights.publish && !journey && hasAction(data, 'cancel_schedule')
+  const failedRun = latestFailedRun(data)
 
   function run(action: StatusAction) {
     setNotice('')
@@ -71,61 +127,106 @@ export function CampaignDetailPage() {
     else act.mutate({ campaign: data, action })
   }
 
-  const button = (action: StatusAction, label: string, primary = false) => (
-    <button key={action} type="button" className={primary ? buttonPrimary : buttonSecondary} disabled={act.isPending} onClick={() => run(action)}>{label}</button>
-  )
+  function pick(item: CampaignPageMenuItem) {
+    menus.close()
+    if ('command' in item && item.command === 'edit-details') setEditingDetails(true)
+    else if ('command' in item && item.command === 'copy-id') {
+      void navigator.clipboard?.writeText(data.code ?? '').then(() => toast.success('Campaign ID copied'))
+    } else if (item.key === 'test-publish' && canTest) {
+      setParams({ tab: 'content' }, { replace: true })
+      setFocusTest((count) => count + 1)
+    } else if (item.action) run(item.action)
+    else if (item.to) navigate(item.to)
+  }
+
+  const moreOpen = menus.isOpen('more')
 
   return (
     <section>
-      <Link to="/campaigns" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
-        <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Campaigns
+      <Link to="/campaigns" className="mb-3 inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
+        <ChevronLeft size={16} strokeWidth={1.5} aria-hidden /> Campaigns
       </Link>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="font-display text-page-title font-semibold text-ink-900">{data.name}</h1>
-          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-ink-500">
+
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3">
+          <h1 className="font-display text-page-title font-semibold break-words text-ink-900">{data.name}</h1>
+          <div className="flex flex-wrap items-center gap-2" data-testid="campaign-chips">
             <StatusBadge status={data.display_status} label={data.display_status_label} />
-            <Tag>{channelLabel(data.channel)}</Tag>
-            <span>{typeLabel(data.campaign_type)}</span>
-            {data.code && <span>· {data.code}</span>}
-            {data.is_journey_generated && <span>· Journey-generated, not editable</span>}
-          </p>
-          {data.description && <p className="mt-2 max-w-2xl text-sm text-ink-500">{data.description}</p>}
+            <Tag icon={channelIconOf(data.channel)}>{channelLabel(data.channel)}</Tag>
+            <Tag>{typeLabel(data.campaign_type)}</Tag>
+            {journey ? <Tag icon={Workflow}>Journey</Tag> : <Tag icon={Hand}>Manual</Tag>}
+            {data.code && <CopyId code={data.code} look="chip" />}
+          </div>
+          {data.description && <p className="max-w-2xl text-sm text-ink-500">{data.description}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canEdit && hasAction(data, 'unarchive') && button('unarchive', 'Unarchive')}
-          {canEdit && hasAction(data, 'archive') && button('archive', 'Archive')}
-          {canEdit && hasAction(data, 'clone') && button('clone', 'Clone')}
-          {canPublish && hasAction(data, 'cancel_schedule') && button('cancel-schedule', 'Cancel schedule')}
-          {canPublish && hasAction(data, 'pause') && button('pause', 'Pause')}
-          {canPublish && hasAction(data, 'resume') && button('resume', 'Resume', true)}
-          {canEdit && hasAction(data, 'edit') && <Link to={`/campaigns/${data.id}/edit?step=${STEP_OF_TAB[tab]}`} className={buttonSecondary}>Edit</Link>}
-          {canEdit && hasAction(data, 'test_publish') && <Link to={`/campaigns/${data.id}/edit?step=6`} className={buttonSecondary}>Test Publish</Link>}
-          {canPublish && hasAction(data, 'publish') && <Link to={`/campaigns/${data.id}/edit?step=7`} className={buttonPrimary}>Production Publish</Link>}
+        <div className="flex flex-wrap items-start gap-3">
+          {main && <MainButton main={main} disabled={act.isPending} onAction={run} />}
+          {clone && (
+            <Button iconStart={Copy} disabled={act.isPending} onClick={() => run('clone')}>Clone</Button>
+          )}
+          {menu.length > 0 && (
+            <span className="relative inline-block">
+              <IconButton {...menus.triggerProps('more')} label="More Actions" icon={EllipsisVertical} variant="outline" size="md" />
+              {moreOpen && (
+                <Popover label="More Actions" width={220} placement="bottom-end" {...menus.panelProps('more')}>
+                  {menu.map((item) => (
+                    <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-700" />} onClick={() => pick(item)} />
+                  ))}
+                </Popover>
+              )}
+            </span>
+          )}
         </div>
+      </header>
+
+      <div className="mt-5 flex flex-col gap-3 empty:hidden">
+        {data.display_status === 'SCHEDULED' && data.next_run_at && (
+          <Notice tone="warning" layout="banner" icon={Clock} iconTile title={`Scheduled for ${dateTimeInZone(data.next_run_at, zone)}`}
+            action={canCancelSchedule && <Button size="sm" disabled={act.isPending} onClick={() => run('cancel-schedule')}>Cancel Schedule</Button>}>
+            <p>Cancelling returns this campaign to a draft.</p>
+          </Notice>
+        )}
+        {failedRun && (
+          <FailedRunBanner campaign={data} run={failedRun}
+            onView={tabs.some((item) => item.id === 'performance') ? () => setParams({ tab: 'performance', run: failedRun.id }, { replace: true }) : undefined} />
+        )}
+        {journey && (
+          <Notice tone="info" layout="banner" title="This campaign is generated by a journey">
+            <p>
+              It’s managed in the journey and read-only here.{' '}
+              <a href="/journeys" target="_blank" rel="noreferrer" aria-label="View Journey (opens in a new tab)" className="font-semibold text-callout-link underline underline-offset-2">View Journey</a>
+            </p>
+          </Notice>
+        )}
+        {!data.setup_complete && (
+          <Notice tone="warning" layout="banner">
+            <p>The setup of this campaign is not finished: it stopped at {setupProgressText(data)}. Someone with the campaign.edit permission can continue it.</p>
+          </Notice>
+        )}
+        {data.status === 'PAUSED' && (
+          <Notice tone="warning" layout="banner">
+            <p>This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>
+          </Notice>
+        )}
+        {notice && <p role="status" className="rounded-lg border border-line bg-surface-subtle px-4 py-3 text-sm text-ink-900">{notice}</p>}
+        {act.isError && !confirming && <ErrorState title="That did not go through" error={act.error} />}
       </div>
 
-      {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
-      {act.isError && !confirming && <div className="mb-4"><ErrorState title="That did not go through" error={act.error} /></div>}
-      {!data.setup_complete && (
-        <p className="mb-4 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">
-          The setup of this campaign is not finished: {data.setup_step} of {SETUP_STEPS} steps are done. Someone with the campaign.edit permission can continue it.
-        </p>
-      )}
-      {data.status === 'PAUSED' && <p className="mb-4 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>}
-
-      <div className="mb-5 flex overflow-x-auto border-b border-line">
-        <Tabs label="Campaign sections" idPrefix="campaign" tabs={TABS} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
+      <div className="mt-6 mb-6 flex overflow-x-auto border-b border-line">
+        <Tabs label="Campaign sections" idPrefix="campaign" tabs={tabs} value={tab} onChange={(next) => setParams({ tab: next }, { replace: true })} />
       </div>
 
       <div role="tabpanel" id={tabPanelId('campaign', tab)} aria-labelledby={tabId('campaign', tab)}>
         {tab === 'overview' && <OverviewTab campaign={data} zone={zone} live={live} />}
-        {tab === 'performance' && <PerformanceTab campaign={data} live={live} />}
-        {tab === 'audience' && <AudienceTab campaign={data} />}
-        {tab === 'content' && <ContentTab campaign={data} />}
-        {tab === 'settings' && <SettingsTab campaign={data} zone={zone} />}
-        {tab === 'activity' && <ActivityTab campaign={data} live={live} />}
+        {tab === 'performance' && <PerformanceTab campaign={data} zone={zone} live={live} focusRun={params.get('run') ?? undefined} />}
+        {tab === 'audience' && <AudienceTab campaign={data} zone={zone} />}
+        {tab === 'content' && <ContentTab campaign={data} focusTest={focusTest} />}
+        {tab === 'activity' && <ActivityTab campaign={data} zone={zone} live={live} />}
       </div>
+
+      {editingDetails && (
+        <CampaignSetupDialog campaign={data} onClose={() => setEditingDetails(false)} onReload={() => void campaign.refetch()} />
+      )}
 
       {confirming && CONFIRM[confirming] && (
         <Modal
@@ -133,7 +234,7 @@ export function CampaignDetailPage() {
           onClose={() => setConfirming(null)}
           footer={
             <>
-              <button type="button" className={buttonSecondary} onClick={() => setConfirming(null)}>Keep as it is</button>
+              <button type="button" className={buttonSecondary} onClick={() => setConfirming(null)}>Keep as It Is</button>
               <button type="button" className={buttonPrimary} disabled={act.isPending} onClick={() => act.mutate({ campaign: data, action: confirming })}>{CONFIRM[confirming]!.button}</button>
             </>
           }

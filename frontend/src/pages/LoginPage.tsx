@@ -177,7 +177,7 @@ export function LoginPage() {
     <AuthLayout>
       {step === 'signin' && (
         <AuthStep>
-          <AuthHeading title="Log in to CEP">Enter your email and password to continue.</AuthHeading>
+          <AuthHeading title="Log In to CEP">Enter your email and password to continue.</AuthHeading>
           {idleNotice && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
           {error && <AuthAlert>{error}</AuthAlert>}
 
@@ -196,7 +196,7 @@ export function LoginPage() {
 
             {sso && (
               <a href={api.ssoStartUrl(tenant.trim(), from)} className={sso.sso_enforced ? authButtonPrimary : authButtonSecondary}>
-                Log in with {sso.sso_name}
+                Log In with {sso.sso_name}
               </a>
             )}
 
@@ -245,14 +245,14 @@ export function LoginPage() {
 
       {step === 'mfa' && (
         <AuthStep>
-          <AuthHeading title="Enter your code">
+          <AuthHeading title="Enter Your Code">
             Open your authenticator app for the current code. Lost your phone? Type one of your recovery codes instead.
           </AuthHeading>
           {error && <AuthAlert>{error}</AuthAlert>}
 
           <form onSubmit={onCode} className="flex flex-col gap-5">
             <AuthField
-              label="Authentication code"
+              label="Authentication Code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
               required
@@ -268,13 +268,13 @@ export function LoginPage() {
             </button>
           </form>
 
-          <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+          <AuthLink onClick={() => goTo('signin')}>← Back to Log In</AuthLink>
         </AuthStep>
       )}
 
       {step === 'reset' && (
         <AuthStep>
-          <AuthHeading title="Reset your password">Enter your email and we'll send a link to reset it.</AuthHeading>
+          <AuthHeading title="Reset Your Password">Enter your email and we'll send a link to reset it.</AuthHeading>
 
           {/* the address is checked below, so the browser's own bubble would only duplicate it */}
           <form onSubmit={onReset} noValidate className="flex flex-col gap-5">
@@ -294,17 +294,17 @@ export function LoginPage() {
               error={resetError ?? undefined}
             />
             <button type="submit" disabled={submitting} className={authButtonPrimary}>
-              Send reset link
+              Send Reset Link
             </button>
           </form>
 
-          <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+          <AuthLink onClick={() => goTo('signin')}>← Back to Log In</AuthLink>
         </AuthStep>
       )}
 
       {step === 'sent' && (
         <AuthStep>
-          <AuthHeading title="Check your email">
+          <AuthHeading title="Check Your Email">
             We sent a reset link to <span className="font-medium text-ink-900">{email.trim()}</span>. The link expires in 72 hours.
           </AuthHeading>
 
@@ -315,14 +315,14 @@ export function LoginPage() {
               onClick={() => void sendResetLink().then((ok) => ok && setResentAt(new Date().toISOString().slice(11, 16)))}
               className={authButtonSecondary}
             >
-              Resend link
+              Resend Link
             </button>
             {resetError && <AuthAlert>{resetError}</AuthAlert>}
             {resentAt && <span className="text-[13px] text-ink-700">Link resent at {resentAt} UTC</span>}
           </div>
 
           <div className="border-t border-line pt-4">
-            <AuthLink onClick={() => goTo('signin')}>← Back to log in</AuthLink>
+            <AuthLink onClick={() => goTo('signin')}>← Back to Log In</AuthLink>
           </div>
         </AuthStep>
       )}

@@ -28,7 +28,7 @@ test('a button link is found with its text as the label', () => {
 
 test('an image link uses its alt text, and an image without an href is not a link', () => {
   expect(one('<mj-image href="https://a.example.com" alt="Autumn lookbook" src="x.png" />').label).toBe('Autumn lookbook')
-  expect(one('<mj-image href="https://a.example.com" src="x.png" />').label).toBe('Image link')
+  expect(one('<mj-image href="https://a.example.com" src="x.png" />').label).toBe('Image Link')
   expect(links('<mj-image src="x.png" alt="just a picture" />')).toEqual([])
 })
 

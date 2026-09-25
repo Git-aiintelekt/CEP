@@ -49,11 +49,11 @@ export function buttonClass({
 }
 
 export type IconButtonVariant = 'ghost' | 'outline' | 'onBrand'
-/** sm is the 32px control; xs (24px) is only for a button nested inside another control or a dense row */
-export type IconButtonSize = 'sm' | 'xs'
+/** md sits beside 40px buttons; sm is the 32px control; xs (24px) is only for a button nested inside another control or a dense row */
+export type IconButtonSize = 'md' | 'sm' | 'xs'
 
 const ICON_BASE = 'inline-flex shrink-0 items-center justify-center transition-colors duration-fast ease-standard'
-const ICON_SIZE: Record<IconButtonSize, string> = { sm: 'h-8 w-8 rounded-control-md', xs: 'h-6 w-6 rounded-control-sm' }
+const ICON_SIZE: Record<IconButtonSize, string> = { md: 'h-10 w-10 rounded-control-lg', sm: 'h-8 w-8 rounded-control-md', xs: 'h-6 w-6 rounded-control-sm' }
 
 const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; disabled: string }> = {
   ghost: {

@@ -62,7 +62,7 @@ function readState(tabs: RailTab[], storageKey: string | undefined): RailState {
 }
 
 export const LeftRail = forwardRef<LeftRailHandle, LeftRailProps>(function LeftRail(
-  { tabs, storageKey, autoCollapse = false, forceCollapsed = false, onPressWhileForced, onLayoutChange, 'aria-label': ariaLabel = 'Editor panels' },
+  { tabs, storageKey, autoCollapse = false, forceCollapsed = false, onPressWhileForced, onLayoutChange, 'aria-label': ariaLabel = 'Editor Panels' },
   ref,
 ) {
   const baseId = useId()

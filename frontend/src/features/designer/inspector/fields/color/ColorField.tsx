@@ -13,8 +13,8 @@ import { nameForHex } from './palette'
 
 export const HEX_ERROR = 'Use a six-digit hex colour'
 export const CONTRAST_HINT = 'Hard to read on this background'
-export const NO_COLOR_NAME = 'No colour'
-export const SWATCH_LABEL = 'Choose a colour'
+export const NO_COLOR_NAME = 'No Colour'
+export const SWATCH_LABEL = 'Choose a Colour'
 
 /** The panel measures 426px with every group shown; below this much room it opens upwards instead. */
 const PANEL_HEIGHT = 430

@@ -3,7 +3,7 @@ import type { CepBlock } from './types'
 
 export const productCard: CepBlock = {
   id: 'product-card',
-  label: 'Product card',
+  label: 'Product Card',
   category: 'commerce',
   icon: 'ShoppingBag',
   mjml: `<mj-section background-color="${BRAND.surface}" padding="16px 24px">

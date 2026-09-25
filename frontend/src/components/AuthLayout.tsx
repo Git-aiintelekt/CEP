@@ -113,7 +113,7 @@ export const authButtonSecondary =
   'flex h-10 w-full items-center justify-center rounded-control-lg border border-line bg-surface text-sm font-semibold text-ink-900 transition-colors hover:bg-surface-subtle disabled:bg-line-subtle disabled:text-ink-300'
 
 const CONTROL =
-  'h-10 w-full rounded-control-lg border bg-surface-subtle px-3 text-sm text-ink-900 transition-colors focus-visible:border-brand-600'
+  'h-10 w-full rounded-control-lg border bg-surface-sunken px-3 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600'
 
 /** A labelled control in the design's language: 13px label, sunken field, red border while the value is refused. */
 export function AuthField({
@@ -139,7 +139,7 @@ export function AuthField({
         id={id}
         aria-invalid={bad || undefined}
         aria-describedby={error ? errorId : undefined}
-        className={`${CONTROL} ${bad ? 'border-danger' : 'border-line'}`}
+        className={`${CONTROL} ${bad ? 'border-danger' : 'border-transparent'}`}
       />
       {error && (
         <span id={errorId} className="text-[13px] text-danger-plain">
@@ -178,12 +178,12 @@ export function AuthPasswordField({
           type={shown ? 'text' : 'password'}
           aria-invalid={bad || undefined}
           aria-describedby={error ? errorId : undefined}
-          className={`${CONTROL} pr-11 ${bad ? 'border-danger' : 'border-line'}`}
+          className={`${CONTROL} pr-11 ${bad ? 'border-danger' : 'border-transparent'}`}
         />
         <button
           type="button"
           onClick={() => setShown((current) => !current)}
-          aria-label={shown ? 'Hide password' : 'Show password'}
+          aria-label={shown ? 'Hide Password' : 'Show Password'}
           className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle"
         >
           <Icon size={16} strokeWidth={1.5} aria-hidden />

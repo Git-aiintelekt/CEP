@@ -59,9 +59,9 @@ export function UploadsIndicator() {
       for (const job of data) {
         const was = before.get(job.id)
         if (was === state(job) || !was?.endsWith(':working') || watchedUploads.has(job.id)) continue      // the wizard is open on it: they can see it
-        if (job.status === 'APPLIED') news.push({ id: job.id, tone: 'success', title: `“${job.list_name}” is ready`, text: jobSummary(job), to: `/contact-lists/${job.contact_list}`, action: 'Open the list' })
-        else if (job.status === 'FAILED') news.push({ id: job.id, tone: 'danger', title: `The upload for “${job.list_name}” failed`, text: jobSummary(job), to: '/contact-lists/uploads', action: 'See uploads' })
-        else if (job.status === 'REVIEW' && !job.working) news.push({ id: job.id, tone: 'info', title: `“${job.file_name}” has been checked`, text: jobSummary(job), to: resumeLink(job) ?? '/contact-lists/uploads', action: 'Review it' })
+        if (job.status === 'APPLIED') news.push({ id: job.id, tone: 'success', title: `“${job.list_name}” is ready`, text: jobSummary(job), to: `/contact-lists/${job.contact_list}`, action: 'Open the List' })
+        else if (job.status === 'FAILED') news.push({ id: job.id, tone: 'danger', title: `The upload for “${job.list_name}” failed`, text: jobSummary(job), to: '/contact-lists/uploads', action: 'See Uploads' })
+        else if (job.status === 'REVIEW' && !job.working) news.push({ id: job.id, tone: 'info', title: `“${job.file_name}” has been checked`, text: jobSummary(job), to: resumeLink(job) ?? '/contact-lists/uploads', action: 'Review It' })
       }
       if (news.length === 0) return
       setToasts((current) => [...current.filter((toast) => !news.some((item) => item.id === toast.id)), ...news].slice(-4))
@@ -86,7 +86,7 @@ export function UploadsIndicator() {
   const all = jobs.data ?? []
   const running = all.filter((job) => job.working).length
   const waiting = all.filter((job) => resumeLink(job)).length
-  const label = running > 0 ? `List uploads: ${running} in progress` : waiting > 0 ? `List uploads: ${waiting} waiting for you` : 'List uploads'
+  const label = running > 0 ? `List Uploads: ${running} in progress` : waiting > 0 ? `List Uploads: ${waiting} waiting for you` : 'List Uploads'
 
   return (
     <div ref={box} className="relative">
@@ -101,8 +101,8 @@ export function UploadsIndicator() {
       </button>
 
       {open && (
-        <div role="dialog" aria-label="List uploads" className="absolute right-0 z-30 mt-2 w-80 rounded-md border border-line bg-surface shadow-menu">
-          <p className="border-b border-line px-3 py-2 text-sm font-semibold text-ink-900">List uploads</p>
+        <div role="dialog" aria-label="List Uploads" className="absolute right-0 z-30 mt-2 w-80 rounded-md border border-line bg-surface shadow-menu">
+          <p className="border-b border-line px-3 py-2 text-sm font-semibold text-ink-900">List Uploads</p>
           {all.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-ink-500">No file has been uploaded yet.</p>
           ) : (
@@ -117,7 +117,7 @@ export function UploadsIndicator() {
               ))}
             </ul>
           )}
-          <Link to="/contact-lists/uploads" onClick={() => setOpen(false)} className="block border-t border-line px-3 py-2 text-center text-sm font-medium text-brand-800 hover:bg-surface-subtle">See all uploads</Link>
+          <Link to="/contact-lists/uploads" onClick={() => setOpen(false)} className="block border-t border-line px-3 py-2 text-center text-sm font-medium text-brand-800 hover:bg-surface-subtle">See All Uploads</Link>
         </div>
       )}
 

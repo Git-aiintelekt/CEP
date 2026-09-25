@@ -7,7 +7,7 @@ import type { CepBlock } from './types'
  */
 export const social: CepBlock = {
   id: 'social',
-  label: 'Social links',
+  label: 'Social Links',
   category: 'brand',
   icon: 'Share2',
   mjml: `<mj-section background-color="${BRAND.surface}" padding="8px 24px">

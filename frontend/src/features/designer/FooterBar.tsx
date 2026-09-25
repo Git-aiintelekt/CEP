@@ -53,7 +53,7 @@ export function FooterBar({ note, noteTone = 'default', save, primary }: FooterB
             {save.busy ?
               <Spinner className="h-[15px] w-[15px]" />
             : <Save size={15} strokeWidth={1.5} aria-hidden />}
-            {save.busy ? 'Saving…' : 'Save draft'}
+            {save.busy ? 'Saving…' : 'Save Draft'}
           </button>
         )}
         {primary && (

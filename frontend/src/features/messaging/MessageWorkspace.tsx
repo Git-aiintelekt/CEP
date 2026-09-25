@@ -258,9 +258,9 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label htmlFor="sms-body" className="text-sm font-medium text-ink-700">Message</label>
               {!readOnly && tagGroups.length > 0 && (
-                <select aria-label="Insert personalization tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
-                  className="h-8 rounded-sm border border-line bg-surface px-2.5 text-sm text-ink-900">
-                  <option value="">{'{{ }}'} Insert tag</option>
+                <select aria-label="Insert Personalization Tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
+                  className="h-8 rounded-control-md border border-line bg-surface px-2 text-sm text-ink-900">
+                  <option value="">{'{{ }}'} Insert Tag</option>
                   {tagGroups.map((group) => (
                     <optgroup key={group.kind} label={group.label}>
                       {group.tags.map((tag) => <option key={tag.id} value={asToken(tag.tag_key)}>{tag.label}</option>)}
@@ -284,9 +284,12 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
             {metrics.encoding === 'UCS-2' && canBePlain(metrics.nonGsmCharacters) && !readOnly && (
-              <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} mt-3`} onClick={() => setBody(plainPunctuation(body))}>
-                Replace curly quotes, long dashes and ellipses with plain ones
-              </button>
+              <div className="mt-3 flex flex-col items-start gap-0.5">
+                <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setBody(plainPunctuation(body))}>
+                  Use Plain Punctuation
+                </button>
+                <p className="text-helper text-ink-500">Swaps curly quotes, long dashes and ellipses for plain ones, so the text stays in the standard SMS alphabet.</p>
+              </div>
             )}
           </div>
 
@@ -296,11 +299,11 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 <h2 className="text-sm font-medium text-ink-700">Picture</h2>
                 {!readOnly && (
                   <div className="flex gap-2">
-                    <button type="button" className={buttonSecondary} onClick={() => setPickerOpen(!pickerOpen)} aria-expanded={pickerOpen}>Choose from library</button>
+                    <button type="button" className={buttonSecondary} onClick={() => setPickerOpen(!pickerOpen)} aria-expanded={pickerOpen}>Choose from Library</button>
                     <button type="button" className={buttonSecondary} disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
                       {busy === 'upload' && <Spinner size="sm" />} Upload
                     </button>
-                    <input ref={fileInput} type="file" accept={MMS_TYPES.join(',')} className="sr-only" aria-label="Upload a picture" onChange={(event) => void upload(event.target.files?.[0])} />
+                    <input ref={fileInput} type="file" accept={MMS_TYPES.join(',')} className="sr-only" aria-label="Upload a Picture" onChange={(event) => void upload(event.target.files?.[0])} />
                   </div>
                 )}
               </div>
@@ -342,14 +345,14 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
 
           {warnings.length > 0 && (
             <div className="rounded-lg border border-warning bg-warning-bg px-5 py-4 text-sm text-warning-text">
-              <p className="font-medium">Before sending</p>
+              <p className="font-medium">Before Sending</p>
               <ul className="mt-1 list-disc space-y-1 pl-5">{warnings.map((item) => <li key={item}>{item}</li>)}</ul>
             </div>
           )}
 
           {showHistory && (
             <div className="rounded-lg border border-line bg-surface p-5">
-              <h2 className="text-sm font-semibold text-ink-900">Version history</h2>
+              <h2 className="text-sm font-semibold text-ink-900">Version History</h2>
               <p className="mt-1 text-xs text-ink-500">Every save is a new version. Loading an old one never deletes anything: saving it creates the next version.</p>
               {versions === null ? (
                 <p className="mt-3 flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>

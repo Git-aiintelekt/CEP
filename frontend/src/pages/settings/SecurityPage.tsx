@@ -31,12 +31,12 @@ function MfaRule({ settings }: { settings: SecuritySettings }) {
   const refused = save.error instanceof ApiError ? save.error.fieldErrors.require_mfa : undefined
   return (
     <section aria-labelledby="mfa-rule" className="rounded-lg border border-line bg-surface p-5">
-      <h2 id="mfa-rule" className="text-card-title font-semibold text-ink-900">Multi-factor authentication</h2>
+      <h2 id="mfa-rule" className="text-card-title font-semibold text-ink-900">Multi-Factor Authentication</h2>
       <div className="mt-3">
-        <Toggle label="Require it for everyone in this workspace" checked={settings.require_mfa} disabled={save.isPending} onChange={(next) => save.mutate(next)}
-          hint="People who have not set it up are asked to do so the next time they sign in, before anything else. Single sign-on users are covered by your identity provider." />
+        <Toggle label="Require for Everyone" checked={settings.require_mfa} disabled={save.isPending} onChange={(next) => save.mutate(next)}
+          hint="Everyone in this workspace signs in with it. People who have not set it up are asked to do so the next time they sign in, before anything else. Single sign-on users are covered by your identity provider." />
       </div>
-      {refused && <p role="alert" className="mt-3 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">{refused} <Link to="/account/security" className="font-medium underline">Set it up now</Link></p>}
+      {refused && <p role="alert" className="mt-3 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">{refused} <Link to="/account/security" className="font-medium underline">Set It Up Now</Link></p>}
       {save.isError && !refused && <div className="mt-3"><ErrorState title="Could not save" error={save.error} /></div>}
     </section>
   )
@@ -71,14 +71,14 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
   return (
     <form className="mt-4 space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
       <div className="rounded-lg bg-surface-subtle px-3 py-2.5">
-        <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Redirect URI to register with your identity provider</p>
+        <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Redirect URI to Register with Your Identity Provider</p>
         <div className="mt-1 flex gap-2">
           <code className="min-w-0 flex-1 text-xs break-all text-ink-900">{settings.redirect_uri}</code>
           <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Field label="Name on the sign-in button" required error={errors.display_name} hint="For example: Okta, Microsoft, Google Workspace">
+        <Field label="Name on the Sign-In Button" required error={errors.display_name} hint="For example: Okta, Microsoft, Google Workspace">
           {(ids) => <TextInput {...ids} value={form.display_name} onChange={(event) => set('display_name', event.target.value)} />}
         </Field>
         <Field label="Issuer" required error={errors.issuer} hint="The https:// address of your OpenID Connect provider. It is checked when you save.">
@@ -87,29 +87,29 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
         <Field label="Client ID" required error={errors.client_id}>
           {(ids) => <TextInput {...ids} value={form.client_id} onChange={(event) => set('client_id', event.target.value)} autoComplete="off" />}
         </Field>
-        <Field label="Client secret" error={errors.client_secret} hint={form.has_client_secret ? 'A secret is stored. Leave this empty to keep it.' : 'Stored encrypted; never shown again.'}>
+        <Field label="Client Secret" error={errors.client_secret} hint={form.has_client_secret ? 'A secret is stored. Leave this empty to keep it.' : 'Stored encrypted; never shown again.'}>
           {(ids) => <TextInput {...ids} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} autoComplete="new-password" placeholder={form.has_client_secret ? '••••••••' : ''} />}
         </Field>
-        <Field label="Allowed email domains" error={errors.allowed_email_domains} hint="Only these may sign in, e.g. example.com. Empty = any address your provider vouches for.">
+        <Field label="Allowed Email Domains" error={errors.allowed_email_domains} hint="Only these may sign in, e.g. example.com. Empty = any address your provider vouches for.">
           {(ids) => <TextInput {...ids} value={domains} onChange={(event) => setDomains(event.target.value)} />}
         </Field>
-        <Field label="Role for new accounts" error={errors.default_role} hint="Used when accounts are created on first sign-in.">
+        <Field label="Role for New Accounts" error={errors.default_role} hint="Used when accounts are created on first sign-in.">
           {(ids) => <Select {...ids} value={form.default_role ?? ''} onChange={(event) => set('default_role', event.target.value || null)}>
-            <option value="">No role</option>
+            <option value="">No Role</option>
             {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
           </Select>}
         </Field>
       </div>
       <div className="space-y-3">
-        <Toggle label="Single sign-on is on" checked={form.is_active} onChange={(next) => set('is_active', next)} hint="The sign-in page shows a button for it." />
-        <Toggle label="Create accounts on first sign-in" checked={form.jit_provisioning} onChange={(next) => set('jit_provisioning', next)} hint="Otherwise only people you added under Users can sign in." />
-        <Toggle label="Require single sign-on" checked={form.enforce_sso} onChange={(next) => set('enforce_sso', next)}
+        <Toggle label="Use Single Sign-On" checked={form.is_active} onChange={(next) => set('is_active', next)} hint="When on, the sign-in page shows a button for it." />
+        <Toggle label="Create Accounts on First Sign-In" checked={form.jit_provisioning} onChange={(next) => set('jit_provisioning', next)} hint="Otherwise only people you added under Users can sign in." />
+        <Toggle label="Require Single Sign-On" checked={form.enforce_sso} onChange={(next) => set('enforce_sso', next)}
           hint="Passwords stop working for everyone except administrators, who keep theirs for the day the identity provider is unreachable." />
         {errors.enforce_sso && <p className="text-xs font-medium text-danger-text">{errors.enforce_sso}</p>}
       </div>
       {other !== null && <ErrorState title="Could not save single sign-on" error={other} />}
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save single sign-on</button>
+        <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save Single Sign-On</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
           onClick={() => window.confirm('Remove single sign-on? People who only sign in through it will need a password link.') && remove.mutate()}>Remove</button>}
         {save.isSuccess && <span role="status" className="self-center text-sm text-success-text">Saved</span>}
@@ -122,20 +122,20 @@ function SupportLog() {
   const log = useQuery({ queryKey: ['workspace', 'support-access'], queryFn: ({ signal }) => api.get<SupportAccess[]>('/workspace/support-access/', undefined, signal) })
   const columns: Column<SupportAccess>[] = [
     { key: 'when', header: 'When', render: (row) => formatDateTime(row.started_at) },
-    { key: 'who', header: 'Support person', render: (row) => row.staff },
-    { key: 'as', header: 'Acted as', render: (row) => <div><p className="font-medium text-ink-900">{row.as_user}</p><p className="text-xs text-ink-500">{row.as_email}</p></div> },
+    { key: 'who', header: 'Support Person', render: (row) => row.staff },
+    { key: 'as', header: 'Acted As', render: (row) => <div><p className="font-medium text-ink-900">{row.as_user}</p><p className="text-xs text-ink-500">{row.as_email}</p></div> },
     { key: 'why', header: 'Reason', render: (row) => row.reason },
-    { key: 'mode', header: 'Access', render: (row) => <StatusBadge status={row.mode === 'WRITE' ? 'PAUSED' : 'DRAFT'} label={row.mode === 'WRITE' ? `Could change data · ${row.writes} change${row.writes === 1 ? '' : 's'}` : 'Read-only'} /> },
-    { key: 'ended', header: 'Ended', render: (row) => (row.ended_at ? formatDateTime(row.ended_at) : new Date(row.expires_at) > new Date() ? <StatusBadge status="ACTIVE" label="Open now" /> : formatDateTime(row.expires_at)) },
+    { key: 'mode', header: 'Access', render: (row) => <StatusBadge status={row.mode === 'WRITE' ? 'PAUSED' : 'DRAFT'} label={row.mode === 'WRITE' ? `Could change data · ${row.writes} change${row.writes === 1 ? '' : 's'}` : 'Read-Only'} /> },
+    { key: 'ended', header: 'Ended', render: (row) => (row.ended_at ? formatDateTime(row.ended_at) : new Date(row.expires_at) > new Date() ? <StatusBadge status="ACTIVE" label="Open Now" /> : formatDateTime(row.expires_at)) },
   ]
   return (
     <section aria-labelledby="support-log">
-      <h2 id="support-log" className="text-card-title font-semibold text-ink-900">Support access</h2>
+      <h2 id="support-log" className="text-card-title font-semibold text-ink-900">Support Access</h2>
       <p className="mt-0.5 mb-3 text-sm text-ink-500">Every time someone from the platform's support team acted as one of your users, with their reason. Support can never manage users, roles, API keys or these settings.</p>
       {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
         : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
         : log.data.length === 0 ? <EmptyState title="Support has never accessed this workspace" />
-        : <DataTable columns={columns} rows={log.data} rowKey={(row) => row.id} caption="Support access" />}
+        : <DataTable columns={columns} rows={log.data} rowKey={(row) => row.id} caption="Support Access" />}
     </section>
   )
 }
@@ -153,12 +153,12 @@ export function SecurityPage() {
     <div className="space-y-6">
       <MfaRule settings={data} />
       <section aria-labelledby="sso" className="rounded-lg border border-line bg-surface p-5">
-        <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single sign-on (OpenID Connect)</h2>
+        <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single Sign-On (OpenID Connect)</h2>
         {!data.sso_available ? <p className="mt-1 text-sm text-ink-500">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
           : data.identity_provider || configuring ? <SsoForm settings={data} roles={roles.data ?? []} />
           : (<>
             <p className="mt-1 text-sm text-ink-500">Let people sign in with your company's identity provider (Okta, Microsoft Entra ID, Google Workspace, Auth0 and others) instead of a password.</p>
-            <button type="button" className={`mt-4 ${buttonSecondary}`} onClick={() => setConfiguring(true)}>Set up single sign-on</button>
+            <button type="button" className={`mt-4 ${buttonSecondary}`} onClick={() => setConfiguring(true)}>Set Up Single Sign-On</button>
           </>)}
       </section>
       <SupportLog />

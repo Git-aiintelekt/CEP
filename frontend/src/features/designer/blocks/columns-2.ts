@@ -3,7 +3,7 @@ import type { CepBlock } from './types'
 
 export const columns2: CepBlock = {
   id: 'columns-2',
-  label: 'Two columns',
+  label: 'Two Columns',
   category: 'structure',
   icon: 'Columns2',
   mjml: `<mj-section background-color="${BRAND.surface}" padding="12px 24px">

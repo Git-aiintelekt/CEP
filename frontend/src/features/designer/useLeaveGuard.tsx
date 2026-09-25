@@ -115,10 +115,10 @@ export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void): { req
       footer={
         <>
           <button type="button" autoFocus className={buttonSecondary} onClick={keepEditing}>
-            Keep editing
+            Keep Editing
           </button>
           <button type="button" className={buttonDanger} onClick={leave}>
-            Leave without saving
+            Leave Without Saving
           </button>
         </>
       }

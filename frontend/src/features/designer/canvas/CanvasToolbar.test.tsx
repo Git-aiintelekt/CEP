@@ -67,7 +67,7 @@ test('one centred group, in the given order, in a 56px row with the hairline ben
   expect(bar.className).toContain('border-b')
   expect(order()).toEqual(['undo', 'redo', '|', 'zoomOut', 'zoom', 'zoomIn', '|', 'desktop', 'tablet', 'mobile', '|', 'outlines', 'preview', 'fullscreen', 'code', 'download'])
   expect(group().className).toContain('gap-2')
-  for (const name of ['Undo', 'Redo', 'Zoom out', 'Zoom in', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View code', TOOL_LABELS.download]) {
+  for (const name of ['Undo', 'Redo', 'Zoom Out', 'Zoom In', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View Code', TOOL_LABELS.download]) {
     expect(button(name).className).toContain('h-8')
     expect(button(name).getAttribute('title')).toBe(name)
   }
@@ -76,7 +76,7 @@ test('one centred group, in the given order, in a 56px row with the hairline ben
 test('the buttons report what was pressed', async () => {
   const user = userEvent.setup()
   const handlers = renderToolbar()
-  for (const name of ['Undo', 'Redo', 'Zoom out', 'Zoom in', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View code', TOOL_LABELS.download]) await user.click(button(name))
+  for (const name of ['Undo', 'Redo', 'Zoom Out', 'Zoom In', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View Code', TOOL_LABELS.download]) await user.click(button(name))
   expect(handlers.onUndo).toHaveBeenCalledTimes(1)
   expect(handlers.onRedo).toHaveBeenCalledTimes(1)
   expect(handlers.onZoomOut).toHaveBeenCalledTimes(1)
@@ -97,7 +97,7 @@ test('the zoom label reads Fit with the percentage in fit mode and the bare perc
   expect(button(ZOOM_MENU_LABEL).textContent).toBe('100%')
 })
 
-test('the zoom menu lists Fit to width then the steps, ticks the current one, and picks by keyboard', async () => {
+test('the zoom menu lists Fit to Width then the steps, ticks the current one, and picks by keyboard', async () => {
   const user = userEvent.setup()
   const handlers = renderToolbar({ zoom: 75, zoomMode: 'manual' })
   await user.click(button(ZOOM_MENU_LABEL))
@@ -133,10 +133,10 @@ test('undo and redo grey out when there is nothing to do, and never fade', () =>
 
 test('zoom out stops at the smallest step and zoom in at the largest', () => {
   renderToolbar({ zoom: 25 })
-  expect(disabled('Zoom out')).toBe(true)
+  expect(disabled('Zoom Out')).toBe(true)
   cleanup()
   renderToolbar({ zoom: 200 })
-  expect(disabled('Zoom in')).toBe(true)
+  expect(disabled('Zoom In')).toBe(true)
 })
 
 test('read-only turns history off and leaves every view tool on', async () => {
@@ -146,7 +146,7 @@ test('read-only turns history off and leaves every view tool on', async () => {
   expect(disabled('Redo')).toBe(true)
   await user.click(button('Undo'))
   expect(handlers.onUndo).not.toHaveBeenCalled()
-  for (const name of ['Zoom in', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View code', TOOL_LABELS.download]) expect(disabled(name)).toBe(false)
+  for (const name of ['Zoom In', OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View Code', TOOL_LABELS.download]) expect(disabled(name)).toBe(false)
   await user.click(button(TOOL_LABELS.download))
   expect(handlers.onDownload).toHaveBeenCalledTimes(1)
 })
@@ -175,7 +175,7 @@ test('a row wide enough shows everything and no More button', () => {
   expect(order().at(-1)).toBe('download')
 })
 
-test('one pixel short folds Fullscreen, View code and Download into More, and the rest stays', async () => {
+test('one pixel short folds Fullscreen, View Code and Download into More, and the rest stays', async () => {
   const user = userEvent.setup()
   rowWidth = TIER_WIDTHS[0] + 24 - 1
   const handlers = renderToolbar()
@@ -183,7 +183,7 @@ test('one pixel short folds Fullscreen, View code and Download into More, and th
   await user.click(button(MORE_LABEL))
   const menu = screen.getByRole('region', { name: MORE_LABEL })
   const items = within(menu).getAllByRole('button')
-  expect(items.map((item) => item.textContent)).toEqual(['Fullscreen', 'View code', TOOL_LABELS.download])
+  expect(items.map((item) => item.textContent)).toEqual(['Fullscreen', 'View Code', TOOL_LABELS.download])
   expect(items.every((item) => item.querySelector('svg'))).toBe(true)
   expect(menu.className).toContain('shadow-menu')
   await user.click(items[1])
@@ -202,7 +202,7 @@ test('the default 392px canvas folds the outlines and Preview as well, and the m
   expect([...group().querySelectorAll('[data-tool="|"]')].every((d) => d.className.includes('-mx-1'))).toBe(true)
   await user.click(button(MORE_LABEL))
   const items = within(screen.getByRole('region', { name: MORE_LABEL })).getAllByRole('button')
-  expect(items.map((item) => item.textContent)).toEqual([OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View code', TOOL_LABELS.download])
+  expect(items.map((item) => item.textContent)).toEqual([OUTLINES_LABEL, 'Preview', 'Fullscreen', 'View Code', TOOL_LABELS.download])
   expect(items[0].getAttribute('aria-pressed')).toBe('true')
   await user.click(items[0])
   expect(handlers.onOutlinesChange).toHaveBeenCalledWith(false)

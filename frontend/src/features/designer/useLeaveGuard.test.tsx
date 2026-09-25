@@ -62,11 +62,11 @@ test('a dirty editor asks first and does not proceed on its own', async () => {
   expect(proceeded).not.toHaveBeenCalled()
 })
 
-test('Keep editing closes the dialog and stays put', async () => {
+test('Keep Editing closes the dialog and stays put', async () => {
   render(<Host />)
 
   await click('leave')
-  await click('Keep editing')
+  await click('Keep Editing')
 
   expect(dialog()).toBeNull()
   expect(proceeded).not.toHaveBeenCalled()
@@ -83,11 +83,11 @@ test('Escape counts as keep editing', async () => {
   expect(proceeded).not.toHaveBeenCalled()
 })
 
-test('Leave without saving proceeds exactly once', async () => {
+test('Leave Without Saving proceeds exactly once', async () => {
   render(<Host />)
 
   await click('leave')
-  await click('Leave without saving')
+  await click('Leave Without Saving')
 
   expect(proceeded).toHaveBeenCalledTimes(1)
   expect(dialog()).toBeNull()
@@ -177,7 +177,7 @@ test('leaving disarms beforeunload so nothing prompts twice', async () => {
   render(<Host />)
 
   await click('leave')
-  await click('Leave without saving')
+  await click('Leave Without Saving')
 
   const event = new Event('beforeunload', { cancelable: true })
   window.dispatchEvent(event)
@@ -210,7 +210,7 @@ test('Back falls back to a normal navigation when the editor opened the tab', as
     window.history.replaceState(null, '')
     window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
   })
-  await click('Leave without saving')
+  await click('Leave Without Saving')
 
   expect(fallback).toHaveBeenCalledTimes(1)
   expect(go).not.toHaveBeenCalledWith(-2)
@@ -227,7 +227,7 @@ test('Back uses go(-2) when the editor was opened from another page', async () =
     window.history.replaceState(null, '')
     window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
   })
-  await click('Leave without saving')
+  await click('Leave Without Saving')
 
   expect(go).toHaveBeenCalledWith(-2)
   expect(fallback).not.toHaveBeenCalled()

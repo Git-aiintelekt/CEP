@@ -8,7 +8,7 @@ import { EMPTY_PADDING, PADDING_SIDES, formatPadding, parsePadding, type Padding
 import { INHERITED_NOTE, type Field } from './types'
 
 export const PADDING_ERROR = 'Use a number in px or %'
-export const LINK_SIDES_LABEL = 'Edit all four sides together'
+export const LINK_SIDES_LABEL = 'Edit All Four Sides Together'
 
 export function PaddingField({ label, value, effective, onPreview, onCommit, onCancel, disabled = false, inherited = false, inheritedNote }: Field) {
   const own = parsePadding(value)

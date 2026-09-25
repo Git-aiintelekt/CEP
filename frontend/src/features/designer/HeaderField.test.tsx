@@ -72,10 +72,10 @@ test('the tag button sits inside the field and comes with the caret', async () =
   const { default: userEvent } = await import('@testing-library/user-event')
   const user = userEvent.setup()
   const input = field('Spring loyalty refresh')
-  expect(screen.queryByRole('button', { name: 'Insert tag' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Insert Tag' })).toBeNull()
 
   await user.click(input)
-  const button = screen.getByRole('button', { name: 'Insert tag' })
+  const button = screen.getByRole('button', { name: 'Insert Tag' })
   expect(shell(input).contains(button)).toBe(true)
   expect(button.className).toContain('h-[26px]')
   expect(button.className).toContain('w-[26px]')
@@ -85,7 +85,7 @@ test('the tag button sits inside the field and comes with the caret', async () =
 test('a read-only field never offers the tag button', () => {
   const input = field('Locked', { readOnly: true })
   input.focus()
-  expect(screen.queryByRole('button', { name: 'Insert tag' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Insert Tag' })).toBeNull()
 })
 
 test('read-only is a grey fill and quieter text, never a faded one', () => {

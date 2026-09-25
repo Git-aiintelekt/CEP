@@ -36,7 +36,7 @@ test('groupTags: active tags for the channel only, grouped in a stable order wit
   const groups = groupTags(catalogue, 'EMAIL')
   expect(groups.map((group) => [group.label, group.tags.map((item) => item.tag_key)])).toEqual([
     ['Customer', ['first_name']],
-    ['Campaign list', ['offer_code']],
+    ['Campaign List', ['offer_code']],
     ['System', ['unsubscribe_url']],
   ])
   expect(groupTags(catalogue, 'SMS').flatMap((group) => group.tags.map((item) => item.tag_key))).toEqual(['sms_keyword'])

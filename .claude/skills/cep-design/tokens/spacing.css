@@ -3,5 +3,5 @@
 --gap-inline:var(--sp-1);--gap-icon-label:var(--sp-2);--pad-compact:var(--sp-3);--pad-field:var(--sp-4);--pad-card:var(--sp-4);--gap-section:var(--sp-5);--pad-page:var(--sp-6);
 --control-h-sm:32px;--control-h-md:40px;--control-h-lg:48px;
 --row-h-compact:40px;--row-h:48px;--row-h-tall:56px;
---sidenav-w:256px;--sidenav-w-collapsed:64px;--drawer-w:480px;--content-max:1440px
+--sidenav-w:240px;--sidenav-w-collapsed:64px;--drawer-w:480px;--content-max:1440px
 }

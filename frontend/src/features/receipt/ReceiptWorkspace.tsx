@@ -1,5 +1,5 @@
 /**
- * The E-Receipt editor: Outer design, Receipt layout and Preview & test around one template. It holds two things
+ * The E-Receipt editor: Outer Design, Receipt Layout and Preview & Test around one template. It holds two things
  * the server versions separately — the outer design and the receipt layout — and saves them together.
  * Talks to a `ReceiptBackend`, so the template page passes the API and the dev playground passes an in-memory one.
  */
@@ -20,7 +20,7 @@ import { useRecentTags } from '@/features/designer/tags/useRecentTags'
 import { useLeaveGuard } from '@/features/designer/useLeaveGuard'
 import type { ReceiptSlotPreset } from '@/features/designer/inspector/receiptSettings'
 import { ApiError } from '@/lib/api'
-import { formatUtcClock } from '@/lib/format'
+import { formatUtcClock, titleCase } from '@/lib/format'
 import type {
   Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput,
 } from '@/lib/types'
@@ -50,9 +50,9 @@ export interface ReceiptBackend {
 type ReceiptTab = 'outer' | 'layout' | 'preview'
 
 const TABS: EditorTabDef<ReceiptTab>[] = [
-  { id: 'outer', label: 'Outer design', Icon: LayoutTemplate },
-  { id: 'layout', label: 'Receipt layout', Icon: ReceiptText },
-  { id: 'preview', label: 'Preview & test', Icon: MonitorSmartphone },
+  { id: 'outer', label: titleCase(DESIGN_NAME), Icon: LayoutTemplate },
+  { id: 'layout', label: titleCase(LAYOUT_NAME), Icon: ReceiptText },
+  { id: 'preview', label: 'Preview & Test', Icon: MonitorSmartphone },
 ]
 
 interface ReceiptWorkspaceProps {
@@ -318,8 +318,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   const pillBar = (
     <>
       <HistoryMenu
-        label="Design history"
-        heading={`${DESIGN_NAME} versions`}
+        label="Design History"
+        heading={titleCase(`${DESIGN_NAME} versions`)}
         versions={designVersions}
         failed={designVersionsFailed}
         shown={designSaved.shown}
@@ -334,8 +334,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       />
       <HistoryMenu
         pillKey="receiptHistory"
-        label="Layout history"
-        heading={`${LAYOUT_NAME} versions`}
+        label="Layout History"
+        heading={titleCase(`${LAYOUT_NAME} versions`)}
         versions={layoutVersions}
         failed={layoutVersionsFailed}
         shown={layoutSaved.shown}
@@ -358,7 +358,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
 
   const note =
     checks === null || checks.failing === 0 ? 'All checks pass.'
-    : `${checks.failing} of ${checks.total} checks to fix · see Preview & test.`
+    : `${checks.failing} of ${checks.total} checks to fix · see Preview & Test.`
 
   const footer = (
     <FooterBar

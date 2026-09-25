@@ -14,12 +14,12 @@ export interface Swatch {
 
 /** The template's own colours, so a block can be matched to the design without hunting for the value. */
 export const BRAND_SWATCHES: Swatch[] = [
-  { hex: BRAND.action, name: 'Brand blue' },
-  { hex: BRAND.heading, name: 'Heading navy' },
-  { hex: BRAND.body, name: 'Body slate' },
-  { hex: BRAND.muted, name: 'Muted slate' },
-  { hex: BRAND.page, name: 'Page grey' },
-  { hex: BRAND.line, name: 'Line grey' },
+  { hex: BRAND.action, name: 'Brand Blue' },
+  { hex: BRAND.heading, name: 'Heading Navy' },
+  { hex: BRAND.body, name: 'Body Slate' },
+  { hex: BRAND.muted, name: 'Muted Slate' },
+  { hex: BRAND.page, name: 'Page Grey' },
+  { hex: BRAND.line, name: 'Line Grey' },
 ]
 
 export const NEUTRAL_SWATCHES: Swatch[] = [
@@ -43,7 +43,7 @@ export const ACCENT_SWATCHES: Swatch[] = [
 ]
 
 export const SWATCH_GROUPS: { id: string; label: string; swatches: Swatch[] }[] = [
-  { id: 'brand', label: 'Template colours', swatches: BRAND_SWATCHES },
+  { id: 'brand', label: 'Template Colours', swatches: BRAND_SWATCHES },
   { id: 'neutral', label: 'Greys', swatches: NEUTRAL_SWATCHES },
   { id: 'accent', label: 'Accents', swatches: ACCENT_SWATCHES },
 ]

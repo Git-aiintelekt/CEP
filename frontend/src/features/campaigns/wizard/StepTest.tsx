@@ -6,7 +6,7 @@ import { MessagePreview } from '../MessagePreview'
 import { Panel } from '../parts'
 import { TestPublishBox } from '../TestPublishBox'
 
-export function StepTest({ campaign, options }: { campaign: Campaign; options: CampaignFormOptions | undefined }) {
+export function StepTest({ campaign, options, onTested }: { campaign: Campaign; options: CampaignFormOptions | undefined; onTested?: () => void }) {
   const { me } = useAuth()
   const tested = campaign.runs.some((run) => run.test_mode)
   return (
@@ -14,8 +14,8 @@ export function StepTest({ campaign, options }: { campaign: Campaign; options: C
       <Panel title="Preview" description="With the catalogue's sample values, or as one customer of the audience would get it.">
         <MessagePreview campaignId={campaign.id} withCustomers={campaign.campaign_type !== 'E_RECEIPT'} />
       </Panel>
-      <Panel title="Send a test" className="self-start" description={tested ? 'A test has been sent for this campaign. Send another one after every change to the content.' : undefined}>
-        <TestPublishBox campaign={campaign} people={options?.owners ?? []} defaultTo={me?.principal.email ?? ''} />
+      <Panel title="Send a Test" className="self-start" description={tested ? 'A test has been sent for this campaign. Send another one after every change to the content.' : undefined}>
+        <TestPublishBox campaign={campaign} people={options?.owners ?? []} defaultTo={me?.principal.email ?? ''} onSent={onTested} />
       </Panel>
     </div>
   )

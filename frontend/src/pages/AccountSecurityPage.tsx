@@ -40,8 +40,8 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
         {codes.map((code) => <li key={code}>{code}</li>)}
       </ul>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(codes.join('\n')).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy codes'}</button>
-        <button type="button" className={buttonPrimary} onClick={onDone}>I have saved them</button>
+        <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(codes.join('\n')).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy Codes'}</button>
+        <button type="button" className={buttonPrimary} onClick={onDone}>I Have Saved Them</button>
       </div>
     </div>
   )
@@ -82,7 +82,7 @@ export function AccountSecurityPage() {
 
   return (
     <section className="max-w-3xl">
-      <PageHeader title="Account security" description="A second step when you sign in: a code from an authenticator app on your phone." />
+      <PageHeader title="Account Security" description="A second step when you sign in: a code from an authenticator app on your phone." />
       {forced && !codes && (
         <p role="status" className="mb-5 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">
           Your workspace requires multi-factor authentication. Set it up to continue: nothing else is available until you do.
@@ -101,16 +101,16 @@ export function AccountSecurityPage() {
                 <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is on</h2>
                 <p className="mt-0.5 text-sm text-ink-500">Since {formatDate(status.data.confirmed_at)} · {status.data.recovery_codes_left} recovery code{status.data.recovery_codes_left === 1 ? '' : 's'} left</p>
               </div>
-              {!status.data.required && !turningOff && <button type="button" className={buttonDanger} onClick={() => { setTurningOff(true); setCode(''); disable.reset() }}>Turn off</button>}
+              {!status.data.required && !turningOff && <button type="button" className={buttonDanger} onClick={() => { setTurningOff(true); setCode(''); disable.reset() }}>Turn Off</button>}
             </div>
             {status.data.required && <p className="mt-3 text-xs text-ink-500">Your workspace requires it, so it cannot be turned off.</p>}
             {status.data.recovery_codes_left <= 2 && <p className="mt-3 text-xs text-warning-text">Few recovery codes are left. To get a new set, turn multi-factor authentication off and set it up again.</p>}
             {turningOff && (
               <form className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4" onSubmit={(event: FormEvent) => { event.preventDefault(); disable.mutate() }}>
-                <div className="w-48"><Field label="Current code" required error={codeError(disable.error)}>
+                <div className="w-48"><Field label="Current Code" required error={codeError(disable.error)}>
                   {(ids) => <TextInput {...ids} value={code} onChange={(event) => setCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" autoFocus />}
                 </Field></div>
-                <button type="submit" className={buttonDanger} disabled={disable.isPending || !code.trim()}>Turn off</button>
+                <button type="submit" className={buttonDanger} disabled={disable.isPending || !code.trim()}>Turn Off</button>
                 <button type="button" className={buttonSecondary} onClick={() => setTurningOff(false)}>Cancel</button>
               </form>
             )}
@@ -138,7 +138,7 @@ export function AccountSecurityPage() {
             </ol>
             {confirm.isError && !codeError(confirm.error) && <div className="mt-4"><ErrorState title="Could not turn it on" error={confirm.error} /></div>}
             <div className="mt-5 flex gap-2">
-              <button type="submit" className={buttonPrimary} disabled={confirm.isPending || code.trim().length < 6}>Turn on</button>
+              <button type="submit" className={buttonPrimary} disabled={confirm.isPending || code.trim().length < 6}>Turn On</button>
               {!forced && <button type="button" className={buttonSecondary} onClick={() => setSetup(null)}>Cancel</button>}
             </div>
           </form>
@@ -147,7 +147,7 @@ export function AccountSecurityPage() {
             <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is off</h2>
             <p className="mt-1 text-sm text-ink-500">With it on, a stolen password is not enough to get into your account.</p>
             {begin.isError && <div className="mt-3"><ErrorState title="Could not start the set-up" error={begin.error} /></div>}
-            <button type="button" className={`mt-4 ${buttonPrimary}`} disabled={begin.isPending} onClick={() => begin.mutate()}>Set up</button>
+            <button type="button" className={`mt-4 ${buttonPrimary}`} disabled={begin.isPending} onClick={() => begin.mutate()}>Set Up</button>
           </div>
         )}
     </section>

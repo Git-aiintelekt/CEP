@@ -1,5 +1,5 @@
 /** The picker's words, kept apart from the component so the tests and the component share one copy. */
-export const SEARCH_LABEL = 'Search tags'
+export const SEARCH_LABEL = 'Search Tags'
 export const NO_MATCH_NOTE = 'No tags match'
 export const EMPTY_CATALOGUE_NOTE = 'No tags are defined for this channel yet.'
 export const RECENT_LABEL = 'Recent'
