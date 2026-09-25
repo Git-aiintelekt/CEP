@@ -2,6 +2,7 @@
 
     POST /api/v1/webhooks/delivery/<tenant>/<provider id>/<token>/    delivery providers report what happened to a message
     GET | POST /api/v1/public/unsubscribe/?t=<signed token>            the link in every marketing email
+    GET /api/v1/public/barcode/<text>.png                              the Code 128 image an e-receipt's return barcode points at
 
 The tenant middleware resolves the workspace from the path / the token (apps/tenants/resolver.py), so both run in a
 normal tenant transaction under row-level security.
@@ -15,7 +16,7 @@ from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from apps.delivery.engine import events, inbound, session, unsubscribe
+from apps.delivery.engine import barcode, events, inbound, session, unsubscribe
 from apps.delivery.models import DeliveryProvider
 from apps.delivery.providers import ProviderError, registry
 from apps.tenants import context
@@ -61,7 +62,8 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
             except Exception:                               # noqa: BLE001
                 log.exception("inbound text from %s could not be handled", message.from_number)
                 outcome["failed"] += 1
-    for event in adapter.parse_webhook(payload):
+    parsed = adapter.parse_webhook(payload)
+    for event in parsed:
         outcome["received"] += 1
         with session.connection().cursor() as cursor:
             cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload)
@@ -80,17 +82,39 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
         with session.connection().cursor() as cursor:
             cursor.execute("UPDATE delivery_webhook_event SET processed_at = now(), processing_status = %s WHERE tenant_id = %s AND id = %s AND received_at = %s",
                            [status, tenant_id, event_id, received_at])
-    _log_callback(tenant_id, provider, request, body, outcome, watch)
+    _log_callback(tenant_id, provider, request, body, outcome, watch, _callback_ref(provider, parsed))
     return JsonResponse(outcome)                            # always 200 once authenticated: providers retry on anything else
 
 
-def _log_callback(tenant_id, provider, request, body, outcome, watch) -> None:
+def _callback_ref(provider, events_parsed) -> str:
+    """The log reference of a callback: the same one its send carried when the message said so (a Postal tag), so a
+    search for receipt:R-1001 or mailer_execution:42 finds the send and what came back of it."""
+    for event in events_parsed:
+        if event.tag.get("n"):
+            return f"receipt:{event.tag['n']}"[:200]
+        if event.execution_id:
+            return f"mailer_execution:{event.execution_id}"
+    return f"provider:{provider.pk}"
+
+
+def _log_callback(tenant_id, provider, request, body, outcome, watch, related_ref: str) -> None:
     from apps.integrations.bridge import logbook
     integration = logbook.integration_for(tenant_id, kind=logbook.KIND_PROVIDER, system=provider.provider_type, provider=provider)
     logbook.record(tenant_id=tenant_id, integration=integration, direction="IN", kind=logbook.KIND_PROVIDER, system=provider.provider_type,
-                   related_ref=f"provider:{provider.pk}", method=request.method, url=request.path, request_headers=dict(request.headers), request_body=body,
+                   related_ref=related_ref, method=request.method, url=request.path, request_headers=dict(request.headers), request_body=body,
                    response_status=200, response_body=outcome, outcome="OK" if not outcome.get("failed") else "ERROR",
                    error_message=f"{outcome['failed']} events could not be applied" if outcome.get("failed") else None, duration_ms=watch.ms())
+
+
+@require_http_methods(["GET"])
+def barcode_view(request, text, version=None):
+    """A Code 128 image of `text` (a receipt or order number), for the <img> in a receipt email. No tenant, no sign-in:
+    the number is already in the recipient's inbox, and the image says nothing more than the number does."""
+    if not barcode.valid(text):
+        return HttpResponse(status=404)
+    response = HttpResponse(barcode.png(text), content_type="image/png")
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

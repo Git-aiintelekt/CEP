@@ -85,6 +85,15 @@ test('the dashed rule sits on Totals, directly after the section before it, and 
   expect(withBarcode.match(/border-top:1px dashed/g)).toHaveLength(1)
 })
 
+test('the return barcode is a Code 128 image served by the API, named after the receipt number, with the number under it', () => {
+  const withBarcode = html(patch('support', { barcode: true })(defaultSectionsFor('STANDARD')))
+  const image = withBarcode.match(/<img src="([^"]+)" alt="Barcode ([^"]+)" width="240" height="64"/)
+  expect(image?.[1]).toMatch(/\/api\/v1\/public\/barcode\/RCT-48219-0922\.png$/)
+  expect(image?.[1]).toMatch(/^https?:\/\//)                                                          // absolute: the email has no base
+  expect(image?.[2]).toBe('RCT-48219-0922')
+  expect(html()).not.toContain('/public/barcode/')                                                    // off by default
+})
+
 test('no class carries layout or colour; the one class is the hide-on-phones hook', () => {
   const everything = html(defaultSectionsFor('ITEMIZED').map((item) => (item.key === 'items' ? { ...item, columns: { ...item.columns, product_image: true } } : item)) as ReceiptSection[])
   const classes = new Set([...everything.matchAll(/class="([^"]*)"/g)].map((match) => match[1]))
