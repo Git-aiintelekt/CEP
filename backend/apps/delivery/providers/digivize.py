@@ -37,7 +37,7 @@ class DigivizeProvider(SmsProvider):
     )
 
     def open(self) -> None:
-        self._session = requests.Session()
+        self._session = self.new_session()
         # (1) authentication goes here, e.g. self._session.headers["Authorization"] = f"Bearer {self.secret}"
 
     def close(self) -> None:

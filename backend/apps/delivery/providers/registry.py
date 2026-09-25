@@ -55,7 +55,10 @@ def for_provider(provider) -> EmailProvider:
     cls = adapter_class(provider.provider_type)
     if not provider.is_active or provider.deleted_at is not None:
         raise ProviderError(f"The delivery provider {provider.name} is switched off.", retryable=False)
-    return cls(config=provider.config or {}, secret=resolve_secret(provider), provider_id=str(provider.pk), tenant_id=str(provider.tenant_id))
+    adapter = cls(config=provider.config or {}, secret=resolve_secret(provider), provider_id=str(provider.pk), tenant_id=str(provider.tenant_id))
+    adapter.provider_name = provider.name
+    adapter.rate_limit_per_minute = provider.rate_limit_per_minute
+    return adapter
 
 
 _loaded = False

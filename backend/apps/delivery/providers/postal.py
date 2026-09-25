@@ -33,7 +33,7 @@ class PostalProvider(EmailProvider):
     )
 
     def open(self) -> None:
-        self._session = requests.Session()
+        self._session = self.new_session()
         self._session.headers.update({"X-Server-API-Key": self.secret or "", "Content-Type": "application/json"})
 
     def close(self) -> None:

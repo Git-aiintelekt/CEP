@@ -19,6 +19,7 @@ from apps.delivery.engine import dispatch, dispatch_sms, receipts, runs
 from apps.delivery.models import DeliveryProvider, SenderProfile
 from apps.delivery.providers import EmailMessage, Outcome, ProviderError, SmsMessage, registry
 from apps.platform_ops import crypto, params
+from apps.integrations.bridge.inbound import InboundLogMixin
 from apps.tenants import context
 
 WEBHOOK_SALT = "cep.delivery.webhook"
@@ -343,10 +344,18 @@ class ReceiptSendSerializer(serializers.Serializer):
         return {**value, "items": [{k: (float(v) if hasattr(v, "quantize") else v) for k, v in item.items()} for item in items.validated_data]}
 
 
-class ReceiptSendView(APIView):
+class ReceiptSendView(InboundLogMixin, APIView):
     """Send one e-receipt now. Idempotent on receipt.number: repeating the call returns the first result with
-    `duplicate: true` and sends nothing. 424 = the delivery provider is failing temporarily: call again later."""
+    `duplicate: true` and sends nothing. 424 = the delivery provider is failing temporarily: call again later.
+    429 = the key's or the workspace's rate limit (Retry-After says when); 503 = the POS integration is paused."""
     permission_classes = [IsAuthenticated, CanSendReceipts, params.RequiresFeature.for_("ereceipt")]
+    integration_kind = "POS_RECEIPTS"
+    integration_system = "POS"
+
+    def integration_ref(self, request, body):
+        receipt = (body or {}).get("receipt") if isinstance((body or {}).get("receipt"), dict) else {}
+        number = (body or {}).get("idempotency_key") or receipt.get("number") or receipt.get("order_number")
+        return f"receipt:{number}" if number else None
 
     @extend_schema(request=ReceiptSendSerializer, responses={200: None, 201: None})
     def post(self, request, version=None):

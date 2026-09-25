@@ -5,7 +5,6 @@ Claiming first means a worker that dies mid-batch can never send the same messag
 marked SUBMITTED that never left, which `runs.sweep` turns into FAILED so it is visible instead of silently lost.
 """
 import logging
-import time
 
 from django.utils import timezone
 
@@ -81,7 +80,6 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     provider_row = sender.delivery_provider
     renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags, inner_templates=inner)
     marketing = campaign.solicitation_type == "MARKETING"
-    pause = 60.0 / provider_row.rate_limit_per_minute if provider_row.rate_limit_per_minute else 0.0
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0}
     retry_ids, retry_reason = [], ""
 
@@ -115,7 +113,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                                        subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=idempotency_key,
                                        tag=campaign.code or "", headers=unsubscribe.headers_for(token) if marketing else {},
                                        metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)})
-                result = provider.send(message)
+                result = provider.send_guarded(message, related_ref=f"mailer_execution:{execution_id}")
             except ProviderError as exc:                    # nothing more will go out: put this one back and stop
                 _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
                 if exc.retryable:
@@ -142,8 +140,6 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 retry_ids.append(execution_id)
                 retry_reason = result.reason
                 counts["retry"] += 1
-            if pause:
-                time.sleep(min(pause, 5.0))
     finally:
         provider.close()
     if retry_ids:

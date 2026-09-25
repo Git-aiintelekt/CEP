@@ -157,6 +157,23 @@ class EmailProvider(ABC):
 
     def __init__(self, *, config: dict, secret: str | None, provider_id: str = "", tenant_id: str = ""):
         self.config, self.secret, self.provider_id, self.tenant_id = config or {}, secret, provider_id, tenant_id
+        # set by registry.for_provider from the delivery_provider row; the integration bridge reads them
+        self.provider_name: str | None = None
+        self.rate_limit_per_minute: int | None = None
+        self.guard = None
+
+    # ---- the integration bridge (apps.integrations.bridge): every call logged, throttled and behind a circuit breaker
+    def new_session(self):
+        """The requests session an HTTP adapter should use: each call is timed and written to the integration log."""
+        from apps.integrations.bridge.outbound import Guard, LoggedSession
+        if self.guard is None:
+            self.guard = Guard(self)
+        return LoggedSession(self.guard)
+
+    def send_guarded(self, message, *, related_ref: str | None = None):
+        """What the engine calls: send() with the integration's pause, breaker and throttle in front and a log row behind."""
+        from apps.integrations.bridge.outbound import guarded_send
+        return guarded_send(self, message, related_ref)
 
     # ---- lifecycle: one open/close around a batch, so SMTP can keep its connection and HTTP its session
     def open(self) -> None:             # noqa: B027  (optional hook)

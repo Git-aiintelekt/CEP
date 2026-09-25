@@ -657,6 +657,154 @@ ALTER TABLE campaign ADD CONSTRAINT ck_campaign_setup_step CHECK (setup_step BET
 CREATE INDEX IF NOT EXISTS ix_mailer_execution_campaign ON mailer_execution(tenant_id, campaign_id);
 CREATE INDEX IF NOT EXISTS ix_sms_execution_campaign ON sms_execution(tenant_id, campaign_id);
 
+-- -------------------------------------------------------------------------------------
+-- 17. INTEGRATION BRIDGE
+--     Every call CEP makes to an outside system (Postal, SendGrid, Digivize, a mail server) and every call an outside
+--     system makes to CEP (a point of sale sending a receipt, a provider reporting a delivery) is throttled, logged and
+--     measured per workspace. `integration` is the record an operator manages; `integration_log` is one row per call in
+--     either direction; `integration_metric` is what the status pages read, so the log is never scanned for a chart.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS integration (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    kind                VARCHAR(30) NOT NULL,                            -- POS_RECEIPTS (inbound), PROVIDER (one per sending engine)
+    name                VARCHAR(100) NOT NULL,
+    direction           VARCHAR(3) NOT NULL,                             -- IN, OUT
+    system              VARCHAR(30) NOT NULL,                            -- POS, POSTAL, SENDGRID, SMTP, DIGIVIZE, SANDBOX_SMS
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',           -- ACTIVE, PAUSED (paused: inbound answers 503, outbound waits)
+    environment         VARCHAR(10) NOT NULL DEFAULT 'PRODUCTION',       -- SANDBOX, PRODUCTION
+    delivery_provider_id UUID REFERENCES delivery_provider(id),          -- PROVIDER kind: the engine this record guards
+    throttle_per_minute INTEGER,                                         -- NULL = the plan's default (inbound) / the engine's own rate (outbound)
+    throttle_burst      INTEGER,                                         -- calls one second may carry above the even pace
+    retry_max_attempts  INTEGER NOT NULL DEFAULT 3,
+    breaker_failures    INTEGER NOT NULL DEFAULT 5,                      -- consecutive failures that open the circuit
+    breaker_cooldown_seconds INTEGER NOT NULL DEFAULT 60,
+    breaker_open_until  TIMESTAMPTZ,                                     -- mirrored from the cache for the status page
+    log_level           VARCHAR(10) NOT NULL DEFAULT 'FULL',             -- FULL, ERRORS (bodies for failures only), NONE
+    log_body_max_bytes  INTEGER NOT NULL DEFAULT 65536,
+    log_retention_days  INTEGER NOT NULL DEFAULT 90,
+    last_call_at        TIMESTAMPTZ,
+    last_outcome        VARCHAR(12),
+    last_error          VARCHAR(500),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER')),
+    CONSTRAINT ck_integration_direction CHECK (direction IN ('IN', 'OUT')),
+    CONSTRAINT ck_integration_status CHECK (status IN ('ACTIVE', 'PAUSED')),
+    CONSTRAINT ck_integration_environment CHECK (environment IN ('SANDBOX', 'PRODUCTION')),
+    CONSTRAINT ck_integration_log_level CHECK (log_level IN ('FULL', 'ERRORS', 'NONE'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_integration_tenant_kind ON integration(tenant_id, kind) WHERE delivery_provider_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_integration_provider ON integration(delivery_provider_id) WHERE delivery_provider_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_integration_tenant ON integration(tenant_id);
+COMMENT ON TABLE integration IS 'One record per external integration of a workspace: its throttle, retry, circuit-breaker and log policy, and its last call';
+
+CREATE TABLE IF NOT EXISTS integration_log (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY,
+    tenant_id           UUID NOT NULL,
+    integration_id      UUID,
+    direction           VARCHAR(3) NOT NULL,                             -- IN, OUT
+    kind                VARCHAR(30) NOT NULL,
+    system              VARCHAR(30) NOT NULL,
+    correlation_id      VARCHAR(64) NOT NULL,
+    related_ref         VARCHAR(200),                                    -- mailer_execution:<id>, receipt:<number>, run:<id>, provider:<id>
+    method              VARCHAR(10) NOT NULL,
+    url                 TEXT NOT NULL,
+    request_headers     JSONB,
+    request_body        TEXT,
+    request_bytes       INTEGER NOT NULL DEFAULT 0,
+    response_status     INTEGER,
+    response_headers    JSONB,
+    response_body       TEXT,
+    response_bytes      INTEGER NOT NULL DEFAULT 0,
+    outcome             VARCHAR(12) NOT NULL,                            -- OK, REJECTED, RETRY, ERROR, THROTTLED, BREAKER, PAUSED
+    error_class         VARCHAR(100),
+    error_message       VARCHAR(500),
+    attempt             INTEGER NOT NULL DEFAULT 1,
+    duration_ms         INTEGER,
+    api_client_id       UUID,
+    worker              VARCHAR(200),
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (id, tenant_id, started_at),
+    CONSTRAINT ck_integration_log_outcome CHECK (outcome IN ('OK', 'REJECTED', 'RETRY', 'ERROR', 'THROTTLED', 'BREAKER', 'PAUSED'))
+) PARTITION BY LIST (tenant_id);
+-- Per-tenant partitions (each sub-partitioned RANGE (started_at) monthly) are created by fn_provision_tenant() -- see the SaaS tenancy layer.
+CREATE INDEX IF NOT EXISTS ix_integration_log_recent ON integration_log(tenant_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS ix_integration_log_integration ON integration_log(tenant_id, integration_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS ix_integration_log_correlation ON integration_log(tenant_id, correlation_id);
+CREATE INDEX IF NOT EXISTS ix_integration_log_ref ON integration_log(tenant_id, related_ref);
+COMMENT ON TABLE integration_log IS 'One row per API call in either direction: what was sent, what came back, how long it took; credentials and card numbers never enter it';
+
+CREATE TABLE IF NOT EXISTS integration_metric (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    integration_id      UUID NOT NULL REFERENCES integration(id),
+    bucket_start        TIMESTAMPTZ NOT NULL,                            -- the minute
+    calls               INTEGER NOT NULL DEFAULT 0,
+    ok                  INTEGER NOT NULL DEFAULT 0,
+    rejected            INTEGER NOT NULL DEFAULT 0,
+    retried             INTEGER NOT NULL DEFAULT 0,
+    errors              INTEGER NOT NULL DEFAULT 0,
+    throttled           INTEGER NOT NULL DEFAULT 0,
+    duration_p50_ms     INTEGER,
+    duration_p95_ms     INTEGER,
+    duration_max_ms     INTEGER,
+    bytes_in            BIGINT NOT NULL DEFAULT 0,
+    bytes_out           BIGINT NOT NULL DEFAULT 0,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, integration_id, bucket_start)
+);
+CREATE INDEX IF NOT EXISTS ix_integration_metric_recent ON integration_metric(tenant_id, bucket_start DESC);
+COMMENT ON TABLE integration_metric IS 'Per-minute figures per integration, rolled up from integration_log by the rollup-integration-metrics job';
+
+INSERT INTO partition_retention_policy (table_name, sub_method, sub_key, hash_modulus, retention_months, expiry_action, note) VALUES
+    ('integration_log', 'RANGE_MONTHLY', 'started_at', NULL, 3, 'DROP', 'Integration request/response log; 90 days, then dropped')
+ON CONFLICT (table_name) DO NOTHING;
+
+-- a tenant that existed before this table needs its partitions now; fn_provision_tenant skips what already exists
+DO $$
+DECLARE t RECORD;
+BEGIN
+    FOR t IN SELECT id FROM tenant WHERE deleted_at IS NULL LOOP
+        IF to_regclass(fn_tenant_partition_name('integration_log', t.id)) IS NULL THEN
+            PERFORM fn_provision_tenant(t.id, 3);
+        END IF;
+    END LOOP;
+END $$;
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['integration'] LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_touch ON %I', t, t);
+        EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION fn_touch_row()', t, t);
+        EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_audit ON %I', t, t);
+        EXECUTE format('CREATE TRIGGER trg_%s_audit AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION fn_definition_audit()', t, t);
+    END LOOP;
+    FOREACH t IN ARRAY ARRAY['integration', 'integration_log', 'integration_metric'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%s_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%s_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+-- the API creates a workspace's integration records and pauses or resumes them; policies are edited in the back-office
+GRANT SELECT, INSERT, UPDATE ON integration TO cep_app;
+GRANT SELECT, INSERT ON integration_log TO cep_app;                     -- written, never changed
+GRANT SELECT, INSERT, UPDATE ON integration_metric TO cep_app;          -- the rollup job writes on whichever connection holds the log
+GRANT ALL ON integration, integration_log, integration_metric TO cep_admin;
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('integrations.inbound_per_minute', '{"STARTER": 60, "GROWTH": 600, "ENTERPRISE": null, "default": 60}', 'OBJECT', 'Integrations',
+     'Calls per minute a workspace''s systems may make to the API, by plan code (null = no limit); "default" applies to a workspace with no plan. A workspace''s own integration record overrides it.'),
+    ('integrations.log_body_max_bytes', '65536', 'INTEGER', 'Integrations', 'Largest request or response body kept in the integration log; longer bodies keep their start and a digest'),
+    ('integrations.log_retention_days', '90', 'INTEGER', 'Integrations', 'Days an integration log row is kept (the monthly partitions are dropped past this)'),
+    ('integrations.metric_retention_months', '13', 'INTEGER', 'Integrations', 'Months of per-minute integration figures kept')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

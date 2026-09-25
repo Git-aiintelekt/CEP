@@ -28,6 +28,8 @@ log = logging.getLogger("cep.delivery")
 @csrf_exempt
 @require_http_methods(["POST"])
 def delivery_webhook(request, tenant_code, provider_id, token, version=None):
+    from apps.integrations.bridge.logbook import Stopwatch
+    watch = Stopwatch()
     tenant_id = context.require().tenant_id
     if not hmac.compare_digest(token, webhook_token(provider_id)):
         return JsonResponse({"title": "Not found", "status": 404}, status=404)
@@ -78,7 +80,17 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
         with session.connection().cursor() as cursor:
             cursor.execute("UPDATE delivery_webhook_event SET processed_at = now(), processing_status = %s WHERE tenant_id = %s AND id = %s AND received_at = %s",
                            [status, tenant_id, event_id, received_at])
+    _log_callback(tenant_id, provider, request, body, outcome, watch)
     return JsonResponse(outcome)                            # always 200 once authenticated: providers retry on anything else
+
+
+def _log_callback(tenant_id, provider, request, body, outcome, watch) -> None:
+    from apps.integrations.bridge import logbook
+    integration = logbook.integration_for(tenant_id, kind=logbook.KIND_PROVIDER, system=provider.provider_type, provider=provider)
+    logbook.record(tenant_id=tenant_id, integration=integration, direction="IN", kind=logbook.KIND_PROVIDER, system=provider.provider_type,
+                   related_ref=f"provider:{provider.pk}", method=request.method, url=request.path, request_headers=dict(request.headers), request_body=body,
+                   response_status=200, response_body=outcome, outcome="OK" if not outcome.get("failed") else "ERROR",
+                   error_message=f"{outcome['failed']} events could not be applied" if outcome.get("failed") else None, duration_ms=watch.ms())
 
 
 PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">

@@ -174,11 +174,12 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
                            metadata={"cep_tenant": campaign.tenant.code, "cep_run": str(run.pk)}, attachments=files)
     try:
         with registry.for_provider(sender.delivery_provider) as provider:
-            result = provider.send(message)
+            result = provider.send_guarded(message, related_ref=f"receipt:{number}")
             for _ in range(2):                              # a receipt is wanted now: two quick retries, then the caller decides
                 if result.outcome is not Outcome.RETRY:
                     break
-                result = provider.send(message)
+                provider.guard.attempt += 1
+                result = provider.send_guarded(message, related_ref=f"receipt:{number}")
     except ProviderError as exc:
         result = None
         failure = str(exc)
