@@ -1,29 +1,31 @@
 /**
- * The campaign setup flow: the Create Campaign pop-up, then Audience → Content → Targets → Test & publish.
- * The API still counts progress in the old seven-step wizard's terms (setup_step 0–6, only ever moving forward,
- * complete at 6); every place that reads or writes it, or links into the setup, goes through this module.
+ * The campaign setup flow: the Create Campaign pop-up, then Audience → Content → Targets → Test → Review & Publish.
+ * The API still counts progress 0–6 (only ever moving forward, complete at 6); every place that reads or writes it,
+ * or links into the setup, goes through this module.
  */
 import type { Campaign } from '@/lib/types'
 
-export type FlowStep = 'audience' | 'content' | 'targets' | 'publish'
-export type PublishSection = 'schedule' | 'test' | 'review'
+export type FlowStep = 'audience' | 'content' | 'targets' | 'test' | 'publish'
+export type PublishSection = 'schedule' | 'review'
 
 export const FLOW_STEPS: { key: FlowStep; label: string; next?: string }[] = [
   { key: 'audience', label: 'Audience', next: 'Continue to Content' },
   { key: 'content', label: 'Content', next: 'Continue to Targets' },
-  { key: 'targets', label: 'Targets', next: 'Continue to Test & Publish' },
-  { key: 'publish', label: 'Test & Publish' },
+  { key: 'targets', label: 'Targets', next: 'Continue to Test' },
+  { key: 'test', label: 'Test', next: 'Continue to Review & Publish' },
+  { key: 'publish', label: 'Review & Publish' },
 ]
 
 export const PUBLISH_SECTIONS: { key: PublishSection; label: string }[] = [
   { key: 'schedule', label: 'When and How It Goes Out' },
-  { key: 'test', label: 'Preview and Test' },
-  { key: 'review', label: 'Review and Publish' },
+  { key: 'review', label: 'Summary and Publish' },
 ]
 
-/** setup_step once each part is done; the API keeps the highest value it has seen */
-export const PROGRESS = { created: 1, audience: 2, content: 3, targets: 4, schedule: 5, tested: 6 } as const
-export const SETUP_DONE = PROGRESS.tested
+/** setup_step once each part is done; the API keeps the highest value it has seen. Tested = the Test step was passed
+ *  (a test sent, or Continue); the schedule saved on Review & Publish completes the setup (an e-receipt, having no
+ *  schedule, is complete once its Test step is passed). */
+export const PROGRESS = { created: 1, audience: 2, content: 3, targets: 4, tested: 5, schedule: 6 } as const
+export const SETUP_DONE = PROGRESS.schedule
 
 const isReceipt = (campaign: Pick<Campaign, 'campaign_type'> | string) => (typeof campaign === 'string' ? campaign : campaign.campaign_type) === 'E_RECEIPT'
 
@@ -33,11 +35,15 @@ export function stepsFor(campaignType: string) {
 }
 
 /** the step that finishing `step` records */
-export const progressAfter = (step: Exclude<FlowStep, 'publish'>): number => PROGRESS[step]
+export function progressAfter(step: Exclude<FlowStep, 'publish'>, campaignType: string): number {
+  if (step === 'test') return isReceipt(campaignType) ? SETUP_DONE : PROGRESS.tested
+  return PROGRESS[step]
+}
 
 /** where an unfinished setup picks up again */
 export function resumeStep(progress: number, campaignType: string): FlowStep {
-  if (progress >= PROGRESS.targets) return 'publish'
+  if (progress >= PROGRESS.tested) return 'publish'
+  if (progress >= PROGRESS.targets) return 'test'
   if (progress >= PROGRESS.content) return 'targets'
   if (progress >= PROGRESS.audience) return 'content'
   return isReceipt(campaignType) ? 'content' : 'audience'
@@ -53,7 +59,7 @@ export interface SetupPlace {
 /** the old wizard's ?step=1..7, from bookmarks and older links */
 const OLD_STEP: Record<number, SetupPlace | 'first'> = {
   1: 'first', 2: { step: 'audience' }, 3: { step: 'content' }, 4: { step: 'publish', section: 'schedule' },
-  5: { step: 'targets' }, 6: { step: 'publish', section: 'test' }, 7: { step: 'publish', section: 'review' },
+  5: { step: 'targets' }, 6: { step: 'test' }, 7: { step: 'publish', section: 'review' },
 }
 
 /** reads ?step= (a step key, or an old number), ?section= and ?details= */

@@ -58,7 +58,7 @@ export function campaignPageActions(campaign: Campaign, can: { edit: boolean; pu
   const main: CampaignMainAction | null =
     !own ? { key: 'view-journey', label: 'View Journey', icon: Workflow, to: '/journeys', external: true }
     : resume ? { key: 'resume', label: 'Resume', icon: Play, action: 'resume' }
-    : campaign.status === 'DRAFT' && testPublish ? { key: 'continue-setup', label: 'Continue Setup', icon: ArrowRight, iconAfter: true, hint: 'Next: send a test', to: setupHref(campaign.id, { step: 'publish', section: 'test' }) }
+    : campaign.status === 'DRAFT' && testPublish ? { key: 'continue-setup', label: 'Continue Setup', icon: ArrowRight, iconAfter: true, hint: 'Next: send a test', to: setupHref(campaign.id, { step: 'test' }) }
     : productionPublish ? { key: 'production-publish', label: 'Production Publish', icon: Send, to: setupHref(campaign.id, { step: 'publish', section: 'review' }) }
     : null
 
@@ -66,7 +66,7 @@ export function campaignPageActions(campaign: Campaign, can: { edit: boolean; pu
     edit && hasAction(campaign, 'edit') && (editPlace === 'details'
       ? { key: 'edit', label: 'Edit Campaign', icon: Settings2, command: 'edit-details' as const }
       : { key: 'edit', label: 'Edit Campaign', icon: Settings2, to: setupHref(campaign.id, editPlace) }),
-    testPublish && main?.key !== 'continue-setup' && { key: 'test-publish', label: 'Send a Test', icon: FlaskConical, to: setupHref(campaign.id, { step: 'publish', section: 'test' }) },
+    testPublish && main?.key !== 'continue-setup' && { key: 'test-publish', label: 'Send a Test', icon: FlaskConical, to: setupHref(campaign.id, { step: 'test' }) },
     productionPublish && main?.key !== 'production-publish' && { key: 'production-publish', label: 'Production Publish', icon: Send, to: setupHref(campaign.id, { step: 'publish', section: 'review' }) },
     publish && hasAction(campaign, 'pause') && { key: 'pause', label: 'Pause', icon: Pause, action: 'pause' },
     publish && hasAction(campaign, 'cancel_schedule') && { key: 'cancel-schedule', label: 'Cancel Schedule', icon: X, action: 'cancel-schedule' },

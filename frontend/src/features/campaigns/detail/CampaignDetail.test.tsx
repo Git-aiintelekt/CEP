@@ -58,7 +58,7 @@ test('header: status, channel, full type, how it is triggered, and an ID that co
 
 test('main button by status: Continue setup with its hint, Production publish, Resume, View journey; none once published', async () => {
   await openCampaign(makeCampaign({ status: 'DRAFT' }))
-  expect(screen.getByRole('link', { name: 'Continue Setup' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=publish&section=test')
+  expect(screen.getByRole('link', { name: 'Continue Setup' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=test')
   expect(screen.getByText('Next: send a test')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Clone' })).toBeTruthy()
 

@@ -333,7 +333,7 @@ test('Edit Details: from E-Receipt back to Drip needs a channel, and becomes a s
 })
 
 test('an e-receipt’s schedule section offers "Change the Campaign Type" only while the type can change', async () => {
-  const receipt = { status: 'DRAFT', setup_step: 4, campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [] }
+  const receipt = { status: 'DRAFT', setup_step: 5, campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [] }
   installMockApi({ campaign: makeCampaign({ ...receipt, template: null, template_name: null, sender_profile: null, sender_profile_name: null }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=publish')
@@ -358,7 +358,7 @@ test('the create flow speaks in title case for labels, and in sentences for help
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   await screen.findByRole('heading', { level: 2, name: 'Send To' })
   const rail = within(screen.getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button').map((button) => button.querySelector('[data-step-label]')?.textContent)
-  expect(rail).toEqual(['Audience', 'Content', 'Targets', 'Test & Publish'])
+  expect(rail).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
   expect(screen.getByRole('button', { name: 'Continue to Content' })).toBeTruthy()
   expect(screen.getAllByRole('button', { name: 'Save and Close' })[0]).toBeTruthy()
 })

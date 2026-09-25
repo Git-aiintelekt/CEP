@@ -243,14 +243,14 @@ test('campaign page: Edit campaign (⋮) opens the part of the setup that holds 
   await editFrom('Audience')
   expect(window.location.search).toBe('?step=audience')
   expect(await screen.findByRole('heading', { level: 2, name: 'Send To' })).toBeTruthy()                   // the Audience step
-  for (const name of ['Audience', 'Content', 'Targets', 'Test & Publish']) expect(screen.getByRole('button', { name: `${name}, completed` })).toBeTruthy()   // a finished setup
+  for (const name of ['Audience', 'Content', 'Targets', 'Test', 'Review & Publish']) expect(screen.getByRole('button', { name: `${name}, completed` })).toBeTruthy()   // a finished setup
   expect(await screen.findByRole('link', { name: 'Fall Master Audience (opens in a new tab)' })).toBeTruthy()
   await user.click(screen.getByRole('link', { name: 'Back to the Campaign' }))
   expect(await screen.findByRole('tab', { name: 'Audience', selected: true })).toBeTruthy()          // and back where it started
 
   await editFrom('Audience')
-  await user.click(await screen.findByRole('button', { name: /Test & Publish/ }))
-  expect(await screen.findByRole('heading', { level: 1, name: 'Test & Publish' })).toBeTruthy()
+  await user.click(await screen.findByRole('button', { name: /Review & Publish/ }))
+  expect(await screen.findByRole('heading', { level: 1, name: 'Review & Publish' })).toBeTruthy()
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
   expect(await screen.findByRole('tab', { name: 'Overview', selected: true })).toBeTruthy()           // scheduling lives on Overview
 })
