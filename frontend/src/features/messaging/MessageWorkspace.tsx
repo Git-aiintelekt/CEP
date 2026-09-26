@@ -11,6 +11,7 @@ import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { asToken, extractTags, groupTags, unknownTags } from '@/features/designer/tags'
+import { EmojiPickerButton } from '@/features/emoji/EmojiPickerButton'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
@@ -257,16 +258,21 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
           <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label htmlFor="sms-body" className="text-sm font-medium text-ink-700">Message</label>
-              {!readOnly && tagGroups.length > 0 && (
-                <select aria-label="Insert Personalization Tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
-                  className="h-8 rounded-control-md border border-line bg-surface px-2 text-sm text-ink-900">
-                  <option value="">{'{{ }}'} Insert Tag</option>
-                  {tagGroups.map((group) => (
-                    <optgroup key={group.kind} label={group.label}>
-                      {group.tags.map((tag) => <option key={tag.id} value={asToken(tag.tag_key)}>{tag.label}</option>)}
-                    </optgroup>
-                  ))}
-                </select>
+              {!readOnly && (
+                <span className="flex items-center gap-2">
+                  {tagGroups.length > 0 && (
+                    <select aria-label="Insert Personalization Tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
+                      className="h-8 rounded-control-md border border-line bg-surface px-2 text-sm text-ink-900">
+                      <option value="">{'{{ }}'} Insert Tag</option>
+                      {tagGroups.map((group) => (
+                        <optgroup key={group.kind} label={group.label}>
+                          {group.tags.map((tag) => <option key={tag.id} value={asToken(tag.tag_key)}>{tag.label}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                  )}
+                  <EmojiPickerButton onPick={insertAtCaret} />
+                </span>
               )}
             </div>
             <textarea id="sms-body" ref={textarea} rows={7} value={body} disabled={readOnly} spellCheck

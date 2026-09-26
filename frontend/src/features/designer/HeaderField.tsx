@@ -1,5 +1,8 @@
-/** Subject or preview text: the label and its counter above a filled field, with the tag picker inside it. */
+/** Subject or preview text: the label and its counter above a filled field, with the tag and emoji pickers inside it. */
 import { useCallback, useState, type ComponentProps, type FocusEvent, type RefObject } from 'react'
+
+import { EmojiPickerButton } from '@/features/emoji/EmojiPickerButton'
+import { charCount } from '@/features/emoji/text'
 
 import { HEADER_MAX } from './tags/insertIntoHeader'
 import { TagPickerButton } from './tags/TagPickerButton'
@@ -18,21 +21,24 @@ export interface HeaderFieldProps {
   note: string | null
   onChange: (value: string) => void
   picker: ComponentProps<typeof TagPickerButton>
+  /** an emoji goes in at the caret like a tag does */
+  onPickEmoji?: (emoji: string) => void
 }
 
 const FIELD_SHELL =
   'flex h-8 min-w-0 items-center gap-[2px] rounded-sm border bg-line-subtle pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:bg-surface focus-within:shadow-focus'
 
-export function HeaderField({ id, label, inputRef, value, placeholder, readOnly, advisory, max, note, onChange, picker }: HeaderFieldProps) {
+export function HeaderField({ id, label, inputRef, value, placeholder, readOnly, advisory, max, note, onChange, picker, onPickEmoji }: HeaderFieldProps) {
   const noteId = `${id}-note`
   // the { } button appears with the caret and stays while its own picker is open
   const [focused, setFocused] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const onOpenChange = useCallback((open: boolean) => setPickerOpen(open), [])
 
-  const over = value.length > max
-  const long = !over && value.length > advisory
-  const counter = `${value.length} / ${advisory}${value.length > advisory ? ` · max ${max}` : ''}`
+  const length = charCount(value)                            // an emoji counts once, as the inbox and the server count it
+  const over = length > max
+  const long = !over && length > advisory
+  const counter = `${length} / ${advisory}${length > advisory ? ` · max ${max}` : ''}`
   const message = note ?? (long ? `Over ${advisory} characters may be cut off in some inboxes.` : null)
 
   return (
@@ -62,6 +68,7 @@ export function HeaderField({ id, label, inputRef, value, placeholder, readOnly,
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
         />
+        {!readOnly && (focused || pickerOpen) && onPickEmoji && <EmojiPickerButton onPick={onPickEmoji} variant="inset" onOpenChange={onOpenChange} />}
         {!readOnly && (focused || pickerOpen) && <TagPickerButton {...picker} variant="inset" onOpenChange={onOpenChange} />}
       </div>
       <p id={noteId} role="status" aria-live="polite" className={`text-xs ${note ? 'text-danger-text' : 'text-warning-text'} ${message ? '' : 'sr-only'}`}>

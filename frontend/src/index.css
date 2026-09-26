@@ -7,8 +7,9 @@
  * ink / surface / canvas / line are the app's semantic names for the neutral ramp; brand-* is the action ramp.
  */
 @theme {
-  --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* the emoji faces at the end: a glyph outside the text fonts renders in colour on Windows, macOS and Linux instead of a box */
+  --font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif, 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif, 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji';
 
   /* ---- brand action ramp: only real numbered ramps are named brand-* ---- */
   --color-brand-100: #dee9fc; /* brand tag background, selected rows */

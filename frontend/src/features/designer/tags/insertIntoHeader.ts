@@ -1,4 +1,6 @@
-/** A tag going into the subject or the preheader, which the server caps at 300 characters. */
+/** A tag (or an emoji) going into the subject or the preheader, which the server caps at 300 characters. */
+import { charCount } from '@/features/emoji/text'
+
 import { spliceText } from './insertAtCaret'
 
 export const HEADER_MAX = 300
@@ -12,5 +14,5 @@ export function insertIntoHeader(
   field: HeaderField, value: string, start: number, end: number, token: string,
 ): { value: string; caret: number } | { refused: string } {
   const next = spliceText(value, start, end, token)
-  return next.value.length > HEADER_MAX ? { refused: noRoomNote(token, field) } : next
+  return charCount(next.value) > HEADER_MAX ? { refused: noRoomNote(token, field) } : next
 }
