@@ -8,7 +8,7 @@
  */
 import grapesjs, { type Block, type Component, type Editor, type Plugin, type ProjectData } from 'grapesjs'
 import grapesjsMjmlModule from 'grapesjs-mjml'
-import { Braces, Image as ImageIcon, Layers as LayersIcon, LayoutGrid } from 'lucide-react'
+import { Braces, Image as ImageIcon, Layers as LayersIcon, LayoutGrid, Smile } from 'lucide-react'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -55,6 +55,9 @@ import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBl
 import { SRC_KEY, blockType, fieldsFor, isGrouping, writeSetting } from './inspector/settings'
 import { expandSelfClosing, repairProject } from './mjml'
 import { asToken } from './tags'
+import { EmojiPickerPopover } from '@/features/emoji/EmojiPickerButton'
+import { PICKER_LABEL as EMOJI_LABEL } from '@/features/emoji/EmojiPicker'
+
 import { PICKER_LABEL, TagPickerPopover } from './tags/TagPickerPopover'
 import { TagsPanel, type TagsPanelHandle } from './tags/TagsPanel'
 import { captureCaret, insertAtCaret, type CaretTarget } from './tags/insertAtCaret'
@@ -327,6 +330,13 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   })
   const [canvasTagButton, setCanvasTagButton] = useState<HTMLElement | null>(null)
   const canvasCaret = useRef<CaretTarget | null>(null)
+  // the emoji picker hung off the same toolbar, its own dropdown and button
+  const canvasEmoji = useSingleDropdown<'emoji'>()
+  const canvasEmojiRef = useRef<SingleDropdown<'emoji'> | null>(null)
+  useEffect(() => {
+    canvasEmojiRef.current = canvasEmoji
+  })
+  const [canvasEmojiButton, setCanvasEmojiButton] = useState<HTMLElement | null>(null)
   // the Tags tab: the caret as it was when the reader first pressed inside the panel
   const tagsPanel = useRef<TagsPanelHandle>(null)
   const panelCaret = useRef<CaretTarget | null>(null)
@@ -619,6 +629,24 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       })
     }
 
+    // Emoji: a second toolbar button, the same way; a chosen emoji goes where the caret was when the button was pressed.
+    editor.RichTextEditor.add('cep-emoji', {
+      icon: '',
+      attributes: { title: EMOJI_LABEL, 'aria-label': EMOJI_LABEL, role: 'button', tabindex: '0', 'aria-haspopup': 'dialog' },
+      result: () => {
+        const picker = canvasEmojiRef.current
+        if (!picker) return
+        canvasCaret.current = caretOnCanvas(editor)
+        picker.toggle('emoji')
+      },
+    })
+    editor.on('rte:enable', () => {
+      const button = (editor.RichTextEditor.get('cep-emoji') as { btn?: HTMLElement } | undefined)?.btn
+      if (!button) return
+      canvasEmojiRef.current?.triggerProps('emoji').ref(button)
+      setCanvasEmojiButton((was) => (was === button ? was : button))
+    })
+
     // Self-closing MJML tags are expanded before they reach the editor, and designs saved while they were not are put
     // right on load (see ./mjml.ts): otherwise everything after a divider ends up inside it and is dropped from the email.
     let repaired = 0
@@ -791,6 +819,13 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     canvasCaret.current = null
     latest.current.onTagUsed?.(key)
     if (caret) insertAtCaret(caret, asToken(key))
+  }, [])
+
+  /** An emoji chosen from the toolbar goes where the caret was when the toolbar button was pressed. */
+  const insertEmojiOnCanvas = useCallback((emoji: string) => {
+    const caret = canvasCaret.current
+    canvasCaret.current = null
+    if (caret) insertAtCaret(caret, emoji)
   }, [])
 
   /** The first press in the Tags tab: the canvas caret is noted before anything else can move it. */
@@ -1141,6 +1176,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
         />
       : null}
       {canvasTagButton && createPortal(<Braces size={16} strokeWidth={1.5} aria-hidden />, canvasTagButton)}
+      {canvasEmojiButton && createPortal(<Smile size={16} strokeWidth={1.5} aria-hidden />, canvasEmojiButton)}
+      <EmojiPickerPopover dropdown={canvasEmoji} id="emoji" anchor={canvasEmojiButton} onPick={insertEmojiOnCanvas} />
       <TagPickerPopover
         dropdown={canvasPicker}
         id="canvas"

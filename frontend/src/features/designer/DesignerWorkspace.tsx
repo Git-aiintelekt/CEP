@@ -262,18 +262,18 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     }
   }
 
-  /** The subject and the preheader take a tag at the caret, unless it would push them past the server's limit. */
-  function insertHeaderTag(field: HeaderFieldName, key: string) {
+  /** The subject and the preheader take a tag, or an emoji, at the caret, unless it would push them past the server's limit. */
+  function insertHeaderText(field: HeaderFieldName, text: string, tagKey?: string) {
     const [input, value, setValue] = field === 'subject' ? [subjectRef.current, subject, setSubject] : [preheaderRef.current, preheader, setPreheader]
     const start = input?.selectionStart ?? value.length
     const end = input?.selectionEnd ?? start
-    const next = insertIntoHeader(field, value, start, end, asToken(key))
+    const next = insertIntoHeader(field, value, start, end, text)
     if ('refused' in next) {
       setNoRoom({ field, message: next.refused })
       input?.focus()
       return
     }
-    rememberTag(key)
+    if (tagKey) rememberTag(tagKey)
     setNoRoom(null)
     setValue(next.value)
     window.setTimeout(() => {
@@ -360,7 +360,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
               setSubject(value)
               setNoRoom(null)
             }}
-            picker={{ tags, channel, recent: recentTags, onPick: (key) => insertHeaderTag('subject', key) }}
+            picker={{ tags, channel, recent: recentTags, onPick: (key) => insertHeaderText('subject', asToken(key), key) }}
+            onPickEmoji={(emoji) => insertHeaderText('subject', emoji)}
           />
           <HeaderField
             id={preheaderId}
@@ -376,7 +377,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
               setPreheader(value)
               setNoRoom(null)
             }}
-            picker={{ tags, channel, recent: recentTags, onPick: (key) => insertHeaderTag('preheader', key) }}
+            picker={{ tags, channel, recent: recentTags, onPick: (key) => insertHeaderText('preheader', asToken(key), key) }}
+            onPickEmoji={(emoji) => insertHeaderText('preheader', emoji)}
           />
         </div>
       </div>
