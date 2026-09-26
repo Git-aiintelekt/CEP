@@ -134,8 +134,11 @@ Existing tables were extended rather than replaced (BRD 21).
 - `contact_list_campaign.role`; `campaign_target.planned_offer_cost`, `.notes`.
 - `campaign_activity_log` (new, RLS): who did what, and what the engine did. Entries are never changed.
 - Patch `0015_campaign_setup_progress.sql`: `campaign.setup_step` (0 to 6, default 6).
-- Subject-line testing is future-proofed (TD-04): results hang off `campaign_run_variant`, and nothing assumes one
-  subject per run.
+- Patch `0022_campaign_approval.sql`: `campaign.approval_status` (`REQUESTED`, `APPROVED`, `RETURNED`, or NULL) with who
+  asked and who decided, the notes, and the `campaign.approve` permission (see WORKSPACE_TOOLS.md §4).
+- Patch `0023_ab_subject_lines_send_time.sql`: `campaign.ab_config`, `campaign_run.ab_decide_at`,
+  `mailer_execution.variant_key` (`A`, `B`, `HOLD`) and `send_after` on both execution tables (§8 and §9 below). The
+  results of a subject test hang off `campaign_run_variant` as TD-04 planned.
 
 ## 6. Background jobs
 
@@ -143,6 +146,12 @@ Existing tables were extended rather than replaced (BRD 21).
 |---|---|---|
 | `dispatch-campaign-runs` | 1 min | starts runs that are due (not those of a paused or archived campaign), closes finished ones |
 | `plan-recurring-runs` | 5 min | creates the next occurrence of each recurring campaign, until its end date or number of sends; then completes it |
+| `decide-ab-winners` | 1 min | chooses the subject-line winner of runs whose decision time has come and releases the held messages (§8) |
+| `send-weekly-reports` | 15 min | the weekly report email, in each workspace's own time (WORKSPACE_TOOLS.md §1) |
+
+A run whose messages wait (a local send time ahead, or a subject test undecided) stays `SENDING`; the dispatcher's
+pass over open runs sends what has become due. Without a broker `run_scheduler` does the same in one process; with
+Celery `finalize_run` hands the due batches to the workers before it tries to close the run.
 
 A drip campaign's runs are all planned at publish (day 0 now, the others on their day at the set time); the last one
 completes the campaign.
@@ -152,15 +161,40 @@ completes the campaign.
 - The Campaign List is frozen **when a run starts**, not at publish: a scheduled or recurring send uses the lists as they
   are on the day. (Appendix A says "at publish"; freezing a list weeks before a send would mail people who have since
   unsubscribed from the list.) Governance is always decided at send time either way.
-- `rate_limit_per_hour` and `timezone_optimization` are stored and shown but **not enforced yet**: they take effect with
-  the email engine integration that follows this module. The pages say so.
+- `rate_limit_per_hour` is stored and shown but **not enforced yet**. (`timezone_optimization` is: §9.)
 - Every drip step uses the campaign's one template; per-step content belongs to journeys.
 - Conversions and revenue come from `campaign_actual`, which the attribution feed fills; until then they read 0.
 - Carrier breakdown for texts arrives with the aggregator's delivery receipts.
 
-## 8. Tests
+## 8. Subject line tests (A/B, email only)
+
+`campaign.ab_config = {enabled, subject_b, sample_pct (10-50, default 20), metric (OPEN_RATE | CLICK_RATE),
+decide_after_minutes (30 to 7 days, default 240)}`; subject A is the template's. Validated on save; a text campaign
+cannot have one. At the send, once the audience is queued, a sample of it is split in two by a stable hash of the
+person: half get A, half B (`mailer_execution.variant_key`, `subject_line`), the rest are `HOLD` and the engine leaves
+them alone; `campaign_run_variant` gets A and B with their share, `campaign_run.ab_decide_at` the decision time.
+Fewer than 20 people: no split, everyone gets A, the log says so.
+
+The decision (`decide-ab-winners`, or a person through `POST /campaigns/{id}/runs/{run_id}/choose-winner/ {variant}`,
+`campaign.publish`) compares the two by the metric per message sent; a tie within one point goes to A. The winner is
+marked on the variants with both figures, the held messages become the winner's subject, the activity log gets
+`AB_WINNER`, the owner is told (`ab_winner` notification), and the next dispatcher pass sends the rest. The run detail
+shows each variant with its subject, share, figures, `waiting_for_winner` and `decide_at`. A test send is unaffected.
+
+## 9. Local send times (`timezone_optimization`)
+
+With the option on, every message of a run gets `send_after`: the campaign's wall-clock send time in the recipient's
+own zone (`engine/sendtime.py`). The zone is `customer_master.custom_attributes.timezone` when a system put one there
+(checked against PostgreSQL's zone names), else the state of a US or Canadian address, else the country where a country
+keeps one zone; nobody's zone known = the campaign's own time; a local time already past when the run starts = now.
+An immediate send works from the moment it was published. The engine claims nothing before its `send_after`; the run
+stays open until the last zone has had its turn. The audience endpoint reports `local_time: {people, local_time_known}`
+so the Review step can say for how many people the local time is known.
+
+## 10. Tests
 
 - Backend: `test_campaign_module.py` (35 checks, one rolled-back transaction, real sends through the sandbox text
-  engine), plus the send engine, SMS engine, contact list and legacy campaign suites.
+  engine), `test_ab_sendtime.py` (16: the split, the decision, a person's choice, the tie, the small audience, local send
+  times), `test_approval.py` (20), plus the send engine, SMS engine, contact list and legacy campaign suites.
 - Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API), `calendarMath.test.ts` (the month grid, workspace days, bar rows) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.

@@ -138,6 +138,8 @@ class MailerExecution(models.Model):
     complained_at = models.DateTimeField(null=True, blank=True)
     delivery_provider_id = models.UUIDField(null=True, blank=True)  # which provider carried the message
     attempts = models.IntegerField(default=0)
+    variant_key = models.CharField(max_length=20, null=True, blank=True)  # A | B | HOLD while a subject test runs (patch 0023)
+    send_after = models.DateTimeField(null=True, blank=True)  # the recipient's local send time (patch 0023)
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:
@@ -191,6 +193,7 @@ class SmsExecution(models.Model):
     delivered_at = models.DateTimeField(null=True, blank=True)
     responded_at = models.DateTimeField(null=True, blank=True)
     failed_at = models.DateTimeField(null=True, blank=True)
+    send_after = models.DateTimeField(null=True, blank=True)  # the recipient's local send time (patch 0023)
     created_at = models.DateTimeField(db_default=Now())
 
     class Meta:

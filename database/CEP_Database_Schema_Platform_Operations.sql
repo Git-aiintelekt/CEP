@@ -820,5 +820,47 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
 ON CONFLICT (key) DO NOTHING;
 
 -- =====================================================================================
+-- CAMPAIGN APPROVAL (patch 0022): a workspace can require a second person before a production publish.
+--   tenant.settings.approvals.require_approval switches it on. The author asks (REQUESTED), someone with the
+--   campaign.approve permission approves (APPROVED) or sends it back (RETURNED); a change to the campaign after
+--   that withdraws the approval (NULL). The publish endpoint refuses a required approval that is not APPROVED.
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20);                  -- NULL none | REQUESTED | APPROVED | RETURNED
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_requested_by UUID REFERENCES app_user(id);
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_requested_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_note TEXT;                            -- the author's note to the approver
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_decided_by UUID REFERENCES app_user(id);
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_decided_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS approval_decision_note TEXT;                   -- why it was sent back, or a word on approval
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_approval_status;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_approval_status CHECK (approval_status IS NULL OR approval_status IN ('REQUESTED', 'APPROVED', 'RETURNED'));
+CREATE INDEX IF NOT EXISTS ix_campaign_awaiting_approval ON campaign(tenant_id, approval_requested_at DESC) WHERE approval_status = 'REQUESTED' AND deleted_at IS NULL;
+
+INSERT INTO permission (id, code, description) VALUES ('a3000000-0000-4000-8000-000000000017', 'campaign.approve', 'Campaign approve')
+ON CONFLICT (code) DO NOTHING;
+-- every role that administers users may approve, so no workspace is left without an approver
+INSERT INTO role_permission (role_id, permission_id)
+    SELECT rp.role_id, approve.id FROM role_permission rp
+    JOIN permission admin ON admin.id = rp.permission_id AND admin.code = 'user.admin'
+    JOIN permission approve ON approve.code = 'campaign.approve'
+ON CONFLICT DO NOTHING;
+
+-- =====================================================================================
+-- A/B SUBJECT LINES AND SEND-TIME OPTIMISATION (patch 0023)
+--   campaign.ab_config: {enabled, subject_b, sample_pct, metric OPEN_RATE|CLICK_RATE, decide_after_minutes}. At the send a sample of the
+--   audience gets subject A or B (mailer_execution.variant_key), the rest waits as HOLD; the decide-ab-winners job picks the winner
+--   at campaign_run.ab_decide_at (campaign_run_variant carries the figures) and releases the rest with the winning subject.
+--   campaign.timezone_optimization: each message carries send_after, the scheduled wall-clock time in the recipient's own zone
+--   (custom_attributes.timezone, else the address's state or country); the engine claims nothing before its send_after.
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS ab_config JSONB;
+ALTER TABLE campaign_run ADD COLUMN IF NOT EXISTS ab_decide_at TIMESTAMPTZ;                  -- NULL: no subject test on this run
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS variant_key VARCHAR(20);              -- A | B | HOLD; NULL = no test
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS send_after TIMESTAMPTZ;               -- not before this moment; NULL = as soon as the run sends
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS send_after TIMESTAMPTZ;
+ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_ab_config_object;
+ALTER TABLE campaign ADD CONSTRAINT ck_campaign_ab_config_object CHECK (ab_config IS NULL OR jsonb_typeof(ab_config) = 'object');
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

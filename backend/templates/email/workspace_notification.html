@@ -1,0 +1,9 @@
+{% extends "email/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">{{ event_label }}</p>
+<p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#0f172a;">{{ title }}</p>
+{% for line in lines %}<p style="margin:0 0 8px;">{{ line }}</p>{% endfor %}
+{% if link %}<p style="margin:20px 0 0;"><a href="{{ link }}" style="display:inline-block;background:#3863db;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:8px;">{{ link_label }}</a></p>{% endif %}
+{% endblock %}
+{% block footer %}Sent by {{ product }} because of what this workspace asked to be told about in Settings → Notifications. It is not a marketing email.{% endblock %}

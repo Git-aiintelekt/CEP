@@ -45,8 +45,8 @@ def _load(tenant_id, run_id):
 def _claim(tenant_id, execution_id) -> tuple | None:
     with session.tx(), session.connection().cursor() as cursor:
         cursor.execute("""UPDATE mailer_execution SET status = 'SUBMITTED', submitted_at = now(), attempts = attempts + 1
-                           WHERE tenant_id = %s AND id = %s AND status = 'QUEUED'
-                       RETURNING party_id, email_address, idempotency_key, campaign_list_member_id, attempts""", [str(tenant_id), execution_id])
+                           WHERE tenant_id = %s AND id = %s AND status = 'QUEUED' AND (send_after IS NULL OR send_after <= now()) AND COALESCE(variant_key, '') <> 'HOLD'
+                       RETURNING party_id, email_address, idempotency_key, campaign_list_member_id, attempts, variant_key, subject_line""", [str(tenant_id), execution_id])
         return cursor.fetchone()
 
 
@@ -97,7 +97,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
             if claimed is None:                             # already handled by an earlier attempt of this batch
                 counts["skipped"] += 1
                 continue
-            party_id, email, idempotency_key, member_id, attempts = claimed
+            party_id, email, idempotency_key, member_id, attempts, variant_key, own_subject = claimed
             try:
                 with session.tx():
                     customer = CustomerMaster.objects.filter(tenant_id=tenant_id, party_id=party_id).values("party_id", "first_name", "last_name", "custom_attributes").first() or {}
@@ -107,7 +107,8 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 member = {"custom_value_pairs": _as_dict(found[0]) if found else {}, "segment_codes": found[1] if found else []}
                 customer["email"] = email
                 token = unsubscribe.token_for(tenant_code=tenant_code, party_id=party_id, email=email, campaign_id=campaign.pk, run_id=run.pk)
-                rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "email": email})
+                rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "email": email},
+                                           subject=own_subject if variant_key else None)
                 message = EmailMessage(to_email=email, to_name=" ".join(filter(None, [customer.get("first_name"), customer.get("last_name")])),
                                        from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                                        subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=idempotency_key,

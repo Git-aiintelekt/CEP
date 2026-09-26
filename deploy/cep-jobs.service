@@ -12,6 +12,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/db/saadmin1/CEP/backend
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/db/saadmin1/CEP/backend/.venv/bin/python manage.py run_scheduler --tick 15
 Restart=always
 RestartSec=5

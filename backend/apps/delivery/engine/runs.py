@@ -17,14 +17,18 @@ from django.db import connections
 from django.utils import timezone
 
 from apps.campaigns.models import Campaign, CampaignList, CampaignRun
+from apps.platform_ops import notifications
 from apps.templates.models import RenderedTemplateContent
 
 from ..providers import ProviderError, registry
-from . import audience, audience_sms, session
+from . import abtest, audience, audience_sms, sendtime, session
 
 log = logging.getLogger("cep.delivery")
 STALE_CLAIM = timedelta(minutes=15)
 TABLE = {"EMAIL": "mailer_execution", "SMS": "sms_execution"}
+# a message the engine may claim now: queued, past its local send time, and not held back for a subject-line winner
+DUE = {"EMAIL": "status = 'QUEUED' AND (send_after IS NULL OR send_after <= now()) AND COALESCE(variant_key, '') <> 'HOLD'",
+       "SMS": "status = 'QUEUED' AND (send_after IS NULL OR send_after <= now())"}
 
 
 class RunNotStarted(Exception):
@@ -65,12 +69,37 @@ def quiet_until(tenant_timezone: str, now: datetime | None = None) -> datetime |
     return opens if opens > local else opens + timedelta(days=1)
 
 
+def _notice(tenant_id, run, event: str, title: str, lines: list[str]) -> dict | None:
+    """A workspace notification, gathered inside the transaction and delivered after it (see _deliver). Never disturbs the run."""
+    try:
+        campaign = run.campaign
+        owner = campaign.owner_user
+        return {"config": notifications.prepare(campaign.tenant_id), "tenant_id": tenant_id, "event": event, "title": title, "lines": lines,
+                "link": notifications.campaign_link(campaign.pk), "link_label": "Open the Campaign", "owner_email": owner.email if owner else None}
+    except Exception:                                      # noqa: BLE001
+        log.exception("notification for run %s not prepared", run.pk)
+        return None
+
+
+def _deliver(notice: dict | None) -> None:
+    if not notice:
+        return
+    try:
+        notifications.deliver(notice.pop("config"), notice.pop("tenant_id"), notice.pop("event"), **notice)
+    except Exception:                                      # noqa: BLE001
+        log.exception("notification not delivered")
+
+
 def _fail(tenant_id, run, reason: str) -> None:
     log.error("run %s failed: %s", run.pk, reason)
+    notice = None
     with session.tx():
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="FAILED", completed_at=timezone.now())
+        if not run.test_mode:
+            notice = _notice(tenant_id, run, "send_failed", f"{run.campaign.name}: the send could not start", [f"Reason: {reason}", "Nothing went out. Fix the cause and publish again, or resume if it was paused."])
     if not run.test_mode:
         _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED", f"Send could not start: {reason}", severity="ERROR")
+    _deliver(notice)
 
 
 def start(tenant_id, run_id) -> dict:
@@ -142,32 +171,59 @@ def start(tenant_id, run_id) -> dict:
         CampaignList.objects.filter(pk=campaign_list.pk).update(status="FROZEN", member_count=built["members"])
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="SENDING")
         Campaign.objects.filter(pk=campaign.pk, tenant_id=tenant_id).exclude(status__in=["PAUSED", "ARCHIVED"]).update(status="ACTIVE")
+        notes = []
+        with session.connection().cursor() as cursor:
+            if kind == "EMAIL" and not run.test_mode:
+                built["ab_test"] = abtest.split(cursor, tenant_id=tenant_id, run=run, campaign=campaign, content=content)
+                if built["ab_test"] and "skipped" in built["ab_test"]:
+                    notes.append("Subject line test skipped: " + built["ab_test"]["skipped"] + ".")
+                elif built["ab_test"]:
+                    ab = built["ab_test"]
+                    notes.append(f"Subject line test: {ab['a']:,} get A, {ab['b']:,} get B, {ab['held']:,} wait for the winner by {abtest.METRICS[ab['metric']]} at "
+                                 f"{ab['decide_at'].astimezone(ZoneInfo(tenant_zone)):%d %b %H:%M}.")
+            if campaign.timezone_optimization and not run.test_mode:              # an immediate send works from the moment it was published
+                from apps.campaigns import service as campaign_service
+                built["local_time"] = sendtime.apply(cursor, tenant_id=tenant_id, run_id=run.pk, family=kind, scheduled_at=run.scheduled_at or timezone.now(),
+                                                     campaign_zone=campaign_service.zone_of(campaign))
+                local = built["local_time"]
+                notes.append(f"Local send times: {local['localised']:,} people get it at {local['wall_clock'][-5:]} their time"
+                             + (f", the last at {local['last_at'].astimezone(ZoneInfo(tenant_zone)):%d %b %H:%M} {tenant_zone}" if local["last_at"] else "")
+                             + (f"; {local['unknown_zone']:,} with no known zone go now." if local["unknown_zone"] else "."))
         _activity(tenant_id, campaign.pk, run.pk, "SEND_STARTED",
                   f"Send started{' (' + run.sequence_label + ')' if run.sequence_label else ''}: Campaign List frozen with {built['members']:,} people, "
-                  f"{built.get('eligible', 0):,} to be sent, {built['members'] - built.get('eligible', 0):,} left out by governance or missing details.", detail=built)
+                  f"{built.get('eligible', 0):,} to be sent, {built['members'] - built.get('eligible', 0):,} left out by governance or missing details."
+                  + "".join(" " + note for note in notes), detail=built)
         with session.connection().cursor() as cursor:
-            cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED' ORDER BY id", [str(tenant_id), str(run_id)])
+            cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND {DUE[kind]} ORDER BY id", [str(tenant_id), str(run_id)])
             ids = [row[0] for row in cursor.fetchall()]
     batches = [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
     if not batches:
-        finalize(tenant_id, run_id)
+        finalize(tenant_id, run_id)                        # nothing due now: a run whose messages all wait stays SENDING until they are
     return {"batches": batches, "audience": built, "family": kind}
 
 
 def queued_batches(tenant_id, run_id, batch_size: int = 100) -> list[list[int]]:
-    """What is still to be sent of a run that was paused and resumed: the messages nobody has claimed yet."""
+    """What is to be sent now of a run that is open: resumed after a pause, past its local send times, or released after a subject-line winner."""
     kind = run_family(tenant_id, run_id)
     with session.connection().cursor() as cursor:
-        cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND status = 'QUEUED' ORDER BY id", [str(tenant_id), str(run_id)])
+        cursor.execute(f"SELECT id FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s AND {DUE[kind]} ORDER BY id", [str(tenant_id), str(run_id)])
         ids = [row[0] for row in cursor.fetchall()]
     return [ids[i:i + batch_size] for i in range(0, len(ids), batch_size)]
+
+
+def _jsonable(value):
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value.isoformat() if isinstance(value, datetime) else value
 
 
 def _activity(tenant_id, campaign_id, run_id, event_type, message, severity="INFO", detail=None) -> None:
     """Under the tenant's transaction whatever the caller holds: outside one, the row-level policy would refuse the insert."""
     from apps.campaigns import service
     with session.tx():
-        service.record_run_event(tenant_id, campaign_id, run_id, event_type, message, severity, detail)
+        service.record_run_event(tenant_id, campaign_id, run_id, event_type, message, severity, _jsonable(detail))
 
 
 def run_family(tenant_id, run_id) -> str:
@@ -200,6 +256,7 @@ def stats(tenant_id, run_id, kind: str | None = None) -> dict:
 
 def finalize(tenant_id, run_id) -> str | None:
     """COMPLETED when nothing is queued any more; FAILED when nothing at all went out. Returns the new status, or None while still sending."""
+    notice = None
     with session.tx():
         run = CampaignRun.objects.select_related("campaign__template").get(pk=run_id, tenant_id=tenant_id)
         if run.status != "SENDING" or run.run_type == "ERECEIPT_INSTANCE":    # a receipt run stays open all day: receipts.py closes yesterday's
@@ -215,10 +272,17 @@ def finalize(tenant_id, run_id) -> str | None:
                       (f"Send failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
                        else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else ".")),
                       severity="ERROR" if outcome == "FAILED" else "INFO", detail=numbers)
+            name = run.campaign.name + (f" ({run.sequence_label})" if run.sequence_label else "")
+            notice = (_notice(tenant_id, run, "send_failed", f"{name}: the send failed", [f"None of {numbers['failed']:,} messages went out.", "Check the sending engine under Settings → Integrations, then publish again."])
+                      if outcome == "FAILED" else
+                      _notice(tenant_id, run, "send_completed", f"{name}: send completed",
+                              [f"{numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed" if numbers["failed"] else "") + f", {numbers['delivered']:,} delivered so far.",
+                               "Opens and clicks keep coming in on the campaign's Performance tab."]))
         still_open = CampaignRun.objects.filter(campaign_id=run.campaign_id, tenant_id=tenant_id, status__in=["SCHEDULED", "PREPARING", "SENDING", "PAUSED"]).exclude(pk=run.pk).exists()
         # a one-time send, or the last step of a drip series, completes the campaign; a recurring campaign goes on (service.schedule_next_occurrence ends it)
         if not still_open and run.run_type in ("ONE_TIME", "DRIP_INSTANCE"):
             Campaign.objects.filter(pk=run.campaign_id, tenant_id=tenant_id, status="ACTIVE").update(status="COMPLETED", completed_at=now)
+    _deliver(notice)
     return outcome
 
 

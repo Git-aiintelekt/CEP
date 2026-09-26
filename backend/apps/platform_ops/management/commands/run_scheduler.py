@@ -42,7 +42,8 @@ def _runnable() -> dict:
             started += 1
         return {"processed": started}
 
-    return {**platform.RUNNABLE, "dispatch-campaign-runs": dispatch_here, "plan-recurring-runs": _plan_recurring,
+    return {**platform.RUNNABLE, "dispatch-campaign-runs": dispatch_here, "plan-recurring-runs": _plan_recurring, "decide-ab-winners": _decide_ab_winners,
+            "send-weekly-reports": _send_weekly_reports,
             "process-list-imports": lists.process_imports, "outbox-relay": outbox.relay_pending_events,
             "ensure-monthly-partitions": maintenance.ensure_monthly_partitions, "apply-partition-retention": maintenance.apply_partition_retention}
 
@@ -50,6 +51,16 @@ def _runnable() -> dict:
 def _plan_recurring() -> dict:
     from workers.campaign import plan_recurring_runs
     return plan_recurring_runs()
+
+
+def _decide_ab_winners() -> dict:
+    from workers.campaign import decide_ab_winners
+    return decide_ab_winners()
+
+
+def _send_weekly_reports() -> dict:
+    from workers.reports import send_weekly_reports
+    return send_weekly_reports()
 
 
 class Command(BaseCommand):

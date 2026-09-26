@@ -89,6 +89,14 @@ class Campaign(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     archived_at = models.DateTimeField(null=True, blank=True)
     setup_step = models.SmallIntegerField(default=6)  # setup steps completed, 0-6; 6 = everything but the publish
+    approval_status = models.CharField(max_length=20, null=True, blank=True)  # NULL none, REQUESTED, APPROVED, RETURNED (patch 0022)
+    approval_requested_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='approval_requested_by', related_name='+', null=True, blank=True)
+    approval_requested_at = models.DateTimeField(null=True, blank=True)
+    approval_note = models.TextField(null=True, blank=True)
+    approval_decided_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='approval_decided_by', related_name='+', null=True, blank=True)
+    approval_decided_at = models.DateTimeField(null=True, blank=True)
+    approval_decision_note = models.TextField(null=True, blank=True)
+    ab_config = models.JSONField(null=True, blank=True)  # {enabled, subject_b, sample_pct, metric, decide_after_minutes} (patch 0023)
 
     class Meta:
         managed = False
@@ -124,6 +132,7 @@ class CampaignRun(models.Model):
     status = models.CharField(max_length=30, default='SCHEDULED', choices=Status.choices)  # SCHEDULED, PREPARING, SENDING, COMPLETED, FAILED, CANCELLED
     test_mode = models.BooleanField(default=False)
     sequence_label = models.CharField(max_length=60, null=True, blank=True)  # "Day 3", "Occurrence 2"
+    ab_decide_at = models.DateTimeField(null=True, blank=True)  # when the subject-line winner is chosen; NULL = no test (patch 0023)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
