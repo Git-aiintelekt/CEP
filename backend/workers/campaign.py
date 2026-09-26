@@ -9,7 +9,7 @@ import logging
 
 from celery import shared_task
 
-from apps.delivery.engine import runs, session
+from apps.delivery.engine import abtest, runs, session
 from apps.platform_ops import jobs
 
 log = logging.getLogger("cep.delivery")
@@ -32,9 +32,32 @@ def start_run(tenant_id: str, run_id: str) -> dict:
 
 @shared_task(name="workers.campaign.finalize_run")
 def finalize_run(tenant_id: str, run_id: str) -> dict:
+    """Closes a run that is done; hands out what became due since (local send times, a subject-line winner, a resume)."""
+    from workers.email import send_batch as send_email_batch
+    from workers.sms import send_batch as send_sms_batch
     with session.tenant_scope(tenant_id):
         swept = runs.sweep(tenant_id, run_id)
-        return {"status": runs.finalize(tenant_id, run_id), "swept": swept}
+        with session.tx():
+            due = runs.queued_batches(tenant_id, run_id)
+            kind = runs.run_family(tenant_id, run_id) if due else None
+        for batch in due:
+            (send_sms_batch if kind == "SMS" else send_email_batch).delay(tenant_id, run_id, batch)
+        return {"status": None if due else runs.finalize(tenant_id, run_id), "swept": swept, "batches": len(due)}
+
+
+@shared_task(name="workers.campaign.decide_ab_winners")
+@jobs.monitored("decide-ab-winners")
+def decide_ab_winners() -> dict:
+    decided, failed = 0, 0
+    for tenant_id, run_id in abtest.due():
+        try:
+            with session.tenant_scope(tenant_id):
+                abtest.decide(tenant_id, run_id)
+            decided += 1
+        except Exception:                                  # noqa: BLE001  one run's trouble must not stop the others
+            log.exception("subject-line winner not decided for run %s", run_id)
+            failed += 1
+    return {"decided": decided, "failed": failed}
 
 
 @shared_task(name="workers.campaign.refresh_audience_lists")

@@ -200,6 +200,8 @@ CELERY_BEAT_SCHEDULE = {
     "refresh-audience-lists": {"task": "workers.campaign.refresh_audience_lists", "schedule": 900},    # lists made from a BI / extraction audience
     "process-list-imports": {"task": "workers.lists.process_imports", "schedule": 30},                 # the net under the API's own hand-off
     "rollup-integration-metrics": {"task": "workers.platform.rollup_integration_metrics", "schedule": 300},  # per-minute integration figures from the log
+    "decide-ab-winners": {"task": "workers.campaign.decide_ab_winners", "schedule": 60},                 # subject-line tests whose decision time has come
+    "send-weekly-reports": {"task": "workers.reports.send_weekly_reports", "schedule": 900},              # the Monday report, in each workspace's own time
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

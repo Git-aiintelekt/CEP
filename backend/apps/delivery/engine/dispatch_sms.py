@@ -41,7 +41,7 @@ def text_content(content) -> SimpleNamespace:
 def _claim(tenant_id, execution_id):
     with session.tx(), session.connection().cursor() as cursor:
         cursor.execute("""UPDATE sms_execution SET status = 'SUBMITTED', submitted_at = now(), attempts = attempts + 1
-                           WHERE tenant_id = %s AND id = %s AND status = 'QUEUED'
+                           WHERE tenant_id = %s AND id = %s AND status = 'QUEUED' AND (send_after IS NULL OR send_after <= now())
                        RETURNING party_id, phone_number, idempotency_key, campaign_list_member_id, attempts, media_url, message_type, from_sender_id""",
                        [str(tenant_id), execution_id])
         return cursor.fetchone()

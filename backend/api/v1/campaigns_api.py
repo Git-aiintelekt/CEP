@@ -18,6 +18,8 @@
     GET    /campaigns/{id}/activity/       what happened to it, newest first
     GET    /campaigns/form-options/        owners, tags in use, time zones: what the form's dropdowns need
     GET    /campaigns/{id}/checklist/      what stands between the campaign and a production publish
+    POST   /campaigns/{id}/request-approval/  {note}   approve/  {note}   send-back/ {note}   (patch 0022; the workspace setting requires it)
+    POST   /campaigns/{id}/runs/{run_id}/choose-winner/  {variant: A|B}   a person decides the subject-line test instead of the metric (patch 0023)
 """
 import csv
 import logging
@@ -29,7 +31,7 @@ from django.db.models import Count, Exists, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from django.http import FileResponse
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ValidationError
@@ -39,7 +41,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.campaigns import service
+from apps.campaigns import approval, service
 from apps.campaigns.models import Campaign, CampaignActivityLog, CampaignList, CampaignRun, CampaignTarget, ContactListCampaign
 from apps.contact_lists.models import ContactList
 from apps.identity.models import AppUser
@@ -91,10 +93,13 @@ class CampaignSerializer(s.CampaignSerializer):
     setup_step = serializers.IntegerField(required=False, min_value=0, max_value=service.SETUP_STEPS,
                                           help_text="Setup steps completed (0-6). It only moves forward; left out, a new campaign counts as complete.")
     setup_complete = serializers.SerializerMethodField(help_text="False: open the setup at step setup_step + 1, not the campaign page.")
+    approval_required = serializers.SerializerMethodField(help_text="The workspace needs a second person to approve a production publish.")
+    approval = serializers.SerializerMethodField(help_text="The approval request on the campaign: status REQUESTED, APPROVED or RETURNED, who asked and who decided; null before any.")
 
     class Meta(s.CampaignSerializer.Meta):
         read_only_fields = s.AUDIT_FIELDS + ("status", "is_journey_generated", "origin_journey", "legacy_marketing_campaign_id", "previous_status", "published_at",
-                                             "completed_at", "archived_at")
+                                             "completed_at", "archived_at", "approval_status", "approval_requested_by", "approval_requested_at", "approval_note",
+                                             "approval_decided_by", "approval_decided_at", "approval_decision_note")
 
     # ---- representation
     def get_display_status(self, campaign) -> str:
@@ -104,7 +109,14 @@ class CampaignSerializer(s.CampaignSerializer):
         return STATUS_LABEL.get(service.display_status(campaign), campaign.get_status_display())
 
     def get_actions(self, campaign) -> list[str]:
-        return service.actions(campaign)
+        return service.actions(campaign) + approval.actions(campaign)
+
+    def get_approval_required(self, campaign) -> bool:
+        return approval.required(campaign)
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_approval(self, campaign):
+        return approval.state(campaign)
 
     @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_next_run_at(self, campaign):
@@ -190,6 +202,13 @@ class CampaignSerializer(s.CampaignSerializer):
             from zoneinfo import available_timezones
             if attrs["send_timezone"] not in available_timezones():
                 errors["send_timezone"] = "Not a time zone CEP knows."
+        if "ab_config" in attrs:
+            from apps.delivery.engine import abtest
+            problem = abtest.validate(attrs["ab_config"])
+            if problem:
+                errors["ab_config"] = problem
+            elif attrs["ab_config"] and attrs["ab_config"].get("enabled") and current("channel") != "EMAIL":
+                errors["ab_config"] = "A subject line test is for email campaigns: texts have no subject."
         if "excluded_lists" in attrs:
             ids = list(dict.fromkeys(attrs["excluded_lists"]))
             found = {item.id: item for item in ContactList.objects.filter(id__in=ids, deleted_at__isnull=True)}
@@ -231,24 +250,30 @@ class CampaignSerializer(s.CampaignSerializer):
         words = {"name": "name", "description": "description", "template": "template", "sender_profile": "sender", "scheduled_at": "schedule", "send_type": "send type",
                  "recurring_config": "recurrence", "drip_config": "series", "tags": "tags", "owner_user": "owner", "respect_governance": "governance setting",
                  "rate_limit_per_hour": "send rate", "timezone_optimization": "time zone delivery", "send_timezone": "time zone", "receipt_config": "receipt settings",
+                 "ab_config": "subject line test",
                  "solicitation_type": "message kind", "campaign_type": "type", "channel": "channel", "code": "code"}
         changed = [words[name] for name, value in validated_data.items() if name in words and getattr(campaign, name) != value]
         campaign = super().update(campaign, validated_data)
         changed += self._after(campaign, include, exclude, targets, created=False)
         if changed:
             service.record(campaign, "MODIFIED", "Changed: " + ", ".join(dict.fromkeys(changed)) + ".", user=self.context["request"].user)
+            approval.withdraw(campaign, self.context["request"].user, "the campaign was changed (" + ", ".join(dict.fromkeys(changed)) + ").")
         return self._fresh(campaign.pk)
 
     @staticmethod
     def _fresh(pk):
         """What was just written, read again: the lists and targets were changed after the instance was loaded."""
-        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant")
+        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant", "approval_requested_by", "approval_decided_by")
                 .prefetch_related("campaign_runs", "contact_list_campaigns__contact_list", "campaign_targets").get(pk=pk))
 
 
 class TestPublishSerializer(serializers.Serializer):
     to = serializers.ListField(child=serializers.CharField(max_length=254), required=False, default=list, max_length=20)
     user_ids = serializers.ListField(child=serializers.UUIDField(), required=False, default=list, max_length=20)
+
+
+class ApprovalNoteSerializer(serializers.Serializer):
+    note = serializers.CharField(required=False, allow_blank=True, default="", max_length=approval.NOTE_MAX, trim_whitespace=True)
 
 
 class BulkSerializer(serializers.Serializer):
@@ -290,7 +315,7 @@ class CampaignViewSet(views.CampaignViewSet):
         attached = (ContactListCampaign.objects.filter(campaign_id=OuterRef("pk"), role="INCLUDE").values("campaign_id").annotate(n=Count("contact_list_id")).values("n")[:1])
         upcoming = CampaignRun.objects.filter(campaign_id=OuterRef("pk"), test_mode=False, status="SCHEDULED").order_by("scheduled_at").values("scheduled_at")[:1]
         frozen = CampaignList.objects.filter(campaign_id=OuterRef("pk"), status="FROZEN", campaign_run__test_mode=False).order_by("-generated_at").values("member_count")[:1]
-        qs = (super().get_queryset().select_related("owner_user", "tenant").prefetch_related("campaign_targets")
+        qs = (super().get_queryset().select_related("owner_user", "tenant", "approval_requested_by", "approval_decided_by").prefetch_related("campaign_targets")
               .annotate(list_count=Coalesce(Subquery(attached, output_field=IntegerField()), 0), next_run=Subquery(upcoming),
                         frozen_members=Subquery(frozen, output_field=IntegerField())))
         if self.action not in ("list", "calendar"):
@@ -318,6 +343,11 @@ class CampaignViewSet(views.CampaignViewSet):
                 qs = qs.filter(**{f"{column}__in": params[name].upper().split(",")})
         if params.get("triggered_by"):
             qs = qs.filter(is_journey_generated=params["triggered_by"].lower() == "journey")
+        if params.get("approval"):
+            wanted = params["approval"].upper()
+            if wanted not in (approval.REQUESTED, approval.APPROVED, approval.RETURNED):
+                raise ValidationError({"approval": "Use requested, approved or returned."})
+            qs = qs.filter(approval_status=wanted, status__in=service.EDITABLE)
         if params.get("tag"):
             qs = qs.filter(tags__contains=[params["tag"]])
         if params.get("owner"):
@@ -419,12 +449,16 @@ class CampaignViewSet(views.CampaignViewSet):
         campaign = self.get_object()
         problems = self._content_problems(campaign, service.publish_problems(campaign, production=True))
         tested = campaign.campaign_runs.filter(test_mode=True).exists()
+        holdup = approval.problem(campaign)
+        if holdup:
+            problems["approval"] = holdup
         return Response({"ready": not problems, "problems": problems, "test_sent": tested,
                          "items": [{"key": key, "label": label, "ok": key not in problems, "problem": problems.get(key)}
                                    for key, label in (("template", "Template content finalized"), ("contact_lists", "Campaign List attached"), ("sender_profile", "Verified sender chosen"),
                                                       ("scheduled_at", "Send time set"), ("recurring_config", "Recurrence valid"), ("drip_config", "Series steps valid"))
                                    if key in problems or key in ("template", "contact_lists", "sender_profile")]
-                                  + [{"key": "test", "label": "Test message sent and reviewed", "ok": tested, "problem": None if tested else "Send yourself a test before publishing.", "advisory": True}]})
+                                  + [{"key": "test", "label": "Test message sent and reviewed", "ok": tested, "problem": None if tested else "Send yourself a test before publishing.", "advisory": True}]
+                                  + ([{"key": "approval", "label": "Approved for production", "ok": holdup is None, "problem": holdup}] if approval.required(campaign) else [])})
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.publish")])
     def publish(self, request, pk=None, version=None):
@@ -437,6 +471,9 @@ class CampaignViewSet(views.CampaignViewSet):
         missing = self._content_problems(campaign, service.publish_problems(campaign, production=True))
         if missing:
             raise ValidationError(missing)
+        holdup = approval.problem(campaign)
+        if holdup:
+            raise Conflict(holdup)
         billing.assert_can_send(campaign.tenant_id)          # 409 when a hard-capped plan has used its messages this month
         campaign.status, campaign.published_at = Campaign.Status.PRODUCTION_PUBLISHED, timezone.now()
         campaign.save(update_fields=["status", "published_at"])
@@ -498,6 +535,29 @@ class CampaignViewSet(views.CampaignViewSet):
         service.record(campaign, "TEST_PUBLISHED", f"Test sent to {accepted} of {len(to)}: {', '.join(to)}. Tests do not count towards results.", user=request.user, run=run,
                        severity="INFO" if accepted == len(to) else "WARNING", detail={"results": results})
         return Response({"run": str(run.pk), "results": results, "status": campaign.status})
+
+    # ------------------------------------------------------------ approval
+    def _note(self, request) -> str:
+        body = ApprovalNoteSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        return body.validated_data["note"]
+
+    @extend_schema(request=ApprovalNoteSerializer, responses=CampaignSerializer)
+    @action(detail=True, methods=["post"], url_path="request-approval", permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.edit")])
+    def request_approval(self, request, pk=None, version=None):
+        """The author asks: everyone who can approve is emailed with the note."""
+        return self._answer(self._act(approval.request, self.get_object(), request.user, self._note(request)))
+
+    @extend_schema(request=ApprovalNoteSerializer, responses=CampaignSerializer)
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_(approval.PERMISSION)])
+    def approve(self, request, pk=None, version=None):
+        return self._answer(self._act(approval.approve, self.get_object(), request.user, self._note(request)))
+
+    @extend_schema(request=ApprovalNoteSerializer, responses=CampaignSerializer)
+    @action(detail=True, methods=["post"], url_path="send-back", permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_(approval.PERMISSION)])
+    def send_back(self, request, pk=None, version=None):
+        """Sent back with what should change; the author is told."""
+        return self._answer(self._act(approval.send_back, self.get_object(), request.user, self._note(request)))
 
     # ------------------------------------------------------------ actions
     @extend_schema(request=None, responses=CampaignSerializer)
@@ -567,6 +627,7 @@ class CampaignViewSet(views.CampaignViewSet):
             link, created = ContactListCampaign.objects.update_or_create(campaign=campaign, contact_list=item, defaults={"tenant_id": campaign.tenant_id, "role": body.validated_data["role"]})
             if created:
                 service.record(campaign, "LIST_ATTACHED", f"{'Excluded' if link.role == 'EXCLUDE' else 'Attached'} the contact list “{item.name}” ({item.member_count:,} people).", user=request.user)
+                approval.withdraw(campaign, request.user, f"the contact list “{item.name}” was {'excluded' if link.role == 'EXCLUDE' else 'attached'}.")
         return Response(service.audience(campaign, sample=0)["lists"])
 
     @extend_schema(request=None, responses={204: None})
@@ -581,6 +642,7 @@ class CampaignViewSet(views.CampaignViewSet):
         name = link.contact_list.name
         ContactListCampaign.objects.filter(campaign=campaign, contact_list_id=list_id).delete()
         service.record(campaign, "LIST_DETACHED", f"Detached the contact list “{name}”.", user=request.user)
+        approval.withdraw(campaign, request.user, f"the contact list “{name}” was detached.")
         return Response(status=204)
 
     @extend_schema(responses=dict)
@@ -589,6 +651,12 @@ class CampaignViewSet(views.CampaignViewSet):
         """Merged and de-duplicated across the attached lists, minus the excluded ones, with today's governance picture and a sample."""
         campaign = self.get_object()
         data = service.audience(campaign)
+        if campaign.timezone_optimization and not campaign.is_journey_generated:
+            from apps.delivery.engine import sendtime
+            from django.db import connections
+            with connections[context.require().db_alias].cursor() as cursor:
+                data["local_time"] = sendtime.coverage(cursor, tenant_id=campaign.tenant_id, include=[item["id"] for item in data["lists"] if item["role"] == "INCLUDE"],
+                                                       exclude=[item["id"] for item in data["lists"] if item["role"] == "EXCLUDE"])
         frozen = campaign.campaign_lists.filter(status="FROZEN", campaign_run__test_mode=False).order_by("-generated_at").first()
         if frozen is not None:
             from apps.delivery.engine import runs as engine_runs
@@ -694,9 +762,25 @@ class CampaignViewSet(views.CampaignViewSet):
         run = campaign.campaign_runs.filter(pk=run_id).first()
         if run is None:
             raise NotFound("No such run for this campaign.")
-        variants = [{"variant_key": v.variant_key, "subject_line": v.subject_line, "allocation_pct": v.allocation_pct, "is_winner": v.is_winner, "winner_metric": v.winner_metric}
-                    for v in run.campaign_run_variants.filter(deleted_at__isnull=True)]
-        return Response({**s.CampaignRunSerializer(run).data, "variants": variants, "results": engine_runs.stats(campaign.tenant_id, run.pk)})
+        from apps.delivery.engine import abtest
+        return Response({**s.CampaignRunSerializer(run).data, "variants": abtest.summary(run), "results": engine_runs.stats(campaign.tenant_id, run.pk)})
+
+    @extend_schema(request=inline_serializer("ChooseWinner", {"variant": serializers.ChoiceField(choices=["A", "B"])}), responses=dict)
+    @action(detail=True, methods=["post"], url_path=r"runs/(?P<run_id>[0-9a-f-]{36})/choose-winner",
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.publish")])
+    def choose_winner(self, request, pk=None, run_id=None, version=None):
+        """A person picks the subject line instead of waiting for the metric; the held messages go out with it."""
+        from apps.delivery.engine import abtest, session as engine_session
+        campaign = self.get_object()
+        run = campaign.campaign_runs.filter(pk=run_id).first()
+        if run is None:
+            raise NotFound("No such run for this campaign.")
+        try:
+            with engine_session.tenant_scope(campaign.tenant_id):
+                decided = abtest.decide(campaign.tenant_id, run.pk, chosen=str(request.data.get("variant", "")).upper(), user=request.user)
+        except ValueError as exc:
+            raise Conflict(str(exc)) from None
+        return Response(decided)
 
     @extend_schema(responses=dict)
     @action(detail=True, methods=["get"])

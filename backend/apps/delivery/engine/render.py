@@ -90,7 +90,7 @@ class Renderer:
         self.used[key] = shown
         return shown
 
-    def render(self, *, customer: dict, member: dict, system: dict, sources: dict | None = None, html_blocks: dict | None = None) -> dict:
+    def render(self, *, customer: dict, member: dict, system: dict, sources: dict | None = None, html_blocks: dict | None = None, subject: str | None = None) -> dict:
         """-> {'subject', 'html', 'text'} for one recipient. `system` holds the per-message values (unsubscribe_url ...),
         `sources` the data of tags resolved from RECEIPT / STORE, `html_blocks` ready-made HTML (already escaped by its
         builder, e.g. the receipt's line items) that goes into the HTML part as it is and into the text part as text."""
@@ -102,4 +102,5 @@ class Renderer:
         from apps.templates.design import html_to_text
         plain = lambda m: html_to_text(blocks[m.group(1)]) if m.group(1) in blocks else self._value(m.group(1), customer, member, system)      # noqa: E731
         safe = lambda m: blocks[m.group(1)] if m.group(1) in blocks else escape(self._value(m.group(1), customer, member, system), quote=True)  # noqa: E731
-        return {"subject": " ".join(TAG_RE.sub(plain, self.subject).split())[:300], "html": TAG_RE.sub(safe, self.html), "text": TAG_RE.sub(plain, self.text)}
+        return {"subject": " ".join(TAG_RE.sub(plain, self.subject if subject is None else subject).split())[:300], "html": TAG_RE.sub(safe, self.html),
+                "text": TAG_RE.sub(plain, self.text)}

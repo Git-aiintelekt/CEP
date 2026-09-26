@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import auth_api, campaigns_api, contact_lists_api, delivery_api, delivery_public, integrations_api, settings_api, views, workspace_api
+from . import auth_api, campaigns_api, contact_lists_api, delivery_api, delivery_public, integrations_api, reports_api, settings_api, suppressions_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -35,6 +35,9 @@ urlpatterns = [
     path("workspace/invoices/", workspace_api.InvoicesView.as_view(), name="workspace_invoices"),
     path("workspace/security/", workspace_api.SecurityView.as_view(), name="workspace_security"),
     path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
+    path("workspace/approvals/", workspace_api.ApprovalsView.as_view(), name="workspace_approvals"),
+    path("workspace/notifications/", workspace_api.NotificationsView.as_view(), name="workspace_notifications"),
+    path("workspace/notifications/test/", workspace_api.NotificationsTestView.as_view(), name="workspace_notifications_test"),
     path("workspace/mail-server/", workspace_api.MailServerView.as_view(), name="workspace-mail-server"),
     path("workspace/mail-server/test/", workspace_api.MailServerTestView.as_view(), name="workspace-mail-server-test"),
     path("campaigns/<uuid:pk>/send-test/", delivery_api.CampaignSendTestView.as_view(), name="campaign-send-test"),
@@ -50,6 +53,15 @@ urlpatterns = [
     path("integrations/<uuid:pk>/pause/", integrations_api.IntegrationPauseView.as_view(), {"pause": True}, name="integration-pause"),
     path("integrations/<uuid:pk>/resume/", integrations_api.IntegrationPauseView.as_view(), {"pause": False}, name="integration-resume"),
     path("sms-inbound/", delivery_api.SmsInboundView.as_view(), name="sms-inbound"),
+    path("suppressions/", suppressions_api.SuppressionListView.as_view(), name="suppression-list"),
+    path("suppressions/summary/", suppressions_api.SuppressionSummaryView.as_view(), name="suppression-summary"),
+    path("suppressions/export.csv", suppressions_api.SuppressionExportView.as_view(), name="suppression-export"),
+    path("suppressions/block/", suppressions_api.SuppressionBlockView.as_view(), name="suppression-block"),
+    path("suppressions/<str:kind>/<str:pk>/unblock/", suppressions_api.SuppressionUnblockView.as_view(), name="suppression-unblock"),
+    path("reports/summary/", reports_api.ReportSummaryView.as_view(), name="report-summary"),
+    path("reports/campaigns.csv", reports_api.ReportCsvView.as_view(), name="report-csv"),
+    path("reports/compare/", reports_api.ReportCompareView.as_view(), name="report-compare"),
+    path("reports/schedule/", reports_api.ReportScheduleView.as_view(), name="report-schedule"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),

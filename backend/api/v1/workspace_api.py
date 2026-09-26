@@ -1,4 +1,4 @@
-"""Workspace-level settings for tenant administrators: plan and usage, invoices, sign-in security, support access log."""
+"""Workspace-level settings for tenant administrators: plan and usage, invoices, sign-in security, support access log, approvals, notifications."""
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -7,8 +7,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode
+from apps.campaigns import approval
 from apps.identity.models import Role
-from apps.platform_ops import billing, campaign_sender, crypto, mail, params, sso
+from apps.platform_ops import billing, campaign_sender, crypto, mail, notifications, params, sso
 from apps.platform_ops.models import MailServer, SupportAccessLog, TenantIdentityProvider, TenantInvoice
 from apps.tenants import context
 from apps.tenants.models import Tenant
@@ -130,6 +131,62 @@ class SecurityView(APIView):
                 else:
                     form.save(**extra)
         return Response(self._payload(tenant_id))
+
+
+class ApprovalsView(APIView):
+    """Whether a production publish needs a second person, and who can give it."""
+    permission_classes = ADMIN
+
+    def _payload(self, tenant):
+        people = approval.approvers(tenant.pk)
+        return {"require_approval": approval.required(tenant), "permission": approval.PERMISSION, "awaiting": approval.awaiting(tenant.pk),
+                "approvers": [{"id": str(person.pk), "name": person.display_name, "email": person.email} for person in people]}
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        return Response(self._payload(Tenant.objects.get(pk=_tenant_id())))
+
+    @extend_schema(request=inline_serializer("ApprovalSettings", {"require_approval": serializers.BooleanField()}), responses={200: None})
+    def put(self, request, version=None):
+        tenant = Tenant.objects.get(pk=_tenant_id())
+        if "require_approval" in request.data:
+            wanted = bool(request.data["require_approval"])
+            if wanted and not approval.approvers(tenant.pk):
+                raise ValidationError({"require_approval": f"Give a role the {approval.PERMISSION} permission first (Settings → Roles), so someone can approve."})
+            approval.set_required(tenant, wanted)
+        return Response(self._payload(tenant))
+
+
+class NotificationsView(APIView):
+    """What the workspace is told about, by email and by a chat webhook."""
+    permission_classes = ADMIN
+
+    def _payload(self, tenant):
+        return {**notifications.settings_of(tenant), "catalogue": notifications.catalogue()}
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        return Response(self._payload(Tenant.objects.get(pk=_tenant_id())))
+
+    @extend_schema(request=inline_serializer("NotificationSettings", {"emails": serializers.ListField(child=serializers.EmailField(), required=False),
+                                                                      "webhook_url": serializers.CharField(required=False, allow_blank=True),
+                                                                      "events": serializers.DictField(required=False)}), responses={200: None})
+    def put(self, request, version=None):
+        tenant = Tenant.objects.get(pk=_tenant_id())
+        try:
+            notifications.save(tenant, request.data)
+        except notifications.NotificationError as exc:
+            raise ValidationError({exc.field: str(exc)}) from None
+        return Response(self._payload(tenant))
+
+
+class NotificationsTestView(APIView):
+    permission_classes = ADMIN
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None):
+        tenant = Tenant.objects.get(pk=_tenant_id())
+        return Response(notifications.send_test(tenant, by=request.user.display_name or request.user.email))
 
 
 class SupportAccessView(APIView):

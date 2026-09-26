@@ -46,4 +46,6 @@ def _dispatch_campaign_runs() -> dict:
 RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices, "evaluate-alerts": evaluate_alerts,
             "run-tenant-operations": run_tenant_operations, "dispatch-campaign-runs": _dispatch_campaign_runs,
             "rollup-integration-metrics": rollup_integration_metrics,
+            "decide-ab-winners": lambda: __import__("workers.campaign", fromlist=["decide_ab_winners"]).decide_ab_winners(),
+            "send-weekly-reports": lambda: __import__("workers.reports", fromlist=["send_weekly_reports"]).send_weekly_reports(),
             "refresh-audience-lists": lambda: __import__("workers.campaign", fromlist=["refresh_audience_lists"]).refresh_audience_lists()}

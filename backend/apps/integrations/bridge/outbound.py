@@ -151,6 +151,20 @@ class LoggedSession(requests.Session):
         return response
 
 
+def _trouble(guard, integration, exc) -> None:
+    """The workspace is told once per opening of the circuit, by whatever Settings → Notifications says."""
+    from django.conf import settings
+    from apps.platform_ops import notifications
+    tenant_id = (integration or {}).get("tenant_id") or guard.tenant_id
+    if not tenant_id:
+        return
+    cooldown = int((integration or {}).get("breaker_cooldown_seconds") or 60)
+    notifications.notify(tenant_id, "engine_trouble", title=f"{guard.system}: sending paused after repeated failures",
+                         lines=[f"{guard.breaker.threshold} sends in a row failed; the last error: {str(exc)[:300]}",
+                                f"Sending resumes on its own in {cooldown} seconds, or now from Settings → Integrations."],
+                         link=settings.FRONTEND_URL.rstrip("/") + "/settings/integrations", link_label="Open Integrations")
+
+
 def guarded_send(adapter, message, related_ref: str | None = None):
     """adapter.send(message) with the integration's pause, circuit breaker and throttle in front of it, and a log row behind it."""
     from apps.delivery.providers.base import Outcome, ProviderError
@@ -189,6 +203,7 @@ def guarded_send(adapter, message, related_ref: str | None = None):
                       duration_ms=watch.ms())
         if opened:
             log.warning("circuit opened for %s (%s)", guard.system, integration and integration["id"])
+            _trouble(guard, integration, exc)
         raise
     if guard.calls == before:                                  # no HTTP call was logged: SMTP, the sandbox, a stub
         outcome = {Outcome.ACCEPTED: "OK", Outcome.REJECTED: "REJECTED"}.get(result.outcome, "RETRY")
