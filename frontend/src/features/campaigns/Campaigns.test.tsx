@@ -397,7 +397,7 @@ test('list rows: a click anywhere on the row opens the preview, but not on the â
   const table = await screen.findByRole('table', { name: 'Campaigns' })
   const row = (name: string) => within(table).getByRole('button', { name }).closest('tr') as HTMLElement
 
-  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['', 'Campaign Name', 'Type', 'Channel', 'Status', 'Triggered By', 'Audience', 'Scheduled', 'Created', 'Actions'])
+  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['', 'Campaign Name', 'Type', 'Channel', 'Status', 'Triggered By', 'Audience', 'Next Send', 'Created', 'Actions'])
   expect(within(row('Welcome Series Email 1')).getByText('Automated')).toBeTruthy()
   expect(row('Welcome Series Email 1').className).toContain('bg-surface-subtle')                          // journey rows rest on grey
   expect(within(row('Failed Teaser')).getByText('Priya Raman')).toBeTruthy()

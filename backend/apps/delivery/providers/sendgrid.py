@@ -28,10 +28,10 @@ class SendGridProvider(EmailProvider):
     description = "Twilio SendGrid. Delivery, bounce, complaint, open and click callbacks through the Event Webhook."
     supports_webhooks = True
     config_fields = (
-        ConfigField("api_key", "API key", secret=True, help="SendGrid -> Settings -> API keys. The key needs the Mail Send permission."),
-        ConfigField("api_base", "API address", required=False, kind="url", placeholder="https://api.sendgrid.com",
+        ConfigField("api_key", "API Key", secret=True, help="SendGrid -> Settings -> API keys. The key needs the Mail Send permission."),
+        ConfigField("api_base", "API Address", required=False, kind="url", placeholder="https://api.sendgrid.com",
                     help="Leave empty for the global region; EU subusers use https://api.eu.sendgrid.com."),
-        ConfigField("webhook_public_key", "Event Webhook verification key", required=False, kind="textarea",
+        ConfigField("webhook_public_key", "Event Webhook Verification Key", required=False, kind="textarea",
                     help="Optional. SendGrid -> Mail settings -> Event Webhook -> Signed Event Webhook: callbacks are then verified."),
     )
 

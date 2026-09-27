@@ -50,6 +50,14 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     except ValueError:
         return JsonResponse({"title": "The body is not JSON", "status": 400}, status=400)
 
+    outcome, parsed = process_events(tenant_id, provider, adapter, payload)
+    _log_callback(tenant_id, provider, request, body, outcome, watch, _callback_ref(provider, parsed))
+    return JsonResponse(outcome)                            # always 200 once authenticated: providers retry on anything else
+
+
+def process_events(tenant_id, provider, adapter, payload, *, replay: bool = False):
+    """Applies every event of a callback body; returns (outcome counts, the parsed events). A replay (Settings → Integrations,
+    "Replay Callback") applies an event the provider already delivered, so it skips the duplicate check."""
     texts = adapter.channel == "SMS"
     outcome = {"received": 0, "applied": 0, "ignored": 0, "unmatched": 0, "failed": 0, "duplicate": 0}
     if texts:                                               # what people texted back: STOP / START / HELP and free replies
@@ -68,7 +76,7 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
         ref = (event.idempotency_key or event.provider_message_id or "unknown")[:200]
         own_id = (event.provider_event_id or "")[:100] or None
         with session.connection().cursor() as cursor:
-            if own_id and _seen_before(cursor, tenant_id, provider.provider_type, own_id):
+            if own_id and not replay and _seen_before(cursor, tenant_id, provider.provider_type, own_id):
                 # the provider delivered this event before (Postal retries on anything but a 2xx): kept for the audit trail, never applied again
                 cursor.execute("""INSERT INTO delivery_webhook_event (tenant_id, provider, execution_type, execution_ref, event_type, raw_payload, provider_event_id,
                                                                      processed_at, processing_status)
@@ -91,8 +99,7 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
         with session.connection().cursor() as cursor:
             cursor.execute("UPDATE delivery_webhook_event SET processed_at = now(), processing_status = %s WHERE tenant_id = %s AND id = %s AND received_at = %s",
                            [status, tenant_id, event_id, received_at])
-    _log_callback(tenant_id, provider, request, body, outcome, watch, _callback_ref(provider, parsed))
-    return JsonResponse(outcome)                            # always 200 once authenticated: providers retry on anything else
+    return outcome, parsed
 
 
 def _seen_before(cursor, tenant_id, provider_type: str, own_id: str) -> bool:

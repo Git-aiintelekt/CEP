@@ -1,5 +1,5 @@
 /**
- * The campaign setup after the Create Campaign pop-up (/campaigns/:id/edit): Audience → Content → Targets → Test & publish.
+ * The campaign setup after the Create Campaign pop-up (/campaigns/:id/edit): Audience → Content → Test → Targets → Review & Publish.
  * E-receipts skip Audience. The campaign's details (name, type, purpose, owner, code, tags) are edited in the same
  * pop-up, opened from "Details".
  *
@@ -21,6 +21,7 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import type { Campaign, CampaignFormOptions, ContactList } from '@/lib/types'
 
@@ -31,7 +32,7 @@ import { placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIO
 import { hasAction, tabOfStep } from '../vocabulary'
 import { FlowProgress, FlowStepMenu, FlowStepper, HoverTip } from './FlowStepper'
 import { StepAudience } from './StepAudience'
-import { StepReview } from './StepReview'
+import { PublishSummary, StepReview } from './StepReview'
 import { StepSchedule } from './StepSchedule'
 import { StepTargets } from './StepTargets'
 import { StepTemplate } from './StepTemplate'
@@ -40,8 +41,8 @@ import { StepTest } from './StepTest'
 const INTRO: Record<FlowStep, string> = {
   audience: 'Attach the contact lists to send to, and the ones to keep out.',
   content: 'Choose the message and who it comes from.',
-  targets: 'Set what this campaign should achieve, and what it may cost.',
   test: 'See the message as a recipient will, and send yourself a test before it goes to anyone else.',
+  targets: 'Set what this campaign should achieve, and what it may cost. All of it is optional: skip it for now and come back later.',
   publish: 'Decide when it goes out, check everything once more, then publish to production.',
 }
 /** the form fields each step owns: "Continue" (or saving a section) checks these and nothing else */
@@ -207,6 +208,13 @@ export function CampaignWizardPage() {
     show(steps[Math.min(index, furthest)].key)
   }
 
+  /** Targets can wait: the step counts as passed without anything entered */
+  async function skipTargets() {
+    const campaign = await commit([], progressAfter('targets', type))
+    if (!campaign) return
+    show(steps[Math.min(step + 1, steps.length - 1)].key)
+  }
+
   async function saveAndClose() {
     const campaign = await commit(FIELDS[current], null)
     if (campaign) navigate(campaign.setup_complete ? `/campaigns/${campaign.id}?tab=${tabOfStep(current, campaign)}` : '/campaigns') // an unfinished setup has no campaign page to go to yet
@@ -312,6 +320,7 @@ export function CampaignWizardPage() {
                 {current === 'test' && <StepTest campaign={loaded} options={options.data} onTested={() => void markTested()} />}
                 {current === 'publish' && (
                   <div className="flex flex-col gap-10">
+                    <PublishSummary campaign={loaded} onEdit={goToOld} onGo={(key) => show(key)} />
                     {PUBLISH_SECTIONS.map((part) => (
                       <section key={part.key} id={`publish-${part.key}`} aria-labelledby={`publish-${part.key}-title`} className="scroll-mt-40">
                         <CardSubheading className="mb-4 outline-none"><span id={`publish-${part.key}-title`} tabIndex={-1}>{part.label}</span></CardSubheading>
@@ -338,6 +347,9 @@ export function CampaignWizardPage() {
 
             <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4 pb-8">
               {step > 0 && <button type="button" className={buttonSecondary} onClick={() => show(steps[step - 1].key)}>Back</button>}
+              {current === 'targets' && (
+                <button type="button" className={buttonClass({ variant: 'link' })} disabled={save.isPending} onClick={() => void skipTargets()}>Skip for Now</button>
+              )}
               {!last && (
                 <button type="submit" className={buttonPrimary} disabled={save.isPending}>
                   {save.isPending && <Spinner className="h-4 w-4 border-brand-800 border-t-white" />}

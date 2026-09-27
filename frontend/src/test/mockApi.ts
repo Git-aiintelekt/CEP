@@ -25,7 +25,7 @@ export const me = {
 }
 
 export const templates: Template[] = [
-  { ...audit, id: 'tpl-email', name: 'Fall Email', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null },
+  { ...audit, id: 'tpl-email', name: 'Fall Email', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null, last_used_in: { id: 'c1', name: 'Fall Launch', status: 'ACTIVE', at: '2026-09-10T10:00:00Z' }, campaign_count: 2 },
   { ...audit, id: 'tpl-sms', name: 'Fall SMS', description: null, channel: 'SMS', status: 'ACTIVE', cloned_from: null },
   { ...audit, id: 'tpl-old', name: 'Retired Email', description: null, channel: 'EMAIL', status: 'ARCHIVED', cloned_from: null },
   { ...audit, id: 'tpl-receipt', name: 'Northline order receipt', description: null, channel: 'E_RECEIPT', status: 'ACTIVE', cloned_from: null },
@@ -121,6 +121,10 @@ export const integrations: Integration[] = [
     breaker_open_seconds: 42, calls_24h: 8_120, ok_24h: 7_600, rejected_24h: 0, retried_24h: 520, errors_24h: 0, throttled_24h: 0, error_rate_24h: 6.4, p95_ms: 640, max_ms: 5_000, bytes_in_24h: 900_000, bytes_out_24h: 41_000_000, health: 'circuit_open' },
 ]
 export const integrationLog: IntegrationLogDetail[] = [
+  { id: 50, integration_id: 'int-postal', direction: 'IN', kind: 'PROVIDER', system: 'POSTAL', correlation_id: 'hook-0007', related_ref: 'mailer_execution:7', method: 'POST', url: '/api/v1/webhooks/delivery/NWA/prov-postal/***/', response_status: 200, outcome: 'ERROR',
+    error_class: null, error_message: '1 events could not be applied', attempt: 1, duration_ms: 96, request_bytes: 610, response_bytes: 90, api_client_id: null, started_at: '2026-09-25T09:59:00Z',
+    request_headers: { 'Content-Type': 'application/json' }, request_body: '{"event": "MessageLoaded", "uuid": "evt-7", "payload": {"message": {"id": 7, "message_id": "m7@postal.example"}}}',
+    response_headers: {}, response_body: '{"received": 1, "applied": 0, "failed": 1}', worker: 'web-1' },
   { id: 52, integration_id: 'int-pos', direction: 'IN', kind: 'POS_RECEIPTS', system: 'POS', correlation_id: 'pos-corr-0001', related_ref: 'receipt:R-1001', method: 'POST', url: '/api/v1/receipts/send/', response_status: 201, outcome: 'OK',
     error_class: null, error_message: null, attempt: 1, duration_ms: 184, request_bytes: 212, response_bytes: 83, api_client_id: 'key-1', started_at: '2026-09-25T09:58:00Z',
     request_headers: { 'Content-Type': 'application/json', Authorization: '***' }, request_body: '{"campaign": "RCPT", "to": "buyer@x.test", "receipt": {"number": "R-1001", "card_number": "***"}}',
@@ -455,7 +459,22 @@ export function installMockApi(options: MockOptions = {}) {
         && (query.get('failed') !== '1' || row.outcome !== 'OK') && (!query.get('q') || row.correlation_id === query.get('q') || row.related_ref === query.get('q')))
       return json({ results: rows.map(({ request_headers: _rh, request_body: _rb, response_headers: _sh, response_body: _sb, worker: _w, ...row }) => row), more: false, next_before: null })
     }
+    if (/\/integrations\/log\/\d+\/retry\/$/.test(path) && method === 'POST') return json({ queued: true, execution: 42, run: 'r1', campaign: 'c1', note: "It goes out on the dispatcher's next pass; the new attempt appears in the log." })
+    if (/\/integrations\/log\/\d+\/replay\/$/.test(path) && method === 'POST') return json({ received: 1, applied: 1, ignored: 0, unmatched: 0, failed: 0, duplicate: 0, replayed: 2 })
+    if (/\/integrations\/[^/]+\/alerts\/$/.test(path) && method === 'POST') return json({ id: path.split('/').at(-3), alerts_enabled: Boolean((body as { enabled?: boolean } | null)?.enabled) })
     if (path.endsWith('/integrations/')) return json(integrations)
+    if (path.endsWith('/search/')) {
+      const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
+      if (q.length < 2) return json({ q, campaigns: [], lists: [], templates: [] })
+      return json({
+        q,
+        campaigns: campaignState.campaigns.filter((item) => item.name.toLowerCase().includes(q) && item.status !== 'ARCHIVED').slice(0, 6)
+          .map((item) => ({ id: item.id, name: item.name, code: item.code, channel: item.channel, status: item.display_status, status_label: item.display_status_label, setup_complete: item.setup_complete })),
+        lists: listsNow.filter((item) => item.name.toLowerCase().includes(q) && item.status !== 'DRAFT').slice(0, 6)
+          .map((item) => ({ id: item.id, name: item.name, member_count: item.member_count, list_environment: item.list_environment, status: item.status })),
+        templates: templatesNow.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 6).map((item) => ({ id: item.id, name: item.name, channel: item.channel, status: item.status })),
+      })
+    }
     if (path.endsWith('/users/')) return json(settingsUsers)
     if (path.endsWith('/roles/permissions/')) return json(permissionCatalogue)
     if (path.endsWith('/roles/')) return json(roles)
@@ -534,6 +553,11 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/sender-profiles/')) return json(senders)
     // ---- contact lists: stateful, so what a test creates is there afterwards
     if (path.includes('/contact-lists/')) {
+      if (/\/contact-lists\/[^/]+\/reach\/$/.test(path)) {
+        const found = listsNow.find((item) => path.includes(`/${item.id}/`))
+        const total = found?.member_count ?? 0
+        return json({ email: { total, sendable: Math.round(total * 0.88) }, sms: { total, sendable: Math.round(total * 0.4), no_phone: Math.round(total * 0.3) }, checked_at: '2026-09-26T10:00:00Z' })
+      }
       const one = /\/contact-lists\/([^/]+)\//.exec(path)?.[1]
       const find = (id: string | undefined) => listsNow.find((item) => item.id === id)
       const query = new URL(url, 'http://x').searchParams

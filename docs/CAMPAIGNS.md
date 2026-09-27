@@ -10,18 +10,20 @@ Source: BRD v0.9 sections 6.3, 7, 15 and Appendix A. Interface reference: <https
 
 | Screen | Route | What it does |
 |---|---|---|
-| Campaigns | `/campaigns`, `/campaigns?view=calendar` | **Create Campaign**, the *List view / Calendar view* tabs, and *Upcoming campaigns* above both: the next four scheduled sends (channel icon and name, the date large, the time in the campaign's own time zone, recipients), or a line saying how a campaign gets there when nothing is scheduled. **List view:** search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns, pages of 50, a row action that fits the status, bulk **Clone** and **Archive**. **Calendar view:** the month, Monday first, with previous / next / Today; each campaign is a bar over the days it runs (a one-time send one day, a drip series or a recurrence its days, an e-receipt campaign or an open-ended recurrence to the edge of the month), coloured by status with a legend (green going out or sent, amber paused or test published, red failed or cancelled, grey a draft that plans a date); a bar opens the campaign; more than three campaigns on a day fold into *+n more*; the same search and filters apply, and the month replaces the created-date range; days are the workspace's time zone; below 768px the month is a list |
-| Setup | `/campaigns/new`, `/campaigns/:id/edit?step=n` | seven steps, below |
+| Campaigns | `/campaigns`, `/campaigns?view=calendar` | **Create Campaign**, the *List view / Calendar view* tabs, and *Upcoming campaigns* above both: the next four scheduled sends (channel icon and name, the date large, the time in the campaign's own time zone, recipients), or a line saying how a campaign gets there when nothing is scheduled. **List view:** saved views above the filters (All, Mine, Sending Today, Needs Attention, Awaiting Approval, Drafts; `?saved=`, each a query the API understands: `?view=mine|sending_today|attention`, `?approval=requested`, a status list), search, filters (status, topic, channel, triggered by, tag, owner, created from/to), sortable columns with **Next Send** (the day, and the time in the campaign's zone under it; "local time" when the send follows each recipient's clock), pages of 50, **Pause** / **Resume** / **Approve** on the row beside ⋮, a row menu that fits the status, and bulk **Clone**, **Pause**, **Resume** and **Archive** (`POST /campaigns/bulk/ {action}`; pause and resume need `campaign.publish`). **Calendar view:** the month, Monday first, with previous / next / Today; each campaign is a bar over the days it runs (a one-time send one day, a drip series or a recurrence its days, an e-receipt campaign or an open-ended recurrence to the edge of the month), coloured by status with a legend (green going out or sent, amber paused or test published, red failed or cancelled, grey a draft that plans a date); a bar opens the campaign; more than three campaigns on a day fold into *+n more*; the same search and filters apply, and the month replaces the created-date range; days are the workspace's time zone; below 768px the month is a list |
+| Setup | `/campaigns/new`, `/campaigns/:id/edit?step=n` | five steps, below |
 | Campaign | `/campaigns/:id?tab=…` | header actions by status, and six tabs: Overview, Performance, Audience, Content, Settings, Activity Log. **Edit** opens the setup step that belongs to the tab in view (Overview and Activity Log → Basic Info, Audience → Audience, Content → Template, Settings → Scheduling & Delivery, Performance → Targets & Economics), and leaving the setup leads back to the matching tab |
 
-### The seven steps
+### The five steps
 
-The setup a person sees (since 2026-09-25) is the Create Campaign pop-up (Basic Info) and then five steps: **Audience → Content →
-Targets → Test → Review & Publish**. Test holds the preview and the test send; Review & Publish holds the schedule and delivery
-settings, the summary with its Edit links, the checklist and the publish. The table below lists what is decided by the
-original seven groups, which the API still counts progress in (`setup_step`: 1 created, 2 audience, 3 content, 4 targets,
-5 the Test step passed — a test sent or Continue, 6 the schedule saved on Review & Publish, which completes the setup; an
-e-receipt, having no schedule, is complete once its Test step is passed).
+The setup a person sees (since 2026-09-27) is the Create Campaign pop-up (Basic Info) and then five steps: **Audience → Content →
+Test → Targets → Review & Publish**. Test holds the preview and the test send, so the path to a test send is three steps;
+Targets is optional and has **Skip for Now**; Review & Publish opens with a summary card naming anything unfinished (the
+checklist's problems, no test sent, no targets; each with the way to it), then the schedule and delivery settings, the
+summary with its Edit links, the checklist and the publish. The table below lists what is decided by the original seven
+groups, which the API still counts progress in (`setup_step`: 1 created, 2 audience, 3 content, 4 the Test step passed — a
+test sent or Continue, 5 Targets passed or skipped, 6 the schedule saved on Review & Publish, which completes the setup;
+an e-receipt, having no schedule, is complete once its Targets step is passed).
 
 | # | Step | What is decided |
 |---|---|---|

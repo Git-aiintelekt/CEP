@@ -151,3 +151,28 @@ The screen never pretends an email was sent. When the server change is made, the
   - the loading animation not appearing at all
   - the login screen flashing up before the dashboard
   - the brand panel sitting 39px too wide
+
+## 8. The UX pass of 2026-09-27
+
+What changed across the app, page by page, after the feature review:
+
+- **Campaigns list:** saved views (Mine, Sending Today, Needs Attention, Awaiting Approval, Drafts), a Next Send column with
+  the time in the campaign's zone, Pause / Resume / Approve on the row, and bulk Pause and Resume beside Clone and Archive.
+- **Campaign setup:** Test now comes before Targets; Targets has Skip for Now; Review & Publish opens with a card naming
+  anything unfinished. `setup_step` 4 is now "tested" and 5 "targets" (CAMPAIGNS.md §1).
+- **Templates:** every card and row says which campaign last used the template and how many use it, so people know what
+  is safe to change; an empty library says how to start.
+- **Designer, Preview tab:** an Inbox control (Generic, Gmail, Outlook, Apple Mail) that changes the inbox row's cut-off
+  and draws each client's known limits into the email; an Appearance control (Light / Dark) that darkens the email the way
+  that client does (Gmail and Outlook invert, Apple Mail honours the email's own dark rules); a spam-word check under the
+  subject beside the length note (`features/designer/spamWords.ts`).
+- **Contact lists:** a Can Reach column (email and text, from `/contact-lists/{id}/reach/`), and a consent-state filter on
+  a list's people (`?status=`).
+- **Settings → Sending engines:** field labels in title case, from the engine catalogue.
+- **Settings → Integrations:** Retry Send and Replay Callback on a log row, an Email Alerts switch on each card
+  (INTEGRATIONS.md §6).
+- **Across the app:** the top-bar search finds campaigns, lists and templates as well as pages (`GET /search/?q=`);
+  keyboard shortcuts (`/` search, `n` new campaign, `g` then `c` / `t` / `l` / `h` to go to a page, `?` the list of them;
+  never while typing in a field); Home says what to do when there are no campaigns yet.
+- **Phones:** the tables that matter to a manager checking in (campaigns, a campaign's Overview and Performance, the
+  Integrations log) stack into cards below 768px through `DataTable`; the campaigns list has its own card layout.

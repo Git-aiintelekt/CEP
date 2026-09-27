@@ -52,7 +52,7 @@ def _merged(stored: dict | None) -> dict:
         chosen = stored.get("events", {}).get(key) or {}
         events[key] = {channel: bool(chosen.get(channel, defaults[channel])) for channel in CHANNELS}
     return {"emails": list(stored.get("emails") or []), "webhook_url": stored.get("webhook_url") or "", "webhook_tested_at": stored.get("webhook_tested_at"),
-            "events": events}
+            "events": events, "muted_integrations": [str(item) for item in stored.get("muted_integrations") or []]}
 
 
 def settings_of(tenant) -> dict:
@@ -107,6 +107,20 @@ def save(tenant, data: dict) -> dict:
     tenant.settings = {**tenant.settings, KEY: current}
     tenant.save(update_fields=["settings"])
     return _merged(current)
+
+
+def set_integration_alerts(tenant, integration_id, enabled: bool) -> list[str]:
+    """The per-integration switch on the Integrations page: a muted integration raises no engine_trouble notification."""
+    if not isinstance(tenant, Tenant):
+        tenant = Tenant.objects.get(pk=tenant)
+    current = dict(tenant.settings.get(KEY) or {})
+    muted = [str(item) for item in current.get("muted_integrations") or [] if str(item) != str(integration_id)]
+    if not enabled:
+        muted.append(str(integration_id))
+    current["muted_integrations"] = muted
+    tenant.settings = {**tenant.settings, KEY: current}
+    tenant.save(update_fields=["settings"])
+    return muted
 
 
 def mark_webhook_tested(tenant, when: datetime) -> None:

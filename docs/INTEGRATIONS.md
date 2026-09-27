@@ -90,6 +90,20 @@ Global parameters (Configuration → Global parameters): `integrations.inbound_p
 
 The POS sends one receipt per call to `POST /api/v1/receipts/send/`; there is no batch endpoint, by decision.
 
+### On a log row
+
+Opening a call shows what was sent and what came back, and offers what can be done about it:
+
+- **Retry Send** (an outbound provider call that did not succeed): `POST /integrations/log/{id}/retry/` finds the message
+  behind the call (its `mailer_execution:<id>` / `sms_execution:<id>` reference, else the idempotency key the log kept), puts
+  it back to QUEUED, reopens its run, notes `SEND_RETRIED` in the campaign's activity log, and the dispatcher's next pass
+  sends it as a new attempt. Refused (409) when the send went through, or the message is no longer FAILED.
+- **Replay Callback** (an inbound provider callback): `POST /integrations/log/{id}/replay/` applies the stored body again
+  through the same code the webhook uses, with the duplicate check off, and writes a new IN row with method `REPLAY`
+  naming the row it replayed and who asked. Refused when the body was not kept in full.
+- **Email Alerts** (the switch on each card): `POST /integrations/{id}/alerts/ {enabled}`; off, a circuit opening on that
+  integration raises no `engine_trouble` notification (`tenant.settings.notifications.muted_integrations`).
+
 ## 7. Adding an engine to the bridge
 
 An adapter that extends `EmailProvider` / `SmsProvider` and makes its HTTP calls through `self.new_session()` (a

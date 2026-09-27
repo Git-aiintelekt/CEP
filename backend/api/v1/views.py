@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Max, Sum
+from django.db.models import Count, Q, OuterRef, Subquery, Max, Sum
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from PIL import Image, UnidentifiedImageError
@@ -201,7 +201,11 @@ class CampaignRunViewSet(viewsets.ReadOnlyModelViewSet):
 
 class TemplateViewSet(BaseTenantViewSet):
     # rendered content is the authority for versions: messages and imported templates may have no editor state
-    queryset = TemplateMaster.objects.annotate(latest_version=Max("rendered_template_contents__version_number"))
+    _used = Campaign.objects.filter(template_id=OuterRef("pk"), deleted_at__isnull=True).order_by("-created_at")
+    queryset = TemplateMaster.objects.annotate(latest_version=Max("rendered_template_contents__version_number"),
+                                               used_by_id=Subquery(_used.values("id")[:1]), used_by_name=Subquery(_used.values("name")[:1]),
+                                               used_by_status=Subquery(_used.values("status")[:1]), used_at=Subquery(_used.values("created_at")[:1]),
+                                               campaign_count=Count("campaigns", filter=Q(campaigns__deleted_at__isnull=True), distinct=True))
     serializer_class = s.TemplateSerializer
     permission_code = "template.edit"
     filterset_fields = ["channel", "status"]

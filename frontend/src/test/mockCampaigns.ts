@@ -24,7 +24,7 @@ export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step
 export const moduleDefaults = {
   excluded_lists: [] as string[], tags: [] as string[], send_type: 'IMMEDIATE' as const, send_timezone: null, recurring_config: null, drip_config: null, respect_governance: true,
   rate_limit_per_hour: null, timezone_optimization: false, targets: null, published_at: null, completed_at: null, archived_at: null, list_count: 1, audience_size: 90,
-  owner_name: 'Aby John', triggered_by: 'MANUAL' as const, setup_step: 6,
+  owner_name: 'Aby John', triggered_by: 'MANUAL' as const, setup_step: 6, approval_required: false, approval: null, ab_config: null,
 }
 
 export const audienceEstimate: CampaignAudience = {
@@ -107,6 +107,8 @@ export function handleCampaigns(request: Request, state: State): Response | null
     const ids = (body?.ids as string[]) ?? []
     const done = ids.map((id) => state.campaigns.find((item) => item.id === id)).filter((item): item is Campaign => Boolean(item)).map((item) => {
       if (body?.action === 'archive') return put({ ...item, status: 'ARCHIVED' })
+      if (body?.action === 'pause') return put({ ...item, status: 'PAUSED' })
+      if (body?.action === 'resume') return put({ ...item, status: 'ACTIVE' })
       const copy = state.make({ ...item, id: `${item.id}-copy`, name: `Copy of ${item.name}`, status: 'DRAFT', runs: [], actions: undefined })
       state.campaigns = [copy, ...state.campaigns]
       return copy
@@ -186,10 +188,15 @@ export function listCampaigns(url: string, campaigns: Campaign[]): Response {
   const query = new URL(url, 'http://mock').searchParams
   const statuses = query.get('status')?.split(',') ?? []
   const search = (query.get('search') ?? '').toLowerCase()
+  const view = query.get('view')
+  const today = new Date().toISOString().slice(0, 10)
   let rows = campaigns.filter((item) => (statuses.length ? statuses.includes(item.display_status) : item.status !== 'ARCHIVED'))
     .filter((item) => item.name.toLowerCase().includes(search) && (!query.get('type') || item.campaign_type === query.get('type')) && (!query.get('channel') || item.channel === query.get('channel'))
       && (!query.get('tag') || item.tags.includes(query.get('tag') as string)) && (!query.get('owner') || item.owner_user === query.get('owner'))
-      && (!query.get('triggered_by') || item.triggered_by === query.get('triggered_by')!.toUpperCase()))
+      && (!query.get('triggered_by') || item.triggered_by === query.get('triggered_by')!.toUpperCase())
+      && (!query.get('approval') || item.approval?.status === query.get('approval')!.toUpperCase())
+      && (view !== 'mine' || item.owner_user === 'u1') && (view !== 'sending_today' || (item.next_run_at ?? '').startsWith(today) || item.status === 'ACTIVE')
+      && (view !== 'attention' || item.status === 'PAUSED' || item.approval?.status === 'REQUESTED' || item.display_status === 'FAILED'))
   const ordering = query.get('ordering') ?? ''
   if (ordering.replace('-', '') === 'name') rows = [...rows].sort((a, b) => a.name.localeCompare(b.name) * (ordering.startsWith('-') ? -1 : 1))
   const size = Number(query.get('page_size') ?? 50)

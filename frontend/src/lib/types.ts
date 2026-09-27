@@ -336,9 +336,35 @@ export interface Campaign extends Audited {
   setup_step: number
   /** false: the campaign opens in the setup at step setup_step + 1, not on its page */
   setup_complete: boolean
+  /** the workspace needs a second person to approve a production publish */
+  approval_required: boolean
+  /** the approval request on the campaign; null before any */
+  approval: CampaignApproval | null
+  /** the subject line test (email only); null or switched off = one subject */
+  ab_config: AbConfig | null
+}
+
+export interface CampaignApproval {
+  status: 'REQUESTED' | 'APPROVED' | 'RETURNED'
+  requested_by: string | null
+  requested_by_name: string | null
+  requested_at: string | null
+  note: string | null
+  decided_by_name: string | null
+  decided_at: string | null
+  decision_note: string | null
+}
+
+export interface AbConfig {
+  enabled: boolean
+  subject_b?: string
+  sample_pct?: number
+  metric?: 'OPEN_RATE' | 'CLICK_RATE'
+  decide_after_minutes?: number
 }
 
 export type CampaignAction = 'edit' | 'clone' | 'test_publish' | 'publish' | 'pause' | 'resume' | 'cancel_schedule' | 'archive' | 'unarchive' | 'results'
+  | 'request_approval' | 'approve' | 'send_back'
 export type SendType = 'IMMEDIATE' | 'SCHEDULED' | 'RECURRING' | 'DRIP'
 
 export interface RecurringConfig {
@@ -720,6 +746,9 @@ export interface Template extends Audited {
   cloned_from: string | null
   /** 0 / null until a design has been saved */
   latest_version?: number | null
+  /** the newest campaign that uses it, or null: what is safe to change */
+  last_used_in?: { id: string; name: string; status: string; at: string } | null
+  campaign_count?: number
 }
 
 /** GET /template-starters/ : the gallery offered when creating a template */
@@ -1049,6 +1078,7 @@ export interface Workspace {
 export type PermissionCode =
   | 'campaign.edit'
   | 'campaign.publish'
+  | 'campaign.approve'
   | 'list.edit'
   | 'template.edit'
   | 'journey.edit'
@@ -1093,6 +1123,23 @@ export interface Integration {
   bytes_in_24h: number
   bytes_out_24h: number
   health: IntegrationHealth
+  /** the Email Alerts switch on the card: a circuit opening on this integration notifies the workspace */
+  alerts_enabled?: boolean
+}
+
+/** GET /contact-lists/{id}/reach/: how many of the list a marketing send could reach today, by channel */
+export interface ListReach {
+  email: { total: number; sendable: number }
+  sms: { total: number; sendable: number; no_phone: number }
+  checked_at: string
+}
+
+/** GET /search/?q= : a few campaigns, lists and templates by name */
+export interface SearchResults {
+  q: string
+  campaigns: { id: string; name: string; code: string | null; channel: string; status: string; status_label: string; setup_complete: boolean }[]
+  lists: { id: string; name: string; member_count: number; list_environment: string; status: string }[]
+  templates: { id: string; name: string; channel: string; status: string }[]
 }
 
 export interface IntegrationLogRow {

@@ -5,6 +5,18 @@ export type CreatedRange = '' | 'last7' | 'last30' | 'quarter' | 'custom'
 export const EMPTY_FILTERS = { status: '', type: '', channel: '', triggered_by: '', tag: '', owner: '', created: '' as CreatedRange, date_from: '', date_to: '' }
 export type Filters = typeof EMPTY_FILTERS
 
+/** The saved views above the filters: one click, remembered in the address (?saved=). Each is a query the API understands. */
+export type SavedView = '' | 'mine' | 'sending_today' | 'attention' | 'approval' | 'drafts'
+export const SAVED_VIEWS: { key: SavedView; label: string; query: Record<string, string>; needs?: 'campaign.approve' }[] = [
+  { key: '', label: 'All', query: {} },
+  { key: 'mine', label: 'Mine', query: { view: 'mine' } },
+  { key: 'sending_today', label: 'Sending Today', query: { view: 'sending_today' } },
+  { key: 'attention', label: 'Needs Attention', query: { view: 'attention' } },
+  { key: 'approval', label: 'Awaiting Approval', query: { approval: 'requested' } },
+  { key: 'drafts', label: 'Drafts', query: { status: 'DRAFT,TEST_PUBLISHED' } },
+]
+export const savedViewOf = (value: string | null): SavedView => (SAVED_VIEWS.some((item) => item.key === value) ? (value as SavedView) : '')
+
 export const CREATED_RANGES: { value: Exclude<CreatedRange, 'custom'>; label: string }[] = [
   { value: '', label: 'Any Time' },
   { value: 'last7', label: 'Last 7 Days' },

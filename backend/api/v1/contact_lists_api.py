@@ -303,8 +303,15 @@ class ContactListViewSet(BaseTenantViewSet):
         """Unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent, marketable: the list's people today."""
         return Response(lists.governance_now(self.get_object()))
 
+    @extend_schema(responses=inline_serializer("ListReach", {"email": serializers.DictField(), "sms": serializers.DictField(), "checked_at": serializers.DateTimeField()}))
+    @action(detail=True, methods=["get"], url_path="reach")
+    def reach(self, request, pk=None, version=None):
+        """How many people a marketing email and a marketing text could reach today."""
+        return Response(lists.reach(self.get_object()))
+
     # ------------------------------------------------------------ the people in it
-    @extend_schema(methods=["GET"], parameters=[OpenApiParameter("search", str), OpenApiParameter("source", str), OpenApiParameter("page", int), OpenApiParameter("page_size", int)],
+    @extend_schema(methods=["GET"], parameters=[OpenApiParameter("search", str), OpenApiParameter("source", str), OpenApiParameter("status", str, description="a consent state, SENDABLE or NOT_SENDABLE"),
+                                                OpenApiParameter("page", int), OpenApiParameter("page_size", int)],
                    responses=inline_serializer("ListMembers", {"count": serializers.IntegerField(), "page": serializers.IntegerField(), "page_size": serializers.IntegerField(),
                                                                "results": serializers.ListField(child=serializers.DictField())}))
     @extend_schema(methods=["POST"], request=ManualContactsSerializer,
@@ -325,7 +332,10 @@ class ContactListViewSet(BaseTenantViewSet):
             page, size = max(1, int(params.get("page", 1))), min(200, max(1, int(params.get("page_size", 50))))
         except ValueError:
             raise ValidationError({"page": "Expected a number."}) from None
-        return Response(lists.members(contact_list, search=params.get("search", ""), source=params.get("source", ""), page=page, page_size=size))
+        try:
+            return Response(lists.members(contact_list, search=params.get("search", ""), source=params.get("source", ""), status=params.get("status", ""), page=page, page_size=size))
+        except lists.ListError as exc:
+            raise ValidationError({"status": str(exc)}) from None
 
     @extend_schema(request=RemoveSerializer, responses=inline_serializer("ListMembersRemoved", {"removed": serializers.IntegerField(), "member_count": serializers.IntegerField()}))
     @action(detail=True, methods=["post"], url_path="members/remove")

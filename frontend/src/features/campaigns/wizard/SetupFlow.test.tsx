@@ -1,5 +1,5 @@
 /**
- * The setup after Create Campaign: Audience → Content → Targets → Test → Review & Publish, through the real app against the
+ * The setup after Create Campaign: Audience → Content → Test → Targets → Review & Publish, through the real app against the
  * in-memory API. What each Continue records (setup_step), where an unfinished setup resumes, and where old links land.
  */
 import { cleanup, render, screen, within } from '@testing-library/react'
@@ -39,7 +39,7 @@ test('five steps on the rail, one at a time; each Continue says where it goes an
   await renderAppAt('/campaigns/c1/edit')
 
   expect(await stepHeading('Audience')).toBeTruthy()
-  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
+  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Test', 'Targets', 'Review & Publish'])
   expect(railButtons()[0].getAttribute('aria-current')).toBe('step')
   expect(railButtons().map((button) => button.querySelector('[data-marker]')?.getAttribute('data-marker'))).toEqual(['current', 'ahead', 'ahead', 'ahead', 'ahead'])
   expect(railButtons().slice(1).map((button) => (button as HTMLButtonElement).disabled)).toEqual([true, true, true, true])   // steps ahead open through Continue
@@ -57,29 +57,30 @@ test('five steps on the rail, one at a time; each Continue says where it goes an
   const cards = await screen.findByRole('radiogroup', { name: 'Template' })
   await user.click(within(cards).getByRole('radio', { name: /Fall Email/ }))
   await user.selectOptions(screen.getByLabelText('Send From'), 'snd-email')
-  await user.click(screen.getByRole('button', { name: 'Continue to Targets' }))
-
-  expect(await stepHeading('Targets')).toBeTruthy()
-  expect(patches(calls).at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: 'snd-email', setup_step: 3 })
-  await user.type(screen.getByLabelText('Clicks'), '40')
   await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
 
   expect(await stepHeading('Test')).toBeTruthy()
-  expect(patches(calls).at(-1)?.body).toMatchObject({ targets: { target_clicks: 40 }, setup_step: 4 })
+  expect(patches(calls).at(-1)?.body).toMatchObject({ template: 'tpl-email', sender_profile: 'snd-email', setup_step: 3 })
   expect(await screen.findByRole('group', { name: 'Send a Test' })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))              // a test is not required
+  await user.click(screen.getByRole('button', { name: 'Continue to Targets' }))                       // a test is not required
+
+  expect(await stepHeading('Targets')).toBeTruthy()
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 4 }))
+  expect(screen.getByRole('button', { name: 'Skip for Now' })).toBeTruthy()                            // targets can wait
+  await user.type(screen.getByLabelText('Clicks'), '40')
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
 
   expect(await stepHeading('Review & Publish')).toBeTruthy()
-  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 5 }))
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ targets: { target_clicks: 40 }, setup_step: 5 }))
   expect(screen.queryByRole('button', { name: /^Continue/ })).toBeNull()                             // the last step publishes instead
   expect(screen.getAllByRole('heading', { level: 3 }).slice(0, 2).map((heading) => heading.textContent)).toEqual(['When and How It Goes Out', 'Summary and Publish'])
   await user.click(screen.getByRole('button', { name: 'Back' }))
-  expect(await stepHeading('Test')).toBeTruthy()
+  expect(await stepHeading('Targets')).toBeTruthy()
   expect(document.activeElement).toBe(document.querySelector('h1[tabindex="-1"]'))     // focus follows the step
 })
 
-test('Test: a test sent records 5; Review & Publish: saving the schedule records 6 (the setup is done), and the publish asks once more', async () => {
-  const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 4 }) })
+test('Test: a test sent records 4; Targets skipped records 5; Review & Publish: saving the schedule records 6 (the setup is done), and the publish asks once more', async () => {
+  const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 3 }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit')
   expect(await stepHeading('Test')).toBeTruthy()
@@ -89,9 +90,13 @@ test('Test: a test sent records 5; Review & Publish: saving the schedule records
   await user.click(await within(test).findByRole('checkbox', { name: /Devon Okafor/ }))
   await user.click(within(test).getByRole('button', { name: 'Send Test' }))
   expect(await within(test).findByText('Sent to devon@example.com')).toBeTruthy()
-  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toEqual({ setup_step: 5, row_version: expect.any(Number) }))
-  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toEqual({ setup_step: 4, row_version: expect.any(Number) }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Targets' }))
+  expect(await stepHeading('Targets')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Skip for Now' }))
   expect(await stepHeading('Review & Publish')).toBeTruthy()
+  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 5 }))
+  expect(await screen.findByText('No targets set. Results are shown against them once the campaign runs.')).toBeTruthy()   // the summary card at the top
 
   await user.click(screen.getByRole('radio', { name: /Schedule for Later/ }))
   await user.click(screen.getByRole('button', { name: 'Save Schedule' }))
@@ -126,17 +131,17 @@ test('an e-receipt skips Audience; its schedule section says there is none', asy
   installMockApi({ campaign: draft({ campaign_type: 'E_RECEIPT', solicitation_type: 'TRANSACTIONAL', contact_lists: [], contact_list_details: [], setup_step: 5 }) })
   await renderAppAt('/campaigns/c1/edit')
   expect(await stepHeading('Review & Publish')).toBeTruthy()
-  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Targets', 'Test', 'Review & Publish'])
+  expect(railButtons().map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Test', 'Targets', 'Review & Publish'])
   expect(await screen.findByText('This is an E-Receipt campaign, so there is no schedule to set')).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Change the campaign type' })).toBeNull()                // the type is fixed after creation
   expect(screen.queryByRole('button', { name: 'Save Schedule' })).toBeNull()
 })
 
-test('resume: 1 → Audience (Content for an e-receipt), 2 → Content, 3 → Targets, 4 → Test, 5 → Review & Publish; complete → the campaign page', async () => {
-  expect([0, 1, 2, 3, 4, 5, 6].map((progress) => resumeStep(progress, 'REGULAR_MARKETING'))).toEqual(['audience', 'audience', 'content', 'targets', 'test', 'publish', 'publish'])
+test('resume: 1 → Audience (Content for an e-receipt), 2 → Content, 3 → Test, 4 → Targets, 5 → Review & Publish; complete → the campaign page', async () => {
+  expect([0, 1, 2, 3, 4, 5, 6].map((progress) => resumeStep(progress, 'REGULAR_MARKETING'))).toEqual(['audience', 'audience', 'content', 'test', 'targets', 'publish', 'publish'])
   expect(resumeStep(1, 'E_RECEIPT')).toBe('content')
 
-  for (const [progress, heading] of [[1, 'Audience'], [2, 'Content'], [3, 'Targets'], [4, 'Test'], [5, 'Review & Publish']] as const) {
+  for (const [progress, heading] of [[1, 'Audience'], [2, 'Content'], [3, 'Test'], [4, 'Targets'], [5, 'Review & Publish']] as const) {
     installMockApi({ campaigns: [draft({ setup_step: progress })] })
     await renderAppAt('/campaigns/c1')                                                                   // a bookmark or a typed address
     expect(await stepHeading(heading)).toBeTruthy()
@@ -186,7 +191,7 @@ test('the API’s field messages open where the field is: a step, or the Details
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   const details = await screen.findByRole('dialog', { name: 'Edit Details' })
   expect(within(details).getByText('Another campaign already has this name.')).toBeTruthy()
 
@@ -194,7 +199,7 @@ test('the API’s field messages open where the field is: a step, or the Details
   installMockApi({ campaign: makeCampaign({ status: 'DRAFT' }), onSave: () => problem(400, { title: 'Invalid input', errors: { contact_lists: ['One of the lists no longer exists.'] } }) })
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   expect(await stepHeading('Audience')).toBeTruthy()
 })
 
@@ -219,7 +224,7 @@ test('a conflict (409) offers to reload the stored version', async () => {
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await user.type(await screen.findByLabelText('Conversions'), '12')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   expect(await screen.findByText('Someone else changed this campaign. Reload to see their version.')).toBeTruthy()
   expect(screen.getByRole('button', { name: /Reload the Latest Version/ })).toBeTruthy()
 })
@@ -271,7 +276,7 @@ test('the setup-in-progress line says how far the setup got, and the back button
   const user = userEvent.setup()
   installMockApi({ campaign: draft({ setup_step: 3 }) })
   await renderAppAt('/campaigns/c1/edit')
-  await stepHeading('Targets')
+  await stepHeading('Test')
   expect(screen.queryByTestId('setup-progress')).toBeNull()
   await user.click(screen.getByRole('button', { name: /^Audience/ }))
   expect((await screen.findByTestId('setup-progress')).textContent).toBe('Setup in progress: 2 of 5 steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.')

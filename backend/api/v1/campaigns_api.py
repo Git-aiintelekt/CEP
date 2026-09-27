@@ -1,13 +1,14 @@
 """Campaign module API (BRD v0.9 sections 6.3, 7, 15). Extends the campaign endpoints that were already there.
 
     GET    /campaigns/                     ?search= &type= &channel= &status= &date_from= &date_to= &date_field=created|scheduled
+                                           &view=mine|sending_today|attention   (the list's saved views)
                                            &triggered_by=manual|journey &tag= &ordering= &page= &page_size=   (archived hidden unless status=ARCHIVED)
     POST   /campaigns/                     create (DRAFT)            PATCH / PUT  while it is a draft or test published
     DELETE /campaigns/{id}/                archives: a campaign is never deleted
     POST   /campaigns/{id}/test-publish/   {to: [addresses], user_ids: [internal users]}: a test Run, nothing counted
     POST   /campaigns/{id}/publish/        production publish: validates, creates the Run(s), schedules or starts the send
     POST   /campaigns/{id}/pause/  resume/  cancel-schedule/  clone/  archive/  unarchive/
-    POST   /campaigns/bulk/                {action: archive|clone, ids: [...]}
+    POST   /campaigns/bulk/                {action: archive|clone|pause|resume, ids: [...]}
     GET    /campaigns/{id}/preview/        ?party_id= : the content as that customer would get it
     GET    /campaigns/{id}/lists/          POST {contact_list, role}       DELETE /campaigns/{id}/lists/{list_id}/
     GET    /campaigns/{id}/audience/       merged, de-duplicated, minus excluded lists, with today's governance picture
@@ -34,7 +35,7 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field, inline_serializer
 from rest_framework import serializers
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -277,7 +278,7 @@ class ApprovalNoteSerializer(serializers.Serializer):
 
 
 class BulkSerializer(serializers.Serializer):
-    action = serializers.ChoiceField(choices=["archive", "clone"])
+    action = serializers.ChoiceField(choices=["archive", "clone", "pause", "resume"])
     ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False, max_length=100)
 
 
@@ -343,6 +344,8 @@ class CampaignViewSet(views.CampaignViewSet):
                 qs = qs.filter(**{f"{column}__in": params[name].upper().split(",")})
         if params.get("triggered_by"):
             qs = qs.filter(is_journey_generated=params["triggered_by"].lower() == "journey")
+        if params.get("view"):
+            qs = self._saved_view(qs, params["view"].lower())
         if params.get("approval"):
             wanted = params["approval"].upper()
             if wanted not in (approval.REQUESTED, approval.APPROVED, approval.RETURNED):
@@ -360,6 +363,30 @@ class CampaignViewSet(views.CampaignViewSet):
                 except serializers.ValidationError as exc:
                     raise ValidationError({name: "Use a date like 2026-09-30."}) from exc
         return qs
+
+    def _saved_view(self, qs, view: str):
+        """mine: owned by the signed-in person. sending_today: a send starts or runs today (workspace zone). attention: paused,
+        a failed send in the last week, or waiting for approval."""
+        from zoneinfo import ZoneInfo
+        from apps.tenants.models import Tenant
+        if view == "mine":
+            user = self.request.user
+            return qs.filter(owner_user_id=user.pk) if not hasattr(user, "has_scope") else qs.none()
+        if view == "sending_today":
+            tenant = Tenant.objects.get(pk=context.require().tenant_id)
+            try:
+                zone = ZoneInfo(tenant.timezone or "UTC")
+            except Exception:                              # noqa: BLE001
+                zone = ZoneInfo("UTC")
+            start = timezone.now().astimezone(zone).replace(hour=0, minute=0, second=0, microsecond=0)
+            end = start + timezone.timedelta(days=1)
+            today = CampaignRun.objects.filter(campaign_id=OuterRef("pk"), test_mode=False).filter(
+                Q(status="SCHEDULED", scheduled_at__gte=start, scheduled_at__lt=end) | Q(status__in=["PREPARING", "SENDING"]) | Q(started_at__gte=start, started_at__lt=end))
+            return qs.filter(Exists(today))
+        if view == "attention":
+            failed = CampaignRun.objects.filter(campaign_id=OuterRef("pk"), test_mode=False, status="FAILED", completed_at__gte=timezone.now() - timezone.timedelta(days=7))
+            return qs.filter(Q(status="PAUSED") | Q(approval_status=approval.REQUESTED, status__in=service.EDITABLE) | Exists(failed))
+        raise ValidationError({"view": "Use mine, sending_today or attention."})
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -599,16 +626,28 @@ class CampaignViewSet(views.CampaignViewSet):
     def bulk(self, request, version=None):
         body = BulkSerializer(data=request.data)
         body.is_valid(raise_exception=True)
+        wanted = body.validated_data["action"]
+        if wanted in ("pause", "resume") and not (getattr(request.user, "is_platform_admin", False) or (request.user.has_scope("campaign:publish") if hasattr(request.user, "has_scope")
+                                                                                                          else "campaign.publish" in request.user.permission_codes())):
+            raise PermissionDenied("Pausing and resuming need the campaign.publish permission.")
         done, skipped = [], []
         for campaign in self.get_queryset().filter(pk__in=body.validated_data["ids"]):
             try:
                 with transaction.atomic():
-                    result = service.archive(campaign, request.user) if body.validated_data["action"] == "archive" else service.clone(
-                        campaign, request.user, code=s.CampaignSerializer._next_code())
+                    if wanted == "archive":
+                        result = service.archive(campaign, request.user)
+                    elif wanted == "pause":
+                        result = service.pause(campaign, request.user)
+                    elif wanted == "resume":
+                        result, run_ids = service.resume(campaign, request.user)
+                        for run_id in run_ids:
+                            transaction.on_commit(lambda run_id=run_id: views._enqueue_run(str(campaign.tenant_id), run_id), using=context.require().db_alias)
+                    else:
+                        result = service.clone(campaign, request.user, code=s.CampaignSerializer._next_code())
                 done.append({"id": str(result.pk), "name": result.name})
             except service.ActionError as exc:
                 skipped.append({"id": str(campaign.pk), "name": campaign.name, "reason": str(exc)})
-        return Response({"action": body.validated_data["action"], "done": done, "skipped": skipped})
+        return Response({"action": wanted, "done": done, "skipped": skipped})
 
     # ------------------------------------------------------------ audience
     @extend_schema(methods=["GET"], responses=dict)

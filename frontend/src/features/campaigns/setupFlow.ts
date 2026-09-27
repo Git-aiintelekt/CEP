@@ -1,18 +1,19 @@
 /**
- * The campaign setup flow: the Create Campaign pop-up, then Audience → Content → Targets → Test → Review & Publish.
+ * The campaign setup flow: the Create Campaign pop-up, then Audience → Content → Test → Targets → Review & Publish.
+ * Targets comes after Test, so the path to a test send is short; Targets can be skipped for now and filled in later.
  * The API still counts progress 0–6 (only ever moving forward, complete at 6); every place that reads or writes it,
  * or links into the setup, goes through this module.
  */
 import type { Campaign } from '@/lib/types'
 
-export type FlowStep = 'audience' | 'content' | 'targets' | 'test' | 'publish'
+export type FlowStep = 'audience' | 'content' | 'test' | 'targets' | 'publish'
 export type PublishSection = 'schedule' | 'review'
 
 export const FLOW_STEPS: { key: FlowStep; label: string; next?: string }[] = [
   { key: 'audience', label: 'Audience', next: 'Continue to Content' },
-  { key: 'content', label: 'Content', next: 'Continue to Targets' },
-  { key: 'targets', label: 'Targets', next: 'Continue to Test' },
-  { key: 'test', label: 'Test', next: 'Continue to Review & Publish' },
+  { key: 'content', label: 'Content', next: 'Continue to Test' },
+  { key: 'test', label: 'Test', next: 'Continue to Targets' },
+  { key: 'targets', label: 'Targets', next: 'Continue to Review & Publish' },
   { key: 'publish', label: 'Review & Publish' },
 ]
 
@@ -22,9 +23,9 @@ export const PUBLISH_SECTIONS: { key: PublishSection; label: string }[] = [
 ]
 
 /** setup_step once each part is done; the API keeps the highest value it has seen. Tested = the Test step was passed
- *  (a test sent, or Continue); the schedule saved on Review & Publish completes the setup (an e-receipt, having no
- *  schedule, is complete once its Test step is passed). */
-export const PROGRESS = { created: 1, audience: 2, content: 3, targets: 4, tested: 5, schedule: 6 } as const
+ *  (a test sent, or Continue); Targets passed or skipped records 5; the schedule saved on Review & Publish completes
+ *  the setup (an e-receipt, having no schedule, is complete once its Targets step is passed). */
+export const PROGRESS = { created: 1, audience: 2, content: 3, tested: 4, targets: 5, schedule: 6 } as const
 export const SETUP_DONE = PROGRESS.schedule
 
 const isReceipt = (campaign: Pick<Campaign, 'campaign_type'> | string) => (typeof campaign === 'string' ? campaign : campaign.campaign_type) === 'E_RECEIPT'
@@ -36,15 +37,16 @@ export function stepsFor(campaignType: string) {
 
 /** the step that finishing `step` records */
 export function progressAfter(step: Exclude<FlowStep, 'publish'>, campaignType: string): number {
-  if (step === 'test') return isReceipt(campaignType) ? SETUP_DONE : PROGRESS.tested
+  if (step === 'test') return PROGRESS.tested
+  if (step === 'targets') return isReceipt(campaignType) ? SETUP_DONE : PROGRESS.targets
   return PROGRESS[step]
 }
 
 /** where an unfinished setup picks up again */
 export function resumeStep(progress: number, campaignType: string): FlowStep {
-  if (progress >= PROGRESS.tested) return 'publish'
-  if (progress >= PROGRESS.targets) return 'test'
-  if (progress >= PROGRESS.content) return 'targets'
+  if (progress >= PROGRESS.targets) return 'publish'
+  if (progress >= PROGRESS.tested) return 'targets'
+  if (progress >= PROGRESS.content) return 'test'
   if (progress >= PROGRESS.audience) return 'content'
   return isReceipt(campaignType) ? 'content' : 'audience'
 }
