@@ -1,6 +1,7 @@
 /** The email as an inbox lists it: sender, subject and preheader. The sender is not known at template level. */
 import type { PersonalizationTag } from '@/lib/types'
 
+import { EMAIL_CLIENTS, preheaderRoom, type EmailClient } from './clients'
 import { NO_VALUE_MARKER } from './decoratePreview'
 import { previewParts, type Fill, type PreviewProfile } from './previewProfiles'
 
@@ -31,24 +32,32 @@ interface InboxRowProps {
   catalogue: PersonalizationTag[]
   profile: PreviewProfile
   time: string
+  /** the inbox stood in for; the generic one when left out */
+  client?: EmailClient
+  /** drawn dark, as the client's list would be */
+  dark?: boolean
 }
 
-export function InboxRow({ subject, preheader, catalogue, profile, time }: InboxRowProps) {
+export function InboxRow({ subject, preheader, catalogue, profile, time, client = EMAIL_CLIENTS[0], dark = false }: InboxRowProps) {
+  const room = preheaderRoom(client, subject)
+  const cut = preheader.trim().length > room
+  const shownPreheader = cut ? preheader.trim().slice(0, Math.max(0, room)).trimEnd() : preheader
   return (
-    <div aria-label="Inbox Row" role="group" className="flex gap-3 border-b border-line bg-surface px-4 py-3">
-      <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-line text-sm font-semibold text-ink-700">
+    <div aria-label="Inbox Row" role="group" data-client={client.id} data-appearance={dark ? 'dark' : 'light'}
+      className={`flex gap-3 border-b px-4 py-3 ${dark ? 'border-ink-700 bg-ink-900 text-white' : 'border-line bg-surface'}`}>
+      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center text-sm font-semibold ${client.avatar === 'square' ? 'rounded-sm' : 'rounded-pill'} ${dark ? 'bg-ink-700 text-white' : 'bg-line text-ink-700'}`}>
         {SENDER_PLACEHOLDER.charAt(0)}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-semibold text-ink-900">{SENDER_PLACEHOLDER}</span>
-          <span className="cep-num shrink-0 text-xs text-ink-500">{time}</span>
+          <span className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-900'}`}>{SENDER_PLACEHOLDER}</span>
+          <span className={`cep-num shrink-0 text-xs ${dark ? 'text-ink-300' : 'text-ink-500'}`}>{time}</span>
         </div>
-        <p className="truncate text-sm font-semibold text-ink-900">
+        <p className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-900'}`}>
           {subject.trim() === '' ? NO_SUBJECT : <Filled text={subject} catalogue={catalogue} profile={profile} />}
         </p>
-        <p className="truncate text-xs text-ink-500">
-          {preheader.trim() === '' ? NO_PREHEADER : <Filled text={preheader} catalogue={catalogue} profile={profile} />}
+        <p className={`truncate text-xs ${dark ? 'text-ink-300' : 'text-ink-500'}`} data-preheader-cut={cut ? client.inboxChars : undefined}>
+          {preheader.trim() === '' ? NO_PREHEADER : <Filled text={shownPreheader} catalogue={catalogue} profile={profile} />}{cut ? '…' : ''}
         </p>
       </div>
     </div>

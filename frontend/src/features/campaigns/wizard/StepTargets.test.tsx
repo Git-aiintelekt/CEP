@@ -15,7 +15,7 @@ async function renderAppAt(path: string) {
   render(<App />)
 }
 
-const draft = (overrides = {}) => makeCampaign({ status: 'DRAFT', setup_step: 3, ...overrides })
+const draft = (overrides = {}) => makeCampaign({ status: 'DRAFT', setup_step: 4, ...overrides })
 const atTargets = () => vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Targets'))
 const patches = (calls: { method: string; url: string; body: unknown }[]) => calls.filter((call) => call.method === 'PATCH' && call.url.endsWith('/campaigns/c1/'))
 const shareOf = (label: string) => {
@@ -87,7 +87,7 @@ test('cost chips fill the amount; Custom opens a box; an amount off the chips se
 
   await user.click(within(offer).getByRole('radio', { name: 'Custom' }))
   await user.type(document.querySelector<HTMLInputElement>('[data-cost="planned_offer_cost"] input')!, '120')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ targets: { planned_cost: '1000', planned_offer_cost: '120' } }))
 })
 
@@ -122,20 +122,20 @@ test('an empty Targets step continues; a bad number is explained; the server’s
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
-  await vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Test'))
-  expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 4 })
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
+  await vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Review & Publish'))
+  expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 5 })
 
   cleanup()
   installMockApi({ campaign: draft(), onSave: () => problem(400, { title: 'Invalid input', errors: { targets: { target_clicks: ['Clicks cannot exceed the audience.'] } } }) })
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
   await user.type(screen.getByLabelText('Clicks'), '4x')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   expect(await screen.findByText('Enter a whole number, zero or more.')).toBeTruthy()
   await user.clear(screen.getByLabelText('Clicks'))
   await user.type(screen.getByLabelText('Clicks'), '5000')
-  await user.click(screen.getByRole('button', { name: 'Continue to Test' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Review & Publish' }))
   expect(await screen.findByText('Clicks cannot exceed the audience.')).toBeTruthy()
   await atTargets()
 })
@@ -154,9 +154,9 @@ test('the top bar: back, the name with step · type · channel, a dot stepper th
   const stepper = within(bar).getByRole('navigation', { name: 'Setup Steps' })
   expect(stepper.querySelector('ol')).toBeTruthy()
   const steps = within(stepper).getAllByRole('button')
-  expect(steps.map((step) => step.querySelector('[data-marker]')?.getAttribute('data-marker'))).toEqual(['done', 'done', 'current', 'ahead', 'ahead'])
-  expect(steps.map((step) => step.getAttribute('aria-current'))).toEqual([null, null, 'step', null, null])
-  expect((steps[3] as HTMLButtonElement).disabled).toBe(true)
+  expect(steps.map((step) => step.querySelector('[data-marker]')?.getAttribute('data-marker'))).toEqual(['done', 'done', 'done', 'current', 'ahead'])
+  expect(steps.map((step) => step.getAttribute('aria-current'))).toEqual([null, null, null, 'step', null])
+  expect((steps[2] as HTMLButtonElement).disabled).toBe(false)
   expect((steps[4] as HTMLButtonElement).disabled).toBe(true)
   expect(stepper.querySelectorAll('li > span[aria-hidden]').length).toBe(4)                           // a connector between each pair
 
@@ -175,15 +175,15 @@ test('under lg the stepper folds into "Step n of 5 · Step", a menu of the steps
   await atTargets()
 
   const progress = screen.getByRole('progressbar', { name: 'Setup progress' })
-  expect(progress.getAttribute('aria-valuenow')).toBe('3')
-  expect((progress.firstElementChild as HTMLElement).style.width).toBe('60%')
-  const trigger = screen.getByRole('button', { name: /^Step 3 of 5 · Targets/ })
+  expect(progress.getAttribute('aria-valuenow')).toBe('4')
+  expect((progress.firstElementChild as HTMLElement).style.width).toBe('80%')
+  const trigger = screen.getByRole('button', { name: /^Step 4 of 5 · Targets/ })
   expect(trigger.getAttribute('aria-expanded')).toBe('false')
   await user.click(trigger)
   const menu = await screen.findByRole('region', { name: 'Setup Steps' })
   const rows = within(menu).getAllByRole('button')
-  expect(rows.map((row) => row.textContent?.replace(/^\d/, ''))).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
-  expect(rows[3].getAttribute('aria-disabled')).toBe('true')                                        // not reached yet
+  expect(rows.map((row) => row.textContent?.replace(/^\d/, ''))).toEqual(['Audience', 'Content', 'Test', 'Targets', 'Review & Publish'])
+  expect(rows[4].getAttribute('aria-disabled')).toBe('true')                                        // not reached yet
   await user.keyboard('{Escape}')
   expect(screen.queryByRole('region', { name: 'Setup Steps' })).toBeNull()
 
@@ -204,8 +204,8 @@ test('a finished setup goes back to the campaign; an e-receipt shows only its ow
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
   const stepper = screen.getByRole('navigation', { name: 'Setup Steps' })
-  expect(within(stepper).getAllByRole('button').map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Targets', 'Test', 'Review & Publish'])
-  expect(screen.getByRole('button', { name: /^Step 2 of 4 · Targets/ })).toBeTruthy()
+  expect(within(stepper).getAllByRole('button').map((button) => button.querySelector('[data-step-label]')?.textContent)).toEqual(['Content', 'Test', 'Targets', 'Review & Publish'])
+  expect(screen.getByRole('button', { name: /^Step 3 of 4 · Targets/ })).toBeTruthy()
 })
 
 test('stepper circles: a Blue 600 tick when done, the number ringed in blue when current, a grey number ahead', async () => {
@@ -225,22 +225,22 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect(label(0).className).toContain('text-ink-700')
   expect(label(0).className).not.toContain('font-semibold')
 
-  expect(circle(2).textContent).toBe('3')
-  expect(circle(2).className).toContain('bg-brand-100')
-  expect(circle(2).className).toContain('border-brand-600')
-  expect(circle(2).className).toContain('text-brand-800')
-  expect(label(2).className).toContain('font-semibold')
-  expect(label(2).className).toContain('text-ink-900')
-
   expect(circle(3).textContent).toBe('4')
-  expect(circle(3).className).toContain('border-line')
-  expect(circle(3).className).toContain('text-ink-300')
-  expect(label(3).className).toContain('text-ink-500')                                              // Gray 400 would fail 4.5:1 on white
-  expect(label(0).className + label(2).className).toContain('text-card-title')                      // 15px labels
+  expect(circle(3).className).toContain('bg-brand-100')
+  expect(circle(3).className).toContain('border-brand-600')
+  expect(circle(3).className).toContain('text-brand-800')
+  expect(label(3).className).toContain('font-semibold')
+  expect(label(3).className).toContain('text-ink-900')
+
+  expect(circle(4).textContent).toBe('5')
+  expect(circle(4).className).toContain('border-line')
+  expect(circle(4).className).toContain('text-ink-300')
+  expect(label(4).className).toContain('text-ink-500')                                              // Gray 400 would fail 4.5:1 on white
+  expect(label(0).className + label(3).className).toContain('text-card-title')                      // 15px labels
   expect(circle(0).className).not.toContain('bg-success')                                          // progress, not a status
 
-  expect(steps[3].className).toContain('disabled:cursor-default')
-  expect((steps[3] as HTMLButtonElement).disabled).toBe(true)
+  expect(steps[4].className).toContain('disabled:cursor-default')
+  expect((steps[4] as HTMLButtonElement).disabled).toBe(true)
   expect(steps[0].getAttribute('aria-label') ?? steps[0].textContent).toContain('Audience')
   expect(screen.getByRole('button', { name: 'Audience, completed' })).toBe(steps[0])
   expect([...document.querySelectorAll('[data-connector]')].every((line) => line.className.includes('w-14') && line.className.includes('bg-line-subtle'))).toBe(true)
@@ -258,7 +258,7 @@ test('a flow bar under 1340px: every step keeps its name (smaller type, shorter 
 
   const bar = document.querySelector<HTMLElement>('[data-flow-bar]')!
   const steps = within(within(bar).getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button')
-  expect(steps.map((step) => step.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
+  expect(steps.map((step) => step.querySelector('[data-step-label]')?.textContent)).toEqual(['Audience', 'Content', 'Test', 'Targets', 'Review & Publish'])
   for (const step of steps) {
     const label = step.querySelector('[data-step-label]')!
     expect(label.className).not.toContain('sr-only')                                               // done, current and ahead all show their names
@@ -279,11 +279,11 @@ test('the narrow-screen menu uses the same circles at 20px', async () => {
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=targets')
   await atTargets()
-  await user.click(screen.getByRole('button', { name: /^Step 3 of 5 · Targets/ }))
+  await user.click(screen.getByRole('button', { name: /^Step 4 of 5 · Targets/ }))
   const rows = within(await screen.findByRole('region', { name: 'Setup Steps' })).getAllByRole('button')
   const markers = rows.map((row) => row.querySelector<HTMLElement>('[data-marker]')!)
-  expect(markers.map((marker) => marker.getAttribute('data-marker'))).toEqual(['done', 'done', 'current', 'ahead', 'ahead'])
+  expect(markers.map((marker) => marker.getAttribute('data-marker'))).toEqual(['done', 'done', 'done', 'current', 'ahead'])
   expect(markers.every((marker) => marker.className.includes('h-5') && marker.className.includes('w-5'))).toBe(true)
   expect(markers[0].querySelector('.lucide-check')).toBeTruthy()
-  expect(markers.slice(2).map((marker) => marker.textContent)).toEqual(['3', '4', '5'])
+  expect(markers.slice(3).map((marker) => marker.textContent)).toEqual(['4', '5'])
 })

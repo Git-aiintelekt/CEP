@@ -101,6 +101,13 @@ function AddContacts({ list, onClose, onAdded }: { list: ContactList; onClose: (
   )
 }
 
+/** the marketing-email verdicts the people can be filtered by, as the API names them */
+const CONSENT_FILTERS = [
+  { value: '', label: 'Any Consent State' }, { value: 'SENDABLE', label: 'Can Receive' }, { value: 'NOT_SENDABLE', label: 'Cannot Receive' }, { value: 'UNSUBSCRIBED', label: 'Unsubscribed' },
+  { value: 'NO_CONSENT', label: 'No Consent on Record' }, { value: 'HARD_BOUNCE', label: 'Bounced' }, { value: 'COMPLAINT', label: 'Complained' }, { value: 'BLOCKED', label: 'Blocked' },
+  { value: 'INVALID_ADDRESS', label: 'Invalid Address' }, { value: 'SUPPRESSED', label: 'Suppressed' },
+]
+
 export function ContactListDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -108,6 +115,7 @@ export function ContactListDetailPage() {
   const { can } = useAuth()
   const editable = can('list.edit')
   const [search, setSearch] = useState('')
+  const [consent, setConsent] = useState('')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<number[]>([])
   const [dialog, setDialog] = useState<'edit' | 'add' | 'clone' | 'remove' | null>(null)
@@ -117,8 +125,8 @@ export function ContactListDetailPage() {
   const usage = useQuery({ queryKey: ['contact-lists', id, 'usage'], queryFn: ({ signal }) => api.get<ListUsage>(`/contact-lists/${id}/usage/`, undefined, signal) })
   const governance = useQuery({ queryKey: ['contact-lists', id, 'governance'], queryFn: ({ signal }) => api.get<ListGovernance>(`/contact-lists/${id}/governance/`, undefined, signal) })
   const members = useQuery({
-    queryKey: ['contact-lists', id, 'members', search.trim(), page],
-    queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, page, page_size: PAGE_SIZE }, signal),
+    queryKey: ['contact-lists', id, 'members', search.trim(), consent, page],
+    queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, status: consent || undefined, page, page_size: PAGE_SIZE }, signal),
     placeholderData: keepPreviousData,
   })
   const refreshAll = () => {
@@ -257,6 +265,10 @@ export function ContactListDetailPage() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search contacts" aria-label="Search contacts"
           className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
+        <select aria-label="Consent State" value={consent} onChange={(event) => { setConsent(event.target.value); setPage(1); setSelected([]) }}
+          className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
+          {CONSENT_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
         <span className="text-sm text-ink-500" aria-live="polite">{selected.length === 0 ? 'No contacts selected' : `${formatNumber(selected.length)} selected`}</span>
         {members.isFetching && <Spinner className="h-4 w-4" />}
       </div>
@@ -305,7 +317,7 @@ export function ContactListDetailPage() {
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-500">{members.isPending ? 'Loading contacts' : search.trim() ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-500">{members.isPending ? 'Loading contacts' : search.trim() || consent ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
               )}
             </tbody>
           </table>

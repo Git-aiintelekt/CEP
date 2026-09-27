@@ -7,6 +7,7 @@ import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { Switch } from '@/components/Switch'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
@@ -115,7 +116,7 @@ function Figure({ label, value, tone = 'default' }: { label: string; value: stri
   )
 }
 
-function IntegrationCard({ item, onToggle, onShowLog, busy }: { item: Integration; onToggle: () => void; onShowLog: () => void; busy: boolean }) {
+function IntegrationCard({ item, onToggle, onShowLog, onAlerts, busy }: { item: Integration; onToggle: () => void; onShowLog: () => void; onAlerts: (enabled: boolean) => void; busy: boolean }) {
   const health = HEALTH[item.health] ?? HEALTH.idle
   const limit = item.direction === 'IN' ? item.effective_limit_per_minute ?? item.throttle_per_minute : item.throttle_per_minute
   const lastCall = item.last_call_at
@@ -143,11 +144,17 @@ function IntegrationCard({ item, onToggle, onShowLog, busy }: { item: Integratio
       <DayChart integrationId={item.id} name={item.name} />
       {item.breaker_open_seconds > 0 && <p className="mt-1 text-xs font-medium text-danger-text">Circuit open for {item.breaker_open_seconds} s more after {item.breaker_failures} failures in a row. Resume closes it now.</p>}
       {item.last_error && item.health !== 'healthy' && <p className="mt-1 truncate text-xs text-danger-text" title={item.last_error}>{item.last_error}</p>}
-      <div className="mt-3 flex justify-end gap-1 border-t border-line-subtle pt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line-subtle pt-3">
+        <span className="flex items-center gap-2 text-xs text-ink-700" title="A circuit opening on this integration notifies the workspace by the channels set under Settings → Notifications">
+          <Switch checked={item.alerts_enabled !== false} onChange={onAlerts} ariaLabel={`Email Alerts for ${item.name}`} disabled={busy} />
+          Email Alerts
+        </span>
+        <span className="flex gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={onShowLog}>View Log</button>
         <button type="button" className={buttonClass({ variant: item.status === 'PAUSED' ? 'link' : 'danger', size: 'sm' })} disabled={busy} onClick={onToggle}>
           {item.status === 'PAUSED' ? 'Resume' : 'Pause'}
         </button>
+        </span>
       </div>
     </li>
   )
@@ -168,18 +175,49 @@ function Block({ title, headers, body, size }: { title: string; headers: Record<
   )
 }
 
+/** a send that failed can be handed back to the engine; a provider's callback can be applied again */
+function rowActions(data: IntegrationLogDetail): { retry: boolean; replay: boolean } {
+  const provider = data.kind === 'PROVIDER'
+  return { retry: provider && data.direction === 'OUT' && data.outcome !== 'OK' && data.method !== 'REPLAY', replay: provider && data.direction === 'IN' && data.method !== 'REPLAY' && Boolean(data.request_body) }
+}
+
 function LogDetail({ id, onClose }: { id: number; onClose: () => void }) {
+  const queryClient = useQueryClient()
   const row = useQuery({ queryKey: [...INTEGRATIONS, 'log', id], queryFn: ({ signal }) => api.get<IntegrationLogDetail>(`/integrations/log/${id}/`, undefined, signal) })
   const [copied, setCopied] = useState(false)
+  const [outcome, setOutcome] = useState<string | null>(null)
+  const retry = useMutation({
+    mutationFn: () => api.post<{ queued: boolean; note: string }>(`/integrations/log/${id}/retry/`),
+    onSuccess: (result) => { setOutcome(`Queued again. ${result.note}`); void queryClient.invalidateQueries({ queryKey: INTEGRATIONS }) },
+  })
+  const replay = useMutation({
+    mutationFn: () => api.post<{ received: number; applied: number; ignored: number; unmatched: number; failed: number }>(`/integrations/log/${id}/replay/`),
+    onSuccess: (result) => {
+      setOutcome(`Replayed: ${result.applied} of ${result.received} event${result.received === 1 ? '' : 's'} applied${result.ignored ? `, ${result.ignored} ignored` : ''}${result.unmatched ? `, ${result.unmatched} unmatched` : ''}${result.failed ? `, ${result.failed} failed` : ''}. The replay is a new row in the log.`)
+      void queryClient.invalidateQueries({ queryKey: INTEGRATIONS })
+    },
+  })
   const data = row.data
+  const actions = data ? rowActions(data) : { retry: false, replay: false }
+  const busy = retry.isPending || replay.isPending
   return (
-    <Modal title={data ? `${data.method} ${data.direction === 'IN' ? 'Received' : 'Sent'} · ${formatDateTime(data.started_at)}` : 'Call'} size="lg" scrollBody onClose={onClose}
+    <Modal title={data ? `${data.method === 'REPLAY' ? 'Replayed' : `${data.method} ${data.direction === 'IN' ? 'Received' : 'Sent'}`} · ${formatDateTime(data.started_at)}` : 'Call'} size="lg" scrollBody onClose={onClose}
       subtitle={data ? `${data.system}${data.related_ref ? ` · ${data.related_ref}` : ''}${data.attempt > 1 ? ` · attempt ${data.attempt}` : ''}` : undefined}
-      footer={<button type="button" className={buttonSecondary} onClick={onClose}>Close</button>}>
+      footer={
+        <>
+          {actions.replay && <button type="button" className={buttonSecondary} disabled={busy || Boolean(outcome)} onClick={() => replay.mutate()}>{replay.isPending ? 'Replaying' : 'Replay Callback'}</button>}
+          {actions.retry && <button type="button" className={buttonSecondary} disabled={busy || Boolean(outcome)} onClick={() => retry.mutate()}>{retry.isPending ? 'Queuing' : 'Retry Send'}</button>}
+          <button type="button" className={buttonSecondary} onClick={onClose}>Close</button>
+        </>
+      }>
       {row.isError ? <ErrorState error={row.error} onRetry={() => void row.refetch()} />
         : !data ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading the call</p>
         : (
           <div className="space-y-4">
+            {outcome && <p role="status" className="rounded-lg border border-success bg-success-bg px-3 py-2 text-sm text-success-text">{outcome}</p>}
+            {(retry.isError || replay.isError) && <ErrorState title="That did not work" error={retry.error ?? replay.error} />}
+            {actions.retry && !outcome && <p className="text-xs text-ink-500">Retry Send hands this message back to the engine: it is queued again and goes out on the dispatcher's next pass, as a new attempt in the log.</p>}
+            {actions.replay && !outcome && <p className="text-xs text-ink-500">Replay Callback applies what the engine sent once more, for a callback that failed to apply. Opens and clicks already counted are counted again only if the first pass failed.</p>}
             <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div><dt className="text-xs text-ink-500">Outcome</dt><dd className="mt-0.5"><OutcomeBadge outcome={data.outcome} /></dd></div>
               <div><dt className="text-xs text-ink-500">Status</dt><dd className="cep-num mt-0.5 font-medium text-ink-900">{data.response_status ?? '—'}</dd></div>
@@ -226,6 +264,10 @@ export function IntegrationsPage() {
     mutationFn: (item: Integration) => api.post<Integration>(`/integrations/${item.id}/${item.status === 'PAUSED' ? 'resume' : 'pause'}/`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: INTEGRATIONS }),
   })
+  const alerts = useMutation({
+    mutationFn: ({ item, enabled }: { item: Integration; enabled: boolean }) => api.post<{ id: string; alerts_enabled: boolean }>(`/integrations/${item.id}/alerts/`, { enabled }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: INTEGRATIONS }),
+  })
 
   if (!allowed) return <ErrorState title="Integration settings need the provider.edit permission" error={new Error('Ask a workspace administrator to add it to your role.')} />
   if (integrations.isError) return <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
@@ -252,6 +294,7 @@ export function IntegrationsPage() {
   return (
     <div className="space-y-8">
       {toggle.isError && <ErrorState title="That did not work" error={toggle.error} />}
+      {alerts.isError && <ErrorState title="The alert switch was not saved" error={alerts.error} />}
 
       <section aria-labelledby="integrations-heading">
         <div className="mb-3">
@@ -261,8 +304,8 @@ export function IntegrationsPage() {
         {integrations.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading integrations</p>
           : items.length === 0 ? <EmptyState title="No Integration Yet" hint="Add a sending engine under Sending engines, or send the first receipt from the point of sale, and it appears here." />
           : <ul aria-label="Integrations" className="grid gap-4 lg:grid-cols-2">
-              {items.map((item) => <IntegrationCard key={item.id} item={item} busy={toggle.isPending} onToggle={() => toggleWithConfirm(item)}
-                onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
+              {items.map((item) => <IntegrationCard key={item.id} item={item} busy={toggle.isPending || alerts.isPending} onToggle={() => toggleWithConfirm(item)}
+                onAlerts={(enabled) => alerts.mutate({ item, enabled })} onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
             </ul>}
       </section>
 

@@ -128,9 +128,24 @@ def clone(source: ContactList, *, name, description, environment, user_id=None) 
 
 
 # ---------------------------------------------------------------- the people in a list
-def members(contact_list: ContactList, *, search: str = "", source: str = "", page: int = 1, page_size: int = 50, ids: list[int] | None = None) -> dict:
+MEMBER_STATUSES = ("MARKETABLE", "UNSUBSCRIBED", "HARD_BOUNCE", "SOFT_BOUNCE", "COMPLAINT", "BLOCKED", "INVALID_ADDRESS", "SUPPRESSED", "NO_CONSENT")
+
+
+def members(contact_list: ContactList, *, search: str = "", source: str = "", status: str = "", page: int = 1, page_size: int = 50, ids: list[int] | None = None) -> dict:
+    """`status`: one of MEMBER_STATUSES (the marketing-email verdict), or SENDABLE / NOT_SENDABLE."""
     tenant, pk = str(contact_list.tenant_id), str(contact_list.pk)
     where, params = ["m.tenant_id = %(tenant)s", "m.contact_list_id = %(list)s"], {"tenant": tenant, "list": pk}
+    if status:
+        status = status.upper()
+        if status == "SENDABLE":
+            where.append(f"({governance.status_sql()}) = 'MARKETABLE'")
+        elif status == "NOT_SENDABLE":
+            where.append(f"({governance.status_sql()}) <> 'MARKETABLE'")
+        elif status in MEMBER_STATUSES:
+            params["status"] = status
+            where.append(f"({governance.status_sql()}) = %(status)s")
+        else:
+            raise ListError("Filter by a consent state: sendable, not sendable, unsubscribed, bounced, complaint, blocked, invalid, suppressed or no consent.")
     if search:
         params["q"] = f"%{search.strip().lower()}%"
         where.append(f"""(lower(COALESCE(cm.first_name, '') || ' ' || COALESCE(cm.last_name, '')) LIKE %(q)s OR {PRIMARY_EMAIL} LIKE %(q)s
@@ -142,9 +157,12 @@ def members(contact_list: ContactList, *, search: str = "", source: str = "", pa
         params["ids"] = ids
         where.append("m.id = ANY(%(ids)s)")
     clause = " AND ".join(where)
+    joins = f"""LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
+                LEFT JOIN consent_suppression cs ON cs.tenant_id = m.tenant_id AND cs.party_id = m.party_id AND cs.channel = 'EMAIL'
+                LEFT JOIN contact_point_status cps ON cps.tenant_id = m.tenant_id AND cps.contact_point_type = 'EMAIL' AND cps.contact_value = {governance.PRIMARY_EMAIL_SQL}::citext"""
     with _conn().cursor() as cursor:
-        if search or source or ids is not None:
-            cursor.execute(f"SELECT count(*) FROM contact_list_member m LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id WHERE {clause}", params)
+        if search or source or status or ids is not None:
+            cursor.execute(f"SELECT count(*) FROM contact_list_member m {joins} WHERE {clause}", params)
             total = cursor.fetchone()[0]
         else:
             total = _count(cursor, tenant, pk)
@@ -153,9 +171,7 @@ def members(contact_list: ContactList, *, search: str = "", source: str = "", pa
                                   COALESCE(cm.last_name, m.custom_attributes ->> 'last_name'), m.added_at, m.membership_source, cm.party_id IS NOT NULL,
                                   (SELECT p ->> 'number' FROM jsonb_array_elements(cm.phones) p ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1),
                                   {governance.status_sql()}
-                             FROM contact_list_member m LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
-                             LEFT JOIN consent_suppression cs ON cs.tenant_id = m.tenant_id AND cs.party_id = m.party_id AND cs.channel = 'EMAIL'
-                             LEFT JOIN contact_point_status cps ON cps.tenant_id = m.tenant_id AND cps.contact_point_type = 'EMAIL' AND cps.contact_value = {governance.PRIMARY_EMAIL_SQL}::citext
+                             FROM contact_list_member m {joins}
                             WHERE {clause} ORDER BY m.added_at DESC, m.id DESC LIMIT %(limit)s OFFSET %(offset)s""", params)
         rows = [{"id": mid, "party_id": party, "email": email, "first_name": first, "last_name": last, "added_at": added, "source": src, "known": known, "mobile": mobile,
                  "email_status": verdict, "email_status_label": governance.label(verdict), "sendable": governance.STATUSES[verdict][1]}
@@ -241,6 +257,28 @@ def governance_now(contact_list: ContactList) -> dict:
     total = sum(counts.values())
     return {"total": total, "sendable": int(counts.get("MARKETABLE", 0)), "not_sendable": total - int(counts.get("MARKETABLE", 0)),
             "statuses": governance.breakdown(counts), "checked_at": timezone.now()}
+
+
+TEXT_STATUS_SQL = """CASE WHEN ph.number IS NULL THEN 'NO_PHONE' WHEN cps.blocked THEN 'BLOCKED' WHEN cs.consent_status = 'OPTED_OUT' THEN 'UNSUBSCRIBED'
+                          WHEN COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT' ELSE 'MARKETABLE' END"""
+
+
+def reach(contact_list: ContactList) -> dict:
+    """How many of the list's people a marketing send could reach today, by channel: what the audience build computes for a campaign."""
+    email = governance_now(contact_list)
+    with _conn().cursor() as cursor:
+        cursor.execute(f"""SELECT v.status, count(*) FROM (
+                               SELECT {TEXT_STATUS_SQL} AS status
+                                 FROM contact_list_member m LEFT JOIN customer_master cm ON cm.party_id = m.party_id AND cm.tenant_id = m.tenant_id
+                                 LEFT JOIN LATERAL (SELECT p ->> 'number' AS number FROM jsonb_array_elements(cm.phones) p
+                                                     ORDER BY COALESCE((p ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1) ph ON TRUE
+                                 LEFT JOIN consent_suppression cs ON cs.tenant_id = m.tenant_id AND cs.party_id = m.party_id AND cs.channel = 'SMS'
+                                 LEFT JOIN contact_point_status cps ON cps.tenant_id = m.tenant_id AND cps.contact_point_type = 'PHONE' AND cps.contact_value = ph.number::citext
+                                WHERE m.tenant_id = %s AND m.contact_list_id = %s) v GROUP BY 1""", [str(contact_list.tenant_id), str(contact_list.pk)])
+        texts = dict(cursor.fetchall())
+    total_texts = sum(texts.values())
+    return {"email": {"total": email["total"], "sendable": email["sendable"]}, "sms": {"total": total_texts, "sendable": int(texts.get("MARKETABLE", 0)),
+            "no_phone": int(texts.get("NO_PHONE", 0))}, "checked_at": timezone.now()}
 
 
 # ---------------------------------------------------------------- where a list is used

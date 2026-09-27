@@ -1,11 +1,11 @@
 /**
- * Campaigns landing (BRD 6.3): what is coming up, then two views of the same filtered campaigns. List view: search,
- * filters, sorting, pages of 25 / 50 / 100, a preview pop-up per campaign (?preview=<id>), a row menu by status and bulk
- * clone / archive. Calendar view: the month,
- * a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
+ * Campaigns landing (BRD 6.3): what is coming up, then two views of the same filtered campaigns. List view: saved views
+ * (Mine, Sending Today, Needs Attention…), search, filters, sorting, pages of 25 / 50 / 100, a preview pop-up per
+ * campaign (?preview=<id>), Pause / Resume / Approve on the row, a row menu by status and bulk clone / archive / pause /
+ * resume. Calendar view: the month, a bar per campaign. Archived campaigns stay out unless the Status filter asks for them.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Plus, User, Workflow, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown, Pause, Play, Plus, ShieldCheck, User, Workflow, X } from 'lucide-react'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -15,7 +15,7 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
-import { StatusBadge } from '@/components/StatusBadge'
+import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { Tabs } from '@/components/Tabs'
 import { tabPanelId } from '@/components/tabIds'
 import { buttonClass } from '@/components/buttonStyles'
@@ -32,24 +32,51 @@ import { CampaignFilters } from './CampaignFilters'
 import { campaignMenuItems, type CampaignMenuItem } from './campaignMenu'
 import { CampaignPreview } from './CampaignPreview'
 import { ChannelIcon } from './ChannelIcon'
-import { EMPTY_FILTERS, type Filters } from './listFilters'
+import { EMPTY_FILTERS, SAVED_VIEWS, savedViewOf, type Filters, type SavedView } from './listFilters'
 import { CampaignSetupDialog } from './setup/CampaignSetupDialog'
 import { setupHref, stepsFor } from './setupFlow'
-import { CONFIRM, useBulkAction, useCampaignAction, type StatusAction } from './useCampaignAction'
-import { channelLabel, typeShortLabel } from './vocabulary'
+import { BULK_DONE, CONFIRM, useBulkAction, useCampaignAction, type BulkAction, type StatusAction } from './useCampaignAction'
+import { channelLabel, hasAction, typeShortLabel } from './vocabulary'
 import { timeInZone } from './zone'
 
 const PAGE_SIZES = [25, 50, 100]
 
 const COLUMNS: { key: string; label: string }[] = [
   { key: 'name', label: 'Campaign Name' }, { key: 'campaign_type', label: 'Type' }, { key: 'channel', label: 'Channel' }, { key: 'status', label: 'Status' },
-  { key: '', label: 'Triggered By' }, { key: '', label: 'Audience' }, { key: 'next_run', label: 'Scheduled' }, { key: 'created_at', label: 'Created' },
+  { key: '', label: 'Triggered By' }, { key: '', label: 'Audience' }, { key: 'next_run', label: 'Next Send' }, { key: 'created_at', label: 'Created' },
 ]
 
 function scheduledText(campaign: Campaign): string {
   if (campaign.next_run_at) return formatDate(campaign.next_run_at)
   if (campaign.campaign_type === 'E_RECEIPT' && ['PRODUCTION_PUBLISHED', 'ACTIVE'].includes(campaign.status)) return 'Ongoing'
+  if (campaign.status === 'ACTIVE') return 'Sending now'
   return formatDate(campaign.scheduled_at ?? campaign.published_at)
+}
+
+/** the Next Send cell: the day, and under it the time in the campaign's zone (or the workspace's) */
+function NextSendCell({ campaign, zone }: { campaign: Campaign; zone: string }) {
+  const when = campaign.next_run_at
+  return (
+    <div className="min-w-0">
+      <span className="cep-num block whitespace-nowrap text-helper text-ink-500">{scheduledText(campaign)}</span>
+      {when && <span className="cep-num block whitespace-nowrap text-helper text-ink-300">{timeInZone(when, campaign.send_timezone || zone)}{campaign.timezone_optimization ? ' · local time' : ''}</span>}
+    </div>
+  )
+}
+
+/** the one thing most worth doing to the row, beside ⋮: Pause, Resume, or Approve (a link to the Review step) */
+function RowAction({ campaign, rights, onAct }: { campaign: Campaign; rights: { publish: boolean; approve: boolean }; onAct: (action: StatusAction) => void }) {
+  const small = 'inline-flex h-8 items-center gap-1 rounded-control-md px-2 text-helper font-semibold text-brand-800 transition-colors duration-fast ease-standard hover:bg-brand-100'
+  if (rights.approve && campaign.approval?.status === 'REQUESTED' && hasAction(campaign, 'approve')) {
+    return <Link to={setupHref(campaign.id, { step: 'publish', section: 'review' })} className={small} aria-label={`Approve ${campaign.name}`}><ShieldCheck size={14} strokeWidth={1.5} aria-hidden />Approve</Link>
+  }
+  if (rights.publish && hasAction(campaign, 'pause')) {
+    return <button type="button" className={small} aria-label={`Pause ${campaign.name}`} onClick={() => onAct('pause')}><Pause size={14} strokeWidth={1.5} aria-hidden />Pause</button>
+  }
+  if (rights.publish && hasAction(campaign, 'resume')) {
+    return <button type="button" className={small} aria-label={`Resume ${campaign.name}`} onClick={() => onAct('resume')}><Play size={14} strokeWidth={1.5} aria-hidden />Resume</button>
+  }
+  return null
 }
 
 /** a click that lands on something with its own job (a link, the checkbox, the ⋮ button or its menu) is not a row click */
@@ -186,6 +213,9 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const workspaceZone = me?.tenant.timezone || 'UTC'
   const canEdit = can('campaign.edit')
   const canPublish = can('campaign.publish')
+  const canApprove = can('campaign.approve')
+  const saved = savedViewOf(params.get('saved'))
+  const savedQuery = SAVED_VIEWS.find((item) => item.key === saved)?.query ?? {}
   const wide = useMinWidth(BREAKPOINT.md)
   const menus = useSingleDropdown<string>()
   const [createOpen, setCreateOpen] = useState(creating)
@@ -200,9 +230,10 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const [notice, setNotice] = useState<ReactNode>('')
   const [confirming, setConfirming] = useState<{ campaign: Campaign; action: StatusAction } | null>(null)
   const [bulkArchive, setBulkArchive] = useState(false)
+  const [bulkAsked, setBulkAsked] = useState<Exclude<BulkAction, 'archive' | 'clone'> | null>(null)
 
   const { created: _created, ...apiFilters } = filters
-  const query = { search: search.trim(), ...apiFilters, ordering, page, page_size: pageSize }
+  const query = { search: search.trim(), ...apiFilters, ...savedQuery, ordering, page, page_size: pageSize }
   const list = useQuery({
     queryKey: ['campaigns', 'list', query],
     queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', query, signal),
@@ -221,14 +252,15 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   })
   const bulk = useBulkAction((result) => {
     setBulkArchive(false)
+    setBulkAsked(null)
     setSelected([])
-    const verb = result.action === 'clone' ? 'cloned' : 'archived'
+    const verb = BULK_DONE[result.action as BulkAction] ?? result.action
     setNotice(`${result.done.length} campaign${result.done.length === 1 ? '' : 's'} ${verb}.` + (result.skipped.length ? ` Left as they were: ${result.skipped.map((item) => `${item.name} (${item.reason})`).join('; ')}` : ''))
   })
 
   const rows = list.data?.results ?? []
   const total = list.data?.count ?? 0
-  const filtered = search.trim() !== '' || Object.values(filters).some(Boolean)
+  const filtered = search.trim() !== '' || Object.values(filters).some(Boolean) || saved !== ''
   const pageIds = rows.map((row) => row.id)
   const allPicked = pageIds.length > 0 && pageIds.every((id) => selected.includes(id))
 
@@ -242,6 +274,16 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     setFilters(EMPTY_FILTERS)
     setPage(1)
     setSelected([])
+    pickSaved('')
+  }
+  function pickSaved(next: SavedView) {
+    setParams((current) => {
+      const now = new URLSearchParams(current)
+      if (next) now.set('saved', next); else now.delete('saved')
+      return now
+    }, { replace: true })
+    setPage(1)
+    setSelected([])
   }
   function sortBy(key: string) {
     setOrdering((current) => (current === key ? `-${key}` : key))
@@ -253,6 +295,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     else act.mutate({ campaign, action })
   }
   const rights = { edit: canEdit, publish: canPublish }
+  const rowRights = { publish: canPublish, approve: canApprove }
   const pickFor = (row: Campaign) => (item: CampaignMenuItem) => (item.action ? run(row, item.action) : navigate(item.to))
   const rowMenu = (row: Campaign) => <CampaignActionsMenu menus={menus} id={`row-${row.id}`} label={`Actions for ${row.name}`} items={campaignMenuItems(row, rights)} onPick={pickFor(row)} />
 
@@ -372,6 +415,17 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
 
       <Upcoming workspaceZone={workspaceZone} canEdit={canEdit} />
 
+      {view === 'list' && (
+        <div role="group" aria-label="Saved views" className="mb-3 flex flex-wrap gap-2">
+          {SAVED_VIEWS.filter((item) => item.key !== 'approval' || canApprove || canPublish).map((item) => (
+            <button key={item.key || 'all'} type="button" aria-pressed={saved === item.key} onClick={() => pickSaved(item.key)}
+              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <CampaignFilters
         menus={menus}
         filters={filters}
@@ -393,6 +447,8 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         <div role="region" aria-label="Bulk actions" className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-callout-bg px-4 py-2 text-sm text-callout-text">
           <span className="font-medium">{selected.length} selected</span>
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => bulk.mutate({ action: 'clone', ids: selected })}>Clone</button>
+          {canPublish && <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => setBulkAsked('pause')}>Pause</button>}
+          {canPublish && <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => bulk.mutate({ action: 'resume', ids: selected })}>Resume</button>}
           <button type="button" className={buttonSecondary} disabled={bulk.isPending} onClick={() => setBulkArchive(true)}>Archive</button>
           <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setSelected([])}>Clear Selection</button>
         </div>
@@ -454,12 +510,17 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                       <td className={`${cell} max-w-[280px] min-w-[180px]`}>{nameCell(row)}</td>
                       <td className={`${cell} whitespace-nowrap text-ink-500`}>{typeShortLabel(row.campaign_type)}</td>
                       <td className={cell}><ChannelCell channel={row.channel} /></td>
-                      <td className={`${cell} whitespace-nowrap`}><StatusBadge status={row.display_status} label={row.display_status_label} /></td>
+                      <td className={`${cell} whitespace-nowrap`}>
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          <StatusBadge status={row.display_status} label={row.display_status_label} />
+                          {row.approval?.status === 'REQUESTED' && <Tag>Awaiting Approval</Tag>}
+                        </span>
+                      </td>
                       <td className={cell}><TriggeredCell campaign={row} /></td>
                       <td className={`${cell} cep-num font-medium ${row.audience_size === null ? 'text-ink-300' : 'text-ink-900'}`}>{formatNumber(row.audience_size)}</td>
-                      <td className={`${cell} cep-num whitespace-nowrap text-helper text-ink-500`}>{scheduledText(row)}</td>
+                      <td className={cell}><NextSendCell campaign={row} zone={workspaceZone} /></td>
                       <td className={`${cell} cep-num whitespace-nowrap text-helper text-ink-500`}>{formatDate(row.created_at)}</td>
-                      <td className={`${cell} text-right`}>{rowMenu(row)}</td>
+                      <td className={`${cell} text-right whitespace-nowrap`}><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</td>
                     </tr>
                   )
                 })}
@@ -476,13 +537,14 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                 className={`cursor-pointer rounded-lg border border-line p-4 transition-colors duration-fast ease-standard ${row.is_journey_generated ? 'bg-surface-subtle' : 'bg-surface hover:bg-surface-subtle'}`}>
                 <div className="flex items-start justify-between gap-3">
                   {nameCell(row)}
-                  {rowMenu(row)}
+                  <span className="flex shrink-0 items-center"><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-helper text-ink-500">
                   <StatusBadge status={row.display_status} label={row.display_status_label} />
+                  {row.approval?.status === 'REQUESTED' && <Tag>Awaiting Approval</Tag>}
                   <ChannelCell channel={row.channel} />
                   <span>{typeShortLabel(row.campaign_type)}</span>
-                  <span className="cep-num">{scheduledText(row)}</span>
+                  <span className="cep-num">{scheduledText(row)}{row.next_run_at ? ` · ${timeInZone(row.next_run_at, row.send_timezone || workspaceZone)}` : ''}</span>
                 </div>
               </li>
             ))}
@@ -529,6 +591,20 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
           }
         >
           <p className="text-sm text-ink-700">They leave the everyday list. Nothing is deleted: results stay available, and each can be restored. A campaign that cannot be archived now is left as it is and named afterwards.</p>
+        </Modal>
+      )}
+      {bulkAsked && (
+        <Modal
+          title={`Pause ${selected.length} campaign${selected.length === 1 ? '' : 's'}?`}
+          onClose={() => setBulkAsked(null)}
+          footer={
+            <>
+              <button type="button" className={buttonSecondary} onClick={() => setBulkAsked(null)}>Keep Them Running</button>
+              <button type="button" className={buttonPrimary} disabled={bulk.isPending} onClick={() => bulk.mutate({ action: bulkAsked, ids: selected })}>Pause</button>
+            </>
+          }
+        >
+          <p className="text-sm text-ink-700">Sending stops for each of them; messages already handed to the provider still go out. A campaign that cannot be paused now is left as it is and named afterwards.</p>
         </Modal>
       )}
       {createOpen && canEdit && <CampaignSetupDialog onClose={closeCreate} />}

@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { MenuRow } from '@/components/MenuRow'
 import { Modal } from '@/components/Modal'
 import { Popover } from '@/components/Popover'
-import { ErrorState, Spinner } from '@/components/States'
+import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { api } from '@/lib/api'
@@ -23,6 +23,7 @@ import { usePresets } from './presetSource'
 import { ItemTile } from './preview/ItemTile'
 import { TemplatePreviewModal } from './preview/TemplatePreviewModal'
 import { canPreview, type PreviewItem } from './preview/usePreviewContent'
+import { lastUsedText } from './lastUsed'
 import { StatusTag } from './StatusTag'
 import { useCreateFromPreset } from './useCreateFromPreset'
 
@@ -166,10 +167,14 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         ) : list.isPending ? (
           <p className="flex items-center gap-3 py-12 text-sm text-ink-500"><Spinner /> Loading templates</p>
         ) : items.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-base font-semibold text-ink-900">No matching templates</p>
-            <p className="mt-1 text-helper text-ink-500">Try a different channel filter or clear the search.</p>
-          </div>
+          needle || status || tab !== 'ALL' ? (
+            <div className="p-12 text-center">
+              <p className="text-base font-semibold text-ink-900">No matching templates</p>
+              <p className="mt-1 text-helper text-ink-500">Try a different channel filter or clear the search.</p>
+            </div>
+          ) : (
+            <EmptyState title="No Templates Yet" hint={canEdit ? 'Start one from a channel above, or copy a CEP preset: every campaign needs a template to send.' : 'Someone with the template.edit permission can start one from a channel above.'} />
+          )
         ) : view === 'grid' ? (
           <TemplateGrid items={items} canEdit={canEdit} onPreset={createFromPreset} onPreview={setPreviewing} actions={actions} />
         ) : (
@@ -251,11 +256,12 @@ const openPreset = (item: Extract<PreviewItem, { kind: 'preset' }>, { onPreview,
 const CARD = 'flex flex-col overflow-hidden rounded-lg border border-line bg-surface text-left'
 const CARD_ACTIVE = 'transition-colors duration-fast ease-standard hover:border-brand-600 active:border-brand-800'
 
-function CardBody({ name, meta, tags }: { name: string; meta: string; tags: ReactNode }) {
+function CardBody({ name, meta, usage, tags }: { name: string; meta: string; usage?: string; tags: ReactNode }) {
   return (
     <span className="flex flex-col gap-1 p-3.5">
       <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
       <span className="text-xs text-ink-500">{meta}</span>
+      {usage && <span className="line-clamp-1 text-xs text-ink-500" data-last-used>{usage}</span>}
       <span className="mt-1.5 flex flex-wrap gap-1.5">{tags}</span>
     </span>
   )
@@ -272,7 +278,7 @@ function TemplateGrid({ items, canEdit, onPreset, onPreview, actions }: ItemsPro
           const body = (
             <>
               <ItemTile item={item} />
-              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag></>} />
+              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} usage={lastUsedText(template)} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag></>} />
             </>
           )
           return (
@@ -354,6 +360,7 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
             <th scope="col" className={HEAD}>Channel</th>
             <th scope="col" className={HEAD}>Status</th>
             <th scope="col" className={HEAD}>Last Edited</th>
+            <th scope="col" className={HEAD}>Last Used In</th>
             <th scope="col" className={`${HEAD} w-12`}><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
@@ -376,6 +383,7 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
                   <td className={CELL}><StatusTag status={template.status} /></td>
                   <td className={`${CELL} whitespace-nowrap text-ink-500`}>Edited {formatRelative(template.updated_at)}</td>
+                  <td className={`${CELL} max-w-[240px] truncate text-ink-500`} title={lastUsedText(template)}>{template.last_used_in ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
                   <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                     <RowMenu menus={menus} id={template.id} name={template.name}>
                       {canPreview(item) && <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />}

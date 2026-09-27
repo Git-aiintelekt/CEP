@@ -33,10 +33,13 @@ export function useCampaignAction(onDone?: (message: string, after: Campaign, ac
   })
 }
 
+export type BulkAction = 'archive' | 'clone' | 'pause' | 'resume'
+export const BULK_DONE: Record<BulkAction, string> = { archive: 'archived', clone: 'cloned', pause: 'paused', resume: 'resumed' }
+
 export function useBulkAction(onDone?: (result: BulkResult) => void) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { action: 'archive' | 'clone'; ids: string[] }) => api.post<BulkResult>('/campaigns/bulk/', body),
+    mutationFn: (body: { action: BulkAction; ids: string[] }) => api.post<BulkResult>('/campaigns/bulk/', body),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       onDone?.(result)

@@ -26,6 +26,7 @@ import { useLeaveGuard } from './useLeaveGuard'
 import { STARTER_MJML } from './starter'
 import { asToken } from './tags'
 import { HeaderField } from './HeaderField'
+import { spamHint } from './spamWords'
 import { saveErrorDetail } from './saveErrors'
 import { PreviewPane } from './preview/PreviewPane'
 import { buildPreview, type PreviewState } from './preview/previewState'
@@ -356,6 +357,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             placeholder="{{first_name}}, your offer is here"
             readOnly={readOnly}
             note={noRoom?.field === 'subject' ? noRoom.message : null}
+            hint={spamHint(subject)}
             onChange={(value) => {
               setSubject(value)
               setNoRoom(null)

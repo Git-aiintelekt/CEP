@@ -19,6 +19,7 @@ import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from 
 
 import { AudiencePicture } from '../AudiencePicture'
 import { Definition, Panel } from '../parts'
+import type { FlowStep } from '../setupFlow'
 import { channelLabel, sendTypeLabel, typeLabel, whenText } from '../vocabulary'
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (step: number) => void; children: ReactNode }) {
@@ -26,6 +27,56 @@ function Section({ title, step, onEdit, children }: { title: string; step: numbe
     <Panel title={title} actions={<button type="button" aria-label={`Edit ${title}`} className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => onEdit(step)}>Edit</button>}>
       <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
     </Panel>
+  )
+}
+
+/**
+ * The card at the top of Review & Publish: anything still unfinished, each with the way to it, or one line saying all is in place.
+ * The checklist is the API's (the same the publish uses); no test and no targets are advice, not blockers.
+ */
+export function PublishSummary({ campaign, onEdit, onGo }: { campaign: Campaign; onEdit: (step: number) => void; onGo: (step: FlowStep) => void }) {
+  const checklist = useQuery({
+    queryKey: ['campaigns', 'checklist', campaign.id, campaign.row_version],
+    queryFn: ({ signal }) => api.get<CampaignChecklist>(`/campaigns/${campaign.id}/checklist/`, undefined, signal),
+  })
+  if (!checklist.data) return null
+  const isReceipt = campaign.campaign_type === 'E_RECEIPT'
+  const items: { key: string; text: string; blocking: boolean; go: () => void }[] = []
+  const place: Record<string, number | FlowStep> = { template: 2, sender_profile: 2, contact_lists: 1, scheduled_at: 3, recurring_config: 3, drip_config: 3 }
+  for (const item of checklist.data.items) {
+    if (item.ok) continue
+    if (item.key === 'test') { items.push({ key: item.key, text: 'No test has been sent. Send yourself one to see the message as a recipient will.', blocking: false, go: () => onGo('test') }); continue }
+    if (item.key === 'approval') { items.push({ key: item.key, text: item.problem ?? item.label, blocking: true, go: () => onEdit(3) }); continue }
+    const target = place[item.key] ?? 3
+    items.push({ key: item.key, text: item.problem ?? item.label, blocking: true, go: () => (typeof target === 'number' ? onEdit(target) : onGo(target)) })
+  }
+  const hasTargets = Boolean(campaign.targets && Object.entries(campaign.targets).some(([key, value]) => key !== 'notes' && value !== null && value !== undefined && value !== ''))
+  if (!isReceipt && !hasTargets) items.push({ key: 'targets', text: 'No targets set. Results are shown against them once the campaign runs.', blocking: false, go: () => onEdit(4) })
+  const blocking = items.filter((item) => item.blocking).length
+  if (items.length === 0) {
+    return (
+      <div role="status" data-publish-summary="ready" className="flex items-start gap-2.5 rounded-lg border border-success bg-success-bg px-4 py-3 text-sm text-success-text">
+        <CircleCheck size={18} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden />
+        <span>Everything is in place. Choose when it goes out, then publish.</span>
+      </div>
+    )
+  }
+  return (
+    <section aria-labelledby="publish-summary-title" data-publish-summary={blocking ? 'blocked' : 'advice'}
+      className={`rounded-lg border px-4 py-3 text-sm ${blocking ? 'border-warning bg-warning-bg text-warning-text' : 'border-line bg-surface-subtle text-ink-700'}`}>
+      <p id="publish-summary-title" className="font-semibold">
+        {blocking ? `${blocking} thing${blocking === 1 ? '' : 's'} to finish before publishing` : `${items.length === 1 ? 'One thing' : `${items.length} things`} you may still want to do`}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((item) => (
+          <li key={item.key} className="flex flex-wrap items-baseline gap-x-2">
+            {item.blocking ? <CircleAlert size={14} strokeWidth={1.5} className="relative top-0.5 shrink-0" aria-hidden /> : <CircleDashed size={14} strokeWidth={1.5} className="relative top-0.5 shrink-0" aria-hidden />}
+            <span>{item.text}</span>
+            <button type="button" className="font-semibold underline underline-offset-2" onClick={item.go}>{item.key === 'test' ? 'Send a Test' : item.key === 'targets' ? 'Set Targets' : 'Fix It'}</button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 

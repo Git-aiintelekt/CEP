@@ -54,17 +54,17 @@ class DigivizeProvider(SmsProvider):
     supports_mms = True
     default_rate_limit_per_minute = 60                       # Digivize's own limit per API key
     config_fields = (
-        ConfigField("endpoint", "API address", kind="url", placeholder=DEFAULT_ENDPOINT, required=False,
+        ConfigField("endpoint", "API Address", kind="url", placeholder=DEFAULT_ENDPOINT, required=False,
                     help=f"Leave empty for {DEFAULT_ENDPOINT}. Digivize's sandbox has its own address."),
-        ConfigField("api_key", "API key", help="The X-Api-Key Digivize gave you (sk_...). It identifies the account; the secret key below signs each call."),
-        ConfigField("secret_key", "Secret key", secret=True, help="Signs every call (HMAC-SHA256). Never shown again once saved."),
-        ConfigField("store_number", "Store number", required=False, help="Optional. Sent with every message for Digivize's own tracking."),
-        ConfigField("callback_url", "Callback address to send", required=False, kind="url",
+        ConfigField("api_key", "API Key", help="The X-Api-Key Digivize gave you (sk_...). It identifies the account; the secret key below signs each call."),
+        ConfigField("secret_key", "Secret Key", secret=True, help="Signs every call (HMAC-SHA256). Never shown again once saved."),
+        ConfigField("store_number", "Store Number", required=False, help="Optional. Sent with every message for Digivize's own tracking."),
+        ConfigField("callback_url", "Callback Address to Send", required=False, kind="url",
                     help="Optional. Paste this engine's callback address (Copy webhook URL on its row): Digivize then posts delivery receipts there per message. "
                          "Registering the address once with Digivize (their webhooks endpoint) does the same for every message."),
-        ConfigField("webhook_secret", "Webhook secret", required=False,
+        ConfigField("webhook_secret", "Webhook Secret", required=False,
                     help="Optional. The secret you gave Digivize for the webhook: receipts are then verified (X-Signature over the body). Empty: the callback address's own token is the check."),
-        ConfigField("signature_scheme", "Signature form", required=False, placeholder="found by Check",
+        ConfigField("signature_scheme", "Signature Form", required=False, placeholder="found by Check",
                     help="What the HMAC signs. Leave empty: Check tries the known forms and keeps the one Digivize accepts. Forms: " + ", ".join(SCHEMES)),
     )
 

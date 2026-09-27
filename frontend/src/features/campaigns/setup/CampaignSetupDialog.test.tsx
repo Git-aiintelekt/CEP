@@ -358,7 +358,7 @@ test('the create flow speaks in title case for labels, and in sentences for help
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   await screen.findByRole('heading', { level: 2, name: 'Send To' })
   const rail = within(screen.getByRole('navigation', { name: 'Setup Steps' })).getAllByRole('button').map((button) => button.querySelector('[data-step-label]')?.textContent)
-  expect(rail).toEqual(['Audience', 'Content', 'Targets', 'Test', 'Review & Publish'])
+  expect(rail).toEqual(['Audience', 'Content', 'Test', 'Targets', 'Review & Publish'])
   expect(screen.getByRole('button', { name: 'Continue to Content' })).toBeTruthy()
   expect(screen.getAllByRole('button', { name: 'Save and Close' })[0]).toBeTruthy()
 })

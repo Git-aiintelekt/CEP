@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import auth_api, campaigns_api, contact_lists_api, delivery_api, delivery_public, integrations_api, reports_api, settings_api, suppressions_api, views, workspace_api
+from . import auth_api, campaigns_api, contact_lists_api, delivery_api, delivery_public, integrations_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -49,6 +49,10 @@ urlpatterns = [
     path("integrations/", integrations_api.IntegrationListView.as_view(), name="integration-list"),
     path("integrations/log/", integrations_api.IntegrationLogListView.as_view(), name="integration-log"),
     path("integrations/log/<int:pk>/", integrations_api.IntegrationLogDetailView.as_view(), name="integration-log-detail"),
+    path("integrations/log/<int:pk>/retry/", integrations_api.IntegrationLogRetryView.as_view(), name="integration-log-retry"),
+    path("integrations/log/<int:pk>/replay/", integrations_api.IntegrationLogReplayView.as_view(), name="integration-log-replay"),
+    path("integrations/<uuid:pk>/alerts/", integrations_api.IntegrationAlertsView.as_view(), name="integration-alerts"),
+    path("search/", search_api.SearchView.as_view(), name="search"),
     path("integrations/<uuid:pk>/metrics/", integrations_api.IntegrationMetricsView.as_view(), name="integration-metrics"),
     path("integrations/<uuid:pk>/pause/", integrations_api.IntegrationPauseView.as_view(), {"pause": True}, name="integration-pause"),
     path("integrations/<uuid:pk>/resume/", integrations_api.IntegrationPauseView.as_view(), {"pause": False}, name="integration-resume"),

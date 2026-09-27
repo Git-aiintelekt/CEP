@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { PageHeader } from '@/components/ResourceList'
-import { ErrorState, Spinner } from '@/components/States'
+import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
@@ -79,6 +79,8 @@ export function DashboardPage() {
       <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Recent Campaigns</h2>
       {campaigns.isError ? (
         <ErrorState error={campaigns.error} onRetry={() => void campaigns.refetch()} />
+      ) : !campaigns.isPending && campaigns.rows.length === 0 ? (
+        <EmptyState title="No Campaigns Yet" hint="The first campaign appears here as soon as it is created. Create one from Campaigns, or let a journey generate one." />
       ) : (
         <DataTable
           columns={recentColumns}

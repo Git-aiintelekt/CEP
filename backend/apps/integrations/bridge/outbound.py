@@ -159,10 +159,16 @@ def _trouble(guard, integration, exc) -> None:
     if not tenant_id:
         return
     cooldown = int((integration or {}).get("breaker_cooldown_seconds") or 60)
-    notifications.notify(tenant_id, "engine_trouble", title=f"{guard.system}: sending paused after repeated failures",
-                         lines=[f"{guard.breaker.threshold} sends in a row failed; the last error: {str(exc)[:300]}",
-                                f"Sending resumes on its own in {cooldown} seconds, or now from Settings → Integrations."],
-                         link=settings.FRONTEND_URL.rstrip("/") + "/settings/integrations", link_label="Open Integrations")
+    try:
+        config = notifications.prepare(tenant_id)
+        if integration and str(integration.get("id")) in config["muted_integrations"]:
+            return                                          # the switch on its card is off
+        notifications.deliver(config, tenant_id, "engine_trouble", title=f"{guard.system}: sending paused after repeated failures",
+                              lines=[f"{guard.breaker.threshold} sends in a row failed; the last error: {str(exc)[:300]}",
+                                     f"Sending resumes on its own in {cooldown} seconds, or now from Settings → Integrations."],
+                              link=settings.FRONTEND_URL.rstrip("/") + "/settings/integrations", link_label="Open Integrations")
+    except Exception:                                      # noqa: BLE001
+        log.exception("engine trouble notification not sent")
 
 
 def guarded_send(adapter, message, related_ref: str | None = None):

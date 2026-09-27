@@ -15,7 +15,7 @@ import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
-import type { ContactList, ListStats } from '@/lib/types'
+import type { ContactList, ListReach, ListStats } from '@/lib/types'
 import { useCursorList } from '@/lib/useCursorList'
 
 import { CreateListWizard } from './CreateListWizard'
@@ -100,6 +100,26 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
   )
 }
 
+/** How many of the list a marketing send could reach today, by channel: the figure the audience build computes for a campaign. */
+function ReachCell({ list }: { list: ContactList }) {
+  const reach = useQuery({
+    queryKey: ['contact-lists', list.id, 'reach', list.member_count],
+    queryFn: ({ signal }) => api.get<ListReach>(`/contact-lists/${list.id}/reach/`, undefined, signal),
+    staleTime: 5 * 60_000,
+    enabled: list.member_count > 0 && list.status !== 'DRAFT',
+  })
+  if (list.member_count === 0 || list.status === 'DRAFT') return <span className="text-ink-300">—</span>
+  if (reach.isPending) return <span className="text-ink-300">…</span>
+  if (reach.isError) return <span className="text-ink-300" title="The reach could not be counted">—</span>
+  const { email, sms } = reach.data
+  return (
+    <span className="cep-num inline-flex flex-col items-end text-xs leading-4" data-reach title={`Email: ${formatNumber(email.sendable)} of ${formatNumber(email.total)} · Texts: ${formatNumber(sms.sendable)} of ${formatNumber(sms.total)}`}>
+      <span><span className="text-ink-500">Email </span><span className="font-medium text-ink-900">{formatNumber(email.sendable)}</span></span>
+      <span><span className="text-ink-500">SMS </span><span className="font-medium text-ink-900">{formatNumber(sms.sendable)}</span></span>
+    </span>
+  )
+}
+
 export function ContactListsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -148,6 +168,7 @@ export function ContactListsPage() {
     { key: 'type', header: 'Type', render: (row) => <TypeBadge environment={row.list_environment} /> },
     { key: 'source', header: 'Source', render: (row) => <Tag>{row.source_label ?? row.source_type}</Tag> },
     { key: 'contacts', header: 'Contacts', align: 'right', render: (row) => formatNumber(row.member_count) },
+    { key: 'reach', header: 'Can Reach', align: 'right', render: (row) => <ReachCell list={row} /> },
     {
       key: 'campaigns', header: 'Campaigns', align: 'right',
       render: (row) => (row.live_campaigns ? <span title="attached to a live campaign">{row.attached_campaigns} · {row.live_campaigns} live</span> : formatNumber(row.attached_campaigns ?? 0)),

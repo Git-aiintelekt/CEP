@@ -2,7 +2,7 @@
  * The Preview tab: the email as one contact would receive it, at desktop or phone width, under its inbox row.
  * Knows nothing about GrapesJS: it is handed the compiled email (or why there is none) and the header fields.
  */
-import { Monitor, Smartphone } from 'lucide-react'
+import { Monitor, Moon, Smartphone, Sun } from 'lucide-react'
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/Button'
@@ -12,10 +12,11 @@ import { EmptyState, Spinner } from '@/components/States'
 import { formatUtcClock } from '@/lib/format'
 import type { PersonalizationTag } from '@/lib/types'
 
+import { clientById, EMAIL_CLIENTS, type Appearance, type ClientId } from './clients'
 import { decoratePreview } from './decoratePreview'
 import { InboxRow } from './InboxRow'
 import {
-  DEVICE_LABEL, EMPTY_HINT, EMPTY_LINK_NOTE, EMPTY_TITLE, FAILED_NOTE, FOOTNOTE, HIDE_DETAILS, LOADING_LABEL, PREVIEW_AS_LABEL,
+  APPEARANCE_LABEL, CLIENT_LABEL, DEVICE_LABEL, EMPTY_HINT, EMPTY_LINK_NOTE, EMPTY_TITLE, FAILED_NOTE, FOOTNOTE, HIDE_DETAILS, LOADING_LABEL, PREVIEW_AS_LABEL,
   PREVIEW_FRAME_TITLE, PREVIEW_FRAME_WIDTH, SHOW_DETAILS, type PreviewDevice,
 } from './previewCopy'
 import { PREVIEW_PROFILES, profileById, type PreviewProfileId } from './previewProfiles'
@@ -26,6 +27,11 @@ const DEVICE_OPTIONS = [
   { value: 'mobile' as const, label: 'Mobile', icon: Smartphone },
 ]
 const PROFILE_OPTIONS = PREVIEW_PROFILES.map((profile) => ({ value: profile.id, label: profile.label }))
+const CLIENT_OPTIONS = EMAIL_CLIENTS.map((client) => ({ value: client.id, label: client.label }))
+const APPEARANCE_OPTIONS = [
+  { value: 'light' as const, label: 'Light', icon: Sun },
+  { value: 'dark' as const, label: 'Dark', icon: Moon },
+]
 
 /** the pane's own padding either side of the email (p-4) */
 const GUTTER = 32
@@ -40,13 +46,16 @@ interface PreviewPaneProps {
 export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProps) {
   const [device, setDevice] = useState<PreviewDevice>('desktop')
   const [profileId, setProfileId] = useState<PreviewProfileId>('sample')
+  const [clientId, setClientId] = useState<ClientId>('generic')
+  const [appearance, setAppearance] = useState<Appearance>('light')
   const profile = profileById(profileId)
+  const client = clientById(clientId)
   const asLabelId = useId()
   const width = PREVIEW_FRAME_WIDTH[device]
 
   const decorated = useMemo(
-    () => (state.status === 'ready' ? decoratePreview(state.html, tags, profile, { phone: device === 'mobile' }) : null),
-    [state, tags, profile, device],
+    () => (state.status === 'ready' ? decoratePreview(state.html, tags, profile, { phone: device === 'mobile', clientCss: client.quirksCss, dark: appearance === 'dark' ? client.dark : null }) : null),
+    [state, tags, profile, device, client, appearance],
   )
 
   // Scaled like the canvas's Fit when the pane is narrower than the email. A transform leaves the iframe's own
@@ -77,6 +86,14 @@ export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProp
         </div>
         <SegmentedControl label={DEVICE_LABEL} options={DEVICE_OPTIONS} value={device} onChange={setDevice} />
       </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-ink-500">{CLIENT_LABEL}</span>
+          <SegmentedControl label={CLIENT_LABEL} options={CLIENT_OPTIONS} value={clientId} onChange={setClientId} />
+        </div>
+        <SegmentedControl label={APPEARANCE_LABEL} options={APPEARANCE_OPTIONS} value={appearance} onChange={setAppearance} />
+      </div>
+      <p className="shrink-0 border-b border-line-subtle bg-surface-subtle px-4 py-1.5 text-xs text-ink-500" data-client-note>{client.note}</p>
 
       {state.status === 'failed' ? <FailedNotice details={state.details} /> : null}
       {decorated && decorated.emptyLinks > 0 ?
@@ -98,7 +115,7 @@ export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProp
             style={{ width, transform: scale < 1 ? `scale(${scale})` : undefined, transformOrigin: 'top center' }}
           >
             {/* the moment this preview was built stands in for when the email arrives */}
-            <InboxRow subject={subject} preheader={preheader} catalogue={tags} profile={profile} time={formatUtcClock(state.builtAt) ?? ''} />
+            <InboxRow subject={subject} preheader={preheader} catalogue={tags} profile={profile} time={formatUtcClock(state.builtAt) ?? ''} client={client} dark={appearance === 'dark'} />
             {/* sandbox with no allowances: no scripts, no forms, no navigation, a unique origin */}
             <iframe
               title={PREVIEW_FRAME_TITLE}

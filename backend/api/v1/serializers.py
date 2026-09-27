@@ -2,6 +2,7 @@ import re
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.campaigns.models import Campaign, CampaignRun, ContactListCampaign
@@ -225,6 +226,17 @@ class TemplateCloneSerializer(serializers.Serializer):
 
 class TemplateSerializer(TenantModelSerializer):
     latest_version = serializers.IntegerField(read_only=True, default=0, help_text="0 until a design has been saved")
+    last_used_in = serializers.SerializerMethodField(help_text="The newest campaign that uses the template, or null: what is safe to change.")
+    campaign_count = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_last_used_in(self, template):
+        if not getattr(template, "used_by_id", None):
+            return None
+        return {"id": str(template.used_by_id), "name": template.used_by_name, "status": template.used_by_status, "at": template.used_at}
+
+    def get_campaign_count(self, template) -> int:
+        return int(getattr(template, "campaign_count", 0) or 0)
     starter = serializers.CharField(write_only=True, required=False, allow_blank=True,
                                     help_text="on create: key from /template-starters/; its content becomes version 1")
 

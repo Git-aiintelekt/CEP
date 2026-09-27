@@ -29,8 +29,8 @@ class SandboxSmsProvider(SmsProvider):
     supports_webhooks = True
     supports_mms = True
     config_fields = (
-        ConfigField("reject_numbers", "Numbers to refuse", required=False, help="Comma-separated. Sending to these fails for good, as an invalid number would."),
-        ConfigField("retry_numbers", "Numbers that fail temporarily", required=False, help="Comma-separated. Sending to these asks for a retry, as a busy aggregator would."),
+        ConfigField("reject_numbers", "Numbers to Refuse", required=False, help="Comma-separated. Sending to these fails for good, as an invalid number would."),
+        ConfigField("retry_numbers", "Numbers that Fail Temporarily", required=False, help="Comma-separated. Sending to these asks for a retry, as a busy aggregator would."),
     )
 
     def send(self, message: SmsMessage) -> SendResult:

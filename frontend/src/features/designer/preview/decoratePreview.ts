@@ -9,6 +9,7 @@
  */
 import type { PersonalizationTag } from '@/lib/types'
 
+import { INVERT_DARK_CSS, MEDIA_DARK_CSS, unlockDarkMedia } from './clients'
 import { previewParts, type Fill, type FillKind, type PreviewProfile } from './previewProfiles'
 
 export const NO_VALUE_MARKER = '(no value)'
@@ -67,9 +68,13 @@ interface DecorateOptions {
   root?: Element
   /** drawn at phone width */
   phone?: boolean
+  /** CSS a client is known to force on an email (Outlook's squares and Arial) */
+  clientCss?: string
+  /** how the client darkens: inverting the colours, or honouring the email's own dark rules */
+  dark?: 'invert' | 'media' | null
 }
 
-export function decoratePreview(html: string, catalogue: PersonalizationTag[], profile: PreviewProfile, { root, phone = false }: DecorateOptions = {}): DecoratedPreview {
+export function decoratePreview(html: string, catalogue: PersonalizationTag[], profile: PreviewProfile, { root, phone = false, clientCss = '', dark = null }: DecorateOptions = {}): DecoratedPreview {
   if (html.trim() === '') return { html: '', emptyLinks: 0 }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   let emptyLinks = 0
@@ -107,8 +112,9 @@ export function decoratePreview(html: string, catalogue: PersonalizationTag[], p
 
   const style = doc.createElement('style')
   style.id = MARKS_STYLE_ID
-  style.textContent = marksCss(root) + (phone ? PHONE_FRAME_CSS : '')
+  style.textContent = marksCss(root) + (phone ? PHONE_FRAME_CSS : '') + clientCss + (dark === 'invert' ? INVERT_DARK_CSS : dark === 'media' ? MEDIA_DARK_CSS : '')
   doc.head.append(style)
 
-  return { html: `<!doctype html>\n${doc.documentElement.outerHTML}`, emptyLinks }
+  const out = `<!doctype html>\n${doc.documentElement.outerHTML}`
+  return { html: dark === 'media' ? unlockDarkMedia(out) : out, emptyLinks }
 }

@@ -58,12 +58,12 @@ class PostalProvider(EmailProvider):
     description = "Self-hosted Postal server. Delivery, bounce, open and click callbacks through webhooks."
     supports_webhooks = True
     config_fields = (
-        ConfigField("endpoint", "Postal address", kind="url", placeholder="https://postal.example.com", help="Base address of your Postal installation."),
-        ConfigField("api_key", "Server API key", secret=True, help="Postal -> your mail server -> Credentials -> type API. Carries campaigns (and everything else until a transactional key is set)."),
-        ConfigField("transactional_api_key", "Transactional server API key", required=False, secret=True, credential="transactional_secret",
+        ConfigField("endpoint", "Postal Address", kind="url", placeholder="https://postal.example.com", help="Base address of your Postal installation."),
+        ConfigField("api_key", "Server API Key", secret=True, help="Postal -> your mail server -> Credentials -> type API. Carries campaigns (and everything else until a transactional key is set)."),
+        ConfigField("transactional_api_key", "Transactional Server API Key", required=False, secret=True, credential="transactional_secret",
                     help="Optional. The API key of a second Postal mail server for receipts and other transactional email: they never queue behind a campaign "
                          "and each server keeps its own sending reputation. Both servers use the same callback address."),
-        ConfigField("webhook_public_key", "Webhook public key", required=False, kind="textarea",
+        ConfigField("webhook_public_key", "Webhook Public Key", required=False, kind="textarea",
                     help="Optional. PEM public key of the Postal installation (postal default-dkim-record): webhook signatures are then verified."),
     )
 
