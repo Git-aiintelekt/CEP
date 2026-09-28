@@ -7,6 +7,7 @@
 import { useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { offlineSample } from '@/features/designer/blocks/codes'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { ReceiptWorkspace, type ReceiptBackend } from '@/features/receipt/ReceiptWorkspace'
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
@@ -31,6 +32,10 @@ const TAGS = [
   tag('receipt_number', 'Receipt number', 'SYSTEM', 'R-104-88213'),
   tag('grand_total', 'Total', 'SYSTEM', '$72.58'),
   tag('delivery_estimate', 'Delivery estimate', 'SYSTEM', 'Tuesday, Sep 22'),
+  // the coupon tags patch 0024 gives every workspace; a receipt fills them from its own coupon_* fields
+  tag('coupon_code', 'Coupon Code', 'CUSTOM', 'SAVE20-7K3Q'),
+  tag('coupon_barcode_value', 'Coupon Barcode Value', 'CUSTOM', 'CPN400012345678'),
+  tag('coupon_qr_value', 'Coupon QR Value', 'CUSTOM', 'https://shop.example.com/c/SAVE20-7K3Q'),
 ]
 
 /** One picture, so the Image block has something to start from. */
@@ -90,8 +95,10 @@ export default function ReceiptPlayground() {
       listReceiptLayoutVersions: async () => historyOf(layouts.current),
       uploadAsset: async (file) => ({ url: URL.createObjectURL(file), name: file.name }),
       activate: async () => {},
+      // no server here: the code blocks are offered (?codes=off hides them) and show the browser's stand-in
+      sampleCode: params.get('codes') === 'off' ? undefined : offlineSample,
     }),
-    [state],
+    [state, params],
   )
 
   if (state === 'loading') return <EditorLoading label="Opening the receipt editor" />

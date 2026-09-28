@@ -21,9 +21,7 @@ import { useLeaveGuard } from '@/features/designer/useLeaveGuard'
 import type { ReceiptSlotPreset } from '@/features/designer/inspector/receiptSettings'
 import { ApiError } from '@/lib/api'
 import { formatUtcClock, titleCase } from '@/lib/format'
-import type {
-  Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput,
-} from '@/lib/types'
+import type { CodeSample, CodeSampleRequest, Design, DesignSaveInput, DesignVersion, PersonalizationTag, ReceiptLayout, ReceiptLayoutSaveInput } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { OuterDesignPane } from './OuterDesignPane'
@@ -45,6 +43,8 @@ export interface ReceiptBackend {
   listReceiptLayoutVersions: () => Promise<DesignVersion[]>
   uploadAsset: (file: File) => Promise<DesignerAsset>
   activate?: () => Promise<void>
+  /** the workspace has Barcodes and QR codes: draws a code block's sample, and puts the two blocks in the palette */
+  sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
 }
 
 type ReceiptTab = 'outer' | 'layout' | 'preview'
@@ -442,6 +442,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
                 onOpenReceiptLayout={() => void changeTab('layout')}
                 receiptPreset={preset}
                 onReceiptPresetChange={readOnly ? undefined : applyPreset}
+                sampleCode={backend.sampleCode}
               />
             ),
           },

@@ -5,7 +5,7 @@
 import { useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
-import { BARCODE_DEFAULTS, QR_DEFAULTS, placeholderSrc, valueProblem, type BarcodeFormat, type QrLevel } from '@/features/designer/blocks/codes'
+import { offlineSample } from '@/features/designer/blocks/codes'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { extractTags, unknownTags } from '@/features/designer/tags'
@@ -70,11 +70,7 @@ export default function DesignerPlayground() {
       listVersions: async () => [...versions.current].reverse().map((item) => ({ version_number: item.version_number, saved_at: item.saved_at ?? '', saved_by: item.saved_by })),
       uploadAsset: async (file) => ({ url: URL.createObjectURL(file), name: file.name }),
       // no server here: the code blocks are offered (?codes=off hides them) and show the browser's stand-in
-      sampleCode: params.get('codes') === 'off' ? undefined : async (request) => {
-        const config = request.kind === 'qr' ? { ...QR_DEFAULTS, ecc: request.ecc as QrLevel, size: request.size } : { ...BARCODE_DEFAULTS, format: request.format as BarcodeFormat, width: request.width, height: request.height }
-        const problem = valueProblem(config, request.value)
-        return problem ? { valid: false, message: `The sample value cannot be drawn: ${problem}.` } : { valid: true, url: placeholderSrc(config, request.value) }
-      },
+      sampleCode: params.get('codes') === 'off' ? undefined : offlineSample,
     }),
     [state, params],
   )

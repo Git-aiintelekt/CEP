@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 from html import escape
 
 from django.utils import timezone
@@ -22,6 +23,8 @@ from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 from ..providers import TRAFFIC_TRANSACTIONAL, Attachment, EmailMessage, Outcome, ProviderError, registry
 from . import receipt_layout, session
 from .render import Renderer
+
+log = logging.getLogger(__name__)
 
 MAX_ATTACHMENTS = 5
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
@@ -155,8 +158,10 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
     # the receipt layout goes into the outer design's slot before the tags are filled; a design without a slot keeps its {{receipt_body}}
     renderer.html = receipt_layout.apply(campaign.template, renderer.html, receipt, store, currency)
     rendered = renderer.render(
-        customer=customer, member={"custom_value_pairs": {}}, system={"email": to},
+        customer=customer, member={"custom_value_pairs": coupon_values(receipt)}, system={"email": to},
         sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}}, html_blocks={"receipt_body": items_html(receipt.get("items") or [], currency)})
+    if rendered["codes_left_out"]:
+        log.info("receipt %s went without its code block (%s): no usable value", number, ", ".join(sorted(set(rendered["codes_left_out"]))))
 
     with session.connection().cursor() as cursor:
         if existing:                                        # an earlier attempt failed: the same row is tried again, so one receipt stays one execution
@@ -196,4 +201,14 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
         temporary = result is None or result.outcome is Outcome.RETRY
         # 424, not 5xx: the request transaction is rolled back on a server error, and the failed attempt must stay on record
         raise ReceiptRefused(f"The delivery provider did not accept the receipt: {reason}", None, 424 if temporary else 422)
-    return {"status": status, "execution_id": execution_id, "provider_message_id": result.provider_message_id, "duplicate": False}
+    answer = {"status": status, "execution_id": execution_id, "provider_message_id": result.provider_message_id, "duplicate": False}
+    if rendered["codes_left_out"]:
+        answer["codes_left_out"] = sorted(set(rendered["codes_left_out"]))    # the caller learns which barcode or QR code the customer did not get
+    return answer
+
+
+def coupon_values(receipt: dict) -> dict:
+    """A receipt has no list member: its own coupon_code, coupon_barcode_value and coupon_qr_value fill the coupon tags,
+    which read the list member's columns, so the barcode and QR code blocks work on a receipt as in a campaign."""
+    from apps.templates.starters import COUPON_TAGS
+    return {key: str(receipt[key]).strip() for key, *_ in COUPON_TAGS if receipt.get(key) not in (None, "")}
