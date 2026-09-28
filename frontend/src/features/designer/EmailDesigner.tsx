@@ -49,6 +49,7 @@ import { dropLevel } from './blocks/dropLevel'
 import { insertTarget, type InsertNode } from './blocks/insertTarget'
 import { keepChosenValues } from './blocks/keepChosenValues'
 import { RECEIPT_BODY_TYPES, registerReceiptBlockTypes } from './blocks/receiptBlocks'
+import { registerCustomHtmlType } from './blocks/customHtml'
 import { registerReceiptSlotType } from './blocks/receiptSlot'
 import { needsImage } from './blocks/registry'
 import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideMobileStyle } from './blocks/register'
@@ -430,6 +431,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     // Before anything is loaded: it rebuilds the component classes, so only components made afterwards use them.
     keepChosenValues(editor)
     registerBlocks(editor, { channel })
+    registerCustomHtmlType(editor)
     registerReceiptSlotType(editor, { channel })
     registerReceiptBlockTypes(editor, { channel })
     // A Desktop frame as wide as the canvas would make the email reflow narrower on a small window; at a fixed
