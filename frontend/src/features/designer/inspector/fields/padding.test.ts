@@ -59,7 +59,10 @@ test('the shorthand written back is one, two or four values, never three', () =>
 test('a side that is not a number gives nothing to write', () => {
   expect(formatPadding('10', '', '10', '10')).toBe(null)
   expect(formatPadding('10', 'abc', '10', '10')).toBe(null)
-  expect(formatPadding('10', '2em', '10', '10')).toBe(null)
+  expect(formatPadding('10', '2em', '10', '10')).toBe('10px 26px 10px 10px')                        // em becomes px at MJML's 13px
+  expect(formatPadding('10', '1rem', '10', '10', 20)).toBe('10px 16px 10px 10px')                     // rem is always 16px
+  expect(formatPadding('10', '2em', '10', '10', 20)).toBe('10px 40px 10px 10px')
+  expect(formatPadding('10', '2vw', '10', '10')).toBe(null)
   expect(formatPadding('10', '-4', '10', '10')).toBe(null)
 })
 

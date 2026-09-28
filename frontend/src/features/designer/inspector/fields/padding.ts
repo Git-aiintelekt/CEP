@@ -1,4 +1,9 @@
-/** MJML padding shorthand, both ways. Pure: no React. px only, which is the one unit that is always safe. */
+/**
+ * MJML padding shorthand, both ways. Pure: no React. px and % are what the email carries; a side typed in em or rem
+ * is written as px (rem from a 16px base, em from the block's font size), as the length field does.
+ */
+import { DEFAULT_EM_BASE, toPx } from './length'
+
 
 export interface Padding {
   top: string
@@ -10,6 +15,7 @@ export interface Padding {
 /** A number with the unit MJML accepts here, as it appears in an input: "10" or "10%" rather than "10px". */
 const WITH_UNIT = /^(\d+(?:\.\d+)?)(px|%)$/
 const BARE = /^\d+(?:\.\d+)?%?$/
+const TYPED = /^(\d+(?:\.\d+)?)(em|rem)$/
 
 /** "10px" -> "10"; "10%" stays "10%", since the per cent has to survive the round trip. */
 function side(part: string): string | null {
@@ -41,15 +47,20 @@ export function parsePadding(value: string | null | undefined): Padding | null {
   return { top: a, right: b, bottom: c, left: d }
 }
 
+/** A side as typed -> as written: "1.5em" becomes the px it is at this font size; "10" and "5%" stay. null: not a number. */
+export function sideToWritten(part: string, emBase: number = DEFAULT_EM_BASE): string | null {
+  const trimmed = part.trim()
+  if (BARE.test(trimmed)) return trimmed
+  const typed = TYPED.exec(trimmed)
+  return typed ? String(toPx(Number(typed[1]), typed[2] as 'em' | 'rem', emBase)) : null
+}
+
 /**
  * The four sides -> the shortest shorthand MJML accepts, of one, two or four values. null when a side is not a
  * number, which is the field's cue to show an error rather than write something MJML will reject.
  */
-export function formatPadding(top: string, right: string, bottom: string, left: string): string | null {
-  const sides = [top, right, bottom, left].map((part) => {
-    const trimmed = part.trim()
-    return BARE.test(trimmed) ? trimmed : null
-  })
+export function formatPadding(top: string, right: string, bottom: string, left: string, emBase: number = DEFAULT_EM_BASE): string | null {
+  const sides = [top, right, bottom, left].map((part) => sideToWritten(part, emBase))
   if (sides.some((part) => part === null)) return null
   const [t, r, b, l] = (sides as string[]).map(written)
 

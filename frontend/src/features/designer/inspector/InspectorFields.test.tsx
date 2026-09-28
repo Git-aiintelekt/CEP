@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Component } from 'grapesjs'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { CHOOSE_IMAGE_LABEL, InspectorFields, NO_IMAGE_NOTE } from './InspectorFields'
 import { ADD_NETWORK_LABEL } from './fields/SocialNetworksField'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, RESET_LABEL } from './fields/types'
-import { CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, STACK_NOTE, readSetting } from './settings'
+import { CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, MARGIN_KEY, STACK_NOTE, readSetting } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
 
 afterEach(cleanup)
@@ -77,20 +77,20 @@ test('each block kind offers its own settings', () => {
   const keys = () => [...document.querySelectorAll('[data-setting]')].map((node) => node.getAttribute('data-setting'))
 
   renderFields(make('mj-spacer'))
-  expect(keys()).toEqual(['height', 'padding'])
+  expect(keys()).toEqual(['height', MARGIN_KEY, 'padding'])
   expect(sections()).toEqual(['Layout'])
 
   cleanup()
   renderFields(make('mj-divider'))
-  expect(keys()).toEqual(['width', 'align', 'padding', 'border-color', 'border-width'])
+  expect(keys()).toEqual(['width', 'align', MARGIN_KEY, 'padding', 'border-color', 'border-width'])
 
   cleanup()
   renderFields(make('mj-social-element'))
-  expect(keys()).toEqual(['name', 'href', 'label', 'icon-size', 'padding', 'background-color', 'border-radius', 'color'])
+  expect(keys()).toEqual(['name', 'href', 'label', 'icon-size', MARGIN_KEY, 'padding', 'background-color', 'border-radius', 'color'])
 
   cleanup()
   renderFields(make('mj-section'))
-  expect(keys()).toEqual(['padding', 'full-width', HIDE_MOBILE_KEY, 'background-color', 'border-radius'])
+  expect(keys()).toEqual([MARGIN_KEY, 'padding', 'full-width', HIDE_MOBILE_KEY, 'background-color', 'border-radius'])
 })
 
 test('a text block says its words are edited on the canvas instead of offering a field', () => {
@@ -145,22 +145,57 @@ test('a unit MJML refuses shows the error, and leaves nothing written once the f
   renderFields(text)
 
   await user.type(screen.getByLabelText('Font Size'), '2em')
-  expect(screen.getByText('Use a number in px')).toBeTruthy()
+  expect(screen.getByText('Use a number in px, or em / rem (written as px)')).toBeTruthy()
   await user.keyboard('{Enter}')
 
-  // "2" previewed on the way to "2em"; leaving the field abandons that preview rather than keeping it
-  await user.tab()
+  // "2" previewed on the way to "2em"; leaving the field (past its unit buttons) abandons that preview rather than keeping it
+  ;(document.activeElement as HTMLElement).blur()
   expect(readSetting(text, 'font-size')).toBe(null)
 })
 
-test('a length offers only the units MJML accepts for that setting', () => {
+test('em on a block means its font size, and on the Font Size field the size it inherits, so a preview cannot move the base', async () => {
+  const user = userEvent.setup()
+  const wrapper = make('wrapper', {}, {
+    children: [make('mj-head', {}, { children: [make('mj-attributes', {}, { children: [make('mj-text', { 'font-size': '20px' })] })] })],
+  })
+  const text = make('mj-text', { 'font-size': '15px' })
+  renderFields(text, { wrapper })
+
+  await user.click(within(screen.getByRole('radiogroup', { name: 'Font Size Unit' })).getByRole('radio', { name: 'em' }))
+  expect((screen.getByLabelText('Font Size') as HTMLInputElement).value).toBe('0.75')              // 15px of the inherited 20px
+  await user.clear(screen.getByLabelText('Font Size'))
+  await user.type(screen.getByLabelText('Font Size'), '1.5{Enter}')
+  expect(readSetting(text, 'font-size')).toBe('30px')
+
+  cleanup()
+  const sized = make('mj-text', { 'font-size': '30px' })
+  renderFields(sized, { wrapper })
+  const padding = within(screen.getByRole('group', { name: 'Padding' }))
+  await user.type(padding.getByLabelText('Top Padding'), '1em{Enter}')                              // 1em of the block's own 30px
+  expect(readSetting(sized, 'padding')).toBe('30px')
+})
+
+test('a length offers the units MJML accepts for that setting, plus em and rem that are written as px', () => {
   renderFields(make('mj-text'))
-  // font-size is px only, so there is no unit switch to offer
-  expect(screen.queryByRole('radiogroup', { name: 'Font Size Unit' })).toBeNull()
+  const radios = (name: string) => within(screen.getByRole('radiogroup', { name })).getAllByRole('radio').map((radio) => radio.textContent)
+  // font-size is px only in MJML: no %, but em and rem can be typed and become px
+  expect(radios('Font Size Unit')).toEqual(['px', 'em', 'rem'])
 
   cleanup()
   renderFields(make('mj-spacer'))
-  expect(screen.getByRole('radiogroup', { name: 'Height Unit' })).toBeTruthy()
+  expect(radios('Height Unit')).toEqual(['px', '%', 'em', 'rem'])
+})
+
+test('a margin on a block is added to its padding in the email, and the panel keeps the two apart', async () => {
+  const user = userEvent.setup()
+  const text = make('mj-text')
+  renderFields(text)
+  const margin = within(screen.getByRole('group', { name: 'Margin' }))
+  await user.type(margin.getByLabelText('Top Padding'), '10{Enter}')
+  expect(readSetting(text, MARGIN_KEY)).toBe('10px')
+  expect(text.getAttributes().padding).toBe('20px 35px')                                              // 10 on top of MJML's own 10px 25px
+  expect(readSetting(text, 'padding')).toBe('10px 25px')                                             // the inner part, shown by the Padding group once the editor re-reads
+  expect(screen.getByText('Space outside the block. The email gets margin and padding added together.')).toBeTruthy()
 })
 
 test('Reset clears the setting', async () => {

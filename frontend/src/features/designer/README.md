@@ -39,3 +39,16 @@ cover the helpers (`tags.test.ts`) and the new-template form.
 
 To add a custom MJML block or component, pass `customComponents` / `blocks` in the `grapesjs-mjml` options in
 `EmailDesigner.tsx`. To add a tag source, add rows to `personalization_tag`; the menus pick them up.
+
+### Spacing and units (2026-09-28)
+
+MJML has no margin and email clients drop CSS margins, so the email carries one `padding` per block. The panel offers
+two: **Margin** (outside the block) and **Padding** (inside it), kept apart on the component as `cep-spacing`
+(`inspector/spacing.ts`) and written into the MJML `padding` attribute as their sum. A block never given a margin keeps
+its plain attribute; a side that mixes px and % is refused. A button is the exception: its MJML `padding` is already the
+space around it (Margin) and `inner-padding` the space inside (Padding). Length fields and the four spacing boxes accept
+em and rem as well as px and %: they are written as px the moment they are committed (rem from 16px, em from the block's
+effective font size, MJML's 13px when nothing sets one, `inspector/fields/length.ts`). On the Font Size field itself em
+means the size the block inherits, or previewing 1.5em would move its own base under it. Picking em or rem shows the px
+already in the box in that unit and writes nothing until Enter; the field settles on px afterwards. vh and vw are not
+offered, an email has no viewport.

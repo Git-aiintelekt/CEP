@@ -4,13 +4,14 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 
 import { FieldRow } from './FieldRow'
 import { controlClass } from './controls'
-import { EMPTY_PADDING, PADDING_SIDES, formatPadding, parsePadding, type Padding, type PaddingSide } from './padding'
+import { EMPTY_PADDING, PADDING_SIDES, formatPadding, parsePadding, sideToWritten, type Padding, type PaddingSide } from './padding'
+import { DEFAULT_EM_BASE } from './length'
 import { INHERITED_NOTE, type Field } from './types'
 
-export const PADDING_ERROR = 'Use a number in px or %'
+export const PADDING_ERROR = 'Use a number in px or %, or em / rem (written as px)'
 export const LINK_SIDES_LABEL = 'Edit All Four Sides Together'
 
-export function PaddingField({ label, value, effective, onPreview, onCommit, onCancel, disabled = false, inherited = false, inheritedNote }: Field) {
+export function PaddingField({ label, value, effective, onPreview, onCommit, onCancel, disabled = false, inherited = false, inheritedNote, emBase = DEFAULT_EM_BASE }: Field<{ emBase?: number }>) {
   const own = parsePadding(value)
   const fromEmail = parsePadding(effective)
 
@@ -35,7 +36,7 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
       setError(null)
       return
     }
-    const written = formatPadding(next.top, next.right, next.bottom, next.left)
+    const written = formatPadding(next.top, next.right, next.bottom, next.left, emBase)
     setError(written === null ? PADDING_ERROR : null)
     if (written !== null) onPreview?.(written)
   }
@@ -47,13 +48,15 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
       onCommit(null)
       return
     }
-    const written = formatPadding(sides.top, sides.right, sides.bottom, sides.left)
+    const written = formatPadding(sides.top, sides.right, sides.bottom, sides.left, emBase)
     if (written === null) {
       setError(PADDING_ERROR)
       return
     }
     editing.current = false
     setError(null)
+    // a side typed in em or rem settles on the px it became
+    setSides({ top: sideToWritten(sides.top, emBase) ?? '', right: sideToWritten(sides.right, emBase) ?? '', bottom: sideToWritten(sides.bottom, emBase) ?? '', left: sideToWritten(sides.left, emBase) ?? '' })
     onCommit(written)
   }
 
@@ -75,7 +78,7 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
     }
   }
 
-  const bad = (amount: string) => error !== null && amount.trim() !== '' && !/^\d+(?:\.\d+)?%?$/.test(amount.trim())
+  const bad = (amount: string) => error !== null && amount.trim() !== '' && sideToWritten(amount, emBase) === null
 
   return (
     <FieldRow

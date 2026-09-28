@@ -81,7 +81,7 @@ test('a side that is not a number is flagged on that input, and nothing is commi
 
   await user.click(linkToggle())
   await user.clear(side('Right Padding'))
-  await user.type(side('Right Padding'), '2em')
+  await user.type(side('Right Padding'), 'abc')
 
   expect(screen.getByText(PADDING_ERROR)).toBeTruthy()
   expect(side('Right Padding').getAttribute('aria-invalid')).toBe('true')
@@ -143,4 +143,17 @@ test('disabled takes no input and is grey rather than faded', async () => {
 
   await user.type(side('Top Padding'), '5')
   expect(onCommit).not.toHaveBeenCalled()
+})
+
+test('a side typed in em or rem is written as px and the box shows the px', async () => {
+  const user = userEvent.setup()
+  const { onCommit } = renderField({ value: '0px', emBase: 20 })
+  await user.click(linkToggle())
+  await user.clear(side('Top Padding'))
+  await user.type(side('Top Padding'), '2em')
+  await user.clear(side('Left Padding'))
+  await user.type(side('Left Padding'), '1rem')
+  await user.keyboard('{Enter}')
+  expect(onCommit).toHaveBeenLastCalledWith('40px 0px 0px 16px')                                     // moving between boxes committed once on the way
+  expect(side('Top Padding').value).toBe('40')
 })

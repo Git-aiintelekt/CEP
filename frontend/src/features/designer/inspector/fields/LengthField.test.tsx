@@ -178,3 +178,36 @@ test('disabled takes no input, offers no Reset, and is grey rather than faded', 
   await user.type(input(), '9')
   expect(onCommit).not.toHaveBeenCalled()
 })
+
+test('em and rem can be typed and are written as px, the field settling on that px', async () => {
+  const user = userEvent.setup()
+  const { onCommit, onPreview } = renderField({ value: null, units: ['px'], emBase: 20 })
+  await user.click(screen.getByRole('radio', { name: 'em' }))
+  await user.type(screen.getByLabelText('Font Size'), '2')
+  expect(screen.getByText('= 40px in the email')).toBeTruthy()
+  expect(onPreview).toHaveBeenLastCalledWith('40px')
+  await user.keyboard('{Enter}')
+  expect(onCommit).toHaveBeenCalledExactlyOnceWith('40px')
+  expect((screen.getByLabelText('Font Size') as HTMLInputElement).value).toBe('40')
+  expect(screen.getByRole('radio', { name: 'px' }).getAttribute('aria-checked')).toBe('true')
+})
+
+test('picking em or rem shows the px already in the box in that unit and writes nothing until Enter', async () => {
+  const user = userEvent.setup()
+  const { onCommit } = renderField({ value: '40px', units: ['px'], emBase: 20 })
+  await user.click(screen.getByRole('radio', { name: 'rem' }))                                        // 40px is 2.5rem
+  expect((screen.getByLabelText('Font Size') as HTMLInputElement).value).toBe('2.5')
+  expect(screen.getByText('= 40px in the email')).toBeTruthy()
+  expect(onCommit).not.toHaveBeenCalled()
+
+  await user.click(screen.getByRole('radio', { name: 'em' }))                                         // and 2em at 20px
+  expect((screen.getByLabelText('Font Size') as HTMLInputElement).value).toBe('2')
+  await user.click(screen.getByRole('radio', { name: 'px' }))                                         // back to px: still 40
+  expect((screen.getByLabelText('Font Size') as HTMLInputElement).value).toBe('40')
+  expect(onCommit).toHaveBeenCalledExactlyOnceWith('40px')
+
+  await user.click(screen.getByRole('radio', { name: 'em' }))
+  await user.clear(screen.getByLabelText('Font Size'))
+  await user.type(screen.getByLabelText('Font Size'), '1.5{Enter}')
+  expect(onCommit).toHaveBeenLastCalledWith('30px')
+})

@@ -23,10 +23,11 @@ import { ToggleField } from './fields/ToggleField'
 import { ColorField } from './fields/color/ColorField'
 import { normaliseHex } from './fields/color/colorMath'
 import { FONT_FAMILIES, FONT_WEIGHTS, SOCIAL_MODES, type SelectOption } from './fields/options'
+import { DEFAULT_EM_BASE } from './fields/length'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, type TagPickerSlot } from './fields/types'
 import {
   CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
-  readEffective, readSetting, type SettingField, type SettingSection,
+  readEffective, readInherited, readSetting, type SettingField, type SettingSection,
 } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
 import { forbiddenIn } from '../canvas/codeChecks'
@@ -210,10 +211,21 @@ interface ControlProps {
   tagPicker?: TagPickerSlot
 }
 
+/**
+ * The px behind 1em on this block: its font size as the email would render it (MJML's 13px when nothing sets one).
+ * On the Font Size field itself, em means the size the block inherits, or typing 1.5em would move its own base.
+ */
+function emBaseOf(component: Component, key: string, wrapper?: Component | null): number {
+  const size = (key === 'font-size' ? readInherited : readEffective)(component, 'font-size', wrapper).value
+  const match = size === null ? null : /^(\d+(?:\.\d+)?)px$/.exec(size.trim())
+  return match ? Number(match[1]) : DEFAULT_EM_BASE
+}
+
 function SettingControl({ field, component, wrapper, binder, disabled, recent, onRecentUse, tagPicker }: ControlProps) {
   const value = readSetting(component, field.key)
   const { value: effective, source } = readEffective(component, field.key, wrapper)
   const handlers = binder.handlers(field.key)
+  const emBase = field.kind === 'length' || field.kind === 'padding' ? emBaseOf(component, field.key, wrapper) : DEFAULT_EM_BASE
 
   const shared = {
     label: field.label,
@@ -239,9 +251,14 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
         />
       )
     case 'length':
-      return <LengthField {...shared} onPreview={handlers.onPreview} units={field.units} min={field.min} max={field.max} step={field.step} />
+      return <LengthField {...shared} onPreview={handlers.onPreview} units={field.units} min={field.min} max={field.max} step={field.step} emBase={emBase} />
     case 'padding':
-      return <PaddingField {...shared} onPreview={handlers.onPreview} />
+      return (
+        <>
+          <PaddingField {...shared} onPreview={handlers.onPreview} emBase={emBase} />
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+        </>
+      )
     case 'align':
       return <AlignField {...shared} only={field.only} />
     case 'valign':
