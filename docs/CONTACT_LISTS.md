@@ -45,6 +45,10 @@ date and Consent date (dates as `YYYY-MM-DD`). Column names are matched by meani
 recognised; see `PROPERTIES` in `apps/contact_lists/imports.py`) and confirmed on the Match Columns step. The sample file is built
 in the browser from the same column list, with a UTF-8 byte order mark and CRLF line ends so Excel opens it cleanly.
 
+Any other column is kept on the list member (`custom_value_pairs`) under its header. Coupon columns named `coupon_code`,
+`coupon_barcode_value` and `coupon_qr_value` feed the tags of the same names, which the designer's Barcode and QR Code
+blocks read (DELIVERY_PROVIDERS.md §8.1).
+
 ### 3.1 Built for large files and many workspaces (`apps/contact_lists/jobs.py`)
 
 Reading, checking and importing 250,000 rows takes minutes. Done inside a web request that is a server thread and a

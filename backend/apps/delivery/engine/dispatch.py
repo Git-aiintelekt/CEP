@@ -82,6 +82,8 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     marketing = campaign.solicitation_type == "MARKETING"
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0}
     retry_ids, retry_reason = [], ""
+    left_out: dict[str, int] = {}                           # source tag -> recipients in this batch whose code block was left out
+    without_code = 0                                        # recipients in this batch missing at least one code block
 
     try:
         provider = registry.for_provider(provider_row)
@@ -131,6 +133,9 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
             if result.outcome is Outcome.ACCEPTED:
                 _record(tenant_id, execution_id, member_id, status="SUBMITTED", message_id=result.provider_message_id)
                 counts["submitted"] += 1
+                without_code += 1 if rendered["codes_left_out"] else 0
+                for source in set(rendered["codes_left_out"]):
+                    left_out[source] = left_out.get(source, 0) + 1
             elif result.outcome is Outcome.REJECTED:
                 _record(tenant_id, execution_id, member_id, status="FAILED", reason=result.reason)
                 counts["failed"] += 1
@@ -145,9 +150,23 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 counts["retry"] += 1
     finally:
         provider.close()
+        if without_code:
+            record_codes_left_out(tenant_id, campaign.pk, run_id, without_code, left_out)
     if retry_ids:
         raise RetryBatch(retry_ids, retry_reason)
     return counts
+
+
+CODES_LEFT_OUT = "CODES_LEFT_OUT"
+
+
+def record_codes_left_out(tenant_id, campaign_id, run_id, total: int, by_source: dict[str, int]) -> None:
+    """One activity entry per batch; the run's completion message adds them up (runs.codes_left_out)."""
+    from apps.campaigns import service
+    names = ", ".join(sorted(by_source))
+    service.record_run_event(tenant_id, campaign_id, run_id, CODES_LEFT_OUT,
+                             f"A barcode or QR code was left out for {total:,} recipient{'s' if total != 1 else ''} with no usable value ({names}).",
+                             severity="WARNING", detail={"recipients": total, "by_source": by_source})
 
 
 def fail_queued(tenant_id, run_id, reason: str, execution_ids: list[int] | None = None) -> int:

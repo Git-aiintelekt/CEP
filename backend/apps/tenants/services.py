@@ -1,4 +1,6 @@
 """Tenant onboarding used by the platform back-office (Django Admin) and the management commands."""
+import logging
+
 from django.db import connections
 
 from apps.tenants import context
@@ -6,6 +8,8 @@ from apps.tenants import context
 from apps.identity.models import Permission, Role, RolePermission
 
 from .models import TenantDatabase
+
+log = logging.getLogger(__name__)
 
 # The roles every new workspace starts with. Tenant administrators can change them afterwards in Settings.
 DEFAULT_ROLES = {
@@ -23,6 +27,7 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     1. partitions for every partitioned table (fn_provision_tenant is SECURITY DEFINER)
     2. the database routing row (shared pool unless changed later)
     3. the starting roles
+    4. the coupon tags barcode and QR code blocks read
     """
     with connections[using].cursor() as cursor:
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])       # audit triggers need a tenant
@@ -47,7 +52,16 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
         logbook.ensure_defaults(tenant.id)                 # the POS receipts record, and one per sending engine the tenant has
     finally:
         context.reset(token)
-    return {"partition_sets": partitions, "roles": created_roles}
+    from django.db import transaction
+    from apps.templates.starters import ensure_coupon_tags
+    try:
+        with transaction.atomic(using=using), connections[using].cursor() as cursor:
+            cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])  # the tag audit trigger needs one
+            coupon_tags = ensure_coupon_tags(tenant.id, user_id, using=using)
+    except Exception:                                      # noqa: BLE001  the tags can be added later; onboarding must finish
+        log.exception("coupon tags not added for tenant %s", tenant.id)
+        coupon_tags = 0
+    return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags}
 
 
 def ensure_partitions(tenant, *, using: str, months_ahead: int = 3) -> int:

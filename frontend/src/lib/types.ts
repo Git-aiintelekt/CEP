@@ -59,7 +59,9 @@ export interface Me {
   session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
 }
 
-export type Feature = 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
+export type Feature =
+  | 'email' | 'sms' | 'mms' | 'ereceipt' | 'journeys' | 'ab_testing' | 'loyalty' | 'api_access' | 'webhooks' | 'sso' | 'custom_domain' | 'scoring'
+  | 'dynamic_codes'
 
 /** POST /auth/token/ answers tokens, or asks for the second factor */
 export interface LoginResult extends Partial<TokenPair> {
@@ -1193,4 +1195,23 @@ export interface IntegrationLogPage {
   results: IntegrationLogRow[]
   more: boolean
   next_before: string | null
+}
+
+/** POST /codes/sample/ : a barcode or QR code block's sample, drawn by the same code that draws the sent email's */
+export interface CodeSampleRequest {
+  kind: 'barcode' | 'qr'
+  format?: string
+  width?: number
+  height?: number
+  ecc?: string
+  size?: number
+  value: string
+}
+
+export interface CodeSample {
+  valid: boolean
+  /** a signed image address, when valid */
+  url?: string
+  /** why the value cannot be drawn, when not */
+  message?: string
 }

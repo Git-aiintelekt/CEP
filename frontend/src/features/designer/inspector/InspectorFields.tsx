@@ -34,6 +34,8 @@ import { forbiddenIn } from '../canvas/codeChecks'
 import { SOCIAL_NETWORKS } from './social'
 import { createSettingBinder } from './useSettingBinding'
 import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
+import { CODE_OPTIONS, CODE_SOURCE_KEY, CODE_TEXT_KEY, CODE_TEXT_ON, sourceOptions } from './codeSettings'
+import { isCodeBlock } from '../blocks/codes'
 import type { GroupedEditor } from './settings'
 
 export const CHOOSE_IMAGE_LABEL = 'Choose Image'
@@ -59,7 +61,7 @@ const SELECT_OPTIONS: Record<string, SelectOption[]> = {
 }
 
 /** A setting whose value is a word rather than a measurement, so the switch writes that word when it is on. */
-const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS, tagline: 'tagline' }
+const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS, tagline: 'tagline', [CODE_TEXT_KEY]: CODE_TEXT_ON }
 
 export interface InspectorFieldsProps {
   component: Component
@@ -104,7 +106,9 @@ export function InspectorFields({
 
   const fields = fieldsFor(component)
   const type = blockType(component)
-  const callout = receiptCallout(type, component)
+  // a code block's sample that could not be drawn, or the feature switched off, is said above its fields
+  const codeProblem = isCodeBlock(component) ? (component.get('cep-code-problem') as string | null | undefined) ?? null : null
+  const callout = receiptCallout(type, component) ?? codeProblem
   // a section holding the setting an issue row named is open whatever the reader collapsed earlier
   const forced = focusKey ? fields.find((field) => field.key === focusKey)?.section : undefined
 
@@ -188,7 +192,7 @@ export function InspectorFields({
                         disabled={disabled}
                         recent={recent}
                         onRecentUse={onRecentUse}
-                        tagPicker={takesTags(field) ? tagPicker : undefined}
+                        tagPicker={takesTags(field) || field.key === CODE_SOURCE_KEY ? tagPicker : undefined}
                       />
                     </div>,
                 )}
@@ -270,7 +274,12 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
     case 'select':
       return (
         <>
-          <SelectField {...shared} options={SELECT_OPTIONS[field.key] ?? []} required={field.required} emptyLabel={field.emptyLabel} />
+          <SelectField
+            {...shared}
+            options={field.key === CODE_SOURCE_KEY ? sourceOptions(tagPicker?.tags ?? [], tagPicker?.channel ?? 'EMAIL', value) : (SELECT_OPTIONS[field.key] ?? CODE_OPTIONS[field.key] ?? [])}
+            required={field.required}
+            emptyLabel={field.emptyLabel}
+          />
           {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
         </>
       )

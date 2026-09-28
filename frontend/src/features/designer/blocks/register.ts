@@ -2,10 +2,15 @@
 import type { Component, Editor } from 'grapesjs'
 
 import { RECEIPT_BLOCKS, RECEIPT_FOOTER_CLASS } from './receiptBlocks'
-import { BLOCK_CATEGORIES, CEP_BLOCKS, needsImage, withImage } from './registry'
+import { BLOCK_CATEGORIES, CEP_BLOCKS, CODE_BLOCKS, needsImage, withImage } from './registry'
 import type { CepBlock } from './types'
 
-export interface RegisterOptions {
+export interface PaletteOptions {
+  /** the workspace has Barcodes and QR codes: the two blocks join Commerce */
+  dynamicCodes?: boolean
+}
+
+export interface RegisterOptions extends PaletteOptions {
   channel: string
   /** the picture blocks start with, or null while the workspace library is empty */
   imageUrl?: string | null
@@ -14,12 +19,13 @@ export interface RegisterOptions {
 const CATEGORY_LABEL = new Map(BLOCK_CATEGORIES.map((category) => [category.id, category.label]))
 
 /** A receipt has a palette of its own: six blocks, its footer a transactional one with no unsubscribe link. */
-export function blocksFor(channel: string): CepBlock[] {
-  return channel === 'E_RECEIPT' ? RECEIPT_BLOCKS : CEP_BLOCKS
+export function blocksFor(channel: string, { dynamicCodes = false }: PaletteOptions = {}): CepBlock[] {
+  if (channel === 'E_RECEIPT') return RECEIPT_BLOCKS
+  return dynamicCodes ? [...CEP_BLOCKS, ...CODE_BLOCKS] : CEP_BLOCKS
 }
 
-export function registerBlocks(editor: Editor, { channel, imageUrl = null }: RegisterOptions): void {
-  for (const block of blocksFor(channel)) {
+export function registerBlocks(editor: Editor, { channel, imageUrl = null, dynamicCodes = false }: RegisterOptions): void {
+  for (const block of blocksFor(channel, { dynamicCodes })) {
     editor.Blocks.add(block.id, {
       label: block.label,
       category: CATEGORY_LABEL.get(block.category) ?? block.category,

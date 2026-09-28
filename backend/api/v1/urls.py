@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import auth_api, campaigns_api, contact_lists_api, delivery_api, delivery_public, integrations_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api
+from . import auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -45,6 +45,8 @@ urlpatterns = [
     path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),
+    path("public/code/<str:token>.png", delivery_public.code_image_view, name="code-image"),
+    path("codes/sample/", codes_api.CodeSampleView.as_view(), name="code-sample"),
     path("receipts/send/", delivery_api.ReceiptSendView.as_view(), name="receipt-send"),
     path("integrations/", integrations_api.IntegrationListView.as_view(), name="integration-list"),
     path("integrations/log/", integrations_api.IntegrationLogListView.as_view(), name="integration-log"),

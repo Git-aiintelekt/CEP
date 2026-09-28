@@ -61,3 +61,17 @@ section, column, text, image and button: MJML has no shadow attribute, so it is 
 `blocks/register.ts`) plus one mj-style rule kept in the head the way the hide-on-phones rule is (`syncShadowStyle`),
 mirrored into the canvas by `canvasSkin.ts`. Apple Mail, iOS Mail, Gmail and Outlook.com draw it; Outlook for Windows
 drops box-shadow, which the field's help says.
+
+### Barcode and QR code blocks (2026-09-28)
+
+Two Commerce blocks, offered only where the workspace has Barcodes and QR codes (tenant management): the page passes
+`sampleCode` (a call to `POST /codes/sample/`) and its presence is what puts them in the palette (`blocksFor(channel,
+{ dynamicCodes })`). Each is an mj-raw with `css-class="cep-code cep-code-barcode|qr"` whose content is bracketed by
+`<!-- CEP:CODE {settings} -->` and `<!-- CEP:CODE_END -->` (`blocks/codes.ts`); the send engine swaps that region for the
+recipient's own code (backend `apps/templates/codes.py`). The panel (`inspector/codeSettings.ts`) edits the settings and
+rewrites the region; the markers go in as comment components, since GrapesJS's HTML parser drops a comment that comes
+first in a string. The picture on the canvas is the source tag's sample value drawn by the server, asked for on
+`component:add` and on `cep:code-changed` and written outside the undo stack. Where there is no server it is an SVG
+stand-in: `/dev/designer` offers the blocks with a stand-in sampler (`?codes=off` hides them), and a network failure
+falls back to it too. A sample the format cannot carry, or the feature switched off, is said above the fields
+(`cep-code-problem`).

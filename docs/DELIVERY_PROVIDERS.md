@@ -150,6 +150,36 @@ campaign, run, static, inner template) → the list member's uploaded columns �
 default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_year}}`, `{{today}}`,
 `{{campaign_name}}` and `{{email}}` are always available.
 
+### 8.1 Barcode and QR code blocks (`apps/templates/codes.py`, patch 0024)
+
+A dynamic image: the designer's Barcode and QR Code blocks (Commerce) draw one tag's value for each recipient. The marketer
+picks the data source (a catalogue tag) and the format in the settings panel; nothing is typed as HTML.
+
+* **In the design** a block is an `mj-raw` (`css-class="cep-code cep-code-barcode|qr"`) whose content is bracketed by
+  `<!-- CEP:CODE {settings JSON} -->` and `<!-- CEP:CODE_END -->`. The compilers copy mj-raw byte for byte, so the settings
+  reach the saved HTML. Between the markers is what the canvas and every preview show: the code of the tag's sample value.
+  Settings: barcode `format` (`code128`, `code39`, `ean13`, `upca`), `width` 120-560 and `height` 40-200 px; QR `ecc`
+  (`L` Low, `M` Standard, `Q` High, `H` Maximum) and `size` 80-300 px; `text` (the value printed under the code), `align`,
+  `background`. Save refuses a block whose settings the email cannot use, and counts its source tag as used.
+* **At send** `Renderer.render` replaces each region before the tags are filled: the recipient's value (the same resolution
+  as `{{tag}}`) drawn as a PNG behind a signed address, `GET /api/v1/public/code/<token>.png`, centred (or aligned) in a
+  full-width row with the value under it as text, since an inbox hides images until the reader allows them. The token is
+  a Django `Signer` object (no timestamp): the same code always has the same address, it cannot be altered, and the route
+  draws only what a send issued. Images are drawn at twice the displayed size, pure black on white with a quiet zone,
+  cached for a day and served `immutable`.
+* **A missing or unusable value** (none, or one the format cannot carry: an EAN-13 needs 12 digits or 13 with the right check
+  digit) leaves the block out of that recipient's email; the email still goes. Each send batch writes one
+  `CODES_LEFT_OUT` activity entry (WARNING) with the count and the source tags, and the run's completion message adds
+  them up: "A barcode or QR code was left out for 37 of them."
+* **The feature** is `dynamic_codes` ("Barcodes and QR codes") in `platform_ops.params.FEATURES`: off by default, switched
+  on per workspace in tenant management (Tenants → the workspace → Features); a plan can switch it off for all of its
+  tenants with `{"dynamic_codes": false}`. Without it the designer does not offer the blocks, `POST /codes/sample/` answers
+  403, and the renderer leaves any existing block out (counted like a missing value).
+* **Data** comes from catalogue tags. Patch 0024 gives every workspace three list-member tags, and onboarding gives every
+  new one: `coupon_code`, `coupon_barcode_value`, `coupon_qr_value` (`custom_value_pairs.*`, filled from list-upload
+  columns of the same names).
+* Libraries: `python-barcode` (bars as a module pattern, painted with Pillow, never resampled) and `segno` for QR.
+
 ## 9. E-receipts (transactional, one at a time)
 
 A receipt is not published to an audience: the point of sale or the web shop asks for each one, and gets the answer in
@@ -262,6 +292,8 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 | `GET /sms-inbound/?campaign=` | `campaign.view` | what people texted back, newest first |
 | `POST /webhooks/delivery/<tenant>/<provider>/<token>/` | public (token + provider signature) | |
 | `GET, POST /public/unsubscribe/?t=…` | public (signed token) | confirmation page, RFC 8058 one-click |
+| `POST /codes/sample/` | `template.edit` + feature `dynamic_codes` | a barcode or QR code block's sample: `{valid, url}` or `{valid: false, message}` |
+| `GET /public/code/<token>.png` | public (signed token) | a code block's image in a sent email |
 
 ## 13. Not in this version
 

@@ -1,4 +1,5 @@
 /** The palette: every block the editor offers, in the order it is shown. */
+import { barcode } from './barcode'
 import { button } from './button'
 import { columns1 } from './columns-1'
 import { columns2 } from './columns-2'
@@ -12,6 +13,7 @@ import { heading } from './heading'
 import { html } from './html'
 import { image } from './image'
 import { productCard } from './product-card'
+import { qrCode } from './qr-code'
 import { social } from './social'
 import { spacer } from './spacer'
 import { text } from './text'
@@ -37,6 +39,9 @@ export const CEP_BLOCKS: CepBlock[] = [
   coupon,
 ]
 
+/** Offered only where the workspace has Barcodes and QR codes (tenant management), after the rest of Commerce. */
+export const CODE_BLOCKS: CepBlock[] = [barcode, qrCode]
+
 export const BLOCK_CATEGORIES: { id: CepBlock['category']; label: string }[] = [
   { id: 'structure', label: 'Structure' },
   { id: 'content', label: 'Content' },
@@ -44,8 +49,8 @@ export const BLOCK_CATEGORIES: { id: CepBlock['category']; label: string }[] = [
   { id: 'commerce', label: 'Commerce' },
 ]
 
-export function blocksByCategory(): { id: CepBlock['category']; label: string; blocks: CepBlock[] }[] {
-  return BLOCK_CATEGORIES.map((category) => ({ ...category, blocks: CEP_BLOCKS.filter((block) => block.category === category.id) }))
+export function blocksByCategory(blocks: CepBlock[] = CEP_BLOCKS): { id: CepBlock['category']; label: string; blocks: CepBlock[] }[] {
+  return BLOCK_CATEGORIES.map((category) => ({ ...category, blocks: blocks.filter((block) => block.category === category.id) }))
 }
 
 /** Blocks that cannot be offered until the workspace library has a picture to put in them. */

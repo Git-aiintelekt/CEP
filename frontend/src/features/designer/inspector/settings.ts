@@ -19,6 +19,8 @@ import { normaliseHex } from './fields/color/colorMath'
 import type { LengthUnit } from './fields/length'
 import { EMPTY_PADDING, parsePadding, type Padding } from './fields/padding'
 import { SPACING_PROP, ZERO_PADDING, shorthand, spacingFrom, spacingToStore, sumSpacing, type Spacing } from './spacing'
+import { CODE_TYPE } from '../blocks/codes'
+import { codeFieldsFor, isCodeKey, readCodeSetting, writeCodeSetting } from './codeSettings'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
 import { directName, networkOf, socialElementMjml } from './social'
 
@@ -372,6 +374,7 @@ export function blockType(component: Component): string {
 
 export function fieldsFor(component: Component): SettingField[] {
   const type = blockType(component)
+  if (type === CODE_TYPE) return codeFieldsFor(component).map((field) => (field.kind === 'length' ? { ...field, units: PX_ONLY } : field))
   return (SETTINGS_BY_BLOCK[type] ?? []).map((field) =>
     field.kind === 'length' || field.kind === 'padding' ?
       { ...field, units: field.key === BORDER_WIDTH_KEY ? PX_ONLY : unitsFor(type, field.key === MARGIN_KEY ? 'padding' : field.key) }
@@ -537,6 +540,7 @@ const isSocialIcon = (component: Component) => blockType(component) === 'mj-soci
 export function readSetting(component: Component, key: string): string | null {
   const receipt = receiptAccessor(blockType(component), key)
   if (receipt) return receipt.read(component)
+  if (isCodeKey(key)) return blockType(component) === CODE_TYPE ? readCodeSetting(component, key) : null
   if (key === MARGIN_KEY) return splitsSpacing(component) ? shorthand(spacingOf(component)?.margin ?? null) : null
   if (key === 'padding' && splitsSpacing(component)) {
     const split = spacingOf(component)
@@ -577,7 +581,7 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
   // hiding on phones, a margin, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || key === SHADOW_KEY || BORDER_KEYS.includes(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || key === SHADOW_KEY || BORDER_KEYS.includes(key) || isCodeKey(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
   return readInherited(component, key, wrapper)
 }
 
@@ -636,6 +640,7 @@ export function writeSetting(component: Component, key: string, value: string | 
     setCssClass(component, HIDE_MOBILE_CLASS, value !== null)
     return true
   }
+  if (isCodeKey(key)) return writeCodeSetting(component, key, value)
   if (key === MARGIN_KEY) return splitsSpacing(component) && writeMargin(component, value)
   if (key === SHADOW_KEY) return writeShadow(component, value)
   if (BORDER_KEYS.includes(key)) return ATTRIBUTE_RULES[blockType(component)]?.border !== undefined && writeBorderPart(component, key, value)

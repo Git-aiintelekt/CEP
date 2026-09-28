@@ -1,5 +1,6 @@
 /** What a layer row is called and which glyph it carries. Pure: no GrapesJS, no editor. */
 import {
+  Barcode,
   Box,
   Code,
   Columns2,
@@ -35,6 +36,7 @@ const NAMES: Record<string, string> = {
   'mj-raw': 'Custom HTML',
   link: 'Link',
   'cep-receipt-slot': 'Receipt Slot',
+  'cep-code': 'Barcode',
   'cep-receipt-brand-header': 'Brand Header',
   'cep-marketing': 'Marketing',
   'cep-receipt-button': 'Button',
@@ -59,6 +61,7 @@ const ICONS: Record<string, LucideIcon> = {
   link: Link,
   'mj-heading': Heading,
   'cep-receipt-slot': Lock,
+  'cep-code': Barcode,
   'cep-receipt-brand-header': LayoutPanelTop,
   'cep-marketing': Megaphone,
   'cep-receipt-button': MousePointerClick,
@@ -83,6 +86,8 @@ export function humanise(kind: string): string {
 
 export function defaultNameFor(kind: string, attributes?: Record<string, unknown>): string {
   if (kind === 'mj-social-element') return network(attributes) ?? NAMES[kind]
+  // a code block says which it is in its css-class (cep-code cep-code-qr)
+  if (kind === 'cep-code') return String(attributes?.['css-class'] ?? '').split(/\s+/).includes('cep-code-qr') ? 'QR Code' : 'Barcode'
   return NAMES[kind] ?? humanise(kind)
 }
 

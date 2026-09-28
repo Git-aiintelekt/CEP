@@ -8,6 +8,7 @@ import { ADD_NETWORK_LABEL } from './fields/SocialNetworksField'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, RESET_LABEL } from './fields/types'
 import { BORDER_COLOR_KEY, BORDER_STYLE_KEY, BORDER_WIDTH_KEY, CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, MARGIN_KEY, SHADOW_KEY, STACK_NOTE, readSetting } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
+import { BARCODE_DEFAULTS, CODE_TYPE, codeRegion } from '../blocks/codes'
 
 afterEach(cleanup)
 
@@ -540,4 +541,22 @@ test('a divider has nothing to set and says why; a footer says what it cannot ca
   renderFields(make('cep-receipt-footer'))
   expect(screen.getByText(/no unsubscribe link/)).toBeTruthy()
   expect(screen.getByLabelText('Sender Address').tagName).toBe('TEXTAREA')
+})
+
+test('a barcode block opens its configuration box: the coupon tags first as its data source, the types, and what went wrong', () => {
+  const tag = (tag_key: string, label: string) => ({
+    id: tag_key, tag_key, label, tag_kind: 'CUSTOM', data_type: 'STRING', applies_to_channels: ['EMAIL'], description: null, sample_value: null,
+    default_value: null, static_value: null, is_active: true,
+  })
+  const code = make(CODE_TYPE, {}, { content: codeRegion(BARCODE_DEFAULTS, 'CPN1', 'https://x.example/c.png') })
+  code.set('cep-code-problem', 'The sample value cannot be drawn: no value.')
+  renderFields(code, { tagPicker: { tags: [tag('first_name', 'First Name'), tag('coupon_barcode_value', 'Coupon Barcode Value')], channel: 'EMAIL', recent: [] } })
+
+  const source = screen.getByLabelText('Data Source') as HTMLSelectElement
+  expect([...source.options].map((option) => option.textContent)).toEqual(['Coupon Barcode Value', 'First Name'])        // required: no empty row
+  expect(source.value).toBe('coupon_barcode_value')
+  expect([...(screen.getByLabelText('Barcode Type') as HTMLSelectElement).options].map((option) => option.textContent)).toEqual(['Code 128', 'Code 39', 'EAN-13', 'UPC-A'])
+  expect(screen.getByText('The sample value cannot be drawn: no value.')).toBeTruthy()
+  expect(screen.getByText('Drawn for each recipient when the email is sent. A recipient without a value gets the email without this block.')).toBeTruthy()
+  expect((screen.getByLabelText('Width') as HTMLInputElement).value).toBe('300')
 })

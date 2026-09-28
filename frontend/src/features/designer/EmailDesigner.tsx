@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 import 'grapesjs/dist/css/grapes.min.css'
 import './designer.css'
 
-import type { PersonalizationTag } from '@/lib/types'
+import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 import { EDITOR_BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
 
@@ -37,6 +37,7 @@ import { AssetsPanel } from './assets/AssetsPanel'
 import { ImagePicker } from './assets/ImagePicker'
 import { absoluteUrl, assetAction, assetMessage } from './assets/assetAction'
 import { InspectorPanel } from './inspector/InspectorPanel'
+import { CODE_FEATURE_OFF } from './inspector/codeSettings'
 import type { ReceiptSlotPreset } from './inspector/receiptSettings'
 import { LayersPanel } from './layers/LayersPanel'
 import { pruneHidden, sameHidden, toggleHidden } from './layers/hidden'
@@ -49,6 +50,7 @@ import { dropLevel } from './blocks/dropLevel'
 import { insertTarget, type InsertNode } from './blocks/insertTarget'
 import { keepChosenValues } from './blocks/keepChosenValues'
 import { RECEIPT_BODY_TYPES, registerReceiptBlockTypes } from './blocks/receiptBlocks'
+import { CODE_TYPE, codeConfigOf, dimensionsOf, isCodeBlock, placeholderSrc, registerCodeType, sampleFor, shownSample, shownSrc, writeCode } from './blocks/codes'
 import { registerCustomHtmlType } from './blocks/customHtml'
 import { registerReceiptSlotType } from './blocks/receiptSlot'
 import { needsImage } from './blocks/registry'
@@ -144,6 +146,11 @@ interface EmailDesignerProps {
   onOpenReceiptLayout?: () => void
   receiptPreset?: ReceiptSlotPreset
   onReceiptPresetChange?: (preset: ReceiptSlotPreset) => void
+  /**
+   * Draws a barcode or QR code block's sample on the server. Given only where the workspace has Barcodes and QR codes:
+   * its presence is what puts the two blocks in the palette.
+   */
+  sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
 }
 
 /** GrapesJS's ids for the devices the toolbar offers */
@@ -430,8 +437,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
     // Before anything is loaded: it rebuilds the component classes, so only components made afterwards use them.
     keepChosenValues(editor)
-    registerBlocks(editor, { channel })
+    registerBlocks(editor, { channel, dynamicCodes: Boolean(latest.current.sampleCode) })
     registerCustomHtmlType(editor)
+    registerCodeType(editor)
     registerReceiptSlotType(editor, { channel })
     registerReceiptBlockTypes(editor, { channel })
     // A Desktop frame as wide as the canvas would make the email reflow narrower on a small window; at a fixed
@@ -586,8 +594,47 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (selected && !latest.current.readOnly) setPicking({ image: imageIn(selected), added: null })
     })
 
+    // Barcode and QR code blocks show the code of their source tag's sample value, drawn by the server that will draw
+    // the sent email's. Asked for when a block is added or its settings change; outside the undo stack, since the
+    // picture follows the settings rather than being an edit of its own.
+    const samples = new Map<string, Promise<CodeSample>>()
+    const drawCode = (component: Component) => {
+      if (latest.current.readOnly || loading.current) return
+      const config = codeConfigOf(component)
+      if (!config) return
+      const { value, problem: sampleProblem } = sampleFor(config, latest.current.tags)
+      const settle = (src: string, problem: string | null) => {
+        if (JSON.stringify(codeConfigOf(component)) !== JSON.stringify(config)) return // changed again while this was drawn
+        component.set('cep-code-problem', problem ?? sampleProblem)
+        const html = component.toHTML()
+        if (shownSrc(html) === src && shownSample(html) === value) return
+        editor.UndoManager.stop()
+        try {
+          writeCode(component, config, value, src)
+        } finally {
+          editor.UndoManager.start()
+        }
+      }
+      const sampler = latest.current.sampleCode
+      if (!sampler) {
+        settle(placeholderSrc(config, value), CODE_FEATURE_OFF)
+        return
+      }
+      const { width, height } = dimensionsOf(config)
+      const request: CodeSampleRequest = config.kind === 'qr' ? { kind: 'qr', ecc: config.ecc, size: config.size, value } : { kind: 'barcode', format: config.format, width, height, value }
+      const key = JSON.stringify(request)
+      let pending = samples.get(key)
+      if (!pending) {
+        pending = sampler(request).catch(() => ({ valid: false, message: 'The sample could not be drawn: the server did not answer. The email still gets each recipient its own code.' }))
+        samples.set(key, pending)
+      }
+      void pending.then((result) => settle(result.valid && result.url ? result.url : placeholderSrc(config, value), result.valid ? null : (result.message ?? null)))
+    }
+    editor.on('cep:code-changed', drawCode)
+
     // A picture block dragged out of the palette carries no picture: the drop is where the reader is asked for one.
     editor.on('component:add', (component: Component) => {
+      if (isCodeBlock(component)) drawCode(component)
       if (!askAfterDrop.current || loading.current) return
       askAfterDrop.current = false
       setPicking({ image: imageIn(component), added: component })
@@ -604,7 +651,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       const placed = Boolean(component)
       latest.current.onBlockDrop?.({ blockId, placed })
 
-      const dropped = blocksFor(channel).find((item) => item.id === blockId)
+      const dropped = blocksFor(channel, { dynamicCodes: Boolean(latest.current.sampleCode) }).find((item) => item.id === blockId)
       if (placed) sayRef.current(dropped ? `${dropped.label} added.` : null)
       else if (cancelledRef.current) sayRef.current(null)
       else sayRef.current(dropped && dropLevel(dropped) === 'column' ? 'Drop this inside a column.' : "Can't drop here.")
@@ -676,6 +723,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       skinCanvas.current()
       refreshLayers.current()
       pushDirty.current({ kind: 'set', edited: repaired > 0 }) // a repaired design must be saved again so the stored HTML is rebuilt
+      // a code block still showing the stand-in (made where there was no server) gets its real sample
+      editor.getWrapper()?.findType(CODE_TYPE).filter((code) => shownSrc(code.toHTML())?.startsWith('data:')).forEach(drawCode)
       // view-only: every block can still be selected and read, but not changed (see ./readOnly.ts)
       if (readOnly) lockEditor(editor)
       // The guides are shown from the start while the command reports itself off: running it once puts the two in step.
@@ -742,7 +791,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       const { readOnly, channel = 'EMAIL' } = latest.current
       if (!editor || readOnly) return null
 
-      const block = blocksFor(channel).find((item) => item.id === blockId)
+      const block = blocksFor(channel, { dynamicCodes: Boolean(latest.current.sampleCode) }).find((item) => item.id === blockId)
       const body = editor.getWrapper()?.findType('mj-body')[0]
       if (!block || !body) return null
 
@@ -928,7 +977,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       const editor = editorRef.current
       const payload = blockPayload.current
       const block = editor?.Blocks.get(blockId)
-      const source = blocksFor(latest.current.channel ?? 'EMAIL').find((item) => item.id === blockId)
+      const source = blocksFor(latest.current.channel ?? 'EMAIL', { dynamicCodes: Boolean(latest.current.sampleCode) }).find((item) => item.id === blockId)
       if (!editor || !payload || !block || !source) return
       // an image carried out of the library rides on the same block, so every drag says what it carries
       setBlockImage(editor, picture)
@@ -1039,7 +1088,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
             icon: LayoutGrid,
             panel: (
               <BlockPalette
-                blocks={blocksFor(props.channel ?? 'EMAIL')}
+                blocks={blocksFor(props.channel ?? 'EMAIL', { dynamicCodes: Boolean(props.sampleCode) })}
                 flat={props.channel === 'E_RECEIPT'}
                 disabled={props.readOnly}
                 message={paletteMessage}

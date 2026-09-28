@@ -6,7 +6,8 @@ from django.http import JsonResponse
 from apps.tenants import context
 from apps.tenants.resolver import resolve_tenant
 
-EXEMPT_PREFIXES = ("/healthz", "/admin/", "/static/", "/media/", "/api/v1/schema", "/api/v1/docs", "/api/v1/redoc", "/api/v1/public/barcode/")
+EXEMPT_PREFIXES = ("/healthz", "/admin/", "/static/", "/media/", "/api/v1/schema", "/api/v1/docs", "/api/v1/redoc", "/api/v1/public/barcode/",
+                   "/api/v1/public/code/")      # a code block's image in a sent email: signed, no workspace needed
 
 
 class PlatformAdminMiddleware:
