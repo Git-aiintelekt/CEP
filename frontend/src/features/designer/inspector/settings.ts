@@ -17,6 +17,8 @@ import {
 } from '../blocks/receiptBlocks'
 import { normaliseHex } from './fields/color/colorMath'
 import type { LengthUnit } from './fields/length'
+import { EMPTY_PADDING, parsePadding, type Padding } from './fields/padding'
+import { SPACING_PROP, ZERO_PADDING, shorthand, spacingFrom, spacingToStore, sumSpacing, type Spacing } from './spacing'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
 import { directName, networkOf, socialElementMjml } from './social'
 
@@ -63,6 +65,14 @@ export const SRC_KEY = 'src'
 export const HTML_KEY = 'html'
 /** The social block's add-a-network list. Not a value the block holds: the panel's name for the control. */
 export const NETWORKS_KEY = 'cep-add-network'
+/**
+ * A block's margin: the space outside it. MJML has no margin and email clients drop CSS margins, so the email gets
+ * margin plus padding as its one `padding`; the split lives on the component (spacing.ts). The panel's name, never an attribute.
+ * A button is the exception: its MJML padding is already the space around it, so its Margin is that attribute and its
+ * Padding is MJML's inner-padding.
+ */
+export const MARGIN_KEY = 'cep-margin'
+export const MARGIN_HELP = 'Space outside the block. The email gets margin and padding added together.'
 /** mj-social-element's network. The attribute may carry MJML's "-noshare" suffix; the panel shows the network alone. */
 const NETWORK_KEY = 'name'
 
@@ -132,6 +142,7 @@ export const ATTRIBUTE_RULES: Record<string, Record<string, AttributeRule>> = {
   'mj-column': { width: LENGTH, 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING },
   'mj-text': {
     'font-family': 'free', 'font-size': PX, color: 'color', align: 'free', 'line-height': LINE_HEIGHT, padding: PADDING, 'font-weight': 'free',
+    'container-background-color': 'color',
   },
   'mj-button': {
     href: 'free', 'background-color': 'color', color: 'color', 'border-radius': 'free', padding: PADDING,
@@ -170,6 +181,8 @@ export const STACK_NOTE = 'Columns stack on phones automatically.'
 /** A closing line under a block's layout settings, for behaviour that has no field of its own. */
 export const LAYOUT_NOTES: Record<string, string> = { 'mj-section': STACK_NOTE }
 
+const MARGIN: SettingField = { key: MARGIN_KEY, label: 'Margin', kind: 'padding', section: 'layout', help: MARGIN_HELP }
+
 /** Every setting a block offers, in the order the panel shows it. A heading block is an mj-text. */
 export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   'mj-body': [
@@ -177,6 +190,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-section': [
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'full-width', label: 'Full Width', kind: 'toggle', section: 'layout' },
     { key: HIDE_MOBILE_KEY, label: HIDE_MOBILE_LABEL, kind: 'toggle', section: 'layout' },
@@ -185,6 +199,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   ],
   'mj-column': [
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'vertical-align', label: 'Vertical Alignment', kind: 'valign', section: 'layout' },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
@@ -192,11 +207,14 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   ],
   'mj-text': [
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'font-weight', label: 'Font Weight', kind: 'select', section: 'appearance' },
     { key: 'line-height', label: 'Line Height', kind: 'length', section: 'appearance', min: 0 },
+    // MJML's container-background-color: the cell behind the text, which is what a background means on a text block
+    { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
   ],
   'mj-button': [
@@ -205,13 +223,14 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
-    { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    // a button's MJML padding is the space around it and inner-padding the space inside: Margin and Padding as people read them
+    { key: 'padding', label: 'Margin', kind: 'padding', section: 'layout', help: 'Space outside the button.' },
+    { key: 'inner-padding', label: 'Padding', kind: 'padding', section: 'layout', help: 'Space inside the button, around its label.' },
     { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
-    { key: 'inner-padding', label: 'Inner Padding', kind: 'padding', section: 'appearance' },
   ],
   'mj-image': [
     { key: SRC_KEY, label: 'Image', kind: 'image', section: 'content' },
@@ -221,18 +240,21 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     { key: 'max-height', label: 'Max Height', kind: 'length', section: 'layout', min: 0 },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-divider': [
     { key: 'width', label: 'Width', kind: 'length', section: 'layout', min: 0 },
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'border-color', label: 'Line Color', kind: 'color', section: 'appearance' },
     { key: 'border-width', label: 'Line Width', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-spacer': [
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
   ],
   'mj-social': [
@@ -241,6 +263,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'mode', label: 'Layout', kind: 'select', section: 'layout' },
     { key: 'icon-size', label: 'Icon Size', kind: 'length', section: 'layout', min: 8 },
     { key: 'icon-padding', label: 'Icon Padding', kind: 'padding', section: 'layout' },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'border-radius', label: 'Icon Corner Radius', kind: 'length', section: 'appearance', min: 0 },
     { key: 'font-family', label: 'Label Font', kind: 'select', section: 'appearance' },
@@ -252,6 +275,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: LABEL_KEY, label: 'Label', kind: 'text', section: 'content', help: 'Shown beside the icon; leave empty for the icon alone' },
     { key: 'icon-size', label: 'Icon Size', kind: 'length', section: 'layout', min: 8 },
+    MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'background-color', label: 'Icon Background', kind: 'color', section: 'appearance' },
     { key: 'border-radius', label: 'Icon Corner Radius', kind: 'length', section: 'appearance', min: 0 },
@@ -315,8 +339,61 @@ export function blockType(component: Component): string {
 export function fieldsFor(component: Component): SettingField[] {
   const type = blockType(component)
   return (SETTINGS_BY_BLOCK[type] ?? []).map((field) =>
-    field.kind === 'length' || field.kind === 'padding' ? { ...field, units: unitsFor(type, field.key) } : field,
+    field.kind === 'length' || field.kind === 'padding' ? { ...field, units: unitsFor(type, field.key === MARGIN_KEY ? 'padding' : field.key) } : field,
   )
+}
+
+// ---------------------------------------------------------------- margin and padding, summed into the MJML padding
+/** The blocks whose Margin is the split (every block with a padding attribute except the button, whose margin IS its padding). */
+export function splitsSpacing(component: Component): boolean {
+  const type = blockType(component)
+  return type !== 'mj-button' && ATTRIBUTE_RULES[type]?.padding !== undefined
+}
+
+export function spacingOf(component: Component): Spacing | null {
+  return spacingFrom(component.get(SPACING_PROP))
+}
+
+/** The padding part the email would use when the block has no split yet: its own attribute, else what it inherits. */
+function paddingBehind(component: Component): Padding {
+  const raw = component.getAttributes().padding
+  return parsePadding(raw === undefined || raw === null ? null : String(raw)) ?? parsePadding(MJML_DEFAULTS[blockType(component)]?.padding) ?? { ...ZERO_PADDING }
+}
+
+/** Writes the split and the sum in one go. False when a side mixes px and %, which no email can add up. */
+function writeSpacing(component: Component, spacing: Spacing): boolean {
+  if (spacing.margin === null && spacing.padding === null) {
+    component.set(SPACING_PROP, null)
+    component.removeAttributes('padding')
+    return true
+  }
+  const total = sumSpacing(spacing.margin, spacing.padding)
+  const sum = shorthand(total)
+  if (sum === null) return false
+  if (spacing.margin === null) {                           // no margin any more: the padding stands alone, as before
+    component.set(SPACING_PROP, null)
+    component.addAttributes({ padding: sum })
+    return true
+  }
+  component.set(SPACING_PROP, spacingToStore(spacing))
+  component.addAttributes({ padding: sum })
+  return true
+}
+
+function writeMargin(component: Component, value: string | null): boolean {
+  const current = spacingOf(component)
+  if (value === null) return writeSpacing(component, { margin: null, padding: current?.padding ?? null })
+  const margin = parsePadding(value)
+  if (margin === null) return false
+  return writeSpacing(component, { margin, padding: current?.padding ?? paddingBehind(component) })
+}
+
+function writeSplitPadding(component: Component, value: string | null): boolean {
+  const current = spacingOf(component)
+  if (current === null || current.margin === null) return false      // no margin: the plain attribute path applies
+  const padding = value === null ? { ...ZERO_PADDING } : parsePadding(value)
+  if (padding === null) return false
+  return writeSpacing(component, { margin: current.margin, padding })
 }
 
 /** The fields of one section, in order. */
@@ -365,6 +442,11 @@ const isSocialIcon = (component: Component) => blockType(component) === 'mj-soci
 export function readSetting(component: Component, key: string): string | null {
   const receipt = receiptAccessor(blockType(component), key)
   if (receipt) return receipt.read(component)
+  if (key === MARGIN_KEY) return splitsSpacing(component) ? shorthand(spacingOf(component)?.margin ?? null) : null
+  if (key === 'padding' && splitsSpacing(component)) {
+    const split = spacingOf(component)
+    if (split?.margin) return shorthand(split.padding ?? { ...EMPTY_PADDING }) ?? shorthand(ZERO_PADDING)
+  }
   if (key === LABEL_KEY) return textOf(component)
   if (key === HTML_KEY) return innerHtmlOf(component)
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
@@ -397,9 +479,13 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 /** What the recipient will see: the block's own value, else mj-attributes, else mj-all, else MJML's default. */
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
-  // hiding on phones, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  // hiding on phones, a margin, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  return readInherited(component, key, wrapper)
+}
 
+/** What the block would get if it set nothing of its own: mj-attributes, else mj-all, else MJML's default. */
+export function readInherited(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const type = blockType(component)
   const forTag = headAttribute(wrapper, type, key)
   if (forTag !== null) return { value: forTag, source: 'mj-attributes' }
@@ -453,6 +539,8 @@ export function writeSetting(component: Component, key: string, value: string | 
     setCssClass(component, HIDE_MOBILE_CLASS, value !== null)
     return true
   }
+  if (key === MARGIN_KEY) return splitsSpacing(component) && writeMargin(component, value)
+  if (key === 'padding' && splitsSpacing(component) && spacingOf(component)?.margin) return writeSplitPadding(component, value)
   if (value === null) {
     component.removeAttributes(key)
     return true

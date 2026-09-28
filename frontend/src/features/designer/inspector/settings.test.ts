@@ -2,7 +2,7 @@ import type { Component } from 'grapesjs'
 import { expect, test, vi } from 'vitest'
 
 import {
-  ATTRIBUTE_RULES, HIDE_MOBILE_KEY, HTML_KEY, LABEL_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
+  ATTRIBUTE_RULES, HIDE_MOBILE_KEY, HTML_KEY, LABEL_KEY, MARGIN_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
   normaliseHex, readEffective, readSetting, sectionFields, unitsFor, writeContent, writeSetting,
 } from './settings'
 import { FOOTER_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
@@ -56,9 +56,10 @@ function wrapperWith(head: Record<string, Record<string, string>>): Component {
 
 test('a block kind maps to its ordered fields, and a heading is an mj-text', () => {
   expect(fieldsFor(make('mj-button')).map((field) => field.key)).toEqual([
-    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'font-family', 'font-size', 'background-color', 'color', 'border-radius', 'inner-padding',
+    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'inner-padding', 'font-family', 'font-size', 'background-color', 'color', 'border-radius',
   ])
-  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', 'padding'])
+  expect(fieldsFor(make('mj-button')).filter((field) => field.kind === 'padding').map((field) => field.label)).toEqual(['Margin', 'Padding'])   // a button's MJML padding is its margin
+  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', MARGIN_KEY, 'padding'])
   expect(fieldsFor(make('mj-raw')).map((field) => field.key)).toEqual([HTML_KEY])
   expect(fieldsFor(make('mj-navbar'))).toEqual([])
   expect(blockType(make('mj-text'))).toBe('mj-text')
@@ -67,6 +68,14 @@ test('a block kind maps to its ordered fields, and a heading is an mj-text', () 
 test('every block that can be selected has something to set: the body, a heading or text, and a link inside it', () => {
   expect(fieldsFor(make('mj-body')).map((field) => field.key)).toEqual(['width', 'background-color'])
   expect(fieldsFor(make('mj-text')).map((field) => field.key)).toContain('font-family')
+  // a text block's background is MJML's container-background-color, offered under the plain name
+  expect(fieldsFor(make('mj-text')).filter((field) => field.kind === 'color').map((field) => [field.key, field.label]))
+    .toEqual([['container-background-color', 'Background Color'], ['color', 'Text Color']])
+  const text = make('mj-text')
+  expect(readEffective(text, 'container-background-color', null)).toEqual({ value: null, source: 'mjml-default' })
+  expect(writeSetting(text, 'container-background-color', '#FFF')).toBe(true)
+  expect(text.getAttributes()['container-background-color']).toBe('#ffffff')
+  expect(writeSetting(text, 'container-background-color', 'white')).toBe(false)
   expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title'])
 })
 
@@ -400,4 +409,29 @@ test('the brand bar colour is written as the swatch value, straight onto the sec
   expect(readSetting(header, 'background-color')).toBe('#20265d')
   expect(writeSetting(header, 'background-color', '#418eae')).toBe(true)
   expect(header.getAttributes()['background-color']).toBe('#418eae')
+})
+
+test('margin: written as the sum with the padding into the MJML padding, read back as two; a mixed unit is refused; reset leaves the padding', () => {
+  const text = make('mj-text')
+  expect(readSetting(text, MARGIN_KEY)).toBe(null)
+  expect(writeSetting(text, MARGIN_KEY, '10px')).toBe(true)
+  expect(text.getAttributes().padding).toBe('20px 35px')                                              // 10 on top of MJML's own 10px 25px
+  expect(readSetting(text, MARGIN_KEY)).toBe('10px')
+  expect(readSetting(text, 'padding')).toBe('10px 25px')
+  expect(readEffective(text, MARGIN_KEY)).toEqual({ value: '10px', source: 'block' })
+
+  expect(writeSetting(text, 'padding', '5px')).toBe(true)                                              // the inner part alone
+  expect(text.getAttributes().padding).toBe('15px')
+  expect(readSetting(text, 'padding')).toBe('5px')
+  expect(writeSetting(text, MARGIN_KEY, '5%')).toBe(false)                                             // px and % cannot be added up
+  expect(text.getAttributes().padding).toBe('15px')
+
+  expect(writeSetting(text, MARGIN_KEY, null)).toBe(true)
+  expect(text.getAttributes().padding).toBe('5px')                                                     // the padding stands alone again
+  expect(text.get('cep-spacing')).toBe(null)
+  expect(readSetting(text, MARGIN_KEY)).toBe(null)
+
+  const button = make('mj-button')
+  expect(writeSetting(button, MARGIN_KEY, '10px')).toBe(false)                                          // a button's margin is its padding attribute
+  expect(readSetting(button, MARGIN_KEY)).toBe(null)
 })
