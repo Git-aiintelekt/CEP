@@ -11,11 +11,12 @@ import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { canEditTemplate } from '@/features/designer/editAccess'
 import { ReceiptWorkspace, type ReceiptBackend } from '@/features/receipt/ReceiptWorkspace'
 import { api } from '@/lib/api'
-import type { Design, DesignVersion, MediaAsset, Page, PersonalizationTag, ReceiptLayout, Template } from '@/lib/types'
+import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, ReceiptLayout, Template } from '@/lib/types'
 
 export default function ReceiptEditorPage() {
   const { id = '' } = useParams()
-  const { can } = useAuth()
+  const { can, has } = useAuth()
+  const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
 
   const template = useQuery({ queryKey: ['templates', 'detail', id], queryFn: ({ signal }) => api.get<Template>(`/templates/${id}/`, undefined, signal) })
@@ -49,8 +50,10 @@ export default function ReceiptEditorPage() {
         await api.post<Template>(`/templates/${id}/activate/`)
         void queryClient.invalidateQueries({ queryKey: ['templates'] })
       },
+      // Barcodes and QR codes is switched on per workspace in tenant management
+      sampleCode: codes ? (request) => api.post<CodeSample>('/codes/sample/', request) : undefined,
     }),
-    [id, queryClient],
+    [id, queryClient, codes],
   )
 
   // as for the email designer, an image library that will not load leaves the editor usable, without pictures

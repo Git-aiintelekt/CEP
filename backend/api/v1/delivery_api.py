@@ -355,6 +355,7 @@ class ReceiptSendSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     party_id = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
     receipt = serializers.DictField(help_text="number (or order_number), transaction_at, currency, subtotal, discount_total, tax_total, grand_total, tender_summary, "
+                                              "coupon_code, coupon_barcode_value, coupon_qr_value (for barcode and QR code blocks), "
                                               "items [...] and anything else your template's RECEIPT tags read (source_path receipt.<key>)")
     store = serializers.DictField(required=False, default=dict, help_text="name, address ... for the template's STORE tags")
     attachments = ReceiptAttachmentSerializer(many=True, required=False, default=list)

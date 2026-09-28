@@ -18,10 +18,11 @@ export interface RegisterOptions extends PaletteOptions {
 
 const CATEGORY_LABEL = new Map(BLOCK_CATEGORIES.map((category) => [category.id, category.label]))
 
-/** A receipt has a palette of its own: six blocks, its footer a transactional one with no unsubscribe link. */
+/** A receipt has a palette of its own: six blocks, its footer a transactional one with no unsubscribe link. Both palettes end with the
+ *  barcode and QR code blocks where the workspace has them. */
 export function blocksFor(channel: string, { dynamicCodes = false }: PaletteOptions = {}): CepBlock[] {
-  if (channel === 'E_RECEIPT') return RECEIPT_BLOCKS
-  return dynamicCodes ? [...CEP_BLOCKS, ...CODE_BLOCKS] : CEP_BLOCKS
+  const own = channel === 'E_RECEIPT' ? RECEIPT_BLOCKS : CEP_BLOCKS
+  return dynamicCodes ? [...own, ...CODE_BLOCKS] : own
 }
 
 export function registerBlocks(editor: Editor, { channel, imageUrl = null, dynamicCodes = false }: RegisterOptions): void {

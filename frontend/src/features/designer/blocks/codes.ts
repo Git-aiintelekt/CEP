@@ -9,7 +9,7 @@
  */
 import type { Component, Editor } from 'grapesjs'
 
-import type { PersonalizationTag } from '@/lib/types'
+import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 
 import { makeInert } from './receiptSlot'
 
@@ -184,6 +184,15 @@ export function placeholderSrc(config: CodeConfig, sample = ''): string {
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#fff"/>${shapes}</svg>`
   return `data:image/svg+xml;base64,${btoa(svg)}`
+}
+
+/** A sampler for where there is no server (the playgrounds): the value checked by the same rules, drawn as the stand-in. */
+export async function offlineSample(request: CodeSampleRequest): Promise<CodeSample> {
+  const config: CodeConfig = request.kind === 'qr'
+    ? { ...QR_DEFAULTS, ecc: request.ecc as QrLevel, size: request.size }
+    : { ...BARCODE_DEFAULTS, format: request.format as BarcodeFormat, width: request.width, height: request.height }
+  const problem = valueProblem(config, request.value)
+  return problem ? { valid: false, message: `The sample value cannot be drawn: ${problem}.` } : { valid: true, url: placeholderSrc(config, request.value) }
 }
 
 // ---------------------------------------------------------------- reading and writing a block

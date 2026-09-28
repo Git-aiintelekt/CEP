@@ -178,6 +178,10 @@ picks the data source (a catalogue tag) and the format in the settings panel; no
 * **Data** comes from catalogue tags. Patch 0024 gives every workspace three list-member tags, and onboarding gives every
   new one: `coupon_code`, `coupon_barcode_value`, `coupon_qr_value` (`custom_value_pairs.*`, filled from list-upload
   columns of the same names).
+* **E-receipts** (2026-09-29): the receipt designer's palette ends with the same two blocks. A receipt has no list member, so
+  `POST /receipts/send/` fills the coupon tags from the receipt's own `coupon_code`, `coupon_barcode_value` and
+  `coupon_qr_value` fields (`receipts.coupon_values`); the RECEIPT tags work as sources too (a barcode of `receipt_number`,
+  a QR code of `order_url`). A receipt that went without a block says so in the answer: `"codes_left_out": ["coupon_qr_value"]`.
 * Libraries: `python-barcode` (bars as a module pattern, painted with Pillow, never resampled) and `segno` for QR.
 
 ## 9. E-receipts (transactional, one at a time)

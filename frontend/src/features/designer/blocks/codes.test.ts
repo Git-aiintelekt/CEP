@@ -98,10 +98,12 @@ test('the type is an mj-raw that carries the cep-code class, nothing else', () =
   expect(definition.isComponent(element('cep-receipt-slot'))).toBe(false)
 })
 
-test('the palette offers the two blocks only where the workspace has the feature, and never on a receipt', () => {
+test('both palettes, the email and the receipt one, end with the two blocks only where the workspace has the feature', () => {
   const ids = (channel: string, dynamicCodes?: boolean) => blocksFor(channel, { dynamicCodes }).map((block) => block.id)
   expect(ids('EMAIL')).not.toContain('barcode')
   expect(ids('EMAIL', true).slice(-2)).toEqual(['barcode', 'qr-code'])
-  expect(ids('E_RECEIPT', true)).not.toContain('barcode')
+  expect(ids('E_RECEIPT')).not.toContain('barcode')
+  expect(ids('E_RECEIPT', true).slice(-2)).toEqual(['barcode', 'qr-code'])
+  expect(ids('E_RECEIPT', true).slice(0, -2)).toEqual(ids('E_RECEIPT'))
   expect(CODE_BLOCKS.every((block) => block.category === 'commerce')).toBe(true)
 })
