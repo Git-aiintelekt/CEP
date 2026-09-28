@@ -79,7 +79,7 @@ test('a template preview reads its saved findings, and its footer offers Edit an
   const trigger = within(row).getByRole('button', { name: 'Actions for Fall SMS' })
   await user.click(trigger)
   const menu = screen.getByRole('region', { name: 'Actions for Fall SMS' })
-  expect(within(menu).getAllByRole('button').map((button) => button.textContent)).toEqual(['Preview', 'Open Editor', 'DuplicateA draft copy of the latest version', 'Delete'])
+  expect(within(menu).getAllByRole('button').map((button) => button.textContent)).toEqual(['Preview', 'Open Editor', 'Rename', 'DuplicateA draft copy of the latest version', 'Delete'])
   await user.click(within(menu).getByRole('button', { name: 'Preview' }))
 
   const dialog = await screen.findByRole('dialog', { name: 'Fall SMS' })
@@ -122,29 +122,36 @@ test('an email preview shows the subject with samples and the compiled email, at
   expect((within(dialog).getByTitle('Email preview') as HTMLIFrameElement).style.width).toBe('375px')
 })
 
-test('clicking a template card opens its preview, and Edit goes on to the editor', async () => {
+test('a template card and its View icon open the preview, and Edit goes on to the editor', async () => {
   await openLanding()
   const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Preview Fall Email' }))                       // the View icon on the tag row
+  expect(await screen.findByRole('dialog', { name: 'Fall Email' })).toBeTruthy()
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Fall Email' })).toBeNull())
+
   const card = screen.getByText('Fall Email').closest('button') as HTMLElement
   await user.click(card)
-
   const dialog = await screen.findByRole('dialog', { name: 'Fall Email' })
   expect(window.location.pathname).toBe('/templates')
-  expect(screen.queryByRole('button', { name: /^Preview /})).toBeNull() // no separate preview button on cards
   await user.click(within(dialog).getByRole('button', { name: 'Edit' }))
   expect(await screen.findByText('designer opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-email/design')
 })
 
-test('e-receipts have no preview: the card and row still open the editor, and the menu has no Preview', async () => {
+test('an e-receipt previews like any other template, with the sample receipt in its slot, and its menu offers Preview', async () => {
   await openLanding()
   const user = userEvent.setup()
-  expect(screen.getByText('Northline order receipt').closest('a')?.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
+  await user.click(screen.getByText('Northline order receipt').closest('button') as HTMLElement)
+  const dialog = await screen.findByRole('dialog', { name: 'Northline order receipt' })
+  const frame = (await within(dialog).findByTitle('Email preview')) as HTMLIFrameElement
+  expect(frame.srcdoc).toContain('data-section="items"')
+  await user.keyboard('{Escape}')
 
   await user.click(screen.getByRole('button', { name: 'List View' }))
-  const row = screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
+  const row = screen.getByRole('button', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
   await user.click(within(row).getByRole('button', { name: 'Actions for Northline order receipt' }))
-  expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).getAllByRole('button').map((button) => button.textContent)).toEqual(['Open Editor', 'DuplicateA draft copy of the latest version', 'Delete'])
+  expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).getAllByRole('button').map((button) => button.textContent)).toEqual(['Preview', 'Open Editor', 'Rename', 'DuplicateA draft copy of the latest version', 'Delete'])
 })
 
 test('SMS and MMS cards show the first line of the real message; email and e-receipt show a content skeleton', async () => {
@@ -257,7 +264,7 @@ test('only cards in view load: the rest stay waiting and ask for nothing', async
   for (const name of ['Retired Email', 'Northline order receipt', 'Welcome a new member']) expect(tileOf(name).dataset.tile, name).toBe('placeholder')
 })
 
-test('an e-receipt gets a real thumbnail, with its receipt in the slot, and still no Preview action anywhere', async () => {
+test('an e-receipt gets a real thumbnail, with its receipt in the slot, and opens its preview like any card', async () => {
   const calls = await openLanding()
   await act(async () => scrollIntoView(inCard('Northline order receipt')))
   await waitFor(() => expect(tileOf('Northline order receipt').dataset.tile).toBe('email'))
@@ -269,14 +276,12 @@ test('an e-receipt gets a real thumbnail, with its receipt in the slot, and stil
   await waitFor(() => expect(tileOf('BOPIS').dataset.tile).toBe('email'))
   expect((tileOf('BOPIS').querySelector('iframe') as HTMLIFrameElement).srcdoc).toContain('In store')
 
-  // the card still opens the editor directly, and no menu offers a preview
-  expect(cardOf('Northline order receipt').querySelector('a')?.getAttribute('href')).toBe('/templates/tpl-receipt/receipt')
+  // the card is a button into the preview, the View icon beside its tags too, and a preset e-receipt gets its row menu
+  expect(cardOf('Northline order receipt').querySelector('a')).toBeNull()
+  expect(within(cardOf('Northline order receipt')).getByRole('button', { name: 'Preview Northline order receipt' })).toBeTruthy()
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'List View' }))
-  const row = screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
-  await user.click(within(row).getByRole('button', { name: 'Actions for Northline order receipt' }))
-  expect(within(screen.getByRole('region', { name: 'Actions for Northline order receipt' })).queryByRole('button', { name: 'Preview' })).toBeNull()
-  expect(screen.queryByRole('button', { name: 'Actions for BOPIS' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Actions for BOPIS' })).toBeTruthy()
 })
 
 test('the thumbnail frame is sandboxed and inert: a click on it reaches the card', async () => {

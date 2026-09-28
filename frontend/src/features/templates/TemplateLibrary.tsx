@@ -1,10 +1,11 @@
 /** "Your Templates": channel tabs, status, search, grid or list, with the CEP presets after the workspace's own. */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EllipsisVertical, LayoutGrid, List, Search, type LucideIcon } from 'lucide-react'
-import { useId, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { EllipsisVertical, Eye, LayoutGrid, List, Search, type LucideIcon } from 'lucide-react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/Button'
+import { Field, TextInput } from '@/components/Form'
 import { MenuRow } from '@/components/MenuRow'
 import { Modal } from '@/components/Modal'
 import { Popover } from '@/components/Popover'
@@ -22,10 +23,9 @@ import { lookOf, type TemplateChannel } from './channels'
 import { usePresets } from './presetSource'
 import { ItemTile } from './preview/ItemTile'
 import { TemplatePreviewModal } from './preview/TemplatePreviewModal'
-import { canPreview, type PreviewItem } from './preview/usePreviewContent'
+import type { PreviewItem } from './preview/usePreviewContent'
 import { lastUsedText } from './lastUsed'
 import { StatusTag } from './StatusTag'
-import { useCreateFromPreset } from './useCreateFromPreset'
 
 type View = 'grid' | 'list'
 type Item = PreviewItem
@@ -74,7 +74,6 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
 
   const list = useCursorList<Template>('templates', { channel: tab === 'ALL' ? undefined : tab, status: status || undefined, search: needle || undefined })
   const { presets } = usePresets(tab === 'ALL' ? channels : [tab])
-  const createFromPreset = useCreateFromPreset()
   const [previewing, setPreviewing] = useState<PreviewItem | null>(null)
 
   // a template's own actions: a draft copy of it, or its removal (asked first; a campaign's template is refused by the server)
@@ -82,7 +81,16 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
   const queryClient = useQueryClient()
   const toast = useToast()
   const [deleting, setDeleting] = useState<Template | null>(null)
+  const [renaming, setRenaming] = useState<Template | null>(null)
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['templates'] })
+  const rename = useMutation({
+    mutationFn: ({ template, name }: { template: Template; name: string }) => api.patch<Template>(`/templates/${template.id}/`, { name }),
+    onSuccess: (renamed, { template }) => {
+      setRenaming(null)
+      refresh()
+      toast.success('Template renamed', `“${template.name}” is now “${renamed.name}”.`)
+    },
+  })
   const duplicate = useMutation({
     mutationFn: (template: Template) => api.post<Template>(`/templates/${template.id}/clone/`, {}),
     onSuccess: (copy) => {
@@ -100,7 +108,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
       toast.success('Template deleted', `“${template.name}” is gone from the library.`)
     },
   })
-  const actions: TemplateActions | undefined = canEdit ? { onDuplicate: duplicate.mutate, onDelete: setDeleting } : undefined
+  const actions: TemplateActions | undefined = canEdit ? { onRename: (template) => { rename.reset(); setRenaming(template) }, onDuplicate: duplicate.mutate, onDelete: setDeleting } : undefined
 
   // presets follow the workspace's own templates, so they sit on the last page; they have no status to filter by
   const shownPresets = !list.hasNext && status === '' ? presets.filter((preset) => matches(preset, needle)) : []
@@ -176,9 +184,9 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             <EmptyState title="No Templates Yet" hint={canEdit ? 'Start one from a channel above, or copy a CEP preset: every campaign needs a template to send.' : 'Someone with the template.edit permission can start one from a channel above.'} />
           )
         ) : view === 'grid' ? (
-          <TemplateGrid items={items} canEdit={canEdit} onPreset={createFromPreset} onPreview={setPreviewing} actions={actions} />
+          <TemplateGrid items={items} canEdit={canEdit} onPreview={setPreviewing} actions={actions} />
         ) : (
-          <TemplateTable items={items} canEdit={canEdit} onPreset={createFromPreset} onPreview={setPreviewing} actions={actions} />
+          <TemplateTable items={items} canEdit={canEdit} onPreview={setPreviewing} actions={actions} />
         )}
 
         {(list.hasNext || list.hasPrevious) && (
@@ -190,6 +198,15 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
       </div>
 
       {previewing && <TemplatePreviewModal item={previewing} canEdit={canEdit} onClose={() => setPreviewing(null)} />}
+      {renaming && (
+        <RenameTemplateModal
+          template={renaming}
+          pending={rename.isPending}
+          error={rename.isError ? messageOf(rename.error) : null}
+          onClose={() => setRenaming(null)}
+          onSave={(name) => rename.mutate({ template: renaming, name })}
+        />
+      )}
       {deleting && (
         <Modal
           title="Delete this template?"
@@ -211,18 +228,58 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
 
 /** What the reader may do to one of the workspace's own templates; absent without template.edit. */
 interface TemplateActions {
+  onRename: (template: Template) => void
   onDuplicate: (template: Template) => void
   onDelete: (template: Template) => void
 }
 
-/** The two rows every template's menu ends with, when the reader may edit. */
+/** The rows every template's menu ends with, when the reader may edit. */
 function ActionRows({ template, actions, close }: { template: Template; actions?: TemplateActions; close: () => void }) {
   if (!actions) return null
   return (
     <>
+      <MenuRow title="Rename" onClick={() => { close(); actions.onRename(template) }} />
       <MenuRow title="Duplicate" detail="A draft copy of the latest version" onClick={() => { close(); actions.onDuplicate(template) }} />
       <MenuRow tone="error" title="Delete" onClick={() => { close(); actions.onDelete(template) }} />
     </>
+  )
+}
+
+const RENAME_FORM_ID = 'rename-template-form'
+const NAME_MIN = 3
+
+/** A new name for a template, a duplicate's "(copy)" included; the server refuses a name another template has. */
+function RenameTemplateModal({ template, pending, error, onClose, onSave }: {
+  template: Template
+  pending: boolean
+  error: string | null
+  onClose: () => void
+  onSave: (name: string) => void
+}) {
+  const [name, setName] = useState(template.name)
+  const trimmed = name.trim()
+  const ready = trimmed.length >= NAME_MIN && trimmed !== template.name
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    if (ready && !pending) onSave(trimmed)
+  }
+  return (
+    <Modal
+      title="Rename Template"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" type="submit" form={RENAME_FORM_ID} loading={pending} disabled={!ready}>Save Name</Button>
+        </>
+      }
+    >
+      <form id={RENAME_FORM_ID} onSubmit={submit} noValidate>
+        <Field label="Template Name" required error={error ?? undefined} hint="Shown in the template list and when picking a template in a campaign">
+          {(ids) => <TextInput {...ids} value={name} maxLength={200} autoFocus onChange={(event) => setName(event.target.value)} />}
+        </Field>
+      </form>
+    </Modal>
   )
 }
 
@@ -244,14 +301,10 @@ function ViewButton({ icon: Icon, label, pressed, onClick }: { icon: LucideIcon;
 interface ItemsProps {
   items: Item[]
   canEdit: boolean
-  onPreset: (preset: Preset) => void
+  /** every card and row opens its preview; a preset's preview is where the copy is offered */
   onPreview: (item: PreviewItem) => void
   actions?: TemplateActions
 }
-
-/** A preset opens its preview, whose footer offers the copy; an e-receipt preset has no preview yet, so it copies at once. */
-const openPreset = (item: Extract<PreviewItem, { kind: 'preset' }>, { onPreview, onPreset }: Pick<ItemsProps, 'onPreview' | 'onPreset'>) =>
-  canPreview(item) ? onPreview(item) : onPreset(item.preset)
 
 const CARD = 'flex flex-col overflow-hidden rounded-lg border border-line bg-surface text-left'
 const CARD_ACTIVE = 'transition-colors duration-fast ease-standard hover:border-brand-600 active:border-brand-800'
@@ -262,12 +315,21 @@ function CardBody({ name, meta, usage, tags }: { name: string; meta: string; usa
       <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
       <span className="text-xs text-ink-500">{meta}</span>
       {usage && <span className="line-clamp-1 text-xs text-ink-500" data-last-used>{usage}</span>}
-      <span className="mt-1.5 flex flex-wrap gap-1.5">{tags}</span>
+      <span className="mt-1.5 flex flex-wrap gap-1.5 pr-8">{tags}</span>
     </span>
   )
 }
 
-function TemplateGrid({ items, canEdit, onPreset, onPreview, actions }: ItemsProps) {
+/** The card's View icon, on the tag row: the same preview the card itself opens, for anyone who looks for a button. */
+function ViewIcon({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <span className="absolute right-2 bottom-2.5">
+      <IconButton label={`Preview ${name}`} icon={Eye} onClick={onClick} />
+    </span>
+  )
+}
+
+function TemplateGrid({ items, canEdit, onPreview, actions }: ItemsProps) {
   const navigate = useNavigate()
   const menus = useSingleDropdown<string>()
   return (
@@ -283,20 +345,17 @@ function TemplateGrid({ items, canEdit, onPreset, onPreview, actions }: ItemsPro
           )
           return (
             <li key={template.id} className="relative min-w-0">
-              {/* a template opens in its preview, whose Edit leads on to the editor; an e-receipt has no preview yet */}
-              {canPreview(item) ? (
-                <button type="button" onClick={() => onPreview(item)} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
-              ) : (
-                <Link to={editorPathFor(template)} className={`${CARD} ${CARD_ACTIVE} h-full`}>{body}</Link>
-              )}
+              {/* a template opens in its preview, whose Edit leads on to the editor */}
+              <button type="button" onClick={() => onPreview(item)} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
               {/* beside the card, not inside it: a button cannot hold a button */}
               <span className="absolute top-2 right-2 rounded-control-md border border-line bg-surface">
                 <RowMenu menus={menus} id={template.id} name={template.name}>
-                  {canPreview(item) && <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />}
+                  <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />
                   <MenuRow title={openLabel(template)} onClick={() => navigate(editorPathFor(template))} />
                   <ActionRows template={template} actions={actions} close={() => menus.close()} />
                 </RowMenu>
               </span>
+              <ViewIcon name={template.name} onClick={() => onPreview(item)} />
             </li>
           )
         }
@@ -308,12 +367,13 @@ function TemplateGrid({ items, canEdit, onPreset, onPreview, actions }: ItemsPro
           </>
         )
         return (
-          <li key={`preset-${preset.key}`} className="min-w-0">
+          <li key={`preset-${preset.key}`} className="relative min-w-0">
             {canEdit ? (
-              <button type="button" onClick={() => openPreset(item, { onPreview, onPreset })} aria-label={`${preset.name}, CEP Preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
+              <button type="button" onClick={() => onPreview(item)} aria-label={`${preset.name}, CEP Preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
             ) : (
               <div className={`${CARD} h-full`}>{body}</div>
             )}
+            {canEdit && <ViewIcon name={preset.name} onClick={() => onPreview(item)} />}
           </li>
         )
       })}
@@ -346,7 +406,7 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
 const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-700'
 const CELL = 'h-14 px-4 align-middle'
 
-function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsProps) {
+function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
   const navigate = useNavigate()
   const menus = useSingleDropdown<string>()
 
@@ -369,14 +429,10 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
             if (item.kind === 'template') {
               const { template } = item
               return (
-                <tr key={template.id} onClick={() => (canPreview(item) ? onPreview(item) : navigate(editorPathFor(template)))} className="cursor-pointer border-b border-line-subtle last:border-b-0 hover:bg-surface-subtle">
+                <tr key={template.id} onClick={() => onPreview(item)} className="cursor-pointer border-b border-line-subtle last:border-b-0 hover:bg-surface-subtle">
                   <td className={CELL}>
                     <span className="block min-w-0">
-                      {canPreview(item) ? (
-                        <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{template.name}</button>
-                      ) : (
-                        <Link to={editorPathFor(template)} onClick={(event) => event.stopPropagation()} className="block truncate font-semibold text-ink-900 hover:underline">{template.name}</Link>
-                      )}
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{template.name}</button>
                       {template.description && <span className="block truncate text-xs text-ink-500">{template.description}</span>}
                     </span>
                   </td>
@@ -386,7 +442,7 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
                   <td className={`${CELL} max-w-[240px] truncate text-ink-500`} title={lastUsedText(template)}>{template.last_used_in ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
                   <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                     <RowMenu menus={menus} id={template.id} name={template.name}>
-                      {canPreview(item) && <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />}
+                      <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />
                       <MenuRow title={openLabel(template)} onClick={() => navigate(editorPathFor(template))} />
                       <ActionRows template={template} actions={actions} close={() => menus.close()} />
                     </RowMenu>
@@ -398,13 +454,13 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
             return (
               <tr
                 key={`preset-${preset.key}`}
-                onClick={canEdit ? () => openPreset(item, { onPreview, onPreset }) : undefined}
+                onClick={canEdit ? () => onPreview(item) : undefined}
                 className={`border-b border-line-subtle last:border-b-0 ${canEdit ? 'cursor-pointer hover:bg-surface-subtle' : ''}`}
               >
                 <td className={CELL}>
                   <span className="block min-w-0">
                     {canEdit ? (
-                      <button type="button" onClick={(event) => { event.stopPropagation(); openPreset(item, { onPreview, onPreset }) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{preset.name}</button>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{preset.name}</button>
                     ) : (
                       <span className="block truncate font-semibold text-ink-900">{preset.name}</span>
                     )}
@@ -415,9 +471,9 @@ function TemplateTable({ items, canEdit, onPreset, onPreview, actions }: ItemsPr
                 <td className={CELL}><Tag>CEP Preset</Tag></td>
                 <td className={`${CELL} text-ink-500`}>Starter</td>
                 <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
-                  {canPreview(item) && <RowMenu menus={menus} id={`preset-${preset.key}`} name={preset.name}>
+                  <RowMenu menus={menus} id={`preset-${preset.key}`} name={preset.name}>
                     <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />
-                  </RowMenu>}
+                  </RowMenu>
                 </td>
               </tr>
             )

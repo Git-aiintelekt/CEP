@@ -126,10 +126,12 @@ test('without template.edit the cards are hidden and presets cannot be clicked',
   expect(screen.getByText('Announce a sale')).toBeTruthy()
 })
 
-test('clicking a template card opens its own editor', async () => {
+test('clicking an e-receipt card opens its preview, whose Edit leads to the receipt editor', async () => {
   await openLanding()
   const user = userEvent.setup()
   await user.click(screen.getByText('Northline order receipt'))
+  const dialog = await screen.findByRole('dialog', { name: 'Northline order receipt' })
+  await user.click(within(dialog).getByRole('button', { name: 'Edit' }))
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-receipt/receipt')
 })
@@ -312,14 +314,43 @@ test('without template.edit the menu offers no Duplicate or Delete', async () =>
   expect(screen.getByRole('button', { name: 'Open Editor' })).toBeTruthy()
 })
 
-test('list view: clicking an e-receipt row opens the receipt editor', async () => {
+test('list view: an e-receipt row opens its preview, and Open Editor in its menu leads to the receipt editor', async () => {
   await openLanding()
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'List View' }))
-  await user.click(within(screen.getByRole('link', { name: 'Northline order receipt' }).closest('tr') as HTMLElement).getByText('E-Receipt'))
+  const row = screen.getByRole('button', { name: 'Northline order receipt' }).closest('tr') as HTMLElement
+  await user.click(within(row).getByText('E-Receipt'))
+  expect(await screen.findByRole('dialog', { name: 'Northline order receipt' })).toBeTruthy()
+  await user.keyboard('{Escape}')
 
+  await user.click(within(row).getByRole('button', { name: 'Actions for Northline order receipt' }))
+  await user.click(screen.getByRole('button', { name: 'Open Editor' }))
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-receipt/receipt')
+})
+
+test('Rename in the menu asks for the new name and writes it, a duplicate\'s "(copy)" included; a taken name is refused', async () => {
+  const calls = await openLanding()
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Actions for Fall SMS' }))
+  await user.click(screen.getByRole('button', { name: 'Rename' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Rename Template' })
+  const input = within(dialog).getByLabelText(/Template Name/) as HTMLInputElement
+  expect(input.value).toBe('Fall SMS')
+  expect((within(dialog).getByRole('button', { name: 'Save Name' }) as HTMLButtonElement).disabled).toBe(true)  // unchanged
+
+  await user.clear(input)
+  await user.type(input, 'fall email')                                                                // another template's name, case aside
+  await user.click(within(dialog).getByRole('button', { name: 'Save Name' }))
+  expect(await within(dialog).findByText('Another template already has this name.')).toBeTruthy()
+
+  await user.clear(input)
+  await user.type(input, 'Fall SMS, October{Enter}')
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Rename Template' })).toBeNull())
+  expect(await screen.findByText('Fall SMS, October')).toBeTruthy()
+  const written = calls.filter((call) => call.method === 'PATCH' && call.url.endsWith('/templates/tpl-sms/')).at(-1)    // after the refused one
+  expect(written?.body).toEqual({ name: 'Fall SMS, October' })
+  expect(screen.getByText('Template renamed')).toBeTruthy()
 })
 
 // ---- e-receipt presets ----
@@ -353,7 +384,7 @@ test('the four e-receipt presets are offered whether or not the workspace has th
 
 test('an e-receipt preset is created, then filled with its outer design, then its receipt layout, in that order', async () => {
   const { calls, user } = await openReceiptTab({ tags: withReceiptTags })
-  await user.click(await screen.findByRole('button', { name: 'BOPIS, CEP Preset' }))
+  await copyPreset(user, 'BOPIS')                                                                     // its preview first, then the copy
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')
@@ -369,7 +400,7 @@ test('an e-receipt preset is created, then filled with its outer design, then it
 
 test('when the receipt layout fails to save, the draft still opens, with the same toast as any failed fill', async () => {
   const { user } = await openReceiptTab({ tags: withReceiptTags, onSaveReceiptLayout: () => problem(500, { title: 'Server error', detail: 'The receipt service is down.' }) })
-  await user.click(await screen.findByRole('button', { name: 'Online order, CEP Preset' }))
+  await copyPreset(user, 'Online order')
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')

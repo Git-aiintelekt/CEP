@@ -11,7 +11,7 @@
  */
 import type { Component } from 'grapesjs'
 
-import { HIDE_MOBILE_CLASS, isHiddenOnPhones, setCssClass } from '../blocks/register'
+import { HIDE_MOBILE_CLASS, isHiddenOnPhones, setCssClass, SHADOW_LEVELS, setShadow, shadowOf } from '../blocks/register'
 import {
   RECEIPT_BRAND_HEADER_TYPE, RECEIPT_BUTTON_TYPE, RECEIPT_DIVIDER_TYPE, RECEIPT_FOOTER_TYPE, RECEIPT_IMAGE_TYPE, RECEIPT_MARKETING_TYPE,
 } from '../blocks/receiptBlocks'
@@ -52,6 +52,8 @@ export interface SettingField {
   only?: string[]
   /** a select with no empty "Default" row: the block always has one of the options */
   required?: boolean
+  /** what a select's empty row says when "Default" would not: "None" for a border style or a shadow */
+  emptyLabel?: string
   /** several lines of words, entered in a text area */
   multiline?: boolean
   /** tags offered as one-tap chips under a text area */
@@ -82,6 +84,23 @@ const NETWORK_KEY = 'name'
  */
 export const HIDE_MOBILE_KEY = 'cep-hide-on-phones'
 
+// ---------------------------------------------------------------- border: three fields over MJML's one border attribute
+export const BORDER_WIDTH_KEY = 'cep-border-width'
+export const BORDER_STYLE_KEY = 'cep-border-style'
+export const BORDER_COLOR_KEY = 'cep-border-color'
+const BORDER_KEYS: readonly string[] = [BORDER_WIDTH_KEY, BORDER_STYLE_KEY, BORDER_COLOR_KEY]
+const BORDER_STYLE_NAMES: readonly string[] = ['solid', 'dashed', 'dotted', 'double']
+const BORDER_FIELDS: SettingField[] = [
+  { key: BORDER_WIDTH_KEY, label: 'Border Width', kind: 'length', section: 'appearance', min: 0 },
+  { key: BORDER_STYLE_KEY, label: 'Border Style', kind: 'select', section: 'appearance', emptyLabel: 'None' },
+  { key: BORDER_COLOR_KEY, label: 'Border Color', kind: 'color', section: 'appearance' },
+]
+
+// ---------------------------------------------------------------- shadow: a class and a head rule, MJML having no attribute
+export const SHADOW_KEY = 'cep-shadow'
+export const SHADOW_HELP = 'Drawn by Apple Mail, iOS Mail, Gmail and Outlook.com. Outlook for Windows leaves it out, so the design should read without it.'
+const SHADOW: SettingField = { key: SHADOW_KEY, label: 'Shadow', kind: 'select', section: 'appearance', emptyLabel: 'None', help: SHADOW_HELP }
+
 export type EffectiveSource = 'block' | 'mj-attributes' | 'mj-all' | 'mjml-default'
 
 export interface EffectiveValue {
@@ -102,9 +121,9 @@ export const MJML_DEFAULTS: Record<string, Record<string, string>> = {
   'mj-text': { align: 'left', color: '#000000', 'font-family': MJML_FONT, 'font-size': '13px', 'line-height': '1', padding: '10px 25px' },
   'mj-button': {
     align: 'center', 'background-color': '#414141', 'border-radius': '3px', color: '#ffffff', 'font-family': MJML_FONT, 'font-size': '13px',
-    'inner-padding': '10px 25px', padding: '10px 25px',
+    'inner-padding': '10px 25px', padding: '10px 25px', border: 'none',
   },
-  'mj-image': { align: 'center', alt: '', height: 'auto', padding: '10px 25px' },
+  'mj-image': { align: 'center', alt: '', border: '0', height: 'auto', padding: '10px 25px' },
   'mj-divider': { align: 'center', 'border-color': '#000000', 'border-width': '4px', padding: '10px 25px', width: '100%' },
   'mj-spacer': { height: '20px' },
   'mj-social': {
@@ -138,19 +157,19 @@ const LINE_HEIGHT: UnitRule = { units: ['px', '%', ''] }
  */
 export const ATTRIBUTE_RULES: Record<string, Record<string, AttributeRule>> = {
   'mj-body': { width: PX, 'background-color': 'color' },
-  'mj-section': { 'background-color': 'color', padding: PADDING, 'border-radius': 'free', 'full-width': 'free' },
-  'mj-column': { width: LENGTH, 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING },
+  'mj-section': { 'background-color': 'color', padding: PADDING, 'border-radius': 'free', 'full-width': 'free', border: 'free' },
+  'mj-column': { width: LENGTH, 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING, border: 'free' },
   'mj-text': {
     'font-family': 'free', 'font-size': PX, color: 'color', align: 'free', 'line-height': LINE_HEIGHT, padding: PADDING, 'font-weight': 'free',
     'container-background-color': 'color',
   },
   'mj-button': {
     href: 'free', 'background-color': 'color', color: 'color', 'border-radius': 'free', padding: PADDING,
-    'inner-padding': PADDING, align: 'free', width: LENGTH, height: LENGTH, 'font-family': 'free', 'font-size': PX,
+    'inner-padding': PADDING, align: 'free', width: LENGTH, height: LENGTH, 'font-family': 'free', 'font-size': PX, border: 'free',
   },
   'mj-image': {
     src: 'free', alt: 'free', href: 'free', align: 'free', width: PX, height: PX_OR_AUTO, 'max-height': LENGTH, padding: PADDING, 'border-radius': PADDING,
-    'container-background-color': 'color',
+    'container-background-color': 'color', border: 'free',
   },
   'mj-divider': { 'border-color': 'color', 'border-width': PX, padding: PADDING, width: LENGTH, align: 'free', 'container-background-color': 'color' },
   'mj-spacer': { height: LENGTH, padding: PADDING, 'container-background-color': 'color' },
@@ -196,6 +215,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'full-width', label: 'Full Width', kind: 'toggle', section: 'layout' },
     { key: HIDE_MOBILE_KEY, label: HIDE_MOBILE_LABEL, kind: 'toggle', section: 'layout' },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    ...BORDER_FIELDS,
+    SHADOW,
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-column': [
@@ -204,6 +225,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'vertical-align', label: 'Vertical Alignment', kind: 'valign', section: 'layout' },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    ...BORDER_FIELDS,
+    SHADOW,
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-text': [
@@ -216,6 +239,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'line-height', label: 'Line Height', kind: 'length', section: 'appearance', min: 0 },
     // MJML's container-background-color: the cell behind the block, which is what a background means on a content block
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    SHADOW,
     { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
   ],
   'mj-button': [
@@ -230,6 +254,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    ...BORDER_FIELDS,
+    SHADOW,
     { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
@@ -244,6 +270,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
+    ...BORDER_FIELDS,
+    SHADOW,
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-divider': [
@@ -324,6 +352,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
 export const TEXT_ON_CANVAS = new Set(['mj-text'])
 
 const SAFE_UNITS: readonly LengthUnit[] = ['px', '%']
+const PX_ONLY: readonly LengthUnit[] = ['px']
 
 /**
  * What MJML will accept for this setting, read off its own attribute rules rather than remembered. A rule of
@@ -344,8 +373,69 @@ export function blockType(component: Component): string {
 export function fieldsFor(component: Component): SettingField[] {
   const type = blockType(component)
   return (SETTINGS_BY_BLOCK[type] ?? []).map((field) =>
-    field.kind === 'length' || field.kind === 'padding' ? { ...field, units: unitsFor(type, field.key === MARGIN_KEY ? 'padding' : field.key) } : field,
+    field.kind === 'length' || field.kind === 'padding' ?
+      { ...field, units: field.key === BORDER_WIDTH_KEY ? PX_ONLY : unitsFor(type, field.key === MARGIN_KEY ? 'padding' : field.key) }
+    : field,
   )
+}
+
+// ---------------------------------------------------------------- border and shadow
+interface Border {
+  width: string | null
+  style: string | null
+  color: string | null
+}
+
+const BORDER_WIDTH = /^\d*\.?\d+px$/
+
+/** "1px solid #cccccc" in any order; "none" or nothing is no border. */
+export function parseBorder(raw: unknown): Border {
+  const border: Border = { width: null, style: null, color: null }
+  for (const part of String(raw ?? '').trim().split(/\s+/).filter(Boolean)) {
+    if (BORDER_WIDTH.test(part)) border.width = part
+    else if (BORDER_STYLE_NAMES.includes(part)) border.style = part
+    else if (part !== 'none') border.color = part
+  }
+  return border
+}
+
+function borderOf(component: Component): Border {
+  return parseBorder(component.getAttributes().border)
+}
+
+function borderPart(border: Border, key: string): string | null {
+  return key === BORDER_WIDTH_KEY ? border.width : key === BORDER_STYLE_KEY ? border.style : border.color
+}
+
+/**
+ * One part changes and the attribute is written whole: a part left unset takes the plainest value (1px, solid,
+ * black), and a width of 0, or every part cleared, takes the border away.
+ */
+function writeBorderPart(component: Component, key: string, value: string | null): boolean {
+  const border = borderOf(component)
+  const trimmed = value?.trim() ?? null
+  if (key === BORDER_WIDTH_KEY) {
+    if (trimmed !== null && !BORDER_WIDTH.test(trimmed)) return false
+    border.width = trimmed
+  } else if (key === BORDER_STYLE_KEY) {
+    if (trimmed !== null && !BORDER_STYLE_NAMES.includes(trimmed)) return false
+    border.style = trimmed
+  } else {
+    const hex = trimmed === null ? null : normaliseHex(trimmed)
+    if (trimmed !== null && hex === null) return false
+    border.color = hex
+  }
+  const off = border.width === '0px' || (border.width === null && border.style === null && border.color === null)
+  if (off) component.removeAttributes('border')
+  else component.addAttributes({ border: `${border.width ?? '1px'} ${border.style ?? 'solid'} ${border.color ?? '#000000'}` })
+  return true
+}
+
+function writeShadow(component: Component, value: string | null): boolean {
+  const level = value === null ? null : SHADOW_LEVELS.find((candidate) => candidate === value)
+  if (level === undefined) return false
+  setShadow(component, level)
+  return true
 }
 
 // ---------------------------------------------------------------- margin and padding, summed into the MJML padding
@@ -455,6 +545,8 @@ export function readSetting(component: Component, key: string): string | null {
   if (key === LABEL_KEY) return textOf(component)
   if (key === HTML_KEY) return innerHtmlOf(component)
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
+  if (key === SHADOW_KEY) return shadowOf(component)
+  if (BORDER_KEYS.includes(key)) return borderPart(borderOf(component), key)
   if (key === NETWORK_KEY && isSocialIcon(component)) return networkOf(String(component.getAttributes()[key] ?? ''))
   const raw = component.getAttributes()[key] ?? (key === SRC_KEY ? component.get(SRC_KEY) : undefined)
   if (raw === undefined || raw === null || raw === '') return null
@@ -485,7 +577,7 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
   // hiding on phones, a margin, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || key === SHADOW_KEY || BORDER_KEYS.includes(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
   return readInherited(component, key, wrapper)
 }
 
@@ -545,6 +637,8 @@ export function writeSetting(component: Component, key: string, value: string | 
     return true
   }
   if (key === MARGIN_KEY) return splitsSpacing(component) && writeMargin(component, value)
+  if (key === SHADOW_KEY) return writeShadow(component, value)
+  if (BORDER_KEYS.includes(key)) return ATTRIBUTE_RULES[blockType(component)]?.border !== undefined && writeBorderPart(component, key, value)
   if (key === 'padding' && splitsSpacing(component) && spacingOf(component)?.margin) return writeSplitPadding(component, value)
   if (value === null) {
     component.removeAttributes(key)

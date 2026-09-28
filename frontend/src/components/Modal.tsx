@@ -15,7 +15,7 @@ interface ModalProps {
   footer?: ReactNode
   /**
    * md is the 480px dialog; picker (640px) holds a searchable list to choose from; lg is the wider variant for forms with long
-   * option lists; xl fits a 600px email preview; screen takes the window less its margin, for a preview that should be seen large
+   * option lists; xl fits a 600px email preview; screen is a window in the window, four fifths wide and centred, for a preview seen large
    */
   size?: 'md' | 'picker' | 'lg' | 'xl' | 'screen'
   /** a tile before the title (the Templates create dialog's channel tile); the title steps up to 18px with it */
@@ -30,7 +30,7 @@ interface ModalProps {
   scrollBody?: boolean
 }
 
-const WIDTH = { md: 'md:max-w-[480px]', picker: 'md:max-w-[640px]', lg: 'md:max-w-3xl', xl: 'md:max-w-[880px]', screen: 'md:max-w-[min(1400px,calc(100vw-5rem))]' }
+const WIDTH = { md: 'md:max-w-[480px]', picker: 'md:max-w-[640px]', lg: 'md:max-w-3xl', xl: 'md:max-w-[880px]', screen: 'md:max-w-[min(1120px,80vw)]' }
 
 /**
  * Accessible dialog: labelled, Escape closes, Tab stays inside, focus moves in on open and returns to the opener on close.
@@ -44,8 +44,8 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
   useDialogBehaviour(panel, onClose)
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 md:p-10" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface ${WIDTH[size]} ${scrollBody ? 'flex max-h-[calc(100dvh-2rem)] flex-col md:max-h-[calc(100dvh-5rem)]' : ''}`}>
+    <div className={`fixed inset-0 z-50 flex animate-fade-in justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 ${size === 'screen' ? 'items-center' : 'items-start md:p-10'}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface ${WIDTH[size]} ${scrollBody ? `flex max-h-[calc(100dvh-2rem)] flex-col ${size === 'screen' ? '' : 'md:max-h-[calc(100dvh-5rem)]'}` : ''}`}>
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-3 py-1">
             {leading}

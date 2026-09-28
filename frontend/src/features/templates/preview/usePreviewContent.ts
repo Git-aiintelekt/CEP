@@ -16,9 +16,6 @@ export type PreviewContent =
 
 export const channelOf = (item: PreviewItem) => (item.kind === 'preset' ? item.preset.channel : item.template.channel)
 
-/** Whether the Preview action is offered: not for e-receipts yet. Card thumbnails are not previews and ignore this. */
-export const canPreview = (item: PreviewItem) => channelOf(item) !== 'E_RECEIPT'
-
 const isMessageChannel = (channel: string) => channel === 'SMS' || channel === 'MMS'
 
 /** A message's text with each tag's sample filled in, as plain text. The thumbnails and the preview both read this. */
@@ -79,18 +76,16 @@ function keyOf(item: PreviewItem) {
 
 interface PreviewOptions {
   enabled?: boolean
-  /** a card thumbnail: loads e-receipts too, which canPreview keeps out of the Preview action */
-  anyChannel?: boolean
 }
 
-export function usePreviewContent(item: PreviewItem, { enabled = true, anyChannel = false }: PreviewOptions = {}) {
+export function usePreviewContent(item: PreviewItem, { enabled = true }: PreviewOptions = {}) {
   const queryClient = useQueryClient()
   const content = useQuery({
     queryKey: keyOf(item),
     queryFn: ({ signal }) => load(item, queryClient, signal),
     // a template is read fresh every time, so the preview is always its latest save; a preset never changes
     staleTime: item.kind === 'template' ? 0 : Infinity,
-    enabled: enabled && (anyChannel || canPreview(item)),
+    enabled,
   })
   const tags = useQuery({
     queryKey: ['personalization-tags', 'all'],

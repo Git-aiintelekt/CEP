@@ -53,3 +53,11 @@ means the size the block inherits, or previewing 1.5em would move its own base u
 already in the box in that unit and writes nothing until Enter; the field settles on px afterwards. vh and vw are not
 offered, an email has no viewport. Text, image, divider, spacer and social blocks offer Background Color: MJML's
 `container-background-color`, the cell behind the block, since those tags have no `background-color` of their own.
+
+Border and shadow (2026-09-28): section, column, image and button offer Border Width / Style / Color, three fields over
+MJML's one `border` attribute (`cep-border-*` keys in `inspector/settings.ts`, written whole, a width of 0 or nothing
+clears it; text, divider, spacer and social have no border in MJML, their column carries one). Shadow is a select on
+section, column, text, image and button: MJML has no shadow attribute, so it is a class (`cep-shadow-soft|medium|strong`,
+`blocks/register.ts`) plus one mj-style rule kept in the head the way the hide-on-phones rule is (`syncShadowStyle`),
+mirrored into the canvas by `canvasSkin.ts`. Apple Mail, iOS Mail, Gmail and Outlook.com draw it; Outlook for Windows
+drops box-shadow, which the field's help says.

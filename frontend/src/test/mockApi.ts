@@ -539,6 +539,14 @@ export function installMockApi(options: MockOptions = {}) {
       templatesNow = templatesNow.filter((item) => item.id !== id)
       return json(null, 204)
     }
+    if (/\/templates\/[^/]+\/$/.test(path) && method === 'PATCH') {
+      const id = /\/templates\/([^/]+)\/$/.exec(path)?.[1]
+      const wanted = String((body as { name?: string })?.name ?? '').trim()
+      // the server's own rule: a live name is unique, case aside
+      if (templatesNow.some((item) => item.id !== id && item.name.toLowerCase() === wanted.toLowerCase())) return json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'Another template already has this name.', errors: { name: ['Another template already has this name.'] } }, 400)
+      templatesNow = templatesNow.map((item) => (item.id === id ? { ...item, ...(body as Partial<Template>) } : item))
+      return json(templatesNow.find((item) => item.id === id) ?? templates[1])
+    }
     if (/\/templates\/[^/]+\/$/.test(path) && method === 'GET') return json(options.template ?? templates[1])
     if (path.endsWith('/templates/') && method === 'POST') {
       return options.onSaveTemplate?.(call) ?? json({ ...templates[0], ...(body as Partial<Template>), id: 'tpl-new', status: 'DRAFT', latest_version: 0 }, 201)

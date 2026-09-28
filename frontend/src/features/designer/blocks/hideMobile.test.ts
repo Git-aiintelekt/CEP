@@ -2,8 +2,8 @@ import type { Component, Editor } from 'grapesjs'
 import { expect, test, vi, type Mock } from 'vitest'
 
 import {
-  FOOTER_CLASS, HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE, hasCssClass, hideMobileStylesIn, hiddenOnPhonesIn,
-  isHiddenOnPhones, setCssClass, syncHideMobileStyle,
+  FOOTER_CLASS, HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE, SHADOW_RULE, hasCssClass, hideMobileStylesIn, hiddenOnPhonesIn,
+  isHiddenOnPhones, setCssClass, setShadow, shadowClass, shadowOf, syncHideMobileStyle, syncShadowStyle,
 } from './register'
 
 /** A component the class helpers can work with: no GrapesJS, which hangs under jsdom. */
@@ -243,4 +243,29 @@ test('a design that arrived without an mj-head gets one, before mj-body', () => 
   syncHideMobileStyle(editor)
 
   expect(root.append).toHaveBeenCalledWith('<mj-head></mj-head>', { at: 0 })
+})
+
+// ---- the shadow: one class among three, and its own head rule ---------------
+
+test('a shadow is one class among three, and its rule follows the blocks into the head and out again', () => {
+  const section = make('mj-section', { 'css-class': 'brand-band' })
+  setShadow(asComponent(section), 'soft')
+  expect(section.getAttributes()['css-class']).toBe(`brand-band ${shadowClass('soft')}`)
+  expect(shadowOf(asComponent(section))).toBe('soft')
+  setShadow(asComponent(section), 'strong')
+  expect(section.getAttributes()['css-class']).toBe(`brand-band ${shadowClass('strong')}`)
+
+  const head = make('mj-head')
+  const wrapper = nest(make('wrapper'), nest(make('mjml'), head, nest(make('mj-body'), section)))
+  const editor = editorFor(wrapper)
+  syncShadowStyle(editor)
+  expect(head.children.map((child) => child.getAttributes().content)).toEqual([SHADOW_RULE])
+  syncShadowStyle(editor)                                                                             // settled: nothing added twice
+  expect(head.children).toHaveLength(1)
+  expect(editor.undo.stop).toHaveBeenCalledTimes(1)                                                    // the head is kept outside the undo stack
+
+  setShadow(asComponent(section), null)
+  expect(section.getAttributes()['css-class']).toBe('brand-band')
+  syncShadowStyle(editor)
+  expect(head.children).toHaveLength(0)
 })

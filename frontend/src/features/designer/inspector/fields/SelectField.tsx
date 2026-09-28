@@ -18,7 +18,8 @@ export function SelectField({
   const fromEmail = options.find((option) => option.value === effective)
   // a value the design carries that the list does not offer (a font from an imported template) is still shown, as itself
   const rows = value === null || options.some((option) => option.value === value) ? options : [{ value, label: value }, ...options]
-  const effectiveLabel = fromEmail?.label ?? effective ?? null
+  // the empty row names what the block gets without a choice of its own; once it has one, that is the choice itself
+  const effectiveLabel = value === null ? (fromEmail?.label ?? effective ?? null) : null
 
   return (
     <FieldRow
