@@ -200,12 +200,20 @@ def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
         tenant_code = campaign.tenant.code
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
     renderer = Renderer(campaign=campaign, run=None, content=content, tags=[])
+    # with a subject line test, each address gets both: [TEST A] with the template's subject and [TEST B] with the second one
+    from . import abtest
+    test = abtest.config(campaign)
+    variants = [("A", None), ("B", test["subject_b"])] if test else [(None, None)]
     results = []
     with registry.for_provider(provider_row) as provider:
         for address in to:
-            rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": f"{unsubscribe.url_for('test')}", "email": address})
-            result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
-                                                subject="[TEST] " + rendered["subject"], html=rendered["html"], text=rendered["text"],
-                                                idempotency_key=f"test:{campaign.pk}:{timezone.now().timestamp():.0f}", tag="test", metadata={"cep_tenant": tenant_code}))
-            results.append({"to": address, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id})
+            for variant, own_subject in variants:
+                rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": f"{unsubscribe.url_for('test')}", "email": address},
+                                           subject=own_subject)
+                mark = f"[TEST {variant}] " if variant else "[TEST] "
+                result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
+                                                    subject=mark + rendered["subject"], html=rendered["html"], text=rendered["text"],
+                                                    idempotency_key=f"test:{campaign.pk}:{variant or ''}:{timezone.now().timestamp():.0f}", tag="test", metadata={"cep_tenant": tenant_code}))
+                results.append({"to": address, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
+                                **({"variant": variant, "subject": rendered["subject"]} if variant else {})})
     return results

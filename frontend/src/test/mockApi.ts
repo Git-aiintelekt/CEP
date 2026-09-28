@@ -2,10 +2,11 @@
 import { vi } from 'vitest'
 
 import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockCampaigns'
+import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } from './mockWorkspaceTools'
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -19,7 +20,7 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
-               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import'] },
+               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
@@ -329,6 +330,10 @@ interface MockOptions {
   listUploadFails?: boolean
   /** uploads the workspace already has (GET /contact-lists/imports/) */
   listUploads?: ListImport[]
+  /** a production run's subject line test, for the campaign page's runs */
+  runVariants?: CampaignRunVariant[]
+  /** reports schedule, suppressions, notifications and approvals as the backend would hold them */
+  workspaceTools?: Partial<WorkspaceToolsState>
 }
 
 /** the code the mock authenticator "shows" */
@@ -339,7 +344,7 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
-  const campaignState = { campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate }
+  const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate }
   let listsNow: ContactList[] = [...(options.lists ?? contactLists)]
   let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
@@ -347,6 +352,7 @@ export function installMockApi(options: MockOptions = {}) {
   const importDoneAt = new Map<string, number>()
   let securityNow: SecuritySettings = { ...security }
   let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', sender_profile: null, ...options.mailServer }
+  const toolsState = workspaceToolsState(options.workspaceTools)
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
@@ -357,6 +363,8 @@ export function installMockApi(options: MockOptions = {}) {
     calls.push(call)
     const path = url.split('?')[0]
 
+    const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
+    if (tools) return tools
     if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
     if (path.endsWith('/auth/mfa/verify/')) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
@@ -682,6 +690,9 @@ export function installMockApi(options: MockOptions = {}) {
       // as the API does: the body's ids come back with the names and details the pages show
       const before = campaignState.campaigns.find((item) => item.id === one)
       const input = body as Partial<Campaign>
+      if (input.ab_config?.enabled && !input.ab_config.subject_b?.trim()) {
+        return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { ab_config: ['Enter the second subject line, or switch the test off.'] } }, 400)
+      }
       const details = [...((input.contact_lists ?? before?.contact_lists ?? []) as string[]).map((id) => ({ id, role: 'INCLUDE' as const })),
                        ...((input.excluded_lists ?? before?.excluded_lists ?? []) as string[]).map((id) => ({ id, role: 'EXCLUDE' as const }))]
         .map(({ id, role }) => { const found = listsNow.find((item) => item.id === id); return { id, name: found?.name ?? id, list_kind: found?.list_kind ?? 'STATIC', is_master: found?.is_master ?? false,

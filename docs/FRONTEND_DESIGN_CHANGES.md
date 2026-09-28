@@ -137,7 +137,7 @@ The screen never pretends an email was sent. When the server change is made, the
 | Forgot-password email | Needs the server change described in section 5. |
 | Campaign edit rules | The spec wants only some sections of a campaign locked once it has sent. Today the whole form locks. This needs a decision on the server side. |
 | Template gallery | The spec wants a click to copy a template straight away, with a separate preview. Today you select a template, then submit. |
-| Not built yet | Side drawers, pop-up notifications, the A/B test step, the dashboard's "Create new" panel. |
+| Not built yet | Side drawers, pop-up notifications, the dashboard's "Create new" panel. The A/B test step was built on 2026-09-29 (CAMPAIGNS.md §8). |
 | Workspace detection | If the app were ever served from a plain domain, for example `cep.example.com`, it would wrongly treat `cep` as the workspace name. This was already the case before this work and does not affect the normal setup, where each company has its own sub-address. |
 | One unreliable test | A test for the SMS editor sometimes fails when all tests run together. It was already unreliable before this work and is unrelated to it. |
 

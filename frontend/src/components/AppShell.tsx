@@ -230,7 +230,7 @@ export function AppShell() {
   const showRail = isMd || open
   const support = me?.support_session ?? null
   const enrolFirst = Boolean(me?.mfa_setup_required)
-  const allowed = (item: NavItem) => !item.feature || has(item.feature)
+  const allowed = (item: NavItem) => (!item.feature || has(item.feature)) && (!item.permission || can(item.permission))
   // support never manages users, roles, keys or security: the API refuses, so the menu does not offer it
   const showSettings = !enrolFirst && can('user.admin') && !support
   const main = enrolFirst ? [] : MAIN_NAV.filter(allowed)

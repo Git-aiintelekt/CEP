@@ -1,7 +1,22 @@
 # Reports, Suppressions, Notifications, Approvals
 
-Four workspace-level tools built on the backend first (their pages follow the reviewed page designs). Everything here is
-tenant-scoped through RLS like the rest of the API.
+Four workspace-level tools, backend first (PR #25) and their pages after, from the reviewed page designs (2026-09-29).
+Everything here is tenant-scoped through RLS like the rest of the API.
+
+| Page | Where | Who |
+|---|---|---|
+| Reports | `/reports`, in the main navigation after Campaigns (`features/reports/`) | `report.view`; Schedule Report needs `user.admin` |
+| Suppressions | Settings → Suppressions (`pages/settings/SuppressionsPage.tsx`) | Settings is `user.admin`; Unblock and Import need `consent.edit` |
+| Notifications | Settings → Notifications (`pages/settings/NotificationsPage.tsx`) | `user.admin` |
+| Approvals | Settings → Approvals (`pages/settings/ApprovalsPage.tsx`), and the Approval card on the setup's Review & Publish step (`features/campaigns/wizard/ApprovalCard.tsx`) | the switch: `user.admin`; asking: `campaign.edit`; deciding: `campaign.approve`, never the person who asked |
+
+Reports: period presets (Last 7 Days, This Month, Last Month, Custom) counted in the workspace's zone, a channel filter,
+four figure tiles, sent and opened by day on the chart kit, best and worst, the campaigns with Compare (2 to 6) and
+Export CSV, and the weekly schedule. Suppressions: counts per reason (each a filter), channel, reason and search
+filters, 25 a page, Unblock with a confirmation, Import (paste or CSV, with a note), Export CSV. Notifications: the
+event × channel matrix, recipients, the webhook; Send a Test Message uses the saved settings, so it waits for a save.
+Approvals: the requirement switch (refused until someone can approve), the approvers, and a link to the campaigns
+waiting (`/campaigns?saved=approval`). The Approval card offers exactly what the campaign's `actions` allow.
 
 ## 1. Reports (`report.view`)
 

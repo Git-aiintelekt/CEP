@@ -12,6 +12,7 @@ import { formatNumber, titleize } from '@/lib/format'
 import type { Campaign, CampaignRun } from '@/lib/types'
 
 import { DetailCard } from '../parts'
+import { SubjectTestResults } from './SubjectTestResults'
 import { dateTimeInZone } from '../zone'
 
 const runColumns = (zone: string): Column<CampaignRun>[] => [
@@ -63,7 +64,13 @@ export function RunsCard({ campaign, zone, live, expandable = false, focusRun }:
               canExpand: (run) => !run.test_mode,
               label: (run) => `Results of run #${run.run_number}`,
               initiallyOpen: focusRun ? [focusRun] : production[0] ? [production[0].id] : [],
-              render: (run) => <RunResults run={run} zone={zone} channel={campaign.channel} />,
+              render: (run) => (
+                <>
+                  {/* a run of a campaign with a subject line test shows A and B first */}
+                  {campaign.ab_config?.enabled && <SubjectTestResults campaignId={campaign.id} run={run} zone={zone} />}
+                  <RunResults run={run} zone={zone} channel={campaign.channel} />
+                </>
+              ),
             } : undefined} />}
     </DetailCard>
   )

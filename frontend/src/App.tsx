@@ -15,6 +15,7 @@ import { ApiError } from '@/lib/api'
 import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { CampaignListPage } from '@/features/campaigns/CampaignListPage'
+import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CampaignDetailPage } from '@/features/campaigns/detail/CampaignDetailPage'
 import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPage'
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
@@ -26,13 +27,16 @@ import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
 import { SetPasswordPage } from '@/pages/SetPasswordPage'
 import { ApiKeysPage } from '@/pages/settings/ApiKeysPage'
+import { ApprovalsPage } from '@/pages/settings/ApprovalsPage'
 import { DeliveryPage } from '@/pages/settings/DeliveryPage'
 import { IntegrationsPage } from '@/pages/settings/IntegrationsPage'
 import { MailServerPage } from '@/pages/settings/MailServerPage'
+import { NotificationsPage } from '@/pages/settings/NotificationsPage'
 import { PlanUsagePage } from '@/pages/settings/PlanUsagePage'
 import { RolesPage } from '@/pages/settings/RolesPage'
 import { SecurityPage } from '@/pages/settings/SecurityPage'
 import { SettingsLayout } from '@/pages/settings/SettingsLayout'
+import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
 import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
 import { TokenLandingPage } from '@/pages/TokenLandingPage'
@@ -108,6 +112,7 @@ export default function App() {
                 <Route path="campaigns/new" element={<CampaignListPage creating />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
                 <Route path="campaigns/:id/edit" element={<CampaignWizardPage />} />
+                <Route path="reports" element={<ReportsPage />} />
                 <Route path="contact-lists" element={<ContactListsPage />} />
                 <Route path="contact-lists/uploads" element={<UploadsPage />} />
                 <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
@@ -125,6 +130,9 @@ export default function App() {
                   <Route path="email" element={<MailServerPage />} />
                   <Route path="delivery" element={<DeliveryPage />} />
                   <Route path="integrations" element={<IntegrationsPage />} />
+                  <Route path="suppressions" element={<SuppressionsPage />} />
+                  <Route path="notifications" element={<NotificationsPage />} />
+                  <Route path="approvals" element={<ApprovalsPage />} />
                 </Route>
                 <Route path="*" element={<NotFoundPage />} />
               </Route>

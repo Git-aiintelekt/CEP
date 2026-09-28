@@ -12,11 +12,10 @@ import { Field, TextInput } from '@/components/Form'
 import { Notice } from '@/components/Notice'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
-import type { Campaign, CampaignFormOptions } from '@/lib/types'
+import type { Campaign, CampaignFormOptions, TestPublishResult } from '@/lib/types'
 
+import { testIsOn } from './subjectTest'
 import { isText } from './vocabulary'
-
-interface TestResult { run: string; status: string; results: { to: string; ok: boolean; detail: string | null }[] }
 
 export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { campaign: Campaign; people: CampaignFormOptions['owners']; defaultTo?: string; onSent?: () => void }) {
   const queryClient = useQueryClient()
@@ -25,7 +24,7 @@ export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { c
   const [userIds, setUserIds] = useState<string[]>([])
 
   const send = useMutation({
-    mutationFn: () => api.post<TestResult>(`/campaigns/${campaign.id}/test-publish/`, { to: to.split(/[\s,;]+/).filter(Boolean), user_ids: userIds }),
+    mutationFn: () => api.post<TestPublishResult>(`/campaigns/${campaign.id}/test-publish/`, { to: to.split(/[\s,;]+/).filter(Boolean), user_ids: userIds }),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ['campaigns'] })
       if (result.results.some((item) => item.ok)) onSent?.()
@@ -40,6 +39,7 @@ export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { c
     <div role="group" aria-label="Send a Test">
       <p className="text-sm text-ink-500">
         Goes out now through the campaign's sender, with sample values in place of personal data, marked [TEST]. It is recorded as a test run and never counts towards the results.
+        {testIsOn(campaign.ab_config) && ' With the subject line test on, each address gets both, marked [TEST A] and [TEST B].'}
       </p>
       {!texts && people.length > 0 && (
         <fieldset className="mt-3">
@@ -70,7 +70,9 @@ export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { c
           <Notice tone={allSent ? 'info' : 'warning'} layout="box" icon={allSent ? CircleCheck : undefined} iconClass={allSent ? 'text-success' : undefined}>
             <ul className="space-y-0.5" aria-label="Test results">
               {send.data.results.map((result) => (
-                <li key={result.to} className={result.ok ? '' : 'font-semibold'}>{result.ok ? 'Sent to' : 'Not sent to'} {result.to}{!result.ok && result.detail ? `: ${result.detail}` : ''}</li>
+                <li key={`${result.to}-${result.variant ?? ''}`} className={result.ok ? '' : 'font-semibold'}>
+                  {result.ok ? 'Sent to' : 'Not sent to'} {result.to}{result.variant ? ` (subject ${result.variant})` : ''}{!result.ok && result.detail ? `: ${result.detail}` : ''}
+                </li>
               ))}
             </ul>
           </Notice>

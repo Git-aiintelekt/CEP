@@ -1,5 +1,5 @@
 /** The campaign module's part of the in-memory API: a stateful set of campaigns that answers the way the real endpoints do. */
-import type { Campaign, CampaignActivity, CampaignAudience, CampaignChecklist, CampaignMetrics, CampaignRun } from '@/lib/types'
+import type { Campaign, CampaignActivity, CampaignAudience, CampaignChecklist, CampaignMetrics, CampaignRun, CampaignRunVariant } from '@/lib/types'
 
 const ACTIONS: Record<string, Campaign['actions']> = {
   DRAFT: ['edit', 'clone', 'test_publish', 'publish', 'archive'], TEST_PUBLISHED: ['edit', 'clone', 'test_publish', 'publish', 'archive'],
@@ -12,12 +12,19 @@ const LABEL: Record<string, string> = {
 }
 
 /** the fields the API derives from the status: what a campaign shows as, and what can be done with it */
-export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step'> & { is_journey_generated?: boolean }): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
+export function derived(campaign: Pick<Campaign, 'status' | 'runs' | 'setup_step'> & { is_journey_generated?: boolean; approval_required?: boolean; approval?: Campaign['approval'] }): Pick<Campaign, 'display_status' | 'display_status_label' | 'status_label' | 'actions' | 'next_run_at' | 'setup_complete'> {
   const next = campaign.runs.filter((run) => !run.test_mode && run.status === 'SCHEDULED' && run.scheduled_at && new Date(run.scheduled_at).getTime() > Date.now())
     .map((run) => run.scheduled_at as string).sort()[0] ?? null
   const shown = campaign.status === 'PRODUCTION_PUBLISHED' && next ? 'SCHEDULED' : campaign.status
+  // with approval required: the author asks while it is a draft or test published; anyone but the person who asked (u1 is the signed-in user) decides
+  const approval: Campaign['actions'] = []
+  if (campaign.approval_required && ['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status)) {
+    if (!campaign.approval || campaign.approval.status === 'RETURNED') approval.push('request_approval')
+    else if (campaign.approval.status === 'REQUESTED' && campaign.approval.requested_by !== 'u1') approval.push('approve', 'send_back')
+  }
   // journey campaigns: view and clone only, as the API says
-  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status, actions: (ACTIONS[shown] ?? []).filter((action) => !campaign.is_journey_generated || action === 'clone' || action === 'results'), next_run_at: next,
+  return { display_status: shown, display_status_label: LABEL[shown] ?? shown, status_label: LABEL[campaign.status] ?? campaign.status,
+           actions: [...(ACTIONS[shown] ?? []).filter((action) => !campaign.is_journey_generated || action === 'clone' || action === 'results'), ...approval], next_run_at: next,
            setup_complete: !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status) || campaign.setup_step >= 6 }
 }
 
@@ -61,7 +68,15 @@ interface State {
   activity?: CampaignActivity[]
   activityFails?: boolean
   estimate?: Partial<CampaignAudience>
+  /** a production run's subject line test (GET /campaigns/{id}/runs/{run}/) */
+  variants?: CampaignRunVariant[]
 }
+
+/** A and B half-way: 3 each sent, 24 waiting for the winner by open rate */
+export const waitingVariants: CampaignRunVariant[] = (['A', 'B'] as const).map((key) => ({
+  variant_key: key, subject_line: key === 'A' ? 'Fall is here, Jordan' : 'A reward just landed for you', allocation_pct: 10, is_winner: null, winner_metric: 'OPEN_RATE', metric_value: null,
+  sent: 3, delivered: 3, opened: key === 'A' ? 1 : 2, clicked: 0, open_rate: key === 'A' ? 33.3 : 66.7, click_rate: 0, waiting_for_winner: 24, decide_at: '2026-09-29T14:00:00Z',
+}))
 
 const json = (body: unknown, status = 200) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const conflict = (detail: string) => json({ type: 'about:blank', title: 'Conflict', status: 409, detail }, 409)
@@ -128,13 +143,18 @@ export function handleCampaigns(request: Request, state: State): Response | null
     if (campaign.contact_lists.length === 0 && campaign.campaign_type !== 'E_RECEIPT') problems.contact_lists = 'Attach at least one contact list.'
     if (!campaign.sender_profile) problems.sender_profile = 'Choose a sender.'
     const tested = campaign.runs.some((item) => item.test_mode)
+    if (campaign.approval_required && campaign.approval?.status !== 'APPROVED') problems.approval = 'Needs approval before a production publish.'
     const answer: CampaignChecklist = {
       ready: Object.keys(problems).length === 0, problems, test_sent: tested,
       items: [...([['template', 'Template content finalized'], ['contact_lists', 'Campaign List attached'], ['sender_profile', 'Verified sender chosen']] as const)
         .map(([key, label]) => ({ key, label, ok: !(key in problems), problem: problems[key] ?? null })),
-        { key: 'test', label: 'Test message sent and reviewed', ok: tested, problem: tested ? null : 'Send yourself a test before publishing.', advisory: true }],
+        { key: 'test', label: 'Test message sent and reviewed', ok: tested, problem: tested ? null : 'Send yourself a test before publishing.', advisory: true },
+        ...(campaign.approval_required ? [{ key: 'approval', label: 'Approved for production', ok: !problems.approval, problem: problems.approval ?? null }] : [])],
     }
     return json(answer)
+  }
+  if (action === 'audience' && (query.get('local_time') === '1' || campaign.timezone_optimization)) {
+    return json({ ...audienceEstimate, local_time: { people: 88, local_time_known: 70 }, ...state.audience })
   }
   if (action === 'audience') return json({ ...audienceEstimate, ...(campaign.actions.includes('results') ? { frozen: { members: 100, generated_at: '2026-09-18T10:00:00Z', eligible: 88, suppressed: { UNSUBSCRIBED: 9, HARD_BOUNCE: 3 } } } : {}), ...state.audience })
   if (action === 'audience/export') {
@@ -151,6 +171,16 @@ export function handleCampaigns(request: Request, state: State): Response | null
     return json({ subject: text ? null : `Fall is here, ${who}`, html: text ? null : `<p>Hello ${who}</p>`, text: `Northwind: Hi ${who}. Reply STOP to opt out.`, version: 3,
                   template: templateId === 'tpl-sms' ? 'Fall SMS' : 'Fall Email', template_id: templateId, channel: templateChannel, tags_used: ['first_name'], customer: query.get('party_id') })
   }
+  const runPath = /^runs\/([^/]+)(\/choose-winner)?$/.exec(action)
+  if (runPath) {
+    const found = campaign.runs.find((item) => item.id === runPath[1])
+    if (!found) return json({ type: 'about:blank', title: 'Not found', status: 404 }, 404)
+    if (runPath[2] && method === 'POST') {
+      state.variants = (state.variants ?? waitingVariants).map((item) => ({ ...item, is_winner: item.variant_key === body?.variant }))
+      return json({ winner: body?.variant })
+    }
+    return json({ ...found, variants: state.variants ?? [] })
+  }
   if (action === 'metrics') return json({ ...metrics, ...state.metrics })
   if (action === 'metrics/timeseries') return json({ bucket: query.get('bucket') ?? 'hour', points: [{ at: '2026-09-18T10:00:00Z', sent: 50, delivered: 48, opened: 20, clicked: 5 }, { at: '2026-09-18T11:00:00Z', sent: 30, delivered: 28, opened: 20, clicked: 7 }] })
   if (action === 'activity') {
@@ -161,9 +191,22 @@ export function handleCampaigns(request: Request, state: State): Response | null
   if (action === 'test-publish') {
     const to = [...((body?.to as string[]) ?? []), ...((body?.user_ids as string[]) ?? []).map((user) => (user === 'u2' ? 'devon@example.com' : 'aby.john@aiintelekt.com'))]
     const after = put({ ...campaign, status: campaign.status === 'DRAFT' ? 'TEST_PUBLISHED' : campaign.status, runs: [...campaign.runs, run(campaign.id, { test_mode: true, status: 'COMPLETED', run_number: campaign.runs.length + 1, sequence_label: 'Test' })] })
-    return json({ run: 'r-test', status: after.status, results: to.map((address) => ({ to: address, ok: !address.includes('bad'), detail: address.includes('bad') ? '550 mailbox unavailable' : 'msg-1' })) })
+    // with a subject line test each address gets both, as the API does
+    const variants = campaign.ab_config?.enabled && campaign.ab_config.subject_b ? (['A', 'B'] as const) : [undefined]
+    return json({ run: 'r-test', status: after.status, results: to.flatMap((address) => variants.map((variant) => ({
+      to: address, ok: !address.includes('bad'), detail: address.includes('bad') ? '550 mailbox unavailable' : 'msg-1', ...(variant ? { variant, subject: variant === 'A' ? 'Fall is here, Jordan' : campaign.ab_config?.subject_b } : {}) }))) })
+  }
+  if (action === 'request-approval') {
+    return json(put({ ...campaign, approval: { status: 'REQUESTED', requested_by: 'u1', requested_by_name: 'Aby John', requested_at: '2026-09-29T09:14:00Z', note: String(body?.note ?? '') || null,
+                                               decided_by_name: null, decided_at: null, decision_note: null } }))
+  }
+  if (action === 'approve' || action === 'send-back') {
+    if (action === 'send-back' && !String(body?.note ?? '').trim()) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { note: ['Say what to change.'] } }, 400)
+    return json(put({ ...campaign, approval: { ...(campaign.approval as NonNullable<Campaign['approval']>), status: action === 'approve' ? 'APPROVED' : 'RETURNED', decided_by_name: 'Maria Chen',
+                                               decided_at: '2026-09-29T10:00:00Z', decision_note: String(body?.note ?? '') || null } }))
   }
   if (action === 'publish') {
+    if (campaign.approval_required && campaign.approval?.status !== 'APPROVED') return conflict('This campaign needs approval before a production publish.')
     if (!campaign.template) return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { template: ['Choose a template.'] } }, 400)
     const later = campaign.send_type === 'SCHEDULED' ? campaign.scheduled_at : null
     const created = run(campaign.id, { scheduled_at: later, run_number: campaign.runs.length + 1 })

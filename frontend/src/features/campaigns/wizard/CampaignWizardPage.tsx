@@ -326,7 +326,7 @@ export function CampaignWizardPage() {
                         <CardSubheading className="mb-4 outline-none"><span id={`publish-${part.key}-title`} tabIndex={-1}>{part.label}</span></CardSubheading>
                         {part.key === 'schedule' && (
                           <>
-                            <StepSchedule options={options.data} workspaceZone={zone} onChangeType={canChangeType ? () => openDetails(true) : undefined} />
+                            <StepSchedule options={options.data} workspaceZone={zone} campaignId={loaded.id} onChangeType={canChangeType ? () => openDetails(true) : undefined} />
                             {!receipt && (
                               <div className="mt-4">
                                 <button type="button" className={buttonSecondary} disabled={save.isPending} onClick={() => void commit(FIELDS.publish, PROGRESS.schedule)}>Save Schedule</button>

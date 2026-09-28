@@ -18,8 +18,10 @@ import { formatMoney, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
 
 import { AudiencePicture } from '../AudiencePicture'
+import { APPROVAL_CARD_ID, ApprovalCard } from './ApprovalCard'
 import { Definition, Panel } from '../parts'
 import type { FlowStep } from '../setupFlow'
+import { testSummary } from '../subjectTest'
 import { channelLabel, sendTypeLabel, typeLabel, whenText } from '../vocabulary'
 
 function Section({ title, step, onEdit, children }: { title: string; step: number; onEdit: (step: number) => void; children: ReactNode }) {
@@ -46,7 +48,8 @@ export function PublishSummary({ campaign, onEdit, onGo }: { campaign: Campaign;
   for (const item of checklist.data.items) {
     if (item.ok) continue
     if (item.key === 'test') { items.push({ key: item.key, text: 'No test has been sent. Send yourself one to see the message as a recipient will.', blocking: false, go: () => onGo('test') }); continue }
-    if (item.key === 'approval') { items.push({ key: item.key, text: item.problem ?? item.label, blocking: true, go: () => onEdit(3) }); continue }
+    // the approval is asked for and given on this page, in the Approval card below
+    if (item.key === 'approval') { items.push({ key: item.key, text: item.problem ?? item.label, blocking: true, go: () => document.getElementById(APPROVAL_CARD_ID)?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }); continue }
     const target = place[item.key] ?? 3
     items.push({ key: item.key, text: item.problem ?? item.label, blocking: true, go: () => (typeof target === 'number' ? onEdit(target) : onGo(target)) })
   }
@@ -72,7 +75,7 @@ export function PublishSummary({ campaign, onEdit, onGo }: { campaign: Campaign;
           <li key={item.key} className="flex flex-wrap items-baseline gap-x-2">
             {item.blocking ? <CircleAlert size={14} strokeWidth={1.5} className="relative top-0.5 shrink-0" aria-hidden /> : <CircleDashed size={14} strokeWidth={1.5} className="relative top-0.5 shrink-0" aria-hidden />}
             <span>{item.text}</span>
-            <button type="button" className="font-semibold underline underline-offset-2" onClick={item.go}>{item.key === 'test' ? 'Send a Test' : item.key === 'targets' ? 'Set Targets' : 'Fix It'}</button>
+            <button type="button" className="font-semibold underline underline-offset-2" onClick={item.go}>{item.key === 'test' ? 'Send a Test' : item.key === 'targets' ? 'Set Targets' : item.key === 'approval' ? 'Go to Approval' : 'Fix It'}</button>
           </li>
         ))}
       </ul>
@@ -139,10 +142,12 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
         <Section title="Template" step={2} onEdit={onEdit}>
           <Definition label="Template">{campaign.template_name ?? 'Not chosen yet'}</Definition>
           <Definition label="Sender">{campaign.sender_profile_name ?? 'Not chosen yet'}</Definition>
+          {campaign.channel === 'EMAIL' && !isReceipt && <Definition label="Subject Line">{testSummary(campaign.ab_config)}</Definition>}
         </Section>
         <Section title="Scheduling & Delivery" step={3} onEdit={onEdit}>
           <Definition label="Send Type">{isReceipt ? 'Triggered by a purchase' : sendTypeLabel(campaign.send_type)}</Definition>
           <Definition label="When">{when}</Definition>
+          {!isReceipt && <Definition label="Local Time">{campaign.timezone_optimization ? "Each recipient's own time zone" : 'One time for everyone'}</Definition>}
           <Definition label="Frequency Limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Definition>
           <Definition label="Messages per Hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Definition>
         </Section>
@@ -177,11 +182,13 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
 
         {audience.data && <Panel title="Audience Estimate"><AudiencePicture audience={audience.data} /></Panel>}
 
+        {campaign.approval_required && <ApprovalCard campaign={campaign} />}
+
         {publish.isError && <ErrorState title="The campaign was not published" error={publish.error} />}
         {can('campaign.publish') ? (
           <div>
             <button type="button" className={`${buttonPrimary} w-full`} disabled={!ready || publish.isPending} onClick={() => void (async () => { if (!beforePublish || await beforePublish()) setConfirming(true) })()}>Publish to Production</button>
-            {!ready && checklist.data && <p className="mt-2 text-xs text-ink-500">Finish the items marked above first.</p>}
+            {!ready && checklist.data && <p className="mt-2 text-xs text-ink-500">{campaign.approval_required && campaign.approval?.status !== 'APPROVED' ? 'It can be published once it is approved and the items marked above are done.' : 'Finish the items marked above first.'}</p>}
           </div>
         ) : (
           <p className="text-sm text-ink-500">Publishing needs the campaign.publish permission. The draft is saved; someone who has it can publish from here.</p>

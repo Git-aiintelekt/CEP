@@ -17,6 +17,9 @@ const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/email', label: 'Email Server' },
   { to: '/settings/delivery', label: 'Sending Engines' },
   { to: '/settings/integrations', label: 'Integrations' },
+  { to: '/settings/suppressions', label: 'Suppressions' },
+  { to: '/settings/notifications', label: 'Notifications' },
+  { to: '/settings/approvals', label: 'Approvals' },
 ]
 
 function Fact({ label, value }: { label: string; value: string }) {

@@ -2,18 +2,43 @@
  * Step 4: when the campaign goes out and how it is delivered. Times are wall-clock times in the campaign's time
  * zone. A recurring or drip campaign stays ONE campaign: every occurrence or step becomes a run of it (BRD 7).
  */
+import { useQuery } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { useFieldArray, useFormContext } from 'react-hook-form'
 
 import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
-import type { CampaignFormOptions } from '@/lib/types'
+import { api } from '@/lib/api'
+import { formatNumber } from '@/lib/format'
+import type { CampaignAudience, CampaignFormOptions } from '@/lib/types'
 
 import { CheckRow, ChoiceCard, ChoiceGroup, Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 import { SEND_TYPES, WEEKDAYS } from '../vocabulary'
 import { formatInZone, zonedToIso } from '../zone'
 
-export function StepSchedule({ options, workspaceZone, onChangeType }: { options: CampaignFormOptions | undefined; workspaceZone: string; onChangeType?: () => void }) {
+/**
+ * How many of the people on the attached lists have a time zone CEP can work out, asked for as soon as the box is ticked
+ * (?local_time=1), before it is saved. The rest get the message at the chosen time in the campaign's own zone.
+ */
+function LocalTimeCoverage({ campaignId, zone }: { campaignId: string; zone: string }) {
+  const coverage = useQuery({
+    queryKey: ['campaigns', 'audience', campaignId, 'local-time'],
+    queryFn: ({ signal }) => api.get<CampaignAudience>(`/campaigns/${campaignId}/audience/`, { local_time: 1 }, signal),
+  })
+  const counts = coverage.data?.local_time
+  if (coverage.isPending) return <p className="text-xs text-ink-500">Counting who has a known time zone</p>
+  if (!counts) return null
+  if (counts.people === 0) return <p className="text-xs text-ink-500">Attach a contact list to see how many people have a known time zone.</p>
+  const rest = counts.people - counts.local_time_known
+  return (
+    <p className="cep-num text-xs text-ink-700" data-local-time>
+      {formatNumber(counts.local_time_known)} of {formatNumber(counts.people)} people have a known time zone.
+      {rest > 0 ? ` The other ${formatNumber(rest)} get it at the chosen time in ${zone}.` : ' Everyone gets it at their own local time.'}
+    </p>
+  )
+}
+
+export function StepSchedule({ options, workspaceZone, onChangeType, campaignId }: { options: CampaignFormOptions | undefined; workspaceZone: string; onChangeType?: () => void; campaignId?: string }) {
   const { register, control, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const steps = useFieldArray({ control, name: 'drip.steps' })
   const type = watch('campaign_type')
@@ -167,7 +192,10 @@ export function StepSchedule({ options, workspaceZone, onChangeType }: { options
             label="Apply Corporate Frequency Limits"
             hint={marketing ? 'Recommended. Switching this off is recorded in the activity log. Consent, unsubscribes and blocked addresses always apply.' : 'Service and transactional messages may be exempt. Unsubscribes of texts and blocked addresses always apply.'} />
           <CheckRow id="zone-optimization" checked={watch('timezone_optimization')} onChange={(value) => setValue('timezone_optimization', value, touch)}
-            label="Send at Each Recipient's Local Time" hint="The same clock time in each recipient's own time zone. Stored with the campaign; it takes effect when the delivery engine integration is switched on." />
+            label="Send at Each Recipient's Local Time"
+            hint="The same clock time in each recipient's own time zone, from their address (a US or Canadian state, or a country with one zone) or a timezone attribute. The send starts as the first zone reaches the time and ends with the last." />
+          {watch('timezone_optimization') && campaignId && <div className="-mt-2 pl-7"><LocalTimeCoverage campaignId={campaignId} zone={watch('send_timezone') || workspaceZone} /></div>}
+          {watch('timezone_optimization') && watch('send_type') === 'IMMEDIATE' && <p className="-mt-2 pl-7 text-xs text-ink-500">An immediate send uses the clock time of the moment it is published, in each recipient's zone: people in zones that have not reached it yet get it later today.</p>}
           <div className="sm:w-1/3">
             <Field label="Messages per Hour, at Most" error={errors.rate_limit_per_hour?.message} hint="Leave blank for no limit of your own. Takes effect with the delivery engine integration.">
               {(ids) => <TextInput {...ids} inputMode="numeric" {...register('rate_limit_per_hour')} />}

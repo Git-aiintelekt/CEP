@@ -11,7 +11,7 @@
     POST   /campaigns/bulk/                {action: archive|clone|pause|resume, ids: [...]}
     GET    /campaigns/{id}/preview/        ?party_id= : the content as that customer would get it
     GET    /campaigns/{id}/lists/          POST {contact_list, role}       DELETE /campaigns/{id}/lists/{list_id}/
-    GET    /campaigns/{id}/audience/       merged, de-duplicated, minus excluded lists, with today's governance picture
+    GET    /campaigns/{id}/audience/       merged, de-duplicated, minus excluded lists, with today's governance picture; ?local_time=1 adds how many have a known time zone
     GET    /campaigns/audience-estimate/   the same for lists that are not saved yet: ?include=a,b &exclude=c &channel= &solicitation_type=
     GET    /campaigns/{id}/audience/export/   CSV of the frozen Campaign List (or of the estimate, before the first send)
     GET    /campaigns/{id}/runs/           GET /campaigns/{id}/runs/{run_id}/
@@ -554,9 +554,10 @@ class CampaignViewSet(views.CampaignViewSet):
             CampaignRun.objects.filter(pk=run.pk).update(status="FAILED", completed_at=timezone.now())
             service.record(campaign, "WARNING", f"Test publish failed: {exc}", user=request.user, run=run, severity="ERROR")
             raise Conflict(str(exc)) from None
-        accepted = sum(1 for item in results if item.get("ok"))
-        CampaignRun.objects.filter(pk=run.pk).update(status="COMPLETED" if accepted else "FAILED", completed_at=timezone.now())
-        if campaign.status == Campaign.Status.DRAFT and accepted:
+        # an address counts as reached when every message to it went (two with a subject line test)
+        accepted = sum(1 for address in to if all(item.get("ok") for item in results if item["to"] == address))
+        CampaignRun.objects.filter(pk=run.pk).update(status="COMPLETED" if any(item.get("ok") for item in results) else "FAILED", completed_at=timezone.now())
+        if campaign.status == Campaign.Status.DRAFT and any(item.get("ok") for item in results):
             campaign.status = Campaign.Status.TEST_PUBLISHED
             campaign.save(update_fields=["status"])
         service.record(campaign, "TEST_PUBLISHED", f"Test sent to {accepted} of {len(to)}: {', '.join(to)}. Tests do not count towards results.", user=request.user, run=run,
@@ -690,7 +691,8 @@ class CampaignViewSet(views.CampaignViewSet):
         """Merged and de-duplicated across the attached lists, minus the excluded ones, with today's governance picture and a sample."""
         campaign = self.get_object()
         data = service.audience(campaign)
-        if campaign.timezone_optimization and not campaign.is_journey_generated:
+        # ?local_time=1: the count is wanted before the setting is saved (the setup shows it as the box is ticked)
+        if (campaign.timezone_optimization or request.query_params.get("local_time") == "1") and not campaign.is_journey_generated:
             from apps.delivery.engine import sendtime
             from django.db import connections
             with connections[context.require().db_alias].cursor() as cursor:

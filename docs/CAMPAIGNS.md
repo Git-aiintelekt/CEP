@@ -181,7 +181,18 @@ The decision (`decide-ab-winners`, or a person through `POST /campaigns/{id}/run
 `campaign.publish`) compares the two by the metric per message sent; a tie within one point goes to A. The winner is
 marked on the variants with both figures, the held messages become the winner's subject, the activity log gets
 `AB_WINNER`, the owner is told (`ab_winner` notification), and the next dispatcher pass sends the rest. The run detail
-shows each variant with its subject, share, figures, `waiting_for_winner` and `decide_at`. A test send is unaffected.
+shows each variant with its subject, share, figures, `waiting_for_winner` and `decide_at`. A test send with a test on
+goes to each address twice, `[TEST A]` with the template's subject and `[TEST B]` with the second one; each line of the
+answer carries its `variant` and `subject` (2026-09-29).
+
+**Screens (2026-09-29).** The Test step has a Subject Line Test card (email campaigns, not e-receipts or journey
+campaigns): a switch, A as the template's subject with sample values, B, the sample (10-50%, with the number of
+people it comes to), Winner Decided By and Decide After, saved with Save Subject Test (`features/campaigns/wizard/
+SubjectTestCard.tsx`, defaults and wording in `features/campaigns/subjectTest.ts`). The test send says each address
+gets both, and its results name the subject. Review & Publish's summary has a Subject Line line. On the campaign's
+Performance tab each production run of a campaign with a test opens on A and B side by side (subject, sent, open and
+click rate, the winner marked), and while the rest wait it says when the winner is chosen and offers Send A / Send B to
+the Rest (`campaign.publish`, with a confirmation; `detail/SubjectTestResults.tsx`).
 
 ## 9. Local send times (`timezone_optimization`)
 
@@ -191,7 +202,10 @@ own zone (`engine/sendtime.py`). The zone is `customer_master.custom_attributes.
 keeps one zone; nobody's zone known = the campaign's own time; a local time already past when the run starts = now.
 An immediate send works from the moment it was published. The engine claims nothing before its `send_after`; the run
 stays open until the last zone has had its turn. The audience endpoint reports `local_time: {people, local_time_known}`
-so the Review step can say for how many people the local time is known.
+once the option is saved, or at once with `?local_time=1`: the Review & Publish step asks for it as soon as the box is
+ticked and says "70 of 88 people have a known time zone. The other 18 get it at the chosen time in America/New_York."
+(`StepSchedule.tsx`, `LocalTimeCoverage`). The review summary has a Local Time line and the campaign's Overview says
+"Each recipient's own time zone".
 
 ## 10. Tests
 

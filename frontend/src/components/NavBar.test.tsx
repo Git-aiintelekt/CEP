@@ -9,7 +9,8 @@ import { useLeaveGuard } from '@/features/designer/useLeaveGuard'
 import { NavBar } from './NavBar'
 
 const has = vi.fn((_feature: string) => true)
-vi.mock('@/auth/AuthContext', () => ({ useAuth: () => ({ has }) }))
+const can = vi.fn((_permission: string) => true)
+vi.mock('@/auth/AuthContext', () => ({ useAuth: () => ({ has, can }) }))
 
 afterEach(() => {
   cleanup()
@@ -24,13 +25,14 @@ function renderBar(path = '/templates/7/design', onNavigate?: (to: string, event
   )
 }
 
-test('the bar carries the five destinations, with the editor’s own section marked current', () => {
+test('the bar carries the six destinations, with the editor’s own section marked current', () => {
   renderBar()
   const bar = screen.getByRole('navigation', { name: 'Main' })
   expect([...bar.querySelectorAll('a')].map((a) => a.getAttribute('aria-label'))).toEqual([
     'CEP home',
     'Home',
     'Campaigns',
+    'Reports',
     'Journeys',
     'Templates',
     'Contact lists',
