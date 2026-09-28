@@ -11,12 +11,13 @@ import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/Des
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { canEditTemplate } from '@/features/designer/editAccess'
 import { api } from '@/lib/api'
-import type { Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
+import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
 
 
 export default function TemplateDesignerPage() {
   const { id = '' } = useParams()
-  const { can } = useAuth()
+  const { can, has } = useAuth()
+  const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
 
   const template = useQuery({ queryKey: ['templates', 'detail', id], queryFn: ({ signal }) => api.get<Template>(`/templates/${id}/`, undefined, signal) })
@@ -42,8 +43,10 @@ export default function TemplateDesignerPage() {
         await api.post<Template>(`/templates/${id}/activate/`)
         void queryClient.invalidateQueries({ queryKey: ['templates'] })
       },
+      // Barcodes and QR codes is switched on per workspace in tenant management
+      sampleCode: codes ? (request) => api.post<CodeSample>('/codes/sample/', request) : undefined,
     }),
-    [id, queryClient],
+    [id, queryClient, codes],
   )
 
   const failed = [template, design, tags].find((query) => query.isError)

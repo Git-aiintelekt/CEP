@@ -5,6 +5,7 @@
 import { useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
+import { BARCODE_DEFAULTS, QR_DEFAULTS, placeholderSrc, valueProblem, type BarcodeFormat, type QrLevel } from '@/features/designer/blocks/codes'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { extractTags, unknownTags } from '@/features/designer/tags'
@@ -27,6 +28,10 @@ const TAGS = [
   tag('client_logo', 'Client logo', 'STANDARD', 'https://placehold.co/320x80/2753e4/ffffff/png?text=Northwind'),
   tag('shop_url', 'Shop URL', 'SYSTEM', 'https://shop.example.com'),
   tag('unsubscribe_url', 'Unsubscribe URL', 'SYSTEM', 'https://example.com/unsubscribe'),
+  // the coupon tags patch 0024 gives every workspace, which the barcode and QR code blocks read
+  tag('coupon_code', 'Coupon Code', 'CUSTOM', 'SAVE20-7K3Q'),
+  tag('coupon_barcode_value', 'Coupon Barcode Value', 'CUSTOM', 'CPN400012345678'),
+  tag('coupon_qr_value', 'Coupon QR Value', 'CUSTOM', 'https://shop.example.com/c/SAVE20-7K3Q'),
 ]
 
 const EMPTY: Design = {
@@ -64,8 +69,14 @@ export default function DesignerPlayground() {
       loadVersion: async (number) => ({ ...versions.current[number - 1], latest_version: versions.current.length }),
       listVersions: async () => [...versions.current].reverse().map((item) => ({ version_number: item.version_number, saved_at: item.saved_at ?? '', saved_by: item.saved_by })),
       uploadAsset: async (file) => ({ url: URL.createObjectURL(file), name: file.name }),
+      // no server here: the code blocks are offered (?codes=off hides them) and show the browser's stand-in
+      sampleCode: params.get('codes') === 'off' ? undefined : async (request) => {
+        const config = request.kind === 'qr' ? { ...QR_DEFAULTS, ecc: request.ecc as QrLevel, size: request.size } : { ...BARCODE_DEFAULTS, format: request.format as BarcodeFormat, width: request.width, height: request.height }
+        const problem = valueProblem(config, request.value)
+        return problem ? { valid: false, message: `The sample value cannot be drawn: ${problem}.` } : { valid: true, url: placeholderSrc(config, request.value) }
+      },
     }),
-    [state],
+    [state, params],
   )
 
   if (state === 'loading') return <EditorLoading label="Opening the designer" />

@@ -254,6 +254,14 @@ def stats(tenant_id, run_id, kind: str | None = None) -> dict:
     return {"family": kind, "audience": {"members": eligible + sum(members.values()), "eligible": eligible, "suppressed": members}, "messages": messages, "by_status": by_status}
 
 
+def codes_left_out(tenant_id, run_id) -> int:
+    """Recipients sent an email without one of its code blocks, from the send batches' activity entries."""
+    from apps.campaigns.models import CampaignActivityLog
+    from apps.delivery.engine.dispatch import CODES_LEFT_OUT
+    rows = CampaignActivityLog.objects.filter(tenant_id=tenant_id, campaign_run_id=run_id, event_type=CODES_LEFT_OUT).values_list("detail", flat=True)
+    return sum(int((detail or {}).get("recipients") or 0) for detail in rows)
+
+
 def finalize(tenant_id, run_id) -> str | None:
     """COMPLETED when nothing is queued any more; FAILED when nothing at all went out. Returns the new status, or None while still sending."""
     notice = None
@@ -265,12 +273,16 @@ def finalize(tenant_id, run_id) -> str | None:
         if numbers["queued"]:
             return None
         outcome = "FAILED" if numbers["failed"] and not numbers["sent"] else "COMPLETED"
+        missing_codes = codes_left_out(tenant_id, run.pk)
+        if missing_codes:
+            numbers = {**numbers, "codes_left_out": missing_codes}
         now = timezone.now()
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id, status="SENDING").update(status=outcome, completed_at=now)
         if not run.test_mode:
             _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED" if outcome == "FAILED" else "SEND_COMPLETED",
                       (f"Send failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
-                       else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else ".")),
+                       else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else ".")
+                       + (f" A barcode or QR code was left out for {missing_codes:,} of them." if missing_codes else "")),
                       severity="ERROR" if outcome == "FAILED" else "INFO", detail=numbers)
             name = run.campaign.name + (f" ({run.sequence_label})" if run.sequence_label else "")
             notice = (_notice(tenant_id, run, "send_failed", f"{name}: the send failed", [f"None of {numbers['failed']:,} messages went out.", "Check the sending engine under Settings → Integrations, then publish again."])

@@ -1,6 +1,7 @@
 /** The block palette beside the canvas. Knows nothing about GrapesJS: dragging and inserting are the caller's. */
 import {
   AlignCenter,
+  Barcode,
   Code,
   Columns2,
   Columns3,
@@ -13,6 +14,7 @@ import {
   MousePointerClick,
   MoveVertical,
   PanelTop,
+  QrCode,
   RectangleHorizontal,
   Share2,
   ShoppingBag,
@@ -33,6 +35,7 @@ import { Tile } from './ui/Tile'
 /** Named one by one: importing the whole icon set would pull every glyph into the bundle. */
 const ICONS: Record<string, LucideIcon> = {
   AlignCenter,
+  Barcode,
   Code,
   Columns2,
   Columns3,
@@ -44,6 +47,7 @@ const ICONS: Record<string, LucideIcon> = {
   MousePointerClick,
   MoveVertical,
   PanelTop,
+  QrCode,
   RectangleHorizontal,
   Share2,
   ShoppingBag,

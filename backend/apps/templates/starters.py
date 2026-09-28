@@ -274,6 +274,27 @@ def catalogue(channel: str | None = None) -> list[dict]:
     return rows
 
 
+# What barcode and QR code blocks read: list-upload columns (member.custom_value_pairs). Patch 0024 adds them to every
+# workspace that existed then; onboarding adds them to every new one.
+COUPON_TAGS = [
+    ("coupon_code", "Coupon Code", "CAMPAIGN_LIST_MEMBER", "custom_value_pairs.coupon_code", "STRING", ["EMAIL", "E_RECEIPT", "SMS", "MMS"], "SAVE20-7K3Q"),
+    ("coupon_barcode_value", "Coupon Barcode Value", "CAMPAIGN_LIST_MEMBER", "custom_value_pairs.coupon_barcode_value", "STRING", ["EMAIL", "E_RECEIPT"], "CPN400012345678"),
+    ("coupon_qr_value", "Coupon QR Value", "CAMPAIGN_LIST_MEMBER", "custom_value_pairs.coupon_qr_value", "STRING", ["EMAIL", "E_RECEIPT"], "https://shop.example.com/c/SAVE20-7K3Q"),
+]
+
+
+def ensure_coupon_tags(tenant_id, user_id=None, using: str | None = None) -> int:
+    manager = PersonalizationTag.objects.using(using) if using else PersonalizationTag.objects
+    existing = set(manager.filter(tenant_id=tenant_id, tag_key__in=[row[0] for row in COUPON_TAGS]).values_list("tag_key", flat=True))
+    missing = [row for row in COUPON_TAGS if row[0] not in existing]
+    manager.bulk_create([
+        PersonalizationTag(tenant_id=tenant_id, tag_key=key, label=label, tag_kind="CUSTOM", source_system="CEP", resolution_source=source,
+                           source_path=path, data_type=data_type, applies_to_channels=channels, sample_value=sample, description=label,
+                           is_active=True, created_by_id=user_id)
+        for key, label, source, path, data_type, channels, sample in missing])
+    return len(missing)
+
+
 def ensure_tags(tenant_id, user_id=None) -> int:
     """Adds the receipt / order tags the starters rely on to a tenant's catalogue. Existing keys are left alone."""
     existing = set(PersonalizationTag.objects.filter(tag_key__in=[row[0] for row in REQUIRED_TAGS]).values_list("tag_key", flat=True))

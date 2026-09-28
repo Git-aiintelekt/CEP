@@ -102,7 +102,8 @@ def design_payload(template: TemplateMaster, version: int | None = None) -> dict
 
 def analyse(subject_line: str, preheader: str, mjml_source: str, html: str) -> dict:
     """Non-blocking findings returned with every save and re-checked by activate()."""
-    used = extract_tags(subject_line, preheader, mjml_source)
+    from . import codes
+    used = list(dict.fromkeys([*extract_tags(subject_line, preheader, mjml_source), *codes.sources(mjml_source)]))
     known = set(PersonalizationTag.objects.filter(is_active=True, deleted_at__isnull=True, tag_key__in=used).values_list("tag_key", flat=True))
     return {
         "tags_used": used,
@@ -129,6 +130,9 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
     for pattern, message in FORBIDDEN:
         if pattern.search(mjml_source):
             errors.setdefault("mjml_source", message)
+    from . import codes
+    for reason in codes.problems(mjml_source):
+        errors.setdefault("mjml_source", reason)
     if errors:
         raise ValidationError(errors)
 
@@ -143,7 +147,7 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
     TemplateDesignState.objects.create(template=template, version_number=number, editor_state=editor_state, created_by_id=user_id)
     RenderedTemplateContent.objects.create(template=template, version_number=number, subject_line=subject_line.strip() or None,
                                            preheader=preheader.strip() or None, mjml_source=mjml_source, html_content=html,
-                                           text_content=html_to_text(html))
+                                           text_content=html_to_text(codes.for_text(html)))
 
     findings = analyse(subject_line, preheader, mjml_source, html)
     # template_tag = which catalogue tags this template uses (validated against the campaign list at publish)

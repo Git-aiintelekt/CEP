@@ -10,7 +10,7 @@ import { NavBar } from '@/components/NavBar'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatUtcClock } from '@/lib/format'
-import type { Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
+import type { CodeSample, CodeSampleRequest, Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { AUTOSAVE_MS, autosaveDue } from './autosave'
@@ -39,6 +39,8 @@ export interface DesignerBackend {
   listVersions: () => Promise<DesignVersion[]>
   uploadAsset: (file: File) => Promise<DesignerAsset>
   activate?: () => Promise<void>
+  /** the workspace has Barcodes and QR codes: draws a code block's sample */
+  sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
 }
 
 type EditorTab = 'content' | 'preview'
@@ -404,6 +406,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             onTagUsed={rememberTag}
             onPreview={() => void changeTab('preview')}
             exportName={templateName}
+            sampleCode={backend.sampleCode}
           />
         </div>
 

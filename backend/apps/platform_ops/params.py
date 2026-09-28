@@ -29,6 +29,8 @@ FEATURES = {
     "sso":           {"name": "Single sign-on",              "default": True,  "plan_key": None},
     "custom_domain": {"name": "Custom sending domain",       "default": False, "plan_key": "custom_domain"},
     "scoring":       {"name": "AI scoring",                  "default": False, "plan_key": None},
+    # off until tenant management switches it on for a workspace; a plan can still switch it off for all of its tenants
+    "dynamic_codes": {"name": "Barcodes and QR codes",       "default": False, "plan_key": "dynamic_codes"},
 }
 CHANNEL_FEATURE = {"EMAIL": "email", "E_RECEIPT": "ereceipt", "SMS": "sms", "MMS": "mms"}
 TERMS = ("customer", "location", "transaction")           # words an industry profile may rename

@@ -3,6 +3,7 @@
     POST /api/v1/webhooks/delivery/<tenant>/<provider id>/<token>/    delivery providers report what happened to a message
     GET | POST /api/v1/public/unsubscribe/?t=<signed token>            the link in every marketing email
     GET /api/v1/public/barcode/<text>.png                              the Code 128 image an e-receipt's return barcode points at
+    GET /api/v1/public/code/<signed token>.png                         a barcode or QR code block's image in a sent email
 
 The tenant middleware resolves the workspace from the path / the token (apps/tenants/resolver.py), so both run in a
 normal tenant transaction under row-level security.
@@ -148,6 +149,18 @@ main{{max-width:440px;margin:12vh auto;padding:32px;background:#fff;border:1px s
 h1{{font-size:20px;margin:0 0 8px}}p{{font-size:15px;line-height:22px;color:#475569;margin:0 0 20px}}
 button{{font:inherit;font-weight:600;color:#fff;background:#2753e4;border:0;border-radius:8px;padding:12px 24px;cursor:pointer}}</style></head>
 <body><main><h1>{title}</h1><p>{text}</p>{action}</main></body></html>"""
+
+
+def code_image_view(request, token, version=None):
+    """A barcode or QR code image for a code block of a sent email. No tenant, no sign-in: the address is signed, so
+    this draws only what a send issued, and the image says nothing more than the value printed under it."""
+    from apps.templates import codes
+    found = codes.load(token)
+    if found is None:
+        return HttpResponse(status=404)
+    response = HttpResponse(codes.png(found["config"], found["value"]), content_type="image/png")
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 
 @csrf_exempt
