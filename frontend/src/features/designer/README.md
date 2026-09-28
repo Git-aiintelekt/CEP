@@ -51,4 +51,5 @@ em and rem as well as px and %: they are written as px the moment they are commi
 effective font size, MJML's 13px when nothing sets one, `inspector/fields/length.ts`). On the Font Size field itself em
 means the size the block inherits, or previewing 1.5em would move its own base under it. Picking em or rem shows the px
 already in the box in that unit and writes nothing until Enter; the field settles on px afterwards. vh and vw are not
-offered, an email has no viewport.
+offered, an email has no viewport. Text, image, divider, spacer and social blocks offer Background Color: MJML's
+`container-background-color`, the cell behind the block, since those tags have no `background-color` of their own.

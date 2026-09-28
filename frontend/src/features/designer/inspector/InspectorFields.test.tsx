@@ -77,12 +77,12 @@ test('each block kind offers its own settings', () => {
   const keys = () => [...document.querySelectorAll('[data-setting]')].map((node) => node.getAttribute('data-setting'))
 
   renderFields(make('mj-spacer'))
-  expect(keys()).toEqual(['height', MARGIN_KEY, 'padding'])
-  expect(sections()).toEqual(['Layout'])
+  expect(keys()).toEqual(['height', MARGIN_KEY, 'padding', 'container-background-color'])
+  expect(sections()).toEqual(['Layout', 'Appearance'])
 
   cleanup()
   renderFields(make('mj-divider'))
-  expect(keys()).toEqual(['width', 'align', MARGIN_KEY, 'padding', 'border-color', 'border-width'])
+  expect(keys()).toEqual(['width', 'align', MARGIN_KEY, 'padding', 'border-color', 'border-width', 'container-background-color'])
 
   cleanup()
   renderFields(make('mj-social-element'))

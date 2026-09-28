@@ -150,12 +150,13 @@ export const ATTRIBUTE_RULES: Record<string, Record<string, AttributeRule>> = {
   },
   'mj-image': {
     src: 'free', alt: 'free', href: 'free', align: 'free', width: PX, height: PX_OR_AUTO, 'max-height': LENGTH, padding: PADDING, 'border-radius': PADDING,
+    'container-background-color': 'color',
   },
-  'mj-divider': { 'border-color': 'color', 'border-width': PX, padding: PADDING, width: LENGTH, align: 'free' },
-  'mj-spacer': { height: LENGTH, padding: PADDING },
+  'mj-divider': { 'border-color': 'color', 'border-width': PX, padding: PADDING, width: LENGTH, align: 'free', 'container-background-color': 'color' },
+  'mj-spacer': { height: LENGTH, padding: PADDING, 'container-background-color': 'color' },
   'mj-social': {
     align: 'free', mode: 'free', 'icon-size': LENGTH, 'icon-padding': PADDING, padding: PADDING, 'border-radius': LENGTH, color: 'color',
-    'font-family': 'free', 'font-size': PX,
+    'font-family': 'free', 'font-size': PX, 'container-background-color': 'color',
   },
   'mj-social-element': {
     [NETWORK_KEY]: 'free', href: 'free', 'background-color': 'color', color: 'color', 'icon-size': LENGTH, padding: PADDING, 'border-radius': PX,
@@ -213,7 +214,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'font-weight', label: 'Font Weight', kind: 'select', section: 'appearance' },
     { key: 'line-height', label: 'Line Height', kind: 'length', section: 'appearance', min: 0 },
-    // MJML's container-background-color: the cell behind the text, which is what a background means on a text block
+    // MJML's container-background-color: the cell behind the block, which is what a background means on a content block
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     { key: 'color', label: 'Text Color', kind: 'color', section: 'appearance' },
   ],
@@ -242,6 +243,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'max-height', label: 'Max Height', kind: 'length', section: 'layout', min: 0 },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     { key: 'border-radius', label: 'Corner Radius', kind: 'length', section: 'appearance', min: 0 },
   ],
   'mj-divider': [
@@ -251,11 +253,13 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'border-color', label: 'Line Color', kind: 'color', section: 'appearance' },
     { key: 'border-width', label: 'Line Width', kind: 'length', section: 'appearance', min: 0 },
+    { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-spacer': [
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-social': [
     { key: NETWORKS_KEY, label: 'Add a Network', kind: 'networks', section: 'content' },
@@ -269,6 +273,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'font-family', label: 'Label Font', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Label Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'color', label: 'Label Color', kind: 'color', section: 'appearance' },
+    { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-social-element': [
     { key: NETWORK_KEY, label: 'Network', kind: 'select', section: 'content', required: true },

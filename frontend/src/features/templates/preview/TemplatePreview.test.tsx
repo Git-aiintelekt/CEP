@@ -116,7 +116,9 @@ test('an email preview shows the subject with samples and the compiled email, at
   expect(frame.srcdoc).not.toContain('{{offer_code}}')
   expect(frame.style.width).toBe('600px')
 
-  await user.click(within(dialog).getByRole('radio', { name: 'Mobile' }))
+  // the device switch sits in the dialog's header, on the row of the tags
+  const header = within(dialog).getByRole('heading', { name: 'Announce a sale' }).closest('.border-b') as HTMLElement
+  await user.click(within(header).getByRole('radio', { name: 'Mobile' }))
   expect((within(dialog).getByTitle('Email preview') as HTMLIFrameElement).style.width).toBe('375px')
 })
 
