@@ -9,7 +9,7 @@
  * Cancel removes the draft and stops its job, so a half-finished upload never becomes a list.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Copy, Database, FileSpreadsheet, Upload } from 'lucide-react'
+import { CheckCircle2, Copy, Database, Download, FileSpreadsheet, Upload } from 'lucide-react'
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
 
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
@@ -22,6 +22,7 @@ import type { Audience, ContactList, ListImport, ListSource, Page } from '@/lib/
 import { problemText } from './problem'
 import { POLL_MS, watchedUploads } from './uploadJobs'
 import { UploadReport } from './UploadReport'
+import { downloadTemplate, FORMAT_LINE, UPLOAD_COLUMNS } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
 
 type Step = 'method' | 'file' | 'map' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
@@ -53,6 +54,32 @@ const TYPES = [
   { value: 'PRODUCTION', title: 'Production', text: 'Available to Corporate Communication Governance sends.' },
   { value: 'TEST', title: 'Test', text: 'Held out of governed sends until you promote it.' },
 ]
+
+/** Under the drop zone: the file format in one line, the columns the import knows, and the sample to download. */
+function TemplateNote() {
+  return (
+    <div className="mt-4 rounded-lg border border-line bg-surface p-4" data-upload-template>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink-900">File Format</p>
+          <p className="mt-1 text-xs text-ink-500">{FORMAT_LINE}</p>
+        </div>
+        <button type="button" className={buttonSecondary} onClick={downloadTemplate}>
+          <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
+        </button>
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Columns the import recognises">
+        {UPLOAD_COLUMNS.map((column) => (
+          <li key={column.header} title={column.note || undefined}
+            className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-brand-600 bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-700'}`}>
+            {column.header}{column.required ? ' · required' : ''}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-ink-500">Column names are matched by meaning, so “Email Address”, “Surname” or “Cell” work too; you confirm the matching on the next step.</p>
+    </div>
+  )
+}
 
 function fileSize(bytes: number | null): string {
   if (!bytes) return ''
@@ -429,6 +456,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               </button>
             </div>
           )}
+          {!upload && <TemplateNote />}
         </div>
       )}
 

@@ -38,6 +38,13 @@ from campaign pickers, and leaving the wizard deletes the draft with everything 
 
 CSV only, up to 50 MB and 250,000 rows; `,` `;` tab or `|`; UTF-8 (with or without BOM) or Windows-1252.
 
+**The file format, as the upload step states it (`features/contact-lists/uploadTemplate.ts`, "Download Sample CSV"):** a header row,
+then one contact per row. **Email** is the only column that must be there; the others are optional and can be in any order:
+First name, Last name, Mobile number (with the country code, `+14045550101`), Postal code, Loyalty ID, Loyalty tier, Last order
+date and Consent date (dates as `YYYY-MM-DD`). Column names are matched by meaning (`Email Address`, `Surname`, `Cell`, `ZIP` are
+recognised; see `PROPERTIES` in `apps/contact_lists/imports.py`) and confirmed on the Match Columns step. The sample file is built
+in the browser from the same column list, with a UTF-8 byte order mark and CRLF line ends so Excel opens it cleanly.
+
 ### 3.1 Built for large files and many workspaces (`apps/contact_lists/jobs.py`)
 
 Reading, checking and importing 250,000 rows takes minutes. Done inside a web request that is a server thread and a
