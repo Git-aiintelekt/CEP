@@ -7,7 +7,7 @@
  *
  * Only the editing chrome is touched. The email's own styles are never changed.
  */
-import { HIDE_MOBILE_CLASS } from './blocks/register'
+import { HIDE_MOBILE_CLASS, SHADOW_CSS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
 
 export const CANVAS_SKIN_ID = 'cep-canvas-skin'
@@ -97,12 +97,31 @@ html::-webkit-scrollbar {
 ${hiddenOnPhonesCss()}`
 }
 
-/** Puts the skin into a frame document, replacing any earlier copy. */
+export const DESIGN_RULES_ID = 'cep-design-rules'
+
+/**
+ * The design's own head rules the canvas cannot otherwise see: the shadow classes. Not part of the skin, which
+ * styles the editing chrome alone; these are the email's rules, with the email's colours, drawn where the
+ * compiled email would draw them. The attribute selector matches too: css-class only becomes a real class
+ * when MJML compiles the email.
+ */
+export function designRules(): string {
+  return SHADOW_LEVELS.map((level) => `
+.${shadowClass(level)},
+[css-class~="${shadowClass(level)}"] {
+  box-shadow: ${SHADOW_CSS[level]};
+}
+`).join('')
+}
+
+/** Puts the skin, and the design rules beside it, into a frame document, replacing any earlier copy. */
 export function injectCanvasSkin(frame: Document | undefined | null, css: string): void {
   if (!frame?.head) return
-  frame.getElementById(CANVAS_SKIN_ID)?.remove()
-  const tag = frame.createElement('style')
-  tag.id = CANVAS_SKIN_ID
-  tag.textContent = css
-  frame.head.appendChild(tag)
+  for (const [id, text] of [[CANVAS_SKIN_ID, css], [DESIGN_RULES_ID, designRules()]]) {
+    frame.getElementById(id)?.remove()
+    const tag = frame.createElement('style')
+    tag.id = id
+    tag.textContent = text
+    frame.head.appendChild(tag)
+  }
 }

@@ -77,10 +77,11 @@ test('a template is read from its own saved content: the design for email, the m
   expect(contentCalls(calls).sort()).toEqual(['/templates/tpl-email/design/', '/templates/tpl-sms/message/'])
 })
 
-test('an e-receipt has nothing to preview and asks for nothing', async () => {
+test('an e-receipt is read from its design and its receipt layout, the sample receipt filling the slot', async () => {
   const calls = installMockApi()
   const { result } = await render({ kind: 'template', template: template('tpl-receipt') })
-  await waitFor(() => expect(result.current.tags.length).toBeGreaterThan(0))
-  expect(result.current.data).toBeUndefined()
-  expect(contentCalls(calls)).toEqual([])
+  await waitFor(() => expect(result.current.data).toBeDefined(), { timeout: 10_000 })                // two compiles: the design, then the receipt
+  expect(result.current.data?.kind).toBe('email')
+  expect(result.current.data?.kind === 'email' && result.current.data.html).toContain('data-section="items"')
+  expect(contentCalls(calls).sort()).toEqual(['/templates/tpl-receipt/design/', '/templates/tpl-receipt/receipt/'])
 })

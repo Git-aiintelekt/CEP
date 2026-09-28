@@ -2,7 +2,7 @@ import type { Component } from 'grapesjs'
 import { expect, test, vi } from 'vitest'
 
 import {
-  ATTRIBUTE_RULES, HIDE_MOBILE_KEY, HTML_KEY, LABEL_KEY, MARGIN_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
+  ATTRIBUTE_RULES, BORDER_COLOR_KEY, BORDER_STYLE_KEY, BORDER_WIDTH_KEY, HIDE_MOBILE_KEY, SHADOW_KEY, parseBorder, HTML_KEY, LABEL_KEY, MARGIN_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
   normaliseHex, readEffective, readSetting, sectionFields, unitsFor, writeContent, writeSetting,
 } from './settings'
 import { FOOTER_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
@@ -56,10 +56,11 @@ function wrapperWith(head: Record<string, Record<string, string>>): Component {
 
 test('a block kind maps to its ordered fields, and a heading is an mj-text', () => {
   expect(fieldsFor(make('mj-button')).map((field) => field.key)).toEqual([
-    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'inner-padding', 'font-family', 'font-size', 'background-color', 'color', 'border-radius',
+    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'inner-padding', 'font-family', 'font-size', 'background-color',
+    BORDER_WIDTH_KEY, BORDER_STYLE_KEY, BORDER_COLOR_KEY, SHADOW_KEY, 'color', 'border-radius',
   ])
   expect(fieldsFor(make('mj-button')).filter((field) => field.kind === 'padding').map((field) => field.label)).toEqual(['Margin', 'Padding'])   // a button's MJML padding is its margin
-  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', MARGIN_KEY, 'padding'])
+  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', MARGIN_KEY, 'padding', 'container-background-color'])
   expect(fieldsFor(make('mj-raw')).map((field) => field.key)).toEqual([HTML_KEY])
   expect(fieldsFor(make('mj-navbar'))).toEqual([])
   expect(blockType(make('mj-text'))).toBe('mj-text')
@@ -76,6 +77,11 @@ test('every block that can be selected has something to set: the body, a heading
   expect(writeSetting(text, 'container-background-color', '#FFF')).toBe(true)
   expect(text.getAttributes()['container-background-color']).toBe('#ffffff')
   expect(writeSetting(text, 'container-background-color', 'white')).toBe(false)
+  // the cell behind an image, a divider, a spacer and a social row takes the same attribute
+  for (const type of ['mj-image', 'mj-divider', 'mj-spacer', 'mj-social']) {
+    expect(fieldsFor(make(type)).filter((field) => field.key === 'container-background-color').map((field) => field.label), type).toEqual(['Background Color'])
+    expect(writeSetting(make(type), 'container-background-color', 'white'), type).toBe(false)
+  }
   expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title'])
 })
 
@@ -100,7 +106,7 @@ test('every setting belongs to a section, and every section has a field or a rea
     for (const field of fields) expect(sections.has(field.section), `${type} ${field.key}`).toBe(true)
   }
   expect(sectionFields(make('mj-button'), 'content').map((field) => field.key)).toEqual([LABEL_KEY, 'href'])
-  expect(sectionFields(make('mj-spacer'), 'appearance')).toEqual([])
+  expect(sectionFields(make('mj-spacer'), 'appearance').map((field) => field.label)).toEqual(['Background Color'])
 })
 
 test('a length field offers exactly the units mjml accepts for that setting', () => {
@@ -434,4 +440,36 @@ test('margin: written as the sum with the padding into the MJML padding, read ba
   const button = make('mj-button')
   expect(writeSetting(button, MARGIN_KEY, '10px')).toBe(false)                                          // a button's margin is its padding attribute
   expect(readSetting(button, MARGIN_KEY)).toBe(null)
+})
+
+test('border: three fields over one attribute, written whole; 0 or nothing clears it; a shadow is a class', () => {
+  const section = make('mj-section')
+  expect(readSetting(section, BORDER_WIDTH_KEY)).toBe(null)
+  expect(writeSetting(section, BORDER_COLOR_KEY, '#CCC')).toBe(true)
+  expect(section.getAttributes().border).toBe('1px solid #cccccc')                                  // the plainest width and style fill in
+  expect(writeSetting(section, BORDER_WIDTH_KEY, '2px')).toBe(true)
+  expect(writeSetting(section, BORDER_STYLE_KEY, 'dashed')).toBe(true)
+  expect(section.getAttributes().border).toBe('2px dashed #cccccc')
+  expect([BORDER_WIDTH_KEY, BORDER_STYLE_KEY, BORDER_COLOR_KEY].map((key) => readSetting(section, key))).toEqual(['2px', 'dashed', '#cccccc'])
+  expect(readEffective(section, BORDER_STYLE_KEY, null)).toEqual({ value: 'dashed', source: 'block' })
+  expect(writeSetting(section, BORDER_STYLE_KEY, 'wavy')).toBe(false)
+  expect(writeSetting(section, BORDER_WIDTH_KEY, '2em')).toBe(false)
+  expect(writeSetting(section, BORDER_WIDTH_KEY, '0px')).toBe(true)
+  expect('border' in section.getAttributes()).toBe(false)
+  expect(parseBorder('dotted #ff0000 3px')).toEqual({ width: '3px', style: 'dotted', color: '#ff0000' })
+  expect(parseBorder('none')).toEqual({ width: null, style: null, color: null })
+  expect(writeSetting(make('mj-text'), BORDER_WIDTH_KEY, '1px')).toBe(false)                          // mjml gives a text no border
+  expect(fieldsFor(make('mj-section')).find((field) => field.key === BORDER_WIDTH_KEY)?.units).toEqual(['px'])
+
+  const text = make('mj-text')
+  expect(readSetting(text, SHADOW_KEY)).toBe(null)
+  expect(writeSetting(text, SHADOW_KEY, 'medium')).toBe(true)
+  expect(text.getAttributes()['css-class']).toBe('cep-shadow-medium')
+  expect(readSetting(text, SHADOW_KEY)).toBe('medium')
+  expect(readEffective(text, SHADOW_KEY, null)).toEqual({ value: 'medium', source: 'block' })
+  expect(writeSetting(text, SHADOW_KEY, 'huge')).toBe(false)
+  expect(writeSetting(text, SHADOW_KEY, null)).toBe(true)
+  expect('css-class' in text.getAttributes()).toBe(false)
+  expect(fieldsFor(make('mj-column')).map((field) => field.key)).toContain(SHADOW_KEY)
+  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).not.toContain(SHADOW_KEY)
 })

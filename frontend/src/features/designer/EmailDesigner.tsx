@@ -52,7 +52,7 @@ import { RECEIPT_BODY_TYPES, registerReceiptBlockTypes } from './blocks/receiptB
 import { registerCustomHtmlType } from './blocks/customHtml'
 import { registerReceiptSlotType } from './blocks/receiptSlot'
 import { needsImage } from './blocks/registry'
-import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideMobileStyle } from './blocks/register'
+import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideMobileStyle, syncShadowStyle } from './blocks/register'
 import { SRC_KEY, blockType, fieldsFor, isGrouping, writeSetting } from './inspector/settings'
 import { expandSelfClosing, repairProject } from './mjml'
 import { asToken } from './tags'
@@ -550,12 +550,14 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     const syncHistory = () => setView((was) => ({ ...was, canUndo: editor.UndoManager.hasUndo(), canRedo: editor.UndoManager.hasRedo() }))
     for (const event of ['update', 'undo', 'redo']) editor.on(event, syncHistory)
 
-    // The head's hide-on-phones rule follows the blocks that use it, including across an undo or a redo.
-    const syncPhoneRule = () => {
+    // The head's hide-on-phones and shadow rules follow the blocks that use them, including across an undo or a redo.
+    const syncHeadRules = () => {
       // view-only never changes the head: the sync would also restart the undo stack the lock stopped
-      if (!loading.current && !latest.current.readOnly) syncHideMobileStyle(editor)
+      if (loading.current || latest.current.readOnly) return
+      syncHideMobileStyle(editor)
+      syncShadowStyle(editor)
     }
-    for (const event of ['update', 'undo', 'redo']) editor.on(event, syncPhoneRule)
+    for (const event of ['update', 'undo', 'redo']) editor.on(event, syncHeadRules)
 
     editor.on('device:select', () => {
       setView((was) => ({ ...was, device: editor.getDevice() }))
@@ -667,7 +669,10 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
     editor.on('load', () => {
       sweepFooters.current()
-      if (!readOnly) syncHideMobileStyle(editor)
+      if (!readOnly) {
+        syncHideMobileStyle(editor)
+        syncShadowStyle(editor)
+      }
       skinCanvas.current()
       refreshLayers.current()
       pushDirty.current({ kind: 'set', edited: repaired > 0 }) // a repaired design must be saved again so the stored HTML is rebuilt

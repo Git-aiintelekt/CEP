@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'vitest'
 
-import { HIDE_MOBILE_CLASS } from './blocks/register'
+import { HIDE_MOBILE_CLASS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
-import { CANVAS_SKIN_ID, PHONE_ATTRIBUTE, canvasSkin, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
+import { CANVAS_SKIN_ID, DESIGN_RULES_ID, PHONE_ATTRIBUTE, canvasSkin, designRules, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
 
 /** The app's tokens live on :root; the test supplies them the way index.css does. */
 function themed(
@@ -159,4 +159,17 @@ test('the phone width is one attribute on the frame, which a re-render can put s
   expect(frame.documentElement.hasAttribute(PHONE_ATTRIBUTE)).toBe(false)
 
   expect(() => paintPhoneWidth(null, true)).not.toThrow()
+})
+
+test('the shadow rules travel beside the skin, not in it: the email has its own classes and its own colours', () => {
+  const rules = designRules()
+  for (const level of SHADOW_LEVELS) expect(rules).toContain(`[css-class~="${shadowClass(level)}"]`)
+  expect(rules).toContain('box-shadow: 0 4px 12px rgba(15,23,42,0.16)')
+  expect(canvasSkin(themed())).not.toContain('cep-shadow')
+
+  const frame = document.implementation.createHTMLDocument('frame')
+  injectCanvasSkin(frame, canvasSkin(themed()))
+  injectCanvasSkin(frame, canvasSkin(themed()))                                                      // replaced, never doubled
+  expect(frame.querySelectorAll('style').length).toBe(2)
+  expect(frame.getElementById(DESIGN_RULES_ID)?.textContent).toBe(rules)
 })

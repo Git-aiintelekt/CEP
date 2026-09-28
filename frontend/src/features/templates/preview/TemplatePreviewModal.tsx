@@ -57,19 +57,15 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
   const isEmail = channel === 'EMAIL'
   const name = item.kind === 'preset' ? item.preset.name : item.template.name
 
+  // the tags, the note and the device switch share the header's second row, so the preview gets the height
   const tags = (
     <>
       <Tag>{lookOf(channel).label}</Tag>
       {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP Preset</Tag></> : <StatusTag status={item.template.status} />}
+      <span className="ml-1.5 text-xs text-ink-500">Tags show their sample values. Nothing here is saved or sent.</span>
     </>
   )
-
-  const toolbar = (
-    <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
-      <p className="text-xs text-ink-500">Tags show their sample values. Nothing here is saved or sent.</p>
-      {isEmail && <SegmentedControl label="Device" options={DEVICE_OPTIONS} value={device} onChange={setDevice} />}
-    </div>
-  )
+  const headerActions = isEmail ? <SegmentedControl label="Device" options={DEVICE_OPTIONS} value={device} onChange={setDevice} /> : undefined
 
   const footer =
     item.kind === 'template' ? (
@@ -82,7 +78,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
     ) : undefined
 
   return (
-    <Modal title={name} onClose={onClose} size="xl" scrollBody headerExtra={tags} toolbar={toolbar} footer={footer}>
+    <Modal title={name} onClose={onClose} size="screen" scrollBody headerExtra={tags} headerActions={headerActions} footer={footer}>
       {preview.isError ? (
         <ErrorState title="Could not load this preview" error={preview.error} onRetry={() => void preview.refetch()} />
       ) : !preview.data ? (
@@ -98,7 +94,8 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
 
 function EmailPreview({ content, tags, device }: { content: Extract<PreviewContent, { kind: 'email' }>; tags: PersonalizationTag[]; device: Device }) {
   const html = useMemo(() => fillForPreview(content.html, tags, DEFAULT_PROFILE), [content.html, tags])
-  const frame = <iframe title="Email preview" sandbox="" srcDoc={html} style={{ width: WIDTH[device] }} className="block h-[640px] max-w-none border-0 bg-surface" />
+  // as tall as the window leaves once the dialog's margin, header, subject card and footer have taken their share
+  const frame = <iframe title="Email preview" sandbox="" srcDoc={html} style={{ width: WIDTH[device] }} className="block h-[max(480px,calc(100dvh-20rem))] max-w-none border-0 bg-surface" />
 
   return (
     <div className="space-y-4">

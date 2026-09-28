@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { CHOOSE_IMAGE_LABEL, InspectorFields, NO_IMAGE_NOTE } from './InspectorFields'
 import { ADD_NETWORK_LABEL } from './fields/SocialNetworksField'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, RESET_LABEL } from './fields/types'
-import { CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, MARGIN_KEY, STACK_NOTE, readSetting } from './settings'
+import { BORDER_COLOR_KEY, BORDER_STYLE_KEY, BORDER_WIDTH_KEY, CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, HIDE_MOBILE_LABEL, MARGIN_KEY, SHADOW_KEY, STACK_NOTE, readSetting } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
 
 afterEach(cleanup)
@@ -77,12 +77,12 @@ test('each block kind offers its own settings', () => {
   const keys = () => [...document.querySelectorAll('[data-setting]')].map((node) => node.getAttribute('data-setting'))
 
   renderFields(make('mj-spacer'))
-  expect(keys()).toEqual(['height', MARGIN_KEY, 'padding'])
-  expect(sections()).toEqual(['Layout'])
+  expect(keys()).toEqual(['height', MARGIN_KEY, 'padding', 'container-background-color'])
+  expect(sections()).toEqual(['Layout', 'Appearance'])
 
   cleanup()
   renderFields(make('mj-divider'))
-  expect(keys()).toEqual(['width', 'align', MARGIN_KEY, 'padding', 'border-color', 'border-width'])
+  expect(keys()).toEqual(['width', 'align', MARGIN_KEY, 'padding', 'border-color', 'border-width', 'container-background-color'])
 
   cleanup()
   renderFields(make('mj-social-element'))
@@ -90,7 +90,7 @@ test('each block kind offers its own settings', () => {
 
   cleanup()
   renderFields(make('mj-section'))
-  expect(keys()).toEqual([MARGIN_KEY, 'padding', 'full-width', HIDE_MOBILE_KEY, 'background-color', 'border-radius'])
+  expect(keys()).toEqual([MARGIN_KEY, 'padding', 'full-width', HIDE_MOBILE_KEY, 'background-color', BORDER_WIDTH_KEY, BORDER_STYLE_KEY, BORDER_COLOR_KEY, SHADOW_KEY, 'border-radius'])
 })
 
 test('a text block says its words are edited on the canvas instead of offering a field', () => {

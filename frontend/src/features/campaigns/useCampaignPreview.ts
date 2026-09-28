@@ -32,7 +32,7 @@ export function useCampaignMessage(campaign: Campaign) {
   const preview = useCampaignPreview(campaign.id, { enabled: Boolean(campaign.template) && !isTextCampaign })
   const channel = known ?? (preview.data as { channel?: string } | undefined)?.channel ?? null
   const templateItem = { kind: 'template' as const, template: { id: campaign.template ?? '', name: campaign.template_name ?? '', channel: channel ?? '' } as Template }
-  const content = usePreviewContent(templateItem, { enabled: Boolean(campaign.template && channel), anyChannel: true })
+  const content = usePreviewContent(templateItem, { enabled: Boolean(campaign.template && channel) })
   return { channel, preview, content }
 }
 

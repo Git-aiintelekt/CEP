@@ -61,3 +61,17 @@ export const FONT_WEIGHTS: SelectOption[] = [
   { value: '600', label: 'Semibold' },
   { value: '700', label: 'Bold' },
 ]
+
+/** MJML's border shorthand takes any CSS style; these are the ones email clients draw alike. */
+export const BORDER_STYLES: SelectOption[] = [
+  { value: 'solid', label: 'Solid' },
+  { value: 'dashed', label: 'Dashed' },
+  { value: 'dotted', label: 'Dotted' },
+  { value: 'double', label: 'Double' },
+]
+
+export const SHADOW_OPTIONS: SelectOption[] = [
+  { value: 'soft', label: 'Soft' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'strong', label: 'Strong' },
+]

@@ -63,6 +63,21 @@ export const HIDE_MOBILE_CLASS = 'cep-hide-mobile'
  */
 export const HIDE_MOBILE_RULE = `@media only screen and (max-width:480px){.${HIDE_MOBILE_CLASS}{display:none!important;max-height:0!important;overflow:hidden!important;font-size:0!important;line-height:0!important;}}`
 
+/**
+ * A drop shadow is a class plus one mj-style rule, like hiding on phones: MJML has no shadow attribute. Apple Mail,
+ * iOS Mail, Gmail and Outlook.com draw it; Outlook for Windows drops box-shadow, so a design must read well without.
+ */
+export const SHADOW_LEVELS = ['soft', 'medium', 'strong'] as const
+export type ShadowLevel = (typeof SHADOW_LEVELS)[number]
+export const SHADOW_CLASS_PREFIX = 'cep-shadow-'
+export const shadowClass = (level: ShadowLevel): string => `${SHADOW_CLASS_PREFIX}${level}`
+export const SHADOW_CSS: Record<ShadowLevel, string> = {
+  soft: '0 1px 3px rgba(15,23,42,0.12)',
+  medium: '0 4px 12px rgba(15,23,42,0.16)',
+  strong: '0 10px 28px rgba(15,23,42,0.22)',
+}
+export const SHADOW_RULE = SHADOW_LEVELS.map((level) => `.${shadowClass(level)}{box-shadow:${SHADOW_CSS[level]};}`).join('')
+
 function cssClasses(component: Component): string[] {
   return String(component.getAttributes()['css-class'] ?? '').split(/\s+/).filter((name) => name !== '')
 }
@@ -81,6 +96,17 @@ export function setCssClass(component: Component, name: string, on: boolean): vo
   const next = on ? [...kept, name] : kept
   if (next.length === 0) component.removeAttributes('css-class')
   else component.addAttributes({ 'css-class': next.join(' ') })
+}
+
+/** The shadow a block carries, read from its class; null without one. */
+export function shadowOf(component: Component): ShadowLevel | null {
+  return SHADOW_LEVELS.find((level) => hasCssClass(component, shadowClass(level))) ?? null
+}
+
+/** Puts one shadow class on the block, or none, and leaves every other class as it was. */
+export function setShadow(component: Component, level: ShadowLevel | null): void {
+  for (const other of SHADOW_LEVELS) if (other !== level) setCssClass(component, shadowClass(other), false)
+  if (level) setCssClass(component, shadowClass(level), true)
 }
 
 export function isFooter(component: Component): boolean {
@@ -113,15 +139,23 @@ export function hiddenOnPhonesIn(editor: Editor): Component[] {
   return matchesIn(editor, isHiddenOnPhones)
 }
 
-/** The mj-style holding our rule, told apart from any other one the design carries by the class it names. */
-function holdsRule(style: Component): boolean {
-  return `${String(style.get('content') ?? '')} ${style.toHTML()}`.includes(HIDE_MOBILE_CLASS)
+export function shadowedIn(editor: Editor): Component[] {
+  return matchesIn(editor, (component) => shadowOf(component) !== null)
+}
+
+/** The mj-styles holding one of our rules, told apart from any other the design carries by the class they name. */
+function stylesNaming(editor: Editor, marker: string): Component[] {
+  const wrapper = editor.getWrapper()
+  if (!wrapper) return []
+  return wrapper.findType('mj-style').filter((style) => `${String(style.get('content') ?? '')} ${style.toHTML()}`.includes(marker))
 }
 
 export function hideMobileStylesIn(editor: Editor): Component[] {
-  const wrapper = editor.getWrapper()
-  if (!wrapper) return []
-  return wrapper.findType('mj-style').filter(holdsRule)
+  return stylesNaming(editor, HIDE_MOBILE_CLASS)
+}
+
+export function shadowStylesIn(editor: Editor): Component[] {
+  return stylesNaming(editor, SHADOW_CLASS_PREFIX)
 }
 
 /** mj-head, made if the design has none: a template imported as bare mj-body is still a design we must serve. */
@@ -146,15 +180,22 @@ function headOf(editor: Editor): Component | undefined {
  * moves the class, and this puts the head right again afterwards.
  */
 export function syncHideMobileStyle(editor: Editor): void {
+  syncHeadRule(editor, hiddenOnPhonesIn(editor).length > 0, hideMobileStylesIn(editor), HIDE_MOBILE_RULE)
+}
+
+/** The same for the shadow rule: in the head while any block carries a shadow class, gone when none does. */
+export function syncShadowStyle(editor: Editor): void {
+  syncHeadRule(editor, shadowedIn(editor).length > 0, shadowStylesIn(editor), SHADOW_RULE)
+}
+
+function syncHeadRule(editor: Editor, wanted: boolean, present: Component[], rule: string): void {
   if (!editor.getWrapper()) return
-  const wanted = hiddenOnPhonesIn(editor).length > 0
-  const present = hideMobileStylesIn(editor)
   if (present.length === (wanted ? 1 : 0)) return
 
   editor.UndoManager.stop()
   try {
     for (const extra of present.slice(wanted ? 1 : 0)) extra.remove()
-    if (wanted && present.length === 0) headOf(editor)?.append(`<mj-style>${HIDE_MOBILE_RULE}</mj-style>`)
+    if (wanted && present.length === 0) headOf(editor)?.append(`<mj-style>${rule}</mj-style>`)
   } finally {
     editor.UndoManager.start()
   }

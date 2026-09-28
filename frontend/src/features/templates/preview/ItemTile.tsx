@@ -34,7 +34,7 @@ function EmailThumb({ item }: { item: PreviewItem }) {
   const channel = channelOf(item)
   const box = useRef<HTMLSpanElement>(null)
   const inView = useInView(box)
-  const { data, tags } = usePreviewContent(item, { enabled: inView, anyChannel: true })
+  const { data, tags } = usePreviewContent(item, { enabled: inView })
   const html = useMemo(() => (data?.kind === 'email' && data.html ? fillForPreview(data.html, tags, DEFAULT_PROFILE) : null), [data, tags])
   const [loaded, setLoaded] = useState(false)
 

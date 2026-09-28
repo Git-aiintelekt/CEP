@@ -22,11 +22,11 @@ import { TextField } from './fields/TextField'
 import { ToggleField } from './fields/ToggleField'
 import { ColorField } from './fields/color/ColorField'
 import { normaliseHex } from './fields/color/colorMath'
-import { FONT_FAMILIES, FONT_WEIGHTS, SOCIAL_MODES, type SelectOption } from './fields/options'
+import { BORDER_STYLES, FONT_FAMILIES, FONT_WEIGHTS, SHADOW_OPTIONS, SOCIAL_MODES, type SelectOption } from './fields/options'
 import { DEFAULT_EM_BASE } from './fields/length'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, type TagPickerSlot } from './fields/types'
 import {
-  CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
+  BORDER_STYLE_KEY, CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, SHADOW_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
   readEffective, readInherited, readSetting, type SettingField, type SettingSection,
 } from './settings'
 import { HIDE_MOBILE_CLASS } from '../blocks/register'
@@ -48,6 +48,8 @@ const SECTIONS: { id: SettingSection; label: string }[] = [
 const SELECT_OPTIONS: Record<string, SelectOption[]> = {
   'font-family': FONT_FAMILIES,
   'font-weight': FONT_WEIGHTS,
+  [BORDER_STYLE_KEY]: BORDER_STYLES,
+  [SHADOW_KEY]: SHADOW_OPTIONS,
   mode: SOCIAL_MODES,
   name: SOCIAL_NETWORKS,
   destination: DESTINATIONS,
@@ -266,7 +268,12 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
     case 'toggle':
       return <ToggleField {...shared} onValue={TOGGLE_VALUES[field.key] ?? field.key} />
     case 'select':
-      return <SelectField {...shared} options={SELECT_OPTIONS[field.key] ?? []} required={field.required} />
+      return (
+        <>
+          <SelectField {...shared} options={SELECT_OPTIONS[field.key] ?? []} required={field.required} emptyLabel={field.emptyLabel} />
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+        </>
+      )
     case 'swatch':
       return <SwatchField {...shared} swatches={field.swatches ?? []} />
     case 'link':
