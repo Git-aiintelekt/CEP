@@ -2,7 +2,7 @@
 import mjml2html from 'mjml-browser'
 import { expect, test } from 'vitest'
 
-import { OWN_ICONS, SOCIAL_NETWORKS, networkLabel, ownIconAttributes, socialElementMjml } from './social'
+import { OWN_ICONS, SOCIAL_NETWORKS, networkLabel, ownIconAttributes, sharedBackgroundOf, socialElementMjml } from './social'
 
 test('TikTok is offered, named, and every icon of our own is a file the app serves', () => {
   expect(SOCIAL_NETWORKS.find((option) => option.value === 'tiktok')?.label).toBe('TikTok')
@@ -27,4 +27,16 @@ test('MJML compiles a TikTok icon with our image and colour, and nothing undefin
   expect(html).toMatch(/<img[^>]+src="https?:\/\/[^"]+\/social-icons\/tiktok\.png"/)
   expect(html).toContain('background:#000000')
   expect(html).not.toContain('undefined')
+})
+
+test('a new icon takes the background its neighbours share; when they differ or leave it to MJML, the network keeps its own', () => {
+  const icon = (background?: string) => ({ getAttributes: () => (background ? { 'background-color': background } : {}) })
+  expect(sharedBackgroundOf([icon('#4B2E83'), icon('#4b2e83')])).toBe('#4b2e83')
+  expect(sharedBackgroundOf([icon('#4b2e83'), icon('#3b5998')])).toBeNull()
+  expect(sharedBackgroundOf([icon('#4b2e83'), icon()])).toBeNull()               // one leaves it to MJML: no shared colour
+  expect(sharedBackgroundOf([])).toBeNull()
+  expect(ownIconAttributes('tiktok', '#4b2e83')?.['background-color']).toBe('#4b2e83')
+  expect(ownIconAttributes('tiktok', null)?.['background-color']).toBe('#000000')
+  expect(socialElementMjml('tiktok', '#4b2e83')).toContain('background-color="#4b2e83"')
+  expect(ownIconAttributes('facebook', '#4b2e83')).toBeNull()                     // MJML's own icons are not touched
 })

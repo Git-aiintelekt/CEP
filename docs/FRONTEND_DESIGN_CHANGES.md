@@ -240,3 +240,8 @@ What changed across the app, page by page, after the feature review:
   `canvas/groupPreview.ts` paints each grouped column's share onto the frame's DOM as `--cep-group-width` (a set
   width kept, the rest split evenly), and the skin applies it at phone width only. The model, the MJML and the saved
   project are untouched, as with the phone-width attribute.
+- **TikTok icon, second pass.** The first glyph was drawn from primitives and read as a music note; the icon is now
+  the standard TikTok mark, rendered from its vector path through the browser's path engine (still a white glyph on
+  transparent, 96px, `frontend/public/social-icons/tiktok.png`). And a new icon of ours now takes the background colour
+  its neighbours share — a brand keeps its icons one colour — falling back to the network's own (black) only when they
+  differ or leave it to MJML (`social.sharedBackgroundOf`); the icon's own Background Color field still overrides.

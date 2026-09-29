@@ -60,15 +60,24 @@ export function networkLabel(name: string | null | undefined): string | null {
   return SOCIAL_NETWORKS.find((option) => option.value === network)?.label ?? network.charAt(0).toUpperCase() + network.slice(1)
 }
 
-/** The attributes an icon of our own needs on its element; nothing for a network MJML draws itself. */
-export function ownIconAttributes(network: string | null | undefined): { src: string; 'background-color': string } | null {
+/**
+ * The attributes an icon of our own needs on its element; nothing for a network MJML draws itself. The square behind
+ * the icon takes the colour its neighbours share (a brand keeps its icons one colour), else the network's own.
+ */
+export function ownIconAttributes(network: string | null | undefined, sharedBackground: string | null = null): { src: string; 'background-color': string } | null {
   const own = OWN_ICONS[networkOf(network) ?? '']
-  return own ? { src: absoluteUrl(own.src), 'background-color': own.background } : null
+  return own ? { src: absoluteUrl(own.src), 'background-color': sharedBackground ?? own.background } : null
+}
+
+/** The one background colour a block's icons all set themselves, or null when they differ or leave it to MJML. */
+export function sharedBackgroundOf(siblings: { getAttributes: () => Record<string, unknown> }[]): string | null {
+  const colours = siblings.map((icon) => String(icon.getAttributes()['background-color'] ?? '').trim().toLowerCase()).filter(Boolean)
+  return colours.length > 0 && colours.length === siblings.length && new Set(colours).size === 1 ? colours[0] : null
 }
 
 /** A new icon for a social block: no address yet, so the Links pill asks for one. */
-export function socialElementMjml(network: string): string {
-  const own = ownIconAttributes(network)
+export function socialElementMjml(network: string, sharedBackground: string | null = null): string {
+  const own = ownIconAttributes(network, sharedBackground)
   const extra = own ? ` src="${own.src}" background-color="${own['background-color']}"` : ''
   return `<mj-social-element name="${directName(network)}" href=""${extra}></mj-social-element>`
 }

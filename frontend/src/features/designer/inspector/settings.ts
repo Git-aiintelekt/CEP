@@ -22,7 +22,7 @@ import { SPACING_PROP, ZERO_PADDING, shorthand, spacingFrom, spacingToStore, sum
 import { CODE_TYPE } from '../blocks/codes'
 import { codeFieldsFor, isCodeKey, readCodeSetting, writeCodeSetting } from './codeSettings'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
-import { directName, networkOf, ownIconAttributes, socialElementMjml } from './social'
+import { directName, networkOf, ownIconAttributes, sharedBackgroundOf, socialElementMjml } from './social'
 import {
   CUSTOM_ALIGN_KEY, CUSTOM_BACKGROUND_KEY, CUSTOM_MARGIN_KEY, CUSTOM_PADDING_KEY, CUSTOM_WIDTH_KEY, isCustomHtmlKey, readCustomHtml, readCustomHtmlMarkup,
   syncCustomHtmlWrapper, writeCustomHtml, writeCustomHtmlMarkup,
@@ -695,7 +695,9 @@ export function writeSetting(component: Component, key: string, value: string | 
   // written in the direct form, so the icon links to the profile and not to a sharer page; a network MJML has no icon
   // for gets ours, and going back to one it has drops ours so MJML's own shows again
   if (key === NETWORK_KEY && isSocialIcon(component)) {
-    const own = ownIconAttributes(value)
+    const parent = component.parent?.()
+    const siblings = parent ? childrenOf(parent).filter((icon) => icon !== component && isSocialIcon(icon)) : []
+    const own = ownIconAttributes(value, sharedBackgroundOf(siblings))
     if (!own && component.getAttributes().src) component.removeAttributes(['src', 'background-color'])
     component.addAttributes({ [key]: directName(value), ...(own ?? {}) })
     return true
@@ -727,7 +729,7 @@ export function writeContent(component: Component, text: string): void {
 export function addSocialElement(component: Component, network: string): boolean {
   const append = (component as { append?: (content: string) => unknown }).append
   if (typeof append !== 'function') return false
-  append.call(component, socialElementMjml(network))
+  append.call(component, socialElementMjml(network, sharedBackgroundOf(childrenOf(component).filter(isSocialIcon))))
   return true
 }
 
