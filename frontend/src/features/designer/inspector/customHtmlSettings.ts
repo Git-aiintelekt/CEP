@@ -10,8 +10,13 @@
  *
  * The HTML field edits what is inside; a block that has no wrapper yet is wrapped the first time a setting is set,
  * and one that never gets a setting stays exactly as it was written.
+ *
+ * MJML passes an mj-raw through without its css-class, so Hide on Phones / Hide on Desktop would never reach the email:
+ * the wrapper table carries those classes as well, mirrored from the block whenever it is written.
  */
 import type { Component } from 'grapesjs'
+
+import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS, hasCssClass } from '../blocks/register'
 
 export const CUSTOM_HTML_CLASS = 'cep-html'
 export const CUSTOM_WIDTH_KEY = 'cep-html-width'
@@ -67,14 +72,19 @@ function parse(html: string): { layout: CustomHtmlLayout; inner: string } | null
   }
 }
 
+/** The block's visibility classes, which the wrapper must carry for the email to see them. */
+export function hideClassesOf(component: Component): string[] {
+  return [HIDE_MOBILE_CLASS, HIDE_DESKTOP_CLASS].filter((name) => hasCssClass(component, name))
+}
+
 /** The wrapper written out again around `inner`; none at all when nothing is set, so an untouched block stays as typed. */
-export function wrap(layout: CustomHtmlLayout, inner: string): string {
-  if (Object.values(layout).every((value) => value === null)) return inner
+export function wrap(layout: CustomHtmlLayout, inner: string, classes: string[] = []): string {
+  if (Object.values(layout).every((value) => value === null) && classes.length === 0) return inner
   const outerStyle = layout.margin ? ` style="padding:${layout.margin};"` : ''
   const width = layout.width ?? '100%'
   const innerStyle = [layout.padding ? `padding:${layout.padding};` : '', layout.background ? `background-color:${layout.background};` : ''].join('')
   return (
-    `<table class="${CUSTOM_HTML_CLASS}" ${TABLE_ATTRIBUTES} width="100%"><tr><td align="${layout.align ?? 'center'}"${outerStyle}>` +
+    `<table class="${[CUSTOM_HTML_CLASS, ...classes].join(' ')}" ${TABLE_ATTRIBUTES} width="100%"><tr><td align="${layout.align ?? 'center'}"${outerStyle}>` +
     `<table ${TABLE_ATTRIBUTES} width="${width}" style="width:${width};max-width:100%;"><tr><td${innerStyle ? ` style="${innerStyle}"` : ''}>` +
     `${inner}</td></tr></table></td></tr></table>`
   )
@@ -124,7 +134,7 @@ export function writeCustomHtml(component: Component, key: string, value: string
   } else {
     return false
   }
-  component.components(wrap(next, inner))
+  component.components(wrap(next, inner, hideClassesOf(component)))
   return true
 }
 
@@ -137,5 +147,11 @@ export function readCustomHtmlMarkup(component: Component): string | null {
 /** New markup inside the same wrapper (or none, when the block has no settings). */
 export function writeCustomHtmlMarkup(component: Component, html: string | null): void {
   const { layout } = customHtmlOf(component)
-  component.components(wrap(layout, html ?? ''))
+  component.components(wrap(layout, html ?? '', hideClassesOf(component)))
+}
+
+/** The wrapper written again with the block's current visibility classes, after Hide on Phones / Desktop changed. */
+export function syncCustomHtmlWrapper(component: Component): void {
+  const { layout, inner } = customHtmlOf(component)
+  component.components(wrap(layout, inner, hideClassesOf(component)))
 }

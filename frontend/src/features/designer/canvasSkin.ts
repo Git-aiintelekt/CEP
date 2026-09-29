@@ -8,6 +8,7 @@
  * Only the editing chrome is touched. The email's own styles are never changed.
  */
 import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS, SHADOW_CSS, SHADOW_LEVELS, shadowClass } from './blocks/register'
+import { GROUP_WIDTH_PROPERTY, paintGroupColumns } from './canvas/groupPreview'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
 
 export const CANVAS_SKIN_ID = 'cep-canvas-skin'
@@ -39,12 +40,27 @@ function hiddenByDeviceCss(): string {
 `
 }
 
-/** Tells the frame which device it stands in for. Re-applied whenever GrapesJS rebuilds the document. */
+/**
+ * A group's columns stay side by side on a phone, as MJML sends them. The plugin draws each column as a plain one
+ * (full width below 480px), so at phone width the share painted on the column by canvas/groupPreview is applied.
+ */
+function groupPreviewCss(): string {
+  return `
+[${PHONE_ATTRIBUTE}] [data-gjs-type="mj-group"] [data-gjs-type="mj-column"] {
+  width: var(${GROUP_WIDTH_PROPERTY}, 100%) !important;
+  display: inline-block !important;
+  vertical-align: top;
+}
+`
+}
+
+/** Tells the frame which device it stands in for, and paints the group shares that width needs. Re-applied whenever GrapesJS rebuilds the document. */
 export function paintPhoneWidth(frame: Document | undefined | null, onPhone: boolean): void {
   const root = frame?.documentElement
   if (!root) return
   root.toggleAttribute(PHONE_ATTRIBUTE, onPhone)
   root.toggleAttribute(DESKTOP_ATTRIBUTE, !onPhone)
+  paintGroupColumns(frame)
 }
 
 /**
@@ -101,7 +117,7 @@ html::-webkit-scrollbar {
 [${HIDDEN_ATTRIBUTE}][${HIDDEN_ATTRIBUTE}] {
   display: none !important;
 }
-${hiddenByDeviceCss()}`
+${hiddenByDeviceCss()}${groupPreviewCss()}`
 }
 
 export const DESIGN_RULES_ID = 'cep-design-rules'

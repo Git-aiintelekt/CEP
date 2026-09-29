@@ -215,8 +215,13 @@ What changed across the app, page by page, after the feature review:
 - **Hide on Phones and Hide on Desktop on every block** (before: Hide on Phones, sections only). Hide on Desktop is
   the same mechanism the other side of the breakpoint: class `cep-hide-desktop` and one `mj-style` in the head kept in
   sync (`syncHideDesktopStyle`), mirrored in the canvas through a `data-cep-desktop` attribute painted beside the
-  phone one. Outlook for Windows and Windows Mail ignore media queries and show a phones-only block; the toggle says
-  so. Layers and the breadcrumb mark both.
+  phone one. Layers and the breadcrumb mark both. **Same day, second pass:** the rule is now hidden-everywhere-by-
+  default (`display:none; mso-hide:all`, which Outlook's Word engine honours from a class rule) and revealed on a
+  phone by a `max-width` media query that restores each element's own display (block / inline-block for a column /
+  table-cell / table), so Outlook for Windows hides a phones-only block instead of showing it. A phone app that
+  ignores media queries (Gmail with a non-Google account) hides it too — the right failure for phones-only content.
+  Also found: MJML drops an `mj-raw`'s `css-class`, so neither toggle ever reached a Custom HTML block in the sent
+  email; its wrapper table now carries the classes (`customHtmlSettings.hideClassesOf`, `syncCustomHtmlWrapper`).
 - **On Phones, on a section** (`inspector/stacking.ts`): *Stack, Left First* (MJML's own), *Keep Side by Side* (the
   columns wrapped in an `mj-group`, MJML's way of holding columns together on a narrow screen — a menu bar), *Stack,
   Right First* (`direction="rtl"` on the section with the columns stored right to left: desktop unchanged, a phone
@@ -230,3 +235,8 @@ What changed across the app, page by page, after the feature review:
   as they are, and the attribute goes when the last one does. Underline offers *Default (underlined)*, *No Underline*
   and *Underlined* (to override an inherited none). Before this, a link took the email app's blue underline with no way
   to change it from the panel.
+- **Keep Side by Side on the phone canvas.** The sent email was right (MJML gives grouped columns their share as an
+  inline width) but the canvas stacked them at phone width, because the plugin draws each column as a plain one.
+  `canvas/groupPreview.ts` paints each grouped column's share onto the frame's DOM as `--cep-group-width` (a set
+  width kept, the rest split evenly), and the skin applies it at phone width only. The model, the MJML and the saved
+  project are untouched, as with the phone-width attribute.

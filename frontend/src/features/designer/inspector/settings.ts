@@ -25,7 +25,7 @@ import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './
 import { directName, networkOf, ownIconAttributes, socialElementMjml } from './social'
 import {
   CUSTOM_ALIGN_KEY, CUSTOM_BACKGROUND_KEY, CUSTOM_MARGIN_KEY, CUSTOM_PADDING_KEY, CUSTOM_WIDTH_KEY, isCustomHtmlKey, readCustomHtml, readCustomHtmlMarkup,
-  writeCustomHtml, writeCustomHtmlMarkup,
+  syncCustomHtmlWrapper, writeCustomHtml, writeCustomHtmlMarkup,
 } from './customHtmlSettings'
 import { STACKING_HELP, STACKING_KEY, STACKING_LABEL, readStacking, writeStacking } from './stacking'
 import { LINK_COLOR_KEY, LINK_UNDERLINE_KEY, isLinkStyleKey, readLinkStyle, writeLinkStyle } from './linkStyle'
@@ -206,7 +206,7 @@ export const ALT_HELP = "Describe the image for people who can't see it."
 
 export const HIDE_MOBILE_LABEL = 'Hide on Phones'
 export const HIDE_DESKTOP_LABEL = 'Hide on Desktop'
-export const HIDE_DESKTOP_HELP = 'Phones alone show it. Outlook for Windows ignores this and shows it everywhere.'
+export const HIDE_DESKTOP_HELP = 'Phones alone show it; hidden everywhere else, Outlook for Windows included.'
 
 /** Stacking is MJML's own doing below 480px, so it is something to say, not something to switch. */
 export const STACK_NOTE = 'Columns stack on phones automatically.'
@@ -680,6 +680,7 @@ export function writeSetting(component: Component, key: string, value: string | 
   // the class list, never the attribute map: every other class on the block, the footer's included, stays put
   if (key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY) {
     setCssClass(component, key === HIDE_MOBILE_KEY ? HIDE_MOBILE_CLASS : HIDE_DESKTOP_CLASS, value !== null)
+    if (blockType(component) === 'mj-raw') syncCustomHtmlWrapper(component)     // MJML drops an mj-raw's css-class: the wrapper carries it
     return true
   }
   if (isCodeKey(key)) return writeCodeSetting(component, key, value)
