@@ -244,7 +244,7 @@ class IndustryProfile(models.Model):
 
 
 class MailServer(models.Model):
-    """SMTP details entered in the product: one per tenant, plus the platform's own row (tenant NULL), which may be shared"""
+    """SMTP details entered in the product: one per tenant, plus the platform's own row (tenant NULL) for the platform's own mail"""
     class Security(models.TextChoices):
         NONE = 'NONE', 'None (plain)'
         STARTTLS = 'STARTTLS', 'STARTTLS (usually port 587)'
@@ -260,10 +260,7 @@ class MailServer(models.Model):
     from_email = models.CharField(max_length=254)
     from_name = models.CharField(max_length=150, null=True, blank=True)
     reply_to = models.CharField(max_length=254, null=True, blank=True)
-    use_platform_server = models.BooleanField(default=False)
     campaign_sender = models.BooleanField(default=False)
-    shared_with_all = models.BooleanField(default=False)
-    shared_tenant_ids = ArrayField(models.UUIDField(), default=list, blank=True)
     is_active = models.BooleanField(default=True)
     last_tested_at = models.DateTimeField(null=True, blank=True)
     last_test_ok = models.BooleanField(null=True, blank=True)
@@ -280,7 +277,7 @@ class MailServer(models.Model):
         verbose_name = 'mail server'
 
     def __str__(self):
-        return f"{self.tenant.code if self.tenant_id else 'Platform'}: {self.host or 'shared platform server'}"
+        return f"{self.tenant.code if self.tenant_id else 'Platform'}: {self.host}"
 
 
 def _every_channel():

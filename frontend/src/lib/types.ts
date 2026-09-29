@@ -232,8 +232,6 @@ export interface MailServer {
   from_email: string
   from_name: string | null
   reply_to: string | null
-  /** send through the platform's shared server with this workspace's From address */
-  use_platform_server: boolean
   /** also offered as a campaign delivery provider + sender profile */
   campaign_sender: boolean
   is_active: boolean
@@ -244,11 +242,8 @@ export interface MailServer {
 
 export interface MailServerSettings {
   server: MailServer | null
-  /** the platform team shares its server with this workspace */
-  platform_shared: boolean
-  platform_host: string | null
-  /** what messages for this workspace currently go through */
-  in_use: 'tenant' | 'platform-shared' | 'platform' | 'environment' | 'console' | string
+  /** what platform messages for this workspace currently go through: the workspace's own server, or the platform's until then */
+  in_use: 'tenant' | 'platform' | 'environment' | 'console' | string
   /** the campaign sender profile backed by this server, when offered */
   sender_profile: { id: string; display_name: string; from_address: string; verification_status: 'PENDING' | 'VERIFIED' | 'FAILED'; is_default: boolean } | null
 }

@@ -26,7 +26,7 @@ def sync(server, *, user_id=None) -> dict | None:
         retire(server)
         return None
     provider = _provider(server, include_retired=True)                    # the name is unique per tenant: a retired one is revived, not duplicated
-    host = "shared platform server" if server.use_platform_server else server.host
+    host = server.host
     if provider is None:
         others = DeliveryProvider.objects.filter(tenant_id=server.tenant_id, channel="EMAIL", is_default=True, deleted_at__isnull=True).exists()
         provider = DeliveryProvider.objects.create(tenant_id=server.tenant_id, provider_type="SMTP", channel="EMAIL", name=PROVIDER_NAME,

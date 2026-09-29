@@ -4,10 +4,13 @@ This is not campaign delivery: that goes through the tenant's delivery providers
 resolved per message, first match wins:
 
   1. the tenant's own mail server (Settings -> Email server), when the message is for one of its users
-  2. the platform's mail server shared with that tenant, with the tenant's From address
-  3. the platform's mail server (back-office -> Configuration -> Mail server)
-  4. SMTP from the environment (EMAIL_HOST ...)
-  5. Django's console backend: the message is printed to the server log, so nothing is ever silently lost in development
+  2. the platform's mail server (back-office -> Configuration -> Mail server): the platform's own mail, and the fallback for a
+     tenant that has no working server of its own
+  3. SMTP from the environment (EMAIL_HOST ...)
+  4. Django's console backend: the message is printed to the server log, so nothing is ever silently lost in development
+
+The platform's server is never a tenant's sending engine: campaigns and e-receipts go through the tenant's own server or its
+delivery providers.
 
 Mail servers entered in the product live in `mail_server`; passwords are encrypted with FIELD_ENCRYPTION_KEY.
 """
@@ -28,7 +31,7 @@ SMTP = "django.core.mail.backends.smtp.EmailBackend"
 
 @dataclass
 class Resolved:
-    source: str                                            # tenant | platform-shared | platform | environment | console
+    source: str                                            # tenant | platform | environment | console
     connection_kwargs: dict
     from_email: str
     reply_to: str | None = None
@@ -60,11 +63,6 @@ def tenant_server(tenant_id):
     return MailServer.objects.using(P).filter(tenant_id=tenant_id).first()
 
 
-def shared_with(server, tenant_id) -> bool:
-    """Whether the platform row is offered to this tenant."""
-    return bool(server and server.tenant_id is None and server.is_active and (server.shared_with_all or str(tenant_id) in {str(t) for t in server.shared_tenant_ids}))
-
-
 def _kwargs(server) -> dict:
     return {"backend": SMTP, "host": server.host, "port": server.port, "username": server.username or None,
             "password": crypto.decrypt(server.password_enc) if server.password_enc else None,
@@ -78,15 +76,11 @@ def _from(server) -> str:
 def resolve(tenant_id=None, own=None) -> Resolved:
     """own: the tenant's row when the caller already holds it (inside the request that just saved it, the platform
     connection cannot see it yet)."""
-    platform = platform_server()
     if tenant_id is not None:
         own = own or tenant_server(tenant_id)
         if own and own.is_active:
-            if own.use_platform_server:
-                if shared_with(platform, tenant_id):
-                    return Resolved("platform-shared", _kwargs(platform), _from(own), own.reply_to or None, str(platform.pk))
-            else:
-                return Resolved("tenant", _kwargs(own), _from(own), own.reply_to or None, str(own.pk))
+            return Resolved("tenant", _kwargs(own), _from(own), own.reply_to or None, str(own.pk))
+    platform = platform_server()
     if platform and platform.is_active:
         return Resolved("platform", _kwargs(platform), _from(platform), platform.reply_to or None, str(platform.pk))
     backend = settings.EMAIL_BACKEND.rsplit(".", 2)[-2]
@@ -139,15 +133,7 @@ def check(tenant_id=None) -> tuple[bool, str]:
 
 def test(server, to: str, *, by: str = "") -> tuple[bool, str]:
     """Sends a real test message through one mail_server row and records the outcome on it."""
-    if server.tenant_id is not None and server.use_platform_server:
-        platform = platform_server()
-        if not shared_with(platform, server.tenant_id):
-            outcome = (False, "The platform's mail server is not shared with this workspace.")
-            _record(server, outcome)
-            return outcome
-        kwargs, sender = _kwargs(platform), _from(server)
-    else:
-        kwargs, sender = _kwargs(server), _from(server)
+    kwargs, sender = _kwargs(server), _from(server)
     try:
         connection = get_connection(**kwargs, timeout=settings.EMAIL_TIMEOUT)
         message = EmailMultiAlternatives(subject=f"[{settings.EMAIL_PRODUCT_NAME}] Test message", to=[to], from_email=sender, connection=connection,

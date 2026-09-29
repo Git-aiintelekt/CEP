@@ -1,5 +1,4 @@
 import json
-import uuid
 from datetime import timedelta
 
 from django import forms
@@ -432,20 +431,10 @@ class MailServerForm(forms.ModelForm):
     """The platform's own server (no tenant) and, read-only apart from switching off, every tenant's."""
     password = forms.CharField(required=False, widget=UnfoldAdminTextInputWidget(attrs={"type": "password", "autocomplete": "new-password"}),
                                help_text="Leave empty to keep the stored password. Stored encrypted, never shown.")
-    shared_tenants = forms.MultipleChoiceField(required=False, widget=UnfoldAdminSelectMultipleWidget, label="Shared with these tenants",
-                                               help_text="Tenants that may send through this server with their own From address (or share it with every tenant below).")
 
     class Meta:
         model = MailServer
-        fields = ("host", "port", "security", "username", "from_email", "from_name", "reply_to", "is_active", "shared_with_all")
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if "shared_tenants" in self.fields:                # absent on a tenant's own row
-            from apps.tenants.models import Tenant
-            tenants = Tenant.objects.using(P).exclude(status="OFFBOARDED").order_by("code")
-            self.fields["shared_tenants"].choices = [(str(t.pk), f"{t.code} · {t.name}") for t in tenants]
-            self.fields["shared_tenants"].initial = [str(t) for t in (self.instance.shared_tenant_ids or [])]
+        fields = ("host", "port", "security", "username", "from_email", "from_name", "reply_to", "is_active")
 
     def clean(self):
         data = super().clean()
@@ -459,17 +448,16 @@ class MailServerForm(forms.ModelForm):
     def save(self, commit=True):
         if self.cleaned_data.get("password"):
             self.instance.password_enc = crypto.encrypt(self.cleaned_data["password"])
-        if "shared_tenants" in self.cleaned_data:
-            self.instance.shared_tenant_ids = [uuid.UUID(t) for t in self.cleaned_data["shared_tenants"]]
         return super().save(commit)
 
 
 @admin.register(MailServer)
 class MailServerAdmin(BaseAdmin):
-    """The platform's outgoing mail server (password links, alerts, support notices for tenants without their own).
-    Tenants enter theirs under Settings -> Email server; they appear here for support, passwords never shown."""
+    """The platform's outgoing mail server: the platform's own mail (alerts, password links, support notices), and the fallback
+    for a tenant without a working server of its own. Never a tenant's sending engine. Tenants enter theirs under
+    Settings -> Email server; they appear here for support, passwords never shown."""
     form = MailServerForm
-    list_display = ("owner", "host", "port", "security", "from_email", "show_sharing", "is_active", "show_test")
+    list_display = ("owner", "host", "port", "security", "from_email", "is_active", "show_test")
     ordering = ("tenant__code",)
     actions_detail = ("send_test",)
     readonly_fields = ("last_tested_at", "last_test_ok", "last_test_error", "created_at", "updated_at")
@@ -484,9 +472,6 @@ class MailServerAdmin(BaseAdmin):
         own = obj is not None and obj.tenant_id is not None
         sets = [("Server", {"fields": ("host", "port", "security", "username", *(() if own else ("password",)))}),
                 ("Sender", {"fields": ("from_email", "from_name", "reply_to", "is_active")})]
-        if obj is None or obj.tenant_id is None:
-            sets.append(("Sharing with tenants", {"fields": ("shared_with_all", "shared_tenants"),
-                                                  "description": "A tenant that uses the shared server keeps its own From address, so the server must be allowed to send as that domain (verified sender / relay rules)."}))
         if obj is not None:
             sets.append(("Last test", {"fields": ("last_tested_at", "last_test_ok", "last_test_error", "created_at", "updated_at")}))
         return sets
@@ -500,27 +485,15 @@ class MailServerAdmin(BaseAdmin):
         form = super().get_form(request, obj, **kwargs)
         if obj is not None and obj.tenant_id is not None:
             form.base_fields.pop("password", None)
-            form.base_fields.pop("shared_tenants", None)
         return form
 
     @display(description="Owner")
     def owner(self, obj):
         return obj.tenant.code if obj.tenant_id else "Platform"
 
-    @display(description="Shared")
-    def show_sharing(self, obj):
-        if obj.tenant_id is not None:
-            return "uses the platform server" if obj.use_platform_server else "own server"
-        return "every tenant" if obj.shared_with_all else f"{len(obj.shared_tenant_ids or [])} tenant(s)" if obj.shared_tenant_ids else "not shared"
-
     @display(description="Last test", label={"OK": "success", "Failed": "danger", "Never": "info"})
     def show_test(self, obj):
         return "Never" if obj.last_test_ok is None else "OK" if obj.last_test_ok else "Failed"
-
-    def save_model(self, request, obj, form, change):
-        if obj.tenant_id is None and obj.use_platform_server:
-            obj.use_platform_server = False
-        super().save_model(request, obj, form, change)
 
     @action(description="Send a test message to me", url_path="send-test")
     def send_test(self, request, object_id):

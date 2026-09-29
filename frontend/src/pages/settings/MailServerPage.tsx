@@ -11,14 +11,13 @@ import type { MailServer, MailServerSettings } from '@/lib/types'
 
 const KEY = ['workspace', 'mail-server']
 
-const EMPTY: MailServer = { host: '', port: 587, security: 'STARTTLS', username: '', has_password: false, from_email: '', from_name: '', reply_to: '', use_platform_server: false,
+const EMPTY: MailServer = { host: '', port: 587, security: 'STARTTLS', username: '', has_password: false, from_email: '', from_name: '', reply_to: '',
                             campaign_sender: false, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null }
 
 const IN_USE: Record<string, string> = {
   tenant: 'Messages for this workspace go out through your own server.',
-  'platform-shared': "Messages for this workspace go out through the platform's server, with your From address.",
-  platform: "Messages for this workspace go out through the platform's server, with the platform's From address.",
-  environment: "Messages for this workspace go out through the platform's server.",
+  platform: "Until you enter your own server, messages for this workspace go out through the platform's server, with the platform's From address.",
+  environment: "Until you enter your own server, messages for this workspace go out through the platform's server.",
   console: 'No mail server is available: password links have to be copied and sent by hand.',
 }
 
@@ -39,13 +38,12 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
   const [password, setPassword] = useState('')
   const [testTo, setTestTo] = useState(myEmail)
   const set = <K extends keyof MailServer>(key: K, value: MailServer[K]) => setForm((current) => ({ ...current, [key]: value }))
-  const shared = form.use_platform_server && data.platform_shared
 
   const save = useMutation({
     mutationFn: () => api.put<MailServerSettings>('/workspace/mail-server/', {
-      use_platform_server: shared, is_active: form.is_active, campaign_sender: form.campaign_sender,
+      is_active: form.is_active, campaign_sender: form.campaign_sender,
       from_email: form.from_email.trim(), from_name: form.from_name?.trim() || null, reply_to: form.reply_to?.trim() || null,
-      ...(shared ? {} : { host: form.host.trim(), port: Number(form.port), security: form.security, username: form.username?.trim() || null, ...(password ? { password } : {}) }),
+      host: form.host.trim(), port: Number(form.port), security: form.security, username: form.username?.trim() || null, ...(password ? { password } : {}),
     }),
     onSuccess: (next) => { onSaved(next); setPassword(''); if (next.server) setForm(next.server) },
   })
@@ -56,7 +54,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
   })
   const remove = useMutation({
     mutationFn: () => api.delete('/workspace/mail-server/'),
-    onSuccess: () => { onSaved({ ...data, server: null, sender_profile: null, in_use: data.platform_shared ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
+    onSuccess: () => { onSaved({ ...data, server: null, sender_profile: null, in_use: data.in_use === 'tenant' ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : test.isError ? test.error : null
@@ -67,25 +65,12 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-card-title font-semibold text-ink-900">Outgoing Email</h2>
         <p className="mt-1 text-sm text-ink-500">
-          The server used for the messages this platform sends to people in your workspace: password links, sign-in notices and support notifications. Campaign email is sent through your delivery provider.
+          Your own SMTP server. It carries the messages this platform sends to people in your workspace (password links, support notifications) and, if you offer it below, your campaigns. Campaign email otherwise goes through your sending engines.
         </p>
         <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-700'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
       </section>
 
-      {data.platform_shared && (
-        <section className="rounded-lg border border-line bg-surface p-5">
-          <label className="flex cursor-pointer items-start gap-3">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.use_platform_server} onChange={(event) => set('use_platform_server', event.target.checked)} />
-            <span>
-              <span className="block text-sm font-medium text-ink-900">Use the Platform's Mail Server</span>
-              <span className="block text-xs text-ink-500">Sends through {data.platform_host}, offered to your workspace by the platform team. Messages still carry your From address below, so that address must be allowed to send through it.</span>
-            </span>
-          </label>
-        </section>
-      )}
-
-      {!shared && (
-        <section className="rounded-lg border border-line bg-surface p-5">
+      <section className="rounded-lg border border-line bg-surface p-5">
           <h2 className="text-card-title font-semibold text-ink-900">Your SMTP Server</h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <Field label="Server" required error={errors.host} hint="e.g. smtp.office365.com, smtp.gmail.com, email-smtp.us-east-1.amazonaws.com">
@@ -111,7 +96,6 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
             </Field>
           </div>
         </section>
-      )}
 
       <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-card-title font-semibold text-ink-900">Sender</h2>
@@ -127,10 +111,9 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
           </Field>
           <label className="flex cursor-pointer items-start gap-3 self-end pb-2">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.is_active} onChange={(event) => set('is_active', event.target.checked)} />
-            <span><span className="block text-sm font-medium text-ink-900">In Use</span><span className="block text-xs text-ink-500">Switch off to fall back to the platform's server without losing these settings.</span></span>
+            <span><span className="block text-sm font-medium text-ink-900">In Use</span><span className="block text-xs text-ink-500">Switch off to keep these settings without using them; platform messages then fall back to the platform's server, and campaigns cannot use this server.</span></span>
           </label>
         </div>
-        {errors.use_platform_server && <p className="mt-3 text-xs font-medium text-danger-text">{errors.use_platform_server}</p>}
       </section>
 
       <section className="rounded-lg border border-line bg-surface p-5">
@@ -155,7 +138,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
-          onClick={() => window.confirm("Remove your mail server? Messages will go out through the platform's server instead.") && remove.mutate()}>Remove</button>}
+          onClick={() => window.confirm("Remove your mail server? Platform messages will fall back to the platform's server, and campaigns can no longer use it.") && remove.mutate()}>Remove</button>}
         {save.isSuccess && <span role="status" className="text-sm text-success-text">Saved</span>}
       </div>
 
