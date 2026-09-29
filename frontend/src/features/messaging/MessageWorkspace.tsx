@@ -17,7 +17,7 @@ import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
 
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
-import { canBePlain, describeCharacter, OPT_OUT_PATTERN, plainPunctuation, renderWithSamples, smsMetrics } from './sms'
+import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
 
 export interface MessageBackend {
   save: (input: MessageSaveInput) => Promise<Message>
@@ -82,7 +82,15 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const usableImages = assets.filter((asset) => MMS_TYPES.includes(asset.mime_type) && asset.byte_size <= MMS_MAX_BYTES)
 
   const warnings: string[] = []
-  if (metrics.encoding === 'UCS-2') warnings.push(`${metrics.nonGsmCharacters.map(describeCharacter).join(', ')} ${metrics.nonGsmCharacters.length === 1 ? 'is' : 'are'} outside the standard SMS alphabet, so each part holds 70 characters instead of 160.`)
+  if (metrics.encoding === 'UCS-2') {
+    // emoji are a choice, so the note says what they cost; a curly quote or a long dash is usually an accident, so it is named by its code
+    const emoji = metrics.nonGsmCharacters.filter(isEmoji)
+    const others = metrics.nonGsmCharacters.filter((ch) => !isEmoji(ch))
+    const plain = plainSegments(sample)
+    const cost = metrics.segments > plain ? ` This message is ${metrics.segments} parts instead of ${plain}.` : ''
+    if (others.length > 0) warnings.push(`${others.map(describeCharacter).join(', ')} ${others.length === 1 ? 'is' : 'are'} outside the standard SMS alphabet, so each part holds 70 characters instead of 160.${cost}`)
+    if (emoji.length > 0) warnings.push(`Emoji (${emoji.join(' ')}) make this a Unicode message, so each part holds 70 characters instead of 160.${others.length > 0 ? '' : cost} Every carrier delivers emoji; they just cost more parts.`)
+  }
   if (metrics.segments > 3) warnings.push(`${metrics.segments} parts per recipient. Each part is billed as one message.`)
   if (unknown.length > 0) warnings.push(`Unknown tags (they would be sent as typed): ${unknown.map(asToken).join(', ')}`)
   if (body.trim() && !OPT_OUT_PATTERN.test(body)) warnings.push('No opt-out wording. Marketing messages must say how to stop them, for example: Reply STOP to opt out.')

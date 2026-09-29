@@ -22,7 +22,7 @@ import { SPACING_PROP, ZERO_PADDING, shorthand, spacingFrom, spacingToStore, sum
 import { CODE_TYPE } from '../blocks/codes'
 import { codeFieldsFor, isCodeKey, readCodeSetting, writeCodeSetting } from './codeSettings'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
-import { directName, networkOf, socialElementMjml } from './social'
+import { directName, networkOf, ownIconAttributes, socialElementMjml } from './social'
 
 // one implementation, shared with the colour field: #ABC and #AABBCC both become #aabbcc
 export { normaliseHex }
@@ -649,9 +649,12 @@ export function writeSetting(component: Component, key: string, value: string | 
     component.removeAttributes(key)
     return true
   }
-  // written in the direct form, so the icon links to the profile and not to a sharer page
+  // written in the direct form, so the icon links to the profile and not to a sharer page; a network MJML has no icon
+  // for gets ours, and going back to one it has drops ours so MJML's own shows again
   if (key === NETWORK_KEY && isSocialIcon(component)) {
-    component.addAttributes({ [key]: directName(value) })
+    const own = ownIconAttributes(value)
+    if (!own && component.getAttributes().src) component.removeAttributes(['src', 'background-color'])
+    component.addAttributes({ [key]: directName(value), ...(own ?? {}) })
     return true
   }
 

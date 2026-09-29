@@ -54,6 +54,14 @@ export const canBePlain = (characters: string[]) => characters.some((ch) => ch i
 
 export const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out)\b/i
 
+export const isEmoji = (ch: string) => /\p{Extended_Pictographic}/u.test(ch)
+
+/** The parts the same text would take in the standard alphabet: what its emoji cost. */
+export function plainSegments(text: string): number {
+  const units = Array.from(text).reduce((total, ch) => total + (GSM7_EXTENDED.has(ch) ? 2 : 1), 0)
+  return units === 0 ? 0 : units <= 160 ? 1 : Math.ceil(units / 153)
+}
+
 export function describeCharacter(ch: string): string {
   const code = ch.codePointAt(0) ?? 0
   return `${ch === ' ' || ch === ' ' ? 'space' : ch} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`

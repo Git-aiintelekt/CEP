@@ -33,9 +33,11 @@ function make(
       calls.push(`addAttributes:${JSON.stringify(next)}`)
       attrs = { ...attrs, ...next }
     }),
-    removeAttributes: vi.fn((key: string) => {
-      calls.push(`removeAttributes:${key}`)
-      delete attrs[key]
+    removeAttributes: vi.fn((keys: string | string[]) => {
+      for (const key of Array.isArray(keys) ? keys : [keys]) {
+        calls.push(`removeAttributes:${key}`)
+        delete attrs[key]
+      }
     }),
     components: vi.fn((value?: string) => {
       if (value !== undefined) {
@@ -377,6 +379,15 @@ test('a social icon reads its network without MJML’s -noshare suffix and write
   expect(icon.getAttributes().name).toBe('youtube') // no sharer page for YouTube: the plain name already links directly
   expect(writeSetting(icon, 'name', 'linkedin')).toBe(true)
   expect(icon.getAttributes().name).toBe('linkedin-noshare')
+})
+
+test('switching an icon to TikTok writes our icon and its colour; switching back to a network MJML draws drops them', () => {
+  const icon = make('mj-social-element', { name: 'facebook-noshare', href: 'https://example.com' })
+  expect(writeSetting(icon, 'name', 'tiktok')).toBe(true)
+  expect(icon.getAttributes()).toMatchObject({ name: 'tiktok', href: 'https://example.com', 'background-color': '#000000' })
+  expect(String(icon.getAttributes().src)).toMatch(/\/social-icons\/tiktok\.png$/)
+  expect(writeSetting(icon, 'name', 'youtube')).toBe(true)
+  expect(icon.getAttributes()).toEqual({ name: 'youtube', href: 'https://example.com' })   // MJML's own YouTube icon and colour again
 })
 
 test('a social icon’s label is optional: clearing it leaves the icon on its own', () => {
