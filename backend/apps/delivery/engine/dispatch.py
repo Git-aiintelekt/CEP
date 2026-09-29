@@ -208,7 +208,7 @@ def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
     with registry.for_provider(provider_row) as provider:
         for address in to:
             for variant, own_subject in variants:
-                rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": f"{unsubscribe.url_for('test')}", "email": address},
+                rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": unsubscribe.url_for(unsubscribe.test_token(tenant_code=tenant_code, email=address)), "email": address},
                                            subject=own_subject)
                 mark = f"[TEST {variant}] " if variant else "[TEST] "
                 result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,

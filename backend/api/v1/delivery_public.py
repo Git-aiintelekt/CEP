@@ -171,6 +171,9 @@ def unsubscribe_view(request, version=None):
     if claims is None:
         return HttpResponse(PAGE.format(title="This link is not valid", text="The unsubscribe link is incomplete. Use the link in a more recent email, or reply to the sender.", action=""), status=400)
     address = escape(claims.get("e", "this address"))
+    if claims.get("test"):
+        return HttpResponse(PAGE.format(title="This was a test message", action="",
+                                        text=f"The unsubscribe link in a test message does nothing. In the real send it lets <strong>{address}</strong> stop marketing email from this sender."))
     if request.method == "GET":
         action = f'<form method="post" action="?t={escape(token)}"><button type="submit">Unsubscribe</button></form>'
         return HttpResponse(PAGE.format(title="Unsubscribe from marketing email", text=f"Stop sending marketing email to <strong>{address}</strong>?", action=action))

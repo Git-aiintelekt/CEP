@@ -37,6 +37,8 @@ class TenantMiddleware:
             return self.get_response(request)
         tenant = resolve_tenant(request)
         if tenant is None:
+            if request.path.startswith("/api/v1/public/unsubscribe/"):       # a link from an email: the page explains a bad token in words
+                return self.get_response(request)
             return JsonResponse({"type": "about:blank", "title": "Unknown tenant", "status": 404}, status=404, content_type="application/problem+json")
         if tenant["db_status"] != "ACTIVE":
             return JsonResponse({"type": "about:blank", "title": "Tenant is being migrated; retry shortly", "status": 503}, status=503, content_type="application/problem+json")

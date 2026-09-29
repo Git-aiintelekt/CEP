@@ -2,7 +2,8 @@
 
 The link carries a signed token (no database lookup to read it, nothing guessable): tenant code, party, campaign, run and
 the address. GET shows a confirmation page (mail scanners follow links; they do not press buttons), POST records the
-opt-out. Mailbox providers' one-click unsubscribe (RFC 8058) POSTs to the same address.
+opt-out. Mailbox providers' one-click unsubscribe (RFC 8058) POSTs to the same address. A test send carries a token marked
+`test`: its page says the message was a test and nothing is ever opted out through it.
 """
 from django.core import signing
 from django.utils import timezone
@@ -16,6 +17,11 @@ SALT = "cep.unsubscribe"
 
 def token_for(*, tenant_code: str, party_id: str, email: str, campaign_id, run_id) -> str:
     return signing.dumps({"t": tenant_code, "p": party_id, "e": email, "c": str(campaign_id), "r": str(run_id)}, salt=SALT, compress=True)
+
+
+def test_token(*, tenant_code: str, email: str) -> str:
+    """The link in a test send: signed so the page can name the workspace, marked so nothing is opted out through it."""
+    return signing.dumps({"t": tenant_code, "e": email, "test": True}, salt=SALT, compress=True)
 
 
 def read(token: str) -> dict | None:
