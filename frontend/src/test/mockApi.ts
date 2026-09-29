@@ -351,7 +351,7 @@ export function installMockApi(options: MockOptions = {}) {
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let securityNow: SecuritySettings = { ...security }
-  let mailNow: MailServerSettings = { server: null, platform_shared: false, platform_host: null, in_use: 'console', sender_profile: null, ...options.mailServer }
+  let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -423,11 +423,10 @@ export function installMockApi(options: MockOptions = {}) {
       if (method === 'PUT') {
         if (body?.from_email === 'bad') return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { from_email: ['Enter a valid email address.'] } }, 400)
         const { password, ...rest } = body as Record<string, unknown>
-        const shared = Boolean(rest.use_platform_server)
         const server = { host: '', port: 587, security: 'STARTTLS', username: null, from_name: null, reply_to: null, is_active: true, campaign_sender: false, last_tested_at: null, last_test_ok: null, last_test_error: null,
                          ...(mailNow.server ?? {}), ...rest, has_password: Boolean(password) || Boolean(mailNow.server?.has_password) } as NonNullable<MailServerSettings['server']>
         const sender = server.campaign_sender ? { id: 'snd-smtp', display_name: server.from_name ?? server.from_email, from_address: server.from_email, verification_status: server.last_test_ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null
-        mailNow = { ...mailNow, in_use: shared ? 'platform-shared' : 'tenant', server, sender_profile: sender }
+        mailNow = { ...mailNow, in_use: 'tenant', server, sender_profile: sender }
       }
       return json(mailNow)
     }

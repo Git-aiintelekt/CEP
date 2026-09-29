@@ -39,11 +39,6 @@ class SmtpProvider(EmailProvider):
         server = MailServer.objects.using(settings.PLATFORM_ALIAS).filter(pk=server_id).first()
         if server is None or not server.is_active:
             raise ProviderError("The workspace mail server was removed or switched off.", retryable=False)
-        if server.use_platform_server:
-            platform = mail.platform_server()
-            if not mail.shared_with(platform, server.tenant_id):
-                raise ProviderError("The platform's mail server is no longer shared with this workspace.", retryable=False)
-            return mail._kwargs(platform)
         return mail._kwargs(server)
 
     def open(self) -> None:

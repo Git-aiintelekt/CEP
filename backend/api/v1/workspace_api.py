@@ -208,7 +208,7 @@ class MailServerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MailServer
-        fields = ("host", "port", "security", "username", "password", "has_password", "from_email", "from_name", "reply_to", "use_platform_server", "campaign_sender", "is_active",
+        fields = ("host", "port", "security", "username", "password", "has_password", "from_email", "from_name", "reply_to", "campaign_sender", "is_active",
                   "last_tested_at", "last_test_ok", "last_test_error")
         read_only_fields = ("last_tested_at", "last_test_ok", "last_test_error")
         extra_kwargs = {"from_email": {"validators": []}}
@@ -240,11 +240,8 @@ class MailServerSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         current = lambda name: attrs.get(name, getattr(self.instance, name, None))          # noqa: E731
-        if current("use_platform_server"):
-            if not mail.shared_with(mail.platform_server(), self.context["tenant_id"]):
-                raise serializers.ValidationError({"use_platform_server": "The platform's mail server is not shared with this workspace."})
-        elif not current("host"):
-            raise serializers.ValidationError({"host": "Enter the SMTP server name, or use the platform's mail server."})
+        if not current("host"):
+            raise serializers.ValidationError({"host": "Enter the SMTP server name."})
         port, security = current("port") or 587, current("security")
         if security == "SSL" and int(port) == 587 or security == "STARTTLS" and int(port) == 465:
             raise serializers.ValidationError({"port": "Port 587 goes with STARTTLS and port 465 with SSL/TLS. Check your provider's settings."})
@@ -258,10 +255,7 @@ class MailServerView(APIView):
 
     def _payload(self, tenant_id):
         server = MailServer.objects.filter(tenant_id=tenant_id).first()
-        platform = mail.platform_server()
-        shared = mail.shared_with(platform, tenant_id)
         return {"server": MailServerSerializer(server).data if server else None,
-                "platform_shared": shared, "platform_host": platform.host if shared else None,
                 "in_use": mail.resolve(tenant_id, own=server).source,
                 "sender_profile": campaign_sender.current(server)}
 
@@ -277,8 +271,6 @@ class MailServerView(APIView):
         form.is_valid(raise_exception=True)
         password = form.validated_data.pop("password", "")
         extra = {"password_enc": crypto.encrypt(password)} if password else {}
-        if form.validated_data.get("use_platform_server"):
-            extra.update(host="", username=None, password_enc=None)          # nothing of a previous own server lingers
         if server is None:
             server = form.save(tenant_id=tenant_id, created_by_id=request.user.pk, **extra)
         else:

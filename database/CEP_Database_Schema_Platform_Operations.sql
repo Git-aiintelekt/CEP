@@ -326,15 +326,16 @@ REVOKE INSERT, UPDATE, DELETE ON support_access_log FROM cep_app;
 -- -------------------------------------------------------------------------------------
 -- 8. MAIL SERVERS
 --    SMTP details entered in the product: one row per tenant (Settings -> Email server) and one platform row
---    (tenant_id NULL, back-office -> Configuration -> Mail server). The platform row may be shared with tenants,
---    who then send with their own From address through it. Passwords are encrypted by the application
+--    (tenant_id NULL, back-office -> Configuration -> Mail server). The platform row carries the platform's own mail and
+--    the fallback for a tenant without a server; it is never a tenant's sending engine (patch 0027 removed the sharing
+--    columns). Passwords are encrypted by the application
 --    (FIELD_ENCRYPTION_KEY) and never enter the audit trail. Row-level security hides the platform row from the
 --    API role (NULL never equals the current tenant).
 -- -------------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS mail_server (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id           UUID REFERENCES tenant(id),                      -- NULL: the platform's own server
-    host                VARCHAR(253) NOT NULL DEFAULT '',                -- '' on a tenant row that uses the shared platform server
+    host                VARCHAR(253) NOT NULL,
     port                INTEGER NOT NULL DEFAULT 587,
     security            VARCHAR(10) NOT NULL DEFAULT 'STARTTLS',         -- NONE, STARTTLS (587), SSL (465)
     username            VARCHAR(200),
@@ -342,10 +343,7 @@ CREATE TABLE IF NOT EXISTS mail_server (
     from_email          CITEXT NOT NULL,
     from_name           VARCHAR(150),
     reply_to            CITEXT,
-    use_platform_server BOOLEAN NOT NULL DEFAULT FALSE,                  -- tenant row: send through the shared platform server
     campaign_sender     BOOLEAN NOT NULL DEFAULT FALSE,                  -- tenant row: also offered as a campaign delivery provider + sender profile
-    shared_with_all     BOOLEAN NOT NULL DEFAULT FALSE,                  -- platform row: every tenant may use it
-    shared_tenant_ids   UUID[] NOT NULL DEFAULT '{}',                    -- platform row: or only these tenants
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     last_tested_at      TIMESTAMPTZ,
     last_test_ok        BOOLEAN,
@@ -357,13 +355,27 @@ CREATE TABLE IF NOT EXISTS mail_server (
     row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ck_mail_server_security CHECK (security IN ('NONE', 'STARTTLS', 'SSL')),
     CONSTRAINT ck_mail_server_port CHECK (port BETWEEN 1 AND 65535),
-    CONSTRAINT ck_mail_server_host CHECK (use_platform_server OR host <> ''),
-    CONSTRAINT ck_mail_server_platform_row CHECK (tenant_id IS NOT NULL OR NOT use_platform_server)
+    CONSTRAINT ck_mail_server_host CHECK (host <> '')
 );
 ALTER TABLE mail_server ADD COLUMN IF NOT EXISTS campaign_sender BOOLEAN NOT NULL DEFAULT FALSE;
+-- patch 0027: the platform's server is no longer shared with tenants. A tenant row that sent through it is removed
+-- (the tenant enters its own server), and its campaign sender is retired with it.
+UPDATE sender_profile SET deleted_at = now(), is_default = FALSE
+ WHERE deleted_at IS NULL AND delivery_provider_id IN (
+       SELECT dp.id FROM delivery_provider dp JOIN mail_server ms ON ms.id::text = dp.config->>'mail_server_id'
+        WHERE dp.provider_type = 'SMTP' AND ms.use_platform_server);
+UPDATE delivery_provider SET deleted_at = now(), is_default = FALSE, is_active = FALSE
+ WHERE deleted_at IS NULL AND provider_type = 'SMTP'
+   AND config->>'mail_server_id' IN (SELECT id::text FROM mail_server WHERE use_platform_server);
+DELETE FROM mail_server WHERE use_platform_server;
+ALTER TABLE mail_server DROP CONSTRAINT IF EXISTS ck_mail_server_platform_row;
+ALTER TABLE mail_server DROP CONSTRAINT IF EXISTS ck_mail_server_host;
+ALTER TABLE mail_server DROP COLUMN IF EXISTS use_platform_server, DROP COLUMN IF EXISTS shared_with_all, DROP COLUMN IF EXISTS shared_tenant_ids;
+ALTER TABLE mail_server ALTER COLUMN host DROP DEFAULT;
+ALTER TABLE mail_server ADD CONSTRAINT ck_mail_server_host CHECK (host <> '');
 CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_tenant ON mail_server(tenant_id) WHERE tenant_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_mail_server_platform ON mail_server((tenant_id IS NULL)) WHERE tenant_id IS NULL;
-COMMENT ON TABLE mail_server IS 'SMTP servers entered in the product: one per tenant, plus the platform''s own (tenant_id NULL), which may be shared with tenants';
+COMMENT ON TABLE mail_server IS 'SMTP servers entered in the product: one per tenant, plus the platform''s own (tenant_id NULL) for the platform''s own mail';
 
 DROP TRIGGER IF EXISTS trg_mail_server_touch ON mail_server;
 CREATE TRIGGER trg_mail_server_touch BEFORE UPDATE ON mail_server FOR EACH ROW EXECUTE FUNCTION fn_touch_row();

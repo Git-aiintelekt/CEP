@@ -68,12 +68,15 @@ out from is decided per message, first match wins:
 
 1. the tenant's own mail server (**Settings → Email server** in the React app: host, port, STARTTLS/SSL, username,
    password stored encrypted, From address, reply-to, "Send a test message")
-2. the platform's mail server shared with that tenant, using the tenant's From address
-3. the platform's mail server (**back-office → Configuration → Mail server**; the platform administrator may share it
-   with every tenant or with selected ones, and tenants then get a "Use the platform's mail server" switch)
-4. SMTP from the environment (`EMAIL_HOST` … in `.env`)
-5. Django's console backend: the message is printed to the server log and the app says so honestly (a password link
+2. the platform's mail server (**back-office → Configuration → Mail server**): the platform's own mail — alerts,
+   back-office password links — and the fallback for a tenant that has no working server of its own
+3. SMTP from the environment (`EMAIL_HOST` … in `.env`)
+4. Django's console backend: the message is printed to the server log and the app says so honestly (a password link
    can then only be copied; the health page shows *Email: attention*)
+
+The platform's server is never a tenant's sending engine: campaigns and e-receipts go through the tenant's own mail
+server or its delivery providers. (Until patch `0027` the platform row could be shared with tenants; that option, and
+the "Use the platform's mail server" switch, are gone.)
 
 Both screens have a real "send a test message" action that records the outcome. Passwords are encrypted with
 `FIELD_ENCRYPTION_KEY` and never appear in the audit trail or in any screen. Patch `0007` adds the `mail_server` table.
