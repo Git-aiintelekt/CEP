@@ -2,11 +2,11 @@ import type { Component } from 'grapesjs'
 import { expect, test, vi } from 'vitest'
 
 import {
-  ATTRIBUTE_RULES, BORDER_COLOR_KEY, BORDER_STYLE_KEY, BORDER_WIDTH_KEY, HIDE_MOBILE_KEY, SHADOW_KEY, parseBorder, HTML_KEY, LABEL_KEY, MARGIN_KEY, SETTINGS_BY_BLOCK, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor,
-  normaliseHex, readEffective, readSetting, sectionFields, unitsFor, writeContent, writeSetting,
+  ATTRIBUTE_RULES, BORDER_COLOR_KEY, BORDER_STYLE_KEY, BORDER_WIDTH_KEY, HIDE_DESKTOP_KEY, HIDE_MOBILE_KEY, HTML_KEY, LABEL_KEY, MARGIN_KEY, SETTINGS_BY_BLOCK, SHADOW_KEY, addSocialElement, beginGroupedEdit, blockType, endGroupedEdit, fieldsFor, normaliseHex, parseBorder, readEffective, readSetting, sectionFields, unitsFor, writeContent, writeSetting,
 } from './settings'
-import { FOOTER_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
+import { FOOTER_CLASS, HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
 import { createSettingBinder } from './useSettingBinding'
+import { CUSTOM_ALIGN_KEY, CUSTOM_BACKGROUND_KEY, CUSTOM_MARGIN_KEY, CUSTOM_PADDING_KEY, CUSTOM_WIDTH_KEY } from './customHtmlSettings'
 
 /** A component the helper can work with: no GrapesJS, which hangs under jsdom. */
 function make(
@@ -58,12 +58,12 @@ function wrapperWith(head: Record<string, Record<string, string>>): Component {
 
 test('a block kind maps to its ordered fields, and a heading is an mj-text', () => {
   expect(fieldsFor(make('mj-button')).map((field) => field.key)).toEqual([
-    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'inner-padding', 'font-family', 'font-size', 'background-color',
+    LABEL_KEY, 'href', 'align', 'width', 'height', 'padding', 'inner-padding', HIDE_MOBILE_KEY, HIDE_DESKTOP_KEY, 'font-family', 'font-size', 'background-color',
     BORDER_WIDTH_KEY, BORDER_STYLE_KEY, BORDER_COLOR_KEY, SHADOW_KEY, 'color', 'border-radius',
   ])
   expect(fieldsFor(make('mj-button')).filter((field) => field.kind === 'padding').map((field) => field.label)).toEqual(['Margin', 'Padding'])   // a button's MJML padding is its margin
-  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', MARGIN_KEY, 'padding', 'container-background-color'])
-  expect(fieldsFor(make('mj-raw')).map((field) => field.key)).toEqual([HTML_KEY])
+  expect(fieldsFor(make('mj-spacer')).map((field) => field.key)).toEqual(['height', MARGIN_KEY, 'padding', HIDE_MOBILE_KEY, HIDE_DESKTOP_KEY, 'container-background-color'])
+  expect(fieldsFor(make('mj-raw')).map((field) => field.key)).toEqual([HTML_KEY, CUSTOM_WIDTH_KEY, CUSTOM_ALIGN_KEY, CUSTOM_MARGIN_KEY, CUSTOM_PADDING_KEY, HIDE_MOBILE_KEY, HIDE_DESKTOP_KEY, CUSTOM_BACKGROUND_KEY])
   expect(fieldsFor(make('mj-navbar'))).toEqual([])
   expect(blockType(make('mj-text'))).toBe('mj-text')
 })
@@ -297,11 +297,23 @@ test('a refused final value still closes the group rather than leaving undo swit
 
 // ---- hide on phones ------------------------------------------------------
 
-test('a section offers the switch in its layout settings, and no other block does', () => {
-  expect(sectionFields(make('mj-section'), 'layout').map((field) => field.key)).toContain(HIDE_MOBILE_KEY)
-  for (const type of ['mj-column', 'mj-text', 'mj-button', 'mj-image', 'mj-divider', 'mj-spacer']) {
-    expect(fieldsFor(make(type)).map((field) => field.key), type).not.toContain(HIDE_MOBILE_KEY)
+test('every block offers both switches in its layout settings: hide on phones, hide on desktop', () => {
+  for (const type of ['mj-section', 'mj-column', 'mj-text', 'mj-button', 'mj-image', 'mj-divider', 'mj-spacer', 'mj-social', 'mj-raw']) {
+    const keys = fieldsFor(make(type)).filter((field) => field.section === 'layout').map((field) => field.key)
+    expect(keys, type).toContain(HIDE_MOBILE_KEY)
+    expect(keys, type).toContain(HIDE_DESKTOP_KEY)
   }
+  expect(fieldsFor(make('mj-social-element')).map((field) => field.key)).not.toContain(HIDE_DESKTOP_KEY)      // an icon hides with its block
+})
+
+test('hide on desktop is its own class, read and written beside the phones one', () => {
+  const text = make('mj-text', { 'css-class': HIDE_MOBILE_CLASS })
+  expect(readSetting(text, HIDE_DESKTOP_KEY)).toBeNull()
+  expect(writeSetting(text, HIDE_DESKTOP_KEY, HIDE_DESKTOP_CLASS)).toBe(true)
+  expect(text.getAttributes()['css-class']).toBe(`${HIDE_MOBILE_CLASS} ${HIDE_DESKTOP_CLASS}`)
+  expect(readSetting(text, HIDE_DESKTOP_KEY)).toBe(HIDE_DESKTOP_CLASS)
+  expect(writeSetting(text, HIDE_DESKTOP_KEY, null)).toBe(true)
+  expect(text.getAttributes()['css-class']).toBe(HIDE_MOBILE_CLASS)
 })
 
 test('the switch reads the class off the block rather than an attribute of its own', () => {

@@ -20,6 +20,15 @@ export interface InsertTarget {
 export function insertTarget(body: InsertNode, path: number[] | null, level: DropLevel): InsertTarget | null {
   const chain = walk(body, path)
 
+  // raw HTML follows the selection: into a chosen column, after a chosen block in one, else beside the sections
+  if (level === 'raw') {
+    const last = chain.at(-1)
+    if (last?.type === 'mj-column') return { parent: last, index: last.children.length, fellBack: false }
+    const parent = chain.at(-2)
+    if (last && parent?.type === 'mj-column') return { parent, index: parent.children.indexOf(last) + 1, fellBack: false }
+    return insertTarget(body, path, 'section')
+  }
+
   if (level === 'section') {
     const depth = chain.findIndex((node) => node.type === 'mj-section')
     if (depth === -1) return { parent: body, index: body.children.length, fellBack: path !== null && path.length > 0 }

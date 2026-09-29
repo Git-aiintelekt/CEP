@@ -8,6 +8,7 @@
  */
 import type { Component, Editor } from 'grapesjs'
 
+import { RAW_PARENTS } from './rawPlacement'
 import { makeInert } from './receiptSlot'
 
 export const CUSTOM_HTML_TYPE = 'mj-raw'
@@ -19,6 +20,8 @@ export function registerCustomHtmlType(editor: Editor): void {
     // re-adding a type does not carry its recogniser over: without this an inserted <mj-raw> became a plain "Block"
     isComponent: (el: HTMLElement) => el.tagName === 'MJ-RAW',
     model: {
+      // the plugin lets a raw block into the body only; nothing may be dropped into one, its markup is the panel's
+      defaults: { draggable: RAW_PARENTS, droppable: false },
       init(this: Component) {
         raw?.init?.call(this)
         this.components().forEach(makeInert)

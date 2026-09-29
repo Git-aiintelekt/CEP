@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { HIDE_MOBILE_RULE } from '../blocks/register'
+import { HIDE_DESKTOP_RULE, HIDE_MOBILE_RULE } from '../blocks/register'
 import { adjustedNote, describeAdjustments, unclosedTags } from './codeAdjustments'
 
 const body = (inner: string, head = '') => `<mjml>${head}<mj-body>${inner}</mj-body></mjml>`
@@ -44,6 +44,12 @@ test('the hide-on-phones rule the editor added is named', () => {
   const typed = body('<mj-section css-class="cep-hide-mobile"><mj-column><mj-text>Hi</mj-text></mj-column></mj-section>')
   const applied = typed.replace('<mj-body>', `<mj-head><mj-style>${HIDE_MOBILE_RULE}</mj-style></mj-head><mj-body>`)
   expect(describeAdjustments(typed, applied)).toEqual(['added the hide-on-phones rule to mj-head'])
+})
+
+test('the hide-on-desktop rule the editor added is named', () => {
+  const typed = body('<mj-section css-class="cep-hide-desktop"><mj-column><mj-text>Hi</mj-text></mj-column></mj-section>')
+  const applied = typed.replace('<mj-body>', `<mj-head><mj-style>${HIDE_DESKTOP_RULE}</mj-style></mj-head><mj-body>`)
+  expect(describeAdjustments(typed, applied)).toEqual(['added the hide-on-desktop rule to mj-head'])
 })
 
 test('any other change to the blocks is still reported, never passed over', () => {

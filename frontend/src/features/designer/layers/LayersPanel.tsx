@@ -1,5 +1,5 @@
 /** The layers tree beside the canvas. Knows nothing about GrapesJS: every action is the caller's. */
-import { ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Smartphone, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Eye, EyeOff, Monitor, Smartphone, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { TreeRow } from '../ui/TreeRow'
@@ -10,6 +10,8 @@ export const HIDDEN_NOTE = 'Hidden here only. It is still in the email.'
 /** Deliberately unlike HIDDEN_NOTE: this one ships and sends, and only phones are told not to draw it. */
 export const PHONES_NOTE = 'Hidden on phones. It is sent, but phones do not show it.'
 export const PHONES_MARKER_LABEL = 'Hidden on Phones'
+export const DESKTOP_NOTE = 'Hidden on desktop. It is sent, but only phones show it.'
+export const DESKTOP_MARKER_LABEL = 'Hidden on Desktop'
 export const EMPTY_NOTE = 'Nothing here yet. Drag a block onto the canvas.'
 
 interface LayersPanelProps {
@@ -191,6 +193,11 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
                       <Smartphone size={13} strokeWidth={1.5} aria-hidden />
                     </span>
                   ) : null}
+                  {node.hiddenOnDesktop ? (
+                    <span title={DESKTOP_NOTE} aria-label={DESKTOP_MARKER_LABEL} className="ml-[2px] flex shrink-0 text-ink-700">
+                      <Monitor size={13} strokeWidth={1.5} aria-hidden />
+                    </span>
+                  ) : null}
                 </>
               }
               actions={
@@ -249,6 +256,7 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
       })}
       {rows.some((row) => !row.node.visible) && <p className="px-3 py-1.5 text-[11px] text-ink-300">{HIDDEN_NOTE}</p>}
       {rows.some((row) => row.node.hiddenOnPhones) && <p className="px-3 py-1.5 text-[11px] text-ink-700">{PHONES_NOTE}</p>}
+      {rows.some((row) => row.node.hiddenOnDesktop) && <p className="px-3 py-1.5 text-[11px] text-ink-700">{DESKTOP_NOTE}</p>}
     </div>
   )
 }

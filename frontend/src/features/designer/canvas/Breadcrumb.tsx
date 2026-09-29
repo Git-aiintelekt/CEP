@@ -2,7 +2,7 @@
  * Where the selection sits: the email body down to the selected block. Every ancestor is a button that selects
  * it; the last crumb is the block itself. Knows nothing about GrapesJS.
  */
-import { ChevronRight, Smartphone } from 'lucide-react'
+import { ChevronRight, Monitor, Smartphone } from 'lucide-react'
 
 export const SELECTED_LABEL = 'Selected'
 export const NOTHING_SELECTED = 'Nothing selected'
@@ -13,12 +13,15 @@ export const CRUMBS_SHOWN = 4
 /** Worded apart from the layers tree's canvas-only hiding: this block ships and sends. */
 export const PHONES_TAG_LABEL = 'Hidden on Phones'
 export const PHONES_TAG_NOTE = 'Hidden on phones. It is sent, but phones do not show it.'
+export const DESKTOP_TAG_LABEL = 'Hidden on Desktop'
+export const DESKTOP_TAG_NOTE = 'Hidden on desktop. It is sent, but only phones show it.'
 
 export interface Crumb {
   id: string
   name: string
   /** carries the hide-on-phones class, so the row says so next to its name */
   hiddenOnPhones?: boolean
+  hiddenOnDesktop?: boolean
 }
 
 export interface BreadcrumbProps {
@@ -55,6 +58,7 @@ export function Breadcrumb({ crumbs, onSelect }: BreadcrumbProps) {
                       {crumb.name}
                     </span>
                     {crumb.hiddenOnPhones ? <PhonesTag /> : null}
+                    {crumb.hiddenOnDesktop ? <DesktopTag /> : null}
                   </>
                 : <>
                     <button
@@ -80,14 +84,22 @@ function Separator() {
   return <ChevronRight size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-300" />
 }
 
+const TAG = 'ml-1 inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm bg-line-subtle px-1.5 text-[11px] font-semibold text-ink-700'
+
 function PhonesTag() {
   return (
-    <span
-      title={PHONES_TAG_NOTE}
-      className="ml-1 inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm bg-line-subtle px-1.5 text-[11px] font-semibold text-ink-700"
-    >
+    <span title={PHONES_TAG_NOTE} className={TAG}>
       <Smartphone size={11} strokeWidth={1.5} aria-hidden />
       {PHONES_TAG_LABEL}
+    </span>
+  )
+}
+
+function DesktopTag() {
+  return (
+    <span title={DESKTOP_TAG_NOTE} className={TAG}>
+      <Monitor size={11} strokeWidth={1.5} aria-hidden />
+      {DESKTOP_TAG_LABEL}
     </span>
   )
 }

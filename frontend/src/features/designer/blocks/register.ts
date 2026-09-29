@@ -70,6 +70,15 @@ export const HIDE_MOBILE_CLASS = 'cep-hide-mobile'
  */
 export const HIDE_MOBILE_RULE = `@media only screen and (max-width:480px){.${HIDE_MOBILE_CLASS}{display:none!important;max-height:0!important;overflow:hidden!important;font-size:0!important;line-height:0!important;}}`
 
+/** A block the reader hid on desktop, so phones alone show it: the same mechanism, the other side of the breakpoint. */
+export const HIDE_DESKTOP_CLASS = 'cep-hide-desktop'
+
+/**
+ * Outlook for Windows and Windows Mail ignore media queries, so they show a phones-only block as if it were not
+ * hidden; Apple Mail, iOS, the Gmail apps, Gmail on the web and Outlook.com hide it. The panel says so.
+ */
+export const HIDE_DESKTOP_RULE = `@media only screen and (min-width:481px){.${HIDE_DESKTOP_CLASS}{display:none!important;max-height:0!important;overflow:hidden!important;font-size:0!important;line-height:0!important;}}`
+
 /**
  * A drop shadow is a class plus one mj-style rule, like hiding on phones: MJML has no shadow attribute. Apple Mail,
  * iOS Mail, Gmail and Outlook.com draw it; Outlook for Windows drops box-shadow, so a design must read well without.
@@ -130,6 +139,11 @@ export function isHiddenOnPhones(component: Component): boolean {
   return hasCssClass(component, HIDE_MOBILE_CLASS)
 }
 
+/** A block the reader hid on desktop: phones alone draw it. */
+export function isHiddenOnDesktop(component: Component): boolean {
+  return hasCssClass(component, HIDE_DESKTOP_CLASS)
+}
+
 function matchesIn(editor: Editor, predicate: (component: Component) => boolean): Component[] {
   const found: Component[] = []
   editor.getWrapper()?.onAll((component) => {
@@ -146,6 +160,10 @@ export function hiddenOnPhonesIn(editor: Editor): Component[] {
   return matchesIn(editor, isHiddenOnPhones)
 }
 
+export function hiddenOnDesktopIn(editor: Editor): Component[] {
+  return matchesIn(editor, isHiddenOnDesktop)
+}
+
 export function shadowedIn(editor: Editor): Component[] {
   return matchesIn(editor, (component) => shadowOf(component) !== null)
 }
@@ -159,6 +177,10 @@ function stylesNaming(editor: Editor, marker: string): Component[] {
 
 export function hideMobileStylesIn(editor: Editor): Component[] {
   return stylesNaming(editor, HIDE_MOBILE_CLASS)
+}
+
+export function hideDesktopStylesIn(editor: Editor): Component[] {
+  return stylesNaming(editor, HIDE_DESKTOP_CLASS)
 }
 
 export function shadowStylesIn(editor: Editor): Component[] {
@@ -188,6 +210,11 @@ function headOf(editor: Editor): Component | undefined {
  */
 export function syncHideMobileStyle(editor: Editor): void {
   syncHeadRule(editor, hiddenOnPhonesIn(editor).length > 0, hideMobileStylesIn(editor), HIDE_MOBILE_RULE)
+}
+
+/** The same for the phones-only rule. */
+export function syncHideDesktopStyle(editor: Editor): void {
+  syncHeadRule(editor, hiddenOnDesktopIn(editor).length > 0, hideDesktopStylesIn(editor), HIDE_DESKTOP_RULE)
 }
 
 /** The same for the shadow rule: in the head while any block carries a shadow class, gone when none does. */

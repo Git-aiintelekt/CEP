@@ -26,12 +26,13 @@ import { BORDER_STYLES, FONT_FAMILIES, FONT_WEIGHTS, SHADOW_OPTIONS, SOCIAL_MODE
 import { DEFAULT_EM_BASE } from './fields/length'
 import { EMAIL_SETTINGS_NOTE, INHERITED_NOTE, type TagPickerSlot } from './fields/types'
 import {
-  BORDER_STYLE_KEY, CANVAS_TEXT_NOTE, HIDE_MOBILE_KEY, SHADOW_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
+  BORDER_STYLE_KEY, CANVAS_TEXT_NOTE, HIDE_DESKTOP_KEY, HIDE_MOBILE_KEY, SHADOW_KEY, LAYOUT_NOTES, SRC_KEY, TEXT_LINK_NOTE, TEXT_ON_CANVAS, addSocialElement, blockType, fieldsFor,
   readEffective, readInherited, readSetting, type SettingField, type SettingSection,
 } from './settings'
-import { HIDE_MOBILE_CLASS } from '../blocks/register'
+import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
 import { forbiddenIn } from '../canvas/codeChecks'
 import { SOCIAL_NETWORKS } from './social'
+import { STACKING_KEY, STACKING_OPTIONS } from './stacking'
 import { createSettingBinder } from './useSettingBinding'
 import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
 import { CODE_OPTIONS, CODE_SOURCE_KEY, CODE_TEXT_KEY, CODE_TEXT_ON, sourceOptions } from './codeSettings'
@@ -54,6 +55,7 @@ const SELECT_OPTIONS: Record<string, SelectOption[]> = {
   [SHADOW_KEY]: SHADOW_OPTIONS,
   mode: SOCIAL_MODES,
   name: SOCIAL_NETWORKS,
+  [STACKING_KEY]: STACKING_OPTIONS,
   destination: DESTINATIONS,
   'button-style': BUTTON_STYLES,
   treatment: TREATMENTS,
@@ -61,7 +63,7 @@ const SELECT_OPTIONS: Record<string, SelectOption[]> = {
 }
 
 /** A setting whose value is a word rather than a measurement, so the switch writes that word when it is on. */
-const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS, tagline: 'tagline', [CODE_TEXT_KEY]: CODE_TEXT_ON }
+const TOGGLE_VALUES: Record<string, string> = { 'full-width': 'full-width', [HIDE_MOBILE_KEY]: HIDE_MOBILE_CLASS, [HIDE_DESKTOP_KEY]: HIDE_DESKTOP_CLASS, tagline: 'tagline', [CODE_TEXT_KEY]: CODE_TEXT_ON }
 
 export interface InspectorFieldsProps {
   component: Component
@@ -270,7 +272,12 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
     case 'valign':
       return <AlignField {...shared} axis="vertical" />
     case 'toggle':
-      return <ToggleField {...shared} onValue={TOGGLE_VALUES[field.key] ?? field.key} />
+      return (
+        <>
+          <ToggleField {...shared} onValue={TOGGLE_VALUES[field.key] ?? field.key} />
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+        </>
+      )
     case 'select':
       return (
         <>

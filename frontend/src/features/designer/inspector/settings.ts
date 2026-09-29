@@ -11,7 +11,7 @@
  */
 import type { Component } from 'grapesjs'
 
-import { HIDE_MOBILE_CLASS, isHiddenOnPhones, setCssClass, SHADOW_LEVELS, setShadow, shadowOf } from '../blocks/register'
+import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS, isHiddenOnDesktop, isHiddenOnPhones, setCssClass, SHADOW_LEVELS, setShadow, shadowOf } from '../blocks/register'
 import {
   RECEIPT_BRAND_HEADER_TYPE, RECEIPT_BUTTON_TYPE, RECEIPT_DIVIDER_TYPE, RECEIPT_FOOTER_TYPE, RECEIPT_IMAGE_TYPE, RECEIPT_MARKETING_TYPE,
 } from '../blocks/receiptBlocks'
@@ -23,6 +23,11 @@ import { CODE_TYPE } from '../blocks/codes'
 import { codeFieldsFor, isCodeKey, readCodeSetting, writeCodeSetting } from './codeSettings'
 import { ALT_REQUIRED_HELP, MARKETING_TAGS, SWATCHES, receiptAccessor } from './receiptSettings'
 import { directName, networkOf, ownIconAttributes, socialElementMjml } from './social'
+import {
+  CUSTOM_ALIGN_KEY, CUSTOM_BACKGROUND_KEY, CUSTOM_MARGIN_KEY, CUSTOM_PADDING_KEY, CUSTOM_WIDTH_KEY, isCustomHtmlKey, readCustomHtml, readCustomHtmlMarkup,
+  writeCustomHtml, writeCustomHtmlMarkup,
+} from './customHtmlSettings'
+import { STACKING_HELP, STACKING_KEY, STACKING_LABEL, readStacking, writeStacking } from './stacking'
 
 // one implementation, shared with the colour field: #ABC and #AABBCC both become #aabbcc
 export { normaliseHex }
@@ -85,6 +90,8 @@ const NETWORK_KEY = 'name'
  * than through the attribute map. The key is the panel's own name for it and never reaches the email.
  */
 export const HIDE_MOBILE_KEY = 'cep-hide-on-phones'
+/** the other side of the breakpoint: phones alone show the block */
+export const HIDE_DESKTOP_KEY = 'cep-hide-on-desktop'
 
 // ---------------------------------------------------------------- border: three fields over MJML's one border attribute
 export const BORDER_WIDTH_KEY = 'cep-border-width'
@@ -160,6 +167,7 @@ const LINE_HEIGHT: UnitRule = { units: ['px', '%', ''] }
 export const ATTRIBUTE_RULES: Record<string, Record<string, AttributeRule>> = {
   'mj-body': { width: PX, 'background-color': 'color' },
   'mj-section': { 'background-color': 'color', padding: PADDING, 'border-radius': 'free', 'full-width': 'free', border: 'free' },
+  'mj-raw': { [CUSTOM_WIDTH_KEY]: LENGTH, [CUSTOM_MARGIN_KEY]: PADDING, [CUSTOM_PADDING_KEY]: PADDING, [CUSTOM_BACKGROUND_KEY]: 'color', [CUSTOM_ALIGN_KEY]: 'free' },
   'mj-column': { width: LENGTH, 'background-color': 'color', padding: PADDING, 'vertical-align': 'free', 'border-radius': PADDING, border: 'free' },
   'mj-text': {
     'font-family': 'free', 'font-size': PX, color: 'color', align: 'free', 'line-height': LINE_HEIGHT, padding: PADDING, 'font-weight': 'free',
@@ -196,6 +204,8 @@ export const HTML_HELP = '<table role="presentation" width="100%"><tr><td>…</t
 export const ALT_HELP = "Describe the image for people who can't see it."
 
 export const HIDE_MOBILE_LABEL = 'Hide on Phones'
+export const HIDE_DESKTOP_LABEL = 'Hide on Desktop'
+export const HIDE_DESKTOP_HELP = 'Phones alone show it. Outlook for Windows ignores this and shows it everywhere.'
 
 /** Stacking is MJML's own doing below 480px, so it is something to say, not something to switch. */
 export const STACK_NOTE = 'Columns stack on phones automatically.'
@@ -204,6 +214,11 @@ export const STACK_NOTE = 'Columns stack on phones automatically.'
 export const LAYOUT_NOTES: Record<string, string> = { 'mj-section': STACK_NOTE }
 
 const MARGIN: SettingField = { key: MARGIN_KEY, label: 'Margin', kind: 'padding', section: 'layout', help: MARGIN_HELP }
+/** Who sees the block: on every block, since a design often has a phones-only and a desktop-only version of a part. */
+const VISIBILITY: SettingField[] = [
+  { key: HIDE_MOBILE_KEY, label: HIDE_MOBILE_LABEL, kind: 'toggle', section: 'layout' },
+  { key: HIDE_DESKTOP_KEY, label: HIDE_DESKTOP_LABEL, kind: 'toggle', section: 'layout', help: HIDE_DESKTOP_HELP },
+]
 
 /** Every setting a block offers, in the order the panel shows it. A heading block is an mj-text. */
 export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
@@ -215,7 +230,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'full-width', label: 'Full Width', kind: 'toggle', section: 'layout' },
-    { key: HIDE_MOBILE_KEY, label: HIDE_MOBILE_LABEL, kind: 'toggle', section: 'layout' },
+    { key: STACKING_KEY, label: STACKING_LABEL, kind: 'select', section: 'layout', required: true, help: STACKING_HELP },
+    ...VISIBILITY,
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     ...BORDER_FIELDS,
     SHADOW,
@@ -226,6 +242,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
     { key: 'vertical-align', label: 'Vertical Alignment', kind: 'valign', section: 'layout' },
+    ...VISIBILITY,
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     ...BORDER_FIELDS,
     SHADOW,
@@ -235,6 +252,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
     { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'font-weight', label: 'Font Weight', kind: 'select', section: 'appearance' },
@@ -253,6 +271,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     // a button's MJML padding is the space around it and inner-padding the space inside: Margin and Padding as people read them
     { key: 'padding', label: 'Margin', kind: 'padding', section: 'layout', help: 'Space outside the button.' },
     { key: 'inner-padding', label: 'Padding', kind: 'padding', section: 'layout', help: 'Space inside the button, around its label.' },
+    ...VISIBILITY,
     { key: 'font-family', label: 'Font Family', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Font Size', kind: 'length', section: 'appearance', min: 1 },
     { key: 'background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
@@ -271,6 +290,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'max-height', label: 'Max Height', kind: 'length', section: 'layout', min: 0 },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
     ...BORDER_FIELDS,
     SHADOW,
@@ -281,6 +301,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'align', label: 'Alignment', kind: 'align', section: 'layout' },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
     { key: 'border-color', label: 'Line Color', kind: 'color', section: 'appearance' },
     { key: 'border-width', label: 'Line Width', kind: 'length', section: 'appearance', min: 0 },
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
@@ -289,6 +310,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'height', label: 'Height', kind: 'length', section: 'layout', min: 0 },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
     { key: 'container-background-color', label: 'Background Color', kind: 'color', section: 'appearance' },
   ],
   'mj-social': [
@@ -299,6 +321,7 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'icon-padding', label: 'Icon Padding', kind: 'padding', section: 'layout' },
     MARGIN,
     { key: 'padding', label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
     { key: 'border-radius', label: 'Icon Corner Radius', kind: 'length', section: 'appearance', min: 0 },
     { key: 'font-family', label: 'Label Font', kind: 'select', section: 'appearance' },
     { key: 'font-size', label: 'Label Size', kind: 'length', section: 'appearance', min: 1 },
@@ -320,7 +343,15 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: 'title', label: 'Hover Text', kind: 'text', section: 'content' },
   ],
-  'mj-raw': [{ key: HTML_KEY, label: 'HTML', kind: 'html', section: 'content', help: HTML_HELP }],
+  'mj-raw': [
+    { key: HTML_KEY, label: 'HTML', kind: 'html', section: 'content', help: HTML_HELP },
+    { key: CUSTOM_WIDTH_KEY, label: 'Width', kind: 'length', section: 'layout', min: 0, help: 'Of the column or the email it sits in; empty is the full width.' },
+    { key: CUSTOM_ALIGN_KEY, label: 'Alignment', kind: 'align', section: 'layout' },
+    { key: CUSTOM_MARGIN_KEY, label: 'Margin', kind: 'padding', section: 'layout', help: 'Space outside the block.' },
+    { key: CUSTOM_PADDING_KEY, label: 'Padding', kind: 'padding', section: 'layout' },
+    ...VISIBILITY,
+    { key: CUSTOM_BACKGROUND_KEY, label: 'Background Color', kind: 'color', section: 'appearance' },
+  ],
 
   // E-Receipt: each block offers only the choices a receipt allows (receiptSettings.ts reads and writes them)
   [RECEIPT_BRAND_HEADER_TYPE]: [
@@ -547,8 +578,11 @@ export function readSetting(component: Component, key: string): string | null {
     if (split?.margin) return shorthand(split.padding ?? { ...EMPTY_PADDING }) ?? shorthand(ZERO_PADDING)
   }
   if (key === LABEL_KEY) return textOf(component)
-  if (key === HTML_KEY) return innerHtmlOf(component)
+  if (key === HTML_KEY) return blockType(component) === 'mj-raw' ? readCustomHtmlMarkup(component) : innerHtmlOf(component)
+  if (isCustomHtmlKey(key)) return blockType(component) === 'mj-raw' ? readCustomHtml(component, key) : null
+  if (key === STACKING_KEY) return blockType(component) === 'mj-section' ? readStacking(component) : null
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
+  if (key === HIDE_DESKTOP_KEY) return isHiddenOnDesktop(component) ? HIDE_DESKTOP_CLASS : null
   if (key === SHADOW_KEY) return shadowOf(component)
   if (BORDER_KEYS.includes(key)) return borderPart(borderOf(component), key)
   if (key === NETWORK_KEY && isSocialIcon(component)) return networkOf(String(component.getAttributes()[key] ?? ''))
@@ -581,7 +615,7 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
   // hiding on phones, a margin, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === MARGIN_KEY || key === SHADOW_KEY || BORDER_KEYS.includes(key) || isCodeKey(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY || key === MARGIN_KEY || key === SHADOW_KEY || key === STACKING_KEY || isCustomHtmlKey(key) || BORDER_KEYS.includes(key) || isCodeKey(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
   return readInherited(component, key, wrapper)
 }
 
@@ -632,12 +666,15 @@ export function writeSetting(component: Component, key: string, value: string | 
   }
   // markup, not words: the reader asked for HTML, and the server refuses scripts and handlers on save
   if (key === HTML_KEY) {
-    component.components(value ?? '')
+    if (blockType(component) === 'mj-raw') writeCustomHtmlMarkup(component, value)
+    else component.components(value ?? '')
     return true
   }
+  if (isCustomHtmlKey(key)) return blockType(component) === 'mj-raw' && writeCustomHtml(component, key, value)
+  if (key === STACKING_KEY) return blockType(component) === 'mj-section' && writeStacking(component, value)
   // the class list, never the attribute map: every other class on the block, the footer's included, stays put
-  if (key === HIDE_MOBILE_KEY) {
-    setCssClass(component, HIDE_MOBILE_CLASS, value !== null)
+  if (key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY) {
+    setCssClass(component, key === HIDE_MOBILE_KEY ? HIDE_MOBILE_CLASS : HIDE_DESKTOP_CLASS, value !== null)
     return true
   }
   if (isCodeKey(key)) return writeCodeSetting(component, key, value)

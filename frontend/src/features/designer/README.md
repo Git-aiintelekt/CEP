@@ -75,3 +75,18 @@ first in a string. The picture on the canvas is the source tag's sample value dr
 stand-in: `/dev/designer` offers the blocks with a stand-in sampler (`?codes=off` hides them), and a network failure
 falls back to it too. A sample the format cannot carry, or the feature switched off, is said above the fields
 (`cep-code-problem`).
+
+## Raw blocks, Custom HTML layout, device visibility and phone stacking (2026-09-29)
+
+- `blocks/rawPlacement.ts`: an `mj-raw` (Custom HTML) and a `cep-code` block may be dragged into the body, a column, a
+  wrapper or a hero — the plugin's own rule was body or head. Both refuse drops into themselves. `allowChildIn` adds a
+  child type to a parent whose `droppable` is a list; a parent that takes anything (a column) is left alone.
+- `inspector/customHtmlSettings.ts`: a Custom HTML block's layout is a wrapper table in its markup, never an MJML
+  attribute. `customHtmlOf` parses it, `wrap` writes it, and `readSetting`/`writeSetting` route the `cep-html-*` keys
+  and the HTML field through it for an `mj-raw`. Defaults (centred, full width) are not stored, so an untouched block
+  keeps the markup it was given.
+- Visibility: `HIDE_DESKTOP_CLASS` / `HIDE_DESKTOP_RULE` / `syncHideDesktopStyle` twin the phone ones in
+  `blocks/register.ts`; `canvasSkin.paintPhoneWidth` paints `data-cep-phone` or `data-cep-desktop`, and the skin hides
+  each class under its attribute. The `VISIBILITY` pair sits last in every block's Layout group.
+- `inspector/stacking.ts`: `readStacking` (an `mj-group` child = keep; `direction="rtl"` = reverse) and `writeStacking`,
+  which always returns to plain stacking first and then wraps or reverses. Columns are moved with `Component.move`, never copied.

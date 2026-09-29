@@ -198,3 +198,30 @@ What changed across the app, page by page, after the feature review:
   This message is 5 parts instead of 2.") and that carriers deliver them. A curly quote or a long dash is still named
   by its code, with Use Plain Punctuation beside it, because those are usually pasted in by accident
   (`messaging/MessageWorkspace.tsx`, `messaging/sms.ts`).
+
+## 10. Designer: drops into columns, Custom HTML layout, device visibility, phone stacking (2026-09-29)
+
+- **Custom HTML and the code blocks into a column.** The MJML plugin lets an `mj-raw` be dragged into the body or the
+  head only, and a block that extends it inherits that, so Custom HTML could only sit between sections and the barcode
+  and QR code blocks (a type of their own, which no parent's list named) could not be dropped anywhere — Enter on the
+  palette tile was the only way in, and it bypasses the rules. `blocks/rawPlacement.ts` names the parents MJML
+  itself accepts (body, column, wrapper, hero) on both types, closes them to drops (`droppable: false`: their markup
+  is the panel's), and adds the code type to each parent that lists its children.
+- **Custom HTML: Width, Alignment, Margin, Padding, Background Color** (`inspector/customHtmlSettings.ts`). MJML gives
+  an `mj-raw` no attributes, so these live in a wrapper table inside the block's own markup (`class="cep-html"`: the
+  outer cell carries margin and alignment, the inner table the width, the inner cell padding and background). The
+  HTML field edits what is inside; a block without settings stays exactly as typed, and clearing every setting takes
+  the wrapper away again. Centred and full width are the defaults and are never stored.
+- **Hide on Phones and Hide on Desktop on every block** (before: Hide on Phones, sections only). Hide on Desktop is
+  the same mechanism the other side of the breakpoint: class `cep-hide-desktop` and one `mj-style` in the head kept in
+  sync (`syncHideDesktopStyle`), mirrored in the canvas through a `data-cep-desktop` attribute painted beside the
+  phone one. Outlook for Windows and Windows Mail ignore media queries and show a phones-only block; the toggle says
+  so. Layers and the breadcrumb mark both.
+- **On Phones, on a section** (`inspector/stacking.ts`): *Stack, Left First* (MJML's own), *Keep Side by Side* (the
+  columns wrapped in an `mj-group`, MJML's way of holding columns together on a narrow screen — a menu bar), *Stack,
+  Right First* (`direction="rtl"` on the section with the columns stored right to left: desktop unchanged, a phone
+  stacks the right column first; MJML sets `direction:ltr` on each column, so the words inside stay left to right).
+  Layers lists the columns in stored order, so a right-first section reads right to left there.
+- **Enter on a Custom HTML or code tile follows the selection** the way a drag now can: into the chosen column, after
+  a chosen block inside one, otherwise beside the sections as before (`blocks/dropLevel.ts` level `raw`,
+  `blocks/insertTarget.ts`).
