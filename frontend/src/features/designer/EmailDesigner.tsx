@@ -20,6 +20,7 @@ import { EDITOR_BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
 
 import { BlockPalette } from './BlockPalette'
+import { paintGroupColumns } from './canvas/groupPreview'
 import { canvasSkin, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
 import { lockEditor } from './readOnly'
 import { Breadcrumb, type Crumb } from './canvas/Breadcrumb'
@@ -569,6 +570,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       syncShadowStyle(editor)
     }
     for (const event of ['update', 'undo', 'redo']) editor.on(event, syncHeadRules)
+    // a group made, undone or given other widths: the columns' shares on the phone canvas follow the model
+    const repaintGroups = () => { for (const frame of editor.Canvas.getFrames()) paintGroupColumns(frame.view?.getDoc()) }
+    for (const event of ['update', 'undo', 'redo']) editor.on(event, repaintGroups)
 
     editor.on('device:select', () => {
       setView((was) => ({ ...was, device: editor.getDevice() }))

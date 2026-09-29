@@ -272,10 +272,12 @@ test('a shadow is one class among three, and its rule follows the blocks into th
 // ---- the same, the other side of the breakpoint ---------------------------
 
 test('hide on desktop is its own class with its own rule, kept in mj-head the same way', () => {
-  expect(HIDE_DESKTOP_RULE).toContain(`.${HIDE_DESKTOP_CLASS}`)
-  expect(HIDE_DESKTOP_RULE).toContain('min-width:481px')
-  expect(HIDE_DESKTOP_RULE).toContain('display:none!important')
-  expect(HIDE_DESKTOP_RULE).not.toContain('inline')
+  expect(HIDE_DESKTOP_RULE.startsWith(`.${HIDE_DESKTOP_CLASS}{display:none!important;mso-hide:all!important;}`)).toBe(true)   // hidden everywhere first: Outlook reads this
+  expect(HIDE_DESKTOP_RULE).toContain('@media only screen and (max-width:480px)')                                            // then shown on a phone
+  expect(HIDE_DESKTOP_RULE).toContain(`td.${HIDE_DESKTOP_CLASS}{display:table-cell!important;}`)
+  expect(HIDE_DESKTOP_RULE).toContain(`div.${HIDE_DESKTOP_CLASS}[class*="mj-column-per"]{display:inline-block!important;}`)
+  expect(HIDE_DESKTOP_RULE).not.toContain('min-width')
+  expect(HIDE_DESKTOP_RULE).not.toContain('inline=')
 
   const text = make('mj-text', { 'css-class': HIDE_MOBILE_CLASS })
   expect(isHiddenOnDesktop(asComponent(text))).toBe(false)

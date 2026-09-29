@@ -74,10 +74,22 @@ export const HIDE_MOBILE_RULE = `@media only screen and (max-width:480px){.${HID
 export const HIDE_DESKTOP_CLASS = 'cep-hide-desktop'
 
 /**
- * Outlook for Windows and Windows Mail ignore media queries, so they show a phones-only block as if it were not
- * hidden; Apple Mail, iOS, the Gmail apps, Gmail on the web and Outlook.com hide it. The panel says so.
+ * The other way round from the phones rule: hidden EVERYWHERE by default and revealed on a phone, so a client that ignores
+ * media queries (Outlook for Windows, Windows Mail) hides the block rather than shows it. mso-hide:all is Outlook's own
+ * hiding property, which its Word engine honours from a class rule. The reveal restores the display MJML gave each
+ * element: a section's div is block, a column's or group's div inline-block, a text / image / button / divider /
+ * spacer / social cell table-cell, a Custom HTML block's wrapper table (see customHtmlSettings) table. A phone app that
+ * ignores media queries (Gmail with a non-Google account) hides the block too: the right failure for phones-only content.
  */
-export const HIDE_DESKTOP_RULE = `@media only screen and (min-width:481px){.${HIDE_DESKTOP_CLASS}{display:none!important;max-height:0!important;overflow:hidden!important;font-size:0!important;line-height:0!important;}}`
+export const HIDE_DESKTOP_RULE = [
+  `.${HIDE_DESKTOP_CLASS}{display:none!important;mso-hide:all!important;}`,
+  `@media only screen and (max-width:480px){`,
+  `div.${HIDE_DESKTOP_CLASS}{display:block!important;}`,
+  `div.${HIDE_DESKTOP_CLASS}[class*="mj-column-per"]{display:inline-block!important;}`,
+  `td.${HIDE_DESKTOP_CLASS}{display:table-cell!important;}`,
+  `table.${HIDE_DESKTOP_CLASS}{display:table!important;}`,
+  `}`,
+].join('')
 
 /**
  * A drop shadow is a class plus one mj-style rule, like hiding on phones: MJML has no shadow attribute. Apple Mail,

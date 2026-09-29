@@ -87,9 +87,15 @@ falls back to it too. A sample the format cannot carry, or the feature switched 
   keeps the markup it was given.
 - Visibility: `HIDE_DESKTOP_CLASS` / `HIDE_DESKTOP_RULE` / `syncHideDesktopStyle` twin the phone ones in
   `blocks/register.ts`; `canvasSkin.paintPhoneWidth` paints `data-cep-phone` or `data-cep-desktop`, and the skin hides
-  each class under its attribute. The `VISIBILITY` pair sits last in every block's Layout group.
+  each class under its attribute. The `VISIBILITY` pair sits last in every block's Layout group. The desktop rule is
+  hidden-by-default + a phone reveal (Outlook has no media queries but honours `mso-hide:all`); the reveal restores
+  the display per element, so `hideDesktop.test.ts` compiles every block type and checks which element carries the
+  class. An `mj-raw` loses its css-class in MJML: the Custom HTML wrapper carries the visibility classes instead.
 - `inspector/stacking.ts`: `readStacking` (an `mj-group` child = keep; `direction="rtl"` = reverse) and `writeStacking`,
   which always returns to plain stacking first and then wraps or reverses. Columns are moved with `Component.move`, never copied.
 - `inspector/linkStyle.ts`: a link inside a text block gets Link Color and Underline, written into the link's own `style`
   attribute (the plugin keeps inline styles there and exports them inline; `getStyle()` mirrors it, undo restores it). A
   rewritten declaration keeps its place, a new one goes last, the attribute goes with the last declaration.
+- `canvas/groupPreview.ts`: a group's columns keep their share on the phone canvas; `paintGroupColumns` runs with
+  `paintPhoneWidth` and after every model change, painting `--cep-group-width` on the frame's DOM, which the skin
+  applies under `[data-cep-phone]`. Never on the model.
