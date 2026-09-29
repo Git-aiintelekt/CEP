@@ -53,6 +53,7 @@ test('the body takes the receipt blocks as well as everything it already took', 
   expect(droppable).toContain('[data-gjs-type="mj-section"]')
   expect(droppable).toContain('[data-gjs-type="mj-raw"]')
   for (const type of RECEIPT_BLOCK_TYPES) expect(droppable).toContain(`[data-gjs-type="${type}"]`)
+  expect(droppable).toContain('[data-gjs-type="cep-code"]')                   // the barcode and QR code blocks can land between the sections
 })
 
 test('each type claims only a section carrying its own class', () => {

@@ -9,6 +9,7 @@
 import type { Component, Editor } from 'grapesjs'
 
 import { ASSET_IMAGE_TOKEN, BRAND, BUTTON_RADIUS, RECEIPT_SWATCHES } from './brand'
+import { CODE_TYPE } from './codes'
 import { RECEIPT_SLOT_TYPE, makeInert } from './receiptSlot'
 import type { CepBlock } from './types'
 
@@ -184,5 +185,6 @@ export function registerReceiptBlockTypes(editor: Editor, { channel }: { channel
   const defaults = (typeof body?.defaults === 'function' ? body.defaults() : body?.defaults) as { droppable?: unknown } | undefined
   const accepted = typeof defaults?.droppable === 'string' ? defaults.droppable : PLUGIN_BODY_CHILDREN
   const receipt = RECEIPT_BLOCK_TYPES.map((type) => `[data-gjs-type="${type}"]`).join(', ')
-  editor.Components.addType('mj-body', { model: { defaults: { droppable: `${accepted}, ${receipt}` } } })
+  // the barcode and QR code blocks are a type of their own, so the plugin's mj-raw rule does not let them in
+  editor.Components.addType('mj-body', { model: { defaults: { droppable: `${accepted}, ${receipt}, [data-gjs-type="${CODE_TYPE}"]` } } })
 }

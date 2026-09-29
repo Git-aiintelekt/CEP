@@ -176,3 +176,25 @@ What changed across the app, page by page, after the feature review:
   never while typing in a field); Home says what to do when there are no campaigns yet.
 - **Phones:** the tables that matter to a manager checking in (campaigns, a campaign's Overview and Performance, the
   Integrations log) stack into cards below 768px through `DataTable`; the campaigns list has its own card layout.
+
+## 9. Designer fixes of 2026-09-29
+
+- **Barcode and QR code blocks in a receipt:** they were listed in the receipt palette but could not be dropped anywhere.
+  A receipt's body accepts the plugin's own block types and the receipt sections; the code block is a type of its own
+  (`cep-code`), so it is now named in that rule too (`blocks/receiptBlocks.ts`). It lands between the sections, as the
+  receipt blocks do.
+- **Choose an Image:** an upload from the dialog went straight into the block, and the flag that arranged that was only
+  cleared when the upload succeeded, so after a cancel or a failed upload the *next* upload from anywhere landed in
+  whichever block was selected; with several files at once, whichever finished first was used. Now one file goes
+  straight into the block, several are kept in the library to pick from, and closing the dialog or a failed upload
+  clears the flag (`EmailDesigner.tsx`, `assets/ImagePicker.tsx`).
+- **Social Links, TikTok:** MJML's icon set has no TikTok, so the designer serves the icon itself
+  (`frontend/public/social-icons/tiktok.png`, a white glyph on transparent, like MJML's) and writes it on the element
+  as a full address with the network's colour behind it (`inspector/social.ts`, `OWN_ICONS`). Choosing TikTok for an
+  existing icon writes the same; choosing a network MJML draws again drops them. To use the official mark, replace
+  the PNG; keep it square, white on transparent. Any further network goes in `OWN_ICONS` the same way.
+- **Texts, emoji:** the note under a message with emoji named each one by its code point as though it were a fault. It
+  now says what they cost ("Emoji (💳) make this a Unicode message, so each part holds 70 characters instead of 160.
+  This message is 5 parts instead of 2.") and that carriers deliver them. A curly quote or a long dash is still named
+  by its code, with Use Plain Punctuation beside it, because those are usually pasted in by accident
+  (`messaging/MessageWorkspace.tsx`, `messaging/sms.ts`).

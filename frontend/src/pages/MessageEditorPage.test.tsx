@@ -110,3 +110,21 @@ test('an email template is pointed to the email designer instead', async () => {
   expect(await screen.findByText('This is not a text message template')).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Open the Email Designer' }).getAttribute('href')).toBe('/templates/tpl-email/design')
 })
+
+test('SMS: emoji are named as a cost, not a fault; a stray curly quote is still named by its code', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/templates/tpl-sms/message')
+  const body = (await screen.findByLabelText('Message')) as HTMLTextAreaElement
+  await user.clear(body)
+  await user.click(body)
+  await user.paste('Payment received 💳 Thank you for shopping with Northwind, your order is on its way. Reply STOP to opt out.')
+  expect(counter()).toContain('UCS-2')
+  expect(screen.getByText('Emoji (💳) make this a Unicode message, so each part holds 70 characters instead of 160. This message is 2 parts instead of 1. Every carrier delivers emoji; they just cost more parts.')).toBeTruthy()
+  expect(screen.queryByText(/outside the standard SMS alphabet/)).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Use Plain Punctuation' })).toBeNull()                             // nothing to make plain: emoji are meant
+
+  await user.paste(' ’')
+  expect(screen.getByText(/’ \(U\+2019\) is outside the standard SMS alphabet/)).toBeTruthy()                     // the quote is named; the emoji note stays
+  expect(screen.getByText(/^Emoji \(💳\) make this a Unicode message/)).toBeTruthy()
+})

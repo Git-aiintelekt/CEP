@@ -3,9 +3,18 @@
  * network's sharer URL — while "facebook-noshare" links straight to the href. A social block in an email points at the
  * brand's own profiles, so the designer writes the direct form and reads either.
  */
+import { absoluteUrl } from '../assets/assetAction'
 import type { SelectOption } from './fields/options'
 
 export const NOSHARE = '-noshare'
+
+/**
+ * Networks MJML has no icon for. The designer serves the icon itself (frontend/public) and writes it on the element,
+ * with the network's colour behind it: MJML's icons are white glyphs on a transparent PNG, and so are these.
+ */
+export const OWN_ICONS: Record<string, { src: string; background: string }> = {
+  tiktok: { src: '/social-icons/tiktok.png', background: '#000000' },
+}
 
 /** MJML has a sharer URL for these; the rest link directly whichever form is written. */
 const SHARES = new Set(['facebook', 'twitter', 'x', 'google', 'pinterest', 'linkedin', 'tumblr', 'xing'])
@@ -13,6 +22,7 @@ const SHARES = new Set(['facebook', 'twitter', 'x', 'google', 'pinterest', 'link
 export const SOCIAL_NETWORKS: SelectOption[] = [
   { value: 'facebook', label: 'Facebook' },
   { value: 'instagram', label: 'Instagram' },
+  { value: 'tiktok', label: 'TikTok' },
   { value: 'x', label: 'X' },
   { value: 'twitter', label: 'Twitter' },
   { value: 'linkedin', label: 'LinkedIn' },
@@ -50,7 +60,15 @@ export function networkLabel(name: string | null | undefined): string | null {
   return SOCIAL_NETWORKS.find((option) => option.value === network)?.label ?? network.charAt(0).toUpperCase() + network.slice(1)
 }
 
+/** The attributes an icon of our own needs on its element; nothing for a network MJML draws itself. */
+export function ownIconAttributes(network: string | null | undefined): { src: string; 'background-color': string } | null {
+  const own = OWN_ICONS[networkOf(network) ?? '']
+  return own ? { src: absoluteUrl(own.src), 'background-color': own.background } : null
+}
+
 /** A new icon for a social block: no address yet, so the Links pill asks for one. */
 export function socialElementMjml(network: string): string {
-  return `<mj-social-element name="${directName(network)}" href=""></mj-social-element>`
+  const own = ownIconAttributes(network)
+  const extra = own ? ` src="${own.src}" background-color="${own['background-color']}"` : ''
+  return `<mj-social-element name="${directName(network)}" href=""${extra}></mj-social-element>`
 }

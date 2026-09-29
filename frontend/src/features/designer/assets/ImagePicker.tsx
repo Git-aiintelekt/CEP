@@ -11,7 +11,7 @@ import { AssetGrid } from './AssetGrid'
 import { UploadButton } from './UploadButton'
 
 export const PICKER_TITLE = 'Choose an Image'
-export const PICKER_HELP = 'Pick one from the library, or upload a new one. An upload is kept in the library.'
+export const PICKER_HELP = 'Pick one from the library, or upload. One upload goes straight into the block; several are kept in the library to pick from.'
 export const PICKER_CANCEL = 'Cancel'
 
 interface ImagePickerProps {

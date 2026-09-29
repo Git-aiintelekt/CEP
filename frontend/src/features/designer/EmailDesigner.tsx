@@ -348,7 +348,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
   // the Tags tab: the caret as it was when the reader first pressed inside the panel
   const tagsPanel = useRef<TagsPanelHandle>(null)
   const panelCaret = useRef<CaretTarget | null>(null)
-  // set while the dialog's own upload is in flight, so the file that arrives goes straight into that block
+  // set while the dialog's own single upload is in flight, so the file that arrives goes straight into that block;
+  // cleared when the dialog closes or the upload fails, so no later upload lands in a block nobody chose it for
   const applyNextUpload = useRef(false)
   // set when a picture block was dragged out of the palette, so the drop it lands in asks for a picture
   const askAfterDrop = useRef(false)
@@ -901,6 +902,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
 
   /** Closing without a picture: a block the drop had just made goes with it, rather than standing in for one. */
   const cancelPicking = useCallback(() => {
+    applyNextUpload.current = false
     pickingRef.current?.added?.remove()
     setPicking(null)
   }, [])
@@ -916,10 +918,13 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
           sayRef.current(`${asset.name} uploaded.`)
           if (applyNextUpload.current) {
             applyNextUpload.current = false
-            applyPicked(asset)
+            if (pickingRef.current) applyPicked(asset)
           }
         })
-        .catch((error: unknown) => latest.current.onError(error instanceof Error ? error.message : 'Upload failed'))
+        .catch((error: unknown) => {
+          applyNextUpload.current = false
+          latest.current.onError(error instanceof Error ? error.message : 'Upload failed')
+        })
         .finally(() => setUploading((names) => removeFirst(names, file.name)))
     }
   }, [applyPicked])
@@ -1248,7 +1253,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
           assets={library}
           uploading={uploading}
           onUpload={(files) => {
-            applyNextUpload.current = true
+            applyNextUpload.current = files.length === 1     // several files are kept in the library to pick from
             uploadFiles(files)
           }}
           onChoose={applyPicked}
