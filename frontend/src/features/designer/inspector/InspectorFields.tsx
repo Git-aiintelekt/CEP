@@ -33,6 +33,7 @@ import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
 import { forbiddenIn } from '../canvas/codeChecks'
 import { SOCIAL_NETWORKS } from './social'
 import { STACKING_KEY, STACKING_OPTIONS } from './stacking'
+import { LINK_UNDERLINE_KEY, UNDERLINE_OPTIONS } from './linkStyle'
 import { createSettingBinder } from './useSettingBinding'
 import { BUTTON_STYLES, DESTINATIONS, RATIOS, TREATMENTS, receiptCallout } from './receiptSettings'
 import { CODE_OPTIONS, CODE_SOURCE_KEY, CODE_TEXT_KEY, CODE_TEXT_ON, sourceOptions } from './codeSettings'
@@ -56,6 +57,7 @@ const SELECT_OPTIONS: Record<string, SelectOption[]> = {
   mode: SOCIAL_MODES,
   name: SOCIAL_NETWORKS,
   [STACKING_KEY]: STACKING_OPTIONS,
+  [LINK_UNDERLINE_KEY]: UNDERLINE_OPTIONS,
   destination: DESTINATIONS,
   'button-style': BUTTON_STYLES,
   treatment: TREATMENTS,

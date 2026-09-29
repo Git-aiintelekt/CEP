@@ -74,6 +74,7 @@ UNFOLD = {
                 _link("Global parameters", "tune", "platform_ops_platformsetting"),
                 _link("Mail server", "outgoing_mail", "platform_ops_mailserver"),
                 _link("Industry profiles", "category", "platform_ops_industryprofile"),
+                _link("Personalization tags", "sell", "platform_ops_platformpersonalizationtag"),
                 _link("Permission catalogue", "key", "identity_permission"),
             ]},
             {"title": "Operations", "separator": True, "items": [

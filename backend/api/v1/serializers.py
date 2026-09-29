@@ -407,6 +407,7 @@ class PersonalizationTagSerializer(TenantModelSerializer):
     class Meta(TenantModelSerializer.Meta):
         model = PersonalizationTag
         fields = "__all__"
+        read_only_fields = (*AUDIT_FIELDS, "platform_tag_id")   # the link to the platform catalogue is the platform's
 
 
 class MePrincipalSerializer(serializers.Serializer):

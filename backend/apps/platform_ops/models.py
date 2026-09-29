@@ -281,3 +281,39 @@ class MailServer(models.Model):
 
     def __str__(self):
         return f"{self.tenant.code if self.tenant_id else 'Platform'}: {self.host or 'shared platform server'}"
+
+
+def _every_channel():
+    return ['EMAIL', 'E_RECEIPT', 'SMS', 'MMS']
+
+
+class PlatformPersonalizationTag(models.Model):
+    """The installation's tag catalogue (patch 0026): kept in the back-office, copied into every workspace (apps/templates/inherit.py)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tag_key = models.CharField(max_length=100, unique=True)
+    label = models.CharField(max_length=150)
+    tag_kind = models.CharField(max_length=20, default='STANDARD')
+    source_system = models.CharField(max_length=40, default='CEP')
+    resolution_source = models.CharField(max_length=30)
+    source_path = models.CharField(max_length=200, null=True, blank=True)
+    static_value = models.TextField(null=True, blank=True)
+    default_value = models.TextField(null=True, blank=True)
+    format_spec = models.CharField(max_length=60, null=True, blank=True)
+    data_type = models.CharField(max_length=20, default='STRING')
+    applies_to_channels = ArrayField(models.TextField(), default=_every_channel)
+    description = models.TextField(null=True, blank=True)
+    sample_value = models.TextField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'platform_personalization_tag'
+        verbose_name = 'personalization tag'
+        verbose_name_plural = 'personalization tags'
+
+    def __str__(self):
+        return '{{' + self.tag_key + '}}'

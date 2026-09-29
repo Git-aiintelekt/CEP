@@ -225,3 +225,8 @@ What changed across the app, page by page, after the feature review:
 - **Enter on a Custom HTML or code tile follows the selection** the way a drag now can: into the chosen column, after
   a chosen block inside one, otherwise beside the sections as before (`blocks/dropLevel.ts` level `raw`,
   `blocks/insertTarget.ts`).
+- **A link inside a text block: Link Color and Underline** (`inspector/linkStyle.ts`). Both live in the link's own
+  `style` attribute, which is what the email carries and what the canvas paints; other declarations on the link are left
+  as they are, and the attribute goes when the last one does. Underline offers *Default (underlined)*, *No Underline*
+  and *Underlined* (to override an inherited none). Before this, a link took the email app's blue underline with no way
+  to change it from the panel.

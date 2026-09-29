@@ -14,7 +14,7 @@ from unfold.widgets import UnfoldAdminSelectMultipleWidget, UnfoldAdminSelectWid
 from apps.adminutils import BaseAdmin, ReadOnlyAdmin, register_app_models
 
 from . import billing, crypto, mail, params, tenant_ops
-from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformSetting, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
+from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
                      TenantOperation)
 
 P = settings.PLATFORM_ALIAS
@@ -445,6 +445,125 @@ class MailServerAdmin(BaseAdmin):
         else:
             messages.error(request, f"The test failed: {error}")
         return redirect("admin:platform_ops_mailserver_change", object_id)
+
+
+
+
+# ---------------------------------------------------------------- personalization tags (patch 0026)
+from apps.templates import datapoints, inherit  # noqa: E402  the catalogue's data points and the push into workspaces
+
+CHANNELS = (("EMAIL", "Email"), ("E_RECEIPT", "E-Receipt"), ("SMS", "SMS"), ("MMS", "MMS"))
+DATA_TYPES = (("STRING", "Text"), ("NUMBER", "Number"), ("DATE", "Date"), ("BOOLEAN", "Yes / No"))
+TAG_KINDS = (("STANDARD", "Standard"), ("CUSTOM", "Custom"), ("SYSTEM", "System"))
+
+
+class PlatformPersonalizationTagForm(forms.ModelForm):
+    """A tag is a key, a label and a data point: where the value comes from, chosen from what each source offers."""
+    data_point = forms.ChoiceField(label="Data point", choices=datapoints.choices, widget=UnfoldAdminSelectWidget,
+                                   help_text="Where the value comes from. For a customer attribute or a column from a list upload, pick the typed entry and complete the path below.")
+    source_path = forms.CharField(label="Path", required=False, widget=UnfoldAdminTextInputWidget,
+                                  help_text="Only for a typed data point: custom_attributes.<key> or custom_value_pairs.<column>.")
+    applies_to_channels = forms.MultipleChoiceField(label="Offered in", choices=CHANNELS, widget=UnfoldAdminSelectMultipleWidget, initial=[c for c, _ in CHANNELS])
+    data_type = forms.ChoiceField(choices=DATA_TYPES, widget=UnfoldAdminSelectWidget)
+    tag_kind = forms.ChoiceField(label="Kind", choices=TAG_KINDS, widget=UnfoldAdminSelectWidget)
+
+    class Meta:
+        model = PlatformPersonalizationTag
+        fields = ("tag_key", "label", "tag_kind", "data_point", "source_path", "static_value", "default_value", "format_spec", "data_type",
+                  "applies_to_channels", "sample_value", "description", "is_active")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        tag = self.instance
+        if tag and tag.pk:
+            source, path = tag.resolution_source, tag.source_path or ""
+            fixed = datapoints.data_type_of(source, path) is not None
+            prefix = next((known for known, _, _ in datapoints.DATA_POINTS.get(source, []) if datapoints.is_prefix(known) and path.startswith(known)), None)
+            self.fields["data_point"].initial = datapoints.STATIC_POINT if source == "STATIC" else datapoints.point_id(source, path if fixed else (prefix or path))
+            self.fields["source_path"].initial = "" if fixed or source == "STATIC" else path
+
+    def clean_tag_key(self):
+        key = (self.cleaned_data["tag_key"] or "").strip().strip("{}").strip()
+        if not key.replace("_", "").isalnum() or not key[:1].isalpha() or key != key.lower():
+            raise forms.ValidationError("Lower-case letters, digits and underscores, starting with a letter: the word inside {{ }}.")
+        return key
+
+    def clean(self):
+        data = super().clean()
+        source, point = datapoints.split_point(data.get("data_point") or "")
+        typed = (data.get("source_path") or "").strip()
+        path = typed if datapoints.is_prefix(point) or (point == "" and source != "STATIC") else point
+        if datapoints.is_prefix(point) and typed and not typed.startswith(point):
+            path = point + typed                                       # they typed the key alone: complete it
+        if source == "STATIC":
+            path = ""
+        found = datapoints.problem(source, path, data.get("static_value"))
+        if found:
+            self.add_error("source_path" if source != "STATIC" else "static_value", found)
+        data["resolution_source"], data["source_path"] = source, path or None
+        if source != "STATIC":
+            data["static_value"] = None
+        return data
+
+    def save(self, commit=True):
+        self.instance.resolution_source = self.cleaned_data["resolution_source"]
+        self.instance.source_path = self.cleaned_data["source_path"]
+        self.instance.static_value = self.cleaned_data.get("static_value")
+        return super().save(commit)
+
+
+@admin.register(PlatformPersonalizationTag)
+class PlatformPersonalizationTagAdmin(BaseAdmin):
+    """The installation's tag catalogue. Every workspace inherits a copy of each active tag; saving one pushes the change to all of them."""
+    form = PlatformPersonalizationTagForm
+    list_display = ("show_key", "label", "show_source", "data_type", "show_channels", "is_active", "show_workspaces", "updated_at")
+    list_filter = ("resolution_source", "tag_kind", "is_active")
+    search_fields = ("tag_key", "label", "source_path", "description")
+    ordering = ("tag_key",)
+    actions = ("push_to_workspaces",)
+    fieldsets = (
+        (None, {"fields": ("tag_key", "label", "tag_kind", "is_active")}),
+        ("Where the value comes from", {"fields": ("data_point", "source_path", "static_value", "default_value", "data_type", "format_spec"),
+                                        "description": "At send time: the data point, else the person's uploaded columns, else the customer's attributes, else the default value. format_spec is a date or number pattern."}),
+        ("In the designer", {"fields": ("applies_to_channels", "sample_value", "description"),
+                             "description": "The sample value is what previews and the SMS counter show; the description is the tag's help in the Tags panel."}),
+    )
+
+    def get_readonly_fields(self, request, obj=None):
+        return ("tag_key",) if obj else ()
+
+    @display(description="Tag")
+    def show_key(self, obj):
+        return "{{" + obj.tag_key + "}}"
+
+    @display(description="Data point")
+    def show_source(self, obj):
+        name = datapoints.SOURCES.get(obj.resolution_source, obj.resolution_source)
+        return f"{name}: {obj.static_value}" if obj.resolution_source == "STATIC" else f"{name}: {obj.source_path or ''}"
+
+    @display(description="Offered in")
+    def show_channels(self, obj):
+        return ", ".join(dict(CHANNELS).get(c, c) for c in obj.applies_to_channels or [])
+
+    @display(description="Workspaces")
+    def show_workspaces(self, obj):
+        return inherit.workspaces_using(obj.pk, using=settings.PLATFORM_ALIAS)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        outcomes = inherit.push_platform_tag(obj, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)
+        messages.success(request, f"{{{{{obj.tag_key}}}}} saved and applied to every workspace: {inherit.summary(outcomes)}.")
+
+    def delete_model(self, request, obj):
+        released = inherit.workspaces_using(obj.pk, using=settings.PLATFORM_ALIAS)
+        super().delete_model(request, obj)
+        messages.warning(request, f"Deleted. {released} workspace copies are now the workspaces' own tags: switch a tag off instead when it should disappear everywhere.")
+
+    @action(description="Apply to every workspace again")
+    def push_to_workspaces(self, request, queryset):
+        for tag in queryset:
+            outcomes = inherit.push_platform_tag(tag, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)
+            messages.success(request, f"{{{{{tag.tag_key}}}}}: {inherit.summary(outcomes)}.")
 
 
 register_app_models(__package__)

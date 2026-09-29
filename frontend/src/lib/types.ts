@@ -814,6 +814,8 @@ export interface PersonalizationTag {
   default_value: string | null
   static_value: string | null
   is_active: boolean
+  /** inherited from the platform catalogue: the back-office changes it, the workspace cannot */
+  platform_tag_id?: string | null
 }
 
 export interface DesignFindings {
