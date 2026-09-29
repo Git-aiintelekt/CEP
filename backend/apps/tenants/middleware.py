@@ -4,7 +4,7 @@ from django.db import connections, transaction
 from django.http import JsonResponse
 
 from apps.tenants import context
-from apps.tenants.resolver import resolve_tenant
+from apps.tenants.resolver import PUBLIC_LINK_PREFIXES, resolve_tenant
 
 EXEMPT_PREFIXES = ("/healthz", "/admin/", "/static/", "/media/", "/api/v1/schema", "/api/v1/docs", "/api/v1/redoc", "/api/v1/public/barcode/",
                    "/api/v1/public/code/")      # a code block's image in a sent email: signed, no workspace needed
@@ -37,6 +37,8 @@ class TenantMiddleware:
             return self.get_response(request)
         tenant = resolve_tenant(request)
         if tenant is None:
+            if request.path.startswith(PUBLIC_LINK_PREFIXES):                  # a link from an email: the page explains a bad token in words
+                return self.get_response(request)
             return JsonResponse({"type": "about:blank", "title": "Unknown tenant", "status": 404}, status=404, content_type="application/problem+json")
         if tenant["db_status"] != "ACTIVE":
             return JsonResponse({"type": "about:blank", "title": "Tenant is being migrated; retry shortly", "status": 503}, status=503, content_type="application/problem+json")

@@ -55,6 +55,7 @@ DATA_POINTS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "SYSTEM": [
         ("unsubscribe_url", "Unsubscribe Link", "STRING"),
+        ("preference_url", "Preference Centre Link", "STRING"),
         ("current_year", "Current Year", "STRING"),
         ("today", "Today's Date", "DATE"),
         ("campaign_name", "Campaign Name", "STRING"),

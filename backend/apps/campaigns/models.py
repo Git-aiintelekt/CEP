@@ -99,6 +99,7 @@ class Campaign(models.Model):
     ab_config = models.JSONField(null=True, blank=True)  # {enabled, subject_b, sample_pct, metric, decide_after_minutes} (patch 0023)
     subject_line = models.CharField(max_length=300, null=True, blank=True)  # this campaign's own; NULL = the template's (patch 0025)
     preheader = models.CharField(max_length=300, null=True, blank=True)
+    topic = models.ForeignKey('governance.SubscriptionTopic', on_delete=models.PROTECT, db_column='topic_id', related_name='campaigns', null=True, blank=True)  # preference centre (patch 0028)
 
     class Meta:
         managed = False

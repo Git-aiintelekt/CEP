@@ -33,6 +33,8 @@ export const campaignSchema = z
     /** blank = the template's */
     subject_line: z.string().max(300, 'Use 300 characters or fewer.'),
     preheader: z.string().max(300, 'Use 300 characters or fewer.'),
+    /** the preference-centre topic; '' = none yet */
+    topic: z.string(),
     send_type: z.enum(['IMMEDIATE', 'SCHEDULED', 'RECURRING', 'DRIP']),
     /** the wall clock in send_timezone, as a date-time input holds it */
     scheduled_at: z.string(),
@@ -97,7 +99,7 @@ export type CampaignFormValues = z.infer<typeof campaignSchema>
 export const STEP_FIELDS = [
   ['name', 'code', 'description', 'campaign_type', 'channel', 'solicitation_type', 'owner_user', 'tags'],
   ['contact_lists', 'excluded_lists'],
-  ['template', 'sender_profile', 'subject_line', 'preheader'],
+  ['template', 'sender_profile', 'subject_line', 'preheader', 'topic'],
   ['send_type', 'scheduled_at', 'send_timezone', 'recurring', 'drip', 'respect_governance', 'rate_limit_per_hour', 'timezone_optimization'],
   ['targets'],
   [],
@@ -106,7 +108,7 @@ export const STEP_FIELDS = [
 
 /** which step shows the field the API complained about */
 const API_FIELD_STEP: Record<string, number> = {
-  name: 0, code: 0, description: 0, campaign_type: 0, channel: 0, solicitation_type: 0, owner_user: 0, tags: 0, contact_lists: 1, excluded_lists: 1, template: 2, sender_profile: 2, subject_line: 2, preheader: 2,
+  name: 0, code: 0, description: 0, campaign_type: 0, channel: 0, solicitation_type: 0, owner_user: 0, tags: 0, contact_lists: 1, excluded_lists: 1, template: 2, sender_profile: 2, subject_line: 2, preheader: 2, topic: 2,
   send_type: 3, scheduled_at: 3, send_timezone: 3, recurring_config: 3, drip_config: 3, respect_governance: 3, rate_limit_per_hour: 3, timezone_optimization: 3, targets: 4,
 }
 export const stepOfApiField = (field: string): number => API_FIELD_STEP[field] ?? 0
@@ -116,7 +118,7 @@ export const formFieldOf = (field: string): string => ({ recurring_config: 'recu
 export function emptyValues(zone: string, owner: string): CampaignFormValues {
   return {
     name: '', code: '', description: '', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: owner, tags: [],
-    contact_lists: [], excluded_lists: [], template: '', sender_profile: '', subject_line: '', preheader: '', send_type: 'IMMEDIATE', scheduled_at: '', send_timezone: zone,
+    contact_lists: [], excluded_lists: [], template: '', sender_profile: '', subject_line: '', preheader: '', topic: '', send_type: 'IMMEDIATE', scheduled_at: '', send_timezone: zone,
     recurring: { frequency: 'WEEKLY', interval: '1', weekdays: [], day_of_month: '1', time: '09:00', ends: 'NEVER', end_date: '', max_runs: '' },
     drip: { time: '09:00', steps: [{ day: '0', label: '' }] },
     respect_governance: true, rate_limit_per_hour: '', timezone_optimization: false,
@@ -140,7 +142,7 @@ export function fromCampaign(campaign: Campaign, workspaceZone: string): Campaig
     campaign_type: campaign.campaign_type as CampaignFormValues['campaign_type'], channel: campaign.channel as CampaignFormValues['channel'],
     solicitation_type: campaign.solicitation_type as CampaignFormValues['solicitation_type'],
     tags: campaign.tags ?? [], contact_lists: campaign.contact_lists, excluded_lists: campaign.excluded_lists ?? [],
-    template: campaign.template ?? '', sender_profile: campaign.sender_profile ?? '', subject_line: campaign.subject_line ?? '', preheader: campaign.preheader ?? '',
+    template: campaign.template ?? '', sender_profile: campaign.sender_profile ?? '', subject_line: campaign.subject_line ?? '', preheader: campaign.preheader ?? '', topic: campaign.topic ?? '',
     send_type: campaign.send_type ?? 'IMMEDIATE', scheduled_at: isoToZoned(campaign.scheduled_at, zone),
     recurring: recurring
       ? {
@@ -201,6 +203,7 @@ export function toInput(values: CampaignFormValues, rowVersion?: number): Campai
     sender_profile: values.sender_profile || null,
     subject_line: texts ? null : values.subject_line.trim() || null,
     preheader: texts ? null : values.preheader.trim() || null,
+    topic: receipt ? null : values.topic || null,
     send_type: sendType,
     scheduled_at: sendType === 'SCHEDULED' ? zonedToIso(values.scheduled_at, values.send_timezone) : null,
     send_timezone: values.send_timezone || null,

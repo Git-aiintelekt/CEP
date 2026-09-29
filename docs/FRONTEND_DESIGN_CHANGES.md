@@ -245,3 +245,27 @@ What changed across the app, page by page, after the feature review:
   transparent, 96px, `frontend/public/social-icons/tiktok.png`). And a new icon of ours now takes the background colour
   its neighbours share — a brand keeps its icons one colour — falling back to the network's own (black) only when they
   differ or leave it to MJML (`social.sharedBackgroundOf`); the icon's own Background Color field still overrides.
+
+## 11. Preference Centre (2026-09-30)
+
+Built from the mockup `docs/mockups/preference-center.html`, approved on 2026-09-30, plus one decision taken with it: a
+workspace can offer the preference centre or keep only the unsubscribe link, from the same page.
+
+- **Settings → Preference Centre** (a tab after Suppressions, `pages/settings/PreferenceCenterPage.tsx`): the switch
+  *Offer a Preference Centre* first, with a line that says what off means (only the unsubscribe link; `{{preference_url}}`
+  resolves to it; topics and words are kept). Then two columns: *Topics* (table: name and description, channels,
+  Opted Out, Shown / Hidden, Edit; *Add Topic* opens a dialog with Name, Description, Offered On, Shown to Customers,
+  and Remove on an existing one, which warns how many campaigns are filed under it) and *Page* (Brand Name, Heading,
+  Email Description, Text Messages Description, Footer, Privacy Notice Link, *Let People Opt In Again*, Save, Open
+  Preview); beside them *In Your Templates* (the tag with Copy) and *Last 30 Days* (page opened, topics unticked,
+  unsubscribed from the page, opted in again).
+- **The customer's page** is server-rendered by the API (no sign-in, no CEP mark): the workspace's brand, the masked
+  address, the channel switches (texts only when a mobile number exists), the topic checkboxes, "Receipts and order
+  updates" locked on, *Save Preferences*, the red *Unsubscribe from all marketing messages*, the footer with the
+  postal address and privacy link. Three states as in the mockup: choices, saved (a green line naming what is on and
+  off), unsubscribed from everything (a red line and *Choose What to Receive* when opting in again is allowed). A test
+  send's link opens it as a preview that saves nothing. The unsubscribe confirmation page gains "Or choose what you
+  receive" while the centre is on.
+- **Campaign setup, Content step**: a *Topic* panel with *Filed Under* (required to publish) appears for a marketing
+  email or text campaign when the centre is on and a topic is offered on that channel. The campaign's details list
+  the topic; the audience reasons gain *Opted Out of This Topic*.

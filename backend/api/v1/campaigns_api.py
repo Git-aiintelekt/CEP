@@ -210,6 +210,12 @@ class CampaignSerializer(s.CampaignSerializer):
                 errors["ab_config"] = problem
             elif attrs["ab_config"] and attrs["ab_config"].get("enabled") and current("channel") != "EMAIL":
                 errors["ab_config"] = "A subject line test is for email campaigns: texts have no subject."
+        if attrs.get("topic") is not None:
+            topic = attrs["topic"]
+            if str(topic.tenant_id) != context.require().tenant_id or topic.deleted_at is not None:
+                errors["topic"] = "Choose one of this workspace's topics."
+            elif current("channel") in ("SMS", "MMS") and "SMS" not in topic.channels or current("channel") == "EMAIL" and "EMAIL" not in topic.channels:
+                errors["topic"] = f"“{topic.name}” is not offered for {'texts' if current('channel') in ('SMS', 'MMS') else 'email'}."
         for name in ("subject_line", "preheader"):                      # blank = the template's
             if name in attrs:
                 attrs[name] = " ".join((attrs[name] or "").split()) or None
@@ -256,7 +262,7 @@ class CampaignSerializer(s.CampaignSerializer):
         words = {"name": "name", "description": "description", "template": "template", "sender_profile": "sender", "scheduled_at": "schedule", "send_type": "send type",
                  "recurring_config": "recurrence", "drip_config": "series", "tags": "tags", "owner_user": "owner", "respect_governance": "governance setting",
                  "rate_limit_per_hour": "send rate", "timezone_optimization": "time zone delivery", "send_timezone": "time zone", "receipt_config": "receipt settings",
-                 "ab_config": "subject line test", "subject_line": "subject line", "preheader": "preheader",
+                 "ab_config": "subject line test", "subject_line": "subject line", "preheader": "preheader", "topic": "topic",
                  "solicitation_type": "message kind", "campaign_type": "type", "channel": "channel", "code": "code"}
         changed = [words[name] for name, value in validated_data.items() if name in words and getattr(campaign, name) != value]
         campaign = super().update(campaign, validated_data)
@@ -269,7 +275,7 @@ class CampaignSerializer(s.CampaignSerializer):
     @staticmethod
     def _fresh(pk):
         """What was just written, read again: the lists and targets were changed after the instance was loaded."""
-        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant", "approval_requested_by", "approval_decided_by")
+        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant", "topic", "approval_requested_by", "approval_decided_by")
                 .prefetch_related("campaign_runs", "contact_list_campaigns__contact_list", "campaign_targets").get(pk=pk))
 
 
@@ -487,7 +493,7 @@ class CampaignViewSet(views.CampaignViewSet):
         return Response({"ready": not problems, "problems": problems, "test_sent": tested,
                          "items": [{"key": key, "label": label, "ok": key not in problems, "problem": problems.get(key)}
                                    for key, label in (("template", "Template content finalized"), ("contact_lists", "Campaign List attached"), ("sender_profile", "Verified sender chosen"),
-                                                      ("scheduled_at", "Send time set"), ("recurring_config", "Recurrence valid"), ("drip_config", "Series steps valid"))
+                                                      ("topic", "Topic chosen"), ("scheduled_at", "Send time set"), ("recurring_config", "Recurrence valid"), ("drip_config", "Series steps valid"))
                                    if key in problems or key in ("template", "contact_lists", "sender_profile")]
                                   + [{"key": "test", "label": "Test message sent and reviewed", "ok": tested, "problem": None if tested else "Send yourself a test before publishing.", "advisory": True}]
                                   + ([{"key": "approval", "label": "Approved for production", "ok": holdup is None, "problem": holdup}] if approval.required(campaign) else [])})
@@ -783,7 +789,7 @@ class CampaignViewSet(views.CampaignViewSet):
             shaped = content
         # as one customer: the catalogue resolves the tags from that person. Otherwise: the catalogue's sample values.
         rendered = Renderer(campaign=campaign, run=None, content=shaped, tags=tags if party_id else []).render(
-            customer=customer, member=member, system={"unsubscribe_url": "#unsubscribe-preview", "email": ""})
+            customer=customer, member=member, system={"unsubscribe_url": "#unsubscribe-preview", "preference_url": "#preferences-preview", "email": ""})
         own = (campaign.subject_line or "") + (campaign.preheader or "") if template.channel not in design.MESSAGE_CHANNELS else ""
         used = sorted(set(design.extract_tags((content.html_content or "") + (content.sms_body or "") + (content.subject_line or "") + (content.preheader or "") + own)))
         return Response({"subject": rendered.get("subject"), "preheader": rendered.get("preheader") or "", "html": rendered.get("html"), "text": rendered.get("text") or content.sms_body, "version": content.version_number,

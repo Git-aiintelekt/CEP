@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.campaigns.models import CampaignRun
 from apps.customers.models import CustomerMaster
+from apps.governance import preferences
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, registry
@@ -109,7 +110,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 member = {"custom_value_pairs": _as_dict(found[0]) if found else {}, "segment_codes": found[1] if found else []}
                 customer["email"] = email
                 token = unsubscribe.token_for(tenant_code=tenant_code, party_id=party_id, email=email, campaign_id=campaign.pk, run_id=run.pk)
-                rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "email": email},
+                rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "preference_url": preferences.link_for(campaign.tenant, token), "email": email},
                                            subject=own_subject if variant_key else None)
                 message = EmailMessage(to_email=email, to_name=" ".join(filter(None, [customer.get("first_name"), customer.get("last_name")])),
                                        from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
@@ -208,7 +209,9 @@ def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
     with registry.for_provider(provider_row) as provider:
         for address in to:
             for variant, own_subject in variants:
-                rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={"unsubscribe_url": f"{unsubscribe.url_for('test')}", "email": address},
+                token = unsubscribe.test_token(tenant_code=tenant_code, email=address)
+                rendered = renderer.render(customer={}, member={"custom_value_pairs": samples},
+                                           system={"unsubscribe_url": unsubscribe.url_for(token), "preference_url": preferences.link_for(campaign.tenant, token), "email": address},
                                            subject=own_subject)
                 mark = f"[TEST {variant}] " if variant else "[TEST] "
                 result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,

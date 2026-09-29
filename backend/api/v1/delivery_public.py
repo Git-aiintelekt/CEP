@@ -171,10 +171,14 @@ def unsubscribe_view(request, version=None):
     if claims is None:
         return HttpResponse(PAGE.format(title="This link is not valid", text="The unsubscribe link is incomplete. Use the link in a more recent email, or reply to the sender.", action=""), status=400)
     address = escape(claims.get("e", "this address"))
-    if request.method == "GET":
-        action = f'<form method="post" action="?t={escape(token)}"><button type="submit">Unsubscribe</button></form>'
-        return HttpResponse(PAGE.format(title="Unsubscribe from marketing email", text=f"Stop sending marketing email to <strong>{address}</strong>?", action=action))
+    if claims.get("test"):
+        return HttpResponse(PAGE.format(title="This was a test message", action="",
+                                        text=f"The unsubscribe link in a test message does nothing. In the real send it lets <strong>{address}</strong> stop marketing email from this sender."))
     tenant_id = context.require().tenant_id
+    choose = _preference_link(tenant_id, token)
+    if request.method == "GET":
+        action = f'<form method="post" action="?t={escape(token)}"><button type="submit">Unsubscribe</button></form>{choose}'
+        return HttpResponse(PAGE.format(title="Unsubscribe from marketing email", text=f"Stop sending marketing email to <strong>{address}</strong>?", action=action))
     with session.connection().cursor() as cursor:          # the message whose link was used: evidence for the opt-out, required by tracking_event
         cursor.execute("SELECT id FROM mailer_execution WHERE tenant_id = %s AND campaign_run_id = %s AND party_id = %s ORDER BY created_at DESC LIMIT 1",
                        [tenant_id, claims.get("r"), claims["p"]])
@@ -189,4 +193,14 @@ def unsubscribe_view(request, version=None):
                               VALUES (%s, %s, 'UNSUBSCRIBE_CLICK', 'EMAIL', %s, %s, %s, %s, %s)""",
                            [tenant_id, claims["p"], claims.get("c"), claims.get("r"), execution_id, request.META.get("REMOTE_ADDR"), request.headers.get("User-Agent", "")[:300]])
     return HttpResponse(PAGE.format(title="You are unsubscribed", text=f"<strong>{address}</strong> will no longer receive marketing email from this sender. "
-                                          "Receipts and service messages about your account may still be sent.", action=""))
+                                          "Receipts and service messages about your account may still be sent.", action=choose))
+
+
+def _preference_link(tenant_id, token: str) -> str:
+    """'Or choose what you receive', when the workspace offers a preference page."""
+    from apps.governance import preferences
+    from apps.tenants.models import Tenant
+    tenant = Tenant.objects.filter(pk=tenant_id).first()
+    if tenant is None or not preferences.enabled(tenant):
+        return ""
+    return f'<p style="margin-top:16px;font-size:14px">Or <a href="{escape(preferences.url_for(token))}" style="color:#3863DB;font-weight:600">choose what you receive</a>.</p>'

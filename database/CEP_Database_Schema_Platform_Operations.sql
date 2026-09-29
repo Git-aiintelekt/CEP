@@ -360,14 +360,18 @@ CREATE TABLE IF NOT EXISTS mail_server (
 ALTER TABLE mail_server ADD COLUMN IF NOT EXISTS campaign_sender BOOLEAN NOT NULL DEFAULT FALSE;
 -- patch 0027: the platform's server is no longer shared with tenants. A tenant row that sent through it is removed
 -- (the tenant enters its own server), and its campaign sender is retired with it.
-UPDATE sender_profile SET deleted_at = now(), is_default = FALSE
- WHERE deleted_at IS NULL AND delivery_provider_id IN (
-       SELECT dp.id FROM delivery_provider dp JOIN mail_server ms ON ms.id::text = dp.config->>'mail_server_id'
-        WHERE dp.provider_type = 'SMTP' AND ms.use_platform_server);
-UPDATE delivery_provider SET deleted_at = now(), is_default = FALSE, is_active = FALSE
- WHERE deleted_at IS NULL AND provider_type = 'SMTP'
-   AND config->>'mail_server_id' IN (SELECT id::text FROM mail_server WHERE use_platform_server);
-DELETE FROM mail_server WHERE use_platform_server;
+DO $$ BEGIN                                            -- only while the column is still there: the layer re-runs on a patched database
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'mail_server' AND column_name = 'use_platform_server') THEN
+    UPDATE sender_profile SET deleted_at = now(), is_default = FALSE
+     WHERE deleted_at IS NULL AND delivery_provider_id IN (
+           SELECT dp.id FROM delivery_provider dp JOIN mail_server ms ON ms.id::text = dp.config->>'mail_server_id'
+            WHERE dp.provider_type = 'SMTP' AND ms.use_platform_server);
+    UPDATE delivery_provider SET deleted_at = now(), is_default = FALSE, is_active = FALSE
+     WHERE deleted_at IS NULL AND provider_type = 'SMTP'
+       AND config->>'mail_server_id' IN (SELECT id::text FROM mail_server WHERE use_platform_server);
+    DELETE FROM mail_server WHERE use_platform_server;
+  END IF;
+END $$;
 ALTER TABLE mail_server DROP CONSTRAINT IF EXISTS ck_mail_server_platform_row;
 ALTER TABLE mail_server DROP CONSTRAINT IF EXISTS ck_mail_server_host;
 ALTER TABLE mail_server DROP COLUMN IF EXISTS use_platform_server, DROP COLUMN IF EXISTS shared_with_all, DROP COLUMN IF EXISTS shared_tenant_ids;
@@ -935,6 +939,65 @@ INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_s
     ('current_year', 'Current Year', 'SYSTEM', 'SYSTEM', 'current_year', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The year of the send', '2026'),
     ('today', 'Today''s Date', 'SYSTEM', 'SYSTEM', 'today', 'DATE', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The date of the send', '2026-09-29'),
     ('campaign_name', 'Campaign Name', 'SYSTEM', 'SYSTEM', 'campaign_name', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The name of the campaign being sent', 'Fall Launch')
+ON CONFLICT (tag_key) DO NOTHING;
+
+-- =====================================================================================
+-- PREFERENCE CENTRE (patch 0028)
+--   A workspace switches it on under Settings -> Preference Centre (tenant.settings.preference_center). subscription_topic
+--   is what a person can choose to receive; party_topic_preference holds the choice (a row with opted_out = TRUE leaves
+--   the person out of campaigns filed under that topic: campaign.topic_id, audience reason TOPIC_OPTED_OUT). Channel
+--   choices made on the page are ordinary consent records with source PREFERENCE_CENTER. {{preference_url}} in a
+--   template is the person's page, or the unsubscribe link while the centre is off.
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS subscription_topic (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    code                VARCHAR(40) NOT NULL,                            -- stable key made from the name
+    name                VARCHAR(80) NOT NULL,                            -- what the person sees
+    description         VARCHAR(200),
+    channels            TEXT[] NOT NULL DEFAULT '{EMAIL,SMS}',           -- where it is offered
+    is_shown            BOOLEAN NOT NULL DEFAULT TRUE,                   -- on the page; hidden = kept for campaigns only
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_subscription_topic_code CHECK (code ~ '^[a-z][a-z0-9_]*$'),
+    CONSTRAINT ck_subscription_topic_channels CHECK (channels <@ ARRAY['EMAIL', 'SMS']::text[] AND cardinality(channels) > 0),
+    CONSTRAINT ux_subscription_topic_code UNIQUE (tenant_id, code)
+);
+COMMENT ON TABLE subscription_topic IS 'What a person can choose to receive on the preference page; a marketing campaign is filed under one';
+CREATE TABLE IF NOT EXISTS party_topic_preference (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    party_id            VARCHAR(60) NOT NULL,
+    topic_id            UUID NOT NULL REFERENCES subscription_topic(id),
+    opted_out           BOOLEAN NOT NULL DEFAULT TRUE,
+    evidence            JSONB,                                           -- ip, user agent, page
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, party_id, topic_id)
+);
+COMMENT ON TABLE party_topic_preference IS 'A person''s choice per topic: opted_out = TRUE keeps them out of campaigns filed under it';
+CREATE INDEX IF NOT EXISTS ix_party_topic_preference_topic ON party_topic_preference(tenant_id, topic_id) WHERE opted_out;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS topic_id UUID REFERENCES subscription_topic(id);   -- NULL: not filed under a topic
+DROP TRIGGER IF EXISTS trg_subscription_topic_touch ON subscription_topic;
+CREATE TRIGGER trg_subscription_topic_touch BEFORE UPDATE ON subscription_topic FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_subscription_topic_audit ON subscription_topic;
+CREATE TRIGGER trg_subscription_topic_audit AFTER INSERT OR UPDATE OR DELETE ON subscription_topic FOR EACH ROW EXECUTE FUNCTION fn_definition_audit();
+DO $$ DECLARE t TEXT; BEGIN
+  FOREACH t IN ARRAY ARRAY['subscription_topic', 'party_topic_preference'] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS rls_%s_tenant ON %I', t, t);
+    EXECUTE format('CREATE POLICY rls_%s_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                   'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+  END LOOP; END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON subscription_topic, party_topic_preference TO cep_app;
+GRANT ALL ON subscription_topic, party_topic_preference TO cep_admin;
+INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_source, source_path, data_type, applies_to_channels, description, sample_value) VALUES
+    ('preference_url', 'Preference Centre Link', 'SYSTEM', 'SYSTEM', 'preference_url', 'STRING', '{EMAIL}',
+     'The recipient''s own preference page, made at send time; the unsubscribe link while the workspace''s preference centre is off', 'https://cep.example.com/preferences')
 ON CONFLICT (tag_key) DO NOTHING;
 
 -- =====================================================================================

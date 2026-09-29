@@ -255,7 +255,7 @@ function campaignBase(): Omit<Campaign, 'display_status' | 'display_status_label
     template: 'tpl-email', sender_profile: 'snd-email', origin_journey: null, owner_user: 'u1', template_name: 'Fall Email',
     sender_profile_name: 'Northwind Rewards', contact_lists: ['cl-master'],
     contact_list_details: [{ id: 'cl-master', name: 'Fall Master Audience', list_kind: 'STATIC', is_master: true, list_environment: 'PRODUCTION', status: 'ACTIVE', member_count: 90 }],
-    runs: [], subject_line: null, preheader: null,
+    runs: [], subject_line: null, preheader: null, topic: null, topic_name: null,
   }
 }
 
