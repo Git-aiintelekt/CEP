@@ -62,6 +62,7 @@ class CampaignSerializer(TenantModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     template_name = serializers.CharField(source="template.name", read_only=True, allow_null=True)
     sender_profile_name = serializers.CharField(source="sender_profile.display_name", read_only=True, allow_null=True)
+    topic_name = serializers.CharField(source="topic.name", read_only=True, allow_null=True)
     code = serializers.CharField(max_length=40, required=False, allow_blank=True,
                                  help_text="Business key, e.g. CMP-2026-0042. Generated when left blank.")
     contact_lists = serializers.ListField(child=serializers.UUIDField(), required=False, write_only=True,

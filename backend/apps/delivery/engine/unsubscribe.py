@@ -42,8 +42,8 @@ def headers_for(token: str) -> dict[str, str]:
 def opt_out(*, tenant_id, party_id: str, email: str = "", campaign_id=None, run_id=None, method: str = "UNSUBSCRIBE_LINK", evidence: dict | None = None,
             execution_id: int | None = None, channel: str = "EMAIL") -> bool:
     """Records the opt-out (append-only consent_record) and updates the current state. Returns False when already opted out.
-    method: UNSUBSCRIBE_LINK | COMPLAINT | SMS_STOP. For texts pass channel='SMS' (and again 'MMS': a STOP covers both)."""
-    source = method if method in ("COMPLAINT", "SMS_STOP") else "UNSUBSCRIBE_LINK"
+    method: UNSUBSCRIBE_LINK | COMPLAINT | SMS_STOP | PREFERENCE_CENTER. For texts pass channel='SMS' (and again 'MMS': a STOP covers both)."""
+    source = method if method in ("COMPLAINT", "SMS_STOP", "PREFERENCE_CENTER") else "UNSUBSCRIBE_LINK"
     reason = {"COMPLAINT": "COMPLAINT", "SMS_STOP": "SMS_STOP"}.get(method, "UNSUBSCRIBED")
     execution_column = "mailer_execution_id" if channel == "EMAIL" else "sms_execution_id"
     now = timezone.now()
@@ -67,17 +67,19 @@ def opt_out(*, tenant_id, party_id: str, email: str = "", campaign_id=None, run_
     return True
 
 
-def opt_in(*, tenant_id, party_id: str, channel: str, evidence: dict | None = None, execution_id: int | None = None) -> bool:
-    """START / UNSTOP: the person asks for texts again. Returns False when they were not opted out."""
+def opt_in(*, tenant_id, party_id: str, channel: str, evidence: dict | None = None, execution_id: int | None = None, source: str = "SMS_STOP") -> bool:
+    """START / UNSTOP, or a choice on the preference page (source PREFERENCE_CENTER): the person asks for messages again.
+    Returns False when they were not opted out."""
     now = timezone.now()
+    execution_column = "mailer_execution_id" if channel == "EMAIL" else "sms_execution_id"
     with session.connection().cursor() as cursor:
         cursor.execute("SELECT consent_status FROM consent_suppression WHERE tenant_id = %s AND party_id = %s AND channel = %s", [str(tenant_id), party_id, channel])
         row = cursor.fetchone()
         if not row or row[0] != "OPTED_OUT":
             return False
-        cursor.execute("""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, sms_execution_id, occurred_at)
-                          VALUES (%s, %s, %s, 'RESUBSCRIBE', 'SMS_STOP', %s::jsonb, %s, %s) RETURNING id""",
-                       [str(tenant_id), party_id, channel, _json(evidence or {}), execution_id, now])
+        cursor.execute(f"""INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, {execution_column}, occurred_at)
+                           VALUES (%s, %s, %s, 'RESUBSCRIBE', %s, %s::jsonb, %s, %s) RETURNING id""",
+                       [str(tenant_id), party_id, channel, source, _json(evidence or {}), execution_id, now])
         record_id = cursor.fetchone()[0]
         cursor.execute("""UPDATE consent_suppression SET consent_status = 'OPTED_IN', opted_in_at = %s, opted_out_at = NULL, opt_out_method = NULL, marketable = NOT suppressed,
                                  marketable_reason = NULL, last_consent_record_id = %s, updated_at = %s

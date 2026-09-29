@@ -138,8 +138,9 @@ campaign page.
 ## 7. Who is left out of a run (`engine/audience.py`)
 
 `UNKNOWN_PARTY`, `NO_EMAIL`, `BLOCKED_ADDRESS`, `INVALID_ADDRESS`, then for marketing campaigns only `SUPPRESSED`,
-`UNSUBSCRIBED`, `NO_CONSENT`, `FREQUENCY_CAP` (active governance policies: `max_messages` within `period_days`), and
-`DUPLICATE_ADDRESS`. The reason is stored on `campaign_list_member.suppression_reason` and in
+`UNSUBSCRIBED`, `NO_CONSENT`, `TOPIC_OPTED_OUT` (the person unticked the campaign's topic on the preference page, while
+the workspace's preference centre is on), `FREQUENCY_CAP` (active governance policies: `max_messages` within
+`period_days`), and `DUPLICATE_ADDRESS`. The reason is stored on `campaign_list_member.suppression_reason` and in
 `governance_evaluation_log`. Transactional, service and legal campaigns skip the consent rules but never a blocked or
 invalid address.
 
@@ -270,7 +271,7 @@ Texts use the same engine, run life cycle, settings screen and callback address 
 | Adapter base class | `EmailProvider`, `send(EmailMessage)` | `SmsProvider` (`channel = "SMS"`, `supports_mms`), `send(SmsMessage)`, plus `parse_inbound(payload) -> [InboundMessage]` |
 | Execution table | `mailer_execution` | `sms_execution`: the exact text sent, its number of parts, the merged values, sender number, engine, the aggregator's answer |
 | Sender | From name + address | `sender_id`: short code, long number (+E.164) or alphanumeric sender; verified by a text to a mobile number |
-| Audience (`engine/audience_sms.py`) | see section 7 | `UNKNOWN_PARTY, NO_PHONE, INVALID_NUMBER` (no E.164 mobile, landline, fax), `BLOCKED_NUMBER`, `UNSUBSCRIBED`, then marketing only: `SUPPRESSED, NO_CONSENT, FREQUENCY_CAP`, and `DUPLICATE_NUMBER` |
+| Audience (`engine/audience_sms.py`) | see section 7 | `UNKNOWN_PARTY, NO_PHONE, INVALID_NUMBER` (no E.164 mobile, landline, fax), `BLOCKED_NUMBER`, `UNSUBSCRIBED`, then marketing only: `SUPPRESSED, NO_CONSENT, TOPIC_OPTED_OUT, FREQUENCY_CAP`, and `DUPLICATE_NUMBER` |
 | Opt-out | unsubscribe link, marketing only | a STOP applies to **every** kind of campaign, and to the **number** (it is blocked even when nobody in the customer master owns it) |
 | Quiet hours | none | marketing texts that are due between `messaging.sms_quiet_hours` (global parameter, workspace time zone; default 21:00-08:00, `{}` = off) stay `SCHEDULED` until the window opens |
 | Receipts | delivered, bounced, opened, clicked | `DELIVERED`; `BOUNCED` HARD = the number can never receive (blocked as `INVALID`), SOFT = temporary; `DROPPED` |

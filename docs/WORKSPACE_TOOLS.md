@@ -84,7 +84,52 @@ with a note in the activity log. The campaign carries `approval` (status, who an
 `approval_required`; its `actions` gain `request_approval`, `approve` and `send_back`; the list filters on
 `?approval=requested`. Activity events: `APPROVAL_REQUESTED`, `APPROVED`, `APPROVAL_RETURNED`, `APPROVAL_WITHDRAWN`.
 
-## 5. Tests
+## 5. Preference centre (patch 0028)
+
+A page where a person chooses which channels and topics they receive, reached from a link in an email. **Off by
+default**: only the unsubscribe link exists, exactly as before. Settings → Preference Centre (`user.admin`) switches it
+on and keeps the topics and the page's words while it is off.
+
+`GET` / `PUT /workspace/preference-center/` (`user.admin`; `tenant.settings.preference_center`): `enabled`,
+`brand_name` (blank = the workspace's name), `heading`, `email_description`, `sms_description`, `footer` (the postal
+address belongs here), `privacy_url` (must start with `https://`), `allow_opt_in`; plus, read-only, `tag`
+(`{{preference_url}}`), `preview_url` (a test-marked token: the page with nothing saved), `stats` for the last 30 days
+(page opened = `tracking_event` PREFERENCE_VIEW; topics unticked; unsubscribed and opted in again = `consent_record`
+rows with source `PREFERENCE_CENTER`) and `topics` (how many). Errors land on their field.
+
+`/subscription-topics/` — `subscription_topic`: `name`, `description`, `channels` (EMAIL, SMS), `is_shown`, `sort_order`;
+`code` is made from the name; each row carries `opted_out` (people who unticked it) and `campaigns` (filed under it).
+Reads need `campaign.view` (the setup's Topic field) and the list answers `{enabled, results}`; writes need `user.admin`.
+`DELETE` soft-deletes: the topic leaves the page and the setup's choices, and a campaign filed under it is told at
+publish ("This campaign's topic was removed").
+
+**The page** (`GET` / `POST /api/v1/public/preferences/?t=`, `api/v1/preferences_public.py`, template
+`templates/public/preferences.html`): the same signed token as the unsubscribe link (workspace, contact, campaign, run,
+address), no sign-in; the tenant resolver reads the workspace from the token and a bad token gets the page's own 400.
+It shows the masked address, an Email switch, a Text messages switch when the customer record has a mobile number
+(last four digits), one checkbox per shown topic, "Receipts and order updates" locked on, Save Preferences and
+"Unsubscribe from all marketing messages". Channel changes are ordinary consent records with source
+`PREFERENCE_CENTER` (`unsubscribe.opt_out` / `opt_in`, which now take the source and write `mailer_execution_id` for
+email); topic choices go to `party_topic_preference` (`opted_out`, `evidence`). With `allow_opt_in` off, a switched-off
+channel is shown locked with the date and a POST that ticks it is refused on the page. Opening the page records a
+PREFERENCE_VIEW. While the centre is off the page says the workspace offers none and links to the unsubscribe page.
+A test send's token (`unsubscribe.test_token`) opens the page in preview: nothing can be saved.
+
+**In an email**: `{{preference_url}}` (platform tag `preference_url`, inherited by every workspace) is the person's page
+at send time, or the unsubscribe link while the centre is off, so an email never carries a dead link; the unsubscribe
+confirmation page offers "Or choose what you receive" while it is on. The unsubscribe link stays required in marketing
+email.
+
+**Campaigns**: `campaign.topic` (setup, Content step, shown when the centre is on and a topic fits the channel). While
+the centre is on, a marketing email or text campaign cannot be published to production without a topic once the
+workspace has one (`publish_problems["topic"]`, checklist item "Topic chosen"); the audience build leaves out everyone
+who unticked the campaign's topic (`TOPIC_OPTED_OUT`, after the consent rules and before the frequency cap, in
+`audience.py` and `audience_sms.py`), the estimate on the Audience step shows the same line, and the change log says
+"topic". Switching the centre off stops the filter without deleting anyone's choice.
+
+## 6. Tests
 
 Scratchpad suites, each one rolled-back transaction on the local database with email and webhooks captured:
-`test_approval.py` (20), `test_reports.py` (9), `test_suppressions.py` (11), `test_ab_sendtime.py` (16).
+`test_approval.py` (20), `test_reports.py` (9), `test_suppressions.py` (11), `test_ab_sendtime.py` (16),
+`test_preference_center.py` (28: settings, topics, the page's every state, the tag, the audience estimate, the publish
+check).

@@ -1,6 +1,6 @@
 /** Reports, suppressions, notifications and approvals for the mock API: shaped like the backend's answers, stateful where a test writes. */
 import type {
-  ApprovalSettings, NotificationSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, SuppressionRow, SuppressionSummary,
+  ApprovalSettings, NotificationSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, SubscriptionTopic, SuppressionRow, SuppressionSummary,
 } from '@/lib/types'
 
 interface Request {
@@ -84,7 +84,14 @@ export interface WorkspaceToolsState {
   suppressions: SuppressionRow[]
   notifications: NotificationSettings
   approvals: ApprovalSettings
+  preferenceCenter: PreferenceCenterSettings
+  topics: SubscriptionTopic[]
 }
+
+export const topicRows: SubscriptionTopic[] = [
+  { id: 'top-1', code: 'rewards_and_offers', name: 'Rewards and offers', description: 'Member offers, points balance and birthday rewards.', channels: ['EMAIL', 'SMS'], is_shown: true, sort_order: 10, opted_out: 312, campaigns: 2, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' },
+  { id: 'top-2', code: 'new_arrivals', name: 'New arrivals', description: 'What is new in store and online, about twice a month.', channels: ['EMAIL'], is_shown: true, sort_order: 20, opted_out: 1048, campaigns: 0, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' },
+]
 
 export function workspaceToolsState(overrides: Partial<WorkspaceToolsState> = {}): WorkspaceToolsState {
   return {
@@ -99,6 +106,10 @@ export function workspaceToolsState(overrides: Partial<WorkspaceToolsState> = {}
       },
     },
     approvals: { require_approval: false, permission: 'campaign.approve', awaiting: 0, approvers: [{ id: 'u1', name: 'Aby John', email: 'aby.john@aiintelekt.com' }, { id: 'u3', name: 'Maria Chen', email: 'maria@example.com' }] },
+    preferenceCenter: { enabled: false, brand_name: '', heading: 'Choose what you receive', email_description: 'Offers, news and events by email.', sms_description: 'Offers and reminders by text. Message and data rates may apply.',
+                        footer: '', privacy_url: '', allow_opt_in: true, workspace_name: 'Northwind Apparel', tag: '{{preference_url}}', preview_url: 'https://cep.example.com/api/v1/public/preferences/?t=preview',
+                        stats: { days: 30, opened: 1284, unsubscribed: 61, opted_in: 9, topics_unticked: 286 }, topics: 2 },
+    topics: topicRows.map((row) => ({ ...row })),
     ...overrides,
   }
 }
@@ -171,6 +182,34 @@ export function handleWorkspaceTools({ path, url, method, body }: Request, state
                               events: (body?.events as NotificationSettings['events']) ?? state.notifications.events, webhook_tested_at: url === state.notifications.webhook_url ? state.notifications.webhook_tested_at : null }
     }
     return json(state.notifications)
+  }
+  if (path.endsWith('/workspace/preference-center/')) {
+    if (method === 'PUT') {
+      const next = body as Partial<PreferenceCenterSettings>
+      if (typeof next.privacy_url === 'string' && next.privacy_url && !/^https?:\/\//.test(next.privacy_url)) return invalid({ privacy_url: ['A full address, starting with https://.'] })
+      state.preferenceCenter = { ...state.preferenceCenter, ...next }
+    }
+    return json({ ...state.preferenceCenter, topics: state.topics.length })
+  }
+  if (path.endsWith('/subscription-topics/')) {
+    if (method === 'POST') {
+      const input = body as Record<string, unknown>
+      if (!String(input.name ?? '').trim()) return invalid({ name: ['Give the topic a name.'] })
+      const row: SubscriptionTopic = { id: `top-${state.topics.length + 1}`, code: String(input.name).toLowerCase().replace(/[^a-z0-9]+/g, '_'), name: String(input.name), description: (input.description as string) || null,
+                                       channels: (input.channels as SubscriptionTopic['channels']) ?? ['EMAIL'], is_shown: input.is_shown !== false, sort_order: (state.topics.at(-1)?.sort_order ?? 0) + 10, opted_out: 0, campaigns: 0,
+                                       created_at: '2026-09-26T10:00:00Z', updated_at: '2026-09-26T10:00:00Z' }
+      state.topics = [...state.topics, row]
+      return json(row, 201)
+    }
+    return json({ enabled: state.preferenceCenter.enabled, results: state.topics })
+  }
+  const topic = path.match(/\/subscription-topics\/([^/]+)\/$/)
+  if (topic) {
+    const index = state.topics.findIndex((row) => row.id === topic[1])
+    if (index < 0) return json({ detail: 'Not found.' }, 404)
+    if (method === 'DELETE') { state.topics = state.topics.filter((row) => row.id !== topic[1]); return json(null, 204) }
+    if (method === 'PATCH') { state.topics[index] = { ...state.topics[index], ...(body as Partial<SubscriptionTopic>) } }
+    return json(state.topics[index])
   }
   if (path.endsWith('/workspace/approvals/')) {
     if (method === 'PUT') {

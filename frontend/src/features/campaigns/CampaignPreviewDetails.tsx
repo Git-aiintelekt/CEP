@@ -82,12 +82,14 @@ export function CampaignPreviewDetails({ campaign, channel, content, tags }: Det
           <Detail label="Subject Line" {...details.subject(false)} />
           <Detail label="Preheader" {...details.preheader()} />
           <Detail label="Sender" {...details.sender()} />
+          {campaign.topic_name && <Detail label="Topic" state="ready" value={campaign.topic_name} />}
         </>
       )}
 
       {isText && (
         <>
           <Detail label="Sender" {...details.sender()} />
+          {campaign.topic_name && <Detail label="Topic" state="ready" value={campaign.topic_name} />}
           {channel === 'SMS' && campaign.template && <Detail label="Length" {...details.length()} />}
         </>
       )}

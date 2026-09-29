@@ -7,8 +7,49 @@ tables expose `id` as the pk for ORM convenience while the real key is (id, tena
 import json
 import uuid
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models.functions import Now
+
+
+class SubscriptionTopic(models.Model):
+    """What a person can choose to receive on the preference page; a marketing campaign is filed under one (patch 0028)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    code = models.CharField(max_length=40)
+    name = models.CharField(max_length=80)
+    description = models.CharField(max_length=200, null=True, blank=True)
+    channels = ArrayField(models.TextField(), default=list)  # EMAIL, SMS
+    is_shown = models.BooleanField(default=True)
+    sort_order = models.IntegerField(default=0)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'subscription_topic'
+
+    def __str__(self):
+        return str(self.name)
+
+
+class PartyTopicPreference(models.Model):
+    """A person's choice per topic: opted_out keeps them out of campaigns filed under it (patch 0028)"""
+    pk = models.CompositePrimaryKey('tenant_id', 'party_id', 'topic_id')
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.DO_NOTHING, db_column='tenant_id', related_name='+')
+    party_id = models.CharField(max_length=60)
+    topic = models.ForeignKey('governance.SubscriptionTopic', on_delete=models.DO_NOTHING, db_column='topic_id', related_name='preferences')
+    opted_out = models.BooleanField(default=True)
+    evidence = models.JSONField(null=True, blank=True)
+    updated_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'party_topic_preference'
 
 
 class CommunicationGovernancePolicy(models.Model):

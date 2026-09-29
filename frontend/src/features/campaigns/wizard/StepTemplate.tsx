@@ -12,7 +12,7 @@ import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { formatDate } from '@/lib/format'
-import type { Campaign, Page, SenderProfile, Template } from '@/lib/types'
+import type { Campaign, Page, SenderProfile, SubscriptionTopicList, Template } from '@/lib/types'
 
 import { MessagePreview } from '../MessagePreview'
 import { Panel } from '../parts'
@@ -38,6 +38,11 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
     queryKey: ['templates', 'options'],
     queryFn: ({ signal }) => api.get<Page<Template>>('/templates/', { page_size: 200 }, signal),
   })
+  const topics = useQuery({
+    queryKey: ['subscription-topics'],
+    queryFn: ({ signal }) => api.get<SubscriptionTopicList>('/subscription-topics/', undefined, signal),
+    enabled: marketing && !isReceipt,
+  })
   const senders = useQuery({
     queryKey: ['sender-profiles', 'options'],
     queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal),
@@ -53,6 +58,9 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const pickedSender = (senders.data ?? []).find((item) => item.id === sender)
   const senderChannel = channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : null
   const channelName = isReceipt ? 'e-receipt' : channel
+  const topicChannel = channel === 'EMAIL' ? 'EMAIL' : 'SMS'
+  const topicOptions = (topics.data?.enabled ? topics.data.results : []).filter((item) => item.channels.includes(topicChannel))
+  const askTopic = marketing && !isReceipt && topicOptions.length > 0
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -101,6 +109,19 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
         </Panel>
 
         {picked && !wrongChannel && (picked.channel === 'EMAIL' || picked.channel === 'E_RECEIPT') && <SubjectPreheaderCard key={picked.id} template={picked} />}
+
+        {askTopic && (
+          <Panel title="Topic" description="The preference-centre topic this campaign is filed under. People who unticked it on the preference page are left out of the audience.">
+            <Field label="Filed Under" required error={errors.topic?.message} hint="Needed to publish. Topics are managed under Settings, Preference Centre.">
+              {(ids) => (
+                <Select {...ids} {...register('topic')}>
+                  <option value="">Choose a Topic</option>
+                  {topicOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </Select>
+              )}
+            </Field>
+          </Panel>
+        )}
 
         <Panel title="Sender"
           actions={can('provider.edit') && (

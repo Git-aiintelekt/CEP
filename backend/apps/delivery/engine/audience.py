@@ -11,11 +11,14 @@ creates the mailer_execution rows. Rules, in order (first match is the recorded 
     SUPPRESSED         consent_suppression.suppressed                       (marketing only, as are the next three)
     UNSUBSCRIBED       consent_status = OPTED_OUT
     NO_CONSENT         no OPTED_IN consent for email
+    TOPIC_OPTED_OUT    the person unticked this campaign's topic on the preference page (marketing, preference centre on)
     FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached
     DUPLICATE_ADDRESS  another party in this run has the same address (the first keeps it)
 
 Runs on the caller's connection, inside its transaction, under the tenant's row-level security.
 """
+from apps.governance import preferences
+
 from . import session
 from .render import subject_of
 
@@ -60,6 +63,8 @@ WITH picked AS (                                          -- PARTY_ID_LAST_WINS 
                 WHEN %(marketing)s AND cs.suppressed THEN 'SUPPRESSED'
                 WHEN %(marketing)s AND cs.consent_status = 'OPTED_OUT' THEN 'UNSUBSCRIBED'
                 WHEN %(marketing)s AND COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT'
+                WHEN %(topic)s::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM party_topic_preference tp WHERE tp.tenant_id = %(tenant)s AND tp.party_id = r.party_id
+                                                             AND tp.topic_id = %(topic)s::uuid AND tp.opted_out) THEN 'TOPIC_OPTED_OUT'
                 WHEN k.policy_id IS NOT NULL THEN 'FREQUENCY_CAP'
            END AS reason
       FROM resolved r
@@ -102,7 +107,8 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider_id) -> d
     marketing = campaign.solicitation_type == "MARKETING"
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": marketing,
             "caps": marketing and bool(getattr(campaign, "respect_governance", True)),     # corporate frequency limits: marketing only (BRD 12), unless switched off for this campaign
-            "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content)[:300], "provider": str(provider_id)}
+            "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content)[:300], "provider": str(provider_id),
+            "topic": preferences.topic_filter(campaign)}
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)

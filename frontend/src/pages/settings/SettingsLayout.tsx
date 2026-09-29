@@ -18,6 +18,7 @@ const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/delivery', label: 'Sending Engines' },
   { to: '/settings/integrations', label: 'Integrations' },
   { to: '/settings/suppressions', label: 'Suppressions' },
+  { to: '/settings/preference-center', label: 'Preference Centre' },
   { to: '/settings/notifications', label: 'Notifications' },
   { to: '/settings/approvals', label: 'Approvals' },
 ]

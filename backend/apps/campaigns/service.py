@@ -27,6 +27,7 @@ from django.db import connections, transaction
 from django.utils import timezone
 
 from apps.contact_lists import governance
+from apps.governance import preferences
 from apps.tenants import context
 
 from .models import Campaign, CampaignActivityLog, CampaignRun, CampaignTarget, ContactListCampaign
@@ -221,6 +222,15 @@ def publish_problems(campaign, production: bool = True) -> dict:
         missing["sender_profile"] = "This sender was removed. Choose another one."
     elif production and campaign.sender_profile.verification_status != "VERIFIED":
         missing["sender_profile"] = "This sender is not verified yet."
+    if production and campaign.solicitation_type == "MARKETING" and campaign.campaign_type != Campaign.CampaignType.E_RECEIPT and preferences.enabled(campaign.tenant):
+        if campaign.topic_id is None:
+            if preferences.topics(campaign.tenant_id):
+                missing["topic"] = "Choose the topic this campaign is filed under (Content step)."
+        else:
+            from apps.governance.models import SubscriptionTopic
+            topic = SubscriptionTopic.objects.filter(pk=campaign.topic_id).first()
+            if topic is None or topic.deleted_at is not None:
+                missing["topic"] = "This campaign's topic was removed. Choose another one."
     if campaign.campaign_type != Campaign.CampaignType.E_RECEIPT:
         attached = list(campaign.contact_list_campaigns.select_related("contact_list"))
         included = [link.contact_list for link in attached if link.role == "INCLUDE"]
@@ -420,13 +430,22 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
                        {**params, "sample": sample})
         people = [{"party_id": party, "address": address, "first_name": first, "last_name": last, "status": status,
                    "status_label": governance.label(status) or {"NO_PHONE": "No mobile number", "BLOCKED": "Blocked number"}.get(status, status)} for party, address, first, last, status in cursor.fetchall()]
+        topic = preferences.topic_filter(campaign) if campaign is not None and getattr(campaign, "tenant_id", None) else None
+        topic_out = 0
+        if topic:                                          # people who could receive it but unticked this campaign's topic on the preference page
+            cursor.execute(base + f", judged AS ({judged}) SELECT count(*) FROM judged j WHERE j.status = 'MARKETABLE' AND EXISTS (SELECT 1 FROM party_topic_preference tp "
+                           "WHERE tp.tenant_id = %(tenant)s AND tp.party_id = j.party_id AND tp.topic_id = %(topic)s::uuid AND tp.opted_out)", {**params, "topic": topic})
+            topic_out = cursor.fetchone()[0]
     # consent is what decides a marketing send; a transactional or service message only needs an address that works
     never = ("HARD_BOUNCE", "SOFT_BOUNCE", "COMPLAINT", "BLOCKED", "INVALID_ADDRESS", "NO_PHONE")
-    reachable = sum(count for status, count in counts.items() if status == "MARKETABLE" or (not marketing and status not in never))
+    reachable = sum(count for status, count in counts.items() if status == "MARKETABLE" or (not marketing and status not in never)) - topic_out
     statuses = governance.breakdown(counts) if channel == "EMAIL" else [
         {"code": code, "label": label, "sendable": code == "MARKETABLE", "count": int(counts.get(code, 0))}
         for code, label in (("MARKETABLE", "Can receive marketing texts"), ("UNSUBSCRIBED", "Opted out (STOP)"), ("BLOCKED", "Blocked number"), ("NO_PHONE", "No mobile number"),
                             ("NO_CONSENT", "No consent on record"))]
+    if topic_out:
+        statuses = [dict(line, count=line["count"] - topic_out) if line["code"] == "MARKETABLE" else line for line in statuses]
+        statuses.append({"code": "TOPIC_OPTED_OUT", "label": "Opted out of this topic", "sendable": False, "count": int(topic_out)})
     gross = sum(lists[i]["member_count"] for i in include if i in lists)
     return {"lists": [dict(lists[i], role="INCLUDE") for i in include if i in lists] + [dict(lists[i], role="EXCLUDE") for i in exclude if i in lists],
             "gross": gross, "unique": unique, "duplicates_removed": gross - unique, "excluded_by_list": unique - kept, "after_exclusions": kept,

@@ -8,12 +8,15 @@ Rules, in order (first match is the recorded suppression_reason):
     BLOCKED_NUMBER     contact_point_status.blocked: STOP reply, do-not-disturb registry, undeliverable number, manual block
     UNSUBSCRIBED       opted out of texts (SMS or MMS). Applies to EVERY kind of campaign: a STOP is a STOP
     SUPPRESSED         consent_suppression.suppressed                                  (marketing only, as are the next two)
+    TOPIC_OPTED_OUT    the person unticked this campaign's topic on the preference page (marketing, preference centre on)
     NO_CONSENT         no OPTED_IN consent for texts: marketing texts need express consent
     FREQUENCY_CAP      an active governance policy's max_messages within period_days is already reached
     DUPLICATE_NUMBER   another party in this run has the same number (the first keeps it)
 
 A GLOBAL policy counts every message the person received (email and text); a CHANNEL policy counts texts only.
 """
+from apps.governance import preferences
+
 from . import session
 
 PRIMARY_PHONE = r"""(SELECT e ->> 'number' FROM jsonb_array_elements(cm.phones) e
@@ -57,6 +60,8 @@ WITH picked AS (
                                 AND o.consent_status = 'OPTED_OUT') THEN 'UNSUBSCRIBED'
                 WHEN %(marketing)s AND cs.suppressed THEN 'SUPPRESSED'
                 WHEN %(marketing)s AND COALESCE(cs.consent_status, 'UNKNOWN') <> 'OPTED_IN' THEN 'NO_CONSENT'
+                WHEN %(topic)s::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM party_topic_preference tp WHERE tp.tenant_id = %(tenant)s AND tp.party_id = r.party_id
+                                                             AND tp.topic_id = %(topic)s::uuid AND tp.opted_out) THEN 'TOPIC_OPTED_OUT'
                 WHEN k.policy_id IS NOT NULL THEN 'FREQUENCY_CAP'
            END AS reason
       FROM resolved r
@@ -101,7 +106,8 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender,
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": campaign.solicitation_type == "MARKETING",
             "caps": campaign.solicitation_type == "MARKETING" and bool(getattr(campaign, "respect_governance", True)),
             "channel": channel, "content": str(content.pk), "version": content.version_number, "media": media_url if channel == "MMS" else None,
-            "sender": (sender.sender_id or "")[:30] or None, "provider_code": provider.provider_type, "provider": str(provider.pk)}
+            "sender": (sender.sender_id or "")[:30] or None, "provider_code": provider.provider_type, "provider": str(provider.pk),
+            "topic": preferences.topic_filter(campaign)}
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)

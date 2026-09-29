@@ -34,15 +34,16 @@ export interface LinkEntry {
 }
 
 const LABEL_MAX = 40
-/** Its own signed public endpoint (/public/unsubscribe/?t=), never a click redirect. */
+/** Their own signed public endpoints (/public/unsubscribe/?t=, /public/preferences/?t=), never a click redirect. */
 const UNSUBSCRIBE = 'unsubscribe_url'
+const PREFERENCES = 'preference_url'
 
 /** Schemes and targets a click redirect can never wrap. */
 function isAdvisory(url: string): boolean {
   const value = url.trim().toLowerCase()
   if (value === '' || value.startsWith('#')) return true
   if (/^(mailto|tel|sms):/.test(value)) return true
-  return value.includes(UNSUBSCRIBE) || value.includes('/unsubscribe')
+  return value.includes(UNSUBSCRIBE) || value.includes('/unsubscribe') || value.includes(PREFERENCES) || value.includes('/preferences')
 }
 
 function labelOf(raw: string | null | undefined, fallback: string): string {

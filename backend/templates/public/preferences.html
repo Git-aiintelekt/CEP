@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ heading }} · {{ brand }}</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #F9FAFB; color: #17181C; font: 400 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif }
+  main { max-width: 440px; margin: 6vh auto; padding: 24px; background: #fff; border: 1px solid #E7E8EF; border-radius: 8px }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px }
+  .brand .mark { width: 32px; height: 32px; border-radius: 8px; background: #20265D; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 13px; letter-spacing: -0.03em }
+  .brand b { font-size: 15px; font-weight: 600 }
+  h1 { margin: 0; font-size: 20px; line-height: 1.3; letter-spacing: -0.02em }
+  p { margin: 0 }
+  .who { margin-top: 6px; color: #6B6F7B; font-size: 13px }
+  .who code { font-family: inherit; color: #17181C }
+  section { margin-top: 20px }
+  section h2 { margin: 0 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: #6B6F7B; text-transform: uppercase }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid #EEEFF5 }
+  .row:first-of-type { border-top: 0 }
+  .row input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: #3863DB }
+  .row .text b { display: block; font-weight: 600 }
+  .row .text span { display: block; color: #6B6F7B; font-size: 13px; line-height: 1.4 }
+  .row.locked .text b { color: #6B6F7B }
+  .notice { border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.4; margin-top: 16px }
+  .notice.ok { background: #E8F6EA; color: #0E6027 }
+  .notice.warn { background: #FCF4CB; color: #87451D }
+  .notice.stop { background: #FAE2E2; color: #A92E26 }
+  .notice.info { background: #EEF2FE; color: #312E7C }
+  .actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px }
+  button { font: inherit; font-weight: 600; height: 40px; padding: 0 16px; border-radius: 8px; border: 0; background: #3863DB; color: #fff; cursor: pointer; width: 100% }
+  button:hover { background: #2B4DD0 }
+  button:disabled { background: #EEEFF5; color: #9EA2AD; cursor: not-allowed }
+  button.ghost { background: transparent; color: #3863DB; border: 1px solid #E7E8EF }
+  button.ghost:hover { background: #DEE9FC }
+  .all { margin-top: 20px; padding-top: 16px; border-top: 1px solid #E7E8EF }
+  .all button { background: transparent; color: #C93A32; border: 1px solid #E7E8EF; height: 36px }
+  .all button:hover { background: #FAE2E2 }
+  .all p { margin-top: 6px; color: #6B6F7B; font-size: 13px; line-height: 1.4 }
+  .foot { margin-top: 20px; font-size: 12px; color: #6B6F7B; line-height: 1.4 }
+  .foot a { color: #6B6F7B }
+  a.link { color: #3863DB; font-weight: 500; text-decoration: none }
+  a.link:hover { text-decoration: underline }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><div class="mark" aria-hidden="true">{{ initials }}</div><b>{{ brand }}</b></div>
+  {% if preview %}<p class="notice info" style="margin:0 0 16px">Preview from a test message. Nothing is saved from this page.</p>{% endif %}
+
+  {% if unsubscribed_all %}
+    <h1>You are unsubscribed</h1>
+    <p class="who">These preferences are for <code>{{ address }}</code>.</p>
+    <p class="notice stop">No more marketing {% if sms_shown %}email or texts{% else %}email{% endif %} from {{ brand }}. Receipts and service messages about your account are still sent.</p>
+    {% if allow_opt_in %}
+      <p class="who" style="margin-top:16px">Changed your mind? Choose what you would like to receive and save.</p>
+      <form method="post" action="?t={{ token }}"><input type="hidden" name="action" value="reopen"><div class="actions"><button type="submit" class="ghost">Choose What to Receive</button></div></form>
+    {% endif %}
+  {% else %}
+    <h1>{{ heading }}</h1>
+    <p class="who">These preferences are for <code>{{ address }}</code>.</p>
+    {% if saved %}<p class="notice ok">{{ saved }}</p>{% endif %}
+    {% if problem %}<p class="notice warn">{{ problem }}</p>{% endif %}
+
+    <form method="post" action="?t={{ token }}">
+      <input type="hidden" name="action" value="save">
+      <section>
+        <h2>How you hear from us</h2>
+        <label class="row{% if email_locked %} locked{% endif %}">
+          <input type="checkbox" name="email" {% if email_on %}checked{% endif %} {% if email_locked or preview %}disabled{% endif %}>
+          <span class="text"><b>Email</b><span>{% if email_locked %}Switched off on {{ email_off_since }}. To receive email again, contact {{ brand }}.{% else %}{{ email_description }}{% endif %}</span></span>
+        </label>
+        {% if sms_shown %}
+        <label class="row{% if sms_locked %} locked{% endif %}">
+          <input type="checkbox" name="sms" {% if sms_on %}checked{% endif %} {% if sms_locked or preview %}disabled{% endif %}>
+          <span class="text"><b>Text messages</b><span>To the mobile number ending {{ phone_last4 }}. {% if sms_locked %}Switched off on {{ sms_off_since }}.{% else %}{{ sms_description }}{% endif %}</span></span>
+        </label>
+        {% endif %}
+      </section>
+
+      {% if topics %}
+      <section>
+        <h2>What you receive</h2>
+        {% for topic in topics %}
+        <label class="row">
+          <input type="checkbox" name="topic" value="{{ topic.id }}" {% if topic.on %}checked{% endif %} {% if preview %}disabled{% endif %}>
+          <span class="text"><b>{{ topic.name }}</b>{% if topic.description %}<span>{{ topic.description }}</span>{% endif %}</span>
+        </label>
+        {% endfor %}
+        <div class="row locked"><input type="checkbox" checked disabled><span class="text"><b>Receipts and order updates</b><span>Always sent for your purchases. They are not marketing.</span></span></div>
+      </section>
+      {% endif %}
+
+      <div class="actions"><button type="submit" {% if preview %}disabled{% endif %}>Save Preferences</button></div>
+    </form>
+
+    <div class="all">
+      <form method="post" action="?t={{ token }}"><input type="hidden" name="action" value="unsubscribe_all"><button type="submit" {% if preview %}disabled{% endif %}>Unsubscribe from all marketing messages</button></form>
+      <p>Stops email{% if sms_shown %} and texts{% endif %}. {% if allow_opt_in %}You can come back to this page from any earlier email to opt in again.{% endif %}</p>
+    </div>
+  {% endif %}
+
+  <p class="foot">{% if footer %}{{ footer }}{% else %}{{ brand }}{% endif %}{% if privacy_url %} · <a href="{{ privacy_url }}" rel="noopener">Privacy notice</a>{% endif %}</p>
+</main>
+</body>
+</html>

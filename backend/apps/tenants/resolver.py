@@ -25,6 +25,9 @@ def _lookup(key: str, value: str):
     return result
 
 
+PUBLIC_LINK_PREFIXES = ("/api/v1/public/unsubscribe/", "/api/v1/public/preferences/")
+
+
 def resolve_tenant(request):
     if request.path.startswith("/api/v1/auth/sso/"):         # a browser navigation cannot carry X-Tenant
         from apps.platform_ops import sso
@@ -34,7 +37,7 @@ def resolve_tenant(request):
     if request.path.startswith("/api/v1/webhooks/delivery/"):  # a provider's callback: the workspace code is part of the address
         parts = request.path.split("/")
         return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None
-    if request.path.startswith("/api/v1/public/unsubscribe/"):  # the link in an email: the signed token names the workspace
+    if request.path.startswith(PUBLIC_LINK_PREFIXES):          # a link in an email: the signed token names the workspace
         from apps.delivery.engine import unsubscribe
         claims = unsubscribe.read(request.GET.get("t", ""))
         return _lookup("code", claims["t"]) if claims and claims.get("t") else None

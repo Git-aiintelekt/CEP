@@ -113,6 +113,7 @@ function explain(code: string, channel: string): string {
     UNKNOWN_PARTY: 'The list entry matches no customer record',
     INVALID_ADDRESS: `The ${texts ? 'number' : 'address'} is not in a valid format`,
     FREQUENCY_CAP: 'Already had as many marketing messages as the corporate limits allow for now',
+    TOPIC_OPTED_OUT: "Unticked this campaign's topic on the preference page",
     EXCLUDED_LIST: 'Also in a list this campaign excludes',
   }
   return EXPLAIN[code] ?? 'Left out by the send rules'

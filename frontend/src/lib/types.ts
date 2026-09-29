@@ -342,6 +342,9 @@ export interface Campaign extends Audited {
   /** this campaign's own subject line and preheader (email only); null = the template's */
   subject_line: string | null
   preheader: string | null
+  /** the preference-centre topic it is filed under; people who unticked it are left out */
+  topic: string | null
+  topic_name?: string | null
 }
 
 export interface CampaignApproval {
@@ -549,6 +552,7 @@ export interface CampaignInput {
   targets?: Partial<CampaignTargets> | null
   subject_line?: string | null
   preheader?: string | null
+  topic?: string | null
   setup_step?: number
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number
@@ -1350,6 +1354,51 @@ export interface NotificationTestResult {
 }
 
 // ---------------------------------------------------------------- Approvals (GET / PUT /workspace/approvals/)
+export interface SubscriptionTopic {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  channels: ('EMAIL' | 'SMS')[]
+  is_shown: boolean
+  sort_order: number
+  /** people who unticked it on the preference page */
+  opted_out: number
+  /** campaigns filed under it */
+  campaigns: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SubscriptionTopicInput {
+  name: string
+  description?: string | null
+  channels: ('EMAIL' | 'SMS')[]
+  is_shown: boolean
+}
+
+/** GET /subscription-topics/: the switch state travels with the list, so the campaign setup knows whether to ask */
+export interface SubscriptionTopicList {
+  enabled: boolean
+  results: SubscriptionTopic[]
+}
+
+export interface PreferenceCenterSettings {
+  enabled: boolean
+  brand_name: string
+  heading: string
+  email_description: string
+  sms_description: string
+  footer: string
+  privacy_url: string
+  allow_opt_in: boolean
+  workspace_name: string
+  tag: string
+  preview_url: string
+  stats: { days: number; opened: number; unsubscribed: number; opted_in: number; topics_unticked: number }
+  topics: number
+}
+
 export interface ApprovalSettings {
   require_approval: boolean
   permission: string
