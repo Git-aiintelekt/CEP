@@ -192,3 +192,14 @@ test('editing an engine with a stored transactional key: empty keeps it, Remove 
   const dropped = calls.filter((call) => call.method === 'PATCH').at(-1)
   expect(dropped?.body).toMatchObject({ drop_transactional_secret: true })
 })
+
+test("a campaign's New Sender link opens Add a Sender at once, on an engine of the campaign's channel; closing it tidies the address", async () => {
+  installMockApi({ texts: true })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/delivery?add=sender&channel=SMS')
+  const dialog = await screen.findByRole('dialog', { name: 'Add a Sender' })
+  expect((within(dialog).getByLabelText(/^Sends Through/) as HTMLSelectElement).value).toBe('prov-texts')
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(window.location.search).toBe('')
+})

@@ -96,7 +96,7 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
           <Fact label="Time Zone">{zone}</Fact>
           <Fact label="Corporate Frequency Limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Fact>
           <Fact label="Messages per Hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Fact>
-          <Fact label="Recipient's Local Time">{campaign.timezone_optimization ? 'Requested' : 'Not used'}</Fact>
+          <Fact label="Recipient's Local Time">{campaign.timezone_optimization ? "Each recipient's own time zone" : 'Not used'}</Fact>
           {drip.length > 0 && (
             <Fact label="Series Steps" className="col-span-full">
               <ol className="flex flex-wrap gap-2" aria-label="Series Steps">
@@ -105,7 +105,7 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
             </Fact>
           )}
         </dl>
-        {(campaign.rate_limit_per_hour || campaign.timezone_optimization) && <p className="mt-6 text-helper text-ink-500">The hourly limit and local-time sending take effect when the delivery engine integration is switched on.</p>}
+        {campaign.rate_limit_per_hour && <p className="mt-6 text-helper text-ink-500">The hourly limit takes effect when the delivery engine integration is switched on.</p>}
       </Group>
       <Group title="Record">
         <dl className={FACTS_GRID}>

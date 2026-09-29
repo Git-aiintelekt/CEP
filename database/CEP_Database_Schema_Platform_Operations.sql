@@ -862,5 +862,14 @@ ALTER TABLE campaign DROP CONSTRAINT IF EXISTS ck_campaign_ab_config_object;
 ALTER TABLE campaign ADD CONSTRAINT ck_campaign_ab_config_object CHECK (ab_config IS NULL OR jsonb_typeof(ab_config) = 'object');
 
 -- =====================================================================================
+-- A CAMPAIGN'S OWN SUBJECT LINE AND PREHEADER (patch 0025)
+--   campaign.subject_line / campaign.preheader: set on the setup's Content step to replace the template's for this campaign
+--   only. NULL = the template's. Email only: a text has neither. The send puts the preheader (this one, else the template's)
+--   at the top of the HTML part as hidden inbox preview text.
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS subject_line VARCHAR(300);
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS preheader VARCHAR(300);
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

@@ -117,7 +117,7 @@ export function ContentTab({ campaign, focusTest = 0 }: { campaign: Campaign; fo
               <MessagePreview campaignId={campaign.id} controls={{ party, device, sender: campaign.sender_profile_name ?? 'Your brand', image: mmsImage }} />
             </div>
           ) : (
-            <NoContent title="No template chosen yet" text="Choose the message on the Template step of the campaign setup."
+            <NoContent title="No template chosen yet" text="Choose the message on the Content step of the campaign setup."
               action={can('campaign.edit') && hasAction(campaign, 'edit') ? <Link to={setupHref(campaign.id, { step: 'content' })} className="text-sm font-semibold text-brand-800 hover:underline">Choose a Template</Link> : undefined} />
           )}
         </DetailCard>

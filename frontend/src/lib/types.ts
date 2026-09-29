@@ -344,6 +344,9 @@ export interface Campaign extends Audited {
   approval: CampaignApproval | null
   /** the subject line test (email only); null or switched off = one subject */
   ab_config: AbConfig | null
+  /** this campaign's own subject line and preheader (email only); null = the template's */
+  subject_line: string | null
+  preheader: string | null
 }
 
 export interface CampaignApproval {
@@ -426,6 +429,8 @@ export interface AudienceStatusLine {
 }
 
 export interface CampaignAudience {
+  /** with ?local_time=1, or once the campaign sends at each recipient's local time: how many have a time zone CEP can work out */
+  local_time?: { people: number; local_time_known: number }
   lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; role: 'INCLUDE' | 'EXCLUDE' }[]
   gross: number
   unique: number
@@ -452,6 +457,8 @@ export interface CampaignChecklist {
 
 export interface CampaignPreview {
   subject: string | null
+  /** the campaign's own preheader, else the template's, with sample values; '' when neither has one */
+  preheader?: string
   html: string | null
   text: string | null
   version: number
@@ -545,6 +552,8 @@ export interface CampaignInput {
   rate_limit_per_hour?: number | null
   timezone_optimization?: boolean
   targets?: Partial<CampaignTargets> | null
+  subject_line?: string | null
+  preheader?: string | null
   setup_step?: number
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number
@@ -1214,4 +1223,171 @@ export interface CodeSample {
   url?: string
   /** why the value cannot be drawn, when not */
   message?: string
+}
+
+// ---------------------------------------------------------------- Reports (GET /reports/summary/, /reports/compare/, /reports/schedule/)
+export type ReportRates = Record<'delivery' | 'open' | 'click' | 'bounce' | 'unsubscribe', number>
+export type ReportCounts = Record<'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'failed', number>
+
+export interface ReportCampaignRow extends ReportCounts {
+  id: string
+  name: string
+  channel: Channel
+  campaign_type: string
+  first_sent_at: string | null
+  unsubscribed: number
+  revenue: number | null
+  conversions: number
+  rates: ReportRates
+}
+
+export interface ReportHighlight {
+  id: string
+  name: string
+  rates: ReportRates
+}
+
+export interface ReportSummary {
+  period: { from: string; to: string; timezone: string; days: number }
+  channel: Channel | null
+  totals: ReportCounts & { unsubscribed: number; replied: number; campaigns: number; revenue: number | null; conversions: number }
+  rates: ReportRates
+  by_channel: Record<string, ReportCounts>
+  days: { day: string; sent: number; delivered: number; opened: number; clicked: number }[]
+  campaigns: ReportCampaignRow[]
+  /** a highlight is null when no campaign sent enough (50) for its rate to mean anything */
+  highlights: {
+    highest_open_rate: ReportHighlight | null
+    highest_click_rate: ReportHighlight | null
+    most_unsubscribes: ReportHighlight | null
+    best_send_hour: { hour: number; open_rate: number } | null
+  }
+}
+
+export interface ReportCompareCampaign {
+  id: string
+  name: string
+  channel: Channel
+  campaign_type: string
+  status: string
+  published_at: string | null
+  metrics: CampaignMetrics
+  days: CampaignTimeseries['points']
+}
+
+/** the weekly report email; weekday 0 = Monday, hour in the workspace's zone */
+export interface ReportSchedule {
+  enabled: boolean
+  weekday: number
+  hour: number
+  recipients: string[]
+  last_sent_on: string | null
+}
+
+// ---------------------------------------------------------------- Suppressions (GET /suppressions/, /suppressions/summary/)
+export type SuppressionGroup = 'UNSUBSCRIBED' | 'BOUNCED' | 'COMPLAINED' | 'BLOCKED'
+
+export interface SuppressionRow {
+  /** CONTACT_POINT: a bounce, a complaint or a block; CONSENT: what the person decided */
+  kind: 'CONTACT_POINT' | 'CONSENT'
+  id: string
+  channel: 'EMAIL' | 'PHONE'
+  contact: string
+  party_id: string | null
+  name: string | null
+  reason: string
+  reason_label: string
+  group: SuppressionGroup
+  source: string | null
+  source_label: string | null
+  detail: string | null
+  since: string | null
+  /** a bounce or a block by a person can be undone; an opt-out or a complaint cannot */
+  can_unblock: boolean
+}
+
+export interface SuppressionPage {
+  count: number
+  page: number
+  page_size: number
+  results: SuppressionRow[]
+}
+
+export interface SuppressionSummary {
+  total: number
+  this_week: number
+  groups: { key: SuppressionGroup; label: string; count: number; email: number; phone: number; this_week: number }[]
+}
+
+export interface SuppressionBlockResult {
+  blocked: number
+  already_blocked: number
+  /** the first 20 values that were not an address or a number */
+  invalid: string[]
+  invalid_count: number
+}
+
+// ---------------------------------------------------------------- Notifications (GET / PUT /workspace/notifications/)
+export interface NotificationChannels {
+  /** the campaign's owner, by email */
+  owner: boolean
+  /** the fixed addresses, by email */
+  recipients: boolean
+  webhook: boolean
+}
+
+export interface NotificationSettings {
+  emails: string[]
+  webhook_url: string
+  webhook_tested_at: string | null
+  events: Record<string, NotificationChannels>
+  muted_integrations: string[]
+  catalogue: { key: string; label: string; hint: string }[]
+}
+
+export interface NotificationTestResult {
+  email: number
+  webhook: boolean
+  webhook_configured: boolean
+  emails_configured: number
+}
+
+// ---------------------------------------------------------------- Approvals (GET / PUT /workspace/approvals/)
+export interface ApprovalSettings {
+  require_approval: boolean
+  permission: string
+  /** campaigns waiting for a decision now */
+  awaiting: number
+  approvers: { id: string; name: string; email: string }[]
+}
+
+// ---------------------------------------------------------------- A/B subject lines on a run (GET /campaigns/{id}/runs/{run}/)
+export interface CampaignRunVariant {
+  variant_key: 'A' | 'B'
+  subject_line: string | null
+  allocation_pct: number
+  /** null until the winner is chosen */
+  is_winner: boolean | null
+  winner_metric: 'OPEN_RATE' | 'CLICK_RATE' | null
+  metric_value: number | null
+  sent?: number
+  delivered?: number
+  opened?: number
+  clicked?: number
+  open_rate?: number
+  click_rate?: number
+  /** the rest of the audience, held back until the winner is known */
+  waiting_for_winner: number
+  decide_at: string | null
+}
+
+export interface CampaignRunDetail extends CampaignRun {
+  variants: CampaignRunVariant[]
+}
+
+/** POST /campaigns/{id}/test-publish/: one line per message; with a subject line test each address gets A and B */
+export interface TestPublishResult {
+  run: string
+  status: string
+  results: { to: string; ok: boolean; detail: string | null; variant?: 'A' | 'B'; subject?: string }[]
 }

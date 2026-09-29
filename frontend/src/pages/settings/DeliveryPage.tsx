@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -95,10 +95,11 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
 }
 
 // ---------------------------------------------------------------------------------------------------- sender form
-function SenderForm({ providers, sender, onClose }: { providers: DeliveryProvider[]; sender: DeliverySender | null; onClose: () => void }) {
+/** `channel`: a new sender for that channel (from a campaign's New Sender link) starts on an engine of it */
+function SenderForm({ providers, sender, channel, onClose }: { providers: DeliveryProvider[]; sender: DeliverySender | null; channel?: string | null; onClose: () => void }) {
   const queryClient = useQueryClient()
   const usable = providers.filter((item) => item.manageable !== false)
-  const [provider, setProvider] = useState(sender?.delivery_provider ?? usable[0]?.id ?? '')
+  const [provider, setProvider] = useState(sender?.delivery_provider ?? (usable.find((item) => item.channel === channel) ?? usable[0])?.id ?? '')
   const [name, setName] = useState(sender?.display_name ?? '')
   const [from, setFrom] = useState(sender?.from_address ?? '')
   const [senderId, setSenderId] = useState(sender?.sender_id ?? '')
@@ -158,7 +159,13 @@ export function DeliveryPage() {
   const providers = useQuery({ queryKey: PROVIDERS, queryFn: ({ signal }) => api.get<DeliveryProvider[]>('/delivery-providers/', undefined, signal), enabled: allowed })
   const senders = useQuery({ queryKey: SENDERS, queryFn: ({ signal }) => api.get<DeliverySender[]>('/delivery-senders/', undefined, signal), enabled: allowed })
   const [editing, setEditing] = useState<DeliveryProvider | 'new' | null>(null)
-  const [editingSender, setEditingSender] = useState<DeliverySender | 'new' | null>(null)
+  // /settings/delivery?add=sender&channel=EMAIL (a campaign's New Sender link) opens Add a Sender at once
+  const [params, setParams] = useSearchParams()
+  const [editingSender, setEditingSender] = useState<DeliverySender | 'new' | null>(() => (params.get('add') === 'sender' ? 'new' : null))
+  const closeSender = () => {
+    setEditingSender(null)
+    if (params.has('add')) setParams((now) => { now.delete('add'); now.delete('channel'); return now }, { replace: true })
+  }
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
 
@@ -256,7 +263,9 @@ export function DeliveryPage() {
       </section>
 
       {editing && catalogue.data && <ProviderForm catalogue={catalogue.data} provider={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
-      {editingSender && <SenderForm providers={rows} sender={editingSender === 'new' ? null : editingSender} onClose={() => setEditingSender(null)} />}
+      {editingSender && providers.data && (editingSender !== 'new' || rows.some((row) => row.manageable !== false)) && (
+        <SenderForm providers={rows} sender={editingSender === 'new' ? null : editingSender} channel={params.get('channel')} onClose={closeSender} />
+      )}
     </div>
   )
 }

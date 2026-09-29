@@ -52,7 +52,7 @@ export function CampaignPreviewDetails({ campaign, channel, content, tags }: Det
   const isText = channel === 'SMS' || channel === 'MMS'
   const lists = campaign.contact_list_details.filter((list) => list.role !== 'EXCLUDE')
   const listCount = Math.max(lists.length, campaign.contact_lists.length)
-  const noTemplate: DetailState = { state: 'missing', hint: 'Choose a template on the Template step' }
+  const noTemplate: DetailState = { state: 'missing', hint: 'Choose a template on the Content step' }
 
   return (
     <div aria-busy={details.loading || undefined} className="flex flex-col gap-[18px]">

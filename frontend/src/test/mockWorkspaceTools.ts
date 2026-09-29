@@ -1,0 +1,183 @@
+/** Reports, suppressions, notifications and approvals for the mock API: shaped like the backend's answers, stateful where a test writes. */
+import type {
+  ApprovalSettings, NotificationSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, SuppressionRow, SuppressionSummary,
+} from '@/lib/types'
+
+interface Request {
+  path: string
+  url: string
+  method: string
+  body: Record<string, unknown> | null
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+const invalid = (errors: Record<string, string[]>) => json({ type: 'about:blank', title: 'Invalid input', status: 400, errors }, 400)
+const rates = (delivery: number, open: number, click: number, bounce: number, unsubscribe: number) => ({ delivery, open, click, bounce, unsubscribe })
+
+export const reportSummary: ReportSummary = {
+  period: { from: '2026-09-01', to: '2026-09-26', timezone: 'America/New_York', days: 26 },
+  channel: null,
+  totals: { sent: 18_402, delivered: 17_924, opened: 7_491, clicked: 1_129, bounced: 350, complained: 4, failed: 128, unsubscribed: 22, replied: 3, campaigns: 3, revenue: 48_210.5, conversions: 212 },
+  rates: rates(97.4, 41.8, 6.3, 1.9, 0.1),
+  by_channel: {
+    EMAIL: { sent: 18_102, delivered: 17_630, opened: 7_491, clicked: 1_120, bounced: 350, complained: 4, failed: 122 },
+    SMS: { sent: 300, delivered: 294, opened: 0, clicked: 9, bounced: 0, complained: 0, failed: 6 },
+  },
+  days: [
+    { day: '2026-09-09', sent: 12_000, delivered: 11_700, opened: 5_100, clicked: 800 },
+    { day: '2026-09-19', sent: 6_402, delivered: 6_224, opened: 2_391, clicked: 329 },
+  ],
+  campaigns: [
+    { id: 'c1', name: 'Fall Launch', channel: 'EMAIL', campaign_type: 'REGULAR_MARKETING', first_sent_at: '2026-09-09T12:00:00Z', sent: 12_000, delivered: 11_700, opened: 5_100, clicked: 800, bounced: 300,
+      complained: 3, failed: 0, unsubscribed: 15, revenue: 31_880, conversions: 150, rates: rates(97.5, 43.6, 6.8, 2.5, 0.1) },
+    { id: 'c2', name: 'Spring Clearance', channel: 'EMAIL', campaign_type: 'REGULAR_MARKETING', first_sent_at: '2026-09-19T14:00:00Z', sent: 6_102, delivered: 5_930, opened: 2_391, clicked: 320,
+      bounced: 50, complained: 1, failed: 122, unsubscribed: 7, revenue: 16_330.5, conversions: 62, rates: rates(97.2, 40.3, 5.4, 0.8, 0.1) },
+    { id: 'c3', name: 'Weekend SMS', channel: 'SMS', campaign_type: 'REGULAR_MARKETING', first_sent_at: '2026-09-19T15:00:00Z', sent: 300, delivered: 294, opened: 0, clicked: 9, bounced: 0,
+      complained: 0, failed: 6, unsubscribed: 0, revenue: null, conversions: 0, rates: rates(98, 0, 3.1, 0, 0) },
+  ],
+  highlights: {
+    highest_open_rate: { id: 'c1', name: 'Fall Launch', rates: rates(97.5, 43.6, 6.8, 2.5, 0.1) },
+    highest_click_rate: { id: 'c1', name: 'Fall Launch', rates: rates(97.5, 43.6, 6.8, 2.5, 0.1) },
+    most_unsubscribes: { id: 'c2', name: 'Spring Clearance', rates: rates(97.2, 40.3, 5.4, 0.8, 0.1) },
+    best_send_hour: { hour: 10, open_rate: 46.3 },
+  },
+}
+
+function compared(id: string): ReportCompareCampaign {
+  const row = reportSummary.campaigns.find((item) => item.id === id) ?? reportSummary.campaigns[0]
+  return {
+    id: row.id, name: row.name, channel: row.channel, campaign_type: row.campaign_type, status: 'COMPLETED', published_at: row.first_sent_at,
+    metrics: {
+      counts: { queued: 0, sent: row.sent, failed: row.failed, delivered: row.delivered, opened: row.opened, clicked: row.clicked, bounced: row.bounced, complained: row.complained, unsubscribed: row.unsubscribed, replied: 0 },
+      conversions: row.conversions, revenue: row.revenue, rates: { ...row.rates, conversion: 1.2 }, targets: [], breakdown: { by: 'domain', rows: [], note: null },
+    } as unknown as ReportCompareCampaign['metrics'],
+    days: [{ at: `${(row.first_sent_at ?? '2026-09-01T00:00:00Z').slice(0, 10)}T00:00:00Z`, sent: row.sent, delivered: row.delivered, opened: row.opened, clicked: row.clicked }],
+  }
+}
+
+export const suppressionRows: SuppressionRow[] = [
+  { kind: 'CONTACT_POINT', id: 'cp-1', channel: 'EMAIL', contact: 'd.alvarez@northwind.example', party_id: 'P-1', name: 'Dolores Alvarez', reason: 'HARD_BOUNCE', reason_label: 'Hard Bounce',
+    group: 'BOUNCED', source: 'POSTAL', source_label: 'Postal', detail: '5.1.1 user unknown', since: '2026-09-19T09:00:00Z', can_unblock: true },
+  { kind: 'CONSENT', id: 'cs-2', channel: 'PHONE', contact: '+14045550002', party_id: 'P-2', name: 'Miriam Okonkwo', reason: 'OPTED_OUT', reason_label: 'Opted Out',
+    group: 'UNSUBSCRIBED', source: 'SMS_STOP', source_label: 'Replied STOP', detail: null, since: '2026-09-17T09:00:00Z', can_unblock: false },
+  { kind: 'CONTACT_POINT', id: 'cp-3', channel: 'EMAIL', contact: 'j.lee@fabrikam.example', party_id: 'P-9', name: 'Jordan Lee', reason: 'COMPLAINT', reason_label: 'Complaint',
+    group: 'COMPLAINED', source: 'SENDGRID', source_label: 'SendGrid', detail: 'spam report', since: '2026-09-03T09:00:00Z', can_unblock: false },
+  { kind: 'CONTACT_POINT', id: 'cp-4', channel: 'EMAIL', contact: 'promo@competitor.example', party_id: null, name: null, reason: 'MANUAL', reason_label: 'Blocked',
+    group: 'BLOCKED', source: 'IMPORT', source_label: 'Import', detail: 'legal hold list', since: '2026-09-12T09:00:00Z', can_unblock: true },
+]
+
+const CATALOGUE = [
+  { key: 'send_completed', label: 'Send completed', hint: 'with sent and failed counts' },
+  { key: 'send_failed', label: 'Send failed', hint: 'the run could not start or nothing went out' },
+  { key: 'approval_requested', label: 'Approval requested', hint: 'everyone who can approve is always emailed; this adds the recipients and the webhook' },
+  { key: 'approval_decided', label: 'Approved or sent back', hint: 'to the person who asked' },
+  { key: 'engine_trouble', label: 'Sending engine trouble', hint: 'a circuit opened after repeated failures' },
+  { key: 'ab_winner', label: 'A/B winner chosen', hint: 'with the two rates' },
+  { key: 'weekly_report', label: 'Weekly report', hint: 'Monday 08:00 in the workspace\'s time zone, the last 7 days' },
+]
+const ALL_OFF = { owner: false, recipients: false, webhook: false }
+
+export interface WorkspaceToolsState {
+  schedule: ReportSchedule
+  suppressions: SuppressionRow[]
+  notifications: NotificationSettings
+  approvals: ApprovalSettings
+}
+
+export function workspaceToolsState(overrides: Partial<WorkspaceToolsState> = {}): WorkspaceToolsState {
+  return {
+    schedule: { enabled: false, weekday: 0, hour: 8, recipients: [], last_sent_on: null },
+    suppressions: suppressionRows.map((row) => ({ ...row })),
+    notifications: {
+      emails: [], webhook_url: '', webhook_tested_at: null, muted_integrations: [], catalogue: CATALOGUE,
+      events: {
+        send_completed: { owner: true, recipients: false, webhook: true }, send_failed: { owner: true, recipients: true, webhook: true },
+        approval_requested: { ...ALL_OFF, webhook: true }, approval_decided: { ...ALL_OFF, owner: true }, engine_trouble: { ...ALL_OFF, recipients: true, webhook: true },
+        ab_winner: { ...ALL_OFF, owner: true }, weekly_report: { ...ALL_OFF, recipients: true },
+      },
+    },
+    approvals: { require_approval: false, permission: 'campaign.approve', awaiting: 0, approvers: [{ id: 'u1', name: 'Aby John', email: 'aby.john@aiintelekt.com' }, { id: 'u3', name: 'Maria Chen', email: 'maria@example.com' }] },
+    ...overrides,
+  }
+}
+
+function summaryOf(rows: SuppressionRow[]): SuppressionSummary {
+  const groups = (['UNSUBSCRIBED', 'BOUNCED', 'COMPLAINED', 'BLOCKED'] as const).map((key) => {
+    const own = rows.filter((row) => row.group === key)
+    return { key, label: key === 'BLOCKED' ? 'Blocked by You' : key.charAt(0) + key.slice(1).toLowerCase(), count: own.length,
+             email: own.filter((row) => row.channel === 'EMAIL').length, phone: own.filter((row) => row.channel === 'PHONE').length, this_week: 0 }
+  })
+  return { total: rows.length, this_week: 1, groups }
+}
+
+export function handleWorkspaceTools({ path, url, method, body }: Request, state: WorkspaceToolsState): Response | null {
+  const query = new URL(url, 'http://mock').searchParams
+  if (path.endsWith('/reports/summary/')) {
+    const channel = query.get('channel')
+    const campaigns = reportSummary.campaigns.filter((row) => !channel || row.channel === channel)
+    return json({ ...reportSummary, channel, period: { ...reportSummary.period, from: query.get('from') ?? reportSummary.period.from, to: query.get('to') ?? reportSummary.period.to }, campaigns })
+  }
+  if (path.endsWith('/reports/campaigns.csv')) return new Response('campaign,channel,sent\nFall Launch,EMAIL,12000\n', { headers: { 'Content-Type': 'text/csv' } })
+  if (path.endsWith('/reports/compare/')) return json({ campaigns: (query.get('ids') ?? '').split(',').filter(Boolean).map(compared) })
+  if (path.endsWith('/reports/schedule/')) {
+    if (method === 'PUT') {
+      const recipients = (body?.recipients as string[]) ?? []
+      const bad = recipients.find((item) => !item.includes('@'))
+      if (bad) return invalid({ recipients: [`${bad} is not an email address.`] })
+      state.schedule = { ...state.schedule, ...(body as Partial<ReportSchedule>), recipients }
+    }
+    return json(state.schedule)
+  }
+
+  if (path.endsWith('/suppressions/summary/')) return json(summaryOf(state.suppressions))
+  if (path.endsWith('/suppressions/export.csv')) return new Response('contact,channel,reason\nd.alvarez@northwind.example,EMAIL,HARD_BOUNCE\n', { headers: { 'Content-Type': 'text/csv' } })
+  if (path.endsWith('/suppressions/block/') && method === 'POST') {
+    const values = body ? ((body.values as string[]) ?? []) : ['from-file@example.com']
+    const invalidValues = values.filter((item) => !item.includes('@') && !/^\+?\d{10,15}$/.test(item))
+    const fresh = values.filter((item) => !invalidValues.includes(item) && !state.suppressions.some((row) => row.contact === item))
+    state.suppressions = [...fresh.map((contact, index) => ({ kind: 'CONTACT_POINT' as const, id: `cp-new-${index}`, channel: contact.includes('@') ? 'EMAIL' as const : 'PHONE' as const, contact, party_id: null, name: null,
+      reason: 'MANUAL', reason_label: 'Blocked', group: 'BLOCKED' as const, source: 'CSR', source_label: 'By hand', detail: body?.note ? String(body.note) : null, since: '2026-09-29T10:00:00Z', can_unblock: true })), ...state.suppressions]
+    return json({ blocked: fresh.length, already_blocked: values.length - fresh.length - invalidValues.length, invalid: invalidValues.slice(0, 20), invalid_count: invalidValues.length })
+  }
+  const unblock = /\/suppressions\/([A-Z_]+)\/([^/]+)\/unblock\/$/.exec(path)
+  if (unblock && method === 'POST') {
+    const row = state.suppressions.find((item) => item.id === unblock[2])
+    if (!row?.can_unblock) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'An opt-out or a complaint cannot be undone here.' }, 409)
+    state.suppressions = state.suppressions.filter((item) => item.id !== row.id)
+    return json({ unblocked: true })
+  }
+  if (path.endsWith('/suppressions/')) {
+    const needle = (query.get('search') ?? '').toLowerCase()
+    const rows = state.suppressions.filter((row) => (!query.get('channel') || row.channel === query.get('channel')) && (!query.get('reason') || row.group === query.get('reason'))
+      && (!needle || row.contact.toLowerCase().includes(needle) || (row.party_id ?? '').toLowerCase().includes(needle)))
+    const page = Number(query.get('page') ?? 1)
+    const size = Number(query.get('page_size') ?? 25)
+    return json({ count: rows.length, page, page_size: size, results: rows.slice((page - 1) * size, page * size) })
+  }
+
+  if (path.endsWith('/workspace/notifications/test/') && method === 'POST') {
+    const config = state.notifications
+    const hooked = config.webhook_url !== '' && !config.webhook_url.includes('broken')
+    if (hooked) state.notifications = { ...config, webhook_tested_at: '2026-09-29T10:00:00Z' }
+    return json({ email: config.emails.length, webhook: hooked, webhook_configured: config.webhook_url !== '', emails_configured: config.emails.length })
+  }
+  if (path.endsWith('/workspace/notifications/')) {
+    if (method === 'PUT') {
+      const url = String(body?.webhook_url ?? '')
+      if (url && !/^https?:\/\//.test(url)) return invalid({ webhook_url: ['The webhook must be an http:// or https:// address.'] })
+      state.notifications = { ...state.notifications, emails: (body?.emails as string[]) ?? state.notifications.emails, webhook_url: url,
+                              events: (body?.events as NotificationSettings['events']) ?? state.notifications.events, webhook_tested_at: url === state.notifications.webhook_url ? state.notifications.webhook_tested_at : null }
+    }
+    return json(state.notifications)
+  }
+  if (path.endsWith('/workspace/approvals/')) {
+    if (method === 'PUT') {
+      if (body?.require_approval && state.approvals.approvers.length === 0) return invalid({ require_approval: ['Give a role the campaign.approve permission first (Settings → Roles), so someone can approve.'] })
+      state.approvals = { ...state.approvals, require_approval: Boolean(body?.require_approval) }
+    }
+    return json(state.approvals)
+  }
+  return null
+}

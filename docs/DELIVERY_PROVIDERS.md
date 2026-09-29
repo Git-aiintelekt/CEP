@@ -150,6 +150,11 @@ campaign, run, static, inner template) → the list member's uploaded columns �
 default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_year}}`, `{{today}}`,
 `{{campaign_name}}` and `{{email}}` are always available.
 
+The subject and the preheader are the campaign's own (`campaign.subject_line` / `preheader`, patch 0025) when it has
+them, else the template's. The preheader goes into the HTML part right after `<body>` as hidden text (the line an inbox
+shows after the subject), with its tags filled in like the rest; before patch 0025 it was stored with the template but
+never sent.
+
 ### 8.1 Barcode and QR code blocks (`apps/templates/codes.py`, patch 0024)
 
 A dynamic image: the designer's Barcode and QR Code blocks (Commerce) draw one tag's value for each recipient. The marketer
@@ -305,5 +310,5 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 * Link shortening and click tracking in texts; automatic HELP / STOP confirmation texts (left to the aggregator).
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's
   tracking through webhooks, so SMTP sends report neither.
-* A/B variants, recurring and drip runs, journey-generated sends: the run model supports them; the engine sends
-  `ONE_TIME` runs today.
+* Recurring and drip runs, journey-generated sends: the run model supports them; the engine sends `ONE_TIME` runs
+  today. A/B subject lines are sent since 2026-09-27 (CAMPAIGNS.md §8).

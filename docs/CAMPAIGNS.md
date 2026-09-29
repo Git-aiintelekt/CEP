@@ -29,7 +29,7 @@ an e-receipt, having no schedule, is complete once its Targets step is passed).
 |---|---|---|
 | 1 | Basic Info | name (unique in the workspace), code, description, type and channel (cards), message purpose, owner (defaults to the creator), tags |
 | 2 | Audience | a checkbox per contact list (and one to select every list shown) picks the lists the campaign is sent to; *Keep people out of this campaign* (optional) ticks lists to exclude, and a list is one or the other, never both; a live estimate: merged, counted once per person, exclusions removed, today's governance check. **Upload a CSV file** and **From an audience or a clone** open the contact list wizard itself, the same upload process as in Contact Lists (a vetted list is attached at once, an uploaded one waits for a confirm) |
-| 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not) |
+| 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not); for an email, the campaign's own **subject line and preheader** (blank = the template's; *Edit the Template's* copies its text in, *Use the Template's* empties the field; an inbox row shows the result with sample values). Only the campaign changes, never the template (`campaign.subject_line`, `campaign.preheader`, patch 0025; a text campaign cannot have them) |
 | 4 | Scheduling & Delivery | send immediately / schedule / recurring (daily, weekly, monthly; ends never, on a date, after n sends) / drip series (a run per step); the campaign's time zone; frequency limits, hourly limit, recipient-local time |
 | 5 | Targets & Economics | revenue, conversions, opens, clicks, redemptions; planned campaign and offer cost; notes (BRD 15) |
 | 6 | Test & Preview | the message with sample values or as one customer of the audience; test publish to colleagues or typed addresses |
@@ -171,7 +171,7 @@ completes the campaign.
 ## 8. Subject line tests (A/B, email only)
 
 `campaign.ab_config = {enabled, subject_b, sample_pct (10-50, default 20), metric (OPEN_RATE | CLICK_RATE),
-decide_after_minutes (30 to 7 days, default 240)}`; subject A is the template's. Validated on save; a text campaign
+decide_after_minutes (30 to 7 days, default 240)}`; subject A is the campaign's own subject line, else the template's. Validated on save; a text campaign
 cannot have one. At the send, once the audience is queued, a sample of it is split in two by a stable hash of the
 person: half get A, half B (`mailer_execution.variant_key`, `subject_line`), the rest are `HOLD` and the engine leaves
 them alone; `campaign_run_variant` gets A and B with their share, `campaign_run.ab_decide_at` the decision time.
@@ -181,7 +181,18 @@ The decision (`decide-ab-winners`, or a person through `POST /campaigns/{id}/run
 `campaign.publish`) compares the two by the metric per message sent; a tie within one point goes to A. The winner is
 marked on the variants with both figures, the held messages become the winner's subject, the activity log gets
 `AB_WINNER`, the owner is told (`ab_winner` notification), and the next dispatcher pass sends the rest. The run detail
-shows each variant with its subject, share, figures, `waiting_for_winner` and `decide_at`. A test send is unaffected.
+shows each variant with its subject, share, figures, `waiting_for_winner` and `decide_at`. A test send with a test on
+goes to each address twice, `[TEST A]` with the template's subject and `[TEST B]` with the second one; each line of the
+answer carries its `variant` and `subject` (2026-09-29).
+
+**Screens (2026-09-29).** The Test step has a Subject Line Test card (email campaigns, not e-receipts or journey
+campaigns): a switch, A as the template's subject with sample values, B, the sample (10-50%, with the number of
+people it comes to), Winner Decided By and Decide After, saved with Save Subject Test (`features/campaigns/wizard/
+SubjectTestCard.tsx`, defaults and wording in `features/campaigns/subjectTest.ts`). The test send says each address
+gets both, and its results name the subject. Review & Publish's summary has a Subject Line line. On the campaign's
+Performance tab each production run of a campaign with a test opens on A and B side by side (subject, sent, open and
+click rate, the winner marked), and while the rest wait it says when the winner is chosen and offers Send A / Send B to
+the Rest (`campaign.publish`, with a confirmation; `detail/SubjectTestResults.tsx`).
 
 ## 9. Local send times (`timezone_optimization`)
 
@@ -191,7 +202,10 @@ own zone (`engine/sendtime.py`). The zone is `customer_master.custom_attributes.
 keeps one zone; nobody's zone known = the campaign's own time; a local time already past when the run starts = now.
 An immediate send works from the moment it was published. The engine claims nothing before its `send_after`; the run
 stays open until the last zone has had its turn. The audience endpoint reports `local_time: {people, local_time_known}`
-so the Review step can say for how many people the local time is known.
+once the option is saved, or at once with `?local_time=1`: the Review & Publish step asks for it as soon as the box is
+ticked and says "70 of 88 people have a known time zone. The other 18 get it at the chosen time in America/New_York."
+(`StepSchedule.tsx`, `LocalTimeCoverage`). The review summary has a Local Time line and the campaign's Overview says
+"Each recipient's own time zone".
 
 ## 10. Tests
 
