@@ -10,6 +10,8 @@ export interface LayerNode {
   visible: boolean
   /** carries the hide-on-phones class: it ships and it sends, but phones are told not to draw it */
   hiddenOnPhones: boolean
+  /** carries the hide-on-desktop class: phones alone draw it */
+  hiddenOnDesktop: boolean
   selected: boolean
   removable: boolean
   draggable: boolean

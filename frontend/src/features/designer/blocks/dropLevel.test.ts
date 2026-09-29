@@ -1,13 +1,19 @@
 import { expect, test } from 'vitest'
 
 import { dropLevel } from './dropLevel'
-import { CEP_BLOCKS } from './registry'
+import { CEP_BLOCKS, CODE_BLOCKS } from './registry'
 
 const COLUMN_LEVEL = ['spacer', 'divider', 'heading', 'text', 'image', 'button']
+const RAW_LEVEL = ['html']
 
 test('a block that brings its own section is section level', () => {
   const sections = CEP_BLOCKS.filter((block) => dropLevel(block) === 'section').map((block) => block.id)
-  expect(sections).toEqual(CEP_BLOCKS.map((block) => block.id).filter((id) => !COLUMN_LEVEL.includes(id)))
+  expect(sections).toEqual(CEP_BLOCKS.map((block) => block.id).filter((id) => !COLUMN_LEVEL.includes(id) && !RAW_LEVEL.includes(id)))
+})
+
+test('raw HTML, and the code blocks, go wherever the selection is', () => {
+  expect(CEP_BLOCKS.filter((block) => dropLevel(block) === 'raw').map((block) => block.id)).toEqual(RAW_LEVEL)
+  expect(CODE_BLOCKS.map((block) => dropLevel(block))).toEqual(['raw', 'raw'])
 })
 
 test('the six column-level blocks need somebody else’s column', () => {
@@ -22,4 +28,5 @@ test('the level comes from the first tag, not from anything nested inside', () =
   expect(dropLevel({ id: 'x', label: 'x', category: 'content', icon: 'Square', mjml: '<mj-text>see the mj-section above</mj-text>' })).toBe('column')
   // a look-alike tag is not mj-section
   expect(dropLevel({ id: 'x', label: 'x', category: 'content', icon: 'Square', mjml: '<mj-section-header>x</mj-section-header>' })).toBe('column')
+  expect(dropLevel({ id: 'x', label: 'x', category: 'content', icon: 'Square', mjml: '<mj-raw css-class="cep-code"><!-- x --></mj-raw>' })).toBe('raw')
 })

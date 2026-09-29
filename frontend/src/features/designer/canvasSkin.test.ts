@@ -2,7 +2,7 @@ import { afterEach, expect, test } from 'vitest'
 
 import { HIDE_MOBILE_CLASS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
-import { CANVAS_SKIN_ID, DESIGN_RULES_ID, PHONE_ATTRIBUTE, canvasSkin, designRules, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
+import { CANVAS_SKIN_ID, DESIGN_RULES_ID, DESKTOP_ATTRIBUTE, PHONE_ATTRIBUTE, canvasSkin, designRules, injectCanvasSkin, paintPhoneWidth } from './canvasSkin'
 
 /** The app's tokens live on :root; the test supplies them the way index.css does. */
 function themed(
@@ -76,7 +76,7 @@ test('it styles only the editing chrome, never the email', () => {
   // The frame's root scroller, whose scrollbar is hidden, is the one exception: it is the page around the email.
   // Nothing else: the email's own tags, classes and styles are never targeted.
   for (const selector of selectors.filter((s) => !/^html(::-webkit-scrollbar)?$/.test(s))) {
-    expect(selector, selector).toMatch(new RegExp(`gjs-|\\[${HIDDEN_ATTRIBUTE}\\]|^\\[${PHONE_ATTRIBUTE}\\] `))
+    expect(selector, selector).toMatch(new RegExp(`gjs-|\\[${HIDDEN_ATTRIBUTE}\\]|^\\[${PHONE_ATTRIBUTE}\\] |^\\[${DESKTOP_ATTRIBUTE}\\] `))
   }
 })
 
@@ -154,9 +154,11 @@ test('the phone width is one attribute on the frame, which a re-render can put s
 
   paintPhoneWidth(frame, true)
   expect(frame.documentElement.hasAttribute(PHONE_ATTRIBUTE)).toBe(true)
+  expect(frame.documentElement.hasAttribute(DESKTOP_ATTRIBUTE)).toBe(false)
 
   paintPhoneWidth(frame, false)
   expect(frame.documentElement.hasAttribute(PHONE_ATTRIBUTE)).toBe(false)
+  expect(frame.documentElement.hasAttribute(DESKTOP_ATTRIBUTE)).toBe(true)                      // a block hidden on desktop is hidden at this width
 
   expect(() => paintPhoneWidth(null, true)).not.toThrow()
 })

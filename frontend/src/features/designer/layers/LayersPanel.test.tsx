@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 
-import { EMPTY_NOTE, FOOTER_NOTE, HIDDEN_NOTE, LayersPanel, PHONES_MARKER_LABEL, PHONES_NOTE } from './LayersPanel'
+import { DESKTOP_MARKER_LABEL, DESKTOP_NOTE, EMPTY_NOTE, FOOTER_NOTE, HIDDEN_NOTE, LayersPanel, PHONES_MARKER_LABEL, PHONES_NOTE } from './LayersPanel'
 import type { LayerNode } from './types'
 
 // jsdom has no layout, so it ships no scrollIntoView; the panel calls it to reveal the selected row
@@ -19,6 +19,7 @@ function node(over: Partial<LayerNode> & Pick<LayerNode, 'id' | 'name'>): LayerN
     open: true,
     visible: true,
     hiddenOnPhones: false,
+    hiddenOnDesktop: false,
     selected: false,
     removable: true,
     draggable: true,
@@ -327,6 +328,15 @@ test('a section hidden on phones is marked, and says something different from hi
   expect(screen.queryByText(HIDDEN_NOTE)).toBeNull()
   // the two states must never read as the same thing
   expect(PHONES_NOTE).not.toBe(HIDDEN_NOTE)
+})
+
+test('a block hidden on desktop is marked, apart from one hidden on phones', () => {
+  renderPanel({ nodes: [node({ id: 't1', name: 'Phone menu', hiddenOnDesktop: true })] })
+
+  expect(screen.getByLabelText(DESKTOP_MARKER_LABEL)).toBeTruthy()
+  expect(screen.getByText(DESKTOP_NOTE)).toBeTruthy()
+  expect(screen.queryByLabelText(PHONES_MARKER_LABEL)).toBeNull()
+  expect(DESKTOP_NOTE).not.toBe(PHONES_NOTE)
 })
 
 test('the two kinds of hiding are marked apart on one row', () => {

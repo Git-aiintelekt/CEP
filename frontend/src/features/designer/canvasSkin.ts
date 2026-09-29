@@ -7,7 +7,7 @@
  *
  * Only the editing chrome is touched. The email's own styles are never changed.
  */
-import { HIDE_MOBILE_CLASS, SHADOW_CSS, SHADOW_LEVELS, shadowClass } from './blocks/register'
+import { HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS, SHADOW_CSS, SHADOW_LEVELS, shadowClass } from './blocks/register'
 import { HIDDEN_ATTRIBUTE } from './layers/hidden'
 
 export const CANVAS_SKIN_ID = 'cep-canvas-skin'
@@ -17,27 +17,34 @@ export const CANVAS_SKIN_ID = 'cep-canvas-skin'
  * device change is one attribute rather than a fresh stylesheet — which a canvas re-render would otherwise undo.
  */
 export const PHONE_ATTRIBUTE = 'data-cep-phone'
+/** Its opposite, painted whenever the phone one is not: a block hidden on desktop needs a selector of its own. */
+export const DESKTOP_ATTRIBUTE = 'data-cep-desktop'
 
 /**
- * What a phone does with a block hidden on phones. The canvas draws the components, not the compiled email, so
- * the design's own mj-style never reaches this document and the rule is mirrored here instead. The attribute
- * selector matches too: css-class only becomes a real class when MJML compiles the email.
+ * What a phone does with a block hidden on phones, and desktop with one hidden on desktop. The canvas draws the
+ * components, not the compiled email, so the design's own mj-style never reaches this document and the rules are
+ * mirrored here instead. The attribute selector matches too: css-class only becomes a real class when MJML
+ * compiles the email.
  */
-function hiddenOnPhonesCss(): string {
+function hiddenByDeviceCss(): string {
   return `
 [${PHONE_ATTRIBUTE}] .${HIDE_MOBILE_CLASS},
 [${PHONE_ATTRIBUTE}] [css-class~="${HIDE_MOBILE_CLASS}"] {
   display: none !important;
 }
+[${DESKTOP_ATTRIBUTE}] .${HIDE_DESKTOP_CLASS},
+[${DESKTOP_ATTRIBUTE}] [css-class~="${HIDE_DESKTOP_CLASS}"] {
+  display: none !important;
+}
 `
 }
 
-/** Tells the frame whether it is standing in for a phone. Re-applied whenever GrapesJS rebuilds the document. */
+/** Tells the frame which device it stands in for. Re-applied whenever GrapesJS rebuilds the document. */
 export function paintPhoneWidth(frame: Document | undefined | null, onPhone: boolean): void {
   const root = frame?.documentElement
   if (!root) return
-  if (onPhone) root.setAttribute(PHONE_ATTRIBUTE, '')
-  else root.removeAttribute(PHONE_ATTRIBUTE)
+  root.toggleAttribute(PHONE_ATTRIBUTE, onPhone)
+  root.toggleAttribute(DESKTOP_ATTRIBUTE, !onPhone)
 }
 
 /**
@@ -94,7 +101,7 @@ html::-webkit-scrollbar {
 [${HIDDEN_ATTRIBUTE}][${HIDDEN_ATTRIBUTE}] {
   display: none !important;
 }
-${hiddenOnPhonesCss()}`
+${hiddenByDeviceCss()}`
 }
 
 export const DESIGN_RULES_ID = 'cep-design-rules'

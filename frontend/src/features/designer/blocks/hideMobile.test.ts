@@ -2,8 +2,7 @@ import type { Component, Editor } from 'grapesjs'
 import { expect, test, vi, type Mock } from 'vitest'
 
 import {
-  FOOTER_CLASS, HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE, SHADOW_RULE, hasCssClass, hideMobileStylesIn, hiddenOnPhonesIn,
-  isHiddenOnPhones, setCssClass, setShadow, shadowClass, shadowOf, syncHideMobileStyle, syncShadowStyle,
+  FOOTER_CLASS, HIDE_DESKTOP_CLASS, HIDE_DESKTOP_RULE, HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE, SHADOW_RULE, hasCssClass, hiddenOnDesktopIn, hiddenOnPhonesIn, hideDesktopStylesIn, hideMobileStylesIn, isHiddenOnDesktop, isHiddenOnPhones, setCssClass, setShadow, shadowClass, shadowOf, syncHideDesktopStyle, syncHideMobileStyle, syncShadowStyle,
 } from './register'
 
 /** A component the class helpers can work with: no GrapesJS, which hangs under jsdom. */
@@ -268,4 +267,35 @@ test('a shadow is one class among three, and its rule follows the blocks into th
   expect(section.getAttributes()['css-class']).toBe('brand-band')
   syncShadowStyle(editor)
   expect(head.children).toHaveLength(0)
+})
+
+// ---- the same, the other side of the breakpoint ---------------------------
+
+test('hide on desktop is its own class with its own rule, kept in mj-head the same way', () => {
+  expect(HIDE_DESKTOP_RULE).toContain(`.${HIDE_DESKTOP_CLASS}`)
+  expect(HIDE_DESKTOP_RULE).toContain('min-width:481px')
+  expect(HIDE_DESKTOP_RULE).toContain('display:none!important')
+  expect(HIDE_DESKTOP_RULE).not.toContain('inline')
+
+  const text = make('mj-text', { 'css-class': HIDE_MOBILE_CLASS })
+  expect(isHiddenOnDesktop(asComponent(text))).toBe(false)
+  setCssClass(asComponent(text), HIDE_DESKTOP_CLASS, true)
+  expect(text.getAttributes()['css-class']).toBe(`${HIDE_MOBILE_CLASS} ${HIDE_DESKTOP_CLASS}`)    // both may be on: the block hides everywhere
+  expect(isHiddenOnDesktop(asComponent(text))).toBe(true)
+  expect(isHiddenOnPhones(asComponent(text))).toBe(true)
+
+  const head = make('mj-head')
+  const wrapper = nest(make('wrapper'), nest(make('mjml'), head, nest(make('mj-body'), nest(make('mj-section'), nest(make('mj-column'), text)))))
+  const editor = editorFor(wrapper)
+  syncHideDesktopStyle(editor)
+  syncHideDesktopStyle(editor)
+  expect(hiddenOnDesktopIn(editor)).toHaveLength(1)
+  expect(hideDesktopStylesIn(editor)).toHaveLength(1)
+  expect(head.append).toHaveBeenCalledTimes(1)
+  expect(head.append).toHaveBeenCalledWith(`<mj-style>${HIDE_DESKTOP_RULE}</mj-style>`)
+  expect(hideMobileStylesIn(editor)).toHaveLength(0)                                               // the phones rule is a separate style
+
+  setCssClass(asComponent(text), HIDE_DESKTOP_CLASS, false)
+  syncHideDesktopStyle(editor)
+  expect(hideDesktopStylesIn(editor)).toHaveLength(0)
 })

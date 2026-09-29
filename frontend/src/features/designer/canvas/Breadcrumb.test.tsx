@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
-import { Breadcrumb, CRUMBS_SHOWN, ELLIPSIS, NOTHING_SELECTED, PHONES_TAG_LABEL, PHONES_TAG_NOTE, SELECTED_LABEL } from './Breadcrumb'
+import { Breadcrumb, CRUMBS_SHOWN, DESKTOP_TAG_LABEL, DESKTOP_TAG_NOTE, ELLIPSIS, NOTHING_SELECTED, PHONES_TAG_LABEL, PHONES_TAG_NOTE, SELECTED_LABEL } from './Breadcrumb'
 import { HIDDEN_NOTE } from '../layers/LayersPanel'
 
 afterEach(cleanup)
@@ -80,6 +80,14 @@ test('the selected block says when it is hidden on phones', () => {
 
   expect(screen.getByText(PHONES_TAG_LABEL)).toBeTruthy()
   expect(screen.getByTitle(PHONES_TAG_NOTE)).toBeTruthy()
+})
+
+test('the selected block says when it is hidden on desktop', () => {
+  render(<Breadcrumb crumbs={[{ id: 'body', name: 'Email Body' }, { id: 's1', name: 'Phone menu', hiddenOnDesktop: true }]} onSelect={vi.fn()} />)
+
+  expect(screen.getByText(DESKTOP_TAG_LABEL)).toBeTruthy()
+  expect(screen.getByTitle(DESKTOP_TAG_NOTE)).toBeTruthy()
+  expect(screen.queryByText(PHONES_TAG_LABEL)).toBeNull()
 })
 
 test('the tag is worded apart from the layers tree canvas-only hiding', () => {

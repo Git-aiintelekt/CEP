@@ -54,7 +54,7 @@ import { CODE_TYPE, codeConfigOf, dimensionsOf, isCodeBlock, placeholderSrc, reg
 import { registerCustomHtmlType } from './blocks/customHtml'
 import { registerReceiptSlotType } from './blocks/receiptSlot'
 import { needsImage } from './blocks/registry'
-import { applyFooterRules, blockContent, blocksFor, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideMobileStyle, syncShadowStyle } from './blocks/register'
+import { applyFooterRules, blockContent, blocksFor, isHiddenOnDesktop, isHiddenOnPhones, registerBlocks, setBlockImage, syncHideDesktopStyle, syncHideMobileStyle, syncShadowStyle } from './blocks/register'
 import { SRC_KEY, blockType, fieldsFor, isGrouping, writeSetting } from './inspector/settings'
 import { expandSelfClosing, repairProject } from './mjml'
 import { asToken } from './tags'
@@ -531,6 +531,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
           id: String(node.getId()),
           name: layerNameFor(blockType(node), node.get('custom-name'), node.getAttributes()),
           hiddenOnPhones: isHiddenOnPhones(node),
+          hiddenOnDesktop: isHiddenOnDesktop(node),
         })
       }
       setCrumbs(chain[0]?.name === EMAIL_BODY_NAME ? chain : [])
@@ -559,11 +560,12 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     const syncHistory = () => setView((was) => ({ ...was, canUndo: editor.UndoManager.hasUndo(), canRedo: editor.UndoManager.hasRedo() }))
     for (const event of ['update', 'undo', 'redo']) editor.on(event, syncHistory)
 
-    // The head's hide-on-phones and shadow rules follow the blocks that use them, including across an undo or a redo.
+    // The head's hide-on-phones, hide-on-desktop and shadow rules follow the blocks that use them, including across an undo or a redo.
     const syncHeadRules = () => {
       // view-only never changes the head: the sync would also restart the undo stack the lock stopped
       if (loading.current || latest.current.readOnly) return
       syncHideMobileStyle(editor)
+      syncHideDesktopStyle(editor)
       syncShadowStyle(editor)
     }
     for (const event of ['update', 'undo', 'redo']) editor.on(event, syncHeadRules)
@@ -719,6 +721,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       sweepFooters.current()
       if (!readOnly) {
         syncHideMobileStyle(editor)
+        syncHideDesktopStyle(editor)
         syncShadowStyle(editor)
       }
       skinCanvas.current()

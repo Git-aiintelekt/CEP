@@ -4,7 +4,7 @@
  * closed, a second footer is taken out again, the hide-on-phones rule is added to mj-head. Nothing of that may happen
  * silently, so each is named here.
  */
-import { FOOTER_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
+import { FOOTER_CLASS, HIDE_DESKTOP_CLASS, HIDE_MOBILE_CLASS } from '../blocks/register'
 
 const TAG = /<(\/?)(mjml|mj-[a-z-]+)\b[^>]*?(\/?)>/gi
 
@@ -57,6 +57,7 @@ function structure(text: string): string[] {
 }
 
 const hasPhoneRule = (text: string) => new RegExp(`<mj-style[^>]*>[^<]*\\.${HIDE_MOBILE_CLASS}`).test(text)
+const hasDesktopRule = (text: string) => new RegExp(`<mj-style[^>]*>[^<]*\\.${HIDE_DESKTOP_CLASS}`).test(text)
 
 /** What the editor did to the typed code, in plain words; empty when it kept it as it was. */
 export function describeAdjustments(typed: string, applied: string): string[] {
@@ -68,6 +69,7 @@ export function describeAdjustments(typed: string, applied: string): string[] {
   if (removedFooters > 0) changes.push(removedFooters === 1 ? 'removed a second footer: an email has only one' : `removed ${removedFooters} extra footers: an email has only one`)
 
   if (!hasPhoneRule(typed) && hasPhoneRule(applied)) changes.push('added the hide-on-phones rule to mj-head')
+  if (!hasDesktopRule(typed) && hasDesktopRule(applied)) changes.push('added the hide-on-desktop rule to mj-head')
 
   // anything else that moved: compared without the rule just named, which is expected
   const before = structure(typed).filter((name) => name !== 'mj-style')

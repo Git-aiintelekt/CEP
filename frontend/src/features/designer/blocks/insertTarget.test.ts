@@ -19,6 +19,16 @@ test('a section goes after the section holding the selection', () => {
   expect(insertTarget(tree, [1, 0], 'section')).toEqual({ parent: tree, index: 2, fellBack: false })
 })
 
+test('raw HTML follows the selection: into a chosen column, after a chosen block in one, else beside the sections', () => {
+  const tree = body()
+  const column = tree.children[0].children[1]
+  expect(insertTarget(tree, [0, 1], 'raw')).toEqual({ parent: column, index: 1, fellBack: false })
+  const first = tree.children[0].children[0]
+  expect(insertTarget(tree, [0, 0, 0], 'raw')).toEqual({ parent: first, index: 1, fellBack: false })
+  expect(insertTarget(tree, [1], 'raw')).toEqual({ parent: tree, index: 2, fellBack: false })          // a section chosen: after it, as before
+  expect(insertTarget(tree, null, 'raw')).toEqual({ parent: tree, index: 2, fellBack: false })
+})
+
 test('a section with nothing selected goes to the end of the body', () => {
   const tree = body()
   expect(insertTarget(tree, null, 'section')).toEqual({ parent: tree, index: 2, fellBack: false })

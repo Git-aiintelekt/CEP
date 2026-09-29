@@ -9,6 +9,7 @@ import {
   shownSrc, valueProblem, writeCode,
 } from './codes'
 import { blocksFor } from './register'
+import { RAW_PARENTS, RAW_PARENT_TYPES } from './rawPlacement'
 import { CODE_BLOCKS } from './registry'
 
 const tag = (tag_key: string, label: string, sample_value: string | null): PersonalizationTag => ({
@@ -85,9 +86,12 @@ test('writing a block puts its markers in as comment components, the opening one
 test('the type is an mj-raw that carries the cep-code class, nothing else', () => {
   const addType = vi.fn()
   registerCodeType({ Components: { addType, getType: () => undefined } } as unknown as Editor)
-  const [id, definition] = addType.mock.calls[0] as [string, { extend: string; isComponent: (el: HTMLElement) => boolean }]
+  const [id, definition] = addType.mock.calls[0] as [string, { extend: string; isComponent: (el: HTMLElement) => boolean; model: { defaults: Record<string, unknown> } }]
   expect(id).toBe(CODE_TYPE)
   expect(definition.extend).toBe('mj-raw')
+  expect(definition.model.defaults).toMatchObject({ droppable: false, draggable: RAW_PARENTS })                 // into a column too, not the body alone
+  expect(addType.mock.calls.slice(1).map((call) => call[0])).toEqual([...RAW_PARENT_TYPES])                    // each parent that lists its children learns the type
+  expect(addType.mock.calls[1][1]).toEqual({ model: { defaults: { droppable: `[data-gjs-type="${CODE_TYPE}"]` } } })
   const element = (css: string | null) => {
     const el = document.createElement('mj-raw')
     if (css !== null) el.setAttribute('css-class', css)

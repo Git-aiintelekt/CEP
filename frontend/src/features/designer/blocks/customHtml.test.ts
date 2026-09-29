@@ -2,11 +2,12 @@ import type { Component, Editor } from 'grapesjs'
 import { expect, test, vi } from 'vitest'
 
 import { CUSTOM_HTML_TYPE, registerCustomHtmlType } from './customHtml'
+import { RAW_PARENTS } from './rawPlacement'
 
 interface TypeDefinition {
   extend: string
   isComponent: (el: HTMLElement) => boolean
-  model: { init: (this: Component) => void }
+  model: { defaults: Record<string, unknown>; init: (this: Component) => void }
 }
 
 interface Fake {
@@ -31,6 +32,7 @@ test('the Custom HTML block keeps its own type and makes everything inside it in
   expect(definition.extend).toBe(CUSTOM_HTML_TYPE)
   expect(definition.isComponent(document.createElement('mj-raw'))).toBe(true)                        // still recognised after the re-add
   expect(definition.isComponent(document.createElement('mj-text'))).toBe(false)
+  expect(definition.model.defaults).toEqual({ draggable: RAW_PARENTS, droppable: false })                // into a column too; nothing dropped into it
 
   const cell = fakeComponent()
   const row = fakeComponent([cell])

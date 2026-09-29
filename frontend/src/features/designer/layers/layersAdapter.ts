@@ -7,7 +7,7 @@
  */
 import type { Component, Editor } from 'grapesjs'
 
-import { isHiddenOnPhones } from '../blocks/register'
+import { isHiddenOnDesktop, isHiddenOnPhones } from '../blocks/register'
 import { HIDDEN_ATTRIBUTE } from './hidden'
 import { layerNameFor } from './layerNames'
 import type { LayerNode } from './types'
@@ -39,6 +39,7 @@ export function buildNodes(editor: Editor, hidden: ReadonlySet<string>): LayerNo
       open: editor.Layers.isOpen(component),
       visible: !hidden.has(id),
       hiddenOnPhones: isHiddenOnPhones(component),
+      hiddenOnDesktop: isHiddenOnDesktop(component),
       selected: component === selected,
       removable: component.get('removable') !== false,
       draggable,

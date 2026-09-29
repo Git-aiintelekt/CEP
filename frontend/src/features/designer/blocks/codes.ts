@@ -11,6 +11,7 @@ import type { Component, Editor } from 'grapesjs'
 
 import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 
+import { RAW_PARENTS, RAW_PARENT_TYPES, allowChildIn } from './rawPlacement'
 import { makeInert } from './receiptSlot'
 
 export const CODE_TYPE = 'cep-code'
@@ -254,7 +255,7 @@ export function registerCodeType(editor: Editor): void {
     extend: 'mj-raw',
     isComponent: (el: HTMLElement) => el.tagName === 'MJ-RAW' && (el.getAttribute('css-class') ?? '').split(/\s+/).includes(CODE_CSS_CLASS),
     model: {
-      defaults: { editable: false, droppable: false },
+      defaults: { editable: false, droppable: false, draggable: RAW_PARENTS },
       init(this: Component) {
         raw?.init?.call(this)
         this.components().forEach(makeInert)
@@ -262,4 +263,6 @@ export function registerCodeType(editor: Editor): void {
       },
     },
   })
+  // a type of its own, so the parents that name their children (the body, a wrapper, a hero) have to be told about it
+  for (const parent of RAW_PARENT_TYPES) allowChildIn(editor, parent, CODE_TYPE)
 }
