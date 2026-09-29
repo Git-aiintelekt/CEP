@@ -9,11 +9,12 @@ from django.shortcuts import render
 from django.urls import path
 from django.utils import timezone
 from unfold.decorators import action, display
-from unfold.widgets import UnfoldAdminSelectMultipleWidget, UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget
+from unfold.widgets import (UnfoldAdminDecimalFieldWidget, UnfoldAdminIntegerFieldWidget, UnfoldAdminSelectMultipleWidget, UnfoldAdminSelectWidget,
+                            UnfoldAdminTextInputWidget, UnfoldAdminTextareaWidget, UnfoldBooleanSwitchWidget)
 
 from apps.adminutils import BaseAdmin, ReadOnlyAdmin, register_app_models
 
-from . import billing, crypto, mail, params, tenant_ops
+from . import billing, crypto, mail, params, tenant_ops, typed_values
 from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
                      TenantOperation)
 
@@ -231,19 +232,91 @@ class TenantIdentityProviderAdmin(BaseAdmin):
 
 
 # ------------------------------------------------------------------------------------------------------------ global parameters, industry profiles
+MEMBER = "member__"                                     # an object's keys, one form field each
+NEW_KEY, NEW_VALUE = "new_key", "new_value"
+
+
+def typed_field(kind: str, value, label: str) -> forms.Field:
+    """A form field a person can use for one value of the given kind, holding the current value."""
+    if kind == "INTEGER":
+        return forms.IntegerField(label=label, required=False, initial=value, widget=UnfoldAdminIntegerFieldWidget)
+    if kind == "DECIMAL":
+        return forms.FloatField(label=label, required=False, initial=value, widget=UnfoldAdminDecimalFieldWidget)
+    if kind == "BOOLEAN":
+        return forms.BooleanField(label=label, required=False, initial=bool(value), widget=UnfoldBooleanSwitchWidget)
+    if kind == "LIST":
+        return forms.CharField(label=label, required=False, initial="\n".join(str(item) for item in (value or [])),
+                               widget=UnfoldAdminTextareaWidget, help_text="One per line.")
+    return forms.CharField(label=label, required=False, initial="" if value is None else str(value), widget=UnfoldAdminTextInputWidget)
+
+
+def value_fields(setting) -> dict[str, forms.Field]:
+    """The fields the change form shows for one parameter: one for a plain value, one per key for an object plus room for a new key."""
+    kind, value = setting.value_type, setting.value
+    if kind != "OBJECT":
+        return {"typed_value": typed_field(kind, value, "Value")}
+    fields = {f"{MEMBER}{key}": typed_field(typed_values.kind_of(item), item, key) for key, item in (value or {}).items()}
+    fields[NEW_KEY] = forms.CharField(label="Add a value: name", required=False, widget=UnfoldAdminTextInputWidget)
+    fields[NEW_VALUE] = forms.CharField(label="Add a value: value", required=False, widget=UnfoldAdminTextInputWidget,
+                                        help_text="Yes / no, a number, or text. Leave both empty to add nothing.")
+    return fields
+
+
 class PlatformSettingForm(forms.ModelForm):
+    """The add form: the kind chosen beside one text box. The change form (built per parameter by the admin) adds the typed fields."""
+    value_type = forms.ChoiceField(label="Kind", choices=typed_values.KINDS, widget=UnfoldAdminSelectWidget)
+    raw = forms.CharField(label="Value", required=False, widget=UnfoldAdminTextareaWidget,
+                          help_text="As it will be read: text, a number, yes / no; a list one entry per line; several values as key: value lines.")
+
     class Meta:
         model = PlatformSetting
-        fields = ("key", "category", "description", "value_type", "value")
+        fields = ("key", "category", "description", "value_type")
 
     def clean(self):
         data = super().clean()
-        value, kind = data.get("value"), data.get("value_type") or self.instance.value_type        # the type is read-only once created
-        expected = {"STRING": str, "INTEGER": int, "DECIMAL": (int, float), "BOOLEAN": bool, "LIST": list, "OBJECT": dict}.get(kind)
-        if expected and (not isinstance(value, expected) or (kind in ("INTEGER", "DECIMAL") and isinstance(value, bool))):
-            examples = {"STRING": '"text"', "INTEGER": "72", "DECIMAL": "0.5", "BOOLEAN": "true", "LIST": '["a@example.com"]', "OBJECT": '{"key": "value"}'}
-            self.add_error("value", f"A {kind} parameter is written like {examples[kind]} (JSON).")
+        kind = self.instance.value_type if self.instance.pk else data.get("value_type")
+        try:
+            self.assembled = self._assemble(kind, data)
+        except typed_values.ValueProblem as problem:
+            self.add_error("raw" if not self.instance.pk else self._value_field(kind), str(problem))
         return data
+
+    def _value_field(self, kind):
+        return "typed_value" if kind != "OBJECT" else NEW_VALUE
+
+    def _assemble(self, kind, data):
+        if not self.instance.pk:
+            return typed_values.parse_typed(kind, data.get("raw"))
+        if kind == "LIST":
+            return typed_values.parse_lines(data.get("typed_value"))
+        if kind in ("STRING", "INTEGER", "DECIMAL", "BOOLEAN"):
+            value = data.get("typed_value")
+            if kind == "STRING":
+                return (value or "").strip()
+            if kind == "BOOLEAN":
+                return bool(value)
+            if value is None:
+                raise typed_values.ValueProblem("Type the value.")
+            return value
+        current = dict(self.instance.value or {})
+        result = {}
+        for key, item in current.items():
+            typed = data.get(f"{MEMBER}{key}")
+            member_kind = typed_values.kind_of(item)
+            if member_kind == "STRING":
+                result[key] = None if (typed is None or typed == "") and item is None else (typed or "")
+            elif member_kind == "BOOLEAN":
+                result[key] = bool(typed)
+            elif member_kind in ("LIST", "OBJECT"):
+                result[key] = item                                     # nested values are left as they are
+            else:
+                result[key] = typed if typed is not None else None
+        name, value = (data.get(NEW_KEY) or "").strip(), data.get(NEW_VALUE) or ""
+        if name:
+            result[name] = typed_values.parse_loose(value)
+        elif value.strip():
+            raise typed_values.ValueProblem("Name the value to add.")
+        return result
 
 
 @admin.register(PlatformSetting)
@@ -258,11 +331,25 @@ class PlatformSettingAdmin(BaseAdmin):
     def get_readonly_fields(self, request, obj=None):
         return ("key", "value_type") if obj else ()
 
+    def get_form(self, request, obj=None, **kwargs):
+        # the typed fields must be declared on the form class: the admin checks its fieldsets against them
+        if obj is not None:
+            declared = {"value_type": None, "raw": None, **value_fields(obj)}          # the add form's fields give way to the typed ones
+            kwargs["form"] = type("PlatformSettingTypedForm", (PlatformSettingForm,), declared)
+        return super().get_form(request, obj, **kwargs)
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:
+            return ((None, {"fields": ("key", "category", "description", "value_type", "raw")}),)
+        return ((None, {"fields": ("key", "category", "description", "value_type")}),
+                ("Value", {"fields": tuple(value_fields(obj)), "description": f"Kind: {typed_values.KIND_NAMES.get(obj.value_type, obj.value_type)}. Takes effect within a minute of saving."}))
+
     @display(description="Value")
     def show_value(self, obj):
-        return json.dumps(obj.value)[:80]
+        return typed_values.describe(obj.value_type, obj.value)[:80]
 
     def save_model(self, request, obj, form, change):
+        obj.value = form.assembled
         obj.updated_by_id = request.user.pk
         obj.save()
         params.invalidate()
