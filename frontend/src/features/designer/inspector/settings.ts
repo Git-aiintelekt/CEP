@@ -28,6 +28,7 @@ import {
   writeCustomHtml, writeCustomHtmlMarkup,
 } from './customHtmlSettings'
 import { STACKING_HELP, STACKING_KEY, STACKING_LABEL, readStacking, writeStacking } from './stacking'
+import { LINK_COLOR_KEY, LINK_UNDERLINE_KEY, isLinkStyleKey, readLinkStyle, writeLinkStyle } from './linkStyle'
 
 // one implementation, shared with the colour field: #ABC and #AABBCC both become #aabbcc
 export { normaliseHex }
@@ -342,6 +343,8 @@ export const SETTINGS_BY_BLOCK: Record<string, SettingField[]> = {
   link: [
     { key: 'href', label: 'Link', kind: 'link', section: 'content' },
     { key: 'title', label: 'Hover Text', kind: 'text', section: 'content' },
+    { key: LINK_COLOR_KEY, label: 'Link Color', kind: 'color', section: 'appearance' },
+    { key: LINK_UNDERLINE_KEY, label: 'Underline', kind: 'select', section: 'appearance', emptyLabel: 'Default (underlined)', help: 'Email apps underline a link unless told not to.' },
   ],
   'mj-raw': [
     { key: HTML_KEY, label: 'HTML', kind: 'html', section: 'content', help: HTML_HELP },
@@ -581,6 +584,7 @@ export function readSetting(component: Component, key: string): string | null {
   if (key === HTML_KEY) return blockType(component) === 'mj-raw' ? readCustomHtmlMarkup(component) : innerHtmlOf(component)
   if (isCustomHtmlKey(key)) return blockType(component) === 'mj-raw' ? readCustomHtml(component, key) : null
   if (key === STACKING_KEY) return blockType(component) === 'mj-section' ? readStacking(component) : null
+  if (isLinkStyleKey(key)) return blockType(component) === 'link' ? readLinkStyle(component, key) : null
   if (key === HIDE_MOBILE_KEY) return isHiddenOnPhones(component) ? HIDE_MOBILE_CLASS : null
   if (key === HIDE_DESKTOP_KEY) return isHiddenOnDesktop(component) ? HIDE_DESKTOP_CLASS : null
   if (key === SHADOW_KEY) return shadowOf(component)
@@ -615,7 +619,7 @@ function headAttribute(wrapper: Component | null | undefined, tag: string, key: 
 export function readEffective(component: Component, key: string, wrapper?: Component | null): EffectiveValue {
   const own = ownValue(component, key)
   // hiding on phones, a margin, a block's own words and a receipt block's settings are the block's own: there is nothing for them to inherit
-  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY || key === MARGIN_KEY || key === SHADOW_KEY || key === STACKING_KEY || isCustomHtmlKey(key) || BORDER_KEYS.includes(key) || isCodeKey(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
+  if (own !== null || key === LABEL_KEY || key === HTML_KEY || key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY || key === MARGIN_KEY || key === SHADOW_KEY || key === STACKING_KEY || isCustomHtmlKey(key) || isLinkStyleKey(key) || BORDER_KEYS.includes(key) || isCodeKey(key) || receiptAccessor(blockType(component), key)) return { value: own, source: 'block' }
   return readInherited(component, key, wrapper)
 }
 
@@ -672,6 +676,7 @@ export function writeSetting(component: Component, key: string, value: string | 
   }
   if (isCustomHtmlKey(key)) return blockType(component) === 'mj-raw' && writeCustomHtml(component, key, value)
   if (key === STACKING_KEY) return blockType(component) === 'mj-section' && writeStacking(component, value)
+  if (isLinkStyleKey(key)) return blockType(component) === 'link' && writeLinkStyle(component, key, value)
   // the class list, never the attribute map: every other class on the block, the footer's included, stays put
   if (key === HIDE_MOBILE_KEY || key === HIDE_DESKTOP_KEY) {
     setCssClass(component, key === HIDE_MOBILE_KEY ? HIDE_MOBILE_CLASS : HIDE_DESKTOP_CLASS, value !== null)

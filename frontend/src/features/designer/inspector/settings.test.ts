@@ -84,7 +84,7 @@ test('every block that can be selected has something to set: the body, a heading
     expect(fieldsFor(make(type)).filter((field) => field.key === 'container-background-color').map((field) => field.label), type).toEqual(['Background Color'])
     expect(writeSetting(make(type), 'container-background-color', 'white'), type).toBe(false)
   }
-  expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title'])
+  expect(fieldsFor(make('link')).map((field) => field.key)).toEqual(['href', 'title', 'cep-link-color', 'cep-link-underline'])
 })
 
 const SMALL_WORDS = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'to', 'of', 'in', 'on', 'at', 'by', 'as', 'via', 'per', 'vs'])
