@@ -28,6 +28,7 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     2. the database routing row (shared pool unless changed later)
     3. the starting roles
     4. the coupon tags barcode and QR code blocks read
+    5. a copy of every active platform personalization tag (apps/templates/inherit.py)
     """
     with connections[using].cursor() as cursor:
         cursor.execute("SELECT set_config('app.current_tenant', %s, true)", [str(tenant.id)])       # audit triggers need a tenant
@@ -61,7 +62,13 @@ def onboard_tenant(tenant, *, using: str, months_ahead: int = 3, user_id=None) -
     except Exception:                                      # noqa: BLE001  the tags can be added later; onboarding must finish
         log.exception("coupon tags not added for tenant %s", tenant.id)
         coupon_tags = 0
-    return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags}
+    from apps.templates.inherit import inherit_platform_tags
+    try:
+        inherited = inherit_platform_tags(tenant.id, using=using, user_id=user_id)
+    except Exception:                                      # noqa: BLE001  the same: the back-office can push them later
+        log.exception("platform tags not inherited by tenant %s", tenant.id)
+        inherited = {}
+    return {"partition_sets": partitions, "roles": created_roles, "coupon_tags": coupon_tags, "platform_tags": inherited}
 
 
 def ensure_partitions(tenant, *, using: str, months_ahead: int = 3) -> int:

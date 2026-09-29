@@ -140,6 +140,7 @@ class PersonalizationTag(models.Model):
     description = models.TextField(null=True, blank=True)
     sample_value = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    platform_tag_id = models.UUIDField(null=True, blank=True)  # inherited from the platform catalogue (patch 0026): the back-office changes it, the workspace cannot
     created_at = models.DateTimeField(db_default=Now())
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)

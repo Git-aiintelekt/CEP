@@ -189,6 +189,24 @@ picks the data source (a catalogue tag) and the format in the settings panel; no
   a QR code of `order_url`). A receipt that went without a block says so in the answer: `"codes_left_out": ["coupon_qr_value"]`.
 * Libraries: `python-barcode` (bars as a module pattern, painted with Pillow, never resampled) and `segno` for QR.
 
+### 8.2 The tag catalogue and the platform's own (patch 0026)
+
+A workspace's tags live in `personalization_tag` (API `/personalization-tags/`, permission `template.edit`). Since patch
+0026 the installation also has one catalogue of its own, `platform_personalization_tag`, kept in the back-office under
+**Configuration -> Personalization tags**: key, label, kind, a **data point** (where the value comes from, chosen from what
+each source offers - customer record, list upload column, campaign, run, system, receipt, store - or a static value), the
+default, the data type and format, the channels it is offered in, and the sample value previews show. `apps/templates/
+datapoints.py` is the list of data points and the check a path is held to.
+
+Every workspace **inherits** the catalogue: onboarding copies each active platform tag into the workspace (linked by
+`personalization_tag.platform_tag_id`), and saving a platform tag pushes the change to every active workspace
+(`apps/templates/inherit.py`; the row's *Apply to every workspace again* action does it by hand). A copy is the
+platform's to change: the workspace API answers 403 to a PATCH or DELETE of one. A tag the workspace made itself with the
+same key is left alone and named in the back-office message. Switching a platform tag off switches its copies off, which
+takes them out of the designer; deleting one releases its copies, which become the workspaces' own. The patch seeds the
+standard nine (first and last name, the three coupon tags, the system tags); an existing workspace gets them the first
+time platform staff press *Apply*.
+
 ## 9. E-receipts (transactional, one at a time)
 
 A receipt is not published to an audience: the point of sale or the web shop asks for each one, and gets the answer in

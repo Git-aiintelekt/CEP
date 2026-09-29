@@ -408,11 +408,26 @@ class MediaAssetViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets
 
 
 class PersonalizationTagViewSet(BaseTenantViewSet):
+    """The workspace's tag catalogue. A tag inherited from the platform (platform_tag_id) is read here and changed in the back-office."""
     queryset = PersonalizationTag.objects.filter(is_active=True)
     serializer_class = s.PersonalizationTagSerializer
     permission_code = "template.edit"
     soft_delete = False
     filterset_fields = ["tag_kind", "resolution_source"]
+
+    def perform_update(self, serializer):
+        if serializer.instance.platform_tag_id:
+            from rest_framework.exceptions import PermissionDenied
+            from apps.templates.inherit import INHERITED_MESSAGE
+            raise PermissionDenied(INHERITED_MESSAGE)
+        super().perform_update(serializer)
+
+    def perform_destroy(self, instance):
+        if instance.platform_tag_id:
+            from rest_framework.exceptions import PermissionDenied
+            from apps.templates.inherit import INHERITED_MESSAGE
+            raise PermissionDenied(INHERITED_MESSAGE)
+        super().perform_destroy(instance)
 
 
 class JourneyViewSet(BaseTenantViewSet):

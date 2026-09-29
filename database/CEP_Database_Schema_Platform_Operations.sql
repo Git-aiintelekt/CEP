@@ -871,5 +871,60 @@ ALTER TABLE campaign ADD COLUMN IF NOT EXISTS subject_line VARCHAR(300);
 ALTER TABLE campaign ADD COLUMN IF NOT EXISTS preheader VARCHAR(300);
 
 -- =====================================================================================
+-- PLATFORM PERSONALIZATION TAGS (patch 0026)
+--   One catalogue for the installation, kept in the back-office (Configuration -> Personalization tags), inherited by every
+--   workspace: each active platform tag is copied into the workspace's personalization_tag, linked by platform_tag_id, at
+--   onboarding and whenever the platform tag is saved. A copy is the platform's to change (the workspace API refuses);
+--   a tag the workspace made itself with the same key is left alone. Deleting a platform tag releases its copies
+--   (platform_tag_id -> NULL): they become the workspace's own.
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS platform_personalization_tag (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tag_key             VARCHAR(100) NOT NULL UNIQUE,                    -- the word inside {{ }}
+    label               VARCHAR(150) NOT NULL,
+    tag_kind            VARCHAR(20) NOT NULL DEFAULT 'STANDARD',
+    source_system       VARCHAR(40) NOT NULL DEFAULT 'CEP',
+    resolution_source   VARCHAR(30) NOT NULL,                            -- where the value comes from (apps/templates/datapoints.py)
+    source_path         VARCHAR(200),                                    -- the data point within it
+    static_value        TEXT,
+    default_value       TEXT,
+    format_spec         VARCHAR(60),
+    data_type           VARCHAR(20) NOT NULL DEFAULT 'STRING',
+    applies_to_channels TEXT[] NOT NULL DEFAULT '{EMAIL,E_RECEIPT,SMS,MMS}',
+    description         TEXT,
+    sample_value        TEXT,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,                   -- fn_touch_row bumps it, as on every definition table
+    CONSTRAINT ck_platform_personalization_tag_key CHECK (tag_key ~ '^[a-z][a-z0-9_]*$'),
+    CONSTRAINT ck_platform_personalization_tag_kind CHECK (tag_kind IN ('STANDARD', 'CUSTOM', 'SYSTEM')),
+    CONSTRAINT ck_platform_personalization_tag_source CHECK (resolution_source IN ('CUSTOMER_MASTER', 'CAMPAIGN_LIST_MEMBER', 'CAMPAIGN', 'CAMPAIGN_RUN', 'STORE', 'SYSTEM', 'STATIC', 'RECEIPT')),
+    CONSTRAINT ck_platform_personalization_tag_data_type CHECK (data_type IN ('STRING', 'NUMBER', 'DATE', 'BOOLEAN'))
+);
+COMMENT ON TABLE platform_personalization_tag IS 'The installation''s tag catalogue, inherited by every workspace (personalization_tag.platform_tag_id).';
+ALTER TABLE platform_personalization_tag ADD COLUMN IF NOT EXISTS row_version INTEGER NOT NULL DEFAULT 1;
+DROP TRIGGER IF EXISTS trg_platform_personalization_tag_touch ON platform_personalization_tag;
+CREATE TRIGGER trg_platform_personalization_tag_touch BEFORE UPDATE ON platform_personalization_tag FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+ALTER TABLE personalization_tag ADD COLUMN IF NOT EXISTS platform_tag_id UUID REFERENCES platform_personalization_tag(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_personalization_tag_platform ON personalization_tag(platform_tag_id) WHERE platform_tag_id IS NOT NULL;
+GRANT SELECT, INSERT, UPDATE, DELETE ON platform_personalization_tag TO cep_app;             -- written by the back-office only, as mail_server is
+GRANT ALL ON platform_personalization_tag TO cep_admin;
+
+-- the standard catalogue every installation starts with; a workspace that already has a tag with one of these keys keeps its own
+INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_source, source_path, data_type, applies_to_channels, description, sample_value) VALUES
+    ('first_name', 'First Name', 'STANDARD', 'CUSTOMER_MASTER', 'first_name', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The person''s first name from the customer record', 'Jordan'),
+    ('last_name', 'Last Name', 'STANDARD', 'CUSTOMER_MASTER', 'last_name', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The person''s last name from the customer record', 'Lee'),
+    ('coupon_code', 'Coupon Code', 'CUSTOM', 'CAMPAIGN_LIST_MEMBER', 'custom_value_pairs.coupon_code', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'A coupon code carried on the list upload', 'SAVE20-7K3Q'),
+    ('coupon_barcode_value', 'Coupon Barcode Value', 'CUSTOM', 'CAMPAIGN_LIST_MEMBER', 'custom_value_pairs.coupon_barcode_value', 'STRING', '{EMAIL,E_RECEIPT}', 'The value a barcode block draws', 'CPN400012345678'),
+    ('coupon_qr_value', 'Coupon QR Value', 'CUSTOM', 'CAMPAIGN_LIST_MEMBER', 'custom_value_pairs.coupon_qr_value', 'STRING', '{EMAIL,E_RECEIPT}', 'The value a QR code block draws', 'https://shop.example.com/c/SAVE20-7K3Q'),
+    ('unsubscribe_url', 'Unsubscribe Link', 'SYSTEM', 'SYSTEM', 'unsubscribe_url', 'STRING', '{EMAIL}', 'The recipient''s own unsubscribe link, made at send time', 'https://cep.example.com/unsubscribe'),
+    ('current_year', 'Current Year', 'SYSTEM', 'SYSTEM', 'current_year', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The year of the send', '2026'),
+    ('today', 'Today''s Date', 'SYSTEM', 'SYSTEM', 'today', 'DATE', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The date of the send', '2026-09-29'),
+    ('campaign_name', 'Campaign Name', 'SYSTEM', 'SYSTEM', 'campaign_name', 'STRING', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The name of the campaign being sent', 'Fall Launch')
+ON CONFLICT (tag_key) DO NOTHING;
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================
