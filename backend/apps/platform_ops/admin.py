@@ -252,7 +252,7 @@ class PlatformSettingAdmin(BaseAdmin):
     form = PlatformSettingForm
     list_display = ("key", "category", "show_value", "description", "updated_at")
     list_filter = ("category",)
-    search_fields = ("key", "description")
+    search_fields = ("key", "description", "category")
     ordering = ("category", "key")
 
     def get_readonly_fields(self, request, obj=None):

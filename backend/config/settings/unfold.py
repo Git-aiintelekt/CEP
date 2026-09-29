@@ -5,8 +5,19 @@ home page and the custom pages need.
 Navigation: the platform team's own work is always open at the top; the tenants' data (campaigns, deliveries, journeys,
 ...) is there for support, in groups that stay folded until used. Every registered model is reachable from here, so the
 automatic per-application list is off."""
+import hashlib
+from pathlib import Path
+
 from django.templatetags.static import static
 from django.urls import reverse_lazy
+
+STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+
+
+def _versioned(path: str):
+    """The file's own hash on its URL: a deploy changes the address, so no browser keeps yesterday's copy of our script."""
+    digest = hashlib.md5((STATIC_DIR / path).read_bytes()).hexdigest()[:8]  # noqa: S324  a cache key, not a secret
+    return lambda request: f"{static(path)}?v={digest}"
 
 
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
@@ -39,8 +50,8 @@ UNFOLD = {
     "SHOW_VIEW_ON_SITE": False,
     "SHOW_BACK_BUTTON": True,
     "BORDER_RADIUS": "10px",
-    "STYLES": [lambda request: static("cep_admin/admin.css")],
-    "SCRIPTS": [lambda request: static("cep_admin/admin.js")],   # the menu button's first click (see the file)
+    "STYLES": [_versioned("cep_admin/admin.css")],
+    "SCRIPTS": [_versioned("cep_admin/admin.js")],   # the menu button's first click and the list search (see the file)
     "COLORS": {
         "base": {"50": "#f8fafc", "100": "#f1f5f9", "200": "#e2e8f0", "300": "#cbd5e1", "400": "#94a3b8", "500": "#64748b",
                  "600": "#475569", "700": "#334155", "800": "#1e293b", "900": "#0f172a", "950": "#020617"},

@@ -43,3 +43,33 @@ document.addEventListener('alpine:init', function () {
         return data;
     };
 });
+
+/* The list search box. Django's admin searches only when Enter is pressed, and nothing on the page says so, so typing
+   looked as though it did nothing. Here the list follows the typing: 350 ms after the last keystroke the form is sent
+   (Enter still works as before), and once the page is back the box keeps the focus with the caret at the end, so the
+   typing can go on. A single letter is not sent on its own — it matches too much — it waits for a second one or Enter.
+   The sidebar's "Search apps and models" is Unfold's own and is not touched. */
+document.addEventListener('DOMContentLoaded', function () {
+    var box = document.getElementById('searchbar');
+    var form = box && box.closest('form');
+    if (!box || !form) { return; }
+    var sent = box.value.trim();
+    var timer = null;
+    box.addEventListener('input', function () {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+            var value = box.value.trim();
+            if (value === sent || value.length === 1) { return; }
+            sent = value;
+            if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); }
+        }, 350);
+    });
+    function keepTyping() {
+        if (!new URLSearchParams(window.location.search).has('q') || document.activeElement === box) { return; }
+        box.focus();
+        var end = box.value.length;
+        box.setSelectionRange(end, end);
+    }
+    keepTyping();
+    window.addEventListener('load', keepTyping);          // the theme's own start-up may have moved the focus since
+});
