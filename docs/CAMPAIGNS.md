@@ -29,7 +29,7 @@ an e-receipt, having no schedule, is complete once its Targets step is passed).
 |---|---|---|
 | 1 | Basic Info | name (unique in the workspace), code, description, type and channel (cards), message purpose, owner (defaults to the creator), tags |
 | 2 | Audience | a checkbox per contact list (and one to select every list shown) picks the lists the campaign is sent to; *Keep people out of this campaign* (optional) ticks lists to exclude, and a list is one or the other, never both; a live estimate: merged, counted once per person, exclusions removed, today's governance check. **Upload a CSV file** and **From an audience or a clone** open the contact list wizard itself, the same upload process as in Contact Lists (a vetted list is attached at once, an uploaded one waits for a confirm) |
-| 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not) |
+| 3 | Template | template cards that fit the channel, the sender, and a preview of the template picked (saved or not); for an email, the campaign's own **subject line and preheader** (blank = the template's; *Edit the Template's* copies its text in, *Use the Template's* empties the field; an inbox row shows the result with sample values). Only the campaign changes, never the template (`campaign.subject_line`, `campaign.preheader`, patch 0025; a text campaign cannot have them) |
 | 4 | Scheduling & Delivery | send immediately / schedule / recurring (daily, weekly, monthly; ends never, on a date, after n sends) / drip series (a run per step); the campaign's time zone; frequency limits, hourly limit, recipient-local time |
 | 5 | Targets & Economics | revenue, conversions, opens, clicks, redemptions; planned campaign and offer cost; notes (BRD 15) |
 | 6 | Test & Preview | the message with sample values or as one customer of the audience; test publish to colleagues or typed addresses |
@@ -171,7 +171,7 @@ completes the campaign.
 ## 8. Subject line tests (A/B, email only)
 
 `campaign.ab_config = {enabled, subject_b, sample_pct (10-50, default 20), metric (OPEN_RATE | CLICK_RATE),
-decide_after_minutes (30 to 7 days, default 240)}`; subject A is the template's. Validated on save; a text campaign
+decide_after_minutes (30 to 7 days, default 240)}`; subject A is the campaign's own subject line, else the template's. Validated on save; a text campaign
 cannot have one. At the send, once the audience is queued, a sample of it is split in two by a stable hash of the
 person: half get A, half B (`mailer_execution.variant_key`, `subject_line`), the rest are `HOLD` and the engine leaves
 them alone; `campaign_run_variant` gets A and B with their share, `campaign_run.ab_decide_at` the decision time.

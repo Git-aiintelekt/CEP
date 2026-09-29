@@ -1,6 +1,6 @@
 """A/B subject lines (campaign.ab_config, patch 0023). Email only: texts have no subject.
 
-At the send, a sample of the audience is split in two: half gets subject A (the template's), half subject B. The rest is
+At the send, a sample of the audience is split in two: half gets subject A (the campaign's own, else the template's), half subject B. The rest is
 queued as HOLD and the engine leaves it alone. When campaign_run.ab_decide_at comes, decide() compares the two by the
 chosen metric, marks the winner on campaign_run_variant, and turns the HOLD rows into the winner's subject, so the
 next pass of the dispatcher sends them. A tie within one point goes to A: the template's subject is the safe choice.
@@ -63,7 +63,8 @@ def split(cursor, *, tenant_id, run, campaign, content) -> dict | None:
     args = {"tenant": str(tenant_id), "run": str(run.pk)}
     cursor.execute("SELECT count(*) FROM mailer_execution WHERE tenant_id = %(tenant)s AND campaign_run_id = %(run)s AND status = 'QUEUED'", args)
     total = cursor.fetchone()[0]
-    subject_a = (content.subject_line or campaign.name)[:300]
+    from apps.delivery.engine.render import subject_of
+    subject_a = subject_of(campaign, content)[:300]
     if total < MIN_AUDIENCE:
         return {"skipped": f"only {total} people to send to: fewer than {MIN_AUDIENCE}, so everyone gets subject A", "total": total}
     sample = max(2, round(total * cfg["sample_pct"] / 100))

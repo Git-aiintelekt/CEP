@@ -23,9 +23,9 @@ export function testIsOn(config: AbConfig | null | undefined): config is AbConfi
   return Boolean(config?.enabled && config.subject_b?.trim())
 }
 
-/** One line for the review summary: "A/B test, 20% sample, winner by open rate after 4 hours". */
-export function testSummary(config: AbConfig | null | undefined): string {
-  if (!testIsOn(config)) return 'One subject line, from the template'
+/** One line for the review summary: "A/B test, 20% sample, winner by open rate after 4 hours". `own`: the campaign has its own subject. */
+export function testSummary(config: AbConfig | null | undefined, own = false): string {
+  if (!testIsOn(config)) return own ? 'One subject line, set for this campaign' : 'One subject line, from the template'
   const sample = config.sample_pct ?? AB_DEFAULTS.sample_pct
   return `A/B test, ${sample}% sample, winner by ${metricText(config.metric ?? AB_DEFAULTS.metric)} after ${waitText(config.decide_after_minutes ?? AB_DEFAULTS.decide_after_minutes)}`
 }

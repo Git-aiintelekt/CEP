@@ -8,6 +8,9 @@ as they are in the subject and the text part. Inner-template tags are expanded o
 Barcode and QR code blocks (apps/templates/codes.py) are replaced first: each becomes the recipient's own code, or
 nothing when the workspace does not have the feature or the recipient's value is missing or unusable; render() then
 lists the blocks left out, which the send counts.
+
+The subject and the preheader are the campaign's own when it has them (set on the setup's Content step), else the
+template's. The preheader goes at the top of the HTML part as hidden text: the line an inbox shows after the subject.
 """
 from __future__ import annotations
 
@@ -18,6 +21,27 @@ from html import escape
 from django.utils import timezone
 
 TAG_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
+BODY_RE = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
+PREHEADER_STYLE = "display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all;"
+PREHEADER_FILL = "&#847;&zwnj;&nbsp;" * 40                  # keeps the body's first words out of the inbox line after a short preheader
+
+
+def subject_of(campaign, content) -> str:
+    """The subject as written, tags and all: the campaign's own, else the template's, else the campaign's name."""
+    return (getattr(campaign, "subject_line", None) or "").strip() or (content.subject_line or "").strip() or campaign.name
+
+
+def preheader_of(campaign, content) -> str:
+    return (getattr(campaign, "preheader", None) or "").strip() or (getattr(content, "preheader", None) or "").strip()
+
+
+def with_preheader(html: str, preheader: str) -> str:
+    """The HTML with the preheader as hidden text right after <body>; tags in it are filled in with the rest."""
+    if not html or not preheader:
+        return html
+    block = f'<div style="{PREHEADER_STYLE}">{escape(preheader, quote=False)}{PREHEADER_FILL}</div>'
+    found = BODY_RE.search(html)
+    return html[:found.end()] + block + html[found.end():] if found else block + html
 
 
 def _dig(source, path: str):
@@ -54,9 +78,10 @@ class Renderer:
         self.sources: dict = {}
         self.used: dict[str, str] = {}
         inner = inner_templates or {}
-        self.html = self._expand_inner(content.html_content or "", inner)
+        self.preheader = preheader_of(campaign, content)
+        self.html = with_preheader(self._expand_inner(content.html_content or "", inner), self.preheader)
         self.text = content.text_content or ""
-        self.subject = content.subject_line or campaign.name
+        self.subject = subject_of(campaign, content)
         self.codes_on: bool | None = None                   # read once, and only for a design that has a code block
 
     def _expand_inner(self, html: str, inner: dict[str, str]) -> str:
@@ -119,7 +144,7 @@ class Renderer:
         return codes.REGION_RE.sub(swap, self.html)
 
     def render(self, *, customer: dict, member: dict, system: dict, sources: dict | None = None, html_blocks: dict | None = None, subject: str | None = None) -> dict:
-        """-> {'subject', 'html', 'text', 'codes_left_out'} for one recipient. `system` holds the per-message values
+        """-> {'subject', 'preheader', 'html', 'text', 'codes_left_out'} for one recipient. `system` holds the per-message values
         (unsubscribe_url ...), `sources` the data of tags resolved from RECEIPT / STORE, `html_blocks` ready-made HTML
         (already escaped by its builder, e.g. the receipt's line items) that goes into the HTML part as it is and into
         the text part as text. `codes_left_out` names the source tag of each code block this recipient did not get."""
@@ -134,4 +159,4 @@ class Renderer:
         plain = lambda m: html_to_text(blocks[m.group(1)]) if m.group(1) in blocks else self._value(m.group(1), customer, member, system)      # noqa: E731
         safe = lambda m: blocks[m.group(1)] if m.group(1) in blocks else escape(self._value(m.group(1), customer, member, system), quote=True)  # noqa: E731
         return {"subject": " ".join(TAG_RE.sub(plain, self.subject if subject is None else subject).split())[:300], "html": TAG_RE.sub(safe, html),
-                "text": TAG_RE.sub(plain, self.text), "codes_left_out": left_out}
+                "preheader": " ".join(TAG_RE.sub(plain, self.preheader).split()), "text": TAG_RE.sub(plain, self.text), "codes_left_out": left_out}

@@ -168,7 +168,8 @@ export function handleCampaigns(request: Request, state: State): Response | null
     const who = query.get('party_id') ? 'Dolores' : 'Jordan'
     const templateId = query.get('template') || campaign.template
     const templateChannel = templateId === 'tpl-sms' ? 'SMS' : templateId === 'tpl-receipt' ? 'E_RECEIPT' : 'EMAIL'
-    return json({ subject: text ? null : `Fall is here, ${who}`, html: text ? null : `<p>Hello ${who}</p>`, text: `Northwind: Hi ${who}. Reply STOP to opt out.`, version: 3,
+    const filled = (value: string) => value.replace(/\{\{\s*first_name\s*\}\}/g, who)
+    return json({ subject: text ? null : filled(campaign.subject_line ?? 'Fall is here, {{first_name}}'), preheader: text ? '' : filled(campaign.preheader ?? ''), html: text ? null : `<p>Hello ${who}</p>`, text: `Northwind: Hi ${who}. Reply STOP to opt out.`, version: 3,
                   template: templateId === 'tpl-sms' ? 'Fall SMS' : 'Fall Email', template_id: templateId, channel: templateChannel, tags_used: ['first_name'], customer: query.get('party_id') })
   }
   const runPath = /^runs\/([^/]+)(\/choose-winner)?$/.exec(action)

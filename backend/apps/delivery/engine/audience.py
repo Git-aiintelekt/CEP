@@ -17,6 +17,7 @@ creates the mailer_execution rows. Rules, in order (first match is the recorded 
 Runs on the caller's connection, inside its transaction, under the tenant's row-level security.
 """
 from . import session
+from .render import subject_of
 
 PRIMARY_EMAIL = """(SELECT lower(e ->> 'address') FROM jsonb_array_elements(cm.emails) e
                      WHERE COALESCE((e ->> 'is_valid')::boolean, TRUE) AND COALESCE(e ->> 'address', '') <> ''
@@ -101,7 +102,7 @@ def build(*, tenant_id, campaign, run, campaign_list, content, provider_id) -> d
     marketing = campaign.solicitation_type == "MARKETING"
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": marketing,
             "caps": marketing and bool(getattr(campaign, "respect_governance", True)),     # corporate frequency limits: marketing only (BRD 12), unless switched off for this campaign
-            "content": str(content.pk), "version": content.version_number, "subject": (content.subject_line or "")[:300], "provider": str(provider_id)}
+            "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content)[:300], "provider": str(provider_id)}
     with session.connection().cursor() as cursor:
         cursor.execute(BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)

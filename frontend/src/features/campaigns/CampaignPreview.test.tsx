@@ -271,10 +271,10 @@ test('a draft with no template or sender says what is missing and where to add i
   await renderAppAt('/campaigns?preview=c5')
   await screen.findByRole('dialog', { name: 'Holiday Draft' })
   expect(within(detail('Template')).getByText('Not set yet')).toBeTruthy()
-  expect(within(detail('Template')).getByText('Choose a template on the Template step')).toBeTruthy()
+  expect(within(detail('Template')).getByText('Choose a template on the Content step')).toBeTruthy()
   expect(within(detail('Contact List')).getByText('Choose contact lists on the Audience step')).toBeTruthy()
-  expect(within(detail('Subject Line')).getByText('Write a subject line on the Template step')).toBeTruthy()
-  expect(within(detail('Sender')).getByText('Choose a sender on the Template step')).toBeTruthy()
+  expect(within(detail('Subject Line')).getByText('Write a subject line on the Content step')).toBeTruthy()
+  expect(within(detail('Sender')).getByText('Choose a sender on the Content step')).toBeTruthy()
   expect(within(dialog()).getByText('No content yet')).toBeTruthy()
   expect(within(dialog()).getByRole('link', { name: 'Continue Setup' }).getAttribute('href')).toBe('/campaigns/c5/edit?step=audience')
 })
@@ -304,7 +304,7 @@ test('footer: Clone makes the copy and closes the quick view; the ID copies with
   expect(within(dialog()).getByText('Campaign ID copied').getAttribute('role')).toBe('status')
 
   await user.click(within(dialog()).getByRole('button', { name: 'Clone' }))
-  expect(await screen.findByText(/“Copy of Winter Preview” was created as a draft/)).toBeTruthy()
+  expect(await screen.findByText(/“Copy of Winter Preview” was created as a draft/, {}, { timeout: 3000 })).toBeTruthy()   // the toast waits for every open campaigns query to refetch
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.getByRole('link', { name: 'Open the Copy' })).toBeTruthy()
 })

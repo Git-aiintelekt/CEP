@@ -1,5 +1,5 @@
 /**
- * The Test step's subject line test: the template's subject is A, a second one is B. A sample of the audience is split
+ * The Test step's subject line test: the campaign's subject (its own, else the template's) is A, a second one is B. A sample of the audience is split
  * between them, the rest wait, and after the wait the winner goes to the rest. Off by default; saved on the campaign as
  * `ab_config`, which the send engine reads. Email only (a text has no subject).
  */
@@ -66,7 +66,8 @@ export function SubjectTestCard({ campaign }: { campaign: Campaign }) {
         {draft.enabled && (
           <>
             <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="A · From the Template" hint={`Change it in the template. Shown with sample values. Gets ${draft.sample_pct / 2}% of the audience.`}>
+              <Field label={campaign.subject_line ? 'A · Set for This Campaign' : 'A · From the Template'}
+                hint={`Change it on the Content step. Shown with sample values. Gets ${draft.sample_pct / 2}% of the audience.`}>
                 {(ids) => <TextInput {...ids} value={subjectA ?? (preview.isPending ? 'Loading' : 'No subject in the template yet')} readOnly disabled />}
               </Field>
               <Field label="B" required error={errors.ab_config} hint={`Tags such as {{first_name}} work here too. Gets ${draft.sample_pct / 2}% of the audience.`}>

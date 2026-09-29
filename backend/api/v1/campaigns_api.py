@@ -210,6 +210,11 @@ class CampaignSerializer(s.CampaignSerializer):
                 errors["ab_config"] = problem
             elif attrs["ab_config"] and attrs["ab_config"].get("enabled") and current("channel") != "EMAIL":
                 errors["ab_config"] = "A subject line test is for email campaigns: texts have no subject."
+        for name in ("subject_line", "preheader"):                      # blank = the template's
+            if name in attrs:
+                attrs[name] = " ".join((attrs[name] or "").split()) or None
+                if attrs[name] and current("channel") in ("SMS", "MMS"):
+                    errors[name] = "A text message has no subject line or preheader."
         if "excluded_lists" in attrs:
             ids = list(dict.fromkeys(attrs["excluded_lists"]))
             found = {item.id: item for item in ContactList.objects.filter(id__in=ids, deleted_at__isnull=True)}
@@ -251,7 +256,7 @@ class CampaignSerializer(s.CampaignSerializer):
         words = {"name": "name", "description": "description", "template": "template", "sender_profile": "sender", "scheduled_at": "schedule", "send_type": "send type",
                  "recurring_config": "recurrence", "drip_config": "series", "tags": "tags", "owner_user": "owner", "respect_governance": "governance setting",
                  "rate_limit_per_hour": "send rate", "timezone_optimization": "time zone delivery", "send_timezone": "time zone", "receipt_config": "receipt settings",
-                 "ab_config": "subject line test",
+                 "ab_config": "subject line test", "subject_line": "subject line", "preheader": "preheader",
                  "solicitation_type": "message kind", "campaign_type": "type", "channel": "channel", "code": "code"}
         changed = [words[name] for name, value in validated_data.items() if name in words and getattr(campaign, name) != value]
         campaign = super().update(campaign, validated_data)
@@ -779,8 +784,9 @@ class CampaignViewSet(views.CampaignViewSet):
         # as one customer: the catalogue resolves the tags from that person. Otherwise: the catalogue's sample values.
         rendered = Renderer(campaign=campaign, run=None, content=shaped, tags=tags if party_id else []).render(
             customer=customer, member=member, system={"unsubscribe_url": "#unsubscribe-preview", "email": ""})
-        used = sorted(set(design.extract_tags((content.html_content or "") + (content.sms_body or "") + (content.subject_line or ""))))
-        return Response({"subject": rendered.get("subject"), "html": rendered.get("html"), "text": rendered.get("text") or content.sms_body, "version": content.version_number,
+        own = (campaign.subject_line or "") + (campaign.preheader or "") if template.channel not in design.MESSAGE_CHANNELS else ""
+        used = sorted(set(design.extract_tags((content.html_content or "") + (content.sms_body or "") + (content.subject_line or "") + (content.preheader or "") + own)))
+        return Response({"subject": rendered.get("subject"), "preheader": rendered.get("preheader") or "", "html": rendered.get("html"), "text": rendered.get("text") or content.sms_body, "version": content.version_number,
                          "template": template.name, "template_id": str(template.pk), "channel": template.channel, "status": template.status, "tags_used": used, "customer": party_id})
 
     @extend_schema(responses=dict)

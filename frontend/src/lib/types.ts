@@ -344,6 +344,9 @@ export interface Campaign extends Audited {
   approval: CampaignApproval | null
   /** the subject line test (email only); null or switched off = one subject */
   ab_config: AbConfig | null
+  /** this campaign's own subject line and preheader (email only); null = the template's */
+  subject_line: string | null
+  preheader: string | null
 }
 
 export interface CampaignApproval {
@@ -454,6 +457,8 @@ export interface CampaignChecklist {
 
 export interface CampaignPreview {
   subject: string | null
+  /** the campaign's own preheader, else the template's, with sample values; '' when neither has one */
+  preheader?: string
   html: string | null
   text: string | null
   version: number
@@ -547,6 +552,8 @@ export interface CampaignInput {
   rate_limit_per_hour?: number | null
   timezone_optimization?: boolean
   targets?: Partial<CampaignTargets> | null
+  subject_line?: string | null
+  preheader?: string | null
   setup_step?: number
   /** optimistic lock on edit: the API answers 409 when the stored version is newer */
   row_version?: number

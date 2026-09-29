@@ -150,6 +150,11 @@ campaign, run, static, inner template) â†’ the list member's uploaded columns â†
 default. HTML-escaped in the HTML part only. `{{unsubscribe_url}}`, `{{current_year}}`, `{{today}}`,
 `{{campaign_name}}` and `{{email}}` are always available.
 
+The subject and the preheader are the campaign's own (`campaign.subject_line` / `preheader`, patch 0025) when it has
+them, else the template's. The preheader goes into the HTML part right after `<body>` as hidden text (the line an inbox
+shows after the subject), with its tags filled in like the rest; before patch 0025 it was stored with the template but
+never sent.
+
 ### 8.1 Barcode and QR code blocks (`apps/templates/codes.py`, patch 0024)
 
 A dynamic image: the designer's Barcode and QR Code blocks (Commerce) draw one tag's value for each recipient. The marketer

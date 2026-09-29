@@ -142,7 +142,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
         <Section title="Template" step={2} onEdit={onEdit}>
           <Definition label="Template">{campaign.template_name ?? 'Not chosen yet'}</Definition>
           <Definition label="Sender">{campaign.sender_profile_name ?? 'Not chosen yet'}</Definition>
-          {campaign.channel === 'EMAIL' && !isReceipt && <Definition label="Subject Line">{testSummary(campaign.ab_config)}</Definition>}
+          {campaign.channel === 'EMAIL' && !isReceipt && <Definition label="Subject Line">{testSummary(campaign.ab_config, Boolean(campaign.subject_line))}</Definition>}
         </Section>
         <Section title="Scheduling & Delivery" step={3} onEdit={onEdit}>
           <Definition label="Send Type">{isReceipt ? 'Triggered by a purchase' : sendTypeLabel(campaign.send_type)}</Definition>

@@ -97,6 +97,8 @@ class Campaign(models.Model):
     approval_decided_at = models.DateTimeField(null=True, blank=True)
     approval_decision_note = models.TextField(null=True, blank=True)
     ab_config = models.JSONField(null=True, blank=True)  # {enabled, subject_b, sample_pct, metric, decide_after_minutes} (patch 0023)
+    subject_line = models.CharField(max_length=300, null=True, blank=True)  # this campaign's own; NULL = the template's (patch 0025)
+    preheader = models.CharField(max_length=300, null=True, blank=True)
 
     class Meta:
         managed = False

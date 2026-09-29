@@ -1,4 +1,4 @@
-/** Step 3: the message and who it comes from. Templates are picked on cards (the prototype's "Use an existing template"), with a preview beside them. */
+/** Step 3: the message, its subject line and preheader, and who it comes from. Templates are picked on cards (the prototype's "Use an existing template"), with a preview beside them. */
 import { useQuery } from '@tanstack/react-query'
 import { ExternalLink } from 'lucide-react'
 import { useState } from 'react'
@@ -18,6 +18,8 @@ import { MessagePreview } from '../MessagePreview'
 import { Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
+
+import { SubjectPreheaderCard } from './SubjectPreheaderCard'
 
 
 const EDITOR_NAME: Record<ReturnType<typeof editorRouteFor>, string> = { design: 'Designer', receipt: 'Receipt Editor', message: 'Message Editor' }
@@ -39,6 +41,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const senders = useQuery({
     queryKey: ['sender-profiles', 'options'],
     queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal),
+    refetchOnWindowFocus: true,                         // a sender added in the other tab (New Sender) is here on return
   })
 
   const fit = isReceipt ? ['E_RECEIPT'] : (TEMPLATE_FIT[channel] ?? [])
@@ -48,6 +51,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const wrongChannel = picked && !fit.includes(picked.channel)
   const senderOptions = (senders.data ?? []).filter((item) => (SENDER_FIT[channel] ?? []).includes(item.channel))
   const pickedSender = (senders.data ?? []).find((item) => item.id === sender)
+  const senderChannel = channel === 'EMAIL' ? 'EMAIL' : channel === 'SMS' || channel === 'MMS' ? 'SMS' : null
   const channelName = isReceipt ? 'e-receipt' : channel
 
   return (
@@ -96,9 +100,18 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
           )}
         </Panel>
 
-        <Panel title="Sender">
+        {picked && !wrongChannel && (picked.channel === 'EMAIL' || picked.channel === 'E_RECEIPT') && <SubjectPreheaderCard key={picked.id} template={picked} />}
+
+        <Panel title="Sender"
+          actions={can('provider.edit') && (
+            <Link to={`/settings/delivery?add=sender${senderChannel ? `&channel=${senderChannel}` : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline">
+              New Sender <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
+            </Link>
+          )}>
           <Field label="Send From" error={errors.sender_profile?.message}
-            hint={senders.isPending ? 'Loading senders' : senderOptions.length === 0 ? `No ${channel} sender is set up yet. An administrator adds one under Settings, Delivery.` : undefined}>
+            hint={senders.isPending ? 'Loading senders'
+              : senderOptions.length === 0 ? `No ${channel} sender is set up yet. ${can('provider.edit') ? 'Add one with New Sender; it appears here when you come back.' : 'An administrator adds one under Settings, Sending Engines.'}`
+              : can('provider.edit') ? 'Senders belong to the workspace: one added with New Sender can be used by every campaign.' : undefined}>
             {(ids) => (
               <Select key={senders.data ? 'ready' : 'loading'} {...ids} {...register('sender_profile')}>
                 <option value="">Choose Later</option>

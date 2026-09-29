@@ -1,7 +1,7 @@
 /**
  * What a campaign's message is made of, as the quick view and the Content tab's Details card both show it: sender,
- * subject and preheader with sample values, a text's length, a receipt's layout. Each detail is ready, missing, still
- * loading, or failed, and the caller draws it.
+ * subject and preheader with sample values (the campaign's own when it has them, else the template's), a text's length,
+ * a receipt's layout. Each detail is ready, missing, still loading, or failed, and the caller draws it.
  */
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -23,6 +23,9 @@ export type DetailState =
 export interface ContentQuery { data?: PreviewContent; isPending: boolean; isError: boolean; refetch: () => unknown }
 
 /** tags that stand for the order a receipt is sent for (see receiptTags.ts) */
+/** said under a subject or preheader the campaign has instead of the template's */
+const OWN = 'Set for this campaign'
+
 const ORDER_TAGS = new Set(['order_number', 'transaction_date', 'store_name', 'receipt_number', 'grand_total', 'subtotal', 'payment_method', 'shipping_address', 'store_address', 'delivery_estimate'])
 
 /** each detail that waits on a request takes its state from it */
@@ -42,7 +45,7 @@ export function useMessageDetails({ campaign, channel, content, tags }: { campai
   const isText = channel === 'SMS' || channel === 'MMS'
 
   const sender = (): DetailState => {
-    if (!campaign.sender_profile) return { state: 'missing', hint: 'Choose a sender on the Template step' }
+    if (!campaign.sender_profile) return { state: 'missing', hint: 'Choose a sender on the Content step' }
     if (senders.isError) return { state: 'error', onRetry: () => void senders.refetch() }
     const found = senders.data?.find((item) => item.id === campaign.sender_profile)
     if (senders.isPending) return { state: 'loading', width: '62%' }
@@ -52,20 +55,22 @@ export function useMessageDetails({ campaign, channel, content, tags }: { campai
   }
 
   const subject = (receipt: boolean): DetailState =>
-    !hasTemplate ? { state: 'missing', hint: 'Write a subject line on the Template step' }
+    !hasTemplate ? { state: 'missing', hint: 'Write a subject line on the Content step' }
     : fromContent(content, '78%', (data) => {
-      if (data.kind !== 'email' || !data.subject.trim()) return { state: 'missing', hint: 'Write a subject line on the Template step' }
-      const fromOrder = receipt && Array.from(data.subject.matchAll(/\{\{\s*([\w.]+)/g), (match) => match[1]).some((tag) => ORDER_TAGS.has(tag))
-      const { value, sampled } = withSamples(data.subject, tags)
-      return { state: 'ready', value, secondary: [fromOrder && 'Generated from the order', sampled && SAMPLED].filter(Boolean).join(' · ') || undefined }
+      const text = campaign.subject_line?.trim() || (data.kind === 'email' ? data.subject.trim() : '')
+      if (data.kind !== 'email' || !text) return { state: 'missing', hint: 'Write a subject line on the Content step' }
+      const fromOrder = receipt && Array.from(text.matchAll(/\{\{\s*([\w.]+)/g), (match) => match[1]).some((tag) => ORDER_TAGS.has(tag))
+      const { value, sampled } = withSamples(text, tags)
+      return { state: 'ready', value, secondary: [campaign.subject_line?.trim() && OWN, fromOrder && 'Generated from the order', sampled && SAMPLED].filter(Boolean).join(' · ') || undefined }
     })
 
   const preheader = (): DetailState =>
     !hasTemplate ? { state: 'missing', hint: 'Add the preview text shown after the subject' }
     : fromContent(content, '66%', (data) => {
-      if (data.kind !== 'email' || !data.preheader.trim()) return { state: 'missing', hint: 'Add the preview text shown after the subject' }
-      const { value, sampled } = withSamples(data.preheader, tags)
-      return { state: 'ready', value, secondary: sampled ? SAMPLED : undefined }
+      const text = campaign.preheader?.trim() || (data.kind === 'email' ? data.preheader.trim() : '')
+      if (data.kind !== 'email' || !text) return { state: 'missing', hint: 'Add the preview text shown after the subject' }
+      const { value, sampled } = withSamples(text, tags)
+      return { state: 'ready', value, secondary: [campaign.preheader?.trim() && OWN, sampled && SAMPLED].filter(Boolean).join(' · ') || undefined }
     })
 
   const length = (): DetailState =>
@@ -77,7 +82,7 @@ export function useMessageDetails({ campaign, channel, content, tags }: { campai
     })
 
   const receiptLayout = (): DetailState =>
-    !hasTemplate ? { state: 'missing', hint: 'Choose a template on the Template step' }
+    !hasTemplate ? { state: 'missing', hint: 'Choose a template on the Content step' }
     : fromContent(content, '72%', (data) => {
       const receipt = data.kind === 'email' ? data.receipt : undefined
       if (!receipt) return { state: 'missing' }
