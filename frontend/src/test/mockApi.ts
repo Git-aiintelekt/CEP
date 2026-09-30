@@ -427,6 +427,7 @@ export function installMockApi(options: MockOptions = {}) {
       void secret
       return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, has_transactional_secret: Boolean(body.transactional_secret), is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
     }
+    if (/\/delivery-providers\/[^/]+\/rotate-webhook\/$/.test(path)) return json({ ...deliveryProviders[0], webhook_url: 'https://cep.example.com/api/v1/webhooks/delivery/NWA/prov-postal/rotated-token/' })
     if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], has_transactional_secret: Boolean(options.providerHasTransactionalKey), ...(body as Partial<DeliveryProvider>) })
     if (path.endsWith('/delivery-providers/')) return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders).map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item))
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
