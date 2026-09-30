@@ -24,6 +24,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       ...(allowedHosts.length ? { allowedHosts } : {}),
+      // Behind a CDN the dev server's modules and stylesheet must never be cached: a browser that kept the old index.css for
+      // four hours (Cloudflare's default browser TTL) showed the new markup with the old styles after a deploy.
+      headers: { 'Cache-Control': 'no-store' },
       // Same-origin in development: the browser talks to Vite, Vite forwards Django's paths to Django (no CORS, no
       // mixed hosts). The same split Nginx does in production: /api, /admin and /healthz to the API, /static to its
       // collected files, /media to uploads.
