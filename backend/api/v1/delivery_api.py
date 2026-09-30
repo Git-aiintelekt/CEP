@@ -1,6 +1,8 @@
 """Delivery settings for a workspace: providers (Postal, SendGrid, ... one adapter each), senders, test sends, run results."""
 from django.conf import settings
 from django.core import signing
+from datetime import timedelta
+
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, viewsets
@@ -47,13 +49,33 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
     has_transactional_secret = serializers.SerializerMethodField()
     webhook_url = serializers.SerializerMethodField()
     sender_count = serializers.SerializerMethodField()
+    last_callback_at = serializers.SerializerMethodField()
+    callbacks_24h = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryProvider
         fields = ("id", "provider_type", "channel", "name", "config", "secret", "has_secret", "secret_ref", "transactional_secret", "drop_transactional_secret",
                   "has_transactional_secret", "rate_limit_per_minute", "is_default", "is_active", "webhook_url", "sender_count", "last_checked_at", "last_check_ok",
-                  "last_check_error", "row_version")
+                  "last_check_error", "last_callback_at", "callbacks_24h", "row_version")
         read_only_fields = ("channel", "last_checked_at", "last_check_ok", "last_check_error", "row_version")
+
+    def _callbacks(self, provider):
+        """When the engine last called back, and how often in the last day: a dead webhook shows as 'never' next to a busy engine."""
+        cache = self.context.setdefault("callbacks", {})
+        if provider.pk not in cache:
+            from django.db.models import Count, Max, Q
+            from apps.integrations.models import IntegrationLog
+            since = timezone.now() - timedelta(hours=24)
+            found = IntegrationLog.objects.filter(tenant_id=provider.tenant_id, direction="IN", integration__delivery_provider_id=provider.pk).aggregate(
+                last=Max("started_at"), day=Count("id", filter=Q(started_at__gte=since)))
+            cache[provider.pk] = (found["last"], found["day"] or 0)
+        return cache[provider.pk]
+
+    def get_last_callback_at(self, provider):
+        return self._callbacks(provider)[0]
+
+    def get_callbacks_24h(self, provider) -> int:
+        return self._callbacks(provider)[1]
 
     def get_has_secret(self, provider) -> bool:
         return bool(provider.secret_enc or provider.secret_ref)

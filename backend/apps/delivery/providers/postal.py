@@ -105,6 +105,47 @@ class PostalProvider(EmailProvider):
             raise ProviderError(f"Postal refused the API key or the server is suspended ({code}). {text}".strip(), retryable=False)
         return SendResult.rejected(f"{code}: {text}".strip(": "))
 
+    def message_status(self, message_id: str, *, related_ref: str | None = None) -> dict:
+        """Postal's own record of a sent message ("Check with Postal"): its status, whether it is held, and every delivery
+        attempt with the receiving server's answer. Postal's messages API takes its numeric id; a Message-ID string is
+        looked up through the send that answered it."""
+        wanted = int(message_id) if str(message_id).isdigit() else self._numeric_id(message_id)
+        if wanted is None:
+            raise ProviderError("Postal's record of this message cannot be found: the send did not leave a numeric id.", retryable=False)
+        try:
+            answer = self._post("/api/v1/messages/message", {"id": wanted, "_expansions": ["status", "details", "deliveries"]}).json()
+        except (requests.RequestException, ValueError) as exc:
+            raise ProviderError(f"Cannot reach Postal: {exc.__class__.__name__}: {exc}") from exc
+        data = answer.get("data") or {}
+        if answer.get("status") != "success":
+            code = str(data.get("code") or answer.get("status"))
+            if code in FATAL_CODES:
+                raise ProviderError(f"Postal refused the API key ({code}).", retryable=False)
+            raise ProviderError(f"Postal answered {code}: {data.get('message') or ''}".strip(), retryable=False)
+        status = data.get("status") or {}
+        details = data.get("details") or {}
+        stamp = lambda value: datetime.fromtimestamp(float(value), tz=timezone.utc).isoformat() if value else None     # noqa: E731
+        return {"id": data.get("id"), "message_id": details.get("message_id"), "status": status.get("status"), "held": bool(status.get("held")),
+                "hold_expiry": stamp(status.get("hold_expiry")), "last_delivery_attempt": stamp(status.get("last_delivery_attempt")),
+                "to": details.get("rcpt_to"), "from": details.get("mail_from"), "subject": details.get("subject"), "sent_at": stamp(details.get("timestamp")),
+                "deliveries": [{"at": stamp(d.get("timestamp")), "status": d.get("status"), "details": d.get("details"), "output": d.get("output"),
+                                "sent_with_ssl": d.get("sent_with_ssl"), "time": d.get("time")} for d in (data.get("deliveries") or [])]}
+
+    def _numeric_id(self, message_id: str):
+        """The numeric id Postal gave in the send's answer, found in the integration log by the Message-ID."""
+        from apps.integrations.models import IntegrationLog
+        rows = IntegrationLog.objects.filter(tenant_id=self.tenant_id, system=self.provider_type, direction="OUT", response_body__contains=message_id).order_by("-started_at")[:3]
+        for row in rows:
+            try:
+                data = json.loads(row.response_body or "{}").get("data") or {}
+            except ValueError:
+                continue
+            if data.get("message_id") == message_id:
+                for entry in (data.get("messages") or {}).values():
+                    if entry.get("id"):
+                        return int(entry["id"])
+        return None
+
     def check(self) -> tuple[bool, str]:
         """An empty send is answered with a parameter error when the key is good, and with InvalidServerAPIKey when it is not.
         Both keys are tried when two are set."""

@@ -10,7 +10,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, formatNumber } from '@/lib/format'
 import type { DeliveryProvider, DeliverySender, ProviderType } from '@/lib/types'
 
 const PROVIDERS = ['delivery', 'providers']
@@ -202,9 +202,14 @@ export function DeliveryPage() {
         <p className="text-xs text-ink-500">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
     { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
-    { key: 'webhook', header: 'Callback Address', render: (row) => row.webhook_url
-      ? <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
-          onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
+    { key: 'webhook', header: 'Callbacks', render: (row) => row.webhook_url
+      ? <span className="flex flex-col items-start gap-0.5">
+          <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
+            onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
+          {row.last_callback_at
+            ? <span className="cep-num text-xs text-ink-500">Last received {formatDateTime(row.last_callback_at)} · {formatNumber(row.callbacks_24h ?? 0)} in 24 h</span>
+            : <span className="text-xs font-medium text-warning-text">No callback has ever arrived. Register the address with the engine so deliveries, bounces, opens and clicks come back.</span>}
+        </span>
       : <span className="text-xs text-ink-500">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
       <span className="flex justify-end gap-1">

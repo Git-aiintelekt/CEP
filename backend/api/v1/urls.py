@@ -2,8 +2,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, preferences_api, preferences_public, reports_api,
-               search_api, settings_api, suppressions_api, views, workspace_api)
+from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, preferences_api, preferences_public, recipients_api,
+               reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -44,6 +44,12 @@ urlpatterns = [
     path("workspace/mail-server/test/", workspace_api.MailServerTestView.as_view(), name="workspace-mail-server-test"),
     path("campaigns/<uuid:pk>/send-test/", delivery_api.CampaignSendTestView.as_view(), name="campaign-send-test"),
     path("campaign-runs/<uuid:pk>/results/", delivery_api.CampaignRunResultsView.as_view(), name="campaign-run-results"),
+    path("campaign-runs/<uuid:pk>/recipients/", recipients_api.RunRecipientsView.as_view(), name="campaign-run-recipients"),
+    path("campaign-runs/<uuid:pk>/recipients/export.csv", recipients_api.RunRecipientsExportView.as_view(), name="campaign-run-recipients-export"),
+    path("campaign-runs/<uuid:pk>/recipients/<int:execution_id>/", recipients_api.RunRecipientView.as_view(), name="campaign-run-recipient"),
+    path("campaign-runs/<uuid:pk>/recipients/<int:execution_id>/check/", recipients_api.RunRecipientCheckView.as_view(), name="campaign-run-recipient-check"),
+    path("campaigns/<uuid:pk>/suppressions/", recipients_api.CampaignSuppressionsView.as_view(), name="campaign-suppressions"),
+    path("campaigns/<uuid:pk>/suppressions/export.csv", recipients_api.CampaignSuppressionsExportView.as_view(), name="campaign-suppressions-export"),
     path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
