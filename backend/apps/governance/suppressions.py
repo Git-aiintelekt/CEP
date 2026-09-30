@@ -53,8 +53,17 @@ def _conn():
     return connections[context.require().db_alias]
 
 
-def _where(channel: str | None, group: str | None, search: str | None) -> tuple[str, dict]:
+CAMPAIGN_PEOPLE = """t.party_id IN (SELECT m.party_id FROM contact_list_member m JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id
+                                     WHERE m.tenant_id = %(tenant)s AND c.campaign_id = %(campaign)s
+                                  UNION SELECT m.party_id FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id
+                                     WHERE m.tenant_id = %(tenant)s AND l.campaign_id = %(campaign)s)"""
+
+
+def _where(channel: str | None, group: str | None, search: str | None, campaign=None) -> tuple[str, dict]:
     clauses, args = [], {}
+    if campaign is not None:                               # the campaign page: only people on its lists, attached now or frozen in a run
+        clauses.append(CAMPAIGN_PEOPLE)
+        args["campaign"] = str(campaign)
     if channel:
         clauses.append("t.channel = %(channel)s")
         args["channel"] = channel.upper()
@@ -78,9 +87,9 @@ def _row(record) -> dict:
             "since": since, "can_unblock": bool(can_unblock)}
 
 
-def listing(*, channel: str | None = None, group: str | None = None, search: str | None = None, page: int = 1, page_size: int = 50) -> dict:
+def listing(*, channel: str | None = None, group: str | None = None, search: str | None = None, page: int = 1, page_size: int = 50, campaign=None) -> dict:
     page, page_size = max(1, int(page)), min(PAGE_MAX, max(1, int(page_size)))
-    where, args = _where(channel, group, search)
+    where, args = _where(channel, group, search, campaign)
     args["tenant"] = str(context.require().tenant_id)
     with _conn().cursor() as cursor:
         cursor.execute(f"SELECT count(*) FROM ({ROWS}) t{where}", args)
@@ -91,8 +100,8 @@ def listing(*, channel: str | None = None, group: str | None = None, search: str
     return {"count": total, "page": page, "page_size": page_size, "results": rows}
 
 
-def rows_for_export(*, channel=None, group=None, search=None):
-    where, args = _where(channel, group, search)
+def rows_for_export(*, channel=None, group=None, search=None, campaign=None):
+    where, args = _where(channel, group, search, campaign)
     args["tenant"] = str(context.require().tenant_id)
     with _conn().cursor() as cursor:
         cursor.execute(f"SELECT * FROM ({ROWS}) t{where} ORDER BY t.since DESC NULLS LAST, t.contact", args)
@@ -100,10 +109,11 @@ def rows_for_export(*, channel=None, group=None, search=None):
             yield _row(record)
 
 
-def summary() -> dict:
-    args = {"tenant": str(context.require().tenant_id)}
+def summary(campaign=None) -> dict:
+    where, args = _where(None, None, None, campaign)
+    args["tenant"] = str(context.require().tenant_id)
     with _conn().cursor() as cursor:
-        cursor.execute(f"""SELECT t.reason, t.channel, count(*), count(*) FILTER (WHERE t.since >= now() - interval '7 days') FROM ({ROWS}) t GROUP BY 1, 2""", args)
+        cursor.execute(f"""SELECT t.reason, t.channel, count(*), count(*) FILTER (WHERE t.since >= now() - interval '7 days') FROM ({ROWS}) t{where} GROUP BY 1, 2""", args)
         groups = {key: {"key": key, "label": label, "count": 0, "email": 0, "phone": 0, "this_week": 0} for key, label in GROUPS.items()}
         total = week = 0
         for reason, channel, count, recent in cursor.fetchall():
