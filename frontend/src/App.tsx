@@ -13,7 +13,6 @@ import { FullPageSpinner } from '@/components/States'
 import { ToastProvider } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { AccountSecurityPage } from '@/pages/AccountSecurityPage'
-import { DashboardPage } from '@/pages/DashboardPage'
 import { CampaignListPage } from '@/features/campaigns/CampaignListPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { CampaignDetailPage } from '@/features/campaigns/detail/CampaignDetailPage'
@@ -21,6 +20,7 @@ import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPa
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
 import { UploadsPage } from '@/features/contact-lists/UploadsPage'
+import { LiveHome } from '@/features/home/LiveHome'
 import { JourneysPage } from '@/pages/ListPages'
 import { TemplatesPage } from '@/pages/TemplatesPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -49,6 +49,8 @@ const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/Desi
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/MessagePlayground')) : null
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ReceiptPlayground')) : null
 const DevFields = import.meta.env.DEV ? lazy(() => import('@/pages/DevFields')) : null
+const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/HomePlayground')) : null
+const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CalendarPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,7 +74,7 @@ function NotFoundPage() {
       <p className="text-sm font-semibold text-brand-800">404</p>
       <h1 className="mt-1 font-display text-page-title font-semibold text-ink-900">Page not found</h1>
       <Link to="/" className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline">
-        Back to Overview
+        Back to Home
       </Link>
     </div>
   )
@@ -102,13 +104,20 @@ export default function App() {
             {DevFields && (
               <Route path="/dev/fields" element={<Suspense fallback={<FullPageSpinner label="Loading the fields" />}><DevFields /></Suspense>} />
             )}
+            {HomePlayground && (
+              // inside the app shell, like the real Home; outside RequireAuth, so it works with no backend
+              <Route element={<AppShell />}>
+                <Route path="/dev/home" element={<Suspense fallback={<FullPageSpinner label="Loading Home" />}><HomePlayground /></Suspense>} />
+                {CalendarPlayground && <Route path="/dev/calendar" element={<Suspense fallback={<FullPageSpinner label="Loading the calendar" />}><CalendarPlayground /></Suspense>} />}
+              </Route>
+            )}
             <Route element={<RequireAuth />}>
               {/* full-screen: outside the app shell */}
               <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
               <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
               <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
               <Route element={<AppShell />}>
-                <Route index element={<DashboardPage />} />
+                <Route index element={<LiveHome />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
                 <Route path="campaigns/new" element={<CampaignListPage creating />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />

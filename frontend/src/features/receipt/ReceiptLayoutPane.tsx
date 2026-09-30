@@ -24,7 +24,7 @@ interface ReceiptLayoutPaneProps {
   readOnly?: boolean
 }
 
-const PANEL_TITLE = 'px-3 pt-3 pb-2 text-xs font-semibold text-ink-500'
+const PANEL_TITLE = 'px-3 pt-3 pb-2 text-xs font-semibold text-ink-800'
 
 export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: ReceiptLayoutPaneProps) {
   const [selectedKey, setSelectedKey] = useState<ReceiptSectionKey>('items')
@@ -112,7 +112,7 @@ function PresetCards({ value, disabled, onChange }: { value: ReceiptLayout['layo
             }`}
           >
             <span className={`text-sm font-semibold ${checked ? 'text-brand-800' : 'text-ink-900'}`}>{card.title}</span>
-            <span className="text-xs text-ink-500">{card.description}</span>
+            <span className="text-xs text-ink-800">{card.description}</span>
           </button>
         )
       })}
@@ -132,7 +132,7 @@ interface SectionRowProps {
 }
 
 const ICON_BUTTON =
-  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-ink-700 transition-colors duration-base ease-standard hover:bg-line-subtle disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-transparent'
+  'inline-flex h-6 w-6 items-center justify-center rounded-sm text-ink-800 transition-colors duration-base ease-standard hover:bg-fill-subtle disabled:cursor-not-allowed disabled:text-ink-300 disabled:hover:bg-transparent'
 
 /** Only visibility is fixed for a locked section; every section, locked or not, moves freely. */
 function SectionRow({ section, selected, first, last, disabled, onSelect, onVisible, onMove }: SectionRowProps) {
@@ -154,7 +154,7 @@ function SectionRow({ section, selected, first, last, disabled, onSelect, onVisi
         {label}
       </button>
       {section.locked ?
-        <span role="img" aria-label={`${label} is always shown`} title="Always shown" className="inline-flex h-6 w-8 items-center justify-center text-ink-500">
+        <span role="img" aria-label={`${label} is always shown`} title="Always shown" className="inline-flex h-6 w-8 items-center justify-center text-ink-800">
           <Lock size={14} strokeWidth={1.5} aria-hidden />
         </span>
       : <Switch checked={section.visible} onChange={onVisible} ariaLabel={`Show ${label}`} disabled={disabled} />}
@@ -174,7 +174,7 @@ function Toggle({ label, help, checked, disabled, onChange }: { label: string; h
     <div className="flex items-start justify-between gap-3 py-2">
       <div className="min-w-0">
         <p id={`${id}-label`} className="text-sm text-ink-900">{label}</p>
-        {help ? <p id={`${id}-help`} className="text-xs text-ink-500">{help}</p> : null}
+        {help ? <p id={`${id}-help`} className="text-xs text-ink-800">{help}</p> : null}
       </div>
       <Switch checked={checked} onChange={onChange} labelledBy={`${id}-label`} describedBy={help ? `${id}-help` : undefined} disabled={disabled} />
     </div>
@@ -313,7 +313,7 @@ function SectionSettings({ section, disabled, onChange }: { section: ReceiptSect
       <div className="flex flex-col items-start gap-1.5 border-b border-line p-3">
         <h2 className="text-sm font-semibold text-ink-900">{titleCase(section.label)}</h2>
         {section.data_binding ?
-          <span className="rounded-sm bg-line-subtle px-1.5 py-0.5 text-xs text-ink-700">Mapped to {section.data_binding}</span>
+          <span className="rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs text-ink-800">Mapped to {section.data_binding}</span>
         : null}
       </div>
       {body}
@@ -324,7 +324,7 @@ function SectionSettings({ section, disabled, onChange }: { section: ReceiptSect
 function CustomHtml({ layout, disabled, onChange }: { layout: ReceiptLayoutConfig; disabled: boolean; onChange: (next: ReceiptLayoutConfig) => void }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto bg-surface p-6">
-      <p className="text-sm text-ink-700">The receipt is your own HTML and CSS. Choose a preset to go back to the section layout.</p>
+      <p className="text-sm text-ink-800">The receipt is your own HTML and CSS. Choose a preset to go back to the section layout.</p>
       <Field label="HTML">
         {({ id }) => (
           <TextArea

@@ -25,14 +25,14 @@ const HEIGHT: Record<ControlSize, string> = { sm: 'h-8 rounded-control-md', md: 
  */
 export function InputGroup({ start, end, suffix, controlSize = 'sm', tone = 'default', invalid = false, warning = false, describedBy, disabled, className = '', ...props }: InputGroupProps) {
   const fill =
-    disabled ? 'border-line bg-line-subtle text-ink-300'
+    disabled ? 'border-line bg-fill-subtle text-ink-300'
     : tone === 'sunken' ? `${invalid || warning ? borderClass(invalid, warning) : 'border-transparent'} bg-surface-sunken focus-within:bg-surface`
     : `${borderClass(invalid, warning)} bg-surface`
   return (
     <div
       className={`flex w-full items-center gap-1 border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}
     >
-      {start && <span className="flex shrink-0 items-center text-ink-700">{start}</span>}
+      {start && <span className="flex shrink-0 items-center text-ink-800">{start}</span>}
       <input
         {...props}
         disabled={disabled}
@@ -40,7 +40,7 @@ export function InputGroup({ start, end, suffix, controlSize = 'sm', tone = 'def
         aria-describedby={describedBy}
         className="cep-input-bare h-full min-w-0 flex-1 bg-transparent text-sm text-ink-900 outline-none disabled:text-ink-300"
       />
-      {suffix && <span className={`shrink-0 pr-1 text-xs ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>{suffix}</span>}
+      {suffix && <span className={`shrink-0 pr-1 text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{suffix}</span>}
       {end}
     </div>
   )

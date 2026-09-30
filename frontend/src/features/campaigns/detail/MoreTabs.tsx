@@ -42,7 +42,7 @@ function byDay(entries: CampaignActivity[], zone: string) {
 function Entry({ entry, zone, last }: { entry: CampaignActivity; zone: string; last: boolean }) {
   return (
     <li className="relative flex gap-4 pb-5 last:pb-0" data-severity={entry.severity}>
-      {!last && <span aria-hidden className="absolute top-5 bottom-0 left-2 w-px -translate-x-1/2 bg-line-subtle" />}
+      {!last && <span aria-hidden className="absolute top-5 bottom-0 left-2 w-px -translate-x-1/2 bg-fill-subtle" />}
       <span className="flex h-5 w-4 shrink-0 items-center justify-center">
         <Marker severity={entry.severity} />
       </span>
@@ -53,9 +53,9 @@ function Entry({ entry, zone, last }: { entry: CampaignActivity; zone: string; l
             {entry.severity === 'WARNING' && <Tag tone="warning">Warning</Tag>}
             {entry.severity === 'ERROR' && <Tag tone="error">Error</Tag>}
           </p>
-          <p className="text-sm break-words text-ink-700">{entry.message}</p>
+          <p className="text-sm break-words text-ink-800">{entry.message}</p>
         </div>
-        <p className="cep-num shrink-0 text-helper text-ink-500 sm:text-right">{entry.actor_name ?? 'System'} · {dateTimeInZone(entry.occurred_at, zone)}</p>
+        <p className="cep-num shrink-0 text-helper text-ink-800 sm:text-right">{entry.actor_name ?? 'System'} · {dateTimeInZone(entry.occurred_at, zone)}</p>
       </div>
     </li>
   )
@@ -80,11 +80,11 @@ export function ActivityTab({ campaign, zone, live }: { campaign: Campaign; zone
     body = <CardError what="the activity log" error={activity.error} onRetry={() => void activity.refetch()} />
   } else {
     const entries = activity.data.filter((entry) => show === 'ALL' || entry.severity === show)
-    body = entries.length === 0 ? <p className="text-sm text-ink-500">{show === 'ALL' ? 'Nothing recorded yet' : 'Nothing of that kind'}</p> : (
+    body = entries.length === 0 ? <p className="text-sm text-ink-800">{show === 'ALL' ? 'Nothing recorded yet' : 'Nothing of that kind'}</p> : (
       <div className="flex flex-col gap-6" data-activity-log>
         {byDay(entries, zone).map(([day, group]) => (
           <section key={day} className="flex flex-col gap-3">
-            <h3 className="text-helper font-semibold text-ink-500">{group.title}</h3>
+            <h3 className="text-helper font-semibold text-ink-800">{group.title}</h3>
             <ol aria-label={`Activity on ${group.title}`} className="flex flex-col">
               {group.entries.map((entry, index) => <Entry key={entry.id} entry={entry} zone={zone} last={index === group.entries.length - 1} />)}
             </ol>

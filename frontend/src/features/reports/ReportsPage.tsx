@@ -97,7 +97,7 @@ export function ReportsPage() {
           </div>
         )}
         <SegmentedControl label="Channel" options={CHANNELS} value={channel} onChange={(next) => { setChannel(next); setSelected([]) }} />
-        {summary.isFetching && data && <span className="flex items-center gap-2 text-helper text-ink-500"><Spinner size="sm" /> Updating</span>}
+        {summary.isFetching && data && <span className="flex items-center gap-2 text-helper text-ink-800"><Spinner size="sm" /> Updating</span>}
       </div>
 
       {!customValid && <p role="alert" className="mb-4 text-sm text-danger-text">Choose a start date on or before the end date.</p>}
@@ -106,7 +106,7 @@ export function ReportsPage() {
       {summary.isError && !data ? (
         <ErrorState title="The report could not be loaded" error={summary.error} onRetry={() => void summary.refetch()} />
       ) : !data ? (
-        <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading the report</p>
+        <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the report</p>
       ) : (
         <div className="space-y-5">
           <Tiles data={data} />
@@ -135,9 +135,9 @@ export function ReportsPage() {
 function Tile({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
-      <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{label}</p>
+      <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{label}</p>
       <p className="mt-1 font-display text-3xl font-semibold text-ink-900 tabular-nums">{value}</p>
-      <p className="mt-1 text-helper text-ink-500">{hint}</p>
+      <p className="mt-1 text-helper text-ink-800">{hint}</p>
     </div>
   )
 }
@@ -182,12 +182,12 @@ function DailyChart({ data }: { data: ReportSummary }) {
 function HighlightRow({ label, highlight, value, tone }: { label: string; highlight: ReportHighlight | null; value: (item: ReportHighlight) => string; tone: string }) {
   return (
     <div className="border-b border-line-subtle px-4 py-3 last:border-b-0">
-      <p className="text-helper text-ink-500">{label}</p>
+      <p className="text-helper text-ink-800">{label}</p>
       {highlight ? (
         <p className="text-sm font-semibold text-ink-900">
           <Link to={`/campaigns/${highlight.id}`} className="hover:underline">{highlight.name}</Link> <span className={`cep-num ${tone}`}>{value(highlight)}</span>
         </p>
-      ) : <p className="text-sm text-ink-500">Not enough sends yet</p>}
+      ) : <p className="text-sm text-ink-800">Not enough sends yet</p>}
     </div>
   )
 }
@@ -203,11 +203,11 @@ function Highlights({ data }: { data: ReportSummary }) {
       <HighlightRow label="Highest Click Rate" highlight={highlights.highest_click_rate} value={(item) => percent(item.rates.click)} tone="text-success-text" />
       <HighlightRow label="Most Unsubscribes" highlight={highlights.most_unsubscribes} value={(item) => percent(item.rates.unsubscribe)} tone="text-danger-text" />
       <div className="px-4 py-3">
-        <p className="text-helper text-ink-500">Best Send Hour</p>
-        {hour ? <p className="text-sm font-semibold text-ink-900"><span className="cep-num">{clock(hour.hour)}–{clock((hour.hour + 1) % 24)}</span> <span className="cep-num font-normal text-ink-500">{percent(hour.open_rate)} opens · {data.period.timezone}</span></p>
-          : <p className="text-sm text-ink-500">Not enough sends yet</p>}
+        <p className="text-helper text-ink-800">Best Send Hour</p>
+        {hour ? <p className="text-sm font-semibold text-ink-900"><span className="cep-num">{clock(hour.hour)}–{clock((hour.hour + 1) % 24)}</span> <span className="cep-num font-normal text-ink-800">{percent(hour.open_rate)} opens · {data.period.timezone}</span></p>
+          : <p className="text-sm text-ink-800">Not enough sends yet</p>}
       </div>
-      <p className="border-t border-line-subtle px-4 py-2 text-xs text-ink-500">Rates over fewer than 50 sends are left out of these.</p>
+      <p className="border-t border-line-subtle px-4 py-2 text-xs text-ink-800">Rates over fewer than 50 sends are left out of these.</p>
     </section>
   )
 }
@@ -226,7 +226,7 @@ function CampaignsTable({ rows, selected, onToggle, onCompare }: { rows: ReportC
     },
     { key: 'name', header: 'Campaign', render: (row) => <Link to={`/campaigns/${row.id}`} className="font-semibold text-ink-900 hover:underline">{row.name}</Link> },
     { key: 'channel', header: 'Channel', render: (row) => <Tag>{CHANNEL_LABEL[row.channel] ?? row.channel}</Tag>, phoneOptional: true },
-    { key: 'first', header: 'First Sent', render: (row) => <span className="cep-num whitespace-nowrap text-ink-700">{row.first_sent_at ? formatDay(row.first_sent_at.slice(0, 10)) : '—'}</span>, phoneOptional: true },
+    { key: 'first', header: 'First Sent', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{row.first_sent_at ? formatDay(row.first_sent_at.slice(0, 10)) : '—'}</span>, phoneOptional: true },
     { key: 'sent', header: 'Sent', align: 'right', render: (row) => <span className="cep-num">{formatNumber(row.sent)}</span> },
     { key: 'delivered', header: 'Delivered', align: 'right', render: (row) => <span className="cep-num">{row.sent ? percent(row.rates.delivery) : '—'}</span>, phoneOptional: true },
     { key: 'open', header: 'Open Rate', align: 'right', render: (row) => <span className="cep-num">{row.sent && row.channel !== 'SMS' ? percent(row.rates.open) : '—'}</span> },
@@ -239,14 +239,14 @@ function CampaignsTable({ rows, selected, onToggle, onCompare }: { rows: ReportC
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3">
         <h2 className="font-display text-card-heading font-semibold text-ink-900">Campaigns in the Period</h2>
         <div className="flex items-center gap-3">
-          <span className="text-helper text-ink-500" aria-live="polite">{selected.length ? `${selected.length} selected` : `Select ${COMPARE_MIN} to ${COMPARE_MAX} to compare`}</span>
+          <span className="text-helper text-ink-800" aria-live="polite">{selected.length ? `${selected.length} selected` : `Select ${COMPARE_MIN} to ${COMPARE_MAX} to compare`}</span>
           <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={selected.length < COMPARE_MIN} onClick={onCompare}>
             Compare {selected.length >= COMPARE_MIN ? `${selected.length} Selected` : 'Selected'}
           </button>
         </div>
       </div>
       {rows.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-ink-500">No campaign sent anything in this period. Try a longer period or another channel.</p>
+        <p className="px-4 py-6 text-sm text-ink-800">No campaign sent anything in this period. Try a longer period or another channel.</p>
       ) : (
         <DataTable caption="Campaigns in the period" columns={columns} rows={rows} rowKey={(row) => row.id} inset="card" />
       )}

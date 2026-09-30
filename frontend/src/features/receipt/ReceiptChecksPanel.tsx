@@ -9,7 +9,7 @@ export function ReceiptChecksPanel({ checks }: { checks: ReceiptCheck[] }) {
     <section aria-label="Checks" className="flex flex-col">
       <div className="flex items-baseline justify-between gap-2 border-b border-line p-3">
         <h2 className="text-sm font-semibold text-ink-900">Checks</h2>
-        <span className="cep-num text-xs text-ink-500">{failing === 0 ? 'All passing' : `${failing} to fix`}</span>
+        <span className="cep-num text-xs text-ink-800">{failing === 0 ? 'All passing' : `${failing} to fix`}</span>
       </div>
       <ul>
         {checks.map((check) => {
@@ -23,7 +23,7 @@ export function ReceiptChecksPanel({ checks }: { checks: ReceiptCheck[] }) {
                   {check.title}
                   <span className="sr-only">{passing ? ' (passing)' : ' (needs attention)'}</span>
                 </p>
-                <p className="text-xs text-ink-500">{check.detail}</p>
+                <p className="text-xs text-ink-800">{check.detail}</p>
               </div>
             </li>
           )

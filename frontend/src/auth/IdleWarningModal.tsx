@@ -16,7 +16,7 @@ export function IdleWarningModal({ secondsLeft, totalSeconds, onStay, onSignOut 
           <Button variant="primary" onClick={onStay} autoFocus>Stay Signed In</Button>
         </>
       }>
-      <p aria-live="polite" className="text-sm text-ink-700">
+      <p aria-live="polite" className="text-sm text-ink-800">
         For your security, CEP signs itself out after time spent idle. Without a response you will be signed out in <span className="font-semibold text-ink-900">{plural(secondsLeft)}</span>.
       </p>
       <div className="mt-3">

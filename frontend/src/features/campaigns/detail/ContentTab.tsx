@@ -57,7 +57,7 @@ function DetailsCard({ campaign, editable, message }: { campaign: Campaign; edit
         {texts && campaign.template && <Detail label="Length" {...details.length()} />}
         {receipt && <Detail label="Receipt Layout" {...details.receiptLayout()} />}
         <ChecksLine campaign={campaign} />
-        {!hasAction(campaign, 'edit') && <p className="text-helper text-ink-500">A send uses the template version that is current when the run starts.</p>}
+        {!hasAction(campaign, 'edit') && <p className="text-helper text-ink-800">A send uses the template version that is current when the run starts.</p>}
       </div>
     </DetailCard>
   )
@@ -96,7 +96,7 @@ export function ContentTab({ campaign, focusTest = 0 }: { campaign: Campaign; fo
           options={[{ value: 'desktop', label: 'Desktop', icon: Monitor }, { value: 'mobile', label: 'Mobile', icon: Smartphone }]} />
       )}
       {withCustomers && (customers.data?.length ?? 0) > 0 && (
-        <label className="flex items-center gap-2 text-helper font-semibold whitespace-nowrap text-ink-700">
+        <label className="flex items-center gap-2 text-helper font-semibold whitespace-nowrap text-ink-800">
           Preview As
           <Select controlSize="sm" value={party} onChange={(event) => setParty(event.target.value)} className="w-48">
             <option value="">Sample Values</option>
@@ -113,7 +113,7 @@ export function ContentTab({ campaign, focusTest = 0 }: { campaign: Campaign; fo
         <DetailCard title="Message" actions={controls}>
           {campaign.template ? (
             <div className="flex flex-col gap-4">
-              <p className="text-helper text-ink-500">With the catalogue's sample values, or as one customer of the audience would get it.</p>
+              <p className="text-helper text-ink-800">With the catalogue's sample values, or as one customer of the audience would get it.</p>
               <MessagePreview campaignId={campaign.id} controls={{ party, device, sender: campaign.sender_profile_name ?? 'Your brand', image: mmsImage }} />
             </div>
           ) : (

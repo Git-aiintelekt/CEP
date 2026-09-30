@@ -222,7 +222,7 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect(circle(0).className).toContain('h-6')
   expect(circle(0).querySelector('.lucide-check')).toBeTruthy()
   expect(circle(0).textContent).toBe('')
-  expect(label(0).className).toContain('text-ink-700')
+  expect(label(0).className).toContain('text-ink-800')
   expect(label(0).className).not.toContain('font-semibold')
 
   expect(circle(3).textContent).toBe('4')
@@ -235,7 +235,7 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect(circle(4).textContent).toBe('5')
   expect(circle(4).className).toContain('border-line')
   expect(circle(4).className).toContain('text-ink-300')
-  expect(label(4).className).toContain('text-ink-500')                                              // Gray 400 would fail 4.5:1 on white
+  expect(label(4).className).toContain('text-ink-800')                                              // Gray 400 would fail 4.5:1 on white
   expect(label(0).className + label(3).className).toContain('text-card-title')                      // 15px labels
   expect(circle(0).className).not.toContain('bg-success')                                          // progress, not a status
 
@@ -243,7 +243,7 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
   expect((steps[4] as HTMLButtonElement).disabled).toBe(true)
   expect(steps[0].getAttribute('aria-label') ?? steps[0].textContent).toContain('Audience')
   expect(screen.getByRole('button', { name: 'Audience, completed' })).toBe(steps[0])
-  expect([...document.querySelectorAll('[data-connector]')].every((line) => line.className.includes('w-14') && line.className.includes('bg-line-subtle'))).toBe(true)
+  expect([...document.querySelectorAll('[data-connector]')].every((line) => line.className.includes('w-14') && line.className.includes('bg-fill-subtle'))).toBe(true)
 
   await user.click(steps[0])                                                                         // a done step opens
   await vi.waitFor(() => expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Audience'))

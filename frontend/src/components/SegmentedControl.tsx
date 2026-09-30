@@ -29,7 +29,7 @@ interface SegmentedControlProps<V extends string> {
 }
 
 const GROUP: Record<SegmentedVariant, string> = {
-  track: 'gap-0.5 rounded-control-md bg-line-subtle p-0.5',
+  track: 'gap-0.5 rounded-control-md bg-fill-subtle p-0.5',
   outline: 'gap-1',
 }
 
@@ -38,12 +38,12 @@ function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: bo
   if (variant === 'track') {
     const shape = `h-7 rounded-control-sm ${iconOnly ? 'w-8' : 'px-2.5'}`
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-line bg-surface text-ink-300' : 'border-transparent text-ink-300'}`
-    return `${base} ${shape} ${selected ? 'border-line bg-surface text-ink-900' : 'border-transparent text-ink-700 hover:text-ink-900'}`
+    return `${base} ${shape} ${selected ? 'border-line bg-surface text-ink-900' : 'border-transparent text-ink-800 hover:text-ink-900'}`
   }
   const shape = `h-8 rounded-control-md ${iconOnly ? 'w-8' : 'min-w-8 px-2'}`
   // disabled keeps the choice readable: the selected segment stays a step darker than the rest
-  if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-ink-300 bg-line text-ink-700' : 'border-line bg-line-subtle text-ink-300'}`
-  return `${base} ${shape} ${selected ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle active:bg-line-subtle'}`
+  if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-ink-300 bg-fill-muted text-ink-800' : 'border-line bg-fill-subtle text-ink-300'}`
+  return `${base} ${shape} ${selected ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`
 }
 
 /** A radio group: one tab stop, arrow keys move and select, Home and End jump to the ends. */

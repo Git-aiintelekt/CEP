@@ -15,7 +15,7 @@ import { problemText } from './problem'
 
 function Line({ label, value, strong = false, indent = false, muted = false }: { label: string; value: number; strong?: boolean; indent?: boolean; muted?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-4 py-1 ${indent ? 'pl-4' : ''} ${strong ? 'font-semibold text-ink-900' : muted ? 'text-ink-500' : 'text-ink-700'}`}>
+    <div className={`flex items-baseline justify-between gap-4 py-1 ${indent ? 'pl-4' : ''} ${strong ? 'font-semibold text-ink-900' : muted ? 'text-ink-800' : 'text-ink-800'}`}>
       <dt className="text-sm">{label}</dt>
       <dd className="cep-num text-sm">{formatNumber(value)}</dd>
     </div>
@@ -26,14 +26,14 @@ export function GovernanceLines({ statuses, total, sendable }: { statuses: Uploa
   const shown = statuses.filter((line) => line.count > 0 || line.sendable)
   return (
     <div>
-      <div className="mb-2 flex h-2 overflow-hidden rounded-full bg-line-subtle" role="img" aria-label={`${formatNumber(sendable)} of ${formatNumber(total)} can receive marketing email today`}>
+      <div className="mb-2 flex h-2 overflow-hidden rounded-full bg-fill-subtle" role="img" aria-label={`${formatNumber(sendable)} of ${formatNumber(total)} can receive marketing email today`}>
         <div className="bg-success" style={{ width: `${total ? (sendable * 100) / total : 0}%` }} />
         <div className="bg-warning" style={{ width: `${total ? ((total - sendable) * 100) / total : 0}%` }} />
       </div>
       <dl>
         {shown.map((line) => (
           <div key={line.code} className="flex items-baseline justify-between gap-4 py-1 text-sm">
-            <dt className="flex items-center gap-2 text-ink-700">
+            <dt className="flex items-center gap-2 text-ink-800">
               <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${line.sendable ? 'bg-success' : 'bg-warning'}`} />
               {line.label}
             </dt>
@@ -70,7 +70,7 @@ export function UploadReport({ job }: { job: ListImport }) {
     <section aria-label="Upload Report" className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-line p-3">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">The File</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-800">The File</h3>
           <dl>
             <Line label="Rows in the File" value={summary.rows} strong />
             <Line label="Held Back" value={held.total} />
@@ -87,16 +87,16 @@ export function UploadReport({ job }: { job: ListImport }) {
           </dl>
         </div>
         <div className="rounded-lg border border-line p-3">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-700">Governance Check · Marketing Email, as of Today</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-800">Governance Check · Marketing Email, as of Today</h3>
           <GovernanceLines statuses={governance.statuses} total={ready.total} sendable={governance.sendable} />
           {summary.mobile && (
-            <p className="mt-2 border-t border-line-subtle pt-2 text-xs text-ink-500">
+            <p className="mt-2 border-t border-line-subtle pt-2 text-xs text-ink-800">
               Text messages: {formatNumber(summary.mobile.with_number)} with a usable mobile number, {formatNumber(summary.mobile.blocked)} of them blocked (STOP reply or do-not-disturb registry).
             </p>
           )}
         </div>
       </div>
-      <p className={`text-xs ${summary.balanced ? 'text-ink-500' : 'font-medium text-danger-plain'}`}>
+      <p className={`text-xs ${summary.balanced ? 'text-ink-800' : 'font-medium text-danger-plain'}`}>
         {summary.balanced
           ? `${formatNumber(summary.rows)} rows = ${formatNumber(held.total)} held back + ${formatNumber(ready.total)} ${result ? 'imported' : 'ready'}. Of those ${formatNumber(ready.total)}, ${formatNumber(governance.sendable)} can receive marketing email today and ${formatNumber(governance.not_sendable)} cannot${result ? `; ${formatNumber(result.added)} were added to the list and ${formatNumber(result.already_in_list)} were in it already` : ''}.`
           : 'These numbers do not add up. Download the row-by-row report and tell support.'}

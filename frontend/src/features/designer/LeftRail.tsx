@@ -173,7 +173,7 @@ export const LeftRail = forwardRef<LeftRailHandle, LeftRailProps>(function LeftR
               onClick={() => press(tab.id)}
               onKeyDown={onTabKeyDown}
               className={`flex shrink-0 flex-col items-center gap-1 border-l-2 px-[2px] py-2 text-[11px] leading-[1.2] ${
-                selected ? 'border-brand-600 bg-brand-100 font-semibold text-brand-600' : 'border-transparent font-medium text-ink-700 hover:bg-surface-subtle'
+                selected ? 'border-brand-600 bg-brand-100 font-semibold text-brand-600' : 'border-transparent font-medium text-ink-800 hover:bg-surface-subtle'
               }`}
             >
               <Icon size={20} strokeWidth={1.5} aria-hidden />

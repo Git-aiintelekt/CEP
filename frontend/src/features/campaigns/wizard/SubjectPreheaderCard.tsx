@@ -45,9 +45,9 @@ export function SubjectPreheaderCard({ template }: { template: Template }) {
       <div className="space-y-4">
         {field('subject_line', 'Subject Line', 'The template has no subject line: write one here or in the template.')}
         {field('preheader', 'Preheader', 'The template has no preheader. Optional: the text an inbox shows after the subject.')}
-        <p className="text-xs text-ink-500">Tags such as {'{{first_name}}'} work in both.</p>
+        <p className="text-xs text-ink-800">Tags such as {'{{first_name}}'} work in both.</p>
         <div>
-          <p className="mb-1.5 text-sm font-medium text-ink-700">In the Inbox</p>
+          <p className="mb-1.5 text-sm font-medium text-ink-800">In the Inbox</p>
           <div className="overflow-hidden rounded-sm border border-line [&>div]:border-b-0">
             <InboxRow subject={own.subject_line.trim() || theirs.subject_line} preheader={own.preheader.trim() || theirs.preheader}
               catalogue={content.tags} profile={DEFAULT_PROFILE} time="9:41" />

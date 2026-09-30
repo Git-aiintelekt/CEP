@@ -33,7 +33,7 @@ function FilterButton({ menus, id, label, value, width = 220, children }: { menu
         className={`inline-flex h-10 items-center gap-1.5 rounded-control-lg border bg-surface pr-2.5 pl-3 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard ${open ? 'border-brand-600' : 'border-line hover:border-ink-300'} ${value ? 'text-brand-800' : 'text-ink-900'}`}
       >
         <span className="max-w-[200px] truncate">{value || label}</span>
-        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-500" />
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
       </button>
       {open && (
         <Popover label={label} width={width} placement="bottom-start" style={{ minWidth: 220 }} {...menus.panelProps(id)}>
@@ -62,10 +62,10 @@ function CustomRange({ filters, onApply }: { filters: Filters; onApply: (from: s
   const [to, setTo] = useState(filters.created === 'custom' ? filters.date_to : '')
   return (
     <div className="flex flex-col gap-2 border-t border-line-subtle px-3 py-3">
-      <label className="text-helper font-semibold text-ink-700">From
+      <label className="text-helper font-semibold text-ink-800">From
         <input type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} className={`${controlClass({ size: 'sm' })} mt-1 font-normal`} />
       </label>
-      <label className="text-helper font-semibold text-ink-700">To
+      <label className="text-helper font-semibold text-ink-800">To
         <input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} className={`${controlClass({ size: 'sm' })} mt-1 font-normal`} />
       </label>
       <button type="button" disabled={!from && !to} onClick={() => onApply(from, to)} className={`${buttonClass({ variant: 'primary', size: 'sm' })} mt-1`}>Apply</button>
@@ -130,7 +130,7 @@ export function CampaignFilters({ menus, filters, onChange, search, onSearch, on
         ))}
         {owners.length > 0 && (
           <div className="max-h-64 overflow-y-auto">
-            <p aria-hidden className="px-3 pt-2 pb-1 text-xs font-semibold text-ink-500">Owner</p>
+            <p aria-hidden className="px-3 pt-2 pb-1 text-xs font-semibold text-ink-800">Owner</p>
             <div role="group" aria-label="Owner">
               {/* indented so each owner's check lines up with the option text above */}
               {owners.map((owner) => (

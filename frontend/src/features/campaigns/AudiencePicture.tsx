@@ -6,7 +6,7 @@ import { audienceFunnel, statusReason } from './audienceNumbers'
 
 function Line({ label, value, strong = false, minus = false }: { label: string; value: number; strong?: boolean; minus?: boolean }) {
   return (
-    <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm ${strong ? 'font-semibold text-ink-900' : 'text-ink-700'}`}>
+    <div className={`flex items-baseline justify-between gap-3 py-1.5 text-sm ${strong ? 'font-semibold text-ink-900' : 'text-ink-800'}`}>
       <dt>{label}</dt>
       <dd className="cep-num">{minus && value > 0 ? '−' : ''}{formatNumber(value)}</dd>
     </div>
@@ -21,7 +21,7 @@ export function AudiencePicture({ audience }: { audience: CampaignAudience }) {
         {audienceFunnel(audience).map((line) => <Line key={line.label} {...line} />)}
       </dl>
       {left.length > 0 && (
-        <ul className="mt-3 space-y-1 text-xs text-ink-500" aria-label="Why people are left out">
+        <ul className="mt-3 space-y-1 text-xs text-ink-800" aria-label="Why people are left out">
           {left.map((line) => (
             <li key={line.code} className="flex justify-between gap-3">
               <span>{statusReason(line.code, line.label, audience.channel)}</span>
@@ -30,7 +30,7 @@ export function AudiencePicture({ audience }: { audience: CampaignAudience }) {
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-ink-500">{audience.note}</p>
+      <p className="mt-3 text-xs text-ink-800">{audience.note}</p>
     </div>
   )
 }

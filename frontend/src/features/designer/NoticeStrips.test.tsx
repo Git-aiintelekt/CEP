@@ -30,7 +30,7 @@ test('the way back is the design\'s 28px control, and goes grey rather than fade
   const button = screen.getByRole('button', { name: BACK_TO_LATEST })
   expect(button.className).toContain('h-7')
   expect(button.getAttribute('aria-disabled')).toBe('true')
-  expect(button.className).toContain('bg-line-subtle')
+  expect(button.className).toContain('bg-fill-subtle')
   expect(button.className).not.toContain('opacity')
 
   await user.click(button)

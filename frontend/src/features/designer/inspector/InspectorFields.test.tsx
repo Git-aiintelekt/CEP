@@ -372,7 +372,7 @@ test('read-only greys every control and offers no Reset', () => {
     expect(control.className).not.toContain('opacity')
   }
   expect(screen.queryByRole('button', { name: RESET_LABEL })).toBeNull()
-  expect(screen.getByRole('switch', { name: 'Full Width' }).className).toContain('bg-line-subtle')
+  expect(screen.getByRole('switch', { name: 'Full Width' }).className).toContain('bg-fill-subtle')
 })
 
 test('read-only leaves the image chooser inert too', async () => {
@@ -442,7 +442,7 @@ test('view-only shows the switch, greyed and inert, with no opacity', async () =
 
   const control = phoneSwitch()
   expect(control.hasAttribute('disabled')).toBe(true)
-  expect(control.className).toContain('bg-line-subtle')
+  expect(control.className).toContain('bg-fill-subtle')
   expect(control.className).not.toMatch(/\bopacity-/)
 
   await userEvent.click(control)
@@ -476,8 +476,8 @@ test('view-only: typing, clicking and choosing in every field of a button writes
 test('view-only values stay readable: grey fill, darker grey text, never faded', () => {
   renderFields(make('mj-button', { href: 'https://shop.test' }), { disabled: true })
   const link = screen.getByLabelText('Link')
-  expect(link.className).toContain('bg-line-subtle')
-  expect(link.className).toContain('text-ink-700')
+  expect(link.className).toContain('bg-fill-subtle')
+  expect(link.className).toContain('text-ink-800')
   expect(link.className).not.toContain('text-ink-300')
   expect(link.className).not.toMatch(/\bopacity-/)
 })

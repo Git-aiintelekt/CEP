@@ -25,7 +25,7 @@ export function NotificationsPage() {
   const queryClient = useQueryClient()
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<NotificationSettings>('/workspace/notifications/', undefined, signal) })
   if (settings.isError) return <ErrorState title="The notification settings could not be loaded" error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
   return <NotificationsForm data={settings.data} onSaved={(next) => queryClient.setQueryData(KEY, next)} />
 }
 
@@ -60,7 +60,7 @@ function NotificationsForm({ data, onSaved }: { data: NotificationSettings; onSa
     <form noValidate className="space-y-5" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
       <div>
         <h2 className="font-display text-section-title font-semibold text-ink-900">Notifications</h2>
-        <p className="mt-0.5 text-sm text-ink-500">What this workspace is told about, and where. Mail goes out through the workspace's own server when it has one.</p>
+        <p className="mt-0.5 text-sm text-ink-800">What this workspace is told about, and where. Mail goes out through the workspace's own server when it has one.</p>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">
@@ -71,8 +71,8 @@ function NotificationsForm({ data, onSaved }: { data: NotificationSettings; onSa
               <caption className="sr-only">Which channels each event is sent to</caption>
               <thead>
                 <tr className="border-b border-line bg-surface-subtle">
-                  <th scope="col" className="h-10 px-4 text-left text-xs font-semibold text-ink-700">Event</th>
-                  {CHANNELS.map((channel) => <th key={channel.key} scope="col" className="h-10 px-3 text-center text-xs font-semibold whitespace-nowrap text-ink-700">{channel.label}</th>)}
+                  <th scope="col" className="h-10 px-4 text-left text-xs font-semibold text-ink-900">Event</th>
+                  {CHANNELS.map((channel) => <th key={channel.key} scope="col" className="h-10 px-3 text-center text-xs font-semibold whitespace-nowrap text-ink-900">{channel.label}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -80,7 +80,7 @@ function NotificationsForm({ data, onSaved }: { data: NotificationSettings; onSa
                   <tr key={item.key} className="border-b border-line-subtle last:border-b-0">
                     <th scope="row" className="px-4 py-3 text-left font-normal">
                       <span className="block font-semibold text-ink-900">{item.label}</span>
-                      <span className="block text-xs text-ink-500">{item.hint}</span>
+                      <span className="block text-xs text-ink-800">{item.hint}</span>
                     </th>
                     {CHANNELS.map((channel) => (
                       <td key={channel.key} className="px-3 text-center">
@@ -123,12 +123,12 @@ function NotificationsForm({ data, onSaved }: { data: NotificationSettings; onSa
         <button type="button" className={buttonSecondary} disabled={dirty || !configured || test.isPending} onClick={() => test.mutate()}>
           {test.isPending && <Spinner size="sm" />}Send a Test Message
         </button>
-        {dirty ? <span className="text-helper text-ink-500">Save first: the test uses the saved settings.</span>
-          : !configured ? <span className="text-helper text-ink-500">Add recipients or a webhook to send a test.</span>
+        {dirty ? <span className="text-helper text-ink-800">Save first: the test uses the saved settings.</span>
+          : !configured ? <span className="text-helper text-ink-800">Add recipients or a webhook to send a test.</span>
           : save.isSuccess ? <span role="status" className="text-sm text-success-text">Saved</span> : null}
       </div>
       {test.data && (
-        <p role="status" className={`rounded-lg px-3 py-2 text-sm ${test.data.webhook_configured && !test.data.webhook ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-700'}`}>
+        <p role="status" className={`rounded-lg px-3 py-2 text-sm ${test.data.webhook_configured && !test.data.webhook ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-800'}`}>
           {[
             test.data.emails_configured ? `Test email sent to ${test.data.email} of ${test.data.emails_configured} recipient${test.data.emails_configured === 1 ? '' : 's'}.` : null,
             test.data.webhook_configured ? (test.data.webhook ? 'The webhook accepted the test message.' : 'The webhook refused the test message or did not answer. Check the address.') : null,

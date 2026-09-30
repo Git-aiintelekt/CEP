@@ -7,8 +7,8 @@ const SPIN = 'animate-[spin_900ms_linear_infinite] motion-reduce:animate-[spin_1
 export function EditorLoading({ label }: { label: string }) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-3 bg-surface-subtle">
-      <LoaderCircle size={28} strokeWidth={1.5} aria-hidden className={`${SPIN} text-ink-700`} />
-      <p role="status" className="text-sm font-semibold text-ink-700">
+      <LoaderCircle size={28} strokeWidth={1.5} aria-hidden className={`${SPIN} text-ink-800`} />
+      <p role="status" className="text-sm font-semibold text-ink-800">
         {label}
       </p>
     </div>
@@ -20,7 +20,7 @@ export function EditorFailure({ title, detail, onRetry, footer }: { title: strin
     <div role="alert" className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-2.5 bg-surface-subtle p-6 text-center">
       <CircleAlert size={28} strokeWidth={1.5} aria-hidden className="text-danger" />
       <p className="text-base font-semibold text-ink-900">{title}</p>
-      <p className="max-w-[360px] text-helper text-ink-700">{detail}</p>
+      <p className="max-w-[360px] text-helper text-ink-800">{detail}</p>
       <button
         type="button"
         onClick={onRetry}

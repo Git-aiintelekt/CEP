@@ -42,7 +42,7 @@ test('sign in -> overview -> campaigns -> detail -> publish, with tenant and bea
   await user.type(screen.getByLabelText('Password'), 'correct-horse')
   await user.click(screen.getByRole('button', { name: 'Log In' }))
 
-  expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   expect(screen.getByText('NWA')).toBeTruthy()
 
   await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Campaigns'))

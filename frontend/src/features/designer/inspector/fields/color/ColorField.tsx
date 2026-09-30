@@ -148,7 +148,7 @@ export function ColorField({
           : null}
 
           {hint !== null ?
-            <p className="mt-1 flex items-center gap-1 text-xs text-ink-500">
+            <p className="mt-1 flex items-center gap-1 text-xs text-ink-800">
               <Info size={12} strokeWidth={1.5} className="shrink-0" aria-hidden />
               {hint}
             </p>

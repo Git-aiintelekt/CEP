@@ -1,5 +1,6 @@
 /**
  * Button looks, kept as class strings so links and legacy call sites can share them with <Button> and <IconButton>.
+ * Primary is the only solid blue button; secondary is a white outline in Blue 600 that turns Blue 100 / Blue 800 on hover.
  * Hover and press are colour changes only (70ms); disabled is Gray 100 fill, Gray 400 text, Gray 150 border.
  * `disabled` here means the soft, still-focusable kind (aria-disabled); native :disabled is covered by the variants too.
  */
@@ -15,27 +16,29 @@ const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3 rounded-control-md', md
 
 const ENABLED: Record<ButtonVariant, string> = {
   primary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
-  secondary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',                        // the same blue as primary, by decision (2026-09-25)
-  ghost: 'text-ink-700 hover:bg-line-subtle hover:text-ink-900 active:bg-line',
-  link: 'text-brand-800 hover:bg-line-subtle active:bg-line',
+  secondary:
+    'border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800',
+  ghost: 'text-ink-800 hover:bg-fill-subtle hover:text-ink-900 active:bg-fill-muted',
+  link: 'text-brand-800 hover:bg-fill-subtle active:bg-fill-muted',
   danger: 'border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg',
 }
 
-const FILLED_DISABLED = 'cursor-not-allowed border-line bg-line-subtle text-ink-300'
+const FILLED_DISABLED = 'cursor-not-allowed border-line bg-fill-subtle text-ink-300'
+const OUTLINE_DISABLED = 'cursor-not-allowed border border-line bg-fill-subtle text-ink-300'
 const BARE_DISABLED = 'cursor-not-allowed text-ink-300'
 
 const DISABLED: Record<ButtonVariant, string> = {
   primary: FILLED_DISABLED,
-  secondary: FILLED_DISABLED,
+  secondary: OUTLINE_DISABLED,
   danger: FILLED_DISABLED,
   ghost: BARE_DISABLED,
   link: BARE_DISABLED,
 }
 
 const NATIVE_DISABLED: Record<ButtonVariant, string> = {
-  primary: 'disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300',
-  secondary: 'disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300',
-  danger: 'disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300',
+  primary: 'disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
+  secondary: 'disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300',
+  danger: 'disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300',
   ghost: 'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300',
   link: 'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300',
 }
@@ -57,14 +60,14 @@ const ICON_SIZE: Record<IconButtonSize, string> = { md: 'h-10 w-10 rounded-contr
 
 const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; disabled: string }> = {
   ghost: {
-    enabled: 'text-ink-700 hover:bg-line-subtle hover:text-ink-900 active:bg-line',
+    enabled: 'text-ink-800 hover:bg-fill-subtle hover:text-ink-900 active:bg-fill-muted',
     pressed: 'bg-brand-100 text-brand-800',
     disabled: 'cursor-not-allowed text-ink-300',
   },
   outline: {
     enabled: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
     pressed: 'bg-brand-800 text-white',
-    disabled: 'cursor-not-allowed bg-line-subtle text-ink-300',
+    disabled: 'cursor-not-allowed bg-fill-subtle text-ink-300',
   },
   onBrand: {
     enabled: 'text-white hover:bg-brand-800 active:bg-brand-800',

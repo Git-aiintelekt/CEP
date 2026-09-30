@@ -19,21 +19,21 @@ import type { CampaignMessage } from './useCampaignPreview'
 export function NoContent({ title = 'No content yet', text = 'Choose a template to build this campaign’s message', action }: { title?: string; text?: string; action?: ReactNode }) {
   return (
     <div className="flex h-full min-h-60 w-full flex-col items-center justify-center gap-3 rounded-lg border border-line bg-surface px-5 py-10 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken text-ink-700"><FileText size={24} strokeWidth={1.5} aria-hidden /></span>
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken text-ink-800"><FileText size={24} strokeWidth={1.5} aria-hidden /></span>
       <span className="text-card-title font-semibold text-ink-900">{title}</span>
-      <span className="max-w-[320px] text-sm text-ink-500">{text}</span>
+      <span className="max-w-[320px] text-sm text-ink-800">{text}</span>
       {action}
     </div>
   )
 }
 
 function Loading() {
-  return <p className="flex min-h-60 items-center justify-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading the preview</p>
+  return <p className="flex min-h-60 items-center justify-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the preview</p>
 }
 
 function Failed({ onRetry }: { onRetry: () => void }) {
   return (
-    <p className="flex min-h-60 flex-wrap items-center justify-center gap-2 text-sm text-ink-500">
+    <p className="flex min-h-60 flex-wrap items-center justify-center gap-2 text-sm text-ink-800">
       Couldn’t load the preview
       <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
     </p>
@@ -76,12 +76,12 @@ function TextThumbnail({ channel, data, tags, sender }: { channel: string; data:
   const phone = (
     <PhoneFrame sender={sender}>
       {channel === 'MMS' && <MmsImage url={data.media?.url ?? null} />}
-      {text.trim() ? <p data-testid="preview-bubble" className={BUBBLE}>{text}</p> : <p className="px-2 pt-10 text-center text-xs text-ink-500">This message has no text yet.</p>}
+      {text.trim() ? <p data-testid="preview-bubble" className={BUBBLE}>{text}</p> : <p className="px-2 pt-10 text-center text-xs text-ink-800">This message has no text yet.</p>}
     </PhoneFrame>
   )
   return (
     <div className="flex w-full flex-col items-center gap-4">
-      <p className="flex items-center gap-2 text-helper text-ink-500"><Info size={16} strokeWidth={1.5} aria-hidden className="text-ink-700" />Shown with sample values</p>
+      <p className="flex items-center gap-2 text-helper text-ink-800"><Info size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />Shown with sample values</p>
       <div className="w-full max-w-[320px]">{wide ? <FitWidth>{phone}</FitWidth> : phone}</div>
     </div>
   )

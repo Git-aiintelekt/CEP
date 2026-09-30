@@ -8,7 +8,7 @@ import { BACK_TO_LATEST, CONFLICT_NOTE, LOAD_LATEST, READ_ONLY_NOTE, oldVersionN
 const STRIP_BUTTON = 'inline-flex h-7 shrink-0 items-center rounded-sm border px-3 text-xs font-semibold transition-colors duration-base ease-standard'
 const WARNING_BUTTON = `${STRIP_BUTTON} border-warning bg-surface text-warning-text hover:bg-surface-subtle`
 const DANGER_BUTTON = `${STRIP_BUTTON} border-danger bg-surface text-danger-text hover:bg-surface-subtle`
-const DISABLED_BUTTON = `${STRIP_BUTTON} cursor-not-allowed border-line bg-line-subtle text-ink-300`
+const DISABLED_BUTTON = `${STRIP_BUTTON} cursor-not-allowed border-line bg-fill-subtle text-ink-300`
 
 /** `note` replaces the wording, for an editor holding more than one versioned thing. */
 export function VersionStrip({ version, busy = false, onBackToLatest, note }: { version: number; busy?: boolean; onBackToLatest: () => void; note?: string }) {
@@ -29,7 +29,7 @@ export function VersionStrip({ version, busy = false, onBackToLatest, note }: { 
 
 export function ReadOnlyStrip() {
   return (
-    <Notice tone="info" icon={Eye} iconClass="text-ink-700">
+    <Notice tone="info" icon={Eye} iconClass="text-ink-800">
       {READ_ONLY_NOTE}
     </Notice>
   )

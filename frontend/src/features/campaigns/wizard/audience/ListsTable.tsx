@@ -45,7 +45,7 @@ export function ListsTable({ rows, caption, zone, onRemove, onConfirm }: ListsTa
       <div className="flex min-w-0 flex-col gap-0.5 md:py-2">
         <a href={`/contact-lists/${row.id}`} target="_blank" rel="noreferrer" aria-label={`${row.name} (opens in a new tab)`}
           className="truncate text-card-title font-semibold text-brand-800 hover:underline">{row.name}</a>
-        <span className={`text-helper ${row.state === 'review' ? 'font-medium text-warning-text' : 'text-ink-500'}`}>{row.state === 'review' ? <>Needs Review · {note(row)}</> : note(row)}</span>
+        <span className={`text-helper ${row.state === 'review' ? 'font-medium text-warning-text' : 'text-ink-800'}`}>{row.state === 'review' ? <>Needs Review · {note(row)}</> : note(row)}</span>
         {row.state === 'review' && (
           <span className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" className={buttonClass({ variant: 'primary', size: 'sm' })} onClick={() => onConfirm?.(row)}>Confirm</button>

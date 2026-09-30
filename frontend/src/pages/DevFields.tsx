@@ -57,14 +57,14 @@ export default function DevFields() {
   return (
     <div className="min-h-screen bg-canvas p-8">
       <h1 className="text-section-title mb-1 font-semibold text-ink-900">Inspector Fields</h1>
-      <p className="mb-6 text-sm text-ink-500">
+      <p className="mb-6 text-sm text-ink-800">
         Every field at the width of the real panel. Drag the colour square: previews{' '}
         <strong className="cep-num font-semibold text-ink-900">{counts.preview}</strong>, commits{' '}
         <strong className="cep-num font-semibold text-ink-900">{counts.commit}</strong>.{' '}
         <button
           type="button"
           onClick={() => setCounts({ preview: 0, commit: 0 })}
-          className="h-8 rounded-sm px-2 text-xs font-medium text-brand-800 hover:bg-line-subtle"
+          className="h-8 rounded-sm px-2 text-xs font-medium text-brand-800 hover:bg-fill-subtle"
         >
           Reset Counters
         </button>
@@ -109,7 +109,7 @@ export default function DevFields() {
         </Column>
 
         <Column title="Invalid, and a Low-Contrast Colour">
-          <p className="mb-2 text-xs text-ink-500">Type 2em in the length, javascript: in the link.</p>
+          <p className="mb-2 text-xs text-ink-800">Type 2em in the length, javascript: in the link.</p>
           <LengthField label="Font Size" value={null} min={0} onCommit={() => {}} />
           <PaddingField label="Padding" value={null} onCommit={() => {}} />
           <LinkField label="Link" value={null} onCommit={() => {}} />
@@ -125,7 +125,7 @@ export default function DevFields() {
               setOpenColor(value)
             }}
           />
-          <p className="mt-2 text-xs text-ink-500">Click the swatch to open the picker.</p>
+          <p className="mt-2 text-xs text-ink-800">Click the swatch to open the picker.</p>
         </Column>
       </div>
     </div>

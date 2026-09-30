@@ -35,8 +35,8 @@ export function marksCss(root: Element = document.documentElement): string {
   const chip = 'padding: 0 4px; border-radius: 4px; font-weight: inherit;'
   return `
 .${MARK_CLASS.sample} { ${chip} background: ${token('--color-brand-100')}; color: ${token('--color-brand-800')}; }
-.${MARK_CLASS.default} { ${chip} background: ${token('--color-line-subtle')}; color: ${token('--color-ink-700')}; }
-.${MARK_CLASS.blank} { ${chip} background: ${token('--color-line-subtle')}; color: ${token('--color-ink-500')}; font-style: italic; }
+.${MARK_CLASS.default} { ${chip} background: ${token('--color-line-subtle')}; color: ${token('--color-ink-800')}; }
+.${MARK_CLASS.blank} { ${chip} background: ${token('--color-line-subtle')}; color: ${token('--color-ink-800')}; font-style: italic; }
 .${MARK_CLASS.unknown} { ${chip} background: ${token('--color-danger-bg')}; color: ${token('--color-danger-text')}; }
 `
 }

@@ -82,9 +82,9 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
   return (
     <div className="flex h-full min-h-0 bg-canvas">
       <aside aria-label="Sample Transaction" className="flex h-full w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
-        <h2 className="px-3 pt-3 pb-2 text-xs font-semibold text-ink-500">Sample Transaction</h2>
+        <h2 className="px-3 pt-3 pb-2 text-xs font-semibold text-ink-800">Sample Transaction</h2>
         <div className="flex flex-col gap-1.5 px-3 pb-3">
-          <p id={sourceLabel} className="text-xs text-ink-500">
+          <p id={sourceLabel} className="text-xs text-ink-800">
             Data Source
           </p>
           <SegmentedControl label="Data Source" labelledBy={sourceLabel} options={SOURCES} value={source} onChange={chooseSource} stretch />
@@ -105,7 +105,7 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
                 }`}
               >
                 <span className={`text-sm font-semibold ${checked ? 'text-brand-800' : 'text-ink-900'}`}>{sample.label}</span>
-                <span className="cep-num text-xs text-ink-500">
+                <span className="cep-num text-xs text-ink-800">
                   {itemCount(sample)} · {sample.data.payment.authorized_at}
                 </span>
               </button>
@@ -163,18 +163,18 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
 function OuterEmailStandIn({ hasFooterBlock, children }: { hasFooterBlock: boolean; children: ReactNode }) {
   return (
     <div data-testid="outer-email" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
-      <span className="self-start rounded-sm bg-line-subtle px-1.5 py-0.5 text-[11px] text-ink-500">Outer design shown as a stand-in</span>
+      <span className="self-start rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] text-ink-800">Outer design shown as a stand-in</span>
       <div aria-hidden className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-bold tracking-wide text-white">
         YOUR BRAND
       </div>
       <div aria-hidden className="flex flex-col gap-1.5 px-1">
         <div className="h-3 w-2/3 rounded-sm bg-ink-300" />
-        <div className="h-2 w-full rounded-sm bg-line" />
-        <div className="h-2 w-5/6 rounded-sm bg-line" />
+        <div className="h-2 w-full rounded-sm bg-fill-muted" />
+        <div className="h-2 w-5/6 rounded-sm bg-fill-muted" />
       </div>
       {children}
       {hasFooterBlock ?
-        <div data-testid="outer-footer" className="border-t border-line pt-3 text-center text-xs text-ink-500">
+        <div data-testid="outer-footer" className="border-t border-line pt-3 text-center text-xs text-ink-800">
           <p>Your company, 1 Example Street, Your city, 00000</p>
           <p>This is a transactional receipt for a purchase you made.</p>
         </div>

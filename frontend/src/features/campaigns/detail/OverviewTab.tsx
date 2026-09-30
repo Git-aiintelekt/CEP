@@ -41,7 +41,7 @@ function MetricsCard({ campaign, zone, live }: { campaign: Campaign; zone: strin
   const stamp = resultsStamp(campaign, zone, data ? metrics.dataUpdatedAt : null)
 
   return (
-    <DetailCard title="Metrics" actions={<>{stamp && <span className="text-ink-500">{stamp}</span>}<CardLink to="?tab=performance">See All</CardLink></>}>
+    <DetailCard title="Metrics" actions={<>{stamp && <span className="text-ink-800">{stamp}</span>}<CardLink to="?tab=performance">See All</CardLink></>}>
       {metrics.isError ? <CardError what="the results" error={metrics.error} onRetry={() => void metrics.refetch()} /> : (
         <dl className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy={metrics.isPending || undefined}>
           {campaign.campaign_type !== 'E_RECEIPT' && <Metric label="Audience" value={formatNumber(campaign.audience_size)} note="In the last frozen Campaign List" />}
@@ -105,7 +105,7 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
             </Fact>
           )}
         </dl>
-        {campaign.rate_limit_per_hour && <p className="mt-6 text-helper text-ink-500">The hourly limit takes effect when the delivery engine integration is switched on.</p>}
+        {campaign.rate_limit_per_hour && <p className="mt-6 text-helper text-ink-800">The hourly limit takes effect when the delivery engine integration is switched on.</p>}
       </Group>
       <Group title="Record">
         <dl className={FACTS_GRID}>
@@ -117,7 +117,7 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
         </dl>
       </Group>
       {!editable && (
-        <p className="mt-6 flex items-center gap-2 text-helper text-ink-500">
+        <p className="mt-6 flex items-center gap-2 text-helper text-ink-800">
           <Lock size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-300" />
           {campaign.is_journey_generated ? 'These settings come from the journey that generated this campaign.' : 'Settings are fixed once a campaign is published. Clone the campaign to start again from them.'}
         </p>
@@ -132,7 +132,7 @@ function TargetsCard({ campaign, editable }: { campaign: Campaign; editable: boo
   const count = (value: number | null | undefined) => (value === null || value === undefined ? 'Not set' : formatNumber(value))
   return (
     <DetailCard title="Targets" actions={editable && <CardLink to={setupHref(campaign.id, { step: 'targets' })}>Edit Targets</CardLink>}>
-      {!targets ? <p className="text-sm text-ink-500">No targets were set.</p> : (
+      {!targets ? <p className="text-sm text-ink-800">No targets were set.</p> : (
         <>
           <dl className={FACTS_GRID}>
             <Fact label="Revenue">{money(targets.target_revenue)}</Fact>
@@ -143,7 +143,7 @@ function TargetsCard({ campaign, editable }: { campaign: Campaign; editable: boo
             <Fact label="Planned Campaign Cost">{money(targets.planned_cost)}</Fact>
             <Fact label="Planned Offer Cost">{money(targets.planned_offer_cost)}</Fact>
           </dl>
-          {targets.notes && <p className="mt-6 text-sm whitespace-pre-wrap text-ink-700">{targets.notes}</p>}
+          {targets.notes && <p className="mt-6 text-sm whitespace-pre-wrap text-ink-800">{targets.notes}</p>}
         </>
       )}
     </DetailCard>
@@ -168,7 +168,7 @@ function AudienceCard({ campaign, editable }: { campaign: Campaign; editable: bo
     body = (
       <div className="flex flex-col gap-4">
         <AudienceSummary numbers={numbers} />
-        <p className="text-sm text-ink-700">
+        <p className="text-sm text-ink-800">
           {lists.length === 0 ? (numbers.sent ? 'No lists attached now.' : 'No contact list is attached yet.') : `${plural(lists.length, 'contact list')} · ${lists[0].name}${lists.length > 1 ? ` and ${lists.length - 1} more` : ''}`}
         </p>
       </div>

@@ -47,11 +47,11 @@ const DEVICE_IDS: Record<string, ToolId> = { Desktop: 'desktop', Tablet: 'tablet
 const FOLDED_ICONS: Record<string, LucideIcon> = { outlines: SquareDashed, preview: Eye, fullscreen: Maximize2, code: Code, download: Download }
 
 const BUTTON = 'inline-flex h-8 shrink-0 items-center justify-center rounded-sm border text-sm whitespace-nowrap transition-colors duration-base ease-standard'
-const ENABLED = 'border-line bg-surface text-ink-700 hover:bg-line-subtle'
-const DISABLED = 'border-line bg-line-subtle text-ink-300'
+const ENABLED = 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
+const DISABLED = 'border-line bg-fill-subtle text-ink-300'
 const PRESSED = 'border-brand-600 bg-brand-100 text-brand-800'
 const MENU = 'absolute top-full z-50 mt-1 rounded-lg border border-line bg-surface py-1 shadow-menu'
-const ITEM = 'flex h-8 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-line-subtle'
+const ITEM = 'flex h-8 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-fill-subtle'
 
 function IconButton({ id, label, icon: Icon, onClick, disabled = false, pressed }: { id: ToolId; label: string; icon: LucideIcon; onClick: () => void; disabled?: boolean; pressed?: boolean }) {
   return (
@@ -72,7 +72,7 @@ function IconButton({ id, label, icon: Icon, onClick, disabled = false, pressed 
 
 /** -mx-1 takes the group's 8px gap down to 4px either side of the divider, and only there. */
 function Divider({ compact }: { compact: boolean }) {
-  return <span aria-hidden data-tool="|" className={`h-5 w-px shrink-0 bg-line ${compact ? '-mx-1' : ''}`} />
+  return <span aria-hidden data-tool="|" className={`h-5 w-px shrink-0 bg-fill-muted ${compact ? '-mx-1' : ''}`} />
 }
 
 export function CanvasToolbar(props: CanvasToolbarProps) {
@@ -223,7 +223,7 @@ function Tools({
                   const Icon = FOLDED_ICONS[id]
                   return (
                     <button key={id} type="button" data-dropdown-item aria-pressed={action.pressed} onClick={fromMenu(action.onClick)} className={ITEM}>
-                      <Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
+                      <Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
                       <span className="flex-1">{action.label}</span>
                       {action.pressed ? <Check size={16} strokeWidth={1.5} aria-hidden className="text-brand-800" /> : null}
                     </button>

@@ -10,10 +10,10 @@
 
 .cep-designer {
   --gjs-primary-color: var(--color-surface); /* panel background */
-  --gjs-secondary-color: var(--color-ink-700); /* panel text and icons */
+  --gjs-secondary-color: var(--color-ink-800); /* panel text and icons */
   --gjs-tertiary-color: var(--color-brand-600); /* selected component badge and toolbar */
   --gjs-quaternary-color: var(--color-brand-600); /* active buttons and highlights */
-  --gjs-font-color: var(--color-ink-700);
+  --gjs-font-color: var(--color-ink-800);
   --gjs-font-color-active: var(--color-brand-800);
   --gjs-main-dark-color: rgb(23 24 28 / 0.08);
   --gjs-secondary-dark-color: rgb(23 24 28 / 0.06);
@@ -31,7 +31,7 @@
 }
 
 .cep-designer .gjs-editor {
-  @apply font-sans text-ink-700;
+  @apply font-sans text-ink-800;
 }
 
 /* panels sit on the app's hairline borders instead of GrapesJS' shadows */
@@ -66,7 +66,7 @@
   @apply rounded-md;
 }
 .cep-designer .gjs-pn-btn:hover {
-  @apply bg-line-subtle;
+  @apply bg-fill-subtle;
 }
 .cep-designer .gjs-pn-btn.gjs-pn-active {
   @apply bg-brand-100 text-brand-800 shadow-none;
@@ -93,7 +93,7 @@
 
 /* GrapesJS block styling, kept for any panel the plugin still draws */
 .cep-designer .gjs-block {
-  @apply rounded-lg border border-line bg-surface text-ink-700 shadow-none transition-colors;
+  @apply rounded-lg border border-line bg-surface text-ink-800 shadow-none transition-colors;
 }
 .cep-designer .gjs-block:hover {
   @apply border-brand-600 text-brand-800;
@@ -118,7 +118,7 @@
 }
 .cep-designer .gjs-sm-label,
 .cep-designer .gjs-label {
-  @apply text-ink-500;
+  @apply text-ink-800;
 }
 
 /* Tailwind's reset (preflight) flattens a few things the GrapesJS UI relies on */
@@ -155,16 +155,16 @@
   @apply overflow-hidden rounded-md border border-line bg-surface shadow-menu;
 }
 .cep-designer .gjs-toolbar-item {
-  @apply flex h-8 w-8 items-center justify-center p-1.5 text-ink-700 transition-colors;
+  @apply flex h-8 w-8 items-center justify-center p-1.5 text-ink-800 transition-colors;
 }
 .cep-designer .gjs-toolbar-item:hover {
-  @apply bg-line-subtle text-ink-900;
+  @apply bg-fill-subtle text-ink-900;
 }
 .cep-designer .gjs-toolbar-item svg {
   @apply h-4 w-4;
 }
 .cep-designer .gjs-badge {
-  @apply rounded-sm border border-line bg-surface text-ink-700 shadow-menu;
+  @apply rounded-sm border border-line bg-surface text-ink-800 shadow-menu;
 }
 
 /* the floating rich-text toolbar stays dark: it sits over text the reader is editing */
@@ -175,16 +175,16 @@
   @apply rounded-lg border-0 shadow-menu;
 }
 .gjs-rte-action {
-  @apply border-ink-700 text-white;
+  @apply border-ink-800 text-white;
 }
 .gjs-rte-action:hover,
 .gjs-rte-active {
-  @apply bg-ink-700;
+  @apply bg-ink-800;
 }
 
 /* GrapesJS modals (import / export MJML, asset manager) */
 .gjs-mdl-dialog {
-  @apply rounded-lg bg-surface font-sans text-ink-700;
+  @apply rounded-lg bg-surface font-sans text-ink-800;
 }
 .gjs-mdl-header {
   @apply border-b border-line font-semibold text-ink-900;

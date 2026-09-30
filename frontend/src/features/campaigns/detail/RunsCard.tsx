@@ -55,8 +55,8 @@ export function RunsCard({ campaign, zone, live, expandable = false, focusRun }:
   const production = runs.filter((run) => !run.test_mode)
   return (
     <DetailCard title="Runs" flush={runs.length > 0}
-      tag={live && <span className="text-xs text-ink-500">updating every few seconds</span>}
-      actions={runs.length > 0 && <span className="cep-num text-ink-500">{plural(runs.length, 'run')} · {formatNumber(production.length)} production, {formatNumber(runs.length - production.length)} test</span>}>
+      tag={live && <span className="text-xs text-ink-800">updating every few seconds</span>}
+      actions={runs.length > 0 && <span className="cep-num text-ink-800">{plural(runs.length, 'run')} · {formatNumber(production.length)} production, {formatNumber(runs.length - production.length)} test</span>}>
       {runs.length === 0
         ? <EmptyState variant="plain" title="No runs yet" hint="Publishing the campaign creates run #1 and the send engine starts it. Recurring and drip campaigns add a run per send." />
         : <DataTable key={focusRun} columns={runColumns(zone)} rows={runs} rowKey={(run) => run.id} caption="Campaign runs" framed={false} inset="card" primary="number"

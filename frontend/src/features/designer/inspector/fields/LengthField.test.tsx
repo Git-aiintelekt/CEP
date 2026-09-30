@@ -171,7 +171,7 @@ test('disabled takes no input, offers no Reset, and is grey rather than faded', 
   const { onCommit } = renderField({ disabled: true })
 
   expect(input().disabled).toBe(true)
-  expect(input().className).toContain('bg-line-subtle')
+  expect(input().className).toContain('bg-fill-subtle')
   expect(input().className).not.toContain('opacity')
   expect(screen.queryByRole('button', { name: RESET_LABEL })).toBeNull()
 

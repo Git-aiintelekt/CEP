@@ -33,7 +33,7 @@ const counter = () => screen.getByText(/\d+ \//)
 test('the counter reads against the advisory limit and stays quiet in its own colour', () => {
   field('Spring loyalty refresh')
   expect(counter().textContent).toBe('22 / 60')
-  expect(counter().className).toContain('text-ink-700')
+  expect(counter().className).toContain('text-ink-800')
   expect(counter().className).toContain('cep-num')
 })
 
@@ -61,7 +61,7 @@ test('a refused tag outranks the length advice and is said in the error colour',
 
 test('the field is filled and transparent-bordered at rest, and shows focus on the whole control', () => {
   const input = field('')
-  expect(shell(input).className).toContain('bg-line-subtle')
+  expect(shell(input).className).toContain('bg-fill-subtle')
   expect(shell(input).className).toContain('border-transparent')
   expect(shell(input).className).toContain('focus-within:border-brand-600')
   expect(shell(input).className).toContain('focus-within:shadow-focus')
@@ -91,7 +91,7 @@ test('a read-only field never offers the tag button', () => {
 test('read-only is a grey fill and quieter text, never a faded one', () => {
   const input = field('Locked', { readOnly: true })
   expect(input.disabled).toBe(true)
-  expect(shell(input).className).toContain('bg-line-subtle')
-  expect(input.className).toContain('text-ink-700')
+  expect(shell(input).className).toContain('bg-fill-subtle')
+  expect(input.className).toContain('text-ink-800')
   expect(shell(input).className).not.toContain('opacity')
 })

@@ -41,7 +41,7 @@ function ReceiptMessage({ onChangeType }: { onChangeType?: () => void }) {
         </Notice>
         <p className="flex flex-wrap items-center gap-3">
           {onChangeType && <Button onClick={onChangeType}>Change the Campaign Type</Button>}
-          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
+          <span className="text-sm text-ink-800">Keeping E-Receipt: continue to the next step.</span>
         </p>
       </div>
     </DetailCard>
@@ -51,7 +51,7 @@ function ReceiptMessage({ onChangeType }: { onChangeType?: () => void }) {
 function SummaryCard({ included, pending, estimate }: { included: number; pending: number; estimate: ReturnType<typeof useAudienceEstimate> }) {
   const [open, setOpen] = useState(false)
   let body
-  if (included === 0) body = <p className="text-sm text-ink-500">{pending > 0 ? 'Confirm the uploaded list to see how many people the campaign would reach.' : 'Add a contact list to see how many people the campaign would reach.'}</p>
+  if (included === 0) body = <p className="text-sm text-ink-800">{pending > 0 ? 'Confirm the uploaded list to see how many people the campaign would reach.' : 'Add a contact list to see how many people the campaign would reach.'}</p>
   else if (estimate.isError) body = <CardError what="the estimate" error={estimate.error} onRetry={() => void estimate.refetch()} />
   else if (!estimate.data) body = <div aria-busy className="flex flex-col gap-3"><SkeletonLine width="45%" /><SkeletonLine width="100%" /><SkeletonLine width="70%" /></div>
   else {
@@ -164,9 +164,9 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
               ) : sendRows.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface-subtle px-6 py-10 text-center" data-empty="send-to">
                   <p className="text-sm font-semibold text-ink-900">No contact lists yet</p>
-                  <p className="text-helper text-ink-500">Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.</p>
+                  <p className="text-helper text-ink-800">Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.</p>
                   {lists.data && all.length === 0 && !canMake && (
-                    <p className="text-helper text-ink-500">This workspace has no active contact lists yet. <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link></p>
+                    <p className="text-helper text-ink-800">This workspace has no active contact lists yet. <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link></p>
                   )}
                   <div className="mt-2">{addButton}</div>
                 </div>
@@ -183,7 +183,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
                   }} />
               )}
               {sendRows.length > 0 && (
-                <p className="cep-num pt-4 text-helper text-ink-500 md:border-t md:border-line-subtle md:px-6 md:py-4" aria-live="polite">
+                <p className="cep-num pt-4 text-helper text-ink-800 md:border-t md:border-line-subtle md:px-6 md:py-4" aria-live="polite">
                   {counted.length === 0 ? 'Nothing is counted yet: confirm the uploaded list first.'
                     : `${plural(counted.length, 'list')} selected, ${formatNumber(counted.reduce((sum, row) => sum + row.member_count, 0))} contacts before duplicates and governance`}
                 </p>
@@ -200,7 +200,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
 
           <DetailCard title="Don’t Send To" description="People in these lists are left out, even if they’re in a list above."
             actions={<Button size="sm" iconStart={Plus} onClick={() => setAdding('leave-out')}>Add List to Leave Out</Button>} flush={leaveOutRows.length > 0}>
-            {leaveOutRows.length === 0 ? <p className="text-sm text-ink-500" data-empty="leave-out">Nobody is left out by a list.</p> : (
+            {leaveOutRows.length === 0 ? <p className="text-sm text-ink-800" data-empty="leave-out">Nobody is left out by a list.</p> : (
               <ListsTable rows={leaveOutRows} caption="Lists whose people are left out" zone={zone}
                 onRemove={(row) => setValue('excluded_lists', excluded.filter((id) => id !== row.id), touch)} />
             )}

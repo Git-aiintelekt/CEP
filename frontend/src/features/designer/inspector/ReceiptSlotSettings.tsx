@@ -14,12 +14,12 @@ export function ReceiptSlotSettings({ preset, onPresetChange, onOpenLayout, disa
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <Notice layout="box">{RECEIPT_SLOT_NOTE}</Notice>
-      {/* reading the layout is not editing, so this stays available in view-only mode */}
-      <Button size="sm" onClick={onOpenLayout} className="self-start">
+      {/* reading the layout is not editing, so this stays available in view-only mode; solid blue like every editor button (approved exact copy) */}
+      <Button variant="primary" size="sm" onClick={onOpenLayout} className="self-start">
         {OPEN_RECEIPT_LAYOUT_LABEL}
       </Button>
       <div className="flex flex-col gap-1">
-        <label htmlFor={id} className="text-xs text-ink-500">
+        <label htmlFor={id} className="text-xs text-ink-800">
           {CURRENT_LAYOUT_LABEL}
         </label>
         <select

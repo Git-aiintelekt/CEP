@@ -24,7 +24,7 @@ export function ChecksLine({ campaign }: { campaign: Campaign }) {
   if (checklist.isPending) return <SkeletonLine width="44%" />
   if (checklist.isError) {
     return (
-      <p className="flex flex-wrap items-center gap-2 text-helper text-ink-500">
+      <p className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
         Couldn’t load the checks
         <button type="button" onClick={() => void checklist.refetch()} className="font-semibold text-brand-600 hover:underline">Retry</button>
       </p>

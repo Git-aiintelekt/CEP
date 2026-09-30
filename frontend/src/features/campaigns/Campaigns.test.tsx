@@ -123,8 +123,9 @@ test('calendar view: a tab of the same page, the month as a grid with a bar per 
   expect(within(calendar).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
   const sent = await within(calendar).findByRole('link', { name: /^Sent today: Completed/ })
   expect(sent.getAttribute('href')).toBe('/campaigns/c6')
-  expect(sent.className).toContain('bg-success-bg')
-  expect(within(calendar).getByRole('link', { name: /^Texts today: Paused/ }).className).toContain('bg-warning-bg')   // status is a colour and a word, never blue
+  expect(sent.className).toContain('bg-tag-completed-bg')
+  expect(within(calendar).getByRole('link', { name: /^Texts today: Paused/ }).className).toContain('bg-tag-paused-bg')   // each bar in its status tag colour
+  expect([...calendar.querySelectorAll('[data-legend]')].map((swatch) => swatch.parentElement?.textContent)).toContain('Failed or Cancelled')
   expect(within(calendar).queryByRole('link', { name: /^Fall Launch/ })).toBeNull()                       // a draft without a date is not on the calendar
 
   await user.click(within(filterBar()).getByRole('button', { name: 'Channel' }))                                       // the filters above drive the calendar as they drive the list
@@ -519,4 +520,39 @@ test('the list says "Regular" where the setup keeps "Regular Marketing"; upcomin
   installMockApi({ campaigns: [] })
   await renderAppAt('/campaigns/new')
   expect(await screen.findByRole('radio', { name: /Regular Marketing/ })).toBeTruthy()
+})
+
+test('Status, Type and Channel live in the address: a link opens the list filtered, a pick updates it, Back undoes it, junk is ignored', async () => {
+  const calls = installMockApi({ campaigns: workspace() })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns?status=TEST_PUBLISHED&channel=nope')
+  await screen.findByRole('search', { name: 'Filter campaigns' })
+  const lastList = () => new URL(calls.filter((call) => call.url.includes('/campaigns/?') && !call.url.includes('page_size=4')).at(-1)!.url, 'http://x').searchParams
+  await vi.waitFor(() => expect(lastList().get('status')).toBe('TEST_PUBLISHED'))
+  expect(lastList().get('channel')).toBeNull()                                                          // an unknown channel is dropped
+  const statusButton = within(filterBar()).getByRole('button', { name: 'Test Published' })
+  expect(statusButton.className).toContain('text-brand-800')
+
+  await user.click(statusButton)
+  await user.click(within(screen.getByRole('region', { name: 'Status' })).getByRole('button', { name: 'Draft' }))
+  expect(new URLSearchParams(window.location.search).get('status')).toBe('DRAFT,TEST_PUBLISHED')        // several statuses
+  await vi.waitFor(() => expect(lastList().get('status')).toBe('DRAFT,TEST_PUBLISHED'))
+  await user.keyboard('{Escape}')
+
+  window.history.back()
+  await vi.waitFor(() => expect(new URLSearchParams(window.location.search).get('status')).toBe('TEST_PUBLISHED'))
+  expect(await within(filterBar()).findByRole('button', { name: 'Test Published' })).toBeTruthy()          // the filter follows (the list comes from cache)
+})
+
+test('?saved= and ?approval=requested open their saved views, alongside the address filters', async () => {
+  const calls = installMockApi({ campaigns: workspace() })
+  await renderAppAt('/campaigns?approval=requested&channel=SMS')
+  await screen.findByRole('search', { name: 'Filter campaigns' })
+  const lastList = () => new URL(calls.filter((call) => call.url.includes('/campaigns/?') && !call.url.includes('page_size=4')).at(-1)!.url, 'http://x').searchParams
+  await vi.waitFor(() => expect(lastList().get('approval')).toBe('requested'))
+  expect(lastList().get('channel')).toBe('SMS')
+  cleanup()
+  await renderAppAt('/campaigns?saved=attention')
+  await screen.findByRole('search', { name: 'Filter campaigns' })
+  await vi.waitFor(() => expect(lastList().get('view')).toBe('attention'))
 })

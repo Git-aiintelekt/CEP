@@ -9,6 +9,6 @@ const CONTROL_32 = `${CONTROL_SHAPE} bg-surface text-ink-900`
  */
 export function controlClass(invalid: boolean, disabled: boolean): string {
   // grey fill, never faded; the value stays at a readable grey because view-only mode is for reading it
-  if (disabled) return `${CONTROL_SHAPE} border-line bg-line-subtle text-ink-700`
-  return `${CONTROL_32} ${invalid ? 'border-danger' : 'border-line'}`
+  if (disabled) return `${CONTROL_SHAPE} border-line bg-fill-subtle text-ink-800`
+  return `${CONTROL_32} ${invalid ? 'border-danger' : 'border-line-control'}`
 }

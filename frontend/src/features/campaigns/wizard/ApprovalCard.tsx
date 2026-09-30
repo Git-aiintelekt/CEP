@@ -50,21 +50,21 @@ export function ApprovalCard({ campaign }: { campaign: Campaign }) {
     <div id={APPROVAL_CARD_ID}>
       <Panel title="Approval" actions={<Tag tone={STATE[status].tone}>{STATE[status].label}</Tag>}>
         <div className="space-y-3 text-sm">
-          {status === 'NONE' && <p className="text-ink-700">This workspace needs a second person to approve a production send. Ask for it here; everyone who can approve is emailed.</p>}
+          {status === 'NONE' && <p className="text-ink-800">This workspace needs a second person to approve a production send. Ask for it here; everyone who can approve is emailed.</p>}
           {status === 'REQUESTED' && approval && (
-            <div className="text-ink-700">
+            <div className="text-ink-800">
               <p><span className="font-semibold text-ink-900">{approval.requested_by_name ?? 'Someone'}</span> asked for approval <span className="cep-num">{formatDateTime(approval.requested_at)}</span>.</p>
-              {approval.note && <blockquote className="mt-2 border-l-2 border-line pl-3 text-ink-700">{approval.note}</blockquote>}
+              {approval.note && <blockquote className="mt-2 border-l-2 border-line pl-3 text-ink-800">{approval.note}</blockquote>}
             </div>
           )}
           {status === 'APPROVED' && approval && (
-            <div className="text-ink-700">
+            <div className="text-ink-800">
               <p><span className="font-semibold text-ink-900">{approval.decided_by_name ?? 'Someone'}</span> approved it for production <span className="cep-num">{formatDateTime(approval.decided_at)}</span>. It can be published now.</p>
               {approval.decision_note && <blockquote className="mt-2 border-l-2 border-line pl-3">{approval.decision_note}</blockquote>}
             </div>
           )}
           {status === 'RETURNED' && approval && (
-            <div className="text-ink-700">
+            <div className="text-ink-800">
               <p><span className="font-semibold text-ink-900">{approval.decided_by_name ?? 'Someone'}</span> sent it back <span className="cep-num">{formatDateTime(approval.decided_at)}</span>. Make the changes, then ask again.</p>
               {approval.decision_note && <blockquote className="mt-2 border-l-2 border-danger pl-3">{approval.decision_note}</blockquote>}
             </div>
@@ -102,7 +102,7 @@ export function ApprovalCard({ campaign }: { campaign: Campaign }) {
           )}
 
           {status === 'REQUESTED' && !deciding && (
-            <p className="text-ink-500">Waiting for someone who can approve. Nobody approves their own campaign.</p>
+            <p className="text-ink-800">Waiting for someone who can approve. Nobody approves their own campaign.</p>
           )}
           {act.isError && <ErrorState title="That did not go through" error={act.error} />}
         </div>

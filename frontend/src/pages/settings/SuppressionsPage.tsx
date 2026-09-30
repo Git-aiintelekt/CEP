@@ -89,7 +89,7 @@ export function SuppressionsPage() {
       render: (row) => (
         <div className="min-w-0">
           <p className="cep-num truncate font-semibold text-ink-900">{row.contact}</p>
-          <p className="truncate text-xs text-ink-500">{[row.party_id, row.name].filter(Boolean).join(' · ') || 'No person on file'}</p>
+          <p className="truncate text-xs text-ink-800">{[row.party_id, row.name].filter(Boolean).join(' · ') || 'No person on file'}</p>
         </div>
       ),
     },
@@ -98,10 +98,10 @@ export function SuppressionsPage() {
     {
       key: 'source',
       header: 'Source',
-      render: (row) => <span className="text-ink-700">{row.source_label ?? '—'}{row.detail ? <span className="block text-xs text-ink-500">{row.detail}</span> : null}</span>,
+      render: (row) => <span className="text-ink-800">{row.source_label ?? '—'}{row.detail ? <span className="block text-xs text-ink-800">{row.detail}</span> : null}</span>,
       phoneOptional: true,
     },
-    { key: 'since', header: 'Since', render: (row) => <span className="cep-num whitespace-nowrap text-ink-700">{formatDate(row.since)}</span> },
+    { key: 'since', header: 'Since', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{formatDate(row.since)}</span> },
     {
       key: 'action',
       header: 'Action',
@@ -118,7 +118,7 @@ export function SuppressionsPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-section-title font-semibold text-ink-900">Suppressions</h2>
-          <p className="mt-0.5 text-sm text-ink-500">
+          <p className="mt-0.5 text-sm text-ink-800">
             {summary.data ? `${formatNumber(summary.data.total)} addresses and numbers held back · ${formatNumber(summary.data.this_week)} added this week` : 'Every address and number the engine will not send to.'}
           </p>
         </div>
@@ -135,9 +135,9 @@ export function SuppressionsPage() {
             <button key={group.key} type="button" aria-pressed={reason === group.key}
               onClick={() => { setReason(reason === group.key ? 'ALL' : group.key); setPage(1) }}
               className={`rounded-lg border p-4 text-left transition-colors duration-fast ease-standard ${reason === group.key ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:border-brand-600'}`}>
-              <span className="block text-xs font-semibold tracking-wide text-ink-500 uppercase">{group.label}</span>
+              <span className="block text-xs font-semibold tracking-wide text-ink-800 uppercase">{group.label}</span>
               <span className="mt-1 block font-display text-3xl font-semibold text-ink-900 tabular-nums">{formatNumber(group.count)}</span>
-              <span className="mt-1 block text-helper text-ink-500">{GROUP_HINT[group.key]}</span>
+              <span className="mt-1 block text-helper text-ink-800">{GROUP_HINT[group.key]}</span>
             </button>
           ))}
         </div>
@@ -157,7 +157,7 @@ export function SuppressionsPage() {
         {rows.isError ? (
           <div className="p-4"><ErrorState title="The suppressions could not be loaded" error={rows.error} onRetry={() => void rows.refetch()} /></div>
         ) : !data ? (
-          <p className="flex items-center gap-2 px-4 py-6 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+          <p className="flex items-center gap-2 px-4 py-6 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         ) : data.results.length === 0 ? (
           <div className="p-4">
             <EmptyState title={filtered ? 'No Matching Suppressions' : 'Nothing Is Held Back'}
@@ -166,7 +166,7 @@ export function SuppressionsPage() {
         ) : (
           <>
             <DataTable caption="Suppressed addresses and numbers" columns={columns} rows={data.results} rowKey={(row) => `${row.kind}-${row.id}`} inset="card" />
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle px-4 py-3 text-helper text-ink-500">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle px-4 py-3 text-helper text-ink-800">
               <span className="cep-num">Showing {formatNumber((page - 1) * PAGE_SIZE + 1)}–{formatNumber(Math.min(page * PAGE_SIZE, total))} of {formatNumber(total)}</span>
               <div className="flex gap-2">
                 <button type="button" className={buttonClass({ variant: 'secondary', size: 'sm' })} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
@@ -175,7 +175,7 @@ export function SuppressionsPage() {
             </div>
           </>
         )}
-        <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-500">
+        <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-800">
           An opt-out or a complaint cannot be undone here: the person has to opt in again. A bounce or a block by you can. Every change is written to the consent record with who made it.
         </p>
       </section>
@@ -199,7 +199,7 @@ function UnblockModal({ row, onClose, onDone }: { row: SuppressionRow; onClose: 
         </>
       }
     >
-      <div className="space-y-2 text-sm text-ink-700">
+      <div className="space-y-2 text-sm text-ink-800">
         <p><strong className="cep-num text-ink-900">{row.contact}</strong> is held back: {row.reason_label.toLowerCase()}{row.detail ? ` (${row.detail})` : ''}, since {formatDate(row.since)}.</p>
         <p>Once unblocked it can be sent to again, from the next send that includes it. The history of the block is kept.</p>
         {unblock.isError && <ErrorState title="It was not unblocked" error={unblock.error} />}
@@ -245,12 +245,12 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
         </>
       )}>
       {result ? (
-        <div role="status" className="space-y-2 text-sm text-ink-700">
+        <div role="status" className="space-y-2 text-sm text-ink-800">
           <p><strong className="cep-num text-ink-900">{formatNumber(result.blocked)}</strong> blocked, <span className="cep-num">{formatNumber(result.already_blocked)}</span> already blocked{result.invalid_count ? <>, <span className="cep-num">{formatNumber(result.invalid_count)}</span> not an address or a number</> : ''}.</p>
           {result.invalid.length > 0 && (
             <div>
-              <p className="text-helper text-ink-500">{result.invalid_count > result.invalid.length ? `The first ${result.invalid.length} that were left out:` : 'Left out:'}</p>
-              <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-line bg-surface-subtle px-3 py-2 cep-num text-xs text-ink-700">
+              <p className="text-helper text-ink-800">{result.invalid_count > result.invalid.length ? `The first ${result.invalid.length} that were left out:` : 'Left out:'}</p>
+              <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-line bg-surface-subtle px-3 py-2 cep-num text-xs text-ink-800">
                 {result.invalid.map((item) => <li key={item}>{item}</li>)}
               </ul>
             </div>
@@ -265,7 +265,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
             </Field>
           ) : (
             <Field label="CSV File" required error={errors.file} hint="Any cell that looks like an address or a number is blocked. Up to 5 MB.">
-              {(ids) => <input {...ids} type="file" accept=".csv,text/csv" className="block w-full text-sm text-ink-700" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />}
+              {(ids) => <input {...ids} type="file" accept=".csv,text/csv" className="block w-full text-sm text-ink-800" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />}
             </Field>
           )}
           <Field label="Note" error={errors.note} hint="Why they are blocked, for the consent record: a legal hold list, a request by phone.">

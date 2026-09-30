@@ -138,7 +138,7 @@ test('disabled takes no input and is grey rather than faded', async () => {
   const { onCommit } = renderField({ disabled: true })
 
   expect(side('Top Padding').disabled).toBe(true)
-  expect(side('Top Padding').className).toContain('bg-line-subtle')
+  expect(side('Top Padding').className).toContain('bg-fill-subtle')
   expect(side('Top Padding').className).not.toContain('opacity')
 
   await user.type(side('Top Padding'), '5')

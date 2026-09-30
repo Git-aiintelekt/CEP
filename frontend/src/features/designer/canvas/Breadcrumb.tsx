@@ -36,13 +36,13 @@ export function Breadcrumb({ crumbs, onSelect }: BreadcrumbProps) {
 
   return (
     <nav aria-label="Selection" className="flex h-8 shrink-0 items-center gap-1 overflow-hidden border-b border-line bg-surface pr-3 pl-4 whitespace-nowrap">
-      <span className="mr-1 shrink-0 text-xs text-ink-500">{SELECTED_LABEL}</span>
+      <span className="mr-1 shrink-0 text-xs text-ink-800">{SELECTED_LABEL}</span>
       {crumbs.length === 0 ?
-        <span className="text-sm text-ink-500">{NOTHING_SELECTED}</span>
+        <span className="text-sm text-ink-800">{NOTHING_SELECTED}</span>
       : <ol className="flex min-w-0 items-center gap-1">
           {dropped > 0 ?
             <li className="flex items-center gap-1">
-              <span title={hiddenNames} aria-label={`${dropped} more above`} className="text-sm text-ink-500">
+              <span title={hiddenNames} aria-label={`${dropped} more above`} className="text-sm text-ink-800">
                 {ELLIPSIS}
               </span>
               <Separator />
@@ -64,7 +64,7 @@ export function Breadcrumb({ crumbs, onSelect }: BreadcrumbProps) {
                     <button
                       type="button"
                       onClick={() => onSelect(crumb.id)}
-                      className="h-6 max-w-40 truncate rounded-sm px-1.5 text-sm text-ink-700 transition-colors duration-base ease-standard hover:bg-line-subtle"
+                      className="h-6 max-w-40 truncate rounded-sm px-1.5 text-sm text-ink-800 transition-colors duration-base ease-standard hover:bg-fill-subtle"
                     >
                       {crumb.name}
                     </button>
@@ -84,7 +84,7 @@ function Separator() {
   return <ChevronRight size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-300" />
 }
 
-const TAG = 'ml-1 inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm bg-line-subtle px-1.5 text-[11px] font-semibold text-ink-700'
+const TAG = 'ml-1 inline-flex h-[18px] shrink-0 items-center gap-1 rounded-sm bg-fill-subtle px-1.5 text-[11px] font-semibold text-ink-800'
 
 function PhonesTag() {
   return (

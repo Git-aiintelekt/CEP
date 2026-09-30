@@ -270,7 +270,7 @@ test('read-only still selects and expands, but every mutating action is inert an
 
   const eye = action('Text', 'Hide on Canvas: Text')
   expect(eye.getAttribute('aria-disabled')).toBe('true')
-  expect(eye.className).toContain('bg-line-subtle')
+  expect(eye.className).toContain('bg-fill-subtle')
   expect(eye.className).not.toContain('opacity')
 
   await user.click(eye)
@@ -310,7 +310,7 @@ test('the footer keeps a delete it cannot use: grey, inert and able to say why',
   const button = within(row('Footer')).getByRole('button', { name: FOOTER_NOTE })
   expect(button.getAttribute('aria-disabled')).toBe('true')
   expect(button.getAttribute('title')).toBe(FOOTER_NOTE)
-  expect(button.className).toContain('bg-line-subtle')
+  expect(button.className).toContain('bg-fill-subtle')
   expect(button.className).toContain('text-ink-300')
   expect(button.className).not.toContain('opacity')
 

@@ -8,7 +8,7 @@ export type FieldRowLayout = 'inline' | 'stacked'
 export type FieldFootTone = 'default' | 'warning' | 'error'
 
 const FOOT_TONE: Record<FieldFootTone, string> = {
-  default: 'text-ink-500',
+  default: 'text-ink-800',
   warning: 'font-medium text-warning-text',
   error: 'font-medium text-danger-text',
 }
@@ -38,7 +38,7 @@ export function FieldRow({ label, layout = 'inline', note, noteTone = 'default',
   const control = children({ id, labelId, describedBy: foot ? footId : undefined, invalid: Boolean(error) })
 
   const labelEl = (
-    <label id={labelId} htmlFor={id} className={`text-xs ${disabled ? 'text-ink-300' : 'text-ink-700'} ${layout === 'inline' ? 'w-16 shrink-0 pt-2' : ''}`}>
+    <label id={labelId} htmlFor={id} className={`text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'} ${layout === 'inline' ? 'w-16 shrink-0 pt-2' : ''}`}>
       {label}
     </label>
   )
@@ -53,7 +53,7 @@ export function FieldRow({ label, layout = 'inline', note, noteTone = 'default',
         <button
           type="button"
           onClick={onReset}
-          className="-my-2 -mr-2 inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-semibold text-brand-800 transition-colors duration-fast ease-standard hover:bg-line-subtle active:bg-line"
+          className="-my-2 -mr-2 inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-semibold text-brand-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle active:bg-fill-muted"
         >
           {resetLabel}
         </button>

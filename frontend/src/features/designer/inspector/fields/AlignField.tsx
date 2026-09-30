@@ -66,10 +66,10 @@ export function AlignField({
                 onClick={() => onCommit(option.value)}
                 // read-only still has to say which one is chosen, so disabled keeps the distinction in greys
                 className={`flex h-8 flex-1 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
-                  disabled && selected ? 'border-ink-300 bg-line text-ink-700'
-                  : disabled ? 'border-line bg-line-subtle text-ink-300'
+                  disabled && selected ? 'border-ink-300 bg-fill-muted text-ink-800'
+                  : disabled ? 'border-line bg-fill-subtle text-ink-300'
                   : selected ? 'border-brand-600 bg-brand-100 text-brand-800'
-                  : 'border-line bg-surface text-ink-700 hover:bg-line-subtle'
+                  : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
                 }`}
               >
                 {createElement(option.icon, { size: 16, strokeWidth: 1.5, 'aria-hidden': true })}

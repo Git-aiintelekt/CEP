@@ -79,7 +79,7 @@ export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProp
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
         <div className="flex items-center gap-2">
-          <span id={asLabelId} className="text-xs text-ink-500">
+          <span id={asLabelId} className="text-xs text-ink-800">
             {PREVIEW_AS_LABEL}
           </span>
           <SegmentedControl label={PREVIEW_AS_LABEL} labelledBy={asLabelId} options={PROFILE_OPTIONS} value={profileId} onChange={setProfileId} />
@@ -88,21 +88,21 @@ export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProp
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-ink-500">{CLIENT_LABEL}</span>
+          <span className="text-xs text-ink-800">{CLIENT_LABEL}</span>
           <SegmentedControl label={CLIENT_LABEL} options={CLIENT_OPTIONS} value={clientId} onChange={setClientId} />
         </div>
         <SegmentedControl label={APPEARANCE_LABEL} options={APPEARANCE_OPTIONS} value={appearance} onChange={setAppearance} />
       </div>
-      <p className="shrink-0 border-b border-line-subtle bg-surface-subtle px-4 py-1.5 text-xs text-ink-500" data-client-note>{client.note}</p>
+      <p className="shrink-0 border-b border-line-subtle bg-surface-subtle px-4 py-1.5 text-xs text-ink-800" data-client-note>{client.note}</p>
 
       {state.status === 'failed' ? <FailedNotice details={state.details} /> : null}
       {decorated && decorated.emptyLinks > 0 ?
         <Notice tone="warning">{EMPTY_LINK_NOTE}</Notice>
       : null}
 
-      <div ref={area} className="min-h-0 flex-1 overflow-auto bg-line-subtle p-4">
+      <div ref={area} className="min-h-0 flex-1 overflow-auto bg-fill-subtle p-4">
         {state.status === 'loading' ?
-          <p className="flex items-center justify-center gap-2 py-16 text-sm text-ink-500">
+          <p className="flex items-center justify-center gap-2 py-16 text-sm text-ink-800">
             <Spinner className="h-4 w-4" /> {LOADING_LABEL}
           </p>
         : state.status === 'empty' ?
@@ -126,7 +126,7 @@ export function PreviewPane({ state, subject, preheader, tags }: PreviewPaneProp
           </div>
         : null}
       </div>
-      <p className="shrink-0 border-t border-line px-4 py-2 text-xs text-ink-500">{FOOTNOTE}</p>
+      <p className="shrink-0 border-t border-line px-4 py-2 text-xs text-ink-800">{FOOTNOTE}</p>
     </div>
   )
 }

@@ -231,7 +231,7 @@ export function CampaignWizardPage() {
 
   // ---- guards
   if (!can('campaign.edit')) return <ErrorState title="You cannot edit campaigns" error={new Error('Ask a Marketing Admin for the campaign.edit permission.')} />
-  if (existing.isPending) return <p className="flex items-center gap-3 text-sm text-ink-500"><Spinner /> Loading campaign</p>
+  if (existing.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading campaign</p>
   if (existing.isError) return <ErrorState error={existing.error} onRetry={() => void existing.refetch()} />
   if (!loaded) return null
   if (loaded.is_journey_generated || !hasAction(loaded, 'edit')) {
@@ -264,7 +264,7 @@ export function CampaignWizardPage() {
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-initial">
             <Link to={back} aria-label={backLabel} title={backLabel}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md border border-line text-ink-700 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md border border-line text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
               <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
             </Link>
             <span className="min-w-0 truncate text-card-title font-semibold text-ink-900" title={loaded.name} data-testid="flow-campaign-name">{loaded.name}</span>
@@ -277,7 +277,7 @@ export function CampaignWizardPage() {
           </div>
           <div className="hidden flex-1 justify-center xl:flex"><FlowStepper {...stepper} /></div>
           <div className="flex shrink-0 items-center gap-3">
-            {dirty && <span className="hidden text-helper text-ink-500 2xl:inline">Unsaved changes</span>}
+            {dirty && <span className="hidden text-helper text-ink-800 2xl:inline">Unsaved changes</span>}
             <span className="hidden xl:inline-flex"><button type="button" className={buttonSecondary} disabled={save.isPending} onClick={saveAndCloseClick}>Save and Close</button></span>
             <IconButton label="Save and Close" icon={Save} variant="outline" size="md" className="xl:hidden" disabled={save.isPending} onClick={saveAndCloseClick} />
           </div>
@@ -303,12 +303,12 @@ export function CampaignWizardPage() {
         <FormProvider {...form}>
           <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
             <div key={current} className="animate-step-in">
-              <p className="text-xs font-semibold text-ink-500">Step {step + 1} of {steps.length}</p>
+              <p className="text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
               <h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1>
-              <p className="mt-1 text-sm text-ink-500">{INTRO[current]}</p>
+              <p className="mt-1 text-sm text-ink-800">{INTRO[current]}</p>
               {/* where the setup was left; not shown on the step it resumes at, which says so itself */}
               {(loaded.setup_complete || current !== reachedKey) && (
-                <p className="mt-1 text-sm text-ink-500" data-testid="setup-progress">
+                <p className="mt-1 text-sm text-ink-800" data-testid="setup-progress">
                   {loaded.setup_complete ? 'Changes are saved as you continue. Nothing is sent until you publish.'
                     : `Setup in progress: ${stepsDone(loaded)} of ${steps.length} steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.`}
                 </p>
@@ -376,7 +376,7 @@ export function CampaignWizardPage() {
               }}>Confirm and Continue</button>
             </>
           }>
-          <p className="text-sm text-ink-700">
+          <p className="text-sm text-ink-800">
             {pendingUploads.map((list) => `“${list.name}”`).join(' and ')} {pendingUploads.length === 1 ? 'isn’t' : 'aren’t'} attached yet. Confirm {pendingUploads.length === 1 ? 'it' : 'them'} now, or continue without {pendingUploads.length === 1 ? 'it' : 'them'}?
           </p>
         </Modal>

@@ -118,7 +118,7 @@ test('Economics: the headline from the data, the planned spend, target against a
   expect(tone('+10').className).toContain('text-success-text')
   expect(tone('−28').className).toContain('text-warning-text')
   expect(tone('+$250.00').className).toContain('text-success-text')
-  expect(within(economics).getAllByText('—').filter((cell) => cell.getAttribute('data-tone') === 'none').every((cell) => cell.className.includes('text-ink-500'))).toBe(true)
+  expect(within(economics).getAllByText('—').filter((cell) => cell.getAttribute('data-tone') === 'none').every((cell) => cell.className.includes('text-ink-800'))).toBe(true)
 
   expect(within(economics).getByRole('progressbar', { name: 'Clicks against target' }).getAttribute('aria-valuenow')).toBe('30')
   expect(within(economics).getByRole('progressbar', { name: 'Revenue against target' })).toBeTruthy()

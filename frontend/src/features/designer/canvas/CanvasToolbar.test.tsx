@@ -127,7 +127,7 @@ test('undo and redo grey out when there is nothing to do, and never fade', () =>
   renderToolbar({ canUndo: false, canRedo: false })
   expect(disabled('Undo')).toBe(true)
   expect(disabled('Redo')).toBe(true)
-  expect(button('Undo').className).toContain('bg-line-subtle')
+  expect(button('Undo').className).toContain('bg-fill-subtle')
   expect(button('Undo').className).not.toContain('opacity')
 })
 

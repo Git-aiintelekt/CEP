@@ -50,7 +50,7 @@ function ShareLine({ value, recipients, receipt }: { value: string; recipients: 
   const text = recipients === null ? 'Add contact lists to see the share'
     : number === null || number === 0 ? 'Leave blank if you’re not tracking this'
     : `≈ ${((number / Math.max(1, recipients)) * 100).toFixed(1)}% of ${formatNumber(recipients)} estimated recipients`
-  return <p className="cep-num mt-1.5 text-helper text-ink-500" data-share>{text}</p>
+  return <p className="cep-num mt-1.5 text-helper text-ink-800" data-share>{text}</p>
 }
 
 /** $500 · $1,000 · $2,500 · Custom, and Clear: a chip fills the amount; Custom (or any other amount) shows the box */
@@ -62,7 +62,7 @@ function CostPicker({ name, label, hint, error }: { name: 'planned_cost' | 'plan
   const chip = number !== null && COST_CHIPS.includes(number) && !customAsked ? number : null
   const custom = customAsked || (value.trim() !== '' && chip === null)
   const set = (next: string) => setValue(`targets.${name}`, next, { shouldDirty: true, shouldValidate: true })
-  const chipClass = (on: boolean) => `h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`
+  const chipClass = (on: boolean) => `h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`
 
   return (
     <div data-cost={name}>
@@ -97,13 +97,13 @@ function PlanCard({ targets }: { targets: CampaignFormValues['targets'] }) {
   return (
     <DetailCard title="Plan at a Glance">
       {revenue === 0 && spend === 0 && conversions === 0 ? (
-        <p className="text-sm text-ink-500">Enter a revenue target and the planned costs to see the return this campaign is planned for.</p>
+        <p className="text-sm text-ink-800">Enter a revenue target and the planned costs to see the return this campaign is planned for.</p>
       ) : (
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1" data-testid="cost-per-conversion">
-            <span className="text-helper font-semibold text-ink-500">Projected Cost per Conversion</span>
+            <span className="text-helper font-semibold text-ink-800">Projected Cost per Conversion</span>
             <span className="cep-num font-display text-2xl font-semibold text-ink-900">{perConversion === null ? '—' : formatMoney(perConversion)}</span>
-            <span className="text-helper text-ink-500">{perConversion === null ? 'Add planned costs and a conversions target' : 'Planning estimate, not a guaranteed outcome'}</span>
+            <span className="text-helper text-ink-800">{perConversion === null ? 'Add planned costs and a conversions target' : 'Planning estimate, not a guaranteed outcome'}</span>
           </div>
           <dl className="flex flex-col gap-4 border-t border-line-subtle pt-4">
             <Fact label="Target Revenue">{revenue > 0 ? money(revenue) : '—'}</Fact>

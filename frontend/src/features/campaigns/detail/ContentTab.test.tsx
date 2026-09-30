@@ -61,7 +61,7 @@ test('Message header: the title on the left and the controls on the right in one
   expect(within(header).queryByText(/sample values, or as one customer/)).toBeNull()
   const description = within(body).getByText("With the catalogue's sample values, or as one customer of the audience would get it.")
   expect(description.className).toContain('text-helper')
-  expect(description.className).toContain('text-ink-500')
+  expect(description.className).toContain('text-ink-800')
 })
 
 test('the email frame is exactly as tall as the email, in one 1px hairline with no grey box around it', async () => {

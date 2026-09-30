@@ -62,7 +62,7 @@ function TemplateNote() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink-900">File Format</p>
-          <p className="mt-1 text-xs text-ink-500">{FORMAT_LINE}</p>
+          <p className="mt-1 text-xs text-ink-800">{FORMAT_LINE}</p>
         </div>
         <button type="button" className={buttonSecondary} onClick={downloadTemplate}>
           <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
@@ -71,12 +71,12 @@ function TemplateNote() {
       <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Columns the import recognises">
         {UPLOAD_COLUMNS.map((column) => (
           <li key={column.header} title={column.note || undefined}
-            className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-brand-600 bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-700'}`}>
+            className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-brand-600 bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-800'}`}>
             {column.header}{column.required ? ' · required' : ''}
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-ink-500">Column names are matched by meaning, so “Email Address”, “Surname” or “Cell” work too; you confirm the matching on the next step.</p>
+      <p className="mt-2 text-xs text-ink-800">Column names are matched by meaning, so “Email Address”, “Surname” or “Cell” work too; you confirm the matching on the next step.</p>
     </div>
   )
 }
@@ -96,11 +96,11 @@ function ChoiceCard({ selected, onSelect, title, text, icon, badge }: { selected
       className={`flex h-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface hover:bg-surface-subtle'}`}
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-ink-900">
-        {icon && <span className={selected ? 'text-brand-600' : 'text-ink-700'}>{icon}</span>}
+        {icon && <span className={selected ? 'text-brand-600' : 'text-ink-800'}>{icon}</span>}
         {title}
       </span>
-      <span className="text-xs text-ink-500">{text}</span>
-      {badge && <span className="mt-1 rounded-sm bg-line-subtle px-1.5 py-0.5 text-[11px] font-semibold text-ink-700">{badge}</span>}
+      <span className="text-xs text-ink-800">{text}</span>
+      {badge && <span className="mt-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] font-semibold text-ink-800">{badge}</span>}
     </button>
   )
 }
@@ -375,7 +375,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
   return frame(
     <>
-      <p className="mb-4 text-xs text-ink-500" aria-live="polite">
+      <p className="mb-4 text-xs text-ink-800" aria-live="polite">
         {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
       </p>
       {error && (
@@ -403,7 +403,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                 <ChoiceCard key={item.value} selected={source === item.value} onSelect={() => !draft && setSource(item.value)} {...item} />
               ))}
             </div>
-            {draft && <p className="mt-2 text-xs text-ink-500">The file upload has started for this list. Cancel to choose another source.</p>}
+            {draft && <p className="mt-2 text-xs text-ink-800">The file upload has started for this list. Cancel to choose another source.</p>}
           </div>
           <div>
             <p id="cl-type" className="mb-2 text-sm font-semibold text-ink-900">List Type</p>
@@ -421,16 +421,16 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           <input ref={picker} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV File" onChange={(event) => takeFile(event.target.files?.[0])} />
           {upload ? (
             <div className="rounded-lg border border-line p-4">
-              <p className="mb-2 text-xs font-semibold text-ink-700">Attached File</p>
+              <p className="mb-2 text-xs font-semibold text-ink-800">Attached File</p>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-line-subtle text-ink-700"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-fill-subtle text-ink-800"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
                 <div className="min-w-0 grow">
-                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-line-subtle px-1.5 py-0.5 text-[11px] font-semibold text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
-                  <p className="text-xs text-ink-500">
+                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] font-semibold text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
+                  <p className="text-xs text-ink-800">
                     {job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
                   </p>
                   {job?.working && (
-                    <p className="mt-1 text-xs text-ink-500" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. You can match the columns meanwhile.</p>
+                    <p className="mt-1 text-xs text-ink-800" aria-live="polite">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}. You can match the columns meanwhile.</p>
                   )}
                   {job?.status === 'FAILED' && (
                     <p role="alert" className="mt-1 text-xs font-medium text-danger-plain">{job.error ?? 'This file could not be read.'} Choose Replace to upload another file.</p>
@@ -448,9 +448,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               onDrop={onDrop}
               className={`flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center ${dragging ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface-subtle'}`}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-surface text-ink-700"><Upload size={20} strokeWidth={1.5} aria-hidden /></span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-surface text-ink-800"><Upload size={20} strokeWidth={1.5} aria-hidden /></span>
               <p className="text-sm font-semibold text-ink-900">Drag and drop your file here, or browse</p>
-              <p className="text-xs text-ink-500">CSV only · up to 50 MB · 250,000 rows</p>
+              <p className="text-xs text-ink-800">CSV only · up to 50 MB · 250,000 rows</p>
               <button type="button" className={buttonSecondary} onClick={() => picker.current?.click()} disabled={busy}>
                 {busy ? 'Reading the file' : 'Choose File'}
               </button>
@@ -465,7 +465,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-[560px] text-left text-sm">
               <caption className="sr-only">Columns of {upload.file_name} and what they mean</caption>
-              <thead className="bg-surface-subtle text-xs font-semibold text-ink-700">
+              <thead className="bg-surface-subtle text-xs font-semibold text-ink-900">
                 <tr>
                   <th scope="col" className="px-3 py-2">Column in Your File</th>
                   <th scope="col" className="px-3 py-2">CEP Property</th>
@@ -479,7 +479,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                     <tr key={column.name}>
                       <th scope="row" className="px-3 py-2 align-top font-medium text-ink-900">
                         {column.name}
-                        <span className="block max-w-[240px] truncate text-xs font-normal text-ink-500">{column.samples.join(', ') || 'no values'}</span>
+                        <span className="block max-w-[240px] truncate text-xs font-normal text-ink-800">{column.samples.join(', ') || 'no values'}</span>
                       </th>
                       <td className="px-3 py-2 align-top">
                         <Select aria-label={`CEP Property for ${column.name}`} value={property} onChange={(event) => choose(column.name, event.target.value)}>
@@ -491,11 +491,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                           ))}
                         </Select>
                         {property && upload.properties.find((item) => item.key === property)?.help && (
-                          <p className="mt-1 max-w-xs text-xs text-ink-500">{upload.properties.find((item) => item.key === property)?.help}</p>
+                          <p className="mt-1 max-w-xs text-xs text-ink-800">{upload.properties.find((item) => item.key === property)?.help}</p>
                         )}
                       </td>
                       <td className="px-3 py-2 align-top">
-                        <span className={`rounded-sm px-1.5 py-0.5 text-xs font-semibold ${property ? 'bg-line-subtle text-success-text' : 'bg-line-subtle text-ink-700'}`}>{property ? 'Mapped' : 'Unmapped'}</span>
+                        <span className={`rounded-sm px-1.5 py-0.5 text-xs font-semibold ${property ? 'bg-fill-subtle text-success-text' : 'bg-fill-subtle text-ink-800'}`}>{property ? 'Mapped' : 'Unmapped'}</span>
                       </td>
                     </tr>
                   )
@@ -503,7 +503,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               </tbody>
             </table>
           </div>
-          <p className={`mt-3 text-sm ${emailMapped ? 'text-ink-500' : 'font-medium text-danger-plain'}`} aria-live="polite">
+          <p className={`mt-3 text-sm ${emailMapped ? 'text-ink-800' : 'font-medium text-danger-plain'}`} aria-live="polite">
             {mappedCount} of {upload.columns.length} columns mapped{emailMapped ? '' : ' · email still needs a column'}
           </p>
         </div>
@@ -517,7 +517,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <>
               <p className="text-sm font-semibold text-ink-900">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}</p>
               <ProgressBar job={job} />
-              <p className="text-sm text-ink-700">
+              <p className="text-sm text-ink-800">
                 {job.row_count > 0 ? `${formatNumber(job.row_count)} rows. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of CEP stays fast.
                 You can wait here, or continue in the background: the upload button at the top shows the progress and you get an alert when it is done.
               </p>
@@ -529,38 +529,38 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       {step === 'review' && review_ && upload && job && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line px-4 py-3">
-            <p className="text-sm text-ink-700">Ready to Import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
-            <p className="cep-num text-sm text-ink-500">{formatNumber(review_.held_back)} rows held back</p>
+            <p className="text-sm text-ink-800">Ready to Import <span className="cep-num ml-1 text-base font-semibold text-ink-900">{formatNumber(review_.ready)} contacts</span></p>
+            <p className="cep-num text-sm text-ink-800">{formatNumber(review_.held_back)} rows held back</p>
           </div>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {([['New', review_.new, 'not in CEP yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
               ([label, value, hint]) => (
                 <div key={label} className="rounded-lg border border-line px-3 py-2">
                   <dd className="cep-num text-lg font-semibold text-ink-900">{formatNumber(value)}</dd>
-                  <dt className="text-xs font-semibold text-ink-700">{label}</dt>
-                  <p className="text-xs text-ink-500">{hint}</p>
+                  <dt className="text-xs font-semibold text-ink-800">{label}</dt>
+                  <p className="text-xs text-ink-800">{hint}</p>
                 </div>
               ),
             )}
           </dl>
           {(job.issues ?? []).length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-semibold text-ink-700">Rows to Look At{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
+              <p className="mb-1 text-xs font-semibold text-ink-800">Rows to Look At{(job.issues ?? []).length >= 50 ? ' (first 50)' : ''}</p>
               <ul className="max-h-44 divide-y divide-line-subtle overflow-y-auto rounded-lg border border-line text-sm">
                 {(job.issues ?? []).map((issue) => (
                   <li key={`${issue.line}-${issue.kind}`} className="flex items-start gap-3 px-3 py-1.5">
-                    <span className="cep-num w-14 shrink-0 text-xs text-ink-500">Line {issue.line}</span>
+                    <span className="cep-num w-14 shrink-0 text-xs text-ink-800">Line {issue.line}</span>
                     <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-semibold ${issue.kind === 'error' ? 'bg-danger-bg text-danger-text' : 'bg-warning-bg text-warning-text'}`}>
                       {issue.kind === 'error' ? 'Held Back' : 'Warning'}
                     </span>
-                    <span className="min-w-0 text-ink-700">{issue.message}{issue.value ? <span className="text-ink-500"> · {issue.value}</span> : null}</span>
+                    <span className="min-w-0 text-ink-800">{issue.message}{issue.value ? <span className="text-ink-800"> · {issue.value}</span> : null}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
           <UploadReport job={job} />
-          {review_.new > 0 && <p className="text-xs text-ink-500">New contacts have no consent answer in CEP unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
+          {review_.new > 0 && <p className="text-xs text-ink-800">New contacts have no consent answer in CEP unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
         </div>
       )}
 
@@ -575,7 +575,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             className="mb-3 h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm"
           />
           {(step === 'audience' ? audiences.isPending : lists.isPending) ? (
-            <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading</p>
+            <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Loading</p>
           ) : (
             <div role="radiogroup" aria-label={step === 'audience' ? 'Audiences' : 'Lists'} className="max-h-72 space-y-2 overflow-y-auto">
               {step === 'audience' &&
@@ -589,7 +589,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                     text={`${formatNumber(item.member_count)} contacts · ${item.source_label ?? item.source_type} · ${item.list_environment === 'TEST' ? 'Test' : 'Production'}`} />
                 ))}
               {(step === 'audience' ? shownAudiences : shownLists).length === 0 && (
-                <p className="rounded-lg border border-line px-3 py-6 text-center text-sm text-ink-500">
+                <p className="rounded-lg border border-line px-3 py-6 text-center text-sm text-ink-800">
                   {step === 'audience' ? 'No audience matches. Audiences are defined by your data team in the BI / extraction tool.' : 'No list matches.'}
                 </p>
               )}
@@ -601,7 +601,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       {step === 'done' && created && (
         <div className="flex items-start gap-3">
           <span className="mt-0.5 text-success-text"><CheckCircle2 size={22} strokeWidth={1.5} aria-hidden /></span>
-          <div className="space-y-2 text-sm text-ink-700">
+          <div className="space-y-2 text-sm text-ink-800">
             <p className="text-base font-semibold text-ink-900">{created.name} is ready</p>
             {source === 'UPLOAD' && upload && (
               <>

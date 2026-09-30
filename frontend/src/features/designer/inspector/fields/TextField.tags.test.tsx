@@ -78,7 +78,7 @@ test('read-only shows the button greyed and it opens nothing', async () => {
   const user = userEvent.setup()
   render(<TextField label="Label" value="Shop now" onCommit={vi.fn()} disabled tagPicker={slot()} />)
   expect(picker().getAttribute('aria-disabled')).toBe('true')
-  expect(picker().className).toContain('bg-line-subtle')
+  expect(picker().className).toContain('bg-fill-subtle')
   expect(picker().className).not.toContain('opacity')
   await user.click(picker())
   expect(screen.queryByRole('region', { name: 'Insert Tag' })).toBeNull()

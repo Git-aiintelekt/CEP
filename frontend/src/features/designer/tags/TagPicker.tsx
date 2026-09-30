@@ -132,13 +132,13 @@ interface RowsProps {
 function Note({ layout, children }: { layout: Layout; children: string }) {
   return layout === 'panel' ?
       <p className="px-3 py-1.5 text-[11px] text-ink-300">{children}</p>
-    : <p className="px-3 py-3 text-sm text-ink-700">{children}</p>
+    : <p className="px-3 py-3 text-sm text-ink-800">{children}</p>
 }
 
 function Section({ label, tags, onPick, disabled, layout = 'popover' }: RowsProps & { label: string }) {
   return (
     <section aria-label={label}>
-      <h3 className={layout === 'panel' ? 'px-3 py-1.5 text-xs text-ink-300' : 'px-3 pt-2 pb-1 text-xs font-semibold text-ink-500'}>{label}</h3>
+      <h3 className={layout === 'panel' ? 'px-3 py-1.5 text-xs text-ink-300' : 'px-3 pt-2 pb-1 text-xs font-semibold text-ink-800'}>{label}</h3>
       {tags.map((tag) => (
         <Row key={tag.tag_key} tag={tag} onPick={onPick} disabled={disabled} layout={layout} />
       ))}
@@ -156,7 +156,7 @@ function PanelRow({ tag, onPick, disabled }: Omit<RowsProps, 'tags' | 'layout'> 
       aria-disabled={disabled || undefined}
       title={[tag.label, tag.sample_value ? `e.g. ${tag.sample_value}` : '', fallback].filter(Boolean).join(' — ')}
       onClick={disabled ? undefined : () => onPick(tag.tag_key)}
-      className={`flex w-full flex-col items-start gap-px px-3 py-1.5 text-left ${disabled ? 'bg-line-subtle' : 'hover:bg-surface-subtle'}`}
+      className={`flex w-full flex-col items-start gap-px px-3 py-1.5 text-left ${disabled ? 'bg-fill-subtle' : 'hover:bg-surface-subtle'}`}
     >
       <span className={`w-full truncate text-xs font-semibold ${disabled ? 'text-ink-300' : 'text-ink-900'}`}>{tag.label}</span>
       <span className={`cep-num w-full truncate text-[11px] ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
@@ -176,16 +176,16 @@ function Row({ tag, onPick, disabled, layout = 'popover' }: Omit<RowsProps, 'tag
       title={[tag.label, tag.description].filter(Boolean).join(' — ')}
       onClick={disabled ? undefined : () => onPick(tag.tag_key)}
       className={`flex h-12 w-full flex-col justify-center px-3 text-left transition-colors duration-base ease-standard ${
-        disabled ? 'bg-line-subtle text-ink-300' : 'hover:bg-line-subtle'
+        disabled ? 'bg-fill-subtle text-ink-300' : 'hover:bg-fill-subtle'
       }`}
     >
       <span className="flex w-full items-baseline justify-between gap-3">
         <span className={`truncate text-sm ${disabled ? 'text-ink-300' : 'text-ink-900'}`}>{tag.label}</span>
-        {tag.sample_value ? <span className={`max-w-[45%] truncate text-xs ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>{tag.sample_value}</span> : null}
+        {tag.sample_value ? <span className={`max-w-[45%] truncate text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{tag.sample_value}</span> : null}
       </span>
       <span className="flex w-full items-baseline gap-2 text-xs">
         <span className={`cep-num shrink-0 ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
-        <span className={`truncate ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>{fallback}</span>
+        <span className={`truncate ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{fallback}</span>
       </span>
     </button>
   )

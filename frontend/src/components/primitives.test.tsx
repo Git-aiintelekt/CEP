@@ -16,6 +16,7 @@ import { ProgressBar } from './ProgressBar'
 import { SegmentedControl } from './SegmentedControl'
 import { Spinner } from './States'
 import { StatusBadge } from './StatusBadge'
+import { statusColours } from './statusColours'
 import { Switch } from './Switch'
 import { Tabs } from './Tabs'
 import { tabPanelId } from './tabIds'
@@ -47,6 +48,36 @@ test('the class-string aliases stay identical to the Button looks', () => {
   expect(buttonPrimary).toBe(buttonClass({ variant: 'primary' }))
   expect(buttonSecondary).toBe(buttonClass({ variant: 'secondary' }))
   expect(buttonDanger).toBe(buttonClass({ variant: 'danger' }))
+})
+
+test('secondary is a white outline in Blue 600, Blue 100 with Blue 800 on hover and press, and the default variant', () => {
+  render(<Button>Cancel</Button>)
+  const secondary = screen.getByRole('button', { name: 'Cancel' }).className
+  expect(secondary).toContain('border border-brand-600 bg-surface text-brand-600')
+  expect(secondary).toContain('hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800')
+  expect(secondary).toContain('active:border-brand-800 active:bg-brand-100 active:text-brand-800')
+  expect(secondary).not.toMatch(/(^| )bg-brand-600|text-white|opacity|scale/)
+  expect(buttonClass()).toBe(buttonClass({ variant: 'secondary' }))
+  expect(buttonClass({ size: 'sm' })).toContain('h-8 px-3 rounded-control-md')
+  expect(secondary).toContain('h-10 px-4 rounded-control-lg')
+})
+
+test('a disabled secondary takes the standard disabled look with a visible grey border, soft or native, never opacity', () => {
+  render(<><Button softDisabled>Soft</Button><Button disabled>Native</Button></>)
+  const soft = screen.getByRole('button', { name: 'Soft' }).className
+  expect(soft).toContain('cursor-not-allowed border border-line bg-fill-subtle text-ink-300')
+  expect(soft).not.toContain('border-brand-600')
+  expect(soft).not.toContain('hover:')
+  const native = screen.getByRole('button', { name: 'Native' }).className
+  expect(native).toContain('disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300')
+  expect(`${soft} ${native}`).not.toContain('opacity')
+})
+
+test('primary is unchanged: the only solid blue button', () => {
+  expect(buttonClass({ variant: 'primary' })).toBe(
+    'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
+  )
+  expect(buttonClass({ variant: 'primary', disabled: true })).toContain('cursor-not-allowed border-line bg-fill-subtle text-ink-300')
 })
 
 test('an icon button is named by its label and reports a pressed toggle', () => {
@@ -177,23 +208,50 @@ test('an input group keeps its wiring on the input and marks it invalid', () => 
   expect(screen.getByText('px')).toBeTruthy()
 })
 
-test('status tags: Draft is orange, Scheduled the one blue status, the rest by severity; the locked wording wins', () => {
-  render(
-    <>
-      <StatusBadge status="DRAFT" label="draft" />
-      <StatusBadge status="SCHEDULED" />
-      <StatusBadge status="TEST_PUBLISHED" />
-      <StatusBadge status="PRODUCTION_PUBLISHED" />
-      <StatusBadge status="CANCELLED" />
-      <StatusBadge status="ARCHIVED" />
-    </>,
-  )
-  expect(screen.getByText('Draft').className).toContain('bg-draft-bg text-draft-text')
-  expect(screen.getByText('Scheduled').className).toContain('bg-brand-100 text-brand-800')
-  expect(screen.getByText('Test Published').className).toContain('bg-warning-bg')
-  expect(screen.getByText('Production Published').className).toContain('bg-success-bg')
-  expect(screen.getByText('Cancelled').className).toContain('bg-danger-bg')
-  expect(screen.getByText('Archived').className).toContain('bg-line-subtle')
+const STATUS_TOKENS: [string, string, string][] = [
+  ['DRAFT', 'Draft', 'draft'],
+  ['TEST_PUBLISHED', 'Test Published', 'test-published'],
+  ['PRODUCTION_PUBLISHED', 'Production Published', 'production-published'],
+  ['SCHEDULED', 'Scheduled', 'scheduled'],
+  ['ACTIVE', 'Active', 'active'],
+  ['SENDING', 'Sending', 'active'],
+  ['PREPARING', 'Preparing', 'active'],
+  ['COMPLETED', 'Completed', 'completed'],
+  ['PAUSED', 'Paused', 'paused'],
+  ['FAILED', 'Failed', 'failed'],
+  ['CANCELLED', 'Cancelled', 'failed'],
+  ['ARCHIVED', 'Archived', 'archived'],
+  ['PRODUCTION', 'Production', 'production-published'],
+  ['TEST', 'Test', 'test-published'],
+]
+
+test.each(STATUS_TOKENS)('status %s uses the %s tag tokens', (status, label, colour) => {
+  render(<StatusBadge status={status} />)
+  expect(screen.getByText(label).className).toContain(`bg-tag-${colour}-bg text-tag-${colour}-text`)
+})
+
+test('status tags: an unknown status is neutral grey, nothing is brand blue, and the locked wording wins', () => {
+  render(<><StatusBadge status="DRAFT" label="draft" /><StatusBadge status="SOMETHING_NEW" /></>)
+  expect(screen.getByText('Draft').className).toContain('bg-tag-draft-bg')
+  expect(screen.getByText('Something New').className).toContain('bg-fill-subtle text-ink-800')
+  for (const [status] of STATUS_TOKENS) expect(statusColours(status)).not.toMatch(/brand/)
+})
+
+test('status tags: only Active, Sending and Preparing carry the dot, in the Active dot colour', () => {
+  const { container } = render(<>{STATUS_TOKENS.map(([status]) => <StatusBadge key={status} status={status} />)}</>)
+  const dots = [...container.querySelectorAll('[data-live-dot]')]
+  expect(dots.map((dot) => dot.parentElement?.textContent)).toEqual(['Active', 'Sending', 'Preparing'])
+  for (const dot of dots) {
+    expect(dot.getAttribute('aria-hidden')).toBe('true')
+    expect(dot.className).toContain('h-1.5 w-1.5 shrink-0 rounded-full bg-tag-active-dot')
+  }
+})
+
+test('status tags: Archived is the only unfilled tag, a 1px dashed outline; Cancelled uses the Failed colours', () => {
+  render(<><StatusBadge status="ARCHIVED" /><StatusBadge status="CANCELLED" /></>)
+  expect(screen.getByText('Archived').className).toContain('border border-dashed border-tag-archived-border bg-tag-archived-bg text-tag-archived-text')
+  expect(screen.getByText('Cancelled').className).toContain('bg-tag-failed-bg text-tag-failed-text')
+  expect(screen.getByText('Cancelled').className).not.toContain('border')
 })
 
 test('a sunken field is Gray 100 with no border at rest and white while focused; a disabled one keeps its border and grey text', () => {
@@ -207,7 +265,7 @@ test('a sunken field is Gray 100 with no border at rest and white while focused;
   const shell = (name: string) => screen.getByRole('textbox', { name }).parentElement as HTMLElement
   expect(shell('Search').className).toContain('border-transparent bg-surface-sunken focus-within:bg-surface')
   expect(shell('Search, refused').className).toContain('border-danger')
-  expect(shell('Search, off').className).toContain('border-line bg-line-subtle text-ink-300')
+  expect(shell('Search, off').className).toContain('border-line bg-fill-subtle text-ink-300')
   expect(shell('Search, off').className).not.toContain('border-transparent')
 
   const sunken = controlClass({ tone: 'sunken' })
@@ -215,17 +273,6 @@ test('a sunken field is Gray 100 with no border at rest and white while focused;
   expect(sunken).toContain('border-transparent')
   expect(sunken).toContain('disabled:border-line')
   expect(controlClass({ tone: 'sunken', invalid: true })).not.toContain('border-transparent')
-})
-
-test('only live statuses (Active, Sending, Preparing) carry the green dot', () => {
-  const statuses = ['ACTIVE', 'SENDING', 'PREPARING', 'DRAFT', 'TEST_PUBLISHED', 'PRODUCTION_PUBLISHED', 'SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED', 'ARCHIVED', 'FAILED']
-  const { container } = render(<>{statuses.map((status) => <StatusBadge key={status} status={status} />)}</>)
-  const withDot = [...container.querySelectorAll('[data-live-dot]')].map((dot) => dot.parentElement?.textContent)
-  expect(withDot).toEqual(['Active', 'Sending', 'Preparing'])
-  const dot = container.querySelector('[data-live-dot]') as HTMLElement
-  expect(dot.getAttribute('aria-hidden')).toBe('true')
-  expect(dot.className).toContain('bg-success')
-  expect(dot.className).toContain('h-1.5 w-1.5')
 })
 
 test('an ordinary modal still dims the page and closes from its backdrop, Escape and ×, handing focus back', () => {

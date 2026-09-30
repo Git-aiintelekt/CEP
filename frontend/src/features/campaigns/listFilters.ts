@@ -1,4 +1,5 @@
 /** The Campaigns list filters, and the Date created presets as the date_from / date_to the API filters on (in the workspace time zone). */
+import { CAMPAIGN_TYPES, CHANNELS, STATUS_FILTERS } from './vocabulary'
 
 export type CreatedRange = '' | 'last7' | 'last30' | 'quarter' | 'custom'
 
@@ -16,6 +17,29 @@ export const SAVED_VIEWS: { key: SavedView; label: string; query: Record<string,
   { key: 'drafts', label: 'Drafts', query: { status: 'DRAFT,TEST_PUBLISHED' } },
 ]
 export const savedViewOf = (value: string | null): SavedView => (SAVED_VIEWS.some((item) => item.key === value) ? (value as SavedView) : '')
+
+/** Status (one or several), Type and Channel live in the address (?status=DRAFT,TEST_PUBLISHED&type=DRIP&channel=SMS); anything unknown is dropped. */
+export type UrlFilters = Pick<Filters, 'status' | 'type' | 'channel'>
+export const URL_FILTER_KEYS = ['status', 'type', 'channel'] as const
+
+export function filtersFromParams(params: URLSearchParams): UrlFilters {
+  const known = (value: string | null, options: readonly { value: string }[]) => (options.some((option) => option.value === value) ? (value as string) : '')
+  const statuses = (params.get('status') ?? '').toUpperCase().split(',')
+  return {
+    status: STATUS_FILTERS.map((option) => option.value).filter((value) => statuses.includes(value)).join(','),
+    type: known(params.get('type')?.toUpperCase() ?? null, CAMPAIGN_TYPES),
+    channel: known(params.get('channel')?.toUpperCase() ?? null, CHANNELS),
+  }
+}
+
+export function withFilterParams(current: URLSearchParams, patch: Partial<UrlFilters>): URLSearchParams {
+  const next = new URLSearchParams(current)
+  for (const key of URL_FILTER_KEYS) {
+    if (!(key in patch)) continue
+    if (patch[key]) next.set(key, patch[key]!); else next.delete(key)
+  }
+  return next
+}
 
 export const CREATED_RANGES: { value: Exclude<CreatedRange, 'custom'>; label: string }[] = [
   { value: '', label: 'Any Time' },

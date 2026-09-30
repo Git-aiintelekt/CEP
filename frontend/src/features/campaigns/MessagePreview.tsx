@@ -97,7 +97,7 @@ function FittedEmail({ html, device }: { html: string; device: PreviewDevice }) 
 export function MmsImage({ url }: { url: string | null }) {
   return url
     ? <img src={url} alt="Attached image" className="max-h-56 max-w-[85%] rounded-lg rounded-bl-md object-cover" />
-    : <p className="flex h-32 w-32 items-center justify-center rounded-lg rounded-bl-md bg-surface-sunken px-3 text-center text-xs text-ink-500">No image yet</p>
+    : <p className="flex h-32 w-32 items-center justify-center rounded-lg rounded-bl-md bg-surface-sunken px-3 text-center text-xs text-ink-800">No image yet</p>
 }
 
 interface MessagePreviewProps {
@@ -124,11 +124,11 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
   if (preview.isPending) {
     // the Content tab's card: a grey block, as every card on the campaign page loads
     if (controls) return <div aria-busy><span className="sr-only">Loading the preview</span><SkeletonLine width="100%" height={480} /></div>
-    return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading the preview</p>
+    return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Loading the preview</p>
   }
   if (preview.isError) {
     // 409: no template yet, or no saved content. That is a state of the campaign, not a failure.
-    if (preview.error instanceof ApiError && preview.error.status === 409) return <p className="text-sm text-ink-500">{preview.error.message}</p>
+    if (preview.error instanceof ApiError && preview.error.status === 409) return <p className="text-sm text-ink-800">{preview.error.message}</p>
     if (controls) return <CardError what="the preview" error={preview.error} onRetry={() => void preview.refetch()} />
     return <ErrorState title="The preview could not be built" error={preview.error} onRetry={() => void preview.refetch()} />
   }
@@ -140,14 +140,14 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
       <div className="overflow-hidden border border-line bg-surface">
         {isEmail ? <ScaledEmail html={data.html ?? ''} /> : (
           <div className="p-4">
-            <p aria-label="Text message preview" className="max-w-[88%] whitespace-pre-wrap rounded-lg rounded-bl-sm bg-line-subtle px-3.5 py-3 text-helper text-ink-900">{data.text}</p>
+            <p aria-label="Text message preview" className="max-w-[88%] whitespace-pre-wrap rounded-lg rounded-bl-sm bg-fill-subtle px-3.5 py-3 text-helper text-ink-900">{data.text}</p>
           </div>
         )}
       </div>
     )
   }
   const tagsLine = data.tags_used.length > 0 && (
-    <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">
+    <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-ink-800">
       Personalization tags in this message: {data.tags_used.map((tag) => <Tag key={tag}>{`{{${tag}}}`}</Tag>)}
     </p>
   )
@@ -172,12 +172,12 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
     <div>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-ink-900">{data.template} <span className="font-normal text-ink-500">· version {data.version}</span></p>
-          {data.subject && isEmail && <p className="truncate text-sm text-ink-700">Subject: {data.subject}</p>}
+          <p className="truncate text-sm font-medium text-ink-900">{data.template} <span className="font-normal text-ink-800">· version {data.version}</span></p>
+          {data.subject && isEmail && <p className="truncate text-sm text-ink-800">Subject: {data.subject}</p>}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           {withCustomers && (people.data?.length ?? 0) > 0 && (
-            <label className="text-xs font-medium text-ink-700">
+            <label className="text-xs font-medium text-ink-800">
               Preview As
               <Select value={party} onChange={(event) => setParty(event.target.value)} className="w-56">
                 <option value="">Sample Values</option>
@@ -204,7 +204,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
           </div>
         ) : (
           <div className="rounded-lg border border-line bg-surface-subtle p-5">
-            <p aria-label="Text message preview" className="ml-auto max-w-sm whitespace-pre-wrap rounded-lg rounded-br-sm bg-line-subtle px-4 py-3 text-sm text-ink-900">{data.text}</p>
+            <p aria-label="Text message preview" className="ml-auto max-w-sm whitespace-pre-wrap rounded-lg rounded-br-sm bg-fill-subtle px-4 py-3 text-sm text-ink-900">{data.text}</p>
           </div>
         )}
         {enlarge && (
@@ -227,7 +227,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
             </div>
           ) : undefined}>
           {isEmail ? (
-            <div className="rounded-lg bg-line-subtle p-4"><FittedEmail key={device} html={data.html ?? ''} device={device} /></div>
+            <div className="rounded-lg bg-fill-subtle p-4"><FittedEmail key={device} html={data.html ?? ''} device={device} /></div>
           ) : (
             <div className="rounded-lg bg-surface-sunken p-6">
               <div className="mx-auto w-full max-w-[320px]">

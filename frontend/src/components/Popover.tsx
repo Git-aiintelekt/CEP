@@ -53,7 +53,7 @@ export function Popover({ label, title, onClose, width, placement = 'bottom-star
 export function PopoverHeading({ children, sticky = false, end }: { children: ReactNode; sticky?: boolean; end?: ReactNode }) {
   return (
     <div className={`flex items-center justify-between gap-2 border-b border-line-subtle bg-surface px-3 py-2.5 ${sticky ? 'sticky top-0 z-10' : ''}`}>
-      <span className="text-xs font-semibold text-ink-700">{children}</span>
+      <span className="text-xs font-semibold text-ink-800">{children}</span>
       {end}
     </div>
   )

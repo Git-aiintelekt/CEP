@@ -141,7 +141,7 @@ export function LinksPill({ links, tags, controller, onJump }: { links: LinkEntr
           {links.length === 0 ?
             <div className="px-3 py-3">
               <p className="text-helper text-ink-900">No links in this email yet.</p>
-              <p className="mt-1 text-xs text-ink-700">Add a button or a link in a text block to give readers somewhere to go.</p>
+              <p className="mt-1 text-xs text-ink-800">Add a button or a link in a text block to give readers somewhere to go.</p>
             </div>
           : <div className="max-h-96 overflow-y-auto">
               {links.map((link) => {
@@ -157,10 +157,10 @@ export function LinksPill({ links, tags, controller, onJump }: { links: LinkEntr
                   >
                     {flaggedLink ?
                       <TriangleAlert size={16} strokeWidth={1.5} aria-hidden className="text-warning" />
-                    : <Link2 size={16} strokeWidth={1.5} aria-hidden className="text-ink-700" />}
+                    : <Link2 size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[13px] font-medium text-ink-900">{link.url || '—'}</span>
-                      <span className="truncate text-xs text-ink-700">
+                      <span className="truncate text-xs text-ink-800">
                         {link.label}
                         {note ? ' · ' : ''}
                         {note && <span className={flaggedLink ? 'text-warning-text' : ''}>{note}</span>}

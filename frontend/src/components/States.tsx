@@ -33,7 +33,7 @@ export function SkeletonLine({ width = '70%', height }: { width?: string; height
 
 export function FullPageSpinner({ label }: { label: string }) {
   return (
-    <div className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-surface-subtle text-sm font-semibold text-ink-700">
+    <div className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-surface-subtle text-sm font-semibold text-ink-800">
       <Spinner size="lg" />
       {label}
     </div>
@@ -53,9 +53,9 @@ interface EmptyStateProps {
 export function EmptyState({ title, hint, action, icon: Icon = Inbox, variant = 'card', tone = 'default' }: EmptyStateProps) {
   if (variant === 'compact') {
     return (
-      <div className="px-3 py-3 text-sm text-ink-700">
+      <div className="px-3 py-3 text-sm text-ink-800">
         <p>{title}</p>
-        {hint && <p className="mt-1 text-xs text-ink-500">{hint}</p>}
+        {hint && <p className="mt-1 text-xs text-ink-800">{hint}</p>}
         {action && <div className="mt-2">{action}</div>}
       </div>
     )
@@ -64,11 +64,11 @@ export function EmptyState({ title, hint, action, icon: Icon = Inbox, variant = 
   const frame = variant === 'card' ? 'rounded-lg border border-line bg-surface px-6 py-14' : 'flex h-full flex-col items-center justify-center p-6'
   return (
     <div className={`${frame} text-center`}>
-      <span aria-hidden className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-sm bg-line-subtle ${tone === 'error' ? 'text-danger' : 'text-ink-700'}`}>
+      <span aria-hidden className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-sm bg-fill-subtle ${tone === 'error' ? 'text-danger' : 'text-ink-800'}`}>
         <Icon size={24} strokeWidth={1.5} />
       </span>
       <p className="text-sm font-semibold text-ink-900">{title}</p>
-      {hint && <p className="mx-auto mt-1 max-w-sm text-helper text-ink-700">{hint}</p>}
+      {hint && <p className="mx-auto mt-1 max-w-sm text-helper text-ink-800">{hint}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   )

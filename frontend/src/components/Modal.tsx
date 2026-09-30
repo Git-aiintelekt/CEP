@@ -51,7 +51,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
             {leading}
             <div className="min-w-0">
               <h2 id={titleId} className={`font-display font-semibold text-ink-900 ${leading ? 'text-lg' : 'text-base'}`}>{title}</h2>
-              {subtitle && <p id={subtitleId} className="mt-0.5 text-helper text-ink-700">{subtitle}</p>}
+              {subtitle && <p id={subtitleId} className="mt-0.5 text-helper text-ink-800">{subtitle}</p>}
               {headerExtra && <div className="mt-1.5 flex flex-wrap items-center gap-1.5">{headerExtra}</div>}
             </div>
           </div>

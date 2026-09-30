@@ -78,14 +78,14 @@ export function CampaignPreview({ campaign, canEdit, onClose, onAction, nav, ret
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 pt-0.5">
         <h2 id={titleId} className="w-full font-display text-[22px] leading-tight font-semibold tracking-[-0.02em] break-words text-ink-900 md:w-auto">{campaign.name}</h2>
         <StatusBadge status={campaign.display_status} label={campaign.display_status_label} />
-        <span role="img" aria-label={channelLabel(iconChannel)} title={channelLabel(iconChannel)} className="flex text-ink-700">
+        <span role="img" aria-label={channelLabel(iconChannel)} title={channelLabel(iconChannel)} className="flex text-ink-800">
           <ChannelIcon channel={iconChannel} aria-hidden />
         </span>
       </div>
       <div className="flex shrink-0 items-center">
         <IconButton label="Previous Campaign" icon={ChevronUp} softDisabled={!nav.hasPrevious} onClick={nav.onPrevious} />
         <IconButton label="Next Campaign" icon={ChevronDown} softDisabled={!nav.hasNext} onClick={nav.onNext} />
-        <span aria-hidden className="mx-1 h-5 w-px bg-line" />
+        <span aria-hidden className="mx-1 h-5 w-px bg-fill-muted" />
         <IconButton label="Close" icon={X} onClick={onClose} />
       </div>
       <span aria-live="polite" className="sr-only">{nav.announcement}</span>

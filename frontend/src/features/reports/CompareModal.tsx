@@ -38,7 +38,7 @@ export function CompareModal({ ids, onClose }: { ids: string[]; onClose: () => v
       {compare.isError ? (
         <ErrorState title="The comparison could not be loaded" error={compare.error} onRetry={() => void compare.refetch()} />
       ) : compare.isPending ? (
-        <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading the campaigns</p>
+        <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the campaigns</p>
       ) : (
         <div className="space-y-5">
           <div className="overflow-x-auto rounded-lg border border-line">
@@ -46,14 +46,14 @@ export function CompareModal({ ids, onClose }: { ids: string[]; onClose: () => v
               <caption className="sr-only">Campaign results side by side</caption>
               <thead>
                 <tr className="border-b border-line bg-surface-subtle">
-                  <th scope="col" className="h-10 px-4 text-left text-xs font-semibold text-ink-700">Measure</th>
-                  {campaigns.map((campaign) => <th key={campaign.id} scope="col" className="h-10 px-4 text-right text-xs font-semibold text-ink-700">{campaign.name}</th>)}
+                  <th scope="col" className="h-10 px-4 text-left text-xs font-semibold text-ink-900">Measure</th>
+                  {campaigns.map((campaign) => <th key={campaign.id} scope="col" className="h-10 px-4 text-right text-xs font-semibold text-ink-900">{campaign.name}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {ROWS.map((row) => (
                   <tr key={row.label} className="border-b border-line-subtle last:border-b-0">
-                    <th scope="row" className="h-11 px-4 text-left font-medium text-ink-700">{row.label}</th>
+                    <th scope="row" className="h-11 px-4 text-left font-medium text-ink-800">{row.label}</th>
                     {campaigns.map((campaign) => <td key={campaign.id} className="cep-num px-4 text-right text-ink-900">{row.value(campaign)}</td>)}
                   </tr>
                 ))}

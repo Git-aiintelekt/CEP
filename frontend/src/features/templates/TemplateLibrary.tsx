@@ -121,7 +121,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         <h2 id={`${resultsId}-title`} className="font-display text-section-title font-semibold text-ink-900">Your Templates</h2>
         <label className="relative block w-full sm:w-64">
           <span className="sr-only">Search templates</span>
-          <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-500" />
+          <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
           <input
             type="search"
             value={search}
@@ -144,7 +144,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
                 aria-selected={selected}
                 aria-controls={resultsId}
                 onClick={() => setTab(item.key)}
-                className={`h-10 shrink-0 border-b-2 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${selected ? 'border-brand-600 font-semibold text-brand-600' : 'border-transparent font-medium text-ink-500 hover:text-ink-900'}`}
+                className={`h-10 shrink-0 border-b-2 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${selected ? 'border-brand-600 font-semibold text-brand-600' : 'border-transparent font-medium text-ink-800 hover:text-ink-900'}`}
               >
                 {item.label}
               </button>
@@ -157,7 +157,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             aria-label="Status"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-8 rounded-lg border border-line bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-subtle focus-visible:border-brand-600"
+            className="h-8 rounded-lg border border-line-control bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-subtle focus-visible:border-brand-600"
           >
             <option value="">All Statuses</option>
             {STATUSES.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
@@ -173,12 +173,12 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         {list.isError ? (
           <ErrorState error={list.error} onRetry={() => void list.refetch()} />
         ) : list.isPending ? (
-          <p className="flex items-center gap-3 py-12 text-sm text-ink-500"><Spinner /> Loading templates</p>
+          <p className="flex items-center gap-3 py-12 text-sm text-ink-800"><Spinner /> Loading templates</p>
         ) : items.length === 0 ? (
           needle || status || tab !== 'ALL' ? (
             <div className="p-12 text-center">
               <p className="text-base font-semibold text-ink-900">No matching templates</p>
-              <p className="mt-1 text-helper text-ink-500">Try a different channel filter or clear the search.</p>
+              <p className="mt-1 text-helper text-ink-800">Try a different channel filter or clear the search.</p>
             </div>
           ) : (
             <EmptyState title="No Templates Yet" hint={canEdit ? 'Start one from a channel above, or copy a CEP preset: every campaign needs a template to send.' : 'Someone with the template.edit permission can start one from a channel above.'} />
@@ -218,7 +218,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             </>
           }
         >
-          <p className="text-sm text-ink-700">“{deleting.name}” and its saved versions leave the library. A template that a campaign uses cannot be deleted: archive it instead.</p>
+          <p className="text-sm text-ink-800">“{deleting.name}” and its saved versions leave the library. A template that a campaign uses cannot be deleted: archive it instead.</p>
           {remove.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-plain">{messageOf(remove.error)}</p>}
         </Modal>
       )}
@@ -291,7 +291,7 @@ function ViewButton({ icon: Icon, label, pressed, onClick }: { icon: LucideIcon;
       title={label}
       aria-pressed={pressed}
       onClick={onClick}
-      className={`flex h-8 w-9 items-center justify-center transition-colors duration-fast ease-standard ${pressed ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-500 hover:bg-surface-subtle hover:text-ink-900'}`}
+      className={`flex h-8 w-9 items-center justify-center transition-colors duration-fast ease-standard ${pressed ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-800 hover:bg-surface-subtle hover:text-ink-900'}`}
     >
       <Icon size={16} strokeWidth={1.5} aria-hidden />
     </button>
@@ -313,8 +313,8 @@ function CardBody({ name, meta, usage, tags }: { name: string; meta: string; usa
   return (
     <span className="flex flex-col gap-1 p-3.5">
       <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
-      <span className="text-xs text-ink-500">{meta}</span>
-      {usage && <span className="line-clamp-1 text-xs text-ink-500" data-last-used>{usage}</span>}
+      <span className="text-xs text-ink-800">{meta}</span>
+      {usage && <span className="line-clamp-1 text-xs text-ink-800" data-last-used>{usage}</span>}
       <span className="mt-1.5 flex flex-wrap gap-1.5 pr-8">{tags}</span>
     </span>
   )
@@ -389,7 +389,7 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
         {...menus.triggerProps(id)}
         type="button"
         aria-label={`Actions for ${name}`}
-        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors duration-fast ease-standard hover:bg-line-subtle active:bg-line"
+        className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle active:bg-fill-muted"
       >
         <EllipsisVertical size={16} strokeWidth={1.5} aria-hidden />
       </button>
@@ -403,7 +403,7 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
 }
 
 // the same header as DataTable: 12px, title case
-const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-700'
+const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-900'
 const CELL = 'h-14 px-4 align-middle'
 
 function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
@@ -433,13 +433,13 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                   <td className={CELL}>
                     <span className="block min-w-0">
                       <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{template.name}</button>
-                      {template.description && <span className="block truncate text-xs text-ink-500">{template.description}</span>}
+                      {template.description && <span className="block truncate text-xs text-ink-800">{template.description}</span>}
                     </span>
                   </td>
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
                   <td className={CELL}><StatusTag status={template.status} /></td>
-                  <td className={`${CELL} whitespace-nowrap text-ink-500`}>Edited {formatRelative(template.updated_at)}</td>
-                  <td className={`${CELL} max-w-[240px] truncate text-ink-500`} title={lastUsedText(template)}>{template.last_used_in ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
+                  <td className={`${CELL} whitespace-nowrap text-ink-800`}>Edited {formatRelative(template.updated_at)}</td>
+                  <td className={`${CELL} max-w-[240px] truncate text-ink-800`} title={lastUsedText(template)}>{template.last_used_in ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
                   <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                     <RowMenu menus={menus} id={template.id} name={template.name}>
                       <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />
@@ -464,12 +464,12 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                     ) : (
                       <span className="block truncate font-semibold text-ink-900">{preset.name}</span>
                     )}
-                    {preset.description && <span className="block truncate text-xs text-ink-500">{preset.description}</span>}
+                    {preset.description && <span className="block truncate text-xs text-ink-800">{preset.description}</span>}
                   </span>
                 </td>
                 <td className={CELL}><Tag>{lookOf(preset.channel).label}</Tag></td>
                 <td className={CELL}><Tag>CEP Preset</Tag></td>
-                <td className={`${CELL} text-ink-500`}>Starter</td>
+                <td className={`${CELL} text-ink-800`}>Starter</td>
                 <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                   <RowMenu menus={menus} id={`preset-${preset.key}`} name={preset.name}>
                     <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />

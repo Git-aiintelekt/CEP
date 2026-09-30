@@ -59,7 +59,7 @@ function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'RE
       <p>
         Support session: {by} is acting as this user · {mode === 'WRITE' ? 'changes are allowed and recorded' : 'read-only'} · ends {formatDateTime(expiresAt)}
       </p>
-      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-ink-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-ink-700 disabled:bg-line-subtle disabled:text-ink-300">
+      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-ink-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-ink-800 disabled:bg-fill-subtle disabled:text-ink-300">
         End session
       </button>
     </div>
@@ -106,17 +106,17 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
       <div className="w-full max-w-sm rounded-lg border border-line bg-surface p-5 shadow-menu" onClick={(event) => event.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 id="shortcuts-title" className="font-display text-card-title font-semibold text-ink-900">Keyboard Shortcuts</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 hover:bg-line-subtle"><X size={16} strokeWidth={1.5} aria-hidden /></button>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-800 hover:bg-fill-subtle"><X size={16} strokeWidth={1.5} aria-hidden /></button>
         </div>
         <dl className="divide-y divide-line-subtle text-sm">
           {SHORTCUTS.map((item) => (
             <div key={item.keys} className="flex items-center justify-between gap-4 py-2">
-              <dt className="text-ink-700">{item.does}</dt>
+              <dt className="text-ink-800">{item.does}</dt>
               <dd className="cep-num shrink-0 rounded-sm border border-line bg-surface-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-900">{item.keys}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-3 text-xs text-ink-500">Shortcuts pause while you type in a field.</p>
+        <p className="mt-3 text-xs text-ink-800">Shortcuts pause while you type in a field.</p>
       </div>
     </div>
   )
@@ -172,7 +172,7 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-700" />
+      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-800" />
       <input
         ref={inputRef}
         type="search"
@@ -192,14 +192,14 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
       {open && term && (
         <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-menu">
           {rows.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink-700">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try a campaign, list or template name, or a page such as Settings.'}</li>
+            <li className="px-3 py-2 text-sm text-ink-800">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try a campaign, list or template name, or a page such as Settings.'}</li>
           ) : (
             rows.map((row) => (
               <li key={row.key}>
                 <button type="button" onClick={() => go(row.to)} className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors hover:bg-surface-subtle">
-                  {row.icon ? <row.icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" /> : <span className="w-16 shrink-0 text-xs text-ink-500">{row.kind}</span>}
+                  {row.icon ? <row.icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" /> : <span className="w-16 shrink-0 text-xs text-ink-800">{row.kind}</span>}
                   <span className="min-w-0 flex-1 truncate">{row.label}</span>
-                  {row.meta && <span className="shrink-0 truncate text-xs text-ink-500">{row.meta}</span>}
+                  {row.meta && <span className="shrink-0 truncate text-xs text-ink-800">{row.meta}</span>}
                 </button>
               </li>
             ))
@@ -325,7 +325,7 @@ export function AppShell() {
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label="Open navigation"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors hover:bg-fill-subtle"
               >
                 <Menu size={20} strokeWidth={1.5} aria-hidden />
               </button>
@@ -334,13 +334,13 @@ export function AppShell() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-sm md:flex">
-              <span className="text-ink-700">Tenant</span>
-              <span className="rounded-sm bg-line-subtle px-2 py-0.5 font-semibold text-ink-900">{me?.tenant.code}</span>
-              <span className="hidden text-ink-700 xl:inline">{me?.tenant.timezone}</span>
+              <span className="text-ink-800">Tenant</span>
+              <span className="rounded-sm bg-fill-subtle px-2 py-0.5 font-semibold text-ink-900">{me?.tenant.code}</span>
+              <span className="hidden text-ink-800 xl:inline">{me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
             <button type="button" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"
-              className="hidden h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle md:flex">
+              className="hidden h-8 w-8 items-center justify-center rounded-control-md text-ink-800 transition-colors hover:bg-fill-subtle md:flex">
               <Keyboard size={20} strokeWidth={1.5} aria-hidden />
             </button>
             <button
@@ -354,7 +354,7 @@ export function AppShell() {
             </button>
             <Link to={SECURITY} title="Account security" className="hidden rounded-sm px-2 py-1 text-right leading-tight transition-colors hover:bg-surface-subtle lg:block">
               <p className="text-sm font-medium text-ink-900">{name}</p>
-              <p className="text-xs text-ink-700">{me?.principal.email}</p>
+              <p className="text-xs text-ink-800">{me?.principal.email}</p>
             </Link>
             <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
               {initials(me?.principal.display_name)}
@@ -362,7 +362,7 @@ export function AppShell() {
             <button
               type="button"
               onClick={logout}
-              className="h-8 shrink-0 rounded-control-md border border-line px-3 text-sm font-medium whitespace-nowrap text-ink-700 transition-colors hover:bg-surface-subtle"
+              className="h-8 shrink-0 rounded-control-md border border-line px-3 text-sm font-medium whitespace-nowrap text-ink-800 transition-colors hover:bg-surface-subtle"
             >
               Sign out
             </button>

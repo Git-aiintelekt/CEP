@@ -32,19 +32,19 @@ export function PreferenceCenterPage() {
   })
 
   if (settings.isError) return <ErrorState title="The preference centre settings could not be loaded" error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
   const data = settings.data
 
   return (
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-section-title font-semibold text-ink-900">Preference Centre</h2>
-        <p className="mt-0.5 text-sm text-ink-500">A page where people choose which channels and topics they receive, reached from a link in your email. Off, the unsubscribe link is the only way out, as before.</p>
+        <p className="mt-0.5 text-sm text-ink-800">A page where people choose which channels and topics they receive, reached from a link in your email. Off, the unsubscribe link is the only way out, as before.</p>
       </div>
 
       <section className="max-w-3xl rounded-lg border border-line bg-surface p-5">
         <Switch checked={data.enabled} disabled={toggle.isPending} onChange={(next) => toggle.mutate(next)} label="Offer a Preference Centre" describedBy="pc-help" />
-        <p id="pc-help" className="mt-2 text-sm text-ink-500">
+        <p id="pc-help" className="mt-2 text-sm text-ink-800">
           {data.enabled
             ? 'On. {{preference_url}} in a template opens the page, the unsubscribe confirmation offers it, and a marketing campaign is filed under a topic so people who unticked that topic are left out.'
             : 'Off. Only the unsubscribe link exists; {{preference_url}} in a template resolves to it, so no email carries a dead link. Topics and the page\'s words below are kept for when it is switched on.'}
@@ -60,17 +60,17 @@ export function PreferenceCenterPage() {
         <div className="space-y-5">
           <section className="rounded-lg border border-line bg-surface p-5">
             <h3 className="font-display text-card-heading font-semibold text-ink-900">In Your Templates</h3>
-            <p className="mt-1 text-sm text-ink-500">Put the tag where the link should appear. It is filled per recipient at send time, like the unsubscribe link, which stays required in marketing email.</p>
+            <p className="mt-1 text-sm text-ink-800">Put the tag where the link should appear. It is filled per recipient at send time, like the unsubscribe link, which stays required in marketing email.</p>
             <CopyTag tag={data.tag} />
           </section>
           <section className="rounded-lg border border-line bg-surface">
             <div className="border-b border-line-subtle px-4 py-3"><h3 className="font-display text-card-heading font-semibold text-ink-900">Last {data.stats.days} Days</h3></div>
             <dl className="divide-y divide-line-subtle">
               {([['Page opened', data.stats.opened], ['Topics unticked', data.stats.topics_unticked], ['Unsubscribed from the page', data.stats.unsubscribed], ['Opted in again', data.stats.opted_in]] as const).map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm"><dt className="text-ink-700">{label}</dt><dd className="cep-num font-semibold text-ink-900">{formatNumber(value)}</dd></div>
+                <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm"><dt className="text-ink-800">{label}</dt><dd className="cep-num font-semibold text-ink-900">{formatNumber(value)}</dd></div>
               ))}
             </dl>
-            <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-500">Channel changes made on the page are listed under Suppressions with the source Preference Centre.</p>
+            <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-800">Channel changes made on the page are listed under Suppressions with the source Preference Centre.</p>
           </section>
         </div>
       </div>
@@ -93,7 +93,7 @@ function TopicsCard({ enabled, topics }: { enabled: boolean; topics: ReturnType<
   const [editing, setEditing] = useState<SubscriptionTopic | 'new' | null>(null)
   const rows = topics.data?.results ?? []
   const columns: Column<SubscriptionTopic>[] = [
-    { key: 'name', header: 'Topic', render: (row) => <span><span className="block font-semibold text-ink-900">{row.name}</span>{row.description && <span className="block text-xs text-ink-500">{row.description}</span>}</span> },
+    { key: 'name', header: 'Topic', render: (row) => <span><span className="block font-semibold text-ink-900">{row.name}</span>{row.description && <span className="block text-xs text-ink-800">{row.description}</span>}</span> },
     { key: 'channels', header: 'Channels', render: (row) => row.channels.map((code) => CHANNELS.find((c) => c.code === code)?.label ?? code).join(', '), phoneOptional: true },
     { key: 'opted_out', header: 'Opted Out', align: 'right', render: (row) => <span className="cep-num">{formatNumber(row.opted_out)}</span> },
     { key: 'shown', header: 'Shown to Customers', render: (row) => row.is_shown ? <Tag tone="success">Shown</Tag> : <Tag tone="warning">Hidden</Tag>, phoneOptional: true },
@@ -105,14 +105,14 @@ function TopicsCard({ enabled, topics }: { enabled: boolean; topics: ReturnType<
         <h3 className="font-display text-card-heading font-semibold text-ink-900">Topics</h3>
         <button type="button" className={buttonSecondary} onClick={() => setEditing('new')}>Add Topic</button>
       </div>
-      <p className="px-4 pt-3 text-sm text-ink-500">What a person can choose to receive. Every marketing campaign is filed under one topic; people who unticked it are left out of that campaign's audience. Receipts and service messages have no topic.</p>
+      <p className="px-4 pt-3 text-sm text-ink-800">What a person can choose to receive. Every marketing campaign is filed under one topic; people who unticked it are left out of that campaign's audience. Receipts and service messages have no topic.</p>
       <div className="p-4">
-        {topics.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+        {topics.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         : topics.isError ? <ErrorState error={topics.error} onRetry={() => void topics.refetch()} />
         : rows.length === 0 ? <EmptyState title="No Topics Yet" hint={enabled ? 'Until a topic exists the page offers the channels only, and campaigns need no topic.' : 'Add the topics people will choose from; they wait here until the centre is switched on.'} variant="plain" />
         : <DataTable columns={columns} rows={rows} rowKey={(row) => row.id} caption="Topics" inset="card" />}
       </div>
-      <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-500">Opted Out counts people who unticked the topic on the page. A channel opt-out (unsubscribe, STOP) is under Suppressions and applies to every topic.</p>
+      <p className="border-t border-line-subtle px-4 py-3 text-xs text-ink-800">Opted Out counts people who unticked the topic on the page. A channel opt-out (unsubscribe, STOP) is under Suppressions and applies to every topic.</p>
       {editing && <TopicForm topic={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </section>
   )
@@ -149,7 +149,7 @@ function TopicForm({ topic, onClose }: { topic: SubscriptionTopic | null; onClos
           {() => <span className="flex gap-4">{CHANNELS.map((channel) => <Checkbox key={channel.code} label={channel.label} checked={form.channels.includes(channel.code)} onChange={(event) => setChannel(channel.code, event.target.checked)} />)}</span>}
         </Field>
         <Switch checked={form.is_shown} onChange={(is_shown) => setForm({ ...form, is_shown })} label="Shown to Customers" describedBy="topic-shown-help" />
-        <p id="topic-shown-help" className="-mt-2 text-xs text-ink-500">Hidden keeps the topic for campaigns without offering it on the page.</p>
+        <p id="topic-shown-help" className="-mt-2 text-xs text-ink-800">Hidden keeps the topic for campaigns without offering it on the page.</p>
         {other !== null && <ErrorState title="The topic was not saved" error={other} />}
       </form>
     </Modal>
@@ -185,7 +185,7 @@ function WordsCard({ data, onSaved }: { data: PreferenceCenterSettings; onSaved:
       </div>
       <div className="mt-4 border-t border-line-subtle pt-4">
         <Switch checked={form.allow_opt_in} onChange={(allow_opt_in) => set('allow_opt_in', allow_opt_in)} label="Let People Opt In Again" describedBy="optin-help" />
-        <p id="optin-help" className="mt-1 text-xs text-ink-500">Someone who unsubscribed can switch a channel back on from this page; the page is the evidence of consent. Off, a switched-off channel is shown locked with the date.</p>
+        <p id="optin-help" className="mt-1 text-xs text-ink-800">Someone who unsubscribed can switch a channel back on from this page; the page is the evidence of consent. Off, a switched-off channel is shown locked with the date.</p>
       </div>
       {other !== null && <div className="mt-3"><ErrorState title="The page was not saved" error={other} /></div>}
       <div className="mt-4 flex flex-wrap items-center gap-2">

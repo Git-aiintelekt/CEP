@@ -96,7 +96,7 @@ function AddContacts({ list, onClose, onAdded }: { list: ContactList; onClose: (
             <TextArea {...ids} value={text} onChange={(event) => setText(event.target.value)} rows={8} placeholder={'ana@example.com, Ana, Lopez\nben@example.com'} autoFocus />
           )}
       </Field>
-      <p className="mt-3 text-xs text-ink-500">Someone CEP already knows is linked to their existing record. Anyone new is added to CEP without a consent answer, so marketing sends leave them out until they opt in.</p>
+      <p className="mt-3 text-xs text-ink-800">Someone CEP already knows is linked to their existing record. Anyone new is added to CEP without a consent answer, so marketing sends leave them out until they opt in.</p>
     </Modal>
   )
 }
@@ -179,19 +179,19 @@ export function ContactListDetailPage() {
 
   return (
     <section>
-      <nav aria-label="Breadcrumb" className="mb-3 text-sm text-ink-500">
+      <nav aria-label="Breadcrumb" className="mb-3 text-sm text-ink-800">
         <Link to="/contact-lists" className="font-medium text-brand-800 hover:underline">Contact Lists</Link> <span aria-hidden>/</span> {data.name}
       </nav>
 
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate font-display text-page-title font-semibold text-ink-900">{data.name}</h1>
-          {data.description && <p className="mt-1 max-w-2xl text-sm text-ink-500">{data.description}</p>}
+          {data.description && <p className="mt-1 max-w-2xl text-sm text-ink-800">{data.description}</p>}
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <TypeBadge environment={data.list_environment} />
             <Tag>{data.source_label ?? data.source_type}</Tag>
             {archived && <StatusBadge status="ARCHIVED" />}
-            {data.source_reference && <span className="text-xs text-ink-500">from {data.source_reference}</span>}
+            {data.source_reference && <span className="text-xs text-ink-800">from {data.source_reference}</span>}
           </p>
         </div>
         {editable && (
@@ -226,7 +226,7 @@ export function ContactListDetailPage() {
       <dl className="mb-4 grid gap-3 sm:grid-cols-3">
         {([['Contacts', data.member_count], ['Added This Week', usage.data?.added_this_week], ['Attached Campaigns', usage.data?.attached_campaigns]] as const).map(([label, value]) => (
           <div key={label} className="rounded-lg border border-line bg-surface px-4 py-3">
-            <dt className="text-xs font-semibold text-ink-700">{label}</dt>
+            <dt className="text-xs font-semibold text-ink-800">{label}</dt>
             <dd className="cep-num mt-1 font-display text-2xl font-semibold text-ink-900">{value === undefined ? '–' : formatNumber(value)}</dd>
           </div>
         ))}
@@ -242,7 +242,7 @@ export function ContactListDetailPage() {
                 <Tag>{campaign.channel}</Tag>
                 <StatusBadge status={campaign.status} />
                 {campaign.live && <span className="text-xs font-semibold text-success-text">Live</span>}
-                {campaign.frozen_lists > 0 && <span className="text-xs text-ink-500">{campaign.frozen_lists} Campaign List{campaign.frozen_lists === 1 ? '' : 's'} already built</span>}
+                {campaign.frozen_lists > 0 && <span className="text-xs text-ink-800">{campaign.frozen_lists} Campaign List{campaign.frozen_lists === 1 ? '' : 's'} already built</span>}
               </li>
             ))}
           </ul>
@@ -253,10 +253,10 @@ export function ContactListDetailPage() {
         <section aria-label="Governance Check" className="mb-4 rounded-lg border border-line bg-surface p-4">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-card-title font-semibold text-ink-900">Governance Check · Marketing Email, as of Today</h2>
-            <p className="cep-num text-sm text-ink-700">{formatNumber(governance.data.sendable)} of {formatNumber(governance.data.total)} can receive it</p>
+            <p className="cep-num text-sm text-ink-800">{formatNumber(governance.data.sendable)} of {formatNumber(governance.data.total)} can receive it</p>
           </div>
           <div className="max-w-xl"><GovernanceLines statuses={governance.data.statuses} total={governance.data.total} sendable={governance.data.sendable} /></div>
-          <p className="mt-2 text-xs text-ink-500">Unsubscribes, bounces, complaints, blocked and invalid addresses, suppression and consent, with the rules a send uses. Transactional campaigns ignore consent, not blocked or invalid addresses.</p>
+          <p className="mt-2 text-xs text-ink-800">Unsubscribes, bounces, complaints, blocked and invalid addresses, suppression and consent, with the rules a send uses. Transactional campaigns ignore consent, not blocked or invalid addresses.</p>
         </section>
       )}
 
@@ -264,12 +264,12 @@ export function ContactListDetailPage() {
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search contacts" aria-label="Search contacts"
-          className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
+          className="h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
         <select aria-label="Consent State" value={consent} onChange={(event) => { setConsent(event.target.value); setPage(1); setSelected([]) }}
-          className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
+          className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
           {CONSENT_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </select>
-        <span className="text-sm text-ink-500" aria-live="polite">{selected.length === 0 ? 'No contacts selected' : `${formatNumber(selected.length)} selected`}</span>
+        <span className="text-sm text-ink-800" aria-live="polite">{selected.length === 0 ? 'No contacts selected' : `${formatNumber(selected.length)} selected`}</span>
         {members.isFetching && <Spinner className="h-4 w-4" />}
       </div>
 
@@ -279,7 +279,7 @@ export function ContactListDetailPage() {
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full min-w-[860px] text-left text-sm">
             <caption className="sr-only">Contacts in {data.name}</caption>
-            <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-700">
+            <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-900">
               <tr>
                 <th scope="col" className="w-10 px-3 py-2">
                   <input type="checkbox" aria-label="Select everyone on this page" checked={allOnPage} disabled={rows.length === 0}
@@ -301,10 +301,10 @@ export function ContactListDetailPage() {
                     <input type="checkbox" aria-label={`Select ${row.email ?? row.party_id}`} checked={selected.includes(row.id)}
                       onChange={() => setSelected(selected.includes(row.id) ? selected.filter((value) => value !== row.id) : [...selected, row.id])} className="h-4 w-4 accent-brand-600" />
                   </td>
-                  <td className="px-3 py-2 font-medium text-ink-900">{row.email ?? <span className="font-normal text-ink-500">no email on file · {row.party_id}</span>}</td>
-                  <td className="px-3 py-2 text-ink-700">{row.first_name ?? '—'}</td>
-                  <td className="px-3 py-2 text-ink-700">{row.last_name ?? '—'}</td>
-                  <td className="cep-num px-3 py-2 text-right text-ink-700">{formatDate(row.added_at)}</td>
+                  <td className="px-3 py-2 font-medium text-ink-900">{row.email ?? <span className="font-normal text-ink-800">no email on file · {row.party_id}</span>}</td>
+                  <td className="px-3 py-2 text-ink-800">{row.first_name ?? '—'}</td>
+                  <td className="px-3 py-2 text-ink-800">{row.last_name ?? '—'}</td>
+                  <td className="cep-num px-3 py-2 text-right text-ink-800">{formatDate(row.added_at)}</td>
                   <td className="px-3 py-2"><Tag>{MEMBER_SOURCE[row.source] ?? titleize(row.source)}</Tag></td>
                   <td className="px-3 py-2">
                     {row.email_status_label && (
@@ -317,11 +317,11 @@ export function ContactListDetailPage() {
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-500">{members.isPending ? 'Loading contacts' : search.trim() || consent ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-ink-800">{members.isPending ? 'Loading contacts' : search.trim() || consent ? 'No contact matches this search.' : 'Nobody is in this list yet.'}</td></tr>
               )}
             </tbody>
           </table>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-3 py-2 text-sm text-ink-500">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-3 py-2 text-sm text-ink-800">
             <span className="cep-num">Showing {formatNumber(rows.length)} of {formatNumber(total)}</span>
             <span className="flex flex-wrap items-center gap-2">
               {pages > 1 && (
@@ -363,7 +363,7 @@ export function ContactListDetailPage() {
             </>
           }
         >
-          <p className="text-sm text-ink-700">
+          <p className="text-sm text-ink-800">
             {formatNumber(selected.length)} contact{selected.length === 1 ? '' : 's'} leave{selected.length === 1 ? 's' : ''} “{data.name}”. They stay in CEP and in every other list.
             {followsAudience && ' Someone who still qualifies for the audience comes back at the next refresh.'}
           </p>

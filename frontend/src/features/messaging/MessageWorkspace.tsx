@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ArrowLeft, X } from 'lucide-react'
-import { buttonPrimary, buttonSecondary } from '@/components/Form'
+import { buttonPrimary } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
@@ -208,7 +208,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
     }
   }
 
-  const counterTone = tooLong ? 'text-danger-text' : metrics.segments > 3 ? 'text-warning-text' : 'text-ink-700'
+  const counterTone = tooLong ? 'text-danger-text' : metrics.segments > 3 ? 'text-warning-text' : 'text-ink-800'
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -220,16 +220,17 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates
           </Link>
           <h1 className="min-w-0 truncate text-base font-semibold text-ink-900">{templateName}</h1>
-          <span className="rounded-md bg-line-subtle px-1.5 py-0.5 text-xs font-medium text-ink-700">{channel}</span>
+          <span className="rounded-md bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{channel}</span>
           <StatusBadge status={currentStatus} />
-          <span className="text-xs text-ink-500">
+          <span className="text-xs text-ink-800">
             {saved.shown === 0 ? 'Not saved yet' : `Version ${saved.shown}${saved.shown !== saved.version ? ` of ${saved.version}` : ''}`}
             {dirty ? ' · unsaved changes' : ''}
           </span>
+          {/* the editors keep their solid blue secondary (approved exact copy), so History, Make Active, Choose from Library and Upload use the primary look */}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button type="button" className={buttonSecondary} aria-pressed={showHistory} onClick={() => void toggleHistory()}>History</button>
+            <button type="button" className={buttonPrimary} aria-pressed={showHistory} onClick={() => void toggleHistory()}>History</button>
             {backend.activate && currentStatus === 'DRAFT' && !readOnly && (
-              <button type="button" className={buttonSecondary} disabled={dirty || saved.version === 0 || busy !== null} title={dirty ? 'Save first' : undefined} onClick={() => void activate()}>
+              <button type="button" className={buttonPrimary} disabled={dirty || saved.version === 0 || busy !== null} title={dirty ? 'Save first' : undefined} onClick={() => void activate()}>
                 {busy === 'activate' && <Spinner size="sm" />} Activate
               </button>
             )}
@@ -257,20 +258,20 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         <section className="min-w-0 space-y-5">
           {isMms && (
             <div className="rounded-lg border border-line bg-surface p-5">
-              <label htmlFor="mms-subject" className="block text-sm font-medium text-ink-700">Subject <span className="font-normal text-ink-500">(optional, shown by some phones)</span></label>
+              <label htmlFor="mms-subject" className="block text-sm font-medium text-ink-800">Subject <span className="font-normal text-ink-800">(optional, shown by some phones)</span></label>
               <input id="mms-subject" value={subject} maxLength={80} disabled={readOnly} onChange={(event) => setSubject(event.target.value)}
-                className={`mt-1 h-10 w-full rounded-sm border bg-surface px-3 text-sm ${fieldErrors.subject_line ? 'border-danger' : 'border-line'}`} />
+                className={`mt-1 h-10 w-full rounded-sm border bg-surface px-3 text-sm ${fieldErrors.subject_line ? 'border-danger' : 'border-line-control'}`} />
             </div>
           )}
 
           <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label htmlFor="sms-body" className="text-sm font-medium text-ink-700">Message</label>
+              <label htmlFor="sms-body" className="text-sm font-medium text-ink-800">Message</label>
               {!readOnly && (
                 <span className="flex items-center gap-2">
                   {tagGroups.length > 0 && (
                     <select aria-label="Insert Personalization Tag" value="" onChange={(event) => event.target.value && insertAtCaret(event.target.value)}
-                      className="h-8 rounded-control-md border border-line bg-surface px-2 text-sm text-ink-900">
+                      className="h-8 rounded-control-md border border-line-control bg-surface px-2 text-sm text-ink-900">
                       <option value="">{'{{ }}'} Insert Tag</option>
                       {tagGroups.map((group) => (
                         <optgroup key={group.kind} label={group.label}>
@@ -287,13 +288,13 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               aria-invalid={Boolean(fieldErrors.sms_body) || tooLong || undefined} aria-describedby="sms-counter"
               onChange={(event) => { setBody(event.target.value); setFieldErrors((current) => ({ ...current, sms_body: '' })) }}
               placeholder="Northwind: Hi {{first_name}}, ... Reply STOP to opt out."
-              className={`mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line'}`} />
+              className={`mt-2 w-full rounded-sm border bg-surface px-3 py-2.5 text-sm leading-6 text-ink-900 ${fieldErrors.sms_body || tooLong ? 'border-danger' : 'border-line-control'}`} />
             <div id="sms-counter" aria-live="polite" className={`mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${counterTone}`}>
               <span className="font-medium tabular-nums">{metrics.units} characters</span>
               <span className="tabular-nums">{metrics.segments} part{metrics.segments === 1 ? '' : 's'} · {metrics.perSegment} per part</span>
-              <span className="tabular-nums text-ink-500">{metrics.remaining} left in this part</span>
-              <span className="rounded-md bg-line-subtle px-1.5 py-0.5 text-xs font-medium text-ink-700">{metrics.encoding}</span>
-              {used.length > 0 && <span className="text-xs text-ink-500">estimated with sample values; real lengths vary per recipient</span>}
+              <span className="tabular-nums text-ink-800">{metrics.remaining} left in this part</span>
+              <span className="rounded-md bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{metrics.encoding}</span>
+              {used.length > 0 && <span className="text-xs text-ink-800">estimated with sample values; real lengths vary per recipient</span>}
             </div>
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}
@@ -302,7 +303,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                 <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => setBody(plainPunctuation(body))}>
                   Use Plain Punctuation
                 </button>
-                <p className="text-helper text-ink-500">Swaps curly quotes, long dashes and ellipses for plain ones, so the text stays in the standard SMS alphabet.</p>
+                <p className="text-helper text-ink-800">Swaps curly quotes, long dashes and ellipses for plain ones, so the text stays in the standard SMS alphabet.</p>
               </div>
             )}
           </div>
@@ -310,35 +311,35 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
           {isMms && (
             <div className="rounded-lg border border-line bg-surface p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-medium text-ink-700">Picture</h2>
+                <h2 className="text-sm font-medium text-ink-800">Picture</h2>
                 {!readOnly && (
                   <div className="flex gap-2">
-                    <button type="button" className={buttonSecondary} onClick={() => setPickerOpen(!pickerOpen)} aria-expanded={pickerOpen}>Choose from Library</button>
-                    <button type="button" className={buttonSecondary} disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
+                    <button type="button" className={buttonPrimary} onClick={() => setPickerOpen(!pickerOpen)} aria-expanded={pickerOpen}>Choose from Library</button>
+                    <button type="button" className={buttonPrimary} disabled={busy === 'upload'} onClick={() => fileInput.current?.click()}>
                       {busy === 'upload' && <Spinner size="sm" />} Upload
                     </button>
                     <input ref={fileInput} type="file" accept={MMS_TYPES.join(',')} className="sr-only" aria-label="Upload a Picture" onChange={(event) => void upload(event.target.files?.[0])} />
                   </div>
                 )}
               </div>
-              <p className="mt-1 text-xs text-ink-500">JPEG, PNG or GIF, up to 1 MB. Under 600 KB is delivered reliably by every carrier.</p>
+              <p className="mt-1 text-xs text-ink-800">JPEG, PNG or GIF, up to 1 MB. Under 600 KB is delivered reliably by every carrier.</p>
               {fieldErrors.media_asset && <p className="mt-2 text-xs font-medium text-danger-text">{fieldErrors.media_asset}</p>}
               {media ? (
                 <div className="mt-3 flex items-center gap-3 rounded-lg border border-line p-2.5">
                   <img src={media.url} alt="" className="h-16 w-16 rounded-md object-cover" />
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="truncate font-medium text-ink-900">{media.file_name}</p>
-                    <p className="text-xs text-ink-500">{kb(media.byte_size)}{media.width_px ? ` · ${media.width_px} × ${media.height_px}` : ''}</p>
+                    <p className="text-xs text-ink-800">{kb(media.byte_size)}{media.width_px ? ` · ${media.width_px} × ${media.height_px}` : ''}</p>
                   </div>
                   {!readOnly && <button type="button" className={buttonClass({ variant: 'danger', size: 'sm' })} onClick={() => setMedia(null)}>Remove</button>}
                 </div>
               ) : (
-                <p className="mt-3 rounded-lg border border-dashed border-ink-300 px-4 py-6 text-center text-sm text-ink-500">No picture attached.</p>
+                <p className="mt-3 rounded-lg border border-dashed border-ink-300 px-4 py-6 text-center text-sm text-ink-800">No picture attached.</p>
               )}
               {pickerOpen && (
                 <div className="mt-3">
                   {usableImages.length === 0 ? (
-                    <p className="text-sm text-ink-500">No suitable pictures in the library yet. Upload one.</p>
+                    <p className="text-sm text-ink-800">No suitable pictures in the library yet. Upload one.</p>
                   ) : (
                     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                       {usableImages.map((asset) => (
@@ -367,17 +368,17 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
           {showHistory && (
             <div className="rounded-lg border border-line bg-surface p-5">
               <h2 className="text-sm font-semibold text-ink-900">Version History</h2>
-              <p className="mt-1 text-xs text-ink-500">Every save is a new version. Loading an old one never deletes anything: saving it creates the next version.</p>
+              <p className="mt-1 text-xs text-ink-800">Every save is a new version. Loading an old one never deletes anything: saving it creates the next version.</p>
               {versions === null ? (
-                <p className="mt-3 flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+                <p className="mt-3 flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
               ) : versions.length === 0 ? (
-                <p className="mt-3 text-sm text-ink-500">Nothing saved yet.</p>
+                <p className="mt-3 text-sm text-ink-800">Nothing saved yet.</p>
               ) : (
                 <ul className="mt-3 divide-y divide-line">
                   {versions.map((version) => (
                     <li key={version.version_number} className="flex items-center justify-between gap-3 py-2 text-sm">
                       <span><span className="font-medium text-ink-900">Version {version.version_number}</span>
-                        <span className="ml-2 text-xs text-ink-500">{formatDateTime(version.saved_at)}{version.saved_by ? ` · ${version.saved_by}` : ''}</span></span>
+                        <span className="ml-2 text-xs text-ink-800">{formatDateTime(version.saved_at)}{version.saved_by ? ` · ${version.saved_by}` : ''}</span></span>
                       <button type="button" disabled={busy !== null || version.version_number === saved.shown} onClick={() => void loadVersion(version.version_number)}
                         className={buttonClass({ variant: 'link', size: 'sm' })}>
                         {version.version_number === saved.shown ? 'Open' : 'Load'}
@@ -393,14 +394,14 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
         <aside aria-label="Preview" className="lg:sticky lg:top-6 lg:self-start">
           <PhoneFrame sender={senderName}>
             {isMms && media && <img src={media.url} alt="Attached picture" className="max-h-56 w-auto max-w-[85%] rounded-lg rounded-bl-md object-cover" />}
-            {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-700">{subject}</p>}
+            {isMms && subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-800">{subject}</p>}
             {sample.trim() ? (
               <p data-testid="sms-preview" className={BUBBLE}>{sample}</p>
             ) : (
-              <p className="px-2 pt-10 text-center text-xs text-ink-500">Your message appears here as one recipient would see it.</p>
+              <p className="px-2 pt-10 text-center text-xs text-ink-800">Your message appears here as one recipient would see it.</p>
             )}
           </PhoneFrame>
-          <p className="mx-auto mt-2 max-w-[320px] text-center text-xs text-ink-500">Tags show their sample values.</p>
+          <p className="mx-auto mt-2 max-w-[320px] text-center text-xs text-ink-800">Tags show their sample values.</p>
         </aside>
       </div>
     </div>

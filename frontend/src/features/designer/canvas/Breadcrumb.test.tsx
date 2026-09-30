@@ -38,7 +38,7 @@ test('clicking an ancestor selects it', async () => {
 
 test('nothing selected says so, quietly', () => {
   render(<Breadcrumb crumbs={[]} onSelect={vi.fn()} />)
-  expect(screen.getByText(NOTHING_SELECTED).className).toContain('text-ink-500')
+  expect(screen.getByText(NOTHING_SELECTED).className).toContain('text-ink-800')
   expect(screen.queryAllByRole('button')).toHaveLength(0)
 })
 

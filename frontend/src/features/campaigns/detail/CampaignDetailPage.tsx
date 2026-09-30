@@ -64,7 +64,7 @@ function MainButton({ main, disabled, onAction }: { main: CampaignMainAction; di
   return (
     <div className="flex flex-col items-start gap-1 sm:items-end">
       {button}
-      <span className="text-xs text-ink-500">{main.hint}</span>
+      <span className="text-xs text-ink-800">{main.hint}</span>
     </div>
   )
 }
@@ -101,7 +101,7 @@ export function CampaignDetailPage() {
     if (misplaced) setParams((current) => { current.delete('tab'); return current }, { replace: true })
   }, [misplaced, setParams])
 
-  if (campaign.isPending) return <p className="flex items-center gap-3 text-sm text-ink-500"><Spinner /> Loading campaign</p>
+  if (campaign.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading campaign</p>
   if (campaign.isError) return <ErrorState error={campaign.error} onRetry={() => void campaign.refetch()} />
 
   const data = campaign.data
@@ -157,7 +157,7 @@ export function CampaignDetailPage() {
             {journey ? <Tag icon={Workflow}>Journey</Tag> : <Tag icon={Hand}>Manual</Tag>}
             {data.code && <CopyId code={data.code} look="chip" />}
           </div>
-          {data.description && <p className="max-w-2xl text-sm text-ink-500">{data.description}</p>}
+          {data.description && <p className="max-w-2xl text-sm text-ink-800">{data.description}</p>}
         </div>
         <div className="flex flex-wrap items-start gap-3">
           {main && <MainButton main={main} disabled={act.isPending} onAction={run} />}
@@ -170,7 +170,7 @@ export function CampaignDetailPage() {
               {moreOpen && (
                 <Popover label="More Actions" width={220} placement="bottom-end" {...menus.panelProps('more')}>
                   {menu.map((item) => (
-                    <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-700" />} onClick={() => pick(item)} />
+                    <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => pick(item)} />
                   ))}
                 </Popover>
               )}
@@ -239,7 +239,7 @@ export function CampaignDetailPage() {
             </>
           }
         >
-          <p className="text-sm text-ink-700">{CONFIRM[confirming]!.text(data)}</p>
+          <p className="text-sm text-ink-800">{CONFIRM[confirming]!.text(data)}</p>
           {act.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-text">{problemText(act.error)}</p>}
         </Modal>
       )}

@@ -78,13 +78,13 @@ function LockedChoice({ label, choice }: { label: string; choice: { title: strin
       <p className="text-sm font-semibold text-ink-900">{label}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle p-4 sm:min-w-60" data-locked={label}>
-          <span aria-hidden className="shrink-0 text-ink-700">{choice?.icon}</span>
+          <span aria-hidden className="shrink-0 text-ink-800">{choice?.icon}</span>
           <span className="flex min-w-0 flex-col gap-1">
             <span className="text-sm font-semibold text-ink-900">{choice?.title ?? 'Not set'}</span>
-            <span className="text-helper text-ink-500">{choice?.text}</span>
+            <span className="text-helper text-ink-800">{choice?.text}</span>
           </span>
         </div>
-        <span className="flex items-center gap-1.5 text-helper text-ink-500"><Lock size={16} strokeWidth={1.5} aria-hidden />Fixed Once Content Is Chosen</span>
+        <span className="flex items-center gap-1.5 text-helper text-ink-800"><Lock size={16} strokeWidth={1.5} aria-hidden />Fixed Once Content Is Chosen</span>
       </div>
     </div>
   )
@@ -329,7 +329,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               <button type="button" aria-expanded={moreOpen} aria-controls={`${titleId}-more`} onClick={() => setMoreOpen(!moreOpen)}
                 className="flex items-center gap-2 rounded-control-sm text-sm font-semibold text-ink-900">
                 {moreOpen ? <ChevronDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.5} aria-hidden />}
-                More Details <span className="font-normal text-ink-500">(Optional)</span>
+                More Details <span className="font-normal text-ink-800">(Optional)</span>
               </button>
               {moreOpen && (
                 <div id={`${titleId}-more`} className="mt-4 flex flex-col gap-6">
@@ -340,7 +340,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
                   </div>
                   <div data-field="description">
                     <Field label="Description" strong error={errors.description?.message}
-                      labelEnd={<span className="cep-num text-helper text-ink-500">{formatNumber(description.length)} / 2,000</span>}>
+                      labelEnd={<span className="cep-num text-helper text-ink-800">{formatNumber(description.length)} / 2,000</span>}>
                       {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={2000} placeholder="What this campaign is for and who it's aimed at" />}
                     </Field>
                   </div>

@@ -16,22 +16,22 @@ const LIST_KIND: Record<string, string> = { STATIC: 'Static List', DYNAMIC: 'Dyn
 export function Detail({ label, ...detail }: { label: string } & DetailState) {
   return (
     <div className="flex flex-col gap-1" data-detail={label}>
-      <span className="text-helper font-semibold text-ink-500">{label}</span>
+      <span className="text-helper font-semibold text-ink-800">{label}</span>
       {detail.state === 'loading' ? <SkeletonLine width={detail.width} />
       : detail.state === 'error' ? (
-        <span className="flex flex-wrap items-center gap-2 text-helper text-ink-500">
+        <span className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
           Couldn’t load this
           <button type="button" onClick={detail.onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
         </span>
       ) : detail.state === 'missing' ? (
         <>
-          <span className="text-card-title text-ink-500">{detail.text ?? 'Not set yet'}</span>
-          {detail.hint && <span className="text-helper text-ink-500">{detail.hint}</span>}
+          <span className="text-card-title text-ink-800">{detail.text ?? 'Not set yet'}</span>
+          {detail.hint && <span className="text-helper text-ink-800">{detail.hint}</span>}
         </>
       ) : (
         <>
           <span className="cep-num text-card-title break-words text-ink-900">{detail.value}</span>
-          {detail.secondary && <span className="cep-num text-helper break-words text-ink-500">{detail.secondary}</span>}
+          {detail.secondary && <span className="cep-num text-helper break-words text-ink-800">{detail.secondary}</span>}
         </>
       )}
     </div>
@@ -58,7 +58,7 @@ export function CampaignPreviewDetails({ campaign, channel, content, tags }: Det
     <div aria-busy={details.loading || undefined} className="flex flex-col gap-[18px]">
       {journey && (
         <div className="flex flex-col gap-2 border-b border-line-subtle pb-[18px]">
-          <span className="flex items-center gap-2 text-helper text-ink-500"><Workflow size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />Journey-Generated · Read Only</span>
+          <span className="flex items-center gap-2 text-helper text-ink-800"><Workflow size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />Journey-Generated · Read Only</span>
           <a href="/journeys" target="_blank" rel="noreferrer" aria-label="View Journey (opens in a new tab)"
             className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-brand-600 hover:underline">
             View Journey

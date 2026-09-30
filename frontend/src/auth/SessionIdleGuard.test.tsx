@@ -8,8 +8,12 @@
  * Fake timers are installed only after that import settles, and every wait uses advanceTimersByTimeAsync, which
  * flushes the mocked fetch's promise chain between ticks — plain findBy/waitFor poll with a real setTimeout and
  * would otherwise never see anything the fake clock hasn't been told to move past.
+ *
+ * Every advance runs inside act(): the guard's interval fires outside React's event handling, so without act the
+ * re-render it causes (the warning, the sign-out, the login page) is left to React's real-time scheduler, and whether it
+ * had happened by the next check depended on machine load.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { installMockApi, makeCampaign, signIn } from '@/test/mockApi'
@@ -22,6 +26,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
+
+/** moves the fake clock and lets React finish whatever that set off before the test looks */
+const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms))
 
 /**
  * 1 minute idle, a 3-second warning: short enough to drive with fake timers, long enough to exercise the "at least a
@@ -36,18 +43,18 @@ async function renderSignedIn() {
   const { default: App } = await import('../App')
   vi.useFakeTimers()
   render(<App />)
-  await vi.advanceTimersByTimeAsync(50) // lets the mocked GET /me/ (a resolved promise, no real delay) settle and the shell render
-  expect(screen.getByRole('heading', { name: 'Welcome back, Aby' })).toBeTruthy()
+  await tick(50) // lets the mocked GET /me/ (a resolved promise, no real delay) settle and the shell render
+  expect(screen.getByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
 }
 
 test('idle warning: appears after the configured idle time, counts down, and "Stay signed in" clears it without signing out', async () => {
   await renderSignedIn()
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
 
-  await vi.advanceTimersByTimeAsync(60_000) // the 1-minute idle timeout
+  await tick(60_000) // the 1-minute idle timeout
   expect(screen.getByRole('dialog', { name: 'Still there?' }).textContent).toContain('3 seconds')
 
-  await vi.advanceTimersByTimeAsync(1_000)
+  await tick(1_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' }).textContent).toContain('2 seconds')
 
   fireEvent.click(screen.getByRole('button', { name: 'Stay Signed In' }))
@@ -55,17 +62,17 @@ test('idle warning: appears after the configured idle time, counts down, and "St
   expect(window.localStorage.getItem('cep.access')).toBe('access-1') // still signed in
 
   // and the clock was genuinely reset, not just the dialog hidden: another 59s must not bring it back
-  await vi.advanceTimersByTimeAsync(59_000)
+  await tick(59_000)
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
 })
 
 test('idle warning: no response before it runs out signs the person out and the login page explains why', async () => {
   await renderSignedIn()
-  await vi.advanceTimersByTimeAsync(60_000)
+  await tick(60_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy()
 
-  await vi.advanceTimersByTimeAsync(3_000) // the whole warning window, untouched
-  await vi.advanceTimersByTimeAsync(50) // settles the sign-out -> redirect -> login-page render chain
+  await tick(3_000) // the whole warning window, untouched
+  await tick(50) // settles the sign-out -> redirect -> login-page render chain
 
   expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
   expect(screen.getByRole('status').textContent).toContain('signed out after some time without activity')
@@ -74,39 +81,39 @@ test('idle warning: no response before it runs out signs the person out and the 
 
 test('idle warning: "Sign out now" ends the session immediately, without waiting out the countdown', async () => {
   await renderSignedIn()
-  await vi.advanceTimersByTimeAsync(60_000)
+  await tick(60_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy()
 
   fireEvent.click(screen.getByRole('button', { name: 'Sign Out Now' }))
-  await vi.advanceTimersByTimeAsync(50)
+  await tick(50)
   expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
 })
 
 test('idle warning: activity recorded in another tab (the shared timestamp) stands a warning down in this one', async () => {
   await renderSignedIn()
-  await vi.advanceTimersByTimeAsync(60_000)
+  await tick(60_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy()
 
   // a real cross-tab "storage" event never fires on the tab that wrote it, so this fakes the OTHER tab's write reaching this one
   const at = String(Date.now())
   window.localStorage.setItem('cep.lastActivity', at)
   window.dispatchEvent(new StorageEvent('storage', { key: 'cep.lastActivity', newValue: at }))
-  await vi.advanceTimersByTimeAsync(0) // the resulting state update is not routed through testing-library, so it needs an explicit flush
+  await tick(0) // the resulting state update is not routed through testing-library, so it needs an explicit flush
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
 })
 
 test('a resting pointer over the page while the warning is up does not silently cancel the sign-out', async () => {
   await renderSignedIn()
-  await vi.advanceTimersByTimeAsync(60_000)
+  await tick(60_000)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy()
 
   // a raw mousedown reaching window, not one of the dialog's own buttons: ordinary page activity, not "I am still here"
   // (dispatched directly rather than through userEvent.click, which needs real timer advancement this fake-timer setup does not provide)
   window.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-  await vi.advanceTimersByTimeAsync(0)
+  await tick(0)
   expect(screen.getByRole('dialog', { name: 'Still there?' })).toBeTruthy() // still up: that mousedown did not reset the clock
 
-  await vi.advanceTimersByTimeAsync(3_000)
-  await vi.advanceTimersByTimeAsync(50) // settles the sign-out -> redirect -> login-page render chain
+  await tick(3_000)
+  await tick(50) // settles the sign-out -> redirect -> login-page render chain
   expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
 })

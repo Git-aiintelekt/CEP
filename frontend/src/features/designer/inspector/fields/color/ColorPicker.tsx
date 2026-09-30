@@ -164,7 +164,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
     >
       {SWATCH_GROUPS.map((group, groupIndex) => (
         <div key={group.id} className={groupIndex === 0 ? '' : 'mt-2'}>
-          <p className="mb-1 text-xs text-ink-500">{group.label}</p>
+          <p className="mb-1 text-xs text-ink-800">{group.label}</p>
           <div className="grid grid-cols-8 gap-1">
             {group.swatches.map((swatch, index) => (
               <button
@@ -263,12 +263,12 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
             commitHex()
           }}
           onBlur={commitHex}
-          className={`cep-num h-8 min-w-0 flex-1 rounded-sm border px-2 text-sm text-ink-900 transition-colors duration-base ease-standard focus-visible:border-brand-600 ${hexError === null ? 'border-line' : 'border-danger'}`}
+          className={`cep-num h-8 min-w-0 flex-1 rounded-sm border px-2 text-sm text-ink-900 transition-colors duration-base ease-standard focus-visible:border-brand-600 ${hexError === null ? 'border-line-control' : 'border-danger'}`}
         />
         <button
           type="button"
           onClick={() => onCommit(null)}
-          className="inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-medium text-brand-800 transition-colors duration-base ease-standard hover:bg-line-subtle"
+          className="inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-medium text-brand-800 transition-colors duration-base ease-standard hover:bg-fill-subtle"
         >
           {NO_COLOR_LABEL}
         </button>
@@ -279,7 +279,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
 
       {recent.length > 0 ?
         <div className="mt-3">
-          <p className="mb-1 text-xs text-ink-500">{RECENT_LABEL}</p>
+          <p className="mb-1 text-xs text-ink-800">{RECENT_LABEL}</p>
           <div className="flex gap-1">
             {recent.slice(0, RECENT_LIMIT).map((item) => (
               <button
