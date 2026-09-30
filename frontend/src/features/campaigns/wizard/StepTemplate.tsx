@@ -49,7 +49,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
     refetchOnWindowFocus: true,                         // a sender added in the other tab (New Sender) is here on return
   })
 
-  const fit = isReceipt ? ['E_RECEIPT'] : (TEMPLATE_FIT[channel] ?? [])
+  const fit = isReceipt ? (channel === 'SMS' || channel === 'MMS' ? [channel] : ['E_RECEIPT']) : (TEMPLATE_FIT[channel] ?? [])     // a text receipt uses a message template
   const usable = (templates.data?.results ?? []).filter((item) => item.status !== 'ARCHIVED' && fit.includes(item.channel))
   const shown = usable.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))
   const picked = (templates.data?.results ?? []).find((item) => item.id === chosen)

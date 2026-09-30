@@ -97,11 +97,13 @@ test('message purpose waits for a type, fills in from it, and keeps a purpose th
   expect(purpose().value).toBe('LEGAL')                                                              // the user's choice stays
 })
 
-test('E-Receipt hides the channel, fills in Transactional, and creates an email campaign that opens at Content', async () => {
+test('E-Receipt offers Email or SMS as its channel (email by default), fills in Transactional, and creates an email campaign that opens at Content', async () => {
   const { user, calls } = await openCreate()
   await user.type(within(dialog()).getByLabelText(/^Campaign Name/), 'Store receipts')
   await user.click(radio('Campaign Type', /E-Receipt/))
-  expect(within(dialog()).queryByRole('radiogroup', { name: 'Channel' })).toBeNull()
+  const channels = within(within(dialog()).getByRole('radiogroup', { name: 'Channel' })).getAllByRole('radio')
+  expect(channels.length).toBe(2)                                                                          // a receipt is an email or a text
+  expect(channels.map((item) => item.getAttribute('aria-checked'))).toEqual(['true', 'false'])
   expect((within(dialog()).getByLabelText(/^Message Purpose/) as HTMLSelectElement).value).toBe('TRANSACTIONAL')
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await screen.findByRole('heading', { level: 1, name: 'Content' })).toBeTruthy()
@@ -307,7 +309,7 @@ test('Edit Details before any content: type and channel still change; to E-Recei
   expect(within(box).queryByText('Fixed Once Content Is Chosen')).toBeNull()
   expect(within(box).getByRole('radiogroup', { name: 'Campaign Type' })).toBeTruthy()
   await user.click(within(within(box).getByRole('radiogroup', { name: 'Campaign Type' })).getByRole('radio', { name: /E-Receipt/ }))
-  expect(within(box).queryByRole('radiogroup', { name: 'Channel' })).toBeNull()
+  expect(within(within(box).getByRole('radiogroup', { name: 'Channel' })).getAllByRole('radio').length).toBe(2)          // email or text
   expect((within(box).getByLabelText(/^Message Purpose/) as HTMLSelectElement).value).toBe('TRANSACTIONAL')   // re-filled: the user hadn't changed it
   await user.click(within(box).getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

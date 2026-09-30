@@ -30,8 +30,13 @@ test('POS Receipts: what to tell the point of sale, the campaign choice as one P
   expect(screen.getByText('https://cep.example.com/api/v1/pos/transactions/')).toBeTruthy()
   expect(screen.getByText(/X-Tenant-Key: NWA/)).toBeTruthy()
 
-  await user.selectOptions(screen.getByLabelText(/Sales and Everything Else/), 'c-receipt')
+  await user.selectOptions(screen.getByLabelText(/^Email Receipt/), 'c-receipt')
   await vi.waitFor(() => expect(calls.filter((call) => call.method === 'PUT' && call.url.endsWith('/workspace/pos/')).at(-1)?.body).toEqual({ campaign: 'c-receipt' }))
+  const textSelect = screen.getByLabelText(/^Text Receipt/) as HTMLSelectElement
+  expect([...textSelect.options].map((o) => o.textContent)).toEqual(['The one published text campaign', 'Text Receipt'])          // only SMS-channel campaigns
+  expect([...(screen.getByLabelText(/^Email Receipt/) as HTMLSelectElement).options].some((o) => o.textContent === 'Text Receipt')).toBe(false)
+  await user.selectOptions(textSelect, 'c-receipt-text')
+  await vi.waitFor(() => expect(calls.filter((call) => call.method === 'PUT' && call.url.endsWith('/workspace/pos/')).at(-1)?.body).toEqual({ text_campaign: 'c-receipt-text' }))
 
   const stores = await screen.findByRole('table', { name: 'Stores' })
   expect(within(stores).getByText('801 · Northwind Apparel Buckhead')).toBeTruthy()
