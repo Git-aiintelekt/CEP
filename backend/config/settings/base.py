@@ -21,7 +21,7 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 DOMAIN_APPS = [
     "apps.tenants", "apps.identity", "apps.customers", "apps.contact_lists", "apps.templates", "apps.campaigns",
     "apps.journeys", "apps.governance", "apps.delivery", "apps.media", "apps.reporting", "apps.audit",
-    "apps.integrations", "apps.tracking", "apps.scoring", "apps.platform_ops",
+    "apps.integrations", "apps.tracking", "apps.scoring", "apps.platform_ops", "apps.pos",
     "apps.database",                                    # owns the RunSQL migration that applies the DDL
 ]
 INSTALLED_APPS = [

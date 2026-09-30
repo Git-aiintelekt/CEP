@@ -97,7 +97,9 @@ one module each behind one interface). Providers report back to a per-provider c
 block the address, the unsubscribe link in every marketing email records the opt-out (and, once a workspace switches on
 its **preference centre** under Settings, `{{preference_url}}` opens a page where the person chooses channels and topics;
 docs/WORKSPACE_TOOLS.md §5), and the campaign page shows the results live. Tenants manage their engines and senders under **Settings → Sending engines**. E-receipts are sent one at a time by the point of
-sale or web shop through `POST /api/v1/receipts/send/` (API key scope `receipts:send`, idempotent on the receipt number, PDF attachments).
+sale or web shop through `POST /api/v1/receipts/send/` (API key scope `receipts:send`, idempotent on the receipt number, PDF attachments), or as a
+TransactionTree TTDR 3.2.2 XML transaction through `POST /api/v1/pos/transactions/` (docs/POS_ERECEIPTS.md: the store list, the transaction tags,
+the XML answers, the trail of what was received — nothing about the transaction or the customer is stored).
 **SMS and MMS** run through the same engine (consent and STOP handling per number, quiet hours for marketing texts, message parts, delivery
 receipts, replies on the campaign page). A sandbox text engine that sends nothing is installed; the Digivize adapter is a skeleton
 waiting for its API specification.

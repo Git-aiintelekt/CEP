@@ -1386,6 +1386,70 @@ export interface ProviderMessageStatus {
   deliveries: { at: string | null; status: string | null; details: string | null; output: string | null; sent_with_ssl: boolean | null; time: number | null }[]
 }
 
+/** a store of the workspace, by the number the point of sale sends (GET /stores/) */
+export interface Store {
+  id: string
+  store_number: string
+  name: string
+  brand: string | null
+  address1: string | null
+  address2: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  country: string | null
+  district: string | null
+  phone: string | null
+  email: string | null
+  manager: string | null
+  return_policy: string | null
+  url1: string | null
+  url2: string | null
+  url3: string | null
+  url4: string | null
+  image_url: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type StoreInput = Omit<Store, 'id' | 'created_at' | 'updated_at'>
+
+/** Settings → POS Receipts (GET/PUT /workspace/pos/) */
+export interface PosSettings {
+  campaign: string | null
+  return_campaign: string | null
+  endpoint: string
+  tenant_key: string
+  headers: string[]
+  scope: string
+  campaigns: { id: string; name: string; code: string | null; status: string; ready: boolean }[]
+  stores: number
+}
+
+/** one transaction the point of sale posted, as the integration log kept it (GET /workspace/pos/received/) */
+export interface PosReceived {
+  id: number
+  at: string
+  transaction_id: string | null
+  code: string | null
+  code_label: string | null
+  message: string | null
+  http_status: number | null
+  outcome: string
+  execution_id: number | null
+  message_id: string | null
+  bytes: number
+  duration_ms: number | null
+}
+
+export interface PosReceivedPage {
+  results: PosReceived[]
+  more: boolean
+  next_before: string | null
+  days: number
+}
+
 export interface CampaignSuppressions extends SuppressionPage {
   summary: SuppressionSummary
 }

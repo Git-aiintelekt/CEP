@@ -2,8 +2,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, preferences_api, preferences_public, recipients_api,
-               reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
+from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, pos_api, preferences_api, preferences_public,
+               recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -19,6 +19,7 @@ router.register("templates", views.TemplateViewSet, basename="template")
 router.register("personalization-tags", views.PersonalizationTagViewSet, basename="personalization-tag")
 router.register("journeys", views.JourneyViewSet, basename="journey")
 router.register("subscription-topics", preferences_api.SubscriptionTopicViewSet, basename="subscription-topic")
+router.register("stores", pos_api.StoreViewSet, basename="store")
 # tenant self-administration (permission user.admin)
 router.register("users", settings_api.UserViewSet, basename="user")
 router.register("roles", settings_api.RoleViewSet, basename="role")
@@ -58,6 +59,10 @@ urlpatterns = [
     path("public/code/<str:token>.png", delivery_public.code_image_view, name="code-image"),
     path("codes/sample/", codes_api.CodeSampleView.as_view(), name="code-sample"),
     path("receipts/send/", delivery_api.ReceiptSendView.as_view(), name="receipt-send"),
+    path("pos/transactions/", pos_api.PosTransactionView.as_view(), name="pos-transactions"),
+    path("pos/sample/", pos_api.PosSampleView.as_view(), name="pos-sample"),
+    path("workspace/pos/", pos_api.PosSettingsView.as_view(), name="workspace-pos"),
+    path("workspace/pos/received/", pos_api.PosReceivedView.as_view(), name="workspace-pos-received"),
     path("integrations/", integrations_api.IntegrationListView.as_view(), name="integration-list"),
     path("integrations/log/", integrations_api.IntegrationLogListView.as_view(), name="integration-log"),
     path("integrations/log/<int:pk>/", integrations_api.IntegrationLogDetailView.as_view(), name="integration-log-detail"),

@@ -1,0 +1,3613 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- edited with XMLSpy v2026 (x64) (https://www.altova.com) by Jason Shapiro (Private) -->
+<xs:schema xmlns="https://www.transactiontree.com/framework/schema/vrg/3.2.2/TTDR3.2.2.xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="https://www.transactiontree.com/framework/schema/vrg/3.2.2/TTDR3.2.2.xsd" elementFormDefault="qualified" attributeFormDefault="qualified" version="3.2.2" xml:lang="en">
+	<xs:include schemaLocation="TTDRsimpleTypes-3.2.2.xsd"/>
+	<!-- TransactionTree Digital Receipt version Current Version 3.2.2 03/16/2021 UPDATED 2025-12-12 -->
+	<!-- Copyright 2025, TransactionTree, Inc. -->
+	<xs:element name="Transaction">
+		<xs:complexType>
+			<xs:all>
+				<xs:element name="TTDRVersion" type="xs:string" fixed="TTDRV322" nillable="false" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TTDRVersion element specifies the version of the TTDR schema being used. The current value is fixed to "TTDRV322" to indicate this specific version.</xs:documentation>
+						<xs:appinfo>This element is used to ensure compatibility and version control in the TransactionTree system.</xs:appinfo>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="ApplicationID" type="xs:string" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The ApplicationID element identifies the application that is sending this message. It is an optional field and can be used to track the source application.</xs:documentation>
+						<xs:appinfo>This element helps in identifying and managing messages from different applications within the TransactionTree system.</xs:appinfo>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="TransactionHistory" type="xs:string" default="N" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>Historical transaction indicatore (Y,N). Y when transaction was not generated in real time.  Added 9/27/2024</xs:documentation>
+						<xs:appinfo>This element helps in identifying historical transaction being processed by the TransactionTree system.</xs:appinfo>
+					</xs:annotation>
+				</xs:element>
+				<xs:element name="MerchantNumber" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The MerchantNumber element represents a unique identifier assigned by TransactionTree. It must be a numeric value consisting of 6 to 9 digits.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string">
+							<xs:minLength value="1"/>
+							<xs:maxLength value="9"/>
+							<xs:pattern value="[0-9]*"/>
+						</xs:restriction>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="TransactionDateTime" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The transaction date and time</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence minOccurs="1" maxOccurs="1">
+							<xs:element name="TransactionDate" type="xs:date" minOccurs="1">
+								<xs:annotation>
+									<xs:documentation>The TransactionDate element represents a date value in the format YYYY-MM-DD. This element is used to specify the date of the transaction in the TransactionTree system.</xs:documentation>
+									<xs:appinfo>This element is used to record the transaction date in the system.</xs:appinfo>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="TransactionTime" type="xs:time" minOccurs="1">
+								<xs:annotation>
+									<xs:documentation>The TransactionTime element represents a time value in the format hh:mm:ss. It can also include optional fractional seconds and an optional time zone offset.</xs:documentation>
+									<xs:appinfo>This element is used to specify the transaction time in the TransactionTree system.</xs:appinfo>
+								</xs:annotation>
+							</xs:element>
+							<!-- Optional Elements -->
+							<xs:element name="TransactionStart" type="xs:dateTime" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The date and time when the transaction began. Added 6/17/2025.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="TransactionEnd" type="xs:dateTime" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The date and time when the transaction was completed. Added 6/17/2025.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="ReceiptDateTime" type="xs:dateTime" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The date and time printed on the receipt. Added 6/17/2025.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="EntryType" default="PRINT" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The EntryType element specifies the method by which the message should be handled and delivered. This includes options such as printing, emailing, sending via SMS, pushing to an application, or combinations thereof. The default value is "PRINT".</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:NMTOKEN">
+							<xs:enumeration value="EMAIL">
+								<xs:annotation>
+									<xs:documentation>Message is only to be emailed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PRINT">
+								<xs:annotation>
+									<xs:documentation>Message is only to be printed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="BOTH">
+								<xs:annotation>
+									<xs:documentation>Message is only to be emailed and printed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="NOPRINT">
+								<xs:annotation>
+									<xs:documentation>Message is not to be printed or sent</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="NOPRINT_EMAIL">
+								<xs:annotation>
+									<xs:documentation>Message is only to be emailed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="SMS">
+								<xs:annotation>
+									<xs:documentation>Message is only to be sent via SMS</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="NOPRINT_SMS">
+								<xs:annotation>
+									<xs:documentation>Message is only to be sent via SMS</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PRINT_SMS">
+								<xs:annotation>
+									<xs:documentation>Message is to be sent via SMS and printed.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EMAIL_SMS">
+								<xs:annotation>
+									<xs:documentation>Message is to be sent via SMS and Email, but not printed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EMAIL_SMS_PRINT">
+								<xs:annotation>
+									<xs:documentation>Message is to be sent via SMS, Email, and printed.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PUSH">
+								<xs:annotation>
+									<xs:documentation>Message is only to be pushed to an application</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PUSH_PRINT">
+								<xs:annotation>
+									<xs:documentation>Message is to be pushed to application and printed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PUSH_EMAIL">
+								<xs:annotation>
+									<xs:documentation>Message is to be pushed to application and emailed, but not printed</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PUSH_BOTH">
+								<xs:annotation>
+									<xs:documentation>Message is to be pushed to application, printed, and emailed.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="ALL">
+								<xs:annotation>
+									<xs:documentation>Message is to be pushed to application, printed, emailed, and sent via sms.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="SMS_LINK">
+								<xs:annotation>
+									<xs:documentation>Send message to complete process.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="NONE">
+								<xs:annotation>
+									<xs:documentation>Do not send this message out only store the data.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="SMS_REGISTER">
+								<xs:annotation>
+									<xs:documentation>Send sms message to complete registration</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="SMS_UPDATE">
+								<xs:annotation>
+									<xs:documentation>Send sms message to update profile</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+						</xs:restriction>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="TransId" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TransId element is a string used to identify a unique transaction number or rental record associated with a transaction. It is optional and can be used to uniquely track and reference individual transactions within the system. The identifier must be alphanumeric and between 1 and 50 characters in length.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="OriginalTransId" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The OriginalTransId element is used to tie this transaction to a parent or prior transaction. All DetailedTransactionData below will be tied to this value. Use this element only if all items in this transaction are to be connected to the parent or prior transaction. The identifier must be a unique alphanumeric string and between 1 and 50 characters in length.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="FormId" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Simple string to identify form# associated with transaction</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="TransactionType" nillable="false" minOccurs="1" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TransactionType element specifies the type of transaction being processed. This element is required and must have one of the following enumerated values.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:NMTOKEN">
+							<xs:enumeration value="SaleTransaction">
+								<xs:annotation>
+									<xs:documentation>Normal sale</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="ReturnTransaction">
+								<xs:annotation>
+									<xs:documentation>Normal return</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="ExchangeTransaction">
+								<xs:annotation>
+									<xs:documentation>Normal Exchange</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EmployeeSale">
+								<xs:annotation>
+									<xs:documentation>Sale transaction where the person making the purchase is an employee</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EmployeeExchange">
+								<xs:annotation>
+									<xs:documentation>Exchange transaction where the person making the exchange is an employee</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EmployeeReturn">
+								<xs:annotation>
+									<xs:documentation>Return transaction where the person making the return is an employee</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="TaxExemptSale">
+								<xs:annotation>
+									<xs:documentation>Sale transaction that is tax-exempt</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="TaxExemptExchange">
+								<xs:annotation>
+									<xs:documentation>Exchange transaction that is tax-exempt</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="TaxExemptReturn">
+								<xs:annotation>
+									<xs:documentation>Return transaction that is tax-exempt</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Reprint">
+								<xs:annotation>
+									<xs:documentation>Reprint of a previous transaction receipt</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="REGISTER">
+								<xs:annotation>
+									<xs:documentation>Registration transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="WEBORDER">
+								<xs:annotation>
+									<xs:documentation>Transaction originating from a web order</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="MOBILE">
+								<xs:annotation>
+									<xs:documentation>Transaction originating from a mobile device</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PlatinumPrePrint">
+								<xs:annotation>
+									<xs:documentation>Pre-printing of a Platinum membership transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PlatinumComplete">
+								<xs:annotation>
+									<xs:documentation>Completion of a Platinum membership transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="GoldChoiceRent">
+								<xs:annotation>
+									<xs:documentation>Gold Choice rental transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="CustomerSatRecord">
+								<xs:annotation>
+									<xs:documentation>Customer satisfaction record transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="InstantReturn">
+								<xs:annotation>
+									<xs:documentation>Instant return transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="ManualRA">
+								<xs:annotation>
+									<xs:documentation>Manual rental agreement</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PostRent">
+								<xs:annotation>
+									<xs:documentation>Post-rent transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PostReturn">
+								<xs:annotation>
+									<xs:documentation>Post-return transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Return">
+								<xs:annotation>
+									<xs:documentation>Return transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="MobileReturn">
+								<xs:annotation>
+									<xs:documentation>Return transaction originating from a mobile device</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Rent">
+								<xs:annotation>
+									<xs:documentation>Rental transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="UpdateOptServices">
+								<xs:annotation>
+									<xs:documentation>Update of optional services</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="VehicleExchange">
+								<xs:annotation>
+									<xs:documentation>Vehicle exchange transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="GoldChoiceExit">
+								<xs:annotation>
+									<xs:documentation>Gold Choice exit transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="GoldService">
+								<xs:annotation>
+									<xs:documentation>Gold service transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="AddDriver">
+								<xs:annotation>
+									<xs:documentation>Addition of a driver to a rental agreement</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="CreditCheck">
+								<xs:annotation>
+									<xs:documentation>Credit check transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="LayAway">
+								<xs:annotation>
+									<xs:documentation>Layaway transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Voided">
+								<xs:annotation>
+									<xs:documentation>Voided transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="RemotePay">
+								<xs:annotation>
+									<xs:documentation>Remote payment transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="NonTransaction">
+								<xs:annotation>
+									<xs:documentation>Non-transactional activity</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="OrderNotification">
+								<xs:annotation>
+									<xs:documentation>Order notification transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="unknown">
+								<xs:annotation>
+									<xs:documentation>Unknown transaction type</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Delivery">
+								<xs:annotation>
+									<xs:documentation>Delivery transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="CurbsidePickup">
+								<xs:annotation>
+									<xs:documentation>Curbside pickup transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="InStorePickup">
+								<xs:annotation>
+									<xs:documentation>In-store pickup transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Update">
+								<xs:annotation>
+									<xs:documentation>Update transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="Sale">
+								<xs:annotation>
+									<xs:documentation>Sale transaction</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PostVoidSale">
+								<xs:annotation>
+									<xs:documentation>A sale that has been voided in full on the same day of the orginal transaction. Added on 11/11/2025.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PostVoidReturn">
+								<xs:annotation>
+									<xs:documentation>A return that has been voided in full on the same day of the orginal transaction. Added on 11/11/2025.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PettyCashOut">
+								<xs:annotation>
+									<xs:documentation>Petty cash disbursement (cash paid out of the drawer for non-sale purposes such as supplies, refunds without an originating sale, or till adjustments). Not a customer sale and should not be aggregated as revenue.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="PettyCashIn">
+								<xs:annotation>
+									<xs:documentation>Petty cash receipt (cash added to the drawer from a non-sale source such as a till loan, reimbursement, or cash pickup reversal). Not a customer sale and should not be aggregated as revenue.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="EmployeeLayAway">
+								<xs:annotation>
+									<xs:documentation>Layaway transaction where the person making the purchase is an employee.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="SuspendedTransaction">
+								<xs:annotation>
+									<xs:documentation>A transaction that has been suspended (parked/held) at the register and may be resumed or cancelled later. Not a completed customer sale and should not be aggregated as revenue.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="GiftCardCashOut">
+								<xs:annotation>
+									<xs:documentation>Gift card redeemed for cash — the customer surrenders a gift card and receives its remaining balance in cash. Not a customer sale and should not be aggregated as revenue.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+							<xs:enumeration value="GiftCardTransfer">
+								<xs:annotation>
+									<xs:documentation>Transfer of the remaining balance from one gift card to another (e.g., consolidating cards or reissuing onto a replacement card). Not a customer sale and should not be aggregated as revenue.</xs:documentation>
+								</xs:annotation>
+							</xs:enumeration>
+						</xs:restriction>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="TransactionQualifier" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TransactionQualifier element provides additional qualifiers for a transaction, indicating special conditions or statuses associated with it. These element is optional and may contain the following sub-elements.</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="IsEmployeeTransaction" type="xs:boolean" minOccurs="0" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Indicates whether the transaction is an employee purchase. A value of true means it is an employee transaction; false or omitted means it is not.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="IsSendTransaction" type="xs:boolean" minOccurs="0" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Indicates whether the transaction involves sending the items (e.g., shipping). A value of true means it is a send transaction; false or omitted means it is not.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="IsTaxExemptTransaction" type="xs:boolean" minOccurs="0" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Indicates whether the transaction is tax-exempt. A value of true means it is a tax-exempt transaction; false or omitted means it is not.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="TaxExemptCertificate" type="xs:string" minOccurs="0" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>The tax exempt certificate ID associated with the transaction. This element is optional and should be provided if the transaction is tax-exempt and a certificate ID is available.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+						</xs:all>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="TransactionLocation" minOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TransactionLocation element provides details about the location where the transaction occurred. This element is required and includes the following sub-elements.</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<!-- 1 to 9 digit numeric store number determined by retailer to identify origin store -->
+							<xs:element name="StoreNumber" minOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Unique location identifier from the sending application where the data is being generated. This identifier must be between 1 and 9 alphanumeric characters.</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="9"/>
+										<xs:pattern value="[A-Z0-9]*"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="LocationType" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:NMTOKEN">
+										<xs:enumeration value="purchasepickupLocation">
+											<xs:annotation>
+												<xs:documentation>Location where the purchase took place and items are picked up from.</xs:documentation>
+											</xs:annotation>
+										</xs:enumeration>
+										<xs:enumeration value="purchaseLocation">
+											<xs:annotation>
+												<xs:documentation>Location where the purchase took place only</xs:documentation>
+											</xs:annotation>
+										</xs:enumeration>
+										<xs:enumeration value="pickupLocation">
+											<xs:annotation>
+												<xs:documentation>Location where the items are to be picked up only</xs:documentation>
+											</xs:annotation>
+										</xs:enumeration>
+										<xs:enumeration value="otherLocation">
+											<xs:annotation>
+												<xs:documentation>Non-standard location.</xs:documentation>
+											</xs:annotation>
+										</xs:enumeration>
+										<xs:enumeration value="returnLocation">
+											<xs:annotation>
+												<xs:documentation>Location that return took place.</xs:documentation>
+											</xs:annotation>
+										</xs:enumeration>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="RegisterNumber">
+								<xs:annotation>
+									<xs:documentation>1 to 9 digit numeric register number determined by retailer to identify origin register</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="9"/>
+										<xs:pattern value="[A-Z0-9]*"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="RegisterType" minOccurs="1" default="POS">
+								<xs:annotation>
+									<xs:documentation>The RegisterType element represents different types of registers that can be used in a retail or transaction-based system. Predefined values are provided for common register types, but custom values are also allowed for extensibility.</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:union>
+										<xs:simpleType>
+											<xs:restriction base="xs:string">
+												<xs:enumeration value="POS">
+													<xs:annotation>
+														<xs:documentation>Point of Sale (POS) register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="SmartPOS">
+													<xs:annotation>
+														<xs:documentation>Smart POS with cloud or AI capabilities.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="CallCenterStation">
+													<xs:annotation>
+														<xs:documentation>Call center station.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Network">
+													<xs:annotation>
+														<xs:documentation>Network register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="ATM">
+													<xs:annotation>
+														<xs:documentation>Automated Teller Machine (ATM).</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Mobile">
+													<xs:annotation>
+														<xs:documentation>Mobile register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Tablet">
+													<xs:annotation>
+														<xs:documentation>Tablet register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="SelfCheckout">
+													<xs:annotation>
+														<xs:documentation>Self-checkout register (SCO).</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="SelfService">
+													<xs:annotation>
+														<xs:documentation>Generic self-service transaction terminal.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Kiosk">
+													<xs:annotation>
+														<xs:documentation>Kiosk register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="VendingMachine">
+													<xs:annotation>
+														<xs:documentation>Self-service vending machine.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="IVR">
+													<xs:annotation>
+														<xs:documentation>Interactive Voice Response (IVR) system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="ERP">
+													<xs:annotation>
+														<xs:documentation>Enterprise Resource Planning (ERP) system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="OMS">
+													<xs:annotation>
+														<xs:documentation>Order Management System (OMS).</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="eCommerce">
+													<xs:annotation>
+														<xs:documentation>eCommerce platform.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="WebCheckout">
+													<xs:annotation>
+														<xs:documentation>Online web-based checkout.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="BOPIS">
+													<xs:annotation>
+														<xs:documentation>Buy Online, Pick Up In-Store (BOPIS) system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="MMS">
+													<xs:annotation>
+														<xs:documentation>Mobile Money System.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="IoTDevice">
+													<xs:annotation>
+														<xs:documentation>IoT-based transaction terminal.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="DriveThru">
+													<xs:annotation>
+														<xs:documentation>Drive-thru transaction system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="KDS">
+													<xs:annotation>
+														<xs:documentation>Kitchen Display System (KDS).</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="ARPOS">
+													<xs:annotation>
+														<xs:documentation>Augmented Reality POS system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="SubscriptionBilling">
+													<xs:annotation>
+														<xs:documentation>Subscription-based billing system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Chatbot">
+													<xs:annotation>
+														<xs:documentation>AI Chatbot transaction system.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Wearable">
+													<xs:annotation>
+														<xs:documentation>Wearable device processing transactions.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+												<xs:enumeration value="Other">
+													<xs:annotation>
+														<xs:documentation>Other type of register.</xs:documentation>
+													</xs:annotation>
+												</xs:enumeration>
+											</xs:restriction>
+										</xs:simpleType>
+										<xs:simpleType>
+											<xs:restriction base="xs:string"/>
+										</xs:simpleType>
+										<!-- Predefined enumerated values -->
+										<!-- Allow any string as a fallback -->
+									</xs:union>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="Address" minOccurs="0">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="Address1" type="xs:string" nillable="true" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Address line 1 for the transaction location</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Address2" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Address line 2 for the transaction location</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Address3" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Address line 3 for the transaction location</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="City" type="xs:string" nillable="true" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>City for the transaction location</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="StateCode" nillable="true" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>State or providence for the transaction location</xs:documentation>
+											</xs:annotation>
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+													<xs:pattern value="[A-Z0-9]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="StoreZip" nillable="true" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Zip code or postal code for the transaction location</xs:documentation>
+											</xs:annotation>
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+													<xs:pattern value="[A-Z0-9]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="CountryCode" type="CountryTypeCode" nillable="true" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Country code for the transaction location</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="StorePhone" minOccurs="0">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="StorePhoneType" type="PhoneType" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The type of phone (e.g., mobile, landline) for the transaction location.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="StorePhoneNumber" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The phone number for the transaction location. US example: +14045551234, International example: +447911123456.</xs:documentation>
+											</xs:annotation>
+											<xs:simpleType>
+												<xs:restriction base="xs:string"/>
+											</xs:simpleType>
+										</xs:element>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="StoreEmailAddress" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The email address for the transaction location.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="StoreTaxArea" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The tax area of the store. Added on 9/27/2024</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="TransactionAssociate" minOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The TransactionAssociate element provides information about the associate or clerk involved in the transaction. This element is required and includes the following sub-elements:</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="ClerkIDType" minOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Specifies the type of ID used to identify the clerk or associate. Possible values include OperatorID, EmployeeID, SalespersonID, and UserID.</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:restriction base="xs:NMTOKEN">
+										<xs:enumeration value="OperatorID"/>
+										<xs:enumeration value="EmployeeID"/>
+										<xs:enumeration value="SalespersonID"/>
+										<xs:enumeration value="UserID"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<!-- Clerk Id assigned to transaction -->
+							<xs:element name="ClerkId" type="xs:string" minOccurs="1" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>The value associated with the ClerkIDType. This identifier must be between 1 and 9 alphanumeric characters.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<!-- Workday Id assigned to transaction added 10/16/24 -->
+							<xs:element name="WorkdayId" type="xs:string" minOccurs="0" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>Clerk WOrkdayID or other ID. Added 10/16/24</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<!-- Clerk Name assigned to transaction -->
+							<xs:element name="ClerkName" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>The name of the person associated with the ClerkId. This name must be between 1 and 30 characters in length.</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="30"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="ClerkRole" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Specifies the role of the clerk or associate in the transaction. Possible values include Sale, Quote, Delivery, Other, and Manager.</xs:documentation>
+								</xs:annotation>
+								<xs:simpleType>
+									<xs:restriction base="xs:NMTOKEN">
+										<xs:enumeration value="Sale"/>
+										<xs:enumeration value="Quote"/>
+										<xs:enumeration value="Delivery"/>
+										<xs:enumeration value="Other"/>
+										<xs:enumeration value="Manager"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="Recipients" nillable="true" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The person who should get the message</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Recipient" minOccurs="1" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="RecipientType" default="Recipient">
+											<xs:annotation>
+												<xs:documentation>The type of person. If only one person should receive this message then set to Recipient.</xs:documentation>
+											</xs:annotation>
+											<xs:simpleType>
+												<xs:restriction base="xs:NMTOKEN">
+													<xs:enumeration value="Recipient">
+														<xs:annotation>
+															<xs:documentation>The person who should get the message</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Delivery">
+														<xs:annotation>
+															<xs:documentation>The person that is delivering</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Pickup">
+														<xs:annotation>
+															<xs:documentation>The person that is picking up</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Billing">
+														<xs:annotation>
+															<xs:documentation>The person that is to be billed</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Gift">
+														<xs:annotation>
+															<xs:documentation>Person that should get a gift receipt or message</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Return">
+														<xs:annotation>
+															<xs:documentation>Customer that is doing the return.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="TaxExempt">
+														<xs:annotation>
+															<xs:documentation>Customer info for TaxExempt.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="PurchasingEmployee">
+														<xs:annotation>
+															<xs:documentation>Customer info for TaxExempt.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Other">
+														<xs:annotation>
+															<xs:documentation>Someone else related to the message</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="ALL">
+														<xs:annotation>
+															<xs:documentation>Someone else related to the message</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="FirstName" type="xs:string" default="FName" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Simple string that contains the first name of the customer. Default="FName" if not supplied.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="MiddleName" type="xs:string" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Simple string that contains the middle name of the customer. This element is optional and can be up to 255 characters in length.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="LastName" type="xs:string" default="LName" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Simple string that contains the last name of the customer. Default="LName" if not supplied.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Company" type="xs:string" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Simple string that contains the name of the company associated with the customer. This element is optional and can be up to 255 characters in length.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Address" minOccurs="0">
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="AddressType" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Address Type for the Address of this Person</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:NMTOKEN">
+																<xs:enumeration value="Home"/>
+																<xs:enumeration value="Work"/>
+																<xs:enumeration value="Delivery"/>
+																<xs:enumeration value="Pickup"/>
+																<xs:enumeration value="Billing"/>
+																<xs:enumeration value="RetailStore"/>
+																<xs:enumeration value="Warehouse"/>
+																<xs:enumeration value="Administration"/>
+																<xs:enumeration value="Shipping"/>
+																<xs:enumeration value="Primary"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<!-- Simple string that contains Address line 1 of customer-->
+													<xs:element name="Address1" nillable="true">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Address line 1</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Address2" nillable="true" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Address line 2</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Address3" nillable="true" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Address line 3</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="City" nillable="true">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains City</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="State" nillable="true">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains State</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Zip" nillable="true">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Zip Code or Postal Code</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Country" type="CountryTypeCode" nillable="true">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains the two letter Country Code</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="Phone" minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="RecipientPhoneType" type="PhoneType" minOccurs="0"/>
+													<xs:element name="PhoneNumber">
+														<xs:annotation>
+															<xs:documentation>US example +14045551234, International Example: +447911123456</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="EmailAddress" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Simple string that contains the email address of the customer. This element is optional and should follow the standard email format (e.g., user@example.com). It can be up to 255 characters in length.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="RecipientIds" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The RecipientIds element contains multiple sub-elements that can be used to identify the customer. This element is optional and may contain the following sub-elements:</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="LoyaltyCardNumber" minOccurs="0" maxOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Loyalty card number used to identify the customer. Must be between 4 and 20 alphanumeric characters.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string">
+																<xs:minLength value="4"/>
+																<xs:maxLength value="20"/>
+																<xs:pattern value="[A-Z0-9]*"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="LoyaltyLevel" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains the Current Loyalty Level of Customer</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="DriverLicense" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="DLNo" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Driver License number of the recipient</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string"/>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DLState" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>State or province where the driver's license was issued.</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string"/>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DLExpiresDate" type="xs:date" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Expiration date of the driver's license.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="CustomerID" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Customer Number or Party ID from BORMC.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<!-- JS: 2022-09-06 Better way to handle alternate IDs for connection in BORMC. -->
+													<xs:element name="AlternateIDs" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="CROSS_REFERENCE" minOccurs="1" maxOccurs="unbounded">
+																	<xs:complexType>
+																		<xs:all>
+																			<xs:element name="SYSTEM_REFERENCE" minOccurs="0">
+																				<xs:annotation>
+																					<xs:documentation>Simple string that contains ID Type</xs:documentation>
+																				</xs:annotation>
+																				<xs:simpleType>
+																					<xs:restriction base="xs:NMTOKEN">
+																						<xs:enumeration value="POS_ID"/>
+																						<xs:enumeration value="RETAIL_PRO"/>
+																						<xs:enumeration value="AFFINITY_ID"/>
+																						<xs:enumeration value="HOUSEHOLD_ID"/>
+																						<xs:enumeration value="WINDSS_ID"/>
+																						<xs:enumeration value="LISTRAK"/>
+																						<xs:enumeration value="OTHER"/>
+																					</xs:restriction>
+																				</xs:simpleType>
+																			</xs:element>
+																			<xs:element name="SYSTEM_REFERENCE_ID" type="xs:string" minOccurs="0">
+																				<xs:annotation>
+																					<xs:documentation>Value of the alternate id</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="EmployeeID" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Simple string that contains Employee Number (used, initially, for employee transactions)</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string"/>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Passport" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="PassportID" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Passport number of the recipient</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string"/>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="Country" type="CountryTypeCode" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Country of the Passport</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="ExpiresDate" type="xs:date" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Date the passport expires</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<!-- Added 2025-09-08 -->
+										<xs:element name="LoyaltySummary" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>
+      Per-recipient loyalty snapshot tied to this transaction:
+      - Earnings: amount earned on this transaction
+      - RewardsBalance: current balance after this transaction
+      - NextReward: amount remaining until next reward
+      - Expiring: date when some balance expires (ISO YYYY-MM-DD)
+    </xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="ProgramName" type="xs:string" minOccurs="0"/>
+													<xs:element name="ProgramId" type="xs:string" minOccurs="0"/>
+													<xs:element name="Earnings" minOccurs="0">
+														<xs:simpleType>
+															<xs:restriction base="xs:decimal">
+																<xs:fractionDigits value="2"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="RewardsBalance" minOccurs="0">
+														<xs:simpleType>
+															<xs:restriction base="xs:decimal">
+																<xs:fractionDigits value="2"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="NextReward" minOccurs="0">
+														<xs:simpleType>
+															<xs:restriction base="xs:decimal">
+																<xs:fractionDigits value="2"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Expiring" type="xs:date" minOccurs="0"/>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="LanguageSelection" type="LanguageCode" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The language that the message should be sent in.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="AdditionalMarketingFlag" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Identifies if the recipient is allowed to receive marketing</xs:documentation>
+											</xs:annotation>
+											<xs:simpleType>
+												<xs:restriction base="xs:NMTOKEN">
+													<xs:enumeration value="YES"/>
+													<xs:enumeration value="NO"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="Demographics" minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Birthday" minOccurs="0">
+														<xs:complexType>
+															<xs:sequence>
+																<xs:element name="Month" nillable="true">
+																	<xs:annotation>
+																		<xs:documentation>Two digit birth month MM</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string">
+																			<xs:minLength value="2"/>
+																			<xs:maxLength value="2"/>
+																			<xs:pattern value="[0-9]{2}"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="Day" nillable="true">
+																	<xs:annotation>
+																		<xs:documentation>Two digit birth day</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string">
+																			<xs:minLength value="2"/>
+																			<xs:maxLength value="2"/>
+																			<xs:pattern value="[0-9]{2}"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="Year" nillable="true">
+																	<xs:annotation>
+																		<xs:documentation>Two digit birth year</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:string">
+																			<xs:minLength value="2"/>
+																			<xs:maxLength value="2"/>
+																			<xs:pattern value="[0-9]{2}"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+															</xs:sequence>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="Age" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The Age element specifies the age of the customer. This element is optional and must be an integer value between 0 and 120, inclusive.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:integer">
+																<xs:minInclusive value="0"/>
+																<xs:maxInclusive value="120"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="Gender" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Gender of the person if know.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:string">
+																<xs:pattern value="male|female|Unknown|Other"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="TaxExempt" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The TaxExempt element provides information about the customer's tax exempt status. This element is optional and includes the following sub-elements:</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="TaxExemptFlag" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>A flag indicating whether the customer has tax exempt status. Valid values are true or false.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:boolean">
+																<xs:pattern value="true|false"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="TaxExemptID" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The ID associated with the customer's tax exempt status, if required.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TaxExemptState" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The state or province where the customer's tax exempt status is recognized.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TaxExemptDescription" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Additional description or information regarding the customer's tax exempt status.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="ImageFileName" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The ImageFileName element is used to specify the filename of an image file (such as a receipt or invoice) associated with the transaction. This element is optional and should only be used if an image of the receipt or invoice is provided.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="RawTextReceipt" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>The RawTextReceipt element is used to contain the raw text representation of the printed receipt. This element is optional and should include the entire receipt text, with each line typically wrapped in "line" tags.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="CustomerXML" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>The CustomerXML element is used to include non-standard XML elements that are specific to the merchant's system. This element is optional and allows for the inclusion of additional data elements that are not defined in the schema. The content should be in a customer-centric XML format.</xs:documentation>
+					</xs:annotation>
+					<xs:simpleType>
+						<xs:restriction base="xs:string"/>
+					</xs:simpleType>
+				</xs:element>
+				<xs:element name="TransactionTextLines" minOccurs="0" maxOccurs="1">
+					<xs:annotation>
+						<xs:documentation>Simple string that contains text representation of receipt image</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="ImageFileText" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="PrintLine" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Text to print</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="LF" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Line Feeds</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Bold" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Use Bold</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="DH" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Use Double High</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="DW" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Use Double Wide</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="LayawayData" minOccurs="0">
+					<xs:annotation>
+						<xs:documentation>Contains layaway and special order information including payment schedules. This element is optional and applies to transactions involving installment payments or deferred fulfillment. Mapped to /POS/TRADE/ORDER</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="LayawayStatus" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Layaway order status. Mapped to /POS/TRADE/ORDER/Status. Valid values:
+- NCMP: Not Completed (Open/In progress)
+- SHIP: Shipped (Completed - layaway picked up by customer)
+- WOFF: Write Off (Delinquent layaway written off without customer present. Cancel fee collected and credit note created for payments above $10 cancel fee. Next step: waiting for customer to come in to cancel and provide credit)
+- CNCL: Cancelled (with customer present)
+- PEND: Pending (POS bug - consider completed. Layaway was actually completed but in bad state due to payment bug)
+- PSHP: Partially Shipped (POS bug - consider completed. Layaway was actually completed but in bad state due to item status bug)
+- COMP: Completed</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayDescription" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>LYWY mapped to /POS/TRADE/ORDER/Desc</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayActionCode" type="xs:integer" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>1 - Create, 8 modify/payment, 10 write-off, mapped to /POS/TRADE/ORDER/ActionCode</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayBalanceAdjustAllocatedTax" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>mapped to /POS/TRADE/ORDER/BalanceAdjustAllocatedTax</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayIsPayment" type="xs:boolean" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>If a payment then true, mapped to /POS/TRADE/ORDER/IsPayment</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayBalanceAdjust" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>mapped to /POS/TRADE/ORDER/BalanceAdjust</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayNumber" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Unique order or layaway identifier. Example: 0200301000240, mapped to /POS/TRADE/ORDER/NumStr</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayType" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>LYWY and mapped to /POS/TRADE/ORDER/Type</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayTypeName" type="xs:string" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Layaway type name. Common values: Layaway, SPCL (Special Order), HOLD (Hold), etc. mapped to /POS/TRADE/ORDER/TypeName</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayOrigAmount" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Total Layaway amount in cents /POS/TRADE/ORDER/OrigAmt</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayStatusDate" type="xs:dateTime" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Date the order or layaway was originally placed /POS/TRADE/ORDER/StatusDate</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayOrigTax" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Total Layaway amount in cents /POS/TRADE/ORDER/OrigTax</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayPlacedDate" type="xs:dateTime" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Date the order or layaway was originally placed, mapped to /POS/TRADE/ORDER/PlacedDate</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayBalanceDue" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Remaining balance due in cents, mapped to /POS/TRADE/ORDER/BalanceDue</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="LayawayFinalAmount" type="xs:decimal" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Final amount, mapped to /POS/TRADE/ORDER/FinalAmt. Only appears on final payment and pickup.</xs:documentation>
+								</xs:annotation>
+							</xs:element>
+							<xs:element name="ScheduledPayments" minOccurs="0">
+								<xs:annotation>
+									<xs:documentation>Contains a list of scheduled payment installments for the order or layaway.</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="ScheduledPayment" minOccurs="0" maxOccurs="unbounded">
+											<xs:annotation>
+												<xs:documentation>Individual scheduled payment installment with payment number, date, and amount. /POS/TRADE/ORDER/ORDER_SCHED_PMTS</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="ScheduledPaymentNumber" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Sequential payment number (1, 2, 3, etc.) indicating the installment sequence. mapped to /POS/TRADE/ORDER/ORDER_SCHED_PMTS/SeqNum</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:integer">
+																<xs:minInclusive value="1"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="ScheduledPaymentDate" type="xs:dateTime" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Scheduled payment due date in ISO 8601 format (YYYY-MM-DD). Example: 2025-11-19, mapped to /POS/TRADE/ORDER/ORDER_SCHED_PMTS/SchedDate</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ScheduledPaymentAmount" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Scheduled payment amount in cents, mapped to /POS/TRADE/ORDER/ORDER_SCHED_PMTS/Amt</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:decimal">
+																<xs:minInclusive value="0"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:all>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="TransactionData" minOccurs="1">
+					<xs:annotation>
+						<xs:documentation>Detailed transaction data.</xs:documentation>
+					</xs:annotation>
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="TransactionSettings" minOccurs="1" maxOccurs="1">
+								<xs:annotation>
+									<xs:documentation>The TransactionSettings element contains various settings and parameters related to the transaction. This element is optional and includes the following sub-elements:</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="CurrencyType" type="CurrencyTypeCode" default="USD" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Specifies the currency type for the transaction. The default value is "USD" (U.S. Dollar).</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OutputLanguage" type="LanguageCode" default="eng" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Specifies the language code for the transaction output. The default value is "eng" (English).</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TotalAmount" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The total amount of the transaction in the specified currency. This is includes all discounts and taxes.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ItemsSold" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The total number of items sold in the transaction.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ItemsReturned" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The total number of items returned in the transaction.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="BarCode" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Contains information about the barcode associated with the transaction.</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="BarCodeFlag" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Flag indicating whether to render the barcode as an image. Valid values are true or false.</xs:documentation>
+														</xs:annotation>
+														<xs:simpleType>
+															<xs:restriction base="xs:boolean">
+																<xs:pattern value="true|false"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="BarCodeType" type="ItemIDTypeCodeEnumeration" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Specifies the type of the barcode.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="BarCodeValue" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The value of the barcode.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<!-- Extended detailed -->
+							<xs:element name="DetailedTransactionData" minOccurs="1" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>The DetailedTransactionData element contains detailed information about each line item in the transaction. There should be one instance of this element for each line item. It includes various sub-elements that capture specific attributes and data related to each line item.</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="ItemAutoSold" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Indicates if the item is automatically sold with a parent item, such as a Tire Levy, Tire Fee, or Enviro Fee. If the item is auto-sold, the value should be "true".</xs:documentation>
+												<xs:appinfo source="FlooidPOS">This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetail/autosold.</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ProductIDType" type="ItemIDTypeCodeEnumeration" minOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Specifies the type of product identifier being used. This is a required element and should use values from the ItemIDTypeCodeEnumeration enumeration.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ProductId" type="xs:string" minOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The unique identifier for the product. This is a required element and should be a string value.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Description" type="xs:string" minOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The name or description of the product. This is a required element and should provide a clear, descriptive name for the product.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<!-- TT: 04-08-2022 Ticket#SR-11202493 -->
+										<xs:element name="OriginalTransId" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the transaction ID from the original or parent transaction.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OriginalOrderLineSeq" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the line sequence number of the item from the original or parent transaction.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OriginalStoreNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the Store Number from the original or parent transaction. Added on 9/27/2024</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OriginalRegisterNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the Register Number from the original or parent transaction. Added on 9/27/2024</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OriginalTransactionDate" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the transaction date from the original or parent transaction. Added on 9/27/2024.  Format is YYYY-MM-DD.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="OriginalStoreTaxArea" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>This element should be included if the item is being returned. It contains the store tax area from the original or parent transaction. Added on 9/27/2024</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="DepartmentCode" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The code representing the department to which the item belongs. This element is optional and should be a string value.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="DepartmentName" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The name of the department to which the item belongs. This element is optional and should be a string value.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="GiftReceipt" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>For a sale, this element identifies if the item was a gift. Valid values are TRUE or FALSE.</xs:documentation>
+												<xs:appinfo source="FlooidPOS">This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetail/giftReceipt.</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ItemLevel" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The level of the product within a hierarchy of linked products. The default value is 0.</xs:documentation>
+												<xs:appinfo source="FlooidPOS">This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetail/level.</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<!-- TT: 2022-09-06 mapped to TxnDetail/itemVoid -->
+										<xs:element name="ItemVoid" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Set to 1 if the line item was voided.</xs:documentation>
+												<xs:appinfo source="FlooidPOS">This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetail/itemVoid.</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ItemVoidLine" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The parent number of this voiding Line</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="Quantity" minOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The Quantity element provides details about the quantity of items involved in the transaction. This element is required and includes the following sub-elements:</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="QuantitySoldType" type="ItemUnits" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Specifies the type of units for the quantity sold, such as pieces, kilograms, liters, etc. This is a required element.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="QuantitySold" type="xs:integer" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>The number of units sold, represented as an integer by multiplying the actual quantity by 100.
+
+IMPORTANT - Integer Representation:
+- Actual quantity 1.00 = 100 (integer)
+- Actual quantity 1.50 = 150 (integer)
+- Actual quantity 100.00 = 10000 (integer)
+- Actual quantity 0.25 = 25 (integer)
+
+This format allows for precise representation of fractional quantities (up to 2 decimal places) while using integer storage.
+
+This is a required element. The value should be positive if it represents a purchase and negative if it represents a return.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="ItemStatus" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The ItemStatus element provides details about the status of the item within the transaction. This element is optional and includes the following sub-elements:</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="ItemReceivedType" minOccurs="0">
+														<xs:simpleType>
+															<xs:union memberTypes="xs:string xs:integer">
+																<xs:simpleType>
+																	<xs:restriction base="xs:string">
+																		<xs:enumeration value="Delivered">
+																			<xs:annotation>
+																				<xs:documentation>The item has been delivered.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Pickedup">
+																			<xs:annotation>
+																				<xs:documentation>The item has been picked up</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="WarehousePickup">
+																			<xs:annotation>
+																				<xs:documentation>The item has been picked up from the warehouse</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Store">
+																			<xs:annotation>
+																				<xs:documentation>The item is available in the store.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="DropShipped">
+																			<xs:annotation>
+																				<xs:documentation>The item has been drop-shipped.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Shipped">
+																			<xs:annotation>
+																				<xs:documentation>The item has been shipped.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="OTHER">
+																			<xs:annotation>
+																				<xs:documentation>The item has a different status not specified in the list.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="UNKNOWN">
+																			<xs:annotation>
+																				<xs:documentation>The status of the item is unknown.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Ordered">
+																			<xs:annotation>
+																				<xs:documentation>The item has been ordered.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Ready">
+																			<xs:annotation>
+																				<xs:documentation>The item is ready for pickup or delivery.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Return">
+																			<xs:annotation>
+																				<xs:documentation>The item is being returned.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="TradeIn">
+																			<xs:annotation>
+																				<xs:documentation>The item is a trade-in.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="EcoFee">
+																			<xs:annotation>
+																				<xs:documentation>The item includes an ecological fee.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Exchange">
+																			<xs:annotation>
+																				<xs:documentation>The item is being exchanged.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																		<xs:enumeration value="Void">
+																			<xs:annotation>
+																				<xs:documentation>The item is voided.</xs:documentation>
+																			</xs:annotation>
+																		</xs:enumeration>
+																	</xs:restriction>
+																</xs:simpleType>
+																<xs:simpleType>
+																	<xs:restriction base="xs:integer">
+																		<xs:minInclusive value="1"/>
+																		<xs:maxInclusive value="100"/>
+																	</xs:restriction>
+																</xs:simpleType>
+															</xs:union>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="ItemStatusDate" type="xs:dateTime" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The date and time when the item status was updated. This element is optional.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ItemReceivedDate" type="xs:dateTime" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The date and time when the item was received. This element is optional.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="Price" minOccurs="1">
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="DollarAmount" type="xs:integer" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>The unit price of an item before any discounts. This value should always be positive.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="DiscountDollarAmount" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>
+                                                                UPDATE: Postive value for sale and negative value for return. This is per a unit.
+                                                                
+                                                                The discount applied to the line per unit. Total discount of all units purchased. This element is optional. The value should be a negative integer if it represents a purchase and a positive integer if it represents a return.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ExtDollarAmount" type="xs:integer" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>The final unit price after discount before taxes multiplied by the number of units</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="OrginalAmount" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The unit price after discount but before taxes. Should always be a positive value. This element is optional and should be an integer value.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ReturnAmount" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The value per unit that can be returned. This element is optional and should be a positive integer value. If the item is being returned, the value should be 0. This value represents the final price a customer is paying per unit before taxes.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ItemCost" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Cost the merchant pays per an item.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="OverridePrice" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Override Price added 10/16/2024</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="PriceRule" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Rule used to determine the price. added 10/16/2024</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="ItemDiscounts" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Discount information at the line item level.</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Discount" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="DiscountPercent" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The percentage of the discount applied to the item.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountAmount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>This value should be negative for sale and positive for return. This is the unit discount x discount value. The final dollar amount of the discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="AmountDiscountable" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The amount of the item that this discount applies to.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetailDiscount/amountDiscountable.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountPromoCode" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The promotion code used for the discount.</xs:documentation>
+																		<xs:appinfo source="FlooidPOS">This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetailDiscount/promotionCode.</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountVoided" type="xs:boolean" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Indicates if the discount was voided. Valid values are true or false.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetailDiscount/voided.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountVoidedLine" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The parent number of the voiding line.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnDetailDiscount/voidingLine.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountDescription" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>A description of the discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountReasonCode" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The reason code for the discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountReasonCodeType" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The type of the reason code for the discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountingMethod" minOccurs="0">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="DollarOff">
+																				<xs:annotation>
+																					<xs:documentation>The discount is a specific dollar amount off.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="PercentOff">
+																				<xs:annotation>
+																					<xs:documentation>The discount is a percentage off.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="NewPrice">
+																				<xs:annotation>
+																					<xs:documentation>The discount is a new price for the item.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="1"/>
+																			<xs:enumeration value="2"/>
+																			<xs:enumeration value="3"/>
+																			<xs:enumeration value="4"/>
+																			<xs:enumeration value="5"/>
+																			<xs:enumeration value="6"/>
+																			<xs:enumeration value="7"/>
+																			<xs:enumeration value="8"/>
+																			<xs:enumeration value="9"/>
+																			<xs:enumeration value="10"/>
+																			<!--JS ADD 2022-06-24-->
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DiscountingRate" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Rate of the discount. Value depends on DiscountingMethod. If the method is DollarOff/NewPrice then this will be the dollar amount, if PercentOff the the percent value (eg: 10% would be stored as 10)</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="PrintLine" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Formatted print line for this discount/promotion</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="Reason" minOccurs="0" maxOccurs="1">
+																	<xs:complexType>
+																		<xs:all>
+																			<!--JS Modify Code from integer to string 9/5/2024-->
+																			<xs:element name="Code" type="xs:string" minOccurs="1" maxOccurs="1">
+																				<xs:annotation>
+																					<xs:documentation>The code for the reason of the discount.</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																			<xs:element name="Description" type="xs:string" minOccurs="0" maxOccurs="1">
+																				<xs:annotation>
+																					<xs:documentation>The description for the reason of the discount.</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																			<xs:element name="PrintLine" type="xs:string" minOccurs="0">
+																				<xs:annotation>
+																					<xs:documentation>Formatted print line for this reason</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+																<xs:element name="PromotionData" minOccurs="0" maxOccurs="1">
+																	<xs:complexType>
+																		<xs:all>
+																			<xs:element name="Identifier" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="EventNumber" type="xs:integer" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="Method" minOccurs="1" maxOccurs="1">
+																				<xs:simpleType>
+																					<xs:restriction base="xs:NMTOKEN">
+																						<xs:enumeration value="BuyToGet"/>
+																						<xs:enumeration value="BuyOneGetOne"/>
+																						<xs:enumeration value="BuyOneGetAnother"/>
+																						<xs:enumeration value="BuyToGetPlus"/>
+																						<xs:enumeration value="MinimunPurchaseTriggerOnly"/>
+																						<xs:enumeration value="MinimunPurchaseTriggerNontrigger"/>
+																						<xs:enumeration value="MinimunPurchaseAll"/>
+																						<xs:enumeration value="Bundled"/>
+																						<xs:enumeration value="1"/>
+																						<xs:enumeration value="2"/>
+																						<xs:enumeration value="3"/>
+																						<xs:enumeration value="4"/>
+																						<xs:enumeration value="5"/>
+																						<xs:enumeration value="6"/>
+																						<xs:enumeration value="7"/>
+																						<xs:enumeration value="8"/>
+																						<xs:enumeration value="9"/>
+																						<xs:enumeration value="10"/>
+																						<!--JS ADD 2022-06-24-->
+																					</xs:restriction>
+																				</xs:simpleType>
+																			</xs:element>
+																			<xs:element name="TriggerAmount" type="xs:integer" minOccurs="1" maxOccurs="1">
+																				<xs:annotation>
+																					<xs:documentation>This is the amount required to meet the Promotion. Will be a dollar value for MinimunPurchase Methods, otherwise it will be quantity-based.</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+																<xs:element name="EnhancedCoupon" minOccurs="0" maxOccurs="1">
+																	<xs:annotation>
+																		<xs:documentation>A coupon with discounting parameters pre-defined in the database. Can also be a requirement for a Promotion to applied.</xs:documentation>
+																	</xs:annotation>
+																	<xs:complexType>
+																		<xs:all>
+																			<xs:element name="Identifier" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="EntryMethod" minOccurs="1" maxOccurs="1">
+																				<xs:simpleType>
+																					<xs:restriction base="xs:NMTOKEN">
+																						<xs:enumeration value="FromMenu"/>
+																						<xs:enumeration value="Scanned"/>
+																						<xs:enumeration value="HandKeyed"/>
+																					</xs:restriction>
+																				</xs:simpleType>
+																			</xs:element>
+																			<xs:element name="Barcode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																			<xs:element name="TransactionLogReasonCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="ReasonCodeDescription" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="IsDealTrigger" type="xs:boolean" minOccurs="1" maxOccurs="1"/>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="GroupDiscount" minOccurs="0" maxOccurs="unbounded">
+														<xs:annotation>
+															<xs:documentation>Itemized data for group-/transaction-level discounts.</xs:documentation>
+														</xs:annotation>
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="Identifier" type="xs:integer" minOccurs="1" maxOccurs="1">
+																	<xs:annotation>
+																		<xs:documentation>Identifier that groups the items together. This combined with DiscountType will uniquely identify a group/transaction discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountType" minOccurs="1" maxOccurs="1">
+																	<xs:annotation>
+																		<xs:documentation>Specific type of group/trasnaction discount. An item cannot have multiple discounts of the same type. This combined with Identifier will uniquely identify a group/transaction discount.</xs:documentation>
+																	</xs:annotation>
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="ManualTransaction"/>
+																			<xs:enumeration value="ManualGroup"/>
+																			<xs:enumeration value="EmployeeTransaction"/>
+																			<xs:enumeration value="EmployeeGroup"/>
+																			<xs:enumeration value="PreferredCustomer"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DiscountLevel" minOccurs="1" maxOccurs="1">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="Group"/>
+																			<xs:enumeration value="Transaction"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DiscountAmount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The final dollar amount of the discount.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="DiscountDescription" type="xs:string" minOccurs="0"/>
+																<xs:element name="DiscountingMethod" minOccurs="0">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="DollarOff"/>
+																			<xs:enumeration value="PercentOff"/>
+																			<xs:enumeration value="NewPrice"/>
+																			<xs:enumeration value="1"/>
+																			<xs:enumeration value="2"/>
+																			<xs:enumeration value="3"/>
+																			<xs:enumeration value="4"/>
+																			<xs:enumeration value="5"/>
+																			<xs:enumeration value="6"/>
+																			<xs:enumeration value="7"/>
+																			<xs:enumeration value="8"/>
+																			<xs:enumeration value="9"/>
+																			<xs:enumeration value="10"/>
+																			<!--JS ADD 2022-06-24-->
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="DiscountingRate" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Rate of the discount. Value depends on DiscountingMethod. If the method is DollarOff/NewPrice then this will be the dollar amount, if PercentOff the the percent value (eg: 10% would be stored as 10)</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="Reason" minOccurs="0" maxOccurs="1">
+																	<xs:complexType>
+																		<xs:all>
+																			<xs:element name="Code" type="xs:integer" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="Description" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																			<xs:element name="PrintLine" type="xs:string" minOccurs="0">
+																				<xs:annotation>
+																					<xs:documentation>Formatted print line for this reason</xs:documentation>
+																				</xs:annotation>
+																			</xs:element>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+																<xs:element name="EnhancedCoupon" minOccurs="0" maxOccurs="1">
+																	<xs:annotation>
+																		<xs:documentation>A coupon with discounting parameters pre-defined in the database. Can also be a requirement for a Promotion to applied.</xs:documentation>
+																	</xs:annotation>
+																	<xs:complexType>
+																		<xs:all>
+																			<xs:element name="Identifier" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="EntryMethod" minOccurs="1" maxOccurs="1">
+																				<xs:simpleType>
+																					<xs:restriction base="xs:NMTOKEN">
+																						<xs:enumeration value="FromMenu"/>
+																						<xs:enumeration value="Scanned"/>
+																						<xs:enumeration value="HandKeyed"/>
+																					</xs:restriction>
+																				</xs:simpleType>
+																			</xs:element>
+																			<xs:element name="Barcode" type="xs:string" minOccurs="0" maxOccurs="1"/>
+																			<xs:element name="TransactionLogReasonCode" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="ReasonCodeDescription" type="xs:string" minOccurs="1" maxOccurs="1"/>
+																			<xs:element name="IsDealTrigger" type="xs:boolean" minOccurs="1" maxOccurs="1"/>
+																		</xs:all>
+																	</xs:complexType>
+																</xs:element>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="ItemTax" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Contains tax information at the line item level. This can include various types of taxes such as state, provincial, GST, HST, special taxes, and others.</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Tax" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="TaxType" minOccurs="0">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="ECO">
+																				<xs:annotation>
+																					<xs:documentation>Eco Fee, added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="GST">
+																				<xs:annotation>
+																					<xs:documentation>Goods and Services Tax.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="HST">
+																				<xs:annotation>
+																					<xs:documentation>Harmonized Sales Tax.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ItemTax">
+																				<xs:annotation>
+																					<xs:documentation>General tax applied to the item.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="OtherTax">
+																				<xs:annotation>
+																					<xs:documentation>Other types of taxes not specified.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="PST">
+																				<xs:annotation>
+																					<xs:documentation>Provincial Sales Tax, added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="QST">
+																				<xs:annotation>
+																					<xs:documentation>Quebec Sales Tax, added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="RST">
+																				<xs:annotation>
+																					<xs:documentation>Retail Sales Tax, added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="SpecialTax">
+																				<xs:annotation>
+																					<xs:documentation>Any special tax applicable to the item.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="StateOrProvince">
+																				<xs:annotation>
+																					<xs:documentation>Tax imposed by the state or province.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="TaxAmount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The amount of tax applied to the item. This should be an integer value representing the tax amount in the smallest currency unit (e.g., cents).</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxFlag" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>A flag indicating special conditions or statuses for the tax. "true" if tax applies or "false" if not.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxPercent" type="xs:decimal" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The percentage rate of the tax applied to the item. This should be a decimal value.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxDescription" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>A description of the tax applied to the item.</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxAuthority" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The authority that imposes the tax. This could be the name or code of the tax authority.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid txnDetailTaxes/taxAuthorityCode.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxRuleCode" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The code of the tax rule applied to the item. This code identifies the specific rule under which the tax is applied.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid txnDetailTaxes/taxRuleCode.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxableAmount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The amount of the item that is subject to tax. This should be an integer value representing the amount in the smallest currency unit (e.g., cents).</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid txnDetailTaxes/valueTaxable.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxVoided" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Indicates if the tax entry has been voided. Valid values are "true" or "false". When "true" tax line has been voided.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid txnDetailTaxes/taxVoided.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxVoidedLine" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The parent number of the voiding line for the tax entry.</xs:documentation>
+																		<xs:appinfo>
+																			<application name="FlooidPOS">
+																				<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid txnDetailTaxes/voidingLine.</xs:documentation>
+																			</application>
+																		</xs:appinfo>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="TaxStartDate" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The TaxStartDate element represents a date value in the format YYYY-MM-DD. This element is used to specify the date of the when this tax rate was started in the TransactionTree system. Added 9/27/2024</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="ItemAddOn" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Addition Charge, Service, Products, Promos related to the line item</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="AddOn" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="AddOnType">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="Charge"/>
+																			<xs:enumeration value="Product"/>
+																			<xs:enumeration value="Upsell"/>
+																			<xs:enumeration value="Other"/>
+																			<xs:enumeration value="Service"/>
+																			<xs:enumeration value="Coupon"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="AddOnAmount" type="xs:integer" minOccurs="0"/>
+																<xs:element name="AddOnDescription" type="xs:string" minOccurs="0"/>
+																<xs:element name="AddOnUnits" type="xs:integer" minOccurs="0"/>
+																<xs:element name="AddOnUnitType" type="ItemUnits" minOccurs="0"/>
+																<xs:element name="AddOnUnitPrice" type="xs:integer" minOccurs="0"/>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="ItemAttributes" minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Attribute" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="AttributeType">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:NMTOKEN">
+																			<xs:enumeration value="Color">
+																				<xs:annotation>
+																					<xs:documentation>The color of the product</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="CrossSellProduct">
+																				<xs:annotation>
+																					<xs:documentation>Information about a product is recommended to be sold with this production.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="childNumber">
+																				<xs:annotation>
+																					<xs:documentation>If this product is sold with another product then use this value for the matching from another product. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="detailNumber">
+																				<xs:annotation>
+																					<xs:documentation>The sequence of this product in the basket. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="DirectionsURL">
+																				<xs:annotation>
+																					<xs:documentation>The URL to the production directions online.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ImageURL">
+																				<xs:annotation>
+																					<xs:documentation>The URL to the image of the product.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="Length">
+																				<xs:annotation>
+																					<xs:documentation>The length of the product.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="level5CompanyCode">
+																				<xs:annotation>
+																					<xs:documentation>Level 5 company code. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="level5Level5ID">
+																				<xs:annotation>
+																					<xs:documentation>Level 5 ID. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="level5ProductGroupType">
+																				<xs:annotation>
+																					<xs:documentation>Level 5 product group type. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="level5StructureType">
+																				<xs:annotation>
+																					<xs:documentation>Level 5 structure type. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="LineType">
+																				<xs:annotation>
+																					<xs:documentation>The type of line for this product. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="Other">
+																				<xs:annotation>
+																					<xs:documentation>General value, then see the AttributeDescription for mapping.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="parentNumber">
+																				<xs:annotation>
+																					<xs:documentation>If this product is sold with another product then use this value for the matching detailNumber from another product. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="pluNumber">
+																				<xs:annotation>
+																					<xs:documentation>The plu Number</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="priceOverridden">
+																				<xs:annotation>
+																					<xs:documentation>If = 1 then price was over written</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductClass">
+																				<xs:annotation>
+																					<xs:documentation>Product Class, added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductName">
+																				<xs:annotation>
+																					<xs:documentation>Additional name for the product</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductOrderNumber">
+																				<xs:annotation>
+																					<xs:documentation>If the product as an associated Order Number. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductShortDescription">
+																				<xs:annotation>
+																					<xs:documentation>A shorter description for this product. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductSKU">
+																				<xs:annotation>
+																					<xs:documentation>The product SKU. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductSubClass">
+																				<xs:annotation>
+																					<xs:documentation>Product Subclass added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductSubDepartment">
+																				<xs:annotation>
+																					<xs:documentation>Product Sub department, added 9/27/2024.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductUPC">
+																				<xs:annotation>
+																					<xs:documentation>The product UPC. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="ProductURL">
+																				<xs:annotation>
+																					<xs:documentation>The URL for the product to a website.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="Size">
+																				<xs:annotation>
+																					<xs:documentation>The product size, ie. S, M, L</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="SKU_ITEM_TYPE">
+																				<xs:annotation>
+																					<xs:documentation>Sku item type. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="SKU_OWNER">
+																				<xs:annotation>
+																					<xs:documentation>Sku owner. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="SKU_OWNER_TYPE">
+																				<xs:annotation>
+																					<xs:documentation>Sku owner type. Added 9/27/2024</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="SocialURL">
+																				<xs:annotation>
+																					<xs:documentation>Product social URL</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="StoreURL">
+																				<xs:annotation>
+																					<xs:documentation>Product store URL</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="UpsellProduct">
+																				<xs:annotation>
+																					<xs:documentation>Product that can be upsold with the current product.</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<xs:enumeration value="Weight">
+																				<xs:annotation>
+																					<xs:documentation>Product weight</xs:documentation>
+																				</xs:annotation>
+																			</xs:enumeration>
+																			<!-- JS ADDED 2022-06-24 -->
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="AttributeDescription" type="xs:string" minOccurs="0"/>
+																<xs:element name="AttributeData" type="xs:string" minOccurs="0"/>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="AdditionalRentalInformation" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Used for rentals</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="RentalDate" type="xs:date" minOccurs="0"/>
+													<xs:element name="RentalDateTime" type="xs:dateTime" minOccurs="0"/>
+													<xs:element name="RentalReturnDate" type="xs:date" minOccurs="0"/>
+													<xs:element name="RentalReturnDateTime" type="xs:dateTime" minOccurs="0"/>
+													<xs:element name="ReturnStoreNumber" minOccurs="0">
+														<xs:simpleType>
+															<xs:restriction base="xs:string">
+																<xs:minLength value="1"/>
+																<xs:maxLength value="9"/>
+																<xs:pattern value="[A-Z0-9]*"/>
+															</xs:restriction>
+														</xs:simpleType>
+													</xs:element>
+													<xs:element name="AdditionalServicesAmount" type="xs:integer" minOccurs="0"/>
+													<xs:element name="LicensePlate" type="xs:string" minOccurs="0"/>
+													<xs:element name="VehicleModel" type="xs:string" minOccurs="0"/>
+													<xs:element name="VehicleClass" type="xs:string" minOccurs="0"/>
+													<xs:element name="VehicleRatePlan" type="xs:string" minOccurs="0"/>
+													<xs:element name="VehicleRateClass" type="xs:string" minOccurs="0"/>
+													<xs:element name="RentalItemID" type="xs:string" minOccurs="0"/>
+													<xs:element name="RentalItemDescription" type="xs:string" minOccurs="0"/>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="TenderTypeData" minOccurs="0" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>Contains information about all the tenders used in the transaction.</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="TenderEntryMethod" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:NMTOKEN">
+													<xs:enumeration value="SmartCard">
+														<xs:annotation>
+															<xs:documentation>Entry method where a smart card is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="MICR">
+														<xs:annotation>
+															<xs:documentation>Entry method where Magnetic Ink Character Recognition is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="MSR">
+														<xs:annotation>
+															<xs:documentation>Entry method where a Magnetic Stripe Reader is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Keyed">
+														<xs:annotation>
+															<xs:documentation>Entry method where information is manually keyed in.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Scanned">
+														<xs:annotation>
+															<xs:documentation>Entry method where information is scanned.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Weighed">
+														<xs:annotation>
+															<xs:documentation>Entry method where the payment is weighed.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Measured">
+														<xs:annotation>
+															<xs:documentation>Entry method where the payment is measured.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="RFID">
+														<xs:annotation>
+															<xs:documentation>Entry method where Radio-Frequency Identification is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Automatic">
+														<xs:annotation>
+															<xs:documentation>Entry method where the process is automatic.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="IntegratedChipCard">
+														<xs:annotation>
+															<xs:documentation>Entry method where an integrated chip card is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Tapped">
+														<xs:annotation>
+															<xs:documentation>Entry method where a card is tapped.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Waved">
+														<xs:annotation>
+															<xs:documentation>Entry method where a card is waved.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="RemotePay">
+														<xs:annotation>
+															<xs:documentation>Entry method where remote payment is used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Manual">
+														<xs:annotation>
+															<xs:documentation>Entry method where the process is manual.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="None">
+														<xs:annotation>
+															<xs:documentation>No entry method used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="TenderType" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:NMTOKEN">
+													<xs:enumeration value="CASH">
+														<xs:annotation>
+															<xs:documentation>Cash payment method.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CREDIT-VISA">
+														<xs:annotation>
+															<xs:documentation>Credit card payment method using VISA.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CREDIT-MC">
+														<xs:annotation>
+															<xs:documentation>Credit card payment method using MasterCard.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CREDIT-AMEX">
+														<xs:annotation>
+															<xs:documentation>Credit card payment method using American Express.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CREDIT-DISCOVER">
+														<xs:annotation>
+															<xs:documentation>Credit card payment method using Discover.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CREDIT-OTHER">
+														<xs:annotation>
+															<xs:documentation>Credit card payment method using other types.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="DEBIT-VISA">
+														<xs:annotation>
+															<xs:documentation>Debit card payment method using VISA.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="DEBIT-MC">
+														<xs:annotation>
+															<xs:documentation>Debit card payment method using MasterCard.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="DEBIT-OTHER">
+														<xs:annotation>
+															<xs:documentation>Debit card payment method using other types.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CHECK">
+														<xs:annotation>
+															<xs:documentation>Payment method using a check.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="GIFT-CARD">
+														<xs:annotation>
+															<xs:documentation>Payment method using a gift card.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="GIFT-CERTIFICATE">
+														<xs:annotation>
+															<xs:documentation>Payment method using a gift certificate.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="STORE-ACCOUNT">
+														<xs:annotation>
+															<xs:documentation>Payment method using a store account.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="AccountsReceivable">
+														<xs:annotation>
+															<xs:documentation>Payment method using accounts receivable.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="AirmilesConversion">
+														<xs:annotation>
+															<xs:documentation>Payment method using Air Miles conversion.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CapitalBond">
+														<xs:annotation>
+															<xs:documentation>Payment method using a capital bond.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="EBTFoodstamps">
+														<xs:annotation>
+															<xs:documentation>Payment method using EBT food stamps.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="ElectronicTollCollection">
+														<xs:annotation>
+															<xs:documentation>Payment method using electronic toll collection.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Coupon">
+														<xs:annotation>
+															<xs:documentation>Payment method using a coupon.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="CustomerAccount">
+														<xs:annotation>
+															<xs:documentation>Payment method using a customer account.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="FoodStamps">
+														<xs:annotation>
+															<xs:documentation>Payment method using food stamps.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="HouseAccount">
+														<xs:annotation>
+															<xs:documentation>Payment method using a house account.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="InternationalMaestro">
+														<xs:annotation>
+															<xs:documentation>Payment method using International Maestro.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Loyalty">
+														<xs:annotation>
+															<xs:documentation>Payment method using loyalty points.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="ManufacturerCoupon">
+														<xs:annotation>
+															<xs:documentation>Payment method using a manufacturer's coupon.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Mobile">
+														<xs:annotation>
+															<xs:documentation>Payment method using a mobile payment system.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="PurchaseOrder">
+														<xs:annotation>
+															<xs:documentation>Payment method using a purchase order.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="StaffDressAllowance">
+														<xs:annotation>
+															<xs:documentation>Payment method using a staff dress allowance.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="StoredValue">
+														<xs:annotation>
+															<xs:documentation>Payment method using stored value.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="TravelersCheck">
+														<xs:annotation>
+															<xs:documentation>Payment method using a traveler's check.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="UKMaestro">
+														<xs:annotation>
+															<xs:documentation>Payment method using UK Maestro.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Voucher">
+														<xs:annotation>
+															<xs:documentation>Payment method using a voucher.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="WICCheck">
+														<xs:annotation>
+															<xs:documentation>Payment method using a WIC check.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Amway">
+														<xs:annotation>
+															<xs:documentation>Payment method using Amway.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Aura">
+														<xs:annotation>
+															<xs:documentation>Payment method using Aura.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Jcb">
+														<xs:annotation>
+															<xs:documentation>Payment method using Jcb.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="ApplePay">
+														<xs:annotation>
+															<xs:documentation>Payment method using Apple Pay.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="GooglePay">
+														<xs:annotation>
+															<xs:documentation>Payment method using Google Pay.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="Paypal">
+														<xs:annotation>
+															<xs:documentation>Payment method using PayPal.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="MallGiftCertificate">
+														<xs:annotation>
+															<xs:documentation>Payment method using a mall gift certificate.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="ForeignCurrency">
+														<xs:annotation>
+															<xs:documentation>Payment method using foreign currency.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="None">
+														<xs:annotation>
+															<xs:documentation>No payment method used.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="OTHER">
+														<xs:annotation>
+															<xs:documentation>Other types of payment methods.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="UNKNOWN">
+														<xs:annotation>
+															<xs:documentation>Unknown payment method.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="MoneyOrder">
+														<xs:annotation>
+															<xs:documentation>Payment method using a money order.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="SpecialTender">
+														<xs:annotation>
+															<xs:documentation>Special payment method.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="MailCheck">
+														<xs:annotation>
+															<xs:documentation>Normally used on refund when amount to refund is greater than the store is allowed to give. Example: HO REFUND.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+													<xs:enumeration value="PennyRounding">
+														<xs:annotation>
+															<xs:documentation>Added for penny rounding on 12/12/2025.</xs:documentation>
+														</xs:annotation>
+													</xs:enumeration>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="AccountNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The account number with leading characters</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="AmountForeign" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Amount of foreign currency used in the transaction, other than the normal currency of the transaction.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/amountForeign.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="AuthCode" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The authorization code for the tender.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ExpDate" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The expiration date of the tender.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="ExchangeRate" type="xs:decimal" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The exchange rate applied to the tender.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TotalAmount" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The total amount of the tender.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TenderChequeNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The check number associated with the tender.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/chequeAccountNumber.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TenderMediaType" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The media type of the tender.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/type.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TenderReference" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Reference information for the tender.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/reference.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TenderVoided" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Indicates if the tender entry has been voided. Valid values are "true" or "false".</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/voided.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TenderVoidingLine" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The parent number of the voiding line for the tender.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnMedia/voidingLine.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="PaymentResponse" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Contains the payment receipt data and response details from the payment processor.</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="ResponseID" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The unique identifier for the response.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TransactionCounter" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The transaction counter value.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="HostDate" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The date provided by the host system.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="HostTime" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The time provided by the host system.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CardType" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The type of card used for the payment.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ISOResCode" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The ISO response code from the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="AuthorizationCode" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The authorization code provided by the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="AuxResponse" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Auxiliary response information from the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ResponseCode" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The response code from the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ResponseMessage" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The response message from the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="OperatorMessage" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The message provided for the operator.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="DisplayMessage" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The message provided for display to the customer.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ActionCode" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The action code provided by the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TerminalID" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The terminal identifier where the transaction was processed.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="EchoData" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Additional data echoed back from the payment processor.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ReceiptReferenceNumber" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The reference number for the receipt.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="PaymentMethod" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The payment method used.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ReceiptMessageAction" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The action message printed on the receipt.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ReceiptMessageAccount" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The account message printed on the receipt.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ExpiryDate" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The expiry date of the card used for the payment.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="InvoiceNumber" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The invoice number associated with the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CashChange" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The amount of cash change given to the customer.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="OTFField" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>On-the-fly field for additional information.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="EmvStatistics" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Statistics related to the EMV transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ShortToken" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The short token for the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="LongToken" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The long token for the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ApprovalStatus" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The approval status of the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Token" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The token for the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TransactionDate" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The date of the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Amount" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The amount of the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="RemainingCardBalance" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The remaining balance on the card used for the payment.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CardNumber" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The card number used for the payment.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Cardholder" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The name of the cardholder.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="FsaCard" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Indicates if the card used is an FSA (Flexible Spending Account) card.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ReaderEntryMode" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The entry mode used by the reader for the card.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CvResponse" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The card verification response.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ErrorMessage" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The error message, if any, from the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="ExtraData" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Any extra data related to the transaction.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Rfmiq" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Reserved field for future use.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="DebitTraceNumber" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The trace number for debit transactions.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="CardBin" type="xs:string" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The Bank Identification Number (BIN) of the card used for the payment.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="FinalTaxLines" minOccurs="0" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>Represents the final tax lines for the entire transaction or order. This element captures multiple tax details that are applied at the transaction level. This element is not specific to line items but to the overall transaction.</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="TaxAmount" type="xs:integer" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The monetary amount of the tax line.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxPercent" type="xs:decimal" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>The percentage rate of the tax line.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxDescription" type="xs:string" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Description of the tax line.</xs:documentation>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxAmountExempt" type="xs:integer" minOccurs="0" maxOccurs="1">
+											<xs:annotation>
+												<xs:documentation>Amount of the tax line that is exempt</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/amountExempt.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxDetailNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Line number</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/detailNumber.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxDetailNumberVoided" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Line number voided</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/detailNumberVoided.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxNumber" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The tax number within the transaction</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/taxNumber.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxRuleCode" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The tax rule</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/taxRuleCode.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxValueExempt" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Value that is exempt from this rule.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/valueExempt.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxAmountTaxable" type="xs:integer" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>The amount this tax rule is applied to.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/valueTaxable.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxLineVoided" type="xs:boolean" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>If true then this line has been voided.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/voided.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+										<xs:element name="TaxLineVoidingLine" type="xs:string" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>Parent number of voiding line.</xs:documentation>
+												<xs:appinfo>
+													<application name="FlooidPOS">
+														<xs:documentation>This element was added on 2022-09-06 specifically for the Flooid POS system and is mapped to Flooid TxnTaxes/voidingLine.</xs:documentation>
+													</application>
+												</xs:appinfo>
+											</xs:annotation>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="TotalsTransactionData" minOccurs="1">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="TotalTax" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>All the tax lines added up. Used is only one final tax line.</xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="TotalTaxAmount" type="xs:integer" minOccurs="0"/>
+													<xs:element name="TaxPercent" type="xs:decimal" minOccurs="0"/>
+													<xs:element name="TotalTaxDescription" type="xs:string" minOccurs="0"/>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="Discounts" minOccurs="0">
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="AdditionalDiscountDescription" type="xs:string" minOccurs="0"/>
+													<xs:element name="AdditionalDiscountAmount" type="xs:integer" minOccurs="0"/>
+													<xs:element name="AdditionalDiscountPercent" type="xs:integer" minOccurs="0"/>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="TransactionLevelDiscounts" minOccurs="0">
+											<xs:annotation>
+												<xs:documentation>
+      Added on 2025-06-02 to handle discounts applied at the transaction/order/invoice level, which cannot be associated directly with specific line items.
+      The elements below correspond directly to Toshiba’s CouponInfo structure.
+      
+      Element Mapping from Toshiba XML:
+      - Description: Maps to CouponInfo.Description (coupon description text)
+      - DepositFlag: Maps to CouponInfo.DepositFlag (boolean indicating if deposit applies)
+      - VoidFlag: Maps to CouponInfo.VoidFlag (boolean indicating coupon is voided)
+      - ItemIdentifier: Maps to CouponInfo.ItemIdentifier (item or coupon identifier code)
+      - CouponType: Maps to CouponInfo.CouponType (coupon origin, e.g., MANUFACTURER or STORE)
+      - Quantity: Maps to CouponInfo.Quantity (number of coupons applied)
+      - Value: Maps to CouponInfo.Value (monetary amount discounted, negative values indicate discount)
+      - Weight: Maps to CouponInfo.Weight (item weight if applicable, usually 0.00 for coupons)
+      - DealPrice: Maps to CouponInfo.DealPrice (promotional deal price, typically 0.00 for coupons)
+      - DealQuantity: Maps to CouponInfo.DealQuantity (quantity required for the coupon deal)
+      - DepartmentNumber: Maps to CouponInfo.DepartmentNumber (store department number associated with coupon)
+      - ItemRepeatAllowedFlag: Maps to CouponInfo.ItemRepeatAllowedFlag (boolean flag indicating if coupon can be repeated)
+      - ManufacturerNumber: Maps to CouponInfo.ManufacturerNumber (manufacturer's unique identifier, blank if not provided)
+    </xs:documentation>
+											</xs:annotation>
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Discount" minOccurs="1" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="Description" type="xs:string" minOccurs="0"/>
+																<xs:element name="DepositFlag" type="xs:boolean" minOccurs="0"/>
+																<xs:element name="VoidFlag" type="xs:boolean" minOccurs="0"/>
+																<xs:element name="ItemIdentifier" type="xs:string" minOccurs="0"/>
+																<xs:element name="CouponType" type="xs:string" minOccurs="0"/>
+																<xs:element name="Quantity" type="xs:integer" minOccurs="0"/>
+																<xs:element name="Value" type="xs:decimal" minOccurs="0"/>
+																<xs:element name="Weight" type="xs:decimal" minOccurs="0"/>
+																<xs:element name="DealPrice" type="xs:decimal" minOccurs="0"/>
+																<xs:element name="DealQuantity" type="xs:integer" minOccurs="0"/>
+																<xs:element name="DepartmentNumber" type="xs:integer" minOccurs="0"/>
+																<xs:element name="ItemRepeatAllowedFlag" type="xs:boolean" minOccurs="0"/>
+																<xs:element name="ManufacturerNumber" type="xs:string" minOccurs="0"/>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="Totals" minOccurs="1">
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="SubTotalAmount" type="xs:integer" nillable="true">
+														<xs:annotation>
+															<xs:documentation>The total price of all items combined, excluding taxes, including order line level discounts, and order level discounts</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="DiscountTotal" type="xs:integer" minOccurs="1">
+														<xs:annotation>
+															<xs:documentation>Total amount of discounts. Used to show how much a customer saved. Postive for sale and negative for return.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="DiscountTotalAmount" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>The final amount before taxes that a customer is paying</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TotalAmount" type="xs:integer">
+														<xs:annotation>
+															<xs:documentation>The total amount to be paid including fees and taxes</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="TotalShippingAmount" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>All shipping data.</xs:documentation>
+														</xs:annotation>
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="ShippingDescription" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Description of this shipping line</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="ShippingID" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Unique ID of this shipping line</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="ShippingDiscount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The effective discount of all discounts affecting the shipment, includes overflowing order level discount</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="ShippingPrice" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The amount the shipment costs</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="ShippingTotal" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The shipment total includes taxes, and discounts</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="TotalHandlingAmount" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>All handling data.</xs:documentation>
+														</xs:annotation>
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="HandlingDescription" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>Description</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="HandlingID" type="xs:string" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>ID</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="HandlingDiscount" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The effective discount of all discounts affecting the Handling, includes overflowing order level discount</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="HandlingPrice" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The amount the Handling costs</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+																<xs:element name="HandlingTotal" type="xs:integer" minOccurs="0">
+																	<xs:annotation>
+																		<xs:documentation>The Handling total includes taxes, and discounts</xs:documentation>
+																	</xs:annotation>
+																</xs:element>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="CashBackAmount" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Total amount of money given back to customer.</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Balance" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Amount remaining on a payment method</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+													<xs:element name="Change" type="xs:integer" minOccurs="0">
+														<xs:annotation>
+															<xs:documentation>Change that the customer was given</xs:documentation>
+														</xs:annotation>
+													</xs:element>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="PaymentOut" minOccurs="0" maxOccurs="unbounded">
+								<xs:annotation>
+									<xs:documentation>Used for any method that the customer is being paid.</xs:documentation>
+								</xs:annotation>
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="Description" type="xs:string" minOccurs="0"/>
+										<xs:element name="Reason" type="xs:string" minOccurs="0"/>
+										<xs:element name="Method" type="xs:string" minOccurs="0"/>
+										<xs:element name="Type" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:token">
+													<xs:enumeration value="cash"/>
+													<xs:enumeration value="amex"/>
+													<xs:enumeration value="diners"/>
+													<xs:enumeration value="discover"/>
+													<xs:enumeration value="jcb"/>
+													<xs:enumeration value="maestro"/>
+													<xs:enumeration value="maestrouk"/>
+													<xs:enumeration value="mastercard"/>
+													<xs:enumeration value="uatp"/>
+													<xs:enumeration value="visa"/>
+													<xs:enumeration value="hipercard"/>
+													<xs:enumeration value="aura"/>
+													<xs:enumeration value="sorocred"/>
+													<xs:enumeration value="cartebleue"/>
+													<xs:enumeration value="cartebancaire"/>
+													<xs:enumeration value="giftcard"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="Amount" type="xs:integer" minOccurs="0"/>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="TransactionFooter" minOccurs="0">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="TransactionSurvey" minOccurs="0">
+											<xs:complexType>
+												<xs:all>
+													<xs:element name="Code" type="xs:string"/>
+													<xs:element name="Link" type="xs:string"/>
+												</xs:all>
+											</xs:complexType>
+										</xs:element>
+										<xs:element name="Line" minOccurs="0" maxOccurs="unbounded">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="Content" type="xs:string"/>
+													<xs:element name="ContentStyle" minOccurs="0" maxOccurs="unbounded">
+														<xs:complexType>
+															<xs:all>
+																<xs:element name="Style">
+																	<xs:simpleType>
+																		<xs:restriction base="xs:token">
+																			<xs:enumeration value="font"/>
+																			<xs:enumeration value="variant"/>
+																			<xs:enumeration value="weight"/>
+																			<xs:enumeration value="size"/>
+																			<xs:enumeration value="color"/>
+																			<xs:enumeration value="alignment"/>
+																			<xs:enumeration value="decoration"/>
+																			<xs:enumeration value="transform"/>
+																			<xs:enumeration value="contentindent"/>
+																			<xs:enumeration value="letterSpacing"/>
+																			<xs:enumeration value="lineHeight"/>
+																			<xs:enumeration value="wordSpacing"/>
+																			<xs:enumeration value="other"/>
+																		</xs:restriction>
+																	</xs:simpleType>
+																</xs:element>
+																<xs:element name="StyleValue" type="xs:string"/>
+															</xs:all>
+														</xs:complexType>
+													</xs:element>
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="TransactionDocument" minOccurs="0" maxOccurs="1">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Document" minOccurs="1" maxOccurs="1">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="DocumentName" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocumentType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocumentRefId" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocumentMediaType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="MimeContentType" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocuCaptureDateTime" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocumentUrl" type="xs:string" minOccurs="0" maxOccurs="1"/>
+										<xs:element name="DocumentData" type="xs:string" minOccurs="0" maxOccurs="1"/>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:all>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

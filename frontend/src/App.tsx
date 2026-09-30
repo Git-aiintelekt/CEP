@@ -37,6 +37,7 @@ import { RolesPage } from '@/pages/settings/RolesPage'
 import { SecurityPage } from '@/pages/settings/SecurityPage'
 import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
+import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
 import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
@@ -133,6 +134,7 @@ export default function App() {
                   <Route path="integrations" element={<IntegrationsPage />} />
                   <Route path="suppressions" element={<SuppressionsPage />} />
                   <Route path="preference-center" element={<PreferenceCenterPage />} />
+                  <Route path="pos" element={<PosReceiptsPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                 </Route>

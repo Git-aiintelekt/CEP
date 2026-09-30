@@ -36,9 +36,12 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
 
     def authenticate(self, request):
         header = authentication.get_authorization_header(request).decode()
-        if not header.lower().startswith("bearer ") or not header[7:].startswith(self.PREFIX):
+        if header.lower().startswith("bearer ") and header[7:].startswith(self.PREFIX):
+            key = header[7:].strip()
+        elif str(request.META.get("HTTP_ACCESSTOKENKEY", "")).startswith(self.PREFIX):        # a point of sale sends the key in its own header
+            key = request.META["HTTP_ACCESSTOKENKEY"].strip()
+        else:
             return None                                       # not an API key: let JWT / session handle it
-        key = header[7:].strip()
         prefix = key[:13]                                     # cep_xx_XXXXXX
         client = ApiClient.objects.filter(key_prefix=prefix, revoked_at__isnull=True).first()
         if client is None or client.key_hash != hashlib.sha256(key.encode()).hexdigest():

@@ -291,3 +291,13 @@ under a reference nobody knew.
   rows and words as Settings → Suppressions, kept to this campaign's people.
 - **Settings → Sending Engines**: the Callback Address column became *Callbacks*: the copy button, then "Last received … · N in 24 h",
   or in warning text "No callback has ever arrived. Register the address with the engine…".
+
+## 13. Settings → POS Receipts (2026-09-30)
+
+For the point of sale posting TTDR 3.2.2 transactions (docs/POS_ERECEIPTS.md). A tab after Preference Centre, shown when the plan has
+e-receipts. Left column: **E-Receipt Campaign** (two selects: sales and everything else, returns and exchanges; each change is one PUT)
+and **Stores** (table: number · name with the brand under it, address, phone, In Use; *Add Store* opens a two-column dialog with every
+store field, a return-policy text area, an In Use switch and Remove; *Import CSV* takes a file straight from the button and reports
+added / updated / skipped lines). Right column: **Tell the Point of Sale** (the endpoint with Copy, the two header forms, where the key
+comes from, the answer codes in one line) and **Received from the Point of Sale** (Answer and Transaction ID filters; a table of when,
+transaction, the answer as a tag — green S100, amber S101, grey S102, red E… — with the message under it, and the receipt's engine id).
