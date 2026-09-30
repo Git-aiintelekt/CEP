@@ -174,6 +174,10 @@ export function DeliveryPage() {
     mutationFn: (provider: DeliveryProvider) => api.post<{ ok: boolean; detail: string | null }>(`/delivery-providers/${provider.id}/check/`),
     onSuccess: (result, provider) => { setNotice({ ok: result.ok, text: result.ok ? `${provider.name}: the connection and credential work.` : `${provider.name}: ${result.detail}` }); void refresh() },
   })
+  const rotate = useMutation({
+    mutationFn: (provider: DeliveryProvider) => api.post<DeliveryProvider>(`/delivery-providers/${provider.id}/rotate-webhook/`),
+    onSuccess: (next) => { setNotice({ ok: true, text: `${next.name}: the callback address was rotated. The old one no longer works — register the new one with the engine.` }); void refresh() },
+  })
   const removeProvider = useMutation({ mutationFn: (provider: DeliveryProvider) => api.delete(`/delivery-providers/${provider.id}/`), onSuccess: refresh })
   const verify = useMutation({
     mutationFn: ({ sender, to }: { sender: DeliverySender; to: string }) => api.post<{ ok: boolean; detail: string | null; to: string }>(`/delivery-senders/${sender.id}/verify/`, { to }),
@@ -204,8 +208,12 @@ export function DeliveryPage() {
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
     { key: 'webhook', header: 'Callbacks', render: (row) => row.webhook_url
       ? <span className="flex flex-col items-start gap-0.5">
-          <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
-            onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
+          <span className="flex flex-wrap gap-x-3">
+            <button type="button" className={`${buttonClass({ variant: 'link', size: 'sm' })} text-left`} title={row.webhook_url}
+              onClick={() => void navigator.clipboard?.writeText(row.webhook_url as string).then(() => setCopied(row.id), () => undefined)}>{copied === row.id ? 'Copied' : 'Copy Webhook URL'}</button>
+            {allowed && <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={rotate.isPending}
+              onClick={() => window.confirm(`Rotate the callback address of ${row.name}? The current address stops working at once; callbacks resume when the new one is registered with the engine.`) && rotate.mutate(row)}>Rotate Address</button>}
+          </span>
           {row.last_callback_at
             ? <span className="cep-num text-xs text-ink-500">Last received {formatDateTime(row.last_callback_at)} · {formatNumber(row.callbacks_24h ?? 0)} in 24 h</span>
             : <span className="text-xs font-medium text-warning-text">No callback has ever arrived. Register the address with the engine so deliveries, bounces, opens and clicks come back.</span>}

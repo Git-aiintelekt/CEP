@@ -124,8 +124,11 @@ link all come from the engine.
 {API_PUBLIC_URL}/api/v1/webhooks/delivery/<TENANT CODE>/<provider id>/<token>/
 ```
 
-Shown per provider in **Settings → Sending engines** ("Copy webhook URL"). The token is an HMAC of the provider id with the
-installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup. Every event is stored raw in
+Shown per provider in **Settings → Sending engines** ("Copy Webhook URL"). The token is an HMAC of the provider id (and, once
+rotated, its rotation key) with the installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup.
+**Rotate Address** on the engine (`POST /delivery-providers/{id}/rotate-webhook/`, `provider.edit`) stores a fresh random
+`webhook_key` in the engine's config: the old address answers 404 at once and the new one has to be registered with the
+provider. The column also says when the engine last called back and how often in the last day, or that it never has. Every event is stored raw in
 `delivery_webhook_event` first, then applied; the endpoint answers `200` with counts
 (`received / applied / ignored / unmatched / failed`) so providers do not retry events that were understood.
 A wrong token is `404`, a failed provider signature `401`.

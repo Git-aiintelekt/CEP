@@ -64,6 +64,19 @@ test('checking a provider and verifying a sender report what happened', async ()
   expect(calls.filter((call) => call.url.endsWith('/verify/')).at(-1)?.body).toEqual({ to: 'aby.john@aiintelekt.com' })
 })
 
+test('rotating the callback address asks first, posts once, and says the old address is dead', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  await renderAppAt('/settings/delivery')
+
+  const engines = await screen.findByRole('table', { name: 'Sending Engines' })
+  await user.click(within(engines).getAllByRole('button', { name: 'Rotate Address' })[0])
+  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('The current address stops working at once'))
+  expect((await screen.findByRole('status')).textContent).toContain('the callback address was rotated')
+  expect(calls.filter((call) => call.method === 'POST' && call.url.endsWith('/delivery-providers/prov-postal/rotate-webhook/')).length).toBe(1)
+})
+
 test('a campaign page offers a test send and shows what happened to its run, including who was left out and why', async () => {
   const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', runs: [] }) })
   const user = userEvent.setup()
