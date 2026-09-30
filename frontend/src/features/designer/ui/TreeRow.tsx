@@ -21,7 +21,7 @@ interface TreeRowProps {
 /** A 30px row in the layers tree: a 2px brand bar and Blue 100 fill when selected, Gray 75 on hover. */
 export function TreeRow({ level, icon: Icon, selected = false, muted = false, expander, children, actions, trailing }: TreeRowProps) {
   const tone = selected ? 'border-brand-600 bg-brand-100' : 'border-transparent hover:bg-surface-subtle'
-  const iconTone = muted ? 'text-ink-300' : selected ? 'text-brand-600' : 'text-ink-700'
+  const iconTone = muted ? 'text-ink-300' : selected ? 'text-brand-600' : 'text-ink-800'
 
   return (
     <div className={`group flex h-[30px] shrink-0 items-center gap-[2px] border-l-2 pr-1.5 ${tone}`}>

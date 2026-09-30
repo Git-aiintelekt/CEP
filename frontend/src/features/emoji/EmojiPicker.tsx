@@ -47,20 +47,20 @@ export function EmojiPicker({ onPick, onClose }: EmojiPickerProps) {
   return (
     <div className="flex max-h-[360px] flex-col" data-emoji-picker>
       <PanelSearch label="Search Emoji" value={query} placeholder="Search: fire, heart, party…" onChange={setQuery} />
-      <div className="flex items-center justify-between px-2 pb-1 text-[11px] text-ink-500">
+      <div className="flex items-center justify-between px-2 pb-1 text-[11px] text-ink-800">
         <span>{all ? 'Every emoji' : 'Emoji that show everywhere'}</span>
         <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => setAll((was) => !was)}>{all ? 'Show Safe Only' : 'Show All'}</button>
       </div>
       <div className="min-h-0 overflow-y-auto px-2 pb-2" role="listbox" aria-label="Emoji">
         {failed ? <p className="p-2 text-xs text-danger-text">The emoji list could not be loaded.</p>
-          : !data ? <p className="p-2 text-xs text-ink-500">Loading emoji</p>
-          : shown.length === 0 ? <p className="p-2 text-xs text-ink-500">No emoji matches. Try another word.</p>
+          : !data ? <p className="p-2 text-xs text-ink-800">Loading emoji</p>
+          : shown.length === 0 ? <p className="p-2 text-xs text-ink-800">No emoji matches. Try another word.</p>
           : (
             <div className="grid grid-cols-8 gap-0.5">
               {shown.map((entry) => (
                 <button key={entry.c} type="button" role="option" aria-selected={false} title={entry.n} aria-label={entry.n} data-dropdown-item
                   style={{ fontFamily: EMOJI_FONT }}
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-xl leading-none hover:bg-line-subtle focus-visible:bg-brand-100"
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-xl leading-none hover:bg-fill-subtle focus-visible:bg-brand-100"
                   onClick={() => { onPick(entry.c); onClose() }}>
                   {entry.c}
                 </button>

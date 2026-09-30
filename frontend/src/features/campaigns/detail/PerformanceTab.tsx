@@ -62,11 +62,11 @@ function ResultsCard({ campaign, zone, metrics }: { campaign: Campaign; zone: st
           )}
           <Metric label="Conversions" value={formatNumber(conversions)} note={revenue ? `${formatMoney(revenue, { whole: true })} attributed` : 'Arrives with the attribution feed'} />
         </dl>
-        {texts && breakdown.note && <p className="mt-6 border-t border-line-subtle pt-4 text-helper text-ink-500">{breakdown.note}</p>}
+        {texts && breakdown.note && <p className="mt-6 border-t border-line-subtle pt-4 text-helper text-ink-800">{breakdown.note}</p>}
       </>
     )
   }
-  return <DetailCard title="Results" actions={stamp && <span className="cep-num text-ink-500">{stamp}</span>}>{body}</DetailCard>
+  return <DetailCard title="Results" actions={stamp && <span className="cep-num text-ink-800">{stamp}</span>}>{body}</DetailCard>
 }
 
 function EngagementCard({ campaign, zone, live }: { campaign: Campaign; zone: string; live: boolean }) {
@@ -85,7 +85,7 @@ function EngagementCard({ campaign, zone, live }: { campaign: Campaign; zone: st
   )
 }
 
-const TONE: Record<Tone, string> = { better: 'font-semibold text-success-text', worse: 'font-semibold text-warning-text', none: 'text-ink-500' }
+const TONE: Record<Tone, string> = { better: 'font-semibold text-success-text', worse: 'font-semibold text-warning-text', none: 'text-ink-800' }
 
 const economicsColumns: Column<EconomicsRow>[] = [
   { key: 'measure', header: 'Measure', render: (row) => <span className="text-ink-900">{row.measure}</span> },
@@ -100,14 +100,14 @@ function EconomicsCard({ campaign, metrics }: { campaign: Campaign; metrics: Cam
   const targets = campaign.targets
   const edit = editable && <CardLink to={setupHref(campaign.id, { step: 'targets' })}>Edit Targets</CardLink>
   if (!hasTargets(targets)) {
-    return <DetailCard title="Economics" actions={edit}><p className="text-sm text-ink-500">No targets were set for this campaign.</p></DetailCard>
+    return <DetailCard title="Economics" actions={edit}><p className="text-sm text-ink-800">No targets were set for this campaign.</p></DetailCard>
   }
   const subline = economicsSubline(targets)
   return (
     <DetailCard title="Economics" actions={edit} flush>
       <div className="flex flex-col gap-1.5 pb-5 md:px-6 md:pt-6">
         <p className="cep-num font-display text-xl font-semibold tracking-tight text-ink-900" data-testid="economics-headline">{economicsHeadline(metrics, NO_COSTS)}</p>
-        {subline && <p className="cep-num text-sm text-ink-500">{subline}</p>}
+        {subline && <p className="cep-num text-sm text-ink-800">{subline}</p>}
       </div>
       <div className="md:border-t md:border-line-subtle">
         <DataTable columns={economicsColumns} rows={economicsRows(targets, metrics, { texts: isText(campaign), costs: NO_COSTS })} rowKey={(row) => row.measure}
@@ -119,8 +119,8 @@ function EconomicsCard({ campaign, metrics }: { campaign: Campaign; metrics: Cam
             {metrics.targets.map((item) => <Meter key={item.measure} label={item.measure} actual={item.actual} target={item.target} percent={item.percent} money={item.measure === 'Revenue'} />)}
           </div>
         )}
-        {targets.notes && <p className="text-sm whitespace-pre-wrap text-ink-700">{targets.notes}</p>}
-        <p className="text-helper text-ink-500">Planning estimates come from your own inputs. They aren’t guaranteed outcomes.</p>
+        {targets.notes && <p className="text-sm whitespace-pre-wrap text-ink-800">{targets.notes}</p>}
+        <p className="text-helper text-ink-800">Planning estimates come from your own inputs. They aren’t guaranteed outcomes.</p>
       </div>
     </DetailCard>
   )

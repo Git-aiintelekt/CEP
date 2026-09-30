@@ -62,7 +62,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
     <>
       <Tag>{lookOf(channel).label}</Tag>
       {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP Preset</Tag></> : <StatusTag status={item.template.status} />}
-      <span className="ml-1.5 text-xs text-ink-500">Tags show their sample values. Nothing here is saved or sent.</span>
+      <span className="ml-1.5 text-xs text-ink-800">Tags show their sample values. Nothing here is saved or sent.</span>
     </>
   )
   const headerActions = isEmail ? <SegmentedControl label="Device" options={DEVICE_OPTIONS} value={device} onChange={setDevice} /> : undefined
@@ -70,7 +70,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
   const footer =
     item.kind === 'template' ? (
       <div className="flex w-full items-center justify-between gap-3">
-        <span className="text-helper text-ink-500">Edited {formatRelative(item.template.updated_at)}</span>
+        <span className="text-helper text-ink-800">Edited {formatRelative(item.template.updated_at)}</span>
         <Button variant="primary" onClick={() => navigate(editorPathFor(item.template))}>{canEdit ? 'Edit' : 'Open'}</Button>
       </div>
     ) : canEdit ? (
@@ -82,7 +82,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
       {preview.isError ? (
         <ErrorState title="Could not load this preview" error={preview.error} onRetry={() => void preview.refetch()} />
       ) : !preview.data ? (
-        <p className="flex items-center justify-center gap-2 py-16 text-sm text-ink-500"><Spinner size="sm" /> Building the preview</p>
+        <p className="flex items-center justify-center gap-2 py-16 text-sm text-ink-800"><Spinner size="sm" /> Building the preview</p>
       ) : preview.data.kind === 'email' ? (
         <EmailPreview content={preview.data} tags={preview.tags} device={device} />
       ) : (
@@ -101,15 +101,15 @@ function EmailPreview({ content, tags, device }: { content: Extract<PreviewConte
     <div className="space-y-4">
       <dl className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
         <div className="flex gap-3">
-          <dt className="w-20 shrink-0 text-ink-500">Subject</dt>
+          <dt className="w-20 shrink-0 text-ink-800">Subject</dt>
           <dd className="min-w-0 font-semibold text-ink-900">{resolvedText(content.subject, tags) || 'No subject line'}</dd>
         </div>
         <div className="mt-1 flex gap-3">
-          <dt className="w-20 shrink-0 text-ink-500">Preheader</dt>
-          <dd className="min-w-0 text-ink-700">{resolvedText(content.preheader, tags) || 'No preheader'}</dd>
+          <dt className="w-20 shrink-0 text-ink-800">Preheader</dt>
+          <dd className="min-w-0 text-ink-800">{resolvedText(content.preheader, tags) || 'No preheader'}</dd>
         </div>
       </dl>
-      <div className="overflow-x-auto rounded-lg bg-line-subtle p-4">
+      <div className="overflow-x-auto rounded-lg bg-fill-subtle p-4">
         {device === 'desktop' ? (
           <div className="mx-auto w-fit border border-line">{frame}</div>
         ) : (
@@ -146,25 +146,25 @@ function MessagePreview({ content, tags }: { content: Extract<PreviewContent, { 
         {isMms && (media ? (
           <figure className="max-w-[85%]">
             <img src={media.url} alt="Attached image" className="max-h-56 w-auto rounded-lg rounded-bl-md object-cover" />
-            <figcaption className="mt-1 text-xs text-ink-500">Attached image{size}</figcaption>
+            <figcaption className="mt-1 text-xs text-ink-800">Attached image{size}</figcaption>
           </figure>
         ) : (
-          <p className="flex h-32 max-w-[85%] items-center justify-center rounded-lg rounded-bl-md border border-dashed border-ink-300 px-3 text-center text-xs text-ink-500">Attached image: add one in the editor before activating</p>
+          <p className="flex h-32 max-w-[85%] items-center justify-center rounded-lg rounded-bl-md border border-dashed border-ink-300 px-3 text-center text-xs text-ink-800">Attached image: add one in the editor before activating</p>
         ))}
-        {isMms && content.subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-700">{resolvedText(content.subject, tags)}</p>}
-        {text.trim() ? <p data-testid="preview-bubble" className={BUBBLE}>{text}</p> : <p className="px-2 pt-10 text-center text-xs text-ink-500">This message has no text yet.</p>}
+        {isMms && content.subject.trim() && <p className="max-w-[85%] text-xs font-semibold text-ink-800">{resolvedText(content.subject, tags)}</p>}
+        {text.trim() ? <p data-testid="preview-bubble" className={BUBBLE}>{text}</p> : <p className="px-2 pt-10 text-center text-xs text-ink-800">This message has no text yet.</p>}
       </PhoneFrame>
 
       <div className="space-y-3">
         <dl aria-label="Message Facts" className="divide-y divide-line-subtle rounded-lg border border-line text-sm">
           {rows.map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <dt className="text-ink-500">{label}</dt>
+              <dt className="text-ink-800">{label}</dt>
               <dd className={`cep-num text-right font-semibold ${label === 'Opt-Out' && facts.missingOptOut ? 'text-danger-text' : 'text-ink-900'}`}>{value}</dd>
             </div>
           ))}
         </dl>
-        <p className="text-helper text-ink-500">
+        <p className="text-helper text-ink-800">
           Opt-out wording is part of the message body, so it counts toward the characters and segments above.
           {content.findings?.estimated || !content.findings ? ' Lengths are counted with sample values; real lengths vary per recipient.' : ''}
         </p>

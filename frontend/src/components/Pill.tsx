@@ -8,12 +8,12 @@ const BASE =
 
 /** Neutral pills walk the grey ramp; a tinted pill has no darker fill in the system, so its edge carries the state. */
 const TONE: Record<PillTone, string> = {
-  neutral: 'border-line bg-surface text-ink-700 hover:bg-surface-subtle active:bg-line-subtle',
+  neutral: 'border-line bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle',
   danger: 'border-danger bg-danger-bg text-danger-text hover:border-danger-text active:border-danger-text',
   warning: 'border-warning bg-warning-bg text-warning-text hover:border-warning-text active:border-warning-text',
 }
 
-const DISABLED = 'cursor-not-allowed border-line bg-line-subtle text-ink-300'
+const DISABLED = 'cursor-not-allowed border-line bg-fill-subtle text-ink-300'
 
 interface PillProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   ref?: Ref<HTMLButtonElement>

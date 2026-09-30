@@ -26,12 +26,12 @@ function LocalTimeCoverage({ campaignId, zone }: { campaignId: string; zone: str
     queryFn: ({ signal }) => api.get<CampaignAudience>(`/campaigns/${campaignId}/audience/`, { local_time: 1 }, signal),
   })
   const counts = coverage.data?.local_time
-  if (coverage.isPending) return <p className="text-xs text-ink-500">Counting who has a known time zone</p>
+  if (coverage.isPending) return <p className="text-xs text-ink-800">Counting who has a known time zone</p>
   if (!counts) return null
-  if (counts.people === 0) return <p className="text-xs text-ink-500">Attach a contact list to see how many people have a known time zone.</p>
+  if (counts.people === 0) return <p className="text-xs text-ink-800">Attach a contact list to see how many people have a known time zone.</p>
   const rest = counts.people - counts.local_time_known
   return (
-    <p className="cep-num text-xs text-ink-700" data-local-time>
+    <p className="cep-num text-xs text-ink-800" data-local-time>
       {formatNumber(counts.local_time_known)} of {formatNumber(counts.people)} people have a known time zone.
       {rest > 0 ? ` The other ${formatNumber(rest)} get it at the chosen time in ${zone}.` : ' Everyone gets it at their own local time.'}
     </p>
@@ -53,10 +53,10 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
   if (type === 'E_RECEIPT') {
     return (
       <Panel title="This is an E-Receipt campaign, so there is no schedule to set">
-        <p className="max-w-3xl text-sm text-ink-700">Once the campaign is published, each receipt goes out when the point of sale or the web shop asks for it. A send time, a recurrence or a series belongs to the other campaign types.</p>
+        <p className="max-w-3xl text-sm text-ink-800">Once the campaign is published, each receipt goes out when the point of sale or the web shop asks for it. A send time, a recurrence or a series belongs to the other campaign types.</p>
         <p className="mt-4 flex flex-wrap items-center gap-3">
           {onChangeType && <button type="button" className={buttonSecondary} onClick={onChangeType}>Change the Campaign Type</button>}
-          <span className="text-sm text-ink-500">Keeping E-Receipt: continue to the next step.</span>
+          <span className="text-sm text-ink-800">Keeping E-Receipt: continue to the next step.</span>
         </p>
       </Panel>
     )
@@ -77,7 +77,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
         <ChoiceGroup label="When to Send" error={errors.send_type?.message} columns={isDrip ? 'sm:grid-cols-1' : 'sm:grid-cols-3'}>
           {choices.map((item) => <ChoiceCard key={item.value} selected={sendType === item.value} onSelect={() => setValue('send_type', item.value, touch)} title={item.label} text={item.hint} />)}
         </ChoiceGroup>
-        {isDrip && <p className="mt-2 text-xs text-ink-500">A drip campaign always sends as a series. To send once, change the campaign type on the first step.</p>}
+        {isDrip && <p className="mt-2 text-xs text-ink-800">A drip campaign always sends as a series. To send once, change the campaign type on the first step.</p>}
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <Field label="Time Zone" error={errors.send_timezone?.message} hint={`Send times below are clock times in this zone. Workspace time zone: ${workspaceZone}.`}>
@@ -115,11 +115,11 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
             </div>
             {recurring.frequency === 'WEEKLY' && (
               <div>
-                <p className="text-sm font-medium text-ink-700">On</p>
+                <p className="text-sm font-medium text-ink-800">On</p>
                 <div role="group" aria-label="Days of the Week" className="mt-1 flex flex-wrap gap-2">
                   {WEEKDAYS.map((day) => (
                     <button key={day.value} type="button" aria-pressed={recurring.weekdays.includes(day.value)} onClick={() => toggleDay(day.value)}
-                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
                       {day.label}
                     </button>
                   ))}
@@ -159,7 +159,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
                 {(ids) => <TextInput {...ids} type="time" {...register('drip.time')} />}
               </Field>
             </div>
-            <p className="text-sm font-medium text-ink-700">Steps</p>
+            <p className="text-sm font-medium text-ink-800">Steps</p>
             {stepsError && <p role="alert" className="text-xs font-medium text-danger-text">{stepsError}</p>}
             <ol className="space-y-3">
               {steps.fields.map((step, index) => (
@@ -171,7 +171,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
                     {(ids) => <TextInput {...ids} maxLength={60} {...register(`drip.steps.${index}.label`)} />}
                   </Field>
                   <button type="button" aria-label={`Remove Step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)}
-                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-700 transition-colors hover:bg-line-subtle disabled:text-ink-300">
+                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-800 transition-colors hover:bg-fill-subtle disabled:text-ink-300">
                     <Trash2 size={18} strokeWidth={1.5} aria-hidden />
                   </button>
                 </li>
@@ -181,7 +181,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
               onClick={() => steps.append({ day: String(Math.max(0, ...watch('drip.steps').map((step) => Number(step.day) || 0)) + 3), label: '' })}>
               <Plus size={16} strokeWidth={1.5} aria-hidden /> Add a Step
             </button>
-            <p className="text-xs text-ink-500">Every step uses the template chosen for this campaign. Per-step templates arrive with journeys.</p>
+            <p className="text-xs text-ink-800">Every step uses the template chosen for this campaign. Per-step templates arrive with journeys.</p>
           </div>
         )}
       </Panel>
@@ -195,13 +195,13 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
             label="Send at Each Recipient's Local Time"
             hint="The same clock time in each recipient's own time zone, from their address (a US or Canadian state, or a country with one zone) or a timezone attribute. The send starts as the first zone reaches the time and ends with the last." />
           {watch('timezone_optimization') && campaignId && <div className="-mt-2 pl-7"><LocalTimeCoverage campaignId={campaignId} zone={watch('send_timezone') || workspaceZone} /></div>}
-          {watch('timezone_optimization') && watch('send_type') === 'IMMEDIATE' && <p className="-mt-2 pl-7 text-xs text-ink-500">An immediate send uses the clock time of the moment it is published, in each recipient's zone: people in zones that have not reached it yet get it later today.</p>}
+          {watch('timezone_optimization') && watch('send_type') === 'IMMEDIATE' && <p className="-mt-2 pl-7 text-xs text-ink-800">An immediate send uses the clock time of the moment it is published, in each recipient's zone: people in zones that have not reached it yet get it later today.</p>}
           <div className="sm:w-1/3">
             <Field label="Messages per Hour, at Most" error={errors.rate_limit_per_hour?.message} hint="Leave blank for no limit of your own. Takes effect with the delivery engine integration.">
               {(ids) => <TextInput {...ids} inputMode="numeric" {...register('rate_limit_per_hour')} />}
             </Field>
           </div>
-          {texts && marketing && <p className="text-xs text-ink-500">Marketing texts are held during the workspace's quiet hours and start when they end.</p>}
+          {texts && marketing && <p className="text-xs text-ink-800">Marketing texts are held during the workspace's quiet hours and start when they end.</p>}
         </div>
       </Panel>
     </div>

@@ -140,7 +140,7 @@ export function TextField({
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => insertTag(tag.key)}
                     className={`inline-flex h-6 items-center gap-1 rounded-sm border px-1.5 text-xs transition-colors duration-base ease-standard ${
-                      disabled ? 'border-line bg-line-subtle text-ink-300' : 'border-line bg-surface text-ink-700 hover:bg-line-subtle'
+                      disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
                     }`}
                   >
                     <Plus size={12} strokeWidth={1.5} aria-hidden />

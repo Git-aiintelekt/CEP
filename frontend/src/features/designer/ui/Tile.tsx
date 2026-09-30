@@ -20,8 +20,8 @@ interface TileProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'child
  */
 export function Tile({ label, icon: Icon, thumbnail, grab = false, softDisabled = false, type = 'button', className = '', onClick, ...props }: TileProps) {
   const state =
-    softDisabled ? 'cursor-not-allowed border-line bg-line-subtle text-ink-300'
-    : `border-line bg-surface text-ink-700 hover:border-ink-300 hover:bg-surface-subtle focus:border-brand-600 ${grab ? 'cursor-grab' : ''}`
+    softDisabled ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300'
+    : `border-line bg-surface text-ink-800 hover:border-ink-300 hover:bg-surface-subtle focus:border-brand-600 ${grab ? 'cursor-grab' : ''}`
   const layout = thumbnail ? 'gap-1 p-1 text-left' : 'items-center gap-1 px-[2px] py-2.5 text-center'
 
   return (
@@ -33,7 +33,7 @@ export function Tile({ label, icon: Icon, thumbnail, grab = false, softDisabled 
       className={`flex w-full flex-col rounded-sm border ${layout} ${state} ${className}`}
     >
       {thumbnail ?
-        <span className="flex h-10 w-full items-center justify-center overflow-hidden rounded-xs bg-line-subtle">{thumbnail}</span>
+        <span className="flex h-10 w-full items-center justify-center overflow-hidden rounded-xs bg-fill-subtle">{thumbnail}</span>
       : Icon && <Icon size={18} strokeWidth={1.5} aria-hidden />}
       <span className={`w-full text-[10px] leading-[1.2] ${thumbnail ? 'truncate' : 'font-medium'}`}>{label}</span>
     </button>

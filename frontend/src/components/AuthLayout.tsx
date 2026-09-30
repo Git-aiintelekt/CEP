@@ -59,8 +59,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         {/* the wordmark only has to stand in for the panel once the panel is gone */}
         <div className="flex items-center gap-2.5 pb-10 min-[860px]:hidden">
           <span className="font-display text-xl font-bold tracking-[-0.03em] text-wordmark-navy">CEP</span>
-          <span aria-hidden className="h-3.5 w-px bg-line" />
-          <span className="text-[13px] text-ink-700">Customer Engagement Platform</span>
+          <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
+          <span className="text-[13px] text-ink-800">Customer Engagement Platform</span>
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center">
@@ -68,7 +68,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex justify-center">
-          <footer className="flex w-full max-w-[400px] flex-wrap gap-4 text-[13px] text-ink-700">
+          <footer className="flex w-full max-w-[400px] flex-wrap gap-4 text-[13px] text-ink-800">
             <span>© 2026 CEP</span>
             {/* plain text until these pages exist — a link to nowhere is worse than no link */}
             <span>Privacy</span>
@@ -89,7 +89,7 @@ export function AuthHeading({ title, children }: { title: string; children?: Rea
   return (
     <div className="flex flex-col gap-2">
       <h2 className="text-[28px] leading-[1.2] font-semibold text-ink-900">{title}</h2>
-      {children && <p className="text-sm leading-normal text-ink-700">{children}</p>}
+      {children && <p className="text-sm leading-normal text-ink-800">{children}</p>}
     </div>
   )
 }
@@ -108,9 +108,9 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
 }
 
 export const authButtonPrimary =
-  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-line-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-fill-subtle disabled:text-ink-300'
 export const authButtonSecondary =
-  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-line-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-fill-subtle disabled:text-ink-300'
 
 const CONTROL =
   'h-10 w-full rounded-control-lg border bg-surface-sunken px-3 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600'
@@ -184,7 +184,7 @@ export function AuthPasswordField({
           type="button"
           onClick={() => setShown((current) => !current)}
           aria-label={shown ? 'Hide Password' : 'Show Password'}
-          className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-control-md text-ink-700 transition-colors hover:bg-line-subtle"
+          className="absolute right-1 flex h-8 w-8 items-center justify-center rounded-control-md text-ink-800 transition-colors hover:bg-fill-subtle"
         >
           <Icon size={16} strokeWidth={1.5} aria-hidden />
         </button>

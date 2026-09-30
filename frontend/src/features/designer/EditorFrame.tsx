@@ -93,7 +93,7 @@ export function EditorFrame<T extends string>({
       to={backTo}
       onClick={onBack}
       aria-label="Back to Templates"
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-line text-ink-700 transition-colors duration-base ease-standard hover:bg-line-subtle hover:text-ink-900 active:bg-line"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-line text-ink-800 transition-colors duration-base ease-standard hover:bg-fill-subtle hover:text-ink-900 active:bg-fill-muted"
     >
       <ArrowLeft size={18} strokeWidth={1.5} aria-hidden />
     </Link>
@@ -102,7 +102,7 @@ export function EditorFrame<T extends string>({
   if (!wideEnough) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
-        <p className="max-w-sm text-sm text-ink-700">The template editor needs a wider window. Widen it to at least 1024 px to continue.</p>
+        <p className="max-w-sm text-sm text-ink-800">The template editor needs a wider window. Widen it to at least 1024 px to continue.</p>
         <Link to={backTo} onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:underline">
           <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Back to Templates
         </Link>
@@ -120,7 +120,7 @@ export function EditorFrame<T extends string>({
           <h1 className="min-w-0 truncate font-sans text-sm font-semibold text-ink-900">{name}</h1>
           <StatusBadge status={status} />
         </div>
-        <span className={`cep-num ml-auto shrink-0 text-helper ${saveNoteTone === 'warning' ? 'text-warning-text' : 'text-ink-700'}`}>{saveNote}</span>
+        <span className={`cep-num ml-auto shrink-0 text-helper ${saveNoteTone === 'warning' ? 'text-warning-text' : 'text-ink-800'}`}>{saveNote}</span>
         {topBarEnd && <div className="flex shrink-0 items-center gap-2">{topBarEnd}</div>}
       </header>
 
@@ -149,7 +149,7 @@ export function EditorFrame<T extends string>({
                 onClick={() => go(id)}
                 onKeyDown={onTabKeyDown}
                 className={`-mb-px inline-flex h-11 items-center gap-2 border-b-2 text-sm font-semibold transition-colors duration-base ease-standard ${
-                  active ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-700 hover:text-ink-900'
+                  active ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-800 hover:text-ink-900'
                 }`}
               >
                 <Icon size={16} strokeWidth={1.5} aria-hidden />

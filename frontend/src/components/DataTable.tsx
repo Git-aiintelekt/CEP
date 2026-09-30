@@ -57,7 +57,7 @@ function useOpenRows(initial: string[] = []) {
 function ExpandButton({ open, label, controls, onToggle, children }: { open: boolean; label?: string; controls: string; onToggle: () => void; children?: ReactNode }) {
   return (
     <button type="button" aria-expanded={open} aria-controls={controls} aria-label={label} onClick={(event) => { event.stopPropagation(); onToggle() }}
-      className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-control-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-line-subtle">
+      className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-control-sm text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle">
       <ChevronRight size={16} strokeWidth={1.5} aria-hidden className={`transition-transform duration-base ease-standard motion-reduce:transition-none ${open ? 'rotate-90' : ''} ${children ? '' : 'mx-1'}`} />
       {children}
     </button>
@@ -85,7 +85,7 @@ function StackedCards<T>({ columns, rows, rowKey, onRowClick, caption, primary, 
           <dl className="divide-y divide-line-subtle">
             {rest.map((column) => (
               <div key={column.key} className="flex items-start justify-between gap-4 py-2 first:pt-0 last:pb-0">
-                <dt className="shrink-0 text-xs font-semibold text-ink-700">{column.header}</dt>
+                <dt className="shrink-0 text-xs font-semibold text-ink-800">{column.header}</dt>
                 <dd className={`min-w-0 text-right text-sm text-ink-900 ${column.align === 'right' ? 'cep-num' : ''}`}>{column.render(row)}</dd>
               </div>
             ))}
@@ -127,7 +127,7 @@ function CompactTable<T>({ columns, rows, rowKey, caption, inset = 'default' }: 
           <thead className="bg-surface-subtle">
             <tr>
               {shown.map((column) => (
-                <th key={column.key} scope="col" className={`h-9 px-1 ${edge} text-xs font-semibold text-ink-700 ${column.align === 'right' ? 'text-right' : 'text-left'}`}>{column.header}</th>
+                <th key={column.key} scope="col" className={`h-9 px-1 ${edge} text-xs font-semibold text-ink-900 ${column.align === 'right' ? 'text-right' : 'text-left'}`}>{column.header}</th>
               ))}
             </tr>
           </thead>
@@ -135,7 +135,7 @@ function CompactTable<T>({ columns, rows, rowKey, caption, inset = 'default' }: 
             {rows.map((row) => (
               <tr key={rowKey(row)}>
                 {shown.map((column) => (
-                  <td key={column.key} className={`px-1 py-2 ${edge} align-middle text-ink-700 ${column.align === 'right' ? 'cep-num text-right whitespace-nowrap' : ''} ${column.className ?? ''}`}>{column.render(row)}</td>
+                  <td key={column.key} className={`px-1 py-2 ${edge} align-middle text-ink-800 ${column.align === 'right' ? 'cep-num text-right whitespace-nowrap' : ''} ${column.className ?? ''}`}>{column.render(row)}</td>
                 ))}
               </tr>
             ))}
@@ -165,7 +165,7 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
               <th
                 key={column.key}
                 scope="col"
-                className={`h-10 px-4 ${edge} text-xs font-semibold text-ink-700 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                className={`h-10 px-4 ${edge} text-xs font-semibold text-ink-800 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
               >
                 {column.header}
               </th>
@@ -196,7 +196,7 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
                   {columns.map((column, index) => (
                     <td
                       key={column.key}
-                      className={`px-4 ${edge} align-middle text-ink-700 ${column.align === 'right' ? 'cep-num text-right' : ''} ${column.className ?? ''}`}
+                      className={`px-4 ${edge} align-middle text-ink-800 ${column.align === 'right' ? 'cep-num text-right' : ''} ${column.className ?? ''}`}
                     >
                       {expand && index === 0 ? (
                         <span className="flex items-center gap-2">

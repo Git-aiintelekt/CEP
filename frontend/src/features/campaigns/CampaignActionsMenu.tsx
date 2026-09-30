@@ -13,11 +13,11 @@ export function CampaignActionsMenu({ menus, id, label, items, onPick }: { menus
   const open = menus.isOpen(id)
   return (
     <span className="relative inline-block">
-      <IconButton {...menus.triggerProps(id)} label={label} icon={EllipsisVertical} className={open ? 'bg-line-subtle text-ink-900' : ''} />
+      <IconButton {...menus.triggerProps(id)} label={label} icon={EllipsisVertical} className={open ? 'bg-fill-subtle text-ink-900' : ''} />
       {open && (
         <Popover label={label} width={196} placement="bottom-end" className="text-left" {...menus.panelProps(id)}>
           {items.map((item) => (
-            <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-700" />}
+            <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
               onClick={() => { menus.close(); onPick(item) }} />
           ))}
         </Popover>

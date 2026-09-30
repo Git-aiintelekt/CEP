@@ -39,7 +39,7 @@ export function TokenLandingPage({ kind }: { kind: 'sso' | 'support' }) {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div role="alert" className="max-w-sm rounded-lg border border-line bg-surface p-6 text-center">
         <h1 className="text-base font-semibold text-ink-900">This link is incomplete</h1>
-        <p className="mt-1 text-sm text-ink-500">{kind === 'sso' ? 'The sign-in did not finish. Start again from the sign-in page.' : 'Open the support session again from the back-office: each link works once.'}</p>
+        <p className="mt-1 text-sm text-ink-800">{kind === 'sso' ? 'The sign-in did not finish. Start again from the sign-in page.' : 'Open the support session again from the back-office: each link works once.'}</p>
         <Link to="/login" className="mt-4 inline-block text-sm font-medium text-brand-800 hover:underline">Go to Sign In</Link>
       </div>
     </div>

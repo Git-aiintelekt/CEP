@@ -33,9 +33,9 @@ const oneDecimal = (value: number) => Math.round(value * 10) / 10
 function Tile({ label, value, note }: { label: string; value: number; note: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-line-subtle bg-surface-subtle p-4" data-tile={label}>
-      <dt className="text-helper font-semibold text-ink-500">{label}</dt>
+      <dt className="text-helper font-semibold text-ink-800">{label}</dt>
       <dd className="cep-num font-display text-2xl font-semibold text-ink-900">{formatNumber(value)}</dd>
-      <dd className="text-helper text-ink-500">{note}</dd>
+      <dd className="text-helper text-ink-800">{note}</dd>
     </div>
   )
 }
@@ -78,7 +78,7 @@ function ListsCard({ campaign, audience, zone }: { campaign: Campaign; audience:
       return (
         <div className="flex min-w-0 flex-col gap-0.5 md:py-2">
           <Link to={`/contact-lists/${list.id}`} className="text-card-title font-semibold text-brand-800 hover:underline">{list.name}</Link>
-          <span className="text-helper font-normal text-ink-500">{list.role === 'EXCLUDE' ? 'Excluded' : 'Send To'}{when ? ` · attached ${dateInZone(when, zone)}` : ''}</span>
+          <span className="text-helper font-normal text-ink-800">{list.role === 'EXCLUDE' ? 'Excluded' : 'Send To'}{when ? ` · attached ${dateInZone(when, zone)}` : ''}</span>
         </div>
       )
     } },
@@ -97,7 +97,7 @@ function ListsCard({ campaign, audience, zone }: { campaign: Campaign; audience:
       actions={rows.length > 0 && <Button size="sm" iconStart={Download} onClick={() => void exportCsv()}>Export CSV</Button>}>
       {problem && <p role="alert" className="mb-3 text-sm font-medium text-danger-text md:mx-6 md:mt-4">{problem}</p>}
       {rows.length === 0
-        ? <p className="text-sm text-ink-500">No contact list is attached yet. Attach at least one before publishing.</p>
+        ? <p className="text-sm text-ink-800">No contact list is attached yet. Attach at least one before publishing.</p>
         : <DataTable columns={columns} rows={rows} rowKey={(list) => `${list.role}-${list.id}`} caption="Contact Lists" framed={false} inset="card" primary="list" />}
     </DetailCard>
   )
@@ -106,16 +106,16 @@ function ListsCard({ campaign, audience, zone }: { campaign: Campaign; audience:
 function Funnel({ label, lines, footnote }: { label: string; lines: FunnelLine[]; footnote?: string }) {
   return (
     <div className="min-w-0">
-      <h4 className="mb-2 text-helper font-semibold text-ink-500">{label}</h4>
+      <h4 className="mb-2 text-helper font-semibold text-ink-800">{label}</h4>
       <dl aria-label={label}>
         {lines.map((line) => (
-          <div key={line.label} className={`flex items-baseline justify-between gap-4 border-b border-line-subtle py-2 text-sm last:border-0 ${line.strong ? 'font-semibold text-ink-900' : 'text-ink-700'}`}>
+          <div key={line.label} className={`flex items-baseline justify-between gap-4 border-b border-line-subtle py-2 text-sm last:border-0 ${line.strong ? 'font-semibold text-ink-900' : 'text-ink-800'}`}>
             <dt>{line.label}</dt>
             <dd className="cep-num shrink-0 text-right">{line.minus && line.value > 0 ? '−' : ''}{formatNumber(line.value)}</dd>
           </div>
         ))}
       </dl>
-      {footnote && <p className="mt-2 text-helper text-ink-500">{footnote}</p>}
+      {footnote && <p className="mt-2 text-helper text-ink-800">{footnote}</p>}
     </div>
   )
 }
@@ -126,10 +126,10 @@ function ReasonList({ rows, label, muted = false }: { rows: ReasonRow[]; label: 
       {rows.map((row) => (
         <li key={row.key} data-reason={row.key} className="flex items-start justify-between gap-4 border-b border-line-subtle py-3 first:pt-0 last:border-0 last:pb-0">
           <span className="min-w-0">
-            <span className={`block text-sm font-semibold ${muted ? 'text-ink-500' : 'text-ink-900'}`}>{row.label}</span>
-            <span className="block text-helper text-ink-500">{row.text}</span>
+            <span className={`block text-sm font-semibold ${muted ? 'text-ink-800' : 'text-ink-900'}`}>{row.label}</span>
+            <span className="block text-helper text-ink-800">{row.text}</span>
           </span>
-          <span className={`cep-num shrink-0 text-sm ${muted ? 'text-ink-500' : 'text-ink-900'}`}>{formatNumber(row.count)}</span>
+          <span className={`cep-num shrink-0 text-sm ${muted ? 'text-ink-800' : 'text-ink-900'}`}>{formatNumber(row.count)}</span>
         </li>
       ))}
     </ul>
@@ -147,7 +147,7 @@ function ExclusionsCard({ numbers, audience, zone }: { numbers: AudienceSummaryN
       <h2>
         <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}
           className={`flex w-full items-center gap-3 px-6 py-4 text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle ${open ? 'rounded-t-lg' : 'rounded-lg'}`}>
-          <Chevron size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
+          <Chevron size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
           <span className="cep-num min-w-0 flex-1 text-sm font-semibold text-ink-900">{formatNumber(numbers.excluded)} excluded of {formatNumber(numbers.total)} in your lists</span>
           <span className="shrink-0 text-helper font-semibold text-brand-800">{open ? 'Hide Breakdown' : 'View Breakdown'}</span>
         </button>
@@ -165,9 +165,9 @@ function ExclusionsCard({ numbers, audience, zone }: { numbers: AudienceSummaryN
           </div>
           <div>
             <CardSubheading className="mb-3">Reasons</CardSubheading>
-            {reasons.length ? <ReasonList rows={reasons} label="Reasons people are left out" /> : <p className="text-sm text-ink-500">Nobody is left out by this campaign’s lists or send rules.</p>}
+            {reasons.length ? <ReasonList rows={reasons} label="Reasons people are left out" /> : <p className="text-sm text-ink-800">Nobody is left out by this campaign’s lists or send rules.</p>}
           </div>
-          {!frozen && audience.note && <p className="text-helper text-ink-500">{audience.note}</p>}
+          {!frozen && audience.note && <p className="text-helper text-ink-800">{audience.note}</p>}
         </div>
       )}
     </section>
@@ -178,7 +178,7 @@ function SystemCard({ numbers, audience }: { numbers: AudienceSummaryNumbers; au
   const rows = systemRows(numbers, audience)
   return (
     <DetailCard title="System Exclusions" muted icon={<Lock size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-300" />} tag={<Tag>Always Applied</Tag>}>
-      {rows.length ? <ReasonList rows={rows} label="System Exclusions" muted /> : <p className="text-sm text-ink-500">Nobody is excluded by system rules.</p>}
+      {rows.length ? <ReasonList rows={rows} label="System Exclusions" muted /> : <p className="text-sm text-ink-800">Nobody is excluded by system rules.</p>}
     </DetailCard>
   )
 }
@@ -192,7 +192,7 @@ function SampleCard({ audience }: { audience: CampaignAudience }) {
   ]
   return (
     <DetailCard title="Sample of the Audience" description="As of today: up to ten people, the ones who can be reached first." flush={audience.sample.length > 0}>
-      {audience.sample.length === 0 ? <p className="text-sm text-ink-500">Nobody to show yet.</p>
+      {audience.sample.length === 0 ? <p className="text-sm text-ink-800">Nobody to show yet.</p>
         : <DataTable columns={columns} rows={audience.sample} rowKey={(person) => person.party_id} caption="Sample of the Audience" framed={false} inset="card" primary="name" />}
     </DetailCard>
   )

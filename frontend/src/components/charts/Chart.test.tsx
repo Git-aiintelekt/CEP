@@ -3,8 +3,9 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
-import { Chart, type ChartCategory, type ChartSeries } from './Chart'
-import { niceTicks } from './scale'
+import { useChartLegend } from './legend'
+import { Chart, ChartLegend, type ChartCategory, type ChartSeries } from './Chart'
+import { niceTicks, seriesColor } from './scale'
 
 const categories: ChartCategory[] = [
   { key: 'a', label: '10:00', detail: '18 Sept 2026, 10:00' },
@@ -23,14 +24,14 @@ const tooltip = () => document.querySelector('[data-chart-tooltip]') as HTMLElem
 
 afterEach(cleanup)
 
-test('series take the palette in order; the legend shows or hides each one', async () => {
+test('series take the palette in order (two series: the second is Plum); the legend shows or hides each one', async () => {
   const user = userEvent.setup()
   renderChart()
   const legend = screen.getByRole('group', { name: 'Series' })
   const sent = within(legend).getByRole('button', { name: 'Sent' })
   expect(sent.getAttribute('aria-pressed')).toBe('true')
   expect((sent.querySelector('span') as HTMLElement).style.backgroundColor).toBe('var(--color-chart-1)')
-  expect(document.querySelector('[data-series="opened"] path')!.getAttribute('stroke')).toBe('var(--color-chart-2)')
+  expect(document.querySelector('[data-series="opened"] path')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
   expect(document.querySelector('[data-series="opened"] path')!.getAttribute('stroke-width')).toBe('2')
 
   await user.click(sent)
@@ -102,6 +103,57 @@ test('the numbers are a table for screen readers, and anyone can show it', async
   expect(screen.getByRole('button', { name: 'Hide the Numbers' }).getAttribute('aria-expanded')).toBe('true')
 })
 
+const third: ChartSeries = { key: 'clicked', label: 'Clicked', values: [5, 4, 1] }
+const stroke = (key: string) => document.querySelector(`[data-series="${key}"] path`)?.getAttribute('stroke')
+const legendSwatch = (name: string) => (within(screen.getByRole('group', { name: 'Series' })).getByRole('button', { name }).querySelector('span') as HTMLElement).style.borderColor
+
+test('palette: two series pair Blue with Plum; three or more keep the fixed order', () => {
+  expect([0, 1].map((index) => seriesColor(index, 2))).toEqual(['var(--color-chart-1)', 'var(--color-chart-pair)'])
+  expect([0, 1, 2].map((index) => seriesColor(index, 3))).toEqual(['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)'])
+  expect(seriesColor(0, 1)).toBe('var(--color-chart-1)')
+
+  renderChart({ series: [...series, third] })
+  expect(stroke('opened')).toBe('var(--color-chart-2)')
+  expect(stroke('clicked')).toBe('var(--color-chart-3)')
+})
+
+test('palette: a colour named on the series always wins', () => {
+  renderChart({ series: [series[0], { ...series[1], color: 'var(--color-chart-4)' }] })
+  expect(stroke('opened')).toBe('var(--color-chart-4)')
+  expect(legendSwatch('Opened')).toBe('var(--color-chart-4)')
+})
+
+test('palette: hiding a series with the legend recolours nothing', async () => {
+  const user = userEvent.setup()
+  renderChart({ series: [...series, third] })
+  await user.click(within(screen.getByRole('group', { name: 'Series' })).getByRole('button', { name: 'Sent' }))
+  expect(document.querySelector('[data-series="sent"]')).toBeNull()
+  expect(stroke('opened')).toBe('var(--color-chart-2)')                // two now shown, but the chart has three
+  expect(stroke('clicked')).toBe('var(--color-chart-3)')
+  cleanup()
+
+  renderChart()
+  await user.click(within(screen.getByRole('group', { name: 'Series' })).getByRole('button', { name: 'Sent' }))
+  expect(stroke('opened')).toBe('var(--color-chart-pair)')             // one shown, still the pair colour
+  expect(legendSwatch('Sent')).toBe('var(--color-chart-1)')
+})
+
+test('palette: the legend swatch and the tooltip swatch match the line and the bars', async () => {
+  const user = userEvent.setup()
+  renderChart()
+  await user.pointer({ target: plot(), coords: { clientX: 400, clientY: 40 } })
+  const tipSwatches = [...tooltip()!.querySelectorAll('span[aria-hidden]')].map((swatch) => (swatch as HTMLElement).style.backgroundColor).filter(Boolean)
+  expect(tipSwatches).toEqual(['var(--color-chart-1)', 'var(--color-chart-pair)'])
+  expect(legendSwatch('Opened')).toBe(stroke('opened'))
+  expect(legendSwatch('Sent')).toBe(stroke('sent'))
+  cleanup()
+
+  renderChart({ type: 'bar' })
+  const fills = [...document.querySelectorAll('[data-series="opened"] path')].map((bar) => bar.getAttribute('fill'))
+  expect(new Set(fills)).toEqual(new Set(['var(--color-chart-pair)']))
+  expect(legendSwatch('Opened')).toBe('var(--color-chart-pair)')
+})
+
 test('bars: grouped per category, rounded 2px on top', () => {
   renderChart({ type: 'bar' })
   const bars = document.querySelectorAll('[data-series="sent"] path')
@@ -147,4 +199,81 @@ test('axis steps are round numbers that reach past the largest value', () => {
   expect(niceTicks(83)).toEqual([0, 25, 50, 75, 100])
   expect(niceTicks(3)).toEqual([0, 1, 2, 3])
   expect(niceTicks(0)).toEqual([0, 1])
+})
+
+// ---------------------------------------------------------------- mixed marks, the reference line, the bar fade, an outside legend
+const revenue: ChartSeries[] = [
+  { key: 'revenue', label: 'Revenue', mark: 'bar', values: [40, 60, 20] },
+  { key: 'cost', label: 'Cost', mark: 'line', values: [4, 5, 3] },
+]
+const target = { key: 'target', label: 'Target Pace', values: [70, 70, 70] }
+
+test('mixed marks: bars and a line in one chart, the line drawn over the bars', () => {
+  renderChart({ series: revenue, type: 'bar' })
+  const bars = document.querySelectorAll('[data-series="revenue"] path')
+  expect(bars).toHaveLength(3)
+  expect(bars[0].getAttribute('d')).toContain('Q')                                                       // a bar, rounded on top
+  const line = document.querySelector('[data-series="cost"] path')!
+  expect(line.getAttribute('fill')).toBe('none')
+  expect(line.getAttribute('stroke')).toBe('var(--color-chart-pair)')                                     // the second of two series is Plum
+  const order = [...document.querySelectorAll('[data-series]')].map((group) => group.getAttribute('data-series'))
+  expect(order).toEqual(['revenue', 'cost'])
+})
+
+test('a reference line is dashed Gray 400, takes no colour slot, stretches the scale, and is in the legend, tooltip and table', async () => {
+  const user = userEvent.setup()
+  renderChart({ series: revenue, type: 'bar', reference: target })
+  const dashed = document.querySelector('[data-reference="target"] path')!
+  expect(dashed.getAttribute('stroke-dasharray')).toBe('4 4')
+  expect(dashed.getAttribute('stroke-width')).toBe('1.5')
+  expect(dashed.getAttribute('stroke')).toBe('var(--color-chart-4)')
+  expect(document.querySelector('[data-series="cost"] path')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
+  expect([...document.querySelectorAll('svg text')].map((text) => text.textContent)).toContain('80')        // the axis reaches past 70
+  const legend = screen.getByRole('group', { name: 'Series' })
+  expect(within(legend).queryByRole('button', { name: 'Target Pace' })).toBeNull()                      // a label, not a toggle
+  expect(legend.querySelector('[data-legend-reference] [data-swatch="dashed"]')).toBeTruthy()
+  expect(within(legend).getByRole('button', { name: 'Cost' }).querySelector('[data-swatch="line"]')).toBeTruthy()
+
+  await user.pointer({ target: plot(), coords: { clientX: 400, clientY: 40 } })
+  expect(tooltip()!.textContent).toContain('Target Pace70')
+  const table = screen.getByRole('table', { name: 'Messages per hour' })
+  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Hour', 'Revenue', 'Cost', 'Target Pace'])
+})
+
+test('bar hover fade: the active category stays full, the others drop to 40%; lines and the reference never fade', async () => {
+  const user = userEvent.setup()
+  renderChart({ series: revenue, type: 'bar', reference: target })
+  const opacity = () => [...document.querySelectorAll('[data-series="revenue"] path')].map((bar) => bar.getAttribute('fill-opacity'))
+  expect(opacity()).toEqual(['1', '1', '1'])
+  expect(document.querySelector('[data-series="revenue"] path')!.getAttribute('class')).toContain('duration-fast')
+  plot().focus()
+  await user.keyboard('{ArrowRight}{ArrowRight}')
+  expect(opacity()).toEqual(['0.4', '1', '0.4'])
+  expect(document.querySelector('[data-series="cost"] path')!.getAttribute('fill-opacity')).toBeNull()
+  expect(document.querySelector('[data-reference="target"] path')!.getAttribute('fill-opacity')).toBeNull()
+  await user.keyboard('{Escape}')
+  expect(opacity()).toEqual(['1', '1', '1'])
+})
+
+function OutsideLegend() {
+  const legend = useChartLegend()
+  return (
+    <>
+      <header><ChartLegend series={revenue} reference={target} hidden={legend.hidden} onToggle={legend.toggle} /></header>
+      <Chart title="Messages per hour" categoryHeader="Hour" categories={categories} series={revenue} reference={target} type="bar" legend="none" hidden={legend.hidden} />
+    </>
+  )
+}
+
+test('a legend drawn elsewhere still shows and hides the series', async () => {
+  const user = userEvent.setup()
+  render(<OutsideLegend />)
+  expect(screen.getAllByRole('group', { name: 'Series' })).toHaveLength(1)                              // not drawn twice
+  const cost = within(screen.getByRole('banner')).getByRole('button', { name: 'Cost' })
+  await user.click(cost)
+  expect(cost.getAttribute('aria-pressed')).toBe('false')
+  expect(document.querySelector('[data-series="cost"]')).toBeNull()
+  expect(document.querySelector('[data-series="revenue"]')).toBeTruthy()
+  await user.click(cost)
+  expect(document.querySelector('[data-series="cost"]')).toBeTruthy()
 })

@@ -59,7 +59,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
           {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" />}
         </Field>
         <fieldset>
-          <legend className="text-sm font-medium text-ink-700">Roles</legend>
+          <legend className="text-sm font-medium text-ink-800">Roles</legend>
           {errors.roles && <p className="mt-1 text-xs font-medium text-danger-text">{errors.roles}</p>}
           <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
             {roles.map((role) => (
@@ -68,14 +68,14 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
                   <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={chosen.includes(role.id)}
                     onChange={() => setChosen(chosen.includes(role.id) ? chosen.filter((id) => id !== role.id) : [...chosen, role.id])} />
                   <span><span className="block text-sm font-medium text-ink-900">{role.name}</span>
-                    <span className="block text-xs text-ink-500">{role.description || `${role.permissions.length} permissions`}</span></span>
+                    <span className="block text-xs text-ink-800">{role.description || `${role.permissions.length} permissions`}</span></span>
                 </label>
               </li>
             ))}
           </ul>
-          {chosen.length === 0 && <p className="mt-1.5 text-xs text-ink-500">Without a role the user can sign in but sees nothing.</p>}
+          {chosen.length === 0 && <p className="mt-1.5 text-xs text-ink-800">Without a role the user can sign in but sees nothing.</p>}
         </fieldset>
-        {!user && <p className="rounded-lg bg-surface-subtle px-3 py-2 text-xs text-ink-500">No password is set here. After adding the user, create a password link and send it to them: they choose their own password.</p>}
+        {!user && <p className="rounded-lg bg-surface-subtle px-3 py-2 text-xs text-ink-800">No password is set here. After adding the user, create a password link and send it to them: they choose their own password.</p>}
       </form>
     </Modal>
   )
@@ -91,10 +91,10 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
 
   return (
     <Modal title={`Password Link for ${user.display_name}`} onClose={onClose} footer={<button type="button" className={buttonPrimary} onClick={onClose}>Done</button>}>
-      {link.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Creating the link</p>
+      {link.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Creating the link</p>
         : link.isError ? <ErrorState title="Could not create a link" error={link.error} />
         : (
-          <div className="space-y-3 text-sm text-ink-700">
+          <div className="space-y-3 text-sm text-ink-800">
             {link.data.email_configured !== false && (
               <div className="rounded-lg border border-line px-3 py-3">
                 {email.data?.emailed ? <p role="status" className="font-medium text-success-text">Sent to {user.email}. They choose their own password from the message.</p>
@@ -108,12 +108,12 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
               </div>
             )}
             <p>{link.data.email_configured !== false ? 'Or send' : 'Send'} this link to <strong>{user.email}</strong> yourself, by a channel you trust. On it they choose their own password: you never see it.</p>
-            <label className="block text-xs font-semibold tracking-wide text-ink-500 uppercase" htmlFor="password-link">One-Time Link</label>
+            <label className="block text-xs font-semibold tracking-wide text-ink-800 uppercase" htmlFor="password-link">One-Time Link</label>
             <div className="flex gap-2">
               <input id="password-link" readOnly value={url} onFocus={(event) => event.target.select()} className="min-w-0 flex-1 h-10 rounded-control-lg border border-line bg-surface-subtle px-3 cep-num text-xs" />
               <button type="button" className={buttonSecondary} onClick={() => void navigator.clipboard?.writeText(url).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
             </div>
-            <p className="text-xs text-ink-500">It works once, for {link.data.expires_in_hours} hours, and stops working as soon as they sign in. Anyone holding it can set the password, so do not post it in a shared channel.</p>
+            <p className="text-xs text-ink-800">It works once, for {link.data.expires_in_hours} hours, and stops working as soon as they sign in. Anyone holding it can set the password, so do not post it in a shared channel.</p>
           </div>
         )}
     </Modal>
@@ -134,9 +134,9 @@ export function UsersPage() {
 
   const columns: Column<SettingsUser>[] = [
     { key: 'name', header: 'User', render: (user) => (
-      <div><p className="font-medium text-ink-900">{user.display_name}{user.is_self && <span className="ml-2 text-xs font-normal text-ink-500">you</span>}</p>
-        <p className="text-xs text-ink-500">{user.email}</p></div>) },
-    { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-500">No role</span> },
+      <div><p className="font-medium text-ink-900">{user.display_name}{user.is_self && <span className="ml-2 text-xs font-normal text-ink-800">you</span>}</p>
+        <p className="text-xs text-ink-800">{user.email}</p></div>) },
+    { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-800">No role</span> },
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
     { key: 'signin', header: 'Sign-In', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },
     { key: 'actions', header: '', align: 'right', render: (user) => (
@@ -152,11 +152,11 @@ export function UsersPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="text-sm text-ink-500">Users are deactivated, never deleted, so everything they created keeps its author.</p>
+        <p className="text-sm text-ink-800">Users are deactivated, never deleted, so everything they created keeps its author.</p>
         <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add User</button>
       </div>
       {toggle.isError && <div className="mb-4"><ErrorState title="Could not change the user" error={toggle.error} /></div>}
-      {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading users</p>
+      {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading users</p>
         : users.data.length === 0 ? <EmptyState title="No users yet" />
         : <DataTable columns={columns} rows={users.data} rowKey={(user) => user.id} caption="Users" />}
       {editing && <UserForm editing={editing} roles={roles.data ?? []} onClose={() => setEditing(null)} />}

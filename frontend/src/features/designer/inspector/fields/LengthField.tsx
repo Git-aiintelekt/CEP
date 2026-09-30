@@ -183,7 +183,7 @@ export function LengthField({
               className={`${controlClass(invalid, disabled)} cep-num min-w-0 flex-1`}
             />
             {offered.length === 1 ?
-              <span className={`shrink-0 text-xs ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>{unit}</span>
+              <span className={`shrink-0 text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{unit}</span>
             : <div role="radiogroup" aria-label={`${label} Unit`} className="flex shrink-0 items-center gap-0.5">
                 {offered.map((option) => (
                   <button
@@ -195,10 +195,10 @@ export function LengthField({
                     title={converts(option) ? `Typed in ${option}, written as px` : undefined}
                     onClick={() => pickUnit(option)}
                     className={`h-8 rounded-sm border px-1.5 text-xs transition-colors duration-base ease-standard ${
-                      disabled && unit === option ? 'border-ink-300 bg-line text-ink-700'
-                      : disabled ? 'border-line bg-line-subtle text-ink-300'
+                      disabled && unit === option ? 'border-ink-300 bg-fill-muted text-ink-800'
+                      : disabled ? 'border-line bg-fill-subtle text-ink-300'
                       : unit === option ? 'border-brand-600 bg-brand-100 text-brand-800'
-                      : 'border-line bg-surface text-ink-700 hover:bg-line-subtle'
+                      : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
                     }`}
                   >
                     {option}
@@ -207,7 +207,7 @@ export function LengthField({
               </div>
             }
           </div>
-          {asPx ? <p className="cep-num text-xs text-ink-500" data-as-px>{asPx}</p> : null}
+          {asPx ? <p className="cep-num text-xs text-ink-800" data-as-px>{asPx}</p> : null}
         </div>
       )}
     </FieldRow>

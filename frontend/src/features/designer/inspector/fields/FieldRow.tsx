@@ -24,7 +24,7 @@ export function FieldRow({ label, inheritedNote, error, canReset = false, onRese
   return (
     <div className="py-2">
       <div className="flex min-h-6 items-center justify-between gap-2">
-        <label id={labelId} htmlFor={id} className="text-xs text-ink-500">
+        <label id={labelId} htmlFor={id} className="text-xs text-ink-800">
           {label}
         </label>
         {canReset && !disabled ?
@@ -32,7 +32,7 @@ export function FieldRow({ label, inheritedNote, error, canReset = false, onRese
           <button
             type="button"
             onClick={onReset}
-            className="-my-1 -mr-2 inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-medium text-brand-800 transition-colors duration-base ease-standard hover:bg-line-subtle"
+            className="-my-1 -mr-2 inline-flex h-8 shrink-0 items-center rounded-sm px-2 text-xs font-medium text-brand-800 transition-colors duration-base ease-standard hover:bg-fill-subtle"
           >
             {RESET_LABEL}
           </button>
@@ -42,7 +42,7 @@ export function FieldRow({ label, inheritedNote, error, canReset = false, onRese
       <div className="mt-1">{children({ id, labelId, describedBy, invalid: Boolean(error) })}</div>
 
       {inheritedNote ?
-        <p id={noteId} className="mt-1 text-xs text-ink-500">
+        <p id={noteId} className="mt-1 text-xs text-ink-800">
           {inheritedNote}
         </p>
       : null}

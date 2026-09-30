@@ -20,7 +20,7 @@ export function ScheduleModal({ zone, onClose }: { zone: string; onClose: () => 
   return (
     <Modal title="Schedule Report" subtitle="The last 7 days by email, every week" onClose={onClose}>
       {schedule.isError ? <ErrorState title="The schedule could not be loaded" error={schedule.error} onRetry={() => void schedule.refetch()} />
-        : schedule.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+        : schedule.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         : <ScheduleForm initial={schedule.data} zone={zone} onDone={onClose} />}
     </Modal>
   )
@@ -60,7 +60,7 @@ function ScheduleForm({ initial, zone, onDone }: { initial: ReportSchedule; zone
       <Field label="Recipients" error={errors.recipients} hint="Email addresses, separated by commas. The weekly report also goes where Settings → Notifications sends it.">
         {(ids) => <TextArea {...ids} rows={3} value={recipients} disabled={!enabled} onChange={(event) => setRecipients(event.target.value)} placeholder="marketing-ops@example.com" />}
       </Field>
-      <p className="text-helper text-ink-500">{initial.last_sent_on ? `Last sent on ${formatDay(initial.last_sent_on)}.` : 'Not sent yet.'}</p>
+      <p className="text-helper text-ink-800">{initial.last_sent_on ? `Last sent on ${formatDay(initial.last_sent_on)}.` : 'Not sent yet.'}</p>
       {other && <ErrorState title="The schedule was not saved" error={other} />}
       <div className="flex justify-end gap-2">
         <button type="button" className={buttonSecondary} onClick={onDone}>Cancel</button>

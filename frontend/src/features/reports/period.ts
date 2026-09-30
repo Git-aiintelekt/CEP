@@ -1,3 +1,5 @@
+import { formatPercent } from '@/lib/format'
+
 /** The report's period: presets counted in the workspace's time zone, dates as YYYY-MM-DD (what the API takes). */
 export type PeriodKey = 'week' | 'month' | 'last_month' | 'custom'
 
@@ -52,4 +54,4 @@ export function formatDay(day: string, options: Intl.DateTimeFormatOptions = { d
   return new Intl.DateTimeFormat(undefined, { ...options, timeZone: 'UTC' }).format(parse(day))
 }
 
-export const percent = (value: number | null | undefined) => (value === null || value === undefined ? '—' : `${value.toFixed(1)}%`)
+export const percent = (value: number | null | undefined) => formatPercent(value)

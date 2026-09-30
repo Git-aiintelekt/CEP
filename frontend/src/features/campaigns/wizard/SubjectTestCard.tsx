@@ -105,7 +105,7 @@ export function SubjectTestCard({ campaign }: { campaign: Campaign }) {
             {save.isPending && <Spinner size="sm" tone="onBrand" />}Save Subject Test
           </button>
           {save.isSuccess && !dirty && <span role="status" className="text-sm text-success-text">Saved</span>}
-          {dirty && <span className="text-helper text-ink-500">Not saved yet.</span>}
+          {dirty && <span className="text-helper text-ink-800">Not saved yet.</span>}
         </div>
       </div>
     </Panel>

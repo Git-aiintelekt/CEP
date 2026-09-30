@@ -21,26 +21,26 @@ export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disab
       aria-checked={selected}
       disabled={disabled}
       onClick={onSelect}
-      className={`flex h-full rounded-lg border text-left transition-colors duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300 ${state} ${
+      className={`flex h-full rounded-lg border text-left transition-colors duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300 ${state} ${
         tile ? 'items-start gap-3 p-4 sm:flex-col sm:gap-2' : 'flex-col items-start gap-1 p-3'
       }`}
     >
       {tile ? (
         <>
-          {icon && <span aria-hidden className={`shrink-0 ${selected ? 'text-brand-800' : 'text-ink-700'}`}>{icon}</span>}
+          {icon && <span aria-hidden className={`shrink-0 ${selected ? 'text-brand-800' : 'text-ink-800'}`}>{icon}</span>}
           <span className="flex min-w-0 flex-col gap-1">
             <span className={`text-sm font-semibold ${titleTone}`}>{title}</span>
-            <span className="text-helper text-ink-500">{text}</span>
+            <span className="text-helper text-ink-800">{text}</span>
           </span>
         </>
       ) : (
         <>
           <span className={`flex items-center gap-2 text-sm font-semibold ${titleTone}`}>
-            {icon && <span className={selected ? 'text-brand-800' : 'text-ink-700'}>{icon}</span>}
+            {icon && <span className={selected ? 'text-brand-800' : 'text-ink-800'}>{icon}</span>}
             {title}
           </span>
-          <span className="text-xs text-ink-500">{text}</span>
-          {badge && <span className="mt-1 rounded-sm bg-line-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-700">{badge}</span>}
+          <span className="text-xs text-ink-800">{text}</span>
+          {badge && <span className="mt-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-800">{badge}</span>}
         </>
       )}
     </button>
@@ -74,13 +74,13 @@ export function ChoiceGroup({ label, error, hint, columns = 'sm:grid-cols-2', re
   }
   return (
     <div>
-      <p id={headingId} className={strong ? 'text-sm font-semibold text-ink-900' : 'text-sm font-medium text-ink-700'}>
+      <p id={headingId} className={strong ? 'text-sm font-semibold text-ink-900' : 'text-sm font-medium text-ink-800'}>
         {label}
         {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
       </p>
       <div ref={group} role="radiogroup" aria-labelledby={headingId} aria-required={required || undefined} aria-invalid={Boolean(error) || undefined} aria-describedby={error ? errorId : hint ? hintId : undefined}
         onKeyDown={onKeyDown} className={`${strong ? 'mt-1.5' : 'mt-1'} grid gap-3 ${columns}`}>{children}</div>
-      {!error && hint && <p id={hintId} className={`${strong ? 'mt-1.5' : 'mt-1'} text-helper text-ink-500`}>{hint}</p>}
+      {!error && hint && <p id={hintId} className={`${strong ? 'mt-1.5' : 'mt-1'} text-helper text-ink-800`}>{hint}</p>}
       {error && (
         <p id={errorId} className={strong ? 'mt-1.5 flex items-start gap-1.5 text-helper font-medium text-danger-text' : 'mt-1 text-xs font-medium text-danger-text'}>
           {strong && <CircleAlert size={16} strokeWidth={1.5} aria-hidden className="mt-px shrink-0" />}
@@ -98,7 +98,7 @@ export function Panel({ title, description, actions, children, className = '' }:
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             {title && <h2 className="font-display text-card-heading font-semibold text-ink-900">{title}</h2>}
-            {description && <p className="mt-0.5 max-w-2xl text-sm text-ink-500">{description}</p>}
+            {description && <p className="mt-0.5 max-w-2xl text-sm text-ink-800">{description}</p>}
           </div>
           {actions}
         </div>
@@ -122,10 +122,10 @@ export function DetailCard({ title, tag, icon, description, actions, flush = fal
         <div className="min-w-0 sm:flex-1">
           <div className="flex min-w-0 items-center gap-2">
             {icon}
-            <h2 id={titleId} className={`font-display text-card-heading font-semibold ${muted ? 'text-ink-500' : 'text-ink-900'}`}>{title}</h2>
+            <h2 id={titleId} className={`font-display text-card-heading font-semibold ${muted ? 'text-ink-800' : 'text-ink-900'}`}>{title}</h2>
             {tag}
           </div>
-          {description && <p className="mt-0.5 text-helper text-ink-500">{description}</p>}
+          {description && <p className="mt-0.5 text-helper text-ink-800">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-helper">{actions}</div>}
       </div>
@@ -138,7 +138,7 @@ export function DetailCard({ title, tag, icon, description, actions, flush = fal
 export function CardError({ what = 'this', error, onRetry }: { what?: string; error?: unknown; onRetry: () => void }) {
   const reason = error instanceof Error && error.message ? ` ${error.message}` : ''
   return (
-    <p role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-helper text-ink-500">
+    <p role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-helper text-ink-800">
       <span>Couldn’t load {what}.{reason}</span>
       <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
     </p>
@@ -162,9 +162,9 @@ export const FACTS_GRID = 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] 
 export function Fact({ label, secondary, className = '', children }: { label: string; secondary?: ReactNode; className?: string; children: ReactNode }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${className}`} data-fact={label}>
-      <dt className="text-helper font-semibold text-ink-500">{label}</dt>
+      <dt className="text-helper font-semibold text-ink-800">{label}</dt>
       <dd className="cep-num text-card-title break-words text-ink-900">{children}</dd>
-      {secondary && <dd className="cep-num text-helper text-ink-500">{secondary}</dd>}
+      {secondary && <dd className="cep-num text-helper text-ink-800">{secondary}</dd>}
     </div>
   )
 }
@@ -173,9 +173,9 @@ export function Fact({ label, secondary, className = '', children }: { label: st
 export function Metric({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-1" data-metric={label}>
-      <dt className="text-helper font-semibold text-ink-500">{label}</dt>
+      <dt className="text-helper font-semibold text-ink-800">{label}</dt>
       <dd className="cep-num font-display text-2xl font-semibold text-ink-900">{value}</dd>
-      {note && <dd className="cep-num text-helper text-ink-500">{note}</dd>}
+      {note && <dd className="cep-num text-helper text-ink-800">{note}</dd>}
     </div>
   )
 }
@@ -188,9 +188,9 @@ export function Meter({ label, actual, target, percent, money = false }: { label
     <div className="flex flex-col gap-2" data-meter={label}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-semibold text-ink-900">{label}</span>
-        <span className="cep-num text-helper text-ink-500">{show(actual)} of {show(target)} · {percent}%</span>
+        <span className="cep-num text-helper text-ink-800">{show(actual)} of {show(target)} · {percent}%</span>
       </div>
-      <div role="progressbar" aria-label={`${label} against target`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(percent))} className="h-2 overflow-hidden rounded-xs bg-line-subtle">
+      <div role="progressbar" aria-label={`${label} against target`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round(percent))} className="h-2 overflow-hidden rounded-xs bg-fill-subtle">
         <div data-met={met || undefined} className={`h-full rounded-xs ${met ? 'bg-success' : 'bg-brand-600'}`} style={{ width: `${Math.min(100, percent)}%` }} />
       </div>
     </div>
@@ -200,7 +200,7 @@ export function Meter({ label, actual, target, percent, money = false }: { label
 export function Definition({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-helper font-semibold text-ink-500">{label}</dt>
+      <dt className="text-helper font-semibold text-ink-800">{label}</dt>
       <dd className="mt-1 text-sm text-ink-900">{children}</dd>
     </div>
   )
@@ -212,7 +212,7 @@ export function CheckRow({ id, checked, onChange, label, hint, disabled }: { id:
       <input id={id} type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 h-4 w-4 accent-brand-600" aria-describedby={hint ? `${id}-hint` : undefined} />
       <div>
         <label htmlFor={id} className="text-sm font-medium text-ink-900">{label}</label>
-        {hint && <p id={`${id}-hint`} className="text-xs text-ink-500">{hint}</p>}
+        {hint && <p id={`${id}-hint`} className="text-xs text-ink-800">{hint}</p>}
       </div>
     </div>
   )

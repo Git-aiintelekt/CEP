@@ -49,8 +49,8 @@ function barPath(x: number, y: number, width: number, bottom: number): string {
   return `M${x} ${bottom}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + width - r}Q${x + width} ${y} ${x + width} ${y + r}V${bottom}Z`
 }
 
-/** each category's bars side by side, 4px apart, the group taking about 70% of its band */
-export function BarSeries({ plot, series }: { plot: Plot; series: DrawnSeries[] }) {
+/** each category's bars side by side, 4px apart, the group taking about 70% of its band; while a category is active the others fade to 40% */
+export function BarSeries({ plot, series, active = null }: { plot: Plot; series: DrawnSeries[]; active?: number | null }) {
   if (series.length === 0) return null
   const group = Math.max(series.length * 2, plot.band * 0.7)
   const width = Math.max(2, (group - BAR_GAP * (series.length - 1)) / series.length)
@@ -61,10 +61,19 @@ export function BarSeries({ plot, series }: { plot: Plot; series: DrawnSeries[] 
         <g key={item.key} data-series={item.key}>
           {item.values.map((value, index) => {
             const x = plot.x(index) - group / 2 + place * (width + BAR_GAP)
-            return <path key={index} d={barPath(x, plot.y(value), width, bottom)} fill={item.color} />
+            return <path key={index} d={barPath(x, plot.y(value), width, bottom)} fill={item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
+              className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
           })}
         </g>
       ))}
     </g>
   )
+}
+
+/** a dashed Gray 400 line through a reference such as target pace: drawn over the series, never faded */
+export function ReferenceLine({ plot, keyName, values, color }: { plot: Plot; keyName: string; values: number[]; color: string }) {
+  if (values.length === 0) return null
+  const points = values.map((value, index) => `${index ? 'L' : 'M'}${plot.x(index).toFixed(1)} ${plot.y(value).toFixed(1)}`)
+  const line = values.length === 1 ? `M${plot.left} ${plot.y(values[0])} H${plot.left + plot.width}` : points.join(' ')
+  return <g data-reference={keyName}><path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 4" /></g>
 }

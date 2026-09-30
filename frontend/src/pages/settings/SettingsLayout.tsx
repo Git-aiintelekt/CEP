@@ -27,7 +27,7 @@ const TABS: { to: string; label: string; feature?: Feature }[] = [
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold tracking-wide text-ink-500 uppercase">{label}</dt>
+      <dt className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{label}</dt>
       <dd className="mt-0.5 text-sm font-medium text-ink-900">{value}</dd>
     </div>
   )
@@ -58,7 +58,7 @@ export function SettingsLayout() {
       <nav aria-label="Settings sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-line whitespace-nowrap">
         {TABS.filter((tab) => !tab.feature || has(tab.feature)).map((tab) => (
           <NavLink key={tab.to} to={tab.to} className={({ isActive }) =>
-            `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-800' : 'border-transparent text-ink-500 hover:text-ink-900'}`}>
+            `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-800' : 'border-transparent text-ink-800 hover:text-ink-900'}`}>
             {tab.label}
           </NavLink>
         ))}

@@ -29,7 +29,7 @@ export function AssetsPanel({ assets, uploading = [], disabled = false, message,
         <AssetGrid assets={assets} uploading={uploading} disabled={disabled} onUse={onUse} onDragStart={onDragStart} />
       </div>
 
-      <p role="status" aria-live="polite" className="min-h-9 border-t border-line px-3 py-2 text-xs text-ink-700">
+      <p role="status" aria-live="polite" className="min-h-9 border-t border-line px-3 py-2 text-xs text-ink-800">
         {message ?? ''}
       </p>
     </div>

@@ -99,7 +99,7 @@ test('while a load is in flight every Load is greyed, never faded', async () => 
   await user.click(trigger())
   for (const row of rows()) {
     expect(row.getAttribute('aria-disabled')).toBe('true')
-    expect(row.className).toContain('bg-line-subtle')
+    expect(row.className).toContain('bg-fill-subtle')
     expect(row.className).not.toContain('opacity')
   }
 })

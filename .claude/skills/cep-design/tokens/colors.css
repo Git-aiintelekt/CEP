@@ -1,6 +1,6 @@
 :root{
 /* ---- Primitives: neutrals ---- */
---white:#FFFFFF;--gray-75:#F9FAFB;--gray-100:#EEEFF5;--gray-150:#E7E8EF;--gray-400:#9EA2AD;--gray-700:#6B6F7B;--gray-900:#17181C;
+--white:#FFFFFF;--gray-75:#F9FAFB;--gray-100:#EEEFF5;--gray-150:#E7E8EF;--gray-400:#9EA2AD;--gray-700:#6B6F7B;--gray-800:#4B4F5B;--gray-900:#17181C;
 
 /* ---- Primitives: brand ---- */
 --color-sidebar:#20265D;--color-wordmark-navy:#273FA8;--brand-600:#3863DB;--brand-700:#4E47DD;--brand-800:#2B4DD0;--brand-100:#DEE9FC;--color-wordmark-teal:#418EAE;
@@ -21,7 +21,7 @@
 --border-subtle:var(--gray-100);--border-default:var(--gray-150);--border-emphasis:var(--gray-400);
 
 /* ---- Semantic: text ---- */
---text-primary:var(--gray-900);--text-secondary:var(--gray-700);--text-on-dark:var(--white);
+--text-primary:var(--gray-900);--text-secondary:var(--gray-800);--text-label:var(--gray-800);--text-on-dark:var(--white);
 
 /* ---- Semantic: wordmark ---- */
 --wordmark-teal:var(--color-wordmark-teal);--wordmark-navy:var(--color-wordmark-navy);
@@ -36,12 +36,34 @@
 --status-danger-dark-accent:var(--maroon-700);
 --status-high-accent:var(--orange-600);--status-high-bg:var(--orange-100);
 
+/* ---- Status tags (2026-09-30): one hue per lifecycle status, bg / text / dot. The dot shows on live statuses only ---- */
+--tag-draft-bg:#F2EBE4;--tag-draft-text:#5D4535;--tag-draft-dot:#B08A6E;
+--tag-test-published-bg:#EBE6FA;--tag-test-published-text:#48309A;--tag-test-published-dot:#8068DA;
+--tag-production-published-bg:#D5EEF3;--tag-production-published-text:#0C5664;--tag-production-published-dot:#2B9AAE;
+--tag-scheduled-bg:#FCE4D8;--tag-scheduled-text:#8F3A12;--tag-scheduled-dot:#E4703E;
+--tag-active-bg:#D8F1E7;--tag-active-text:#0C5F43;--tag-active-dot:#2FA57A;
+--tag-completed-bg:#DDEDFB;--tag-completed-text:#1A5486;--tag-completed-dot:#3C8AD1;
+--tag-paused-bg:#FAF0C6;--tag-paused-text:#6F5300;--tag-paused-dot:#D4A91C;
+--tag-failed-bg:#FADCE1;--tag-failed-text:#9C1C33;--tag-failed-dot:#D9485F;
+--tag-archived-bg:#FFFFFF;--tag-archived-text:#6B6F7B;--tag-archived-dot:#CFD2DC;--tag-archived-border:#9EA2AD;
+
+/* ---- Category tags: what a thing is, never its state ---- */
+--cat-journey-bg:#F4E4F1;--cat-journey-text:#6E2A5E;
+--cat-campaign-bg:#E6E7FB;--cat-campaign-text:#393E9E;
+--cat-seasonal-bg:#E5EFD9;--cat-seasonal-text:#3E5A1C;
+--cat-loyalty-bg:#F7E3EC;--cat-loyalty-text:#86264F;
+--cat-promotional-bg:#FDE7DA;--cat-promotional-text:#8A3E14;
+--cat-transactional-bg:#EEEFF5;--cat-transactional-text:#4A4E5A;
+
+/* ---- Plum accent: markers, icon badges, small highlights. Never action, link, status or large fills ---- */
+--plum-50:#FBF4F9;--plum-100:#F4E4F1;--plum-200:#E8C6E0;--plum-500:#A8488F;--plum-700:#8A3375;--plum-800:#6E2A5E;
+
 /* ---- Callout & row tokens ---- */
 --callout-bg:var(--periwinkle-100);--callout-icon:var(--periwinkle-500);--callout-link:var(--periwinkle-700);--callout-text:var(--periwinkle-800);
 --row-flagged-bg:var(--yellow-50);
 
-/* ---- Chart palette, in order: series n takes chart-n (see README "Charts") ---- */
---chart-1:var(--brand-600);--chart-2:var(--green-500);--chart-3:var(--amber-500);--chart-4:var(--gray-400);--chart-5:var(--color-wordmark-teal);--chart-6:var(--periwinkle-500);
+/* ---- Chart palette, in order: series n takes chart-n (see README "Charts"). With exactly two series, the second is chart-pair (Plum 500); three or more follow the fixed order. Blue stays first ---- */
+--chart-1:var(--brand-600);--chart-2:var(--green-500);--chart-3:var(--amber-500);--chart-4:var(--gray-400);--chart-5:var(--color-wordmark-teal);--chart-6:var(--periwinkle-500);--chart-pair:var(--plum-500);
 
 /* ---- Derived roles (kept for existing specimens) ---- */
 --surface-page:var(--bg-page);--surface-card:var(--bg-surface);--surface-subtle:var(--bg-surface-subtle);--surface-hover:var(--gray-75);--surface-selected:var(--brand-100);--surface-inverse:var(--color-sidebar);
@@ -49,5 +71,5 @@
 --text-tertiary:var(--gray-400);--text-placeholder:var(--gray-400);--text-disabled:var(--gray-400);--text-inverse:var(--white);--text-link:var(--brand-primary);--text-link-hover:var(--brand-800);
 --border-strong:var(--border-default);--border-focus:var(--brand-primary);
 --focus-ring:0 0 0 3px rgba(56,99,219,0.24);
---icon-default:var(--gray-700);--icon-strong:var(--gray-900);--icon-brand:var(--brand-primary);--icon-disabled:var(--gray-400)
+--icon-default:var(--gray-800);--icon-strong:var(--gray-900);--icon-brand:var(--brand-primary);--icon-disabled:var(--gray-400)
 }

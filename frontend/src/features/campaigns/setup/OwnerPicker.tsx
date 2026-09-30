@@ -79,7 +79,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
         <Avatar name={current?.name ?? '–'} />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-semibold text-ink-900" data-testid="owner-name">{name}</span>
-          <span className="text-helper text-ink-500">{autoAssigned && value === meId ? 'Owner · Auto-Assigned to You' : 'Owner'}</span>
+          <span className="text-helper text-ink-800">{autoAssigned && value === meId ? 'Owner · Auto-Assigned to You' : 'Owner'}</span>
         </div>
         <button ref={changeButton} type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
           onClick={() => (open ? close() : (setActive(Math.max(0, shown.findIndex((person) => person.id === value))), setOpen(true)))}
@@ -92,7 +92,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
           onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) close(false) }}>
           <div className="border-b border-line-subtle p-2">
             <label className="flex h-9 items-center gap-2 rounded-control-md bg-surface-sunken px-2.5 focus-within:bg-surface focus-within:shadow-focus">
-              <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
+              <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
               <input ref={searchBox} role="combobox" aria-expanded aria-controls={listId} aria-activedescendant={shown[active] ? `${listId}-${active}` : undefined}
                 aria-label="Search workspace members" placeholder="Search workspace members" value={search}
                 onChange={(event) => { setSearch(event.target.value); setActive(0) }} onKeyDown={onKey}
@@ -100,7 +100,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
             </label>
           </div>
           <ul id={listId} role="listbox" aria-label="Workspace members" className="max-h-64 overflow-y-auto py-1">
-            {shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-500">Nobody matches “{search.trim()}”</li>}
+            {shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-800">Nobody matches “{search.trim()}”</li>}
             {shown.map((person, index) => (
               <li key={person.id || 'nobody'} id={`${listId}-${index}`} role="option" aria-selected={person.id === value}
                 onMouseDown={(event) => { event.preventDefault(); pick(person) }} onMouseEnter={() => setActive(index)}
@@ -108,7 +108,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
                 <Avatar name={person.id ? person.name : '–'} size={28} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-semibold text-ink-900">{person.name}</span>
-                  <span className="truncate text-helper text-ink-500">{person.email}</span>
+                  <span className="truncate text-helper text-ink-800">{person.email}</span>
                 </span>
                 {person.id === value && <Check size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-brand-600" />}
               </li>

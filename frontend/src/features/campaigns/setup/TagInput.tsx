@@ -51,12 +51,12 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <label htmlFor={id} className="block text-sm font-semibold text-ink-900">Tags</label>
-        <span className="cep-num text-helper text-ink-500">{formatNumber(value.length)} of {MAX_TAGS}</span>
+        <span className="cep-num text-helper text-ink-800">{formatNumber(value.length)} of {MAX_TAGS}</span>
       </div>
       <div className="relative mt-1.5">
-        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-control-lg border bg-surface px-2 py-1 focus-within:border-brand-600 focus-within:shadow-focus ${message ? 'border-danger' : 'border-line'}`}>
+        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-control-lg border bg-surface px-2 py-1 focus-within:border-brand-600 focus-within:shadow-focus ${message ? 'border-danger' : 'border-line-control'}`}>
           {value.map((tag) => (
-            <span key={tag} className="inline-flex h-6 items-center gap-1 rounded-sm bg-line-subtle pr-0.5 pl-2 text-xs font-semibold text-ink-700">
+            <span key={tag} className="inline-flex h-6 items-center gap-1 rounded-sm bg-fill-subtle pr-0.5 pl-2 text-xs font-semibold text-ink-800">
               {tag}
               <button type="button" aria-label={`Remove the tag ${tag}`} disabled={disabled} onClick={() => onChange(value.filter((item) => item !== tag))} className={iconButtonClass({ size: 'xs' })}>
                 <X size={12} strokeWidth={1.5} aria-hidden />
@@ -78,7 +78,7 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
           </ul>
         )}
       </div>
-      <p id={hintId} className={message ? 'mt-1.5 text-helper font-medium text-danger-text' : 'mt-1.5 text-helper text-ink-500'}>
+      <p id={hintId} className={message ? 'mt-1.5 text-helper font-medium text-danger-text' : 'mt-1.5 text-helper text-ink-800'}>
         {message || 'Press Enter or comma to add a tag'}
       </p>
     </div>

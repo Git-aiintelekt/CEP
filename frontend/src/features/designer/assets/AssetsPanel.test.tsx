@@ -129,7 +129,7 @@ test('read-only greys everything out, keeps it focusable, and does nothing', asy
   for (const control of [upload, image]) {
     expect(control.getAttribute('aria-disabled')).toBe('true')
     expect(control.hasAttribute('disabled')).toBe(false)
-    expect(control.className).toContain('bg-line-subtle')
+    expect(control.className).toContain('bg-fill-subtle')
     expect(control.className).not.toContain('opacity')
   }
 

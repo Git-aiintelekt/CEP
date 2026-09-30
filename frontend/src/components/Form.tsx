@@ -24,7 +24,7 @@ export function Field({ label, hint, error, required, strong = false, labelEnd, 
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined
 
   const labelText = (
-    <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-sm font-medium text-ink-700'}>
+    <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-sm font-medium text-ink-800'}>
       {label}
       {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
     </label>
@@ -35,7 +35,7 @@ export function Field({ label, hint, error, required, strong = false, labelEnd, 
       {labelEnd ? <div className="flex items-baseline justify-between gap-3">{labelText}{labelEnd}</div> : labelText}
       {strong ? <div className="mt-1.5">{children({ id, describedBy, invalid: Boolean(error) })}</div> : children({ id, describedBy, invalid: Boolean(error) })}
       {hint && !error && (
-        <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-500' : 'mt-1 text-xs text-ink-500'}>
+        <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-800' : 'mt-1 text-xs text-ink-800'}>
           {hint}
         </p>
       )}
@@ -92,7 +92,7 @@ export function FormSection({ title, description, children }: { title: string; d
   return (
     <fieldset className="rounded-lg border border-line bg-surface p-5">
       <legend className="px-1 text-sm font-semibold text-ink-900">{title}</legend>
-      {description && <p className="mb-4 text-sm text-ink-500">{description}</p>}
+      {description && <p className="mb-4 text-sm text-ink-800">{description}</p>}
       <div className="grid gap-4 lg:grid-cols-2">{children}</div>
     </fieldset>
   )
@@ -101,8 +101,8 @@ export function FormSection({ title, description, children }: { title: string; d
 // Class-string aliases for pages that style a link or plain button; new code uses <Button>.
 // Literals so fast refresh keeps working; a test holds them equal to buttonClass().
 export const buttonPrimary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonDanger =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-line-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'

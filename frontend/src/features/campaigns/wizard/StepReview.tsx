@@ -66,7 +66,7 @@ export function PublishSummary({ campaign, onEdit, onGo }: { campaign: Campaign;
   }
   return (
     <section aria-labelledby="publish-summary-title" data-publish-summary={blocking ? 'blocked' : 'advice'}
-      className={`rounded-lg border px-4 py-3 text-sm ${blocking ? 'border-warning bg-warning-bg text-warning-text' : 'border-line bg-surface-subtle text-ink-700'}`}>
+      className={`rounded-lg border px-4 py-3 text-sm ${blocking ? 'border-warning bg-warning-bg text-warning-text' : 'border-line bg-surface-subtle text-ink-800'}`}>
       <p id="publish-summary-title" className="font-semibold">
         {blocking ? `${blocking} thing${blocking === 1 ? '' : 's'} to finish before publishing` : `${items.length === 1 ? 'One thing' : `${items.length} things`} you may still want to do`}
       </p>
@@ -159,7 +159,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
       <div className="space-y-5 self-start">
         <Panel title="Before You Publish">
           {checklist.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Checking</p>
+            <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Checking</p>
           ) : checklist.isError ? (
             <ErrorState title="The checklist could not be loaded" error={checklist.error} onRetry={() => void checklist.refetch()} />
           ) : (
@@ -172,7 +172,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
                   <span>
                     <span className="font-medium text-ink-900">{item.label}</span>
                     <span className="sr-only">{item.ok ? ': done' : item.advisory ? ': recommended' : ': to do'}</span>
-                    {!item.ok && item.problem && <span className={`block ${item.advisory ? 'text-ink-500' : 'text-danger-text'}`}>{item.problem}</span>}
+                    {!item.ok && item.problem && <span className={`block ${item.advisory ? 'text-ink-800' : 'text-danger-text'}`}>{item.problem}</span>}
                   </span>
                 </li>
               ))}
@@ -188,10 +188,10 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
         {can('campaign.publish') ? (
           <div>
             <button type="button" className={`${buttonPrimary} w-full`} disabled={!ready || publish.isPending} onClick={() => void (async () => { if (!beforePublish || await beforePublish()) setConfirming(true) })()}>Publish to Production</button>
-            {!ready && checklist.data && <p className="mt-2 text-xs text-ink-500">{campaign.approval_required && campaign.approval?.status !== 'APPROVED' ? 'It can be published once it is approved and the items marked above are done.' : 'Finish the items marked above first.'}</p>}
+            {!ready && checklist.data && <p className="mt-2 text-xs text-ink-800">{campaign.approval_required && campaign.approval?.status !== 'APPROVED' ? 'It can be published once it is approved and the items marked above are done.' : 'Finish the items marked above first.'}</p>}
           </div>
         ) : (
-          <p className="text-sm text-ink-500">Publishing needs the campaign.publish permission. The draft is saved; someone who has it can publish from here.</p>
+          <p className="text-sm text-ink-800">Publishing needs the campaign.publish permission. The draft is saved; someone who has it can publish from here.</p>
         )}
       </div>
 
@@ -208,7 +208,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
             </>
           }
         >
-          <div className="space-y-2 text-sm text-ink-700">
+          <div className="space-y-2 text-sm text-ink-800">
             <p><strong className="text-ink-900">{campaign.name}</strong> {isReceipt ? 'starts answering receipt requests.' : <>goes to about <strong className="text-ink-900">{audience.data ? formatNumber(audience.data.estimated_recipients) : 'the attached'}</strong> people.</>}</p>
             <p>When: {when}.</p>
             <p>After publishing the campaign can no longer be edited. It can be paused, and a scheduled send can be cancelled.</p>

@@ -137,7 +137,7 @@ test('disabled tiles stay focusable and say so, but do nothing', async () => {
   const button = tile('Button')
   expect(button.getAttribute('aria-disabled')).toBe('true')
   expect(button.hasAttribute('disabled')).toBe(false)
-  expect(button.className).toContain('bg-line-subtle')
+  expect(button.className).toContain('bg-fill-subtle')
   expect(button.className).not.toContain('opacity')
 
   button.focus()

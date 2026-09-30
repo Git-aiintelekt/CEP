@@ -119,7 +119,7 @@ test('a disabled switch is grey rather than faded and does not move', async () =
   render(<ToggleField label="Full Width" value={null} onValue="full-width" disabled onCommit={onCommit} />)
 
   const control = screen.getByRole('switch', { name: 'Full Width' })
-  expect(control.className).toContain('bg-line-subtle')
+  expect(control.className).toContain('bg-fill-subtle')
   expect(control.className).not.toContain('opacity')
   await user.click(control)
   expect(onCommit).not.toHaveBeenCalled()
@@ -237,19 +237,19 @@ test('a disabled select is grey rather than faded', () => {
   render(<SelectField label="Font Weight" value="400" options={FONT_WEIGHTS} disabled onCommit={vi.fn()} />)
   const control = screen.getByLabelText('Font Weight')
   expect((control as HTMLSelectElement).disabled).toBe(true)
-  expect(control.className).toContain('bg-line-subtle')
+  expect(control.className).toContain('bg-fill-subtle')
   expect(control.className).not.toContain('opacity')
 })
 
 test('a disabled control carries only the grey colours, so the white ones can never win', () => {
   const disabled = controlClass(false, true).split(' ')
-  expect(disabled).toContain('bg-line-subtle')
-  expect(disabled).toContain('text-ink-700')
+  expect(disabled).toContain('bg-fill-subtle')
+  expect(disabled).toContain('text-ink-800')
   expect(disabled).not.toContain('bg-surface')
   expect(disabled).not.toContain('text-ink-900')
   expect(disabled.some((name) => name.startsWith('opacity-'))).toBe(false)
 
   const live = controlClass(false, false).split(' ')
   expect(live).toContain('bg-surface')
-  expect(live).not.toContain('bg-line-subtle')
+  expect(live).not.toContain('bg-fill-subtle')
 })

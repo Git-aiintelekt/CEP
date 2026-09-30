@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
-import { buttonDanger, buttonSecondary } from '@/components/Form'
+import { buttonDanger, buttonPrimary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 
 const MARK = 'cepLeaveGuard'
@@ -114,7 +114,8 @@ export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void): { req
       onClose={keepEditing}
       footer={
         <>
-          <button type="button" autoFocus className={buttonSecondary} onClick={keepEditing}>
+          {/* the editors keep their solid blue secondary (approved exact copy) */}
+          <button type="button" autoFocus className={buttonPrimary} onClick={keepEditing}>
             Keep Editing
           </button>
           <button type="button" className={buttonDanger} onClick={leave}>
@@ -123,7 +124,7 @@ export function useLeaveGuard(dirty: boolean, fallbackLeave?: () => void): { req
         </>
       }
     >
-      <p className="text-sm text-ink-700">You have unsaved changes to this template. Leaving discards them.</p>
+      <p className="text-sm text-ink-800">You have unsaved changes to this template. Leaving discards them.</p>
     </Modal>
   ) : null
 

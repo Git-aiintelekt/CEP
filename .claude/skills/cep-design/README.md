@@ -40,7 +40,8 @@ Neutrals:
 | `--gray-100` | `#EEEFF5` | subtle borders, icon-button hover |
 | `--gray-150` | `#E7E8EF` | default borders, hairlines |
 | `--gray-400` | `#9EA2AD` | emphasis borders, placeholders, disabled text |
-| `--gray-700` | `#6B6F7B` | secondary text, default icons |
+| `--gray-700` | `#6B6F7B` | no text role in the app (kept for the template editors' exact copy and the Archived tag) |
+| `--gray-800` | `#4B4F5B` | labels, helper text, notes, icons |
 | `--gray-900` | `#17181C` | primary text |
 
 Brand:
@@ -91,7 +92,7 @@ Always consume these in component code, not the primitives.
 | `--border-default` | `--gray-150` |
 | `--border-emphasis` | `--gray-400` |
 | `--text-primary` | `--gray-900` |
-| `--text-secondary` | `--gray-700` |
+| `--text-secondary` / `--text-label` | `--gray-800` |
 | `--text-on-dark` | `--white` |
 | `--wordmark-teal` | `--color-wordmark-teal` |
 | `--wordmark-navy` | `--color-wordmark-navy` |
@@ -104,15 +105,55 @@ Always consume these in component code, not the primitives.
 | `--status-error-plain-text` | `--red-600` |
 | `--status-danger-dark-accent` | `--maroon-700` |
 | `--status-high-accent` / `-bg` | `--orange-600` / `--orange-100` |
-| `--status-draft-bg` / `-text` | `--orange-100` / `#8A3A12` (dark orange, 5.56:1 on its background; pending sign-off) |
 | `--callout-bg` / `-icon` / `-link` / `-text` | periwinkle 100 / 500 / 700 / 800 |
 | `--row-flagged-bg` | `--yellow-50` |
 
 Derived convenience roles also exist for links, focus, icons and legacy surface names: `--surface-page`, `--surface-card`, `--surface-subtle`, `--surface-hover`, `--surface-selected`, `--surface-inverse`, `--sidebar-bg`, `--icon-on-dark`, `--text-tertiary`, `--text-placeholder`, `--text-disabled`, `--text-inverse`, `--text-link`, `--text-link-hover`, `--border-strong`, `--border-focus`, `--focus-ring`, `--icon-default`, `--icon-strong`, `--icon-brand`, `--icon-disabled`. See `tokens/colors.css` for the exact mapping.
 
+**Text greys** (2026-09-30), one role each:
+- `Gray 900` `#17181C`: text, values and column headers (`ink-900` in the app).
+- `Gray 800` `#4B4F5B`: labels, helper text, notes and icons (`ink-800`); 8.2:1 on white, 7.1:1 on Gray 100.
+- `Gray 400` `#9EA2AD`: placeholder and disabled only (`ink-300`).
+- Rule: no `Gray 700` text on `Gray 100` or `Gray 150` fills (4.4:1 and 4.1:1, under 4.5:1). The template editors keep Gray 700 as their approved exact copy.
+
 **Rule: no colour is decorative.** If something is coloured, it carries meaning. Callouts are periwinkle, never a blue-tinted info box — blue is reserved for action.
 
-**Status tags:** Draft is orange (`Orange 100` with the dark orange text above); Test Published and Paused amber; Production Published, Active and Completed green; Cancelled and Failed red; Archived grey. Status tags are never blue, except Scheduled (`Blue 100` / `Blue 800`), an approved exception (2026-09-24).
+**Status tags** (2026-09-30): each lifecycle status has its own hue, `--tag-{status}-bg` / `-text` / `-dot` (in the app: `bg-tag-{status}-bg`, `text-tag-{status}-text`, `bg-tag-{status}-dot`). Every text passes 4.5:1 on its background. Shape: 22px tall, 4px corners (`--radius-sm`), 12px semibold, 8px side padding.
+
+| Status | Background | Text | Dot | Why |
+|---|---|---|---|---|
+| Draft | `#F2EBE4` | `#5D4535` | `#B08A6E` | sand: unfinished, quiet, not yet a problem |
+| Test Published | `#EBE6FA` | `#48309A` | `#8068DA` | violet: out, but only to testers |
+| Production Published | `#D5EEF3` | `#0C5664` | `#2B9AAE` | teal: approved for real customers, not yet sending |
+| Scheduled | `#FCE4D8` | `#8F3A12` | `#E4703E` | coral: a date is set, it will go out |
+| Active (also Sending, Preparing) | `#D8F1E7` | `#0C5F43` | `#2FA57A` | green: going out now |
+| Completed | `#DDEDFB` | `#1A5486` | `#3C8AD1` | light sky blue, by design: done, calm; far enough from action Blue 600 |
+| Paused | `#FAF0C6` | `#6F5300` | `#D4A91C` | yellow: held back, needs a decision |
+| Failed (also Cancelled) | `#FADCE1` | `#9C1C33` | `#D9485F` | rose: stopped |
+| Archived | `#FFFFFF`, 1px dashed `#9EA2AD` | `#6B6F7B` | `#CFD2DC` | the only unfilled tag: out of use |
+
+- **The 6px dot shows only on live statuses:** Active, Sending and Preparing, always in the Active dot colour. No other status has a dot; the other `-dot` tokens are for charts and legends.
+- Sending and Preparing use the Active colours; the label tells them apart. Cancelled uses the Failed colours.
+- Contact list types: Production uses Production Published, Test uses Test Published.
+- An unknown status falls back to neutral grey (`Gray 100` / `Gray 800`). The blue brand tag is for merge-field tokens only, never a status.
+
+**Category tags** say what a thing is, never its state: the status tag's shape with a 12px Lucide icon (1.5 stroke) where the dot would be, **never a dot**. `--cat-{name}-bg` / `-text`:
+
+| Category | Background | Text | Icon |
+|---|---|---|---|
+| Journey | `#F4E4F1` | `#6E2A5E` | Route |
+| Campaign | `#E6E7FB` | `#393E9E` | Megaphone |
+| Seasonal | `#E5EFD9` | `#3E5A1C` | (later) |
+| Loyalty | `#F7E3EC` | `#86264F` | (later) |
+| Promotional | `#FDE7DA` | `#8A3E14` | (later) |
+| Transactional | `#EEEFF5` | `#4A4E5A` | (later) |
+
+Only Journey and Campaign are built (`components/CategoryTag.tsx`); the other four wait for a data field. A new category never reuses a status hue, and its text must pass 4.5:1 on its background.
+
+**Plum accent**: `--plum-50 #FBF4F9`, `--plum-100 #F4E4F1`, `--plum-200 #E8C6E0`, `--plum-500 #A8488F`, `--plum-700 #8A3375`, `--plum-800 #6E2A5E`.
+- Use for: journey markers; icon badges (a `plum-700` icon on a `plum-100` square) on KPI tiles, Create New tiles and section headers; at most one `plum-50` header strip per section; small highlight marks.
+- Never for: buttons, links, status, large fills, body text, or more than two plum elements in one small component. Blue 600 stays the only action colour.
+- Keep plum at least 8px away from a violet Test Published tag so the two don't read as one.
 
 ### Typography
 
@@ -180,7 +221,7 @@ Prebuilt transitions: `--transition-control` (background-color, border-color, co
 
 State rules apply to every interactive control:
 
-- **Secondary buttons are the same solid Blue 600 as primary** (decision of 2026-09-25: "Make Add Contact List and Save and Close blue too. All secondary buttons also"); so are outline icon buttons and the designer's Save Draft. Primary and secondary differ only by position (the primary action comes last). Danger, ghost and link buttons keep their own looks.
+- **Primary is the only solid blue button; the primary action goes last.** Secondary is an outline: a white fill, a 1px `Blue 600` border and `Blue 600` text; hover and press are `Blue 100` with a `Blue 800` border and text; disabled is the standard grey (`Gray 100` fill, `Gray 400` text, `Gray 150` border), never opacity. The 1px border sits inside the height, so a secondary and a primary side by side are both 32px or 40px. The template editors are an approved exact copy and keep their solid blue secondary buttons, as do the solid "outline" icon buttons. Danger, ghost and link buttons keep their own looks.
 - **Hover** — `Blue 600` fills darken toward `Blue 800`; neutral surfaces go to `Gray 75`; ghost controls pick up `Blue 100`; icon buttons `Gray 100`.
 - **Press** — one step darker again. **Colour change only — never a scale or shrink transform.**
 - **Focus** — `Blue 600` border plus a 3px `rgba(56,99,219,0.24)` ring (`--focus-ring`). The ring is never removed, on any control. Base CSS also sets a `2px` `:focus-visible` outline at `1px` offset.
@@ -195,23 +236,26 @@ Backgrounds & imagery: **there are none.** No photography, illustration, pattern
 
 ## Charts
 
-Every chart, now and later, uses the shared kit in `frontend/src/components/charts/` (`Chart`, with line, area and bar series) and looks and behaves the same. No chart library, and never a chart styled on its own: a new chart is a new use of the kit. Future prompts say "use the chart kit".
+Every chart, now and later, uses the shared kit in `frontend/src/components/charts/` (`Chart`, with line, area and bar series; `BarList` for horizontal bars) and looks and behaves the same. No chart library, and never a chart styled on its own: a new chart is a new use of the kit. Future prompts say "use the chart kit".
 
 **Design**
 - **No chart border.** The card is the frame. Gridlines are 1px `Gray 100` (`line-subtle`), horizontal only, on round steps from 0.
-- **Axis labels** are 12px `Gray 700` with tabular figures. The x axis shows only as many labels as fit.
-- **Palette**, fixed and ordered, defined once as tokens (`--chart-1`…`6` here, `--color-chart-1`…`6` in `index.css`): Blue 600, Green 500, Amber 500, Gray 400, wordmark teal, Periwinkle 500. Series n takes chart-n unless it names one. Blue is only ever the first or primary series. A status colour never stands for something with a different meaning.
+- **Axis labels** are 12px `Gray 800` with tabular figures. The x axis shows only as many labels as fit.
+- **Palette**, fixed and ordered, defined once as tokens (`--chart-1`…`6` here, `--color-chart-1`…`6` in `index.css`): Blue 600, Green 500, Amber 500, Gray 400, wordmark teal, Periwinkle 500. Series n takes chart-n unless it names one. Blue is only ever the first or primary series. When a chart has exactly two series, the second is Plum 500 (`--chart-pair`, `--color-chart-pair` in `index.css`); three or more follow the fixed order. Blue stays first. "Two" counts every series the chart is given, so hiding one with the legend never recolours the rest; a colour a series names still wins. A status colour never stands for something with a different meaning. **Neutral parts:** when a whole splits into parts that are neither good nor bad (the reasons customers were held back: frequency cap, no consent, suppression list), use Blue 600, wordmark teal and Periwinkle 500 (`--chart-1`, `--chart-5`, `--chart-6`), skipping green and amber so no part reads as a success or a warning.
 - **Lines** are 2px with no dots, except the hovered point: a 6px dot with a 2px white ring. **Areas** sit under their line at no more than 12% opacity, the one alpha fill allowed besides the scrim and shadows. **Bars** are grouped per category, 4px apart, with a 2px radius on the top corners only.
-- **Legend**, above the chart: 10px square swatches with 13px labels. Clicking an item shows or hides its series (`aria-pressed`); a hidden series has a hollow swatch and a struck-through label.
+- **Mixed marks:** a series may set `mark: 'bar' | 'line'` over the chart's type, so one chart draws bars and a line together (revenue as bars, cost as a line). Bars are drawn first, lines on top; colours still follow the palette rules.
+- **Reference line** (`reference`: a target pace, a benchmark): a 1.5px dashed line (4 4) in Gray 400 (`--chart-4`). It is not a series: it takes no colour slot (revenue + cost + target pace is two series, so cost is Plum), it can't be hidden, and the y axis always includes it. It is in the legend (a dashed swatch, as a plain label), the tooltip and the numbers table.
+- **Legend**, above the chart: 10px square swatches with 13px labels (a short line swatch for a line among bars, a dashed one for the reference). Clicking an item shows or hides its series (`aria-pressed`); a hidden series has a hollow swatch and a struck-through label. The legend can sit elsewhere, for example in a card header's right slot: render `ChartLegend` there with `useChartLegend()`, and give the Chart `legend="none"` and the same `hidden`. The toggles work the same.
 - **States**, the same for every chart:
   - loading: a Gray 100 skeleton block at the chart's height;
-  - empty: one line of `Gray 700` text saying what will fill it;
+  - empty: one line of `Gray 800` text saying what will fill it;
   - error: inline "The chart could not be loaded." with the reason and Retry.
 
 **Interaction**
+- **Bar fade:** while a category is active (hover, tap or keyboard), bars in the other categories drop to 40% fill opacity and the active category's bars stay full, over 70ms. Lines and the reference line never fade.
 - **Hover** shows a 1px `Gray 400` vertical guide at the nearest point and a tooltip:
   - a white card with a 1px hairline, 8px radius and the toast shadow;
-  - the time or category in 12px `Gray 700`, then one row per series (swatch, label, value);
+  - the time or category in 12px `Gray 800`, then one row per series (swatch, label, value);
   - it stays inside the chart area and flips to the other side of the guide near the right edge.
 - **Keyboard:**
   - the plot takes focus (with the focus ring);
@@ -220,9 +264,28 @@ Every chart, now and later, uses the shared kit in `frontend/src/components/char
   - the point in view is announced politely.
 - **Touch:** tap a point to show it; tap outside the chart to hide it.
 - **Numbers:** every chart carries its data as a table. It is visually hidden for screen readers until someone presses "Show the numbers".
-- **Motion:** nothing animates its drawing, so `prefers-reduced-motion` has nothing to turn off.
+- **Motion:** nothing animates its drawing; the bar fade is the one transition, and reduced motion drops it.
 
-## State Management
+**BarList** (`components/charts/BarList.tsx`): horizontal bars with no axes, for a ranking or a funnel.
+- Each row is a list item: the label (cut with a tooltip when long), the value on the right (14px semibold `Gray 900`, tabular), an optional secondary value (13px `Gray 800`, such as the share), and a 6px bar with round ends under them: a `Gray 100` track, the fill in `--chart-1` unless the row names another.
+- Bars are measured against `max` (the largest value by default). A row with no value shows its text ("Not Tracked") in `Gray 800` and no bar.
+- The same loading, empty and error states as `Chart`, and an accessible name from `title`, so it reads as "Delivered 1,142,300".
+
+## Home cockpit patterns
+
+The Home page (`frontend/src/features/home/`) is built from these parts; reuse them before drawing new ones. Paths are from `frontend/src/`.
+- **KpiTile / KpiStrip** (`features/home/components/KpiTile.tsx`): one figure with its change, benchmark, supporting line and, for revenue, a target bar; states `ready`, `loading`, `notTracked` ("Not Tracked", SMS/MMS opens), `notSetUp` ("Not Set Up Yet", never $0) and `unavailable` (a grey dash). Six in one bordered strip with 1px dividers: 6 → 3 × 2 → 2 → 1 across.
+- **ChangeChip** (`features/home/components/ChangeChip.tsx`): borderless, green up / rose down / grey flat; % for counts and money, pt for rates and shares; "—" with no earlier figure.
+- **BenchmarkTag and SeverityTag** (`features/home/components/HomeTags.tsx`): Good / Fair / Poor as plain tags; alert severity critical / blocking / governance in danger / warning / callout, each with its icon.
+- **FilterChip + SingleSelectMenu / MultiSelectMenu** (`components/FilterChip.tsx`): 40px, 8px corners; active = Blue 100 fill, Blue 600 border, Blue 800 text (a Period chip is never active); menus are listboxes, the multi-select a draft until Apply.
+- **SectionHeader** (`features/home/components/SectionHeader.tsx`): page level (19px, no card) or card level (18px, a divider under it); an optional 28px plum icon square, count badge, helper text and a right-hand slot that wraps as one group.
+- **Card layout** (`features/home/homeLayout.ts`): Home cards keep the design layout when all are present; otherwise they re-pack two per row (odd count: one wide card full width), never stretching a lone card.
+- **HomeCard** (`features/home/components/HomeCard.tsx`): a `<section>` named by its heading, white with a 1px hairline and 8px corners, no shadow; renders nothing when its data is unavailable.
+- **Diverging target bars** (`features/home/sections/TopBottom.tsx`): from a 1px 100% line, over target grows right in Blue 600, under grows left in the danger accent, each with its % beside it; bar length against the largest deviation shown.
+- **Freshness line** (`features/home/sections/NeedsAttention.tsx`): a 6px green dot and "Updated at 14:05 EDT", the load time in the workspace zone.
+- **Needs Attention is hidden when there are no alert groups** (also when alerts are unavailable or forbidden); no collapsed row, no heading. Loading keeps its placeholder cards and an error keeps the section with Try Again. The page order is greeting, Create New, Needs Attention, Marketing Performance, then the card rows (`features/home/homeLayout.ts` decides what shows).
+
+
 Not applicable — this bundle has no application logic. Components built from it should follow the target codebase's existing state conventions. The only state the tokens care about is the visual state set above (rest / hover / press / focus / selected / disabled), which should map to whatever state model the target framework uses.
 
 ---
@@ -254,7 +317,7 @@ These matter as much as the visuals; CEP writes like a competent colleague leavi
 - **Verbs for actions, nouns for places.** "Send test", "Publish campaign" / "Dashboard", "Contact lists".
 - **Errors say what failed, when, and what to do**: "Test publish failed — email provider returned 503 at 04:12 UTC." plus a Retry. No "Oops".
 - **Empty states describe the fix**: "No matching campaigns / Try widening the date range or clearing filters."
-- **No emoji, ever. No exclamation marks.** Status is carried by tag colour plus a 6px dot, never a glyph.
+- **No emoji, ever. No exclamation marks.** Status is carried by tag colour (plus a 6px dot on live statuses), never a glyph.
 - **Time is explicit and zoned**: "13 Aug 2026, 06:41 UTC".
 - **Consistent vocabulary**: *campaign*, *journey*, *template*, *contact list*, *campaign list*, *audience*, *governance*, *test publish*, *production publish*, *party ID*. Status vocabulary is locked: Draft / Test Published / Production Published / Scheduled. Never use invoice/audit words (line item, exception, reconciled, ledger, SLA, tolerance).
 

@@ -10,7 +10,7 @@ export function PanelSearch({ label, value, placeholder, onChange }: { label: st
         {label}
       </label>
       <div className="flex h-8 items-center gap-1.5 rounded-sm border border-transparent bg-surface-sunken pr-1 pl-2 focus-within:border-brand-600 focus-within:bg-surface focus-within:shadow-focus">
-        <Search size={15} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
+        <Search size={15} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
         <input
           id={id}
           type="search"
@@ -24,7 +24,7 @@ export function PanelSearch({ label, value, placeholder, onChange }: { label: st
             type="button"
             aria-label="Clear Search"
             onClick={() => onChange('')}
-            className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-sm text-ink-700 hover:bg-line"
+            className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-sm text-ink-800 hover:bg-fill-muted"
           >
             <X size={13} strokeWidth={1.5} aria-hidden />
           </button>

@@ -28,7 +28,7 @@ export interface HeaderFieldProps {
 }
 
 const FIELD_SHELL =
-  'flex h-8 min-w-0 items-center gap-[2px] rounded-sm border bg-line-subtle pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:bg-surface focus-within:shadow-focus'
+  'flex h-8 min-w-0 items-center gap-[2px] rounded-sm border bg-fill-subtle pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:bg-surface focus-within:shadow-focus'
 
 export function HeaderField({ id, label, inputRef, value, placeholder, readOnly, advisory, max, note, hint = null, onChange, picker, onPickEmoji }: HeaderFieldProps) {
   const noteId = `${id}-note`
@@ -46,11 +46,11 @@ export function HeaderField({ id, label, inputRef, value, placeholder, readOnly,
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-baseline gap-1.5">
-        <label htmlFor={id} className="text-xs font-semibold text-ink-700">
+        <label htmlFor={id} className="text-xs font-semibold text-ink-800">
           {label}
         </label>
         <span className="flex-1" />
-        <span className={`cep-num text-[11px] ${over ? 'text-danger-plain' : long ? 'text-warning-text' : 'text-ink-700'}`}>{counter}</span>
+        <span className={`cep-num text-[11px] ${over ? 'text-danger-plain' : long ? 'text-warning-text' : 'text-ink-800'}`}>{counter}</span>
       </div>
       <div
         className={`${FIELD_SHELL} ${over ? 'border-danger' : long ? 'border-warning' : 'border-transparent'}`}
@@ -62,7 +62,7 @@ export function HeaderField({ id, label, inputRef, value, placeholder, readOnly,
         <input
           ref={inputRef}
           id={id}
-          className={`cep-input-bare h-[30px] w-full min-w-0 border-none bg-transparent text-[13px] outline-none ${readOnly ? 'text-ink-700' : 'text-ink-900'}`}
+          className={`cep-input-bare h-[30px] w-full min-w-0 border-none bg-transparent text-[13px] outline-none ${readOnly ? 'text-ink-800' : 'text-ink-900'}`}
           value={value}
           maxLength={HEADER_MAX}
           disabled={readOnly}

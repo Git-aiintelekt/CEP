@@ -11,7 +11,7 @@ function Title({ primary, secondary }: { primary: string; secondary?: string | n
   return (
     <div className="min-w-0">
       <p className="truncate font-medium text-ink-900">{primary}</p>
-      {secondary && <p className="truncate text-xs text-ink-500">{secondary}</p>}
+      {secondary && <p className="truncate text-xs text-ink-800">{secondary}</p>}
     </div>
   )
 }

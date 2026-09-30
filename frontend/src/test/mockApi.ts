@@ -535,19 +535,6 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.endsWith('/me/')) return json({ ...me, ...options.me })
-    if (path.endsWith('/dashboard/summary/')) {
-      const liveCampaigns = campaignState.campaigns.filter((item) => ['ACTIVE', 'PRODUCTION_PUBLISHED'].includes(item.status))
-      const realLists = listsNow.filter((item) => item.status !== 'DRAFT')
-      return json({
-        campaigns_total: campaignState.campaigns.length,
-        campaigns_live: liveCampaigns.length,
-        contact_lists_total: realLists.length,
-        audience_total: realLists.reduce((total, item) => total + (item.member_count ?? 0), 0),
-        templates_total: templatesNow.length,
-        journeys_total: 0,
-        journeys_active: 0,
-      })
-    }
     const message = options.message ?? makeMessage()
     if (path.endsWith('/message/') && method === 'POST') {
       const custom = options.onSaveMessage?.(call)

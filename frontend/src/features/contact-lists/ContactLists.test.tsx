@@ -404,3 +404,19 @@ test('a file the worker cannot take: the reason is shown in the wizard instead o
   expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)
   expect(within(dialog).getByRole('button', { name: 'Replace' })).toBeTruthy()
 })
+
+test('?new=1 (Home’s Create New) opens the wizard at once; closing it drops the parameter; without list.edit nothing opens', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/contact-lists?new=1')
+  const dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
+  await user.click(within(dialog).getAllByRole('button', { name: /^(Cancel|Close)$/ })[0])
+  await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'New Contact List' })).toBeNull())
+  expect(window.location.search).toBe('')
+  cleanup()
+
+  installMockApi({ me: { principal: { kind: 'user', id: 'u1', email: 'a@x.example', display_name: 'Read Only', is_platform_admin: false, permissions: ['list.view'] } } })
+  await renderAppAt('/contact-lists?new=1')
+  expect(await screen.findByRole('table', { name: 'Contact Lists' })).toBeTruthy()
+  expect(screen.queryByRole('dialog', { name: 'New Contact List' })).toBeNull()
+})

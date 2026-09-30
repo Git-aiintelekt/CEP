@@ -12,7 +12,7 @@ export function SocialNetworksField({ disabled = false, onAdd }: { disabled?: bo
   const id = useId()
   return (
     <div className="py-2">
-      <label htmlFor={id} className="text-xs text-ink-500">
+      <label htmlFor={id} className="text-xs text-ink-800">
         {ADD_NETWORK_LABEL}
       </label>
       <div className="mt-1">
@@ -34,7 +34,7 @@ export function SocialNetworksField({ disabled = false, onAdd }: { disabled?: bo
           ))}
         </select>
       </div>
-      <p className="mt-1 text-xs text-ink-500">{SOCIAL_ICONS_NOTE}</p>
+      <p className="mt-1 text-xs text-ink-800">{SOCIAL_ICONS_NOTE}</p>
     </div>
   )
 }

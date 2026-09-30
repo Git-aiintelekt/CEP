@@ -30,7 +30,7 @@ export function ToggleField({ label, value, onCommit, disabled = false, inherite
           className={`flex h-5 w-9 items-center rounded-pill border p-0.5 transition-colors duration-base ease-standard ${
             // read-only still has to say whether it is on, so disabled keeps the distinction in greys
             disabled && on ? 'border-ink-300 bg-ink-300'
-            : disabled ? 'border-line bg-line-subtle'
+            : disabled ? 'border-line bg-fill-subtle'
             : on ? 'border-brand-600 bg-brand-600' : 'border-line bg-ink-300'
           }`}
         >

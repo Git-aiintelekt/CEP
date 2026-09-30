@@ -1,5 +1,5 @@
-<!-- @dsCard group="Brand" viewport="700x170" name="Interaction states" subtitle="Hover darkens one step, press two; focus is always the brand ring" -->
-<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css"><style>html,body{margin:0}body{background:var(--white);padding:16px;font:var(--text-body-role);color:var(--text-primary)}.r{display:flex;flex-direction:column;gap:10px}.row{display:flex;gap:10px;align-items:center}.k{font:var(--text-label);color:var(--text-tertiary);width:70px;flex:0 0 70px}.btn{height:40px;padding:0 16px;display:inline-flex;align-items:center;border-radius:var(--radius-sm);font:var(--fw-medium) 14px/1 var(--font-body);border:1px solid transparent;white-space:nowrap}.sec{background:var(--white);border-color:var(--border-strong);color:var(--neutral-700)}</style></head><body>
+<!-- @dsCard group="Brand" viewport="700x170" name="Interaction states" subtitle="Hover darkens one step, press two; the secondary outline turns Blue 100 / Blue 800; focus is always the brand ring" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css"><style>html,body{margin:0}body{background:var(--white);padding:16px;font:var(--text-body-role);color:var(--text-primary)}.r{display:flex;flex-direction:column;gap:10px}.row{display:flex;gap:10px;align-items:center}.k{font:var(--text-label);color:var(--text-tertiary);width:70px;flex:0 0 70px}.btn{height:40px;padding:0 16px;display:inline-flex;align-items:center;border-radius:var(--radius-sm);font:var(--fw-medium) 14px/1 var(--font-body);border:1px solid transparent;white-space:nowrap}.sec{background:var(--white);border-color:var(--brand-600);color:var(--brand-600)}</style></head><body>
 <div class="r">
 <div class="row"><span class="k">primary</span>
 <span class="btn" style="background:var(--primary-600);color:#fff">Rest 600</span>
@@ -9,9 +9,10 @@
 <span class="btn" style="background:var(--neutral-200);color:var(--text-disabled);border-color:var(--border-subtle)">Disabled</span></div>
 <div class="row"><span class="k">secondary</span>
 <span class="btn sec">Rest</span>
-<span class="btn sec" style="background:var(--neutral-50)">Hover 50</span>
-<span class="btn sec" style="background:var(--neutral-100)">Press 100</span>
-<span class="btn sec" style="box-shadow:var(--focus-ring);border-color:var(--border-focus)">Focus</span></div>
+<span class="btn sec" style="background:var(--brand-100);border-color:var(--brand-800);color:var(--brand-800)">Hover</span>
+<span class="btn sec" style="background:var(--brand-100);border-color:var(--brand-800);color:var(--brand-800)">Press</span>
+<span class="btn sec" style="box-shadow:var(--focus-ring)">Focus</span>
+<span class="btn" style="background:var(--gray-100);border-color:var(--gray-150);color:var(--text-disabled)">Disabled</span></div>
 <div class="row"><span class="k">rows</span>
 <span class="btn" style="background:var(--white);border-color:var(--border-subtle);width:150px">Rest white</span>
 <span class="btn" style="background:var(--neutral-50);border-color:var(--border-subtle);width:150px">Hover neutral-50</span>

@@ -27,7 +27,7 @@ export function MailServerPage() {
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<MailServerSettings>('/workspace/mail-server/', undefined, signal) })
 
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
   return <MailServerForm data={settings.data} myEmail={me?.principal.email ?? ''}
     onSaved={(next) => queryClient.setQueryData(KEY, next)} />
 }
@@ -64,10 +64,10 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
     <form className="max-w-3xl space-y-6" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
       <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-card-title font-semibold text-ink-900">Outgoing Email</h2>
-        <p className="mt-1 text-sm text-ink-500">
+        <p className="mt-1 text-sm text-ink-800">
           Your own SMTP server. It carries the messages this platform sends to people in your workspace (password links, support notifications) and, if you offer it below, your campaigns. Campaign email otherwise goes through your sending engines.
         </p>
-        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-700'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
+        <p role="status" className={`mt-3 rounded-lg px-3 py-2 text-sm ${data.in_use === 'console' ? 'bg-warning-bg text-warning-text' : 'bg-surface-subtle text-ink-800'}`}>{IN_USE[data.in_use] ?? data.in_use}</p>
       </section>
 
       <section className="rounded-lg border border-line bg-surface p-5">
@@ -111,7 +111,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
           </Field>
           <label className="flex cursor-pointer items-start gap-3 self-end pb-2">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.is_active} onChange={(event) => set('is_active', event.target.checked)} />
-            <span><span className="block text-sm font-medium text-ink-900">In Use</span><span className="block text-xs text-ink-500">Switch off to keep these settings without using them; platform messages then fall back to the platform's server, and campaigns cannot use this server.</span></span>
+            <span><span className="block text-sm font-medium text-ink-900">In Use</span><span className="block text-xs text-ink-800">Switch off to keep these settings without using them; platform messages then fall back to the platform's server, and campaigns cannot use this server.</span></span>
           </label>
         </div>
       </section>
@@ -122,14 +122,14 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={form.campaign_sender} onChange={(event) => set('campaign_sender', event.target.checked)} />
           <span>
             <span className="block text-sm font-medium text-ink-900">Offer as a Campaign Sender</span>
-            <span className="block text-xs text-ink-500">Offers this server to campaigns: adds a delivery provider and a sender ({form.from_name || form.from_email || 'the From address above'}) that campaigns can pick. It becomes verified, and usable for publishing, once a test message has gone through.</span>
+            <span className="block text-xs text-ink-800">Offers this server to campaigns: adds a delivery provider and a sender ({form.from_name || form.from_email || 'the From address above'}) that campaigns can pick. It becomes verified, and usable for publishing, once a test message has gone through.</span>
           </span>
         </label>
         {data.sender_profile && (
-          <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-700">
+          <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-800">
             <StatusBadge status={data.sender_profile.verification_status === 'VERIFIED' ? 'ACTIVE' : 'PAUSED'} label={data.sender_profile.verification_status === 'VERIFIED' ? 'Verified Sender' : 'Sender Not Verified Yet'} />
             {data.sender_profile.display_name} · {data.sender_profile.from_address}{data.sender_profile.is_default ? ' · default email sender' : ''}
-            {data.sender_profile.verification_status !== 'VERIFIED' && <span className="text-xs text-ink-500">Send a test message below to verify it.</span>}
+            {data.sender_profile.verification_status !== 'VERIFIED' && <span className="text-xs text-ink-800">Send a test message below to verify it.</span>}
           </p>
         )}
       </section>
@@ -145,14 +145,14 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       {server && (
         <section aria-labelledby="mail-test" className="rounded-lg border border-line bg-surface p-5">
           <h2 id="mail-test" className="text-card-title font-semibold text-ink-900">Send a Test Message</h2>
-          <p className="mt-1 text-sm text-ink-500">Uses the saved settings. Save first if you changed anything above.</p>
+          <p className="mt-1 text-sm text-ink-800">Uses the saved settings. Save first if you changed anything above.</p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div className="w-72"><Field label="To" required>{(ids) => <TextInput {...ids} type="email" value={testTo} onChange={(event) => setTestTo(event.target.value)} />}</Field></div>
             <button type="button" className={buttonSecondary} disabled={test.isPending || !testTo.trim()} onClick={() => test.mutate()}>
               {test.isPending && <Spinner size="sm" />}Send Test
             </button>
             {server.last_test_ok !== null && (
-              <span className="flex items-center gap-2 text-sm text-ink-700">
+              <span className="flex items-center gap-2 text-sm text-ink-800">
                 <StatusBadge status={server.last_test_ok ? 'ACTIVE' : 'FAILED'} label={server.last_test_ok ? 'Last Test Passed' : 'Last Test Failed'} /> {formatDateTime(server.last_tested_at)}
               </span>
             )}

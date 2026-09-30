@@ -10,9 +10,9 @@ type Summary = ReturnType<typeof summarise>
 
 const BUTTON = 'inline-flex h-9 shrink-0 items-center gap-2 rounded-sm text-[13px] font-semibold whitespace-nowrap transition-colors duration-base ease-standard'
 const SECONDARY = `${BUTTON} bg-brand-600 px-[14px] text-white hover:bg-brand-800`
-const SECONDARY_BUSY = `${BUTTON} cursor-not-allowed bg-line-subtle px-[14px] text-ink-300`
+const SECONDARY_BUSY = `${BUTTON} cursor-not-allowed bg-fill-subtle px-[14px] text-ink-300`
 const PRIMARY = `${BUTTON} bg-brand-600 px-4 text-white hover:bg-brand-800`
-const PRIMARY_DISABLED = `${BUTTON} cursor-not-allowed bg-line px-4 text-ink-300`
+const PRIMARY_DISABLED = `${BUTTON} cursor-not-allowed bg-fill-muted px-4 text-ink-300`
 
 export interface FooterAction {
   label: string
@@ -43,7 +43,7 @@ export function FooterBar({ note, noteTone = 'default', save, primary }: FooterB
 
   return (
     <div className="flex items-center justify-between gap-4 border-t border-line bg-surface px-6 py-3">
-      <p aria-live="polite" className={`min-w-0 flex-1 truncate text-helper ${noteTone === 'danger' ? 'text-danger-text' : 'text-ink-700'}`}>
+      <p aria-live="polite" className={`min-w-0 flex-1 truncate text-helper ${noteTone === 'danger' ? 'text-danger-text' : 'text-ink-800'}`}>
         {note}
       </p>
 

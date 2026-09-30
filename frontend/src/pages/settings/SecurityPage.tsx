@@ -17,7 +17,7 @@ function Toggle({ label, hint, checked, disabled, onChange }: { label: string; h
   return (
     <label className="flex cursor-pointer items-start gap-3">
       <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
-      <span><span className="block text-sm font-medium text-ink-900">{label}</span><span className="block text-xs text-ink-500">{hint}</span></span>
+      <span><span className="block text-sm font-medium text-ink-900">{label}</span><span className="block text-xs text-ink-800">{hint}</span></span>
     </label>
   )
 }
@@ -71,7 +71,7 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
   return (
     <form className="mt-4 space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
       <div className="rounded-lg bg-surface-subtle px-3 py-2.5">
-        <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Redirect URI to Register with Your Identity Provider</p>
+        <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Redirect URI to Register with Your Identity Provider</p>
         <div className="mt-1 flex gap-2">
           <code className="min-w-0 flex-1 text-xs break-all text-ink-900">{settings.redirect_uri}</code>
           <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={() => void navigator.clipboard?.writeText(settings.redirect_uri).then(() => setCopied(true), () => undefined)}>{copied ? 'Copied' : 'Copy'}</button>
@@ -123,7 +123,7 @@ function SupportLog() {
   const columns: Column<SupportAccess>[] = [
     { key: 'when', header: 'When', render: (row) => formatDateTime(row.started_at) },
     { key: 'who', header: 'Support Person', render: (row) => row.staff },
-    { key: 'as', header: 'Acted As', render: (row) => <div><p className="font-medium text-ink-900">{row.as_user}</p><p className="text-xs text-ink-500">{row.as_email}</p></div> },
+    { key: 'as', header: 'Acted As', render: (row) => <div><p className="font-medium text-ink-900">{row.as_user}</p><p className="text-xs text-ink-800">{row.as_email}</p></div> },
     { key: 'why', header: 'Reason', render: (row) => row.reason },
     { key: 'mode', header: 'Access', render: (row) => <StatusBadge status={row.mode === 'WRITE' ? 'PAUSED' : 'DRAFT'} label={row.mode === 'WRITE' ? `Could change data · ${row.writes} change${row.writes === 1 ? '' : 's'}` : 'Read-Only'} /> },
     { key: 'ended', header: 'Ended', render: (row) => (row.ended_at ? formatDateTime(row.ended_at) : new Date(row.expires_at) > new Date() ? <StatusBadge status="ACTIVE" label="Open Now" /> : formatDateTime(row.expires_at)) },
@@ -131,9 +131,9 @@ function SupportLog() {
   return (
     <section aria-labelledby="support-log">
       <h2 id="support-log" className="text-card-title font-semibold text-ink-900">Support Access</h2>
-      <p className="mt-0.5 mb-3 text-sm text-ink-500">Every time someone from the platform's support team acted as one of your users, with their reason. Support can never manage users, roles, API keys or these settings.</p>
+      <p className="mt-0.5 mb-3 text-sm text-ink-800">Every time someone from the platform's support team acted as one of your users, with their reason. Support can never manage users, roles, API keys or these settings.</p>
       {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
-        : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+        : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         : log.data.length === 0 ? <EmptyState title="Support has never accessed this workspace" />
         : <DataTable columns={columns} rows={log.data} rowKey={(row) => row.id} caption="Support Access" />}
     </section>
@@ -146,7 +146,7 @@ export function SecurityPage() {
   const [configuring, setConfiguring] = useState(false)
 
   if (settings.isError) return <ErrorState error={settings.error} onRetry={() => void settings.refetch()} />
-  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading security settings</p>
+  if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading security settings</p>
 
   const data = settings.data
   return (
@@ -154,10 +154,10 @@ export function SecurityPage() {
       <MfaRule settings={data} />
       <section aria-labelledby="sso" className="rounded-lg border border-line bg-surface p-5">
         <h2 id="sso" className="text-card-title font-semibold text-ink-900">Single Sign-On (OpenID Connect)</h2>
-        {!data.sso_available ? <p className="mt-1 text-sm text-ink-500">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
+        {!data.sso_available ? <p className="mt-1 text-sm text-ink-800">Single sign-on is not part of this workspace's plan. Contact us to add it.</p>
           : data.identity_provider || configuring ? <SsoForm settings={data} roles={roles.data ?? []} />
           : (<>
-            <p className="mt-1 text-sm text-ink-500">Let people sign in with your company's identity provider (Okta, Microsoft Entra ID, Google Workspace, Auth0 and others) instead of a password.</p>
+            <p className="mt-1 text-sm text-ink-800">Let people sign in with your company's identity provider (Okta, Microsoft Entra ID, Google Workspace, Auth0 and others) instead of a password.</p>
             <button type="button" className={`mt-4 ${buttonSecondary}`} onClick={() => setConfiguring(true)}>Set Up Single Sign-On</button>
           </>)}
       </section>

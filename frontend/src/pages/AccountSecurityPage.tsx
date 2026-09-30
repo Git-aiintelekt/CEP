@@ -90,20 +90,20 @@ export function AccountSecurityPage() {
       )}
 
       {codes ? <RecoveryCodes codes={codes} onDone={finish} />
-        : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
+        : status.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>
         : status.isError ? <ErrorState error={status.error} onRetry={() => void status.refetch()} />
         : status.data.sso ? (
-          <div className="rounded-lg border border-line bg-surface p-5 text-sm text-ink-700">You sign in through your company's single sign-on. The second step, if any, is managed there.</div>
+          <div className="rounded-lg border border-line bg-surface p-5 text-sm text-ink-800">You sign in through your company's single sign-on. The second step, if any, is managed there.</div>
         ) : status.data.enabled ? (
           <div className="rounded-lg border border-line bg-surface p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is on</h2>
-                <p className="mt-0.5 text-sm text-ink-500">Since {formatDate(status.data.confirmed_at)} · {status.data.recovery_codes_left} recovery code{status.data.recovery_codes_left === 1 ? '' : 's'} left</p>
+                <p className="mt-0.5 text-sm text-ink-800">Since {formatDate(status.data.confirmed_at)} · {status.data.recovery_codes_left} recovery code{status.data.recovery_codes_left === 1 ? '' : 's'} left</p>
               </div>
               {!status.data.required && !turningOff && <button type="button" className={buttonDanger} onClick={() => { setTurningOff(true); setCode(''); disable.reset() }}>Turn Off</button>}
             </div>
-            {status.data.required && <p className="mt-3 text-xs text-ink-500">Your workspace requires it, so it cannot be turned off.</p>}
+            {status.data.required && <p className="mt-3 text-xs text-ink-800">Your workspace requires it, so it cannot be turned off.</p>}
             {status.data.recovery_codes_left <= 2 && <p className="mt-3 text-xs text-warning-text">Few recovery codes are left. To get a new set, turn multi-factor authentication off and set it up again.</p>}
             {turningOff && (
               <form className="mt-4 flex flex-wrap items-end gap-3 border-t border-line pt-4" onSubmit={(event: FormEvent) => { event.preventDefault(); disable.mutate() }}>
@@ -117,14 +117,14 @@ export function AccountSecurityPage() {
           </div>
         ) : setup ? (
           <form className="rounded-lg border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); confirm.mutate() }}>
-            <ol className="space-y-5 text-sm text-ink-700">
+            <ol className="space-y-5 text-sm text-ink-800">
               <li>
                 <p className="font-semibold text-ink-900">1. Scan this code with your authenticator app</p>
-                <p className="mt-0.5 text-ink-500">Google Authenticator, Microsoft Authenticator, 1Password, Authy and similar apps all work.</p>
+                <p className="mt-0.5 text-ink-800">Google Authenticator, Microsoft Authenticator, 1Password, Authy and similar apps all work.</p>
                 <div className="mt-3 flex flex-wrap items-start gap-4">
                   <QrCode text={setup.otpauth_uri} />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Cannot scan? Type this key</p>
+                    <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Cannot scan? Type this key</p>
                     <p className="mt-1 cep-num text-sm break-all text-ink-900">{setup.secret.replace(/(.{4})/g, '$1 ').trim()}</p>
                   </div>
                 </div>
@@ -145,7 +145,7 @@ export function AccountSecurityPage() {
         ) : (
           <div className="rounded-lg border border-line bg-surface p-5">
             <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is off</h2>
-            <p className="mt-1 text-sm text-ink-500">With it on, a stolen password is not enough to get into your account.</p>
+            <p className="mt-1 text-sm text-ink-800">With it on, a stolen password is not enough to get into your account.</p>
             {begin.isError && <div className="mt-3"><ErrorState title="Could not start the set-up" error={begin.error} /></div>}
             <button type="button" className={`mt-4 ${buttonPrimary}`} disabled={begin.isPending} onClick={() => begin.mutate()}>Set Up</button>
           </div>

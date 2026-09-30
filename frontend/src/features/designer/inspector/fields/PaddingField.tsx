@@ -94,7 +94,7 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
           <div className="grid min-w-0 flex-1 grid-cols-2 gap-1">
             {PADDING_SIDES.map((side) => (
               <div key={side.key} className="flex min-w-0 items-center gap-1">
-                <span aria-hidden className={`w-2 shrink-0 text-xs ${disabled ? 'text-ink-300' : 'text-ink-500'}`}>
+                <span aria-hidden className={`w-2 shrink-0 text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>
                   {side.letter}
                 </span>
                 <input
@@ -122,10 +122,10 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
             disabled={disabled}
             onClick={() => setLinked((was) => !was)}
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
-              disabled && linked ? 'border-ink-300 bg-line text-ink-700'
-              : disabled ? 'border-line bg-line-subtle text-ink-300'
+              disabled && linked ? 'border-ink-300 bg-fill-muted text-ink-800'
+              : disabled ? 'border-line bg-fill-subtle text-ink-300'
               : linked ? 'border-brand-600 bg-brand-100 text-brand-800'
-              : 'border-line bg-surface text-ink-700 hover:bg-line-subtle'
+              : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
             }`}
           >
             {linked ?

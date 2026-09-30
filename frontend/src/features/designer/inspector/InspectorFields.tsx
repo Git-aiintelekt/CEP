@@ -150,14 +150,14 @@ export function InspectorFields({
                     return next
                   })
                 }
-                className="flex h-10 w-full items-center justify-between gap-2 px-3 text-sm font-semibold text-ink-900 transition-colors duration-base ease-standard hover:bg-line-subtle"
+                className="flex h-10 w-full items-center justify-between gap-2 px-3 text-sm font-semibold text-ink-900 transition-colors duration-base ease-standard hover:bg-fill-subtle"
               >
                 {section.label}
                 <ChevronDown
                   size={16}
                   strokeWidth={1.5}
                   aria-hidden
-                  className={`shrink-0 text-ink-700 transition-transform duration-base ease-standard ${open ? '' : '-rotate-90'}`}
+                  className={`shrink-0 text-ink-800 transition-transform duration-base ease-standard ${open ? '' : '-rotate-90'}`}
                 />
               </button>
             </h3>
@@ -166,8 +166,8 @@ export function InspectorFields({
               <div className="px-3 pb-2">
                 {note ?
                   <div className="py-2">
-                    <p className="text-sm text-ink-700">{CANVAS_TEXT_NOTE}</p>
-                    <p className="mt-1 text-xs text-ink-500">{TEXT_LINK_NOTE}</p>
+                    <p className="text-sm text-ink-800">{CANVAS_TEXT_NOTE}</p>
+                    <p className="mt-1 text-xs text-ink-800">{TEXT_LINK_NOTE}</p>
                   </div>
                 : null}
                 {own.map((field) =>
@@ -200,7 +200,7 @@ export function InspectorFields({
                       />
                     </div>,
                 )}
-                {closingNote ? <p className="pt-1 pb-2 text-xs text-ink-500">{closingNote}</p> : null}
+                {closingNote ? <p className="pt-1 pb-2 text-xs text-ink-800">{closingNote}</p> : null}
               </div>
             : null}
           </section>
@@ -266,7 +266,7 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
       return (
         <>
           <PaddingField {...shared} onPreview={handlers.onPreview} emBase={emBase} />
-          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-800">{field.help}</p> : null}
         </>
       )
     case 'align':
@@ -277,7 +277,7 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
       return (
         <>
           <ToggleField {...shared} onValue={TOGGLE_VALUES[field.key] ?? field.key} />
-          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-800">{field.help}</p> : null}
         </>
       )
     case 'select':
@@ -289,7 +289,7 @@ function SettingControl({ field, component, wrapper, binder, disabled, recent, o
             required={field.required}
             emptyLabel={field.emptyLabel}
           />
-          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-500">{field.help}</p> : null}
+          {field.help ? <p className="-mt-1 pb-1 text-xs text-ink-800">{field.help}</p> : null}
         </>
       )
     case 'swatch':
@@ -326,7 +326,7 @@ function ImageBlock({ src, disabled, onChoose }: { src: string | null; disabled:
         : <img src={src} alt="" className="h-16 w-16 shrink-0 rounded-lg border border-line object-cover" onError={() => setBroken(true)} />}
 
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-          <span className="w-full truncate text-xs text-ink-500" title={name ?? undefined}>
+          <span className="w-full truncate text-xs text-ink-800" title={name ?? undefined}>
             {name ?? NO_IMAGE_NOTE}
           </span>
           <button
@@ -334,7 +334,7 @@ function ImageBlock({ src, disabled, onChoose }: { src: string | null; disabled:
             aria-disabled={disabled || undefined}
             onClick={disabled ? undefined : onChoose}
             className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm font-medium transition-colors duration-base ease-standard ${
-              disabled ? 'border-line bg-line-subtle text-ink-300' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'
+              disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'
             }`}
           >
             {CHOOSE_IMAGE_LABEL}

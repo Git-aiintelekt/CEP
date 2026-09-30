@@ -95,3 +95,81 @@ export function formatUtcClock(value: string | null | undefined): string | null 
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
 }
+
+const MINUS = '−'
+const signed = (value: number, digits: number) => `${value > 0 ? '+' : value < 0 ? MINUS : ''}${Math.abs(value).toFixed(digits)}`
+
+/** "$874", "$312.8K", "$1.39M": whole dollars under a thousand, one decimal in thousands, two in millions and up. */
+export function formatCompactMoney(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  const sign = value < 0 ? '-' : ''
+  const size = Math.abs(value)
+  if (Math.round(size) < 1000) return `${sign}$${Math.round(size)}`
+  const thousands = Math.round(size / 100) / 10
+  if (thousands < 1000) return `${sign}$${thousands.toFixed(1)}K`
+  const millions = Math.round(size / 10_000) / 100
+  if (millions < 1000) return `${sign}$${millions.toFixed(2)}M`
+  return `${sign}$${(Math.round(size / 10_000_000) / 100).toFixed(2)}B`
+}
+
+/** axis ticks: "$0", "$80K", "$1.2M", whole where it can be */
+export function formatAxisMoney(value: number): string {
+  const size = Math.abs(value)
+  const sign = value < 0 ? '-' : ''
+  if (size < 1000) return `${sign}$${Math.round(size)}`
+  if (size < 1_000_000) return `${sign}$${Math.round(size / 1000)}K`
+  return `${sign}$${(size / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+}
+
+/** "38.4%" */
+export function formatPercent(value: number | null | undefined, decimals = 1): string {
+  return value === null || value === undefined || Number.isNaN(value) ? '—' : `${value.toFixed(decimals)}%`
+}
+
+/** "+6.2%" / "−12.4%" / "0.0%", with a true minus sign */
+export function formatPercentChange(value: number | null | undefined): string {
+  return value === null || value === undefined || Number.isNaN(value) ? '—' : `${signed(value, 1)}%`
+}
+
+/** "+1.1 pt" / "−0.3 pt": the change in a rate, in percentage points */
+export function formatPointChange(value: number | null | undefined): string {
+  return value === null || value === undefined || Number.isNaN(value) ? '—' : `${signed(value, 1)} pt`
+}
+
+/** "26 Sep" for a YYYY-MM-DD workspace day, never shifted by the browser's zone */
+export function formatShortDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return '—'
+  return `${date.getUTCDate()} ${new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(date)}`
+}
+
+const safeZone = (zone: string) => {
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return zone
+  } catch {
+    return 'UTC'
+  }
+}
+
+/** "14:00": a 24-hour clock in the given zone */
+export function formatClock(value: string | null | undefined, zone: string): string {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: safeZone(zone) }).format(date)
+}
+
+/** "EDT": the zone's short name on that date (summer and winter differ); an offset such as "GMT+5:30" where there is none */
+export function zoneAbbreviation(zone: string, date: Date = new Date()): string {
+  const part = new Intl.DateTimeFormat('en-US', { timeZone: safeZone(zone), timeZoneName: 'short' }).formatToParts(date).find((item) => item.type === 'timeZoneName')
+  return part?.value ?? zone
+}
+
+/** "Good morning" 05:00–11:59, "Good afternoon" 12:00–16:59, "Good evening" otherwise, by the workspace's clock */
+export function greetingFor(date: Date, zone: string): string {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: safeZone(zone) }).format(date))
+  if (hour >= 5 && hour < 12) return 'Good morning'
+  if (hour >= 12 && hour < 17) return 'Good afternoon'
+  return 'Good evening'
+}

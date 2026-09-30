@@ -49,8 +49,8 @@ function EmailShell({ children }: { children: ReactNode }) {
         <div className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-bold tracking-wide text-white">YOUR BRAND</div>
         <div className="flex flex-col gap-1.5 px-1 py-2">
           <div className="h-3 w-2/3 rounded-sm bg-ink-300" />
-          <div className="h-2 w-full rounded-sm bg-line" />
-          <div className="h-2 w-5/6 rounded-sm bg-line" />
+          <div className="h-2 w-full rounded-sm bg-fill-muted" />
+          <div className="h-2 w-5/6 rounded-sm bg-fill-muted" />
         </div>
       </div>
       <div className="relative my-3 rounded-lg outline-2 outline-offset-4 outline-brand-600">
@@ -58,21 +58,21 @@ function EmailShell({ children }: { children: ReactNode }) {
         {children}
       </div>
       <div aria-hidden className="flex flex-col items-center gap-1.5 py-2 opacity-40">
-        <div className="h-2 w-1/2 rounded-sm bg-line" />
-        <div className="h-2 w-2/5 rounded-sm bg-line" />
+        <div className="h-2 w-1/2 rounded-sm bg-fill-muted" />
+        <div className="h-2 w-2/5 rounded-sm bg-fill-muted" />
       </div>
     </div>
   )
 }
 
-const TITLE = 'mb-1 text-xs font-semibold text-ink-500'
+const TITLE = 'mb-1 text-xs font-semibold text-ink-800'
 
 function Row({ label, value, note, strong = false }: { label: string; value: ReactNode; note?: string; strong?: boolean }) {
   return (
     <div className={`flex items-baseline justify-between gap-4 ${strong ? 'text-base font-semibold' : ''}`}>
-      <span className={strong ? 'text-ink-900' : 'text-ink-700'}>
+      <span className={strong ? 'text-ink-900' : 'text-ink-800'}>
         {label}
-        {note ? <span className="ml-1.5 rounded-sm bg-line-subtle px-1 text-xs text-ink-700">{note}</span> : null}
+        {note ? <span className="ml-1.5 rounded-sm bg-fill-subtle px-1 text-xs text-ink-800">{note}</span> : null}
       </span>
       <span className="text-right tabular-nums">{value}</span>
     </div>
@@ -92,7 +92,7 @@ function SectionBody({ section, transaction }: { section: ReceiptSection; transa
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 p-4">
           {rows.map(([label, value]) => (
             <div key={label} className="contents">
-              <dt className="text-ink-500">{label}</dt>
+              <dt className="text-ink-800">{label}</dt>
               <dd className="text-right">{value}</dd>
             </div>
           ))}
@@ -105,7 +105,7 @@ function SectionBody({ section, transaction }: { section: ReceiptSection; transa
         <div className="flex flex-col gap-1 p-4">
           <h3 className={TITLE}>{title}</h3>
           <p>{address ?? 'No address on this order'}</p>
-          {section.delivery_estimate && transaction.delivery_estimate ? <p className="text-ink-700">{transaction.delivery_estimate}</p> : null}
+          {section.delivery_estimate && transaction.delivery_estimate ? <p className="text-ink-800">{transaction.delivery_estimate}</p> : null}
         </div>
       )
     }
@@ -154,9 +154,9 @@ function SectionBody({ section, transaction }: { section: ReceiptSection; transa
       return (
         <div className="flex flex-col gap-3 p-4">
           <h3 className={TITLE}>Returns &amp; support</h3>
-          {section.policy_text.trim() ? <p className="whitespace-pre-line text-ink-700">{section.policy_text}</p> : null}
+          {section.policy_text.trim() ? <p className="whitespace-pre-line text-ink-800">{section.policy_text}</p> : null}
           {section.barcode ?
-            <div data-testid="return-barcode" className="flex flex-col items-center gap-1 rounded-sm border border-dashed border-ink-300 p-3 text-ink-500">
+            <div data-testid="return-barcode" className="flex flex-col items-center gap-1 rounded-sm border border-dashed border-ink-300 p-3 text-ink-800">
               <img src={barcodeUrl(transaction.receipt_id)} alt="" width={240} height={64} className="h-16 w-60 max-w-full" />
               <span className="text-xs tabular-nums">{transaction.receipt_id}</span>
               <span className="sr-only">In-store return barcode</span>
@@ -174,7 +174,7 @@ function Items({ section, transaction }: { section: ReceiptItemsSection; transac
   const image = 'w-[52px] shrink-0 @max-[420px]:hidden'
   return (
     <div className="px-4 py-2">
-      <div className="flex items-center gap-3 border-b border-line py-2 text-xs font-semibold text-ink-500">
+      <div className="flex items-center gap-3 border-b border-line py-2 text-xs font-semibold text-ink-800">
         {columns.product_image ? <span className={image} data-column="product_image" /> : null}
         <span className="min-w-0 flex-1">Item</span>
         {columns.quantity ? <span className="w-10 text-center" data-column="quantity">Qty</span> : null}
@@ -184,13 +184,13 @@ function Items({ section, transaction }: { section: ReceiptItemsSection; transac
       {transaction.line_items.map((item) => (
         <div key={item.sku} className={`flex items-center gap-3 border-b border-line-subtle last:border-b-0 ${cell}`}>
           {columns.product_image ?
-            <span className={`${image} flex h-[52px] items-center justify-center rounded-sm bg-line-subtle text-ink-300`}>
+            <span className={`${image} flex h-[52px] items-center justify-center rounded-sm bg-fill-subtle text-ink-300`}>
               {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full rounded-sm object-cover" /> : <ImageIcon size={18} strokeWidth={1.5} aria-hidden />}
             </span>
           : null}
           <span className="min-w-0 flex-1">
             <span className="block truncate">{item.description}</span>
-            {columns.sku ? <span className="block text-xs text-ink-500" data-column="sku">{item.sku}</span> : null}
+            {columns.sku ? <span className="block text-xs text-ink-800" data-column="sku">{item.sku}</span> : null}
           </span>
           {columns.quantity ? <span className="w-10 text-center tabular-nums">{item.quantity}</span> : null}
           {columns.unit_price ? <span className="w-20 text-right tabular-nums">{formatMoney(item.unit_price)}</span> : null}

@@ -50,7 +50,7 @@ export function HoverTip({ label, show }: { label: string; show: string }) {
   )
 }
 
-const LABEL: Record<StepState, string> = { done: 'text-ink-700', current: 'font-semibold text-ink-900', ahead: 'text-ink-500' }
+const LABEL: Record<StepState, string> = { done: 'text-ink-800', current: 'font-semibold text-ink-900', ahead: 'text-ink-800' }
 
 export function FlowStepper({ steps, current, reached, completed, onGo }: StepperProps) {
   return (
@@ -61,7 +61,7 @@ export function FlowStepper({ steps, current, reached, completed, onGo }: Steppe
           const done = index < completed
           return (
             <li key={label} className="flex shrink-0 items-center">
-              {index > 0 && <span aria-hidden data-connector className="mx-4 h-px w-14 shrink-0 bg-line-subtle @max-[1339px]:mx-2 @max-[1339px]:w-5" />}
+              {index > 0 && <span aria-hidden data-connector className="mx-4 h-px w-14 shrink-0 bg-fill-subtle @max-[1339px]:mx-2 @max-[1339px]:w-5" />}
               <button type="button" disabled={index > reached} aria-current={state === 'current' ? 'step' : undefined} onClick={() => onGo(index)}
                 className="group relative flex items-center gap-3 rounded-control-md px-2 py-1 whitespace-nowrap transition-colors duration-fast ease-standard enabled:hover:bg-surface-subtle disabled:cursor-default @max-[1339px]:gap-2 @max-[1339px]:px-1">
                 <StepCircle state={state} number={index + 1} />
@@ -92,7 +92,7 @@ export function FlowStepMenu({ steps, current, reached, completed, onGo }: Stepp
         onKeyDown={(event) => { if (event.key === 'Escape' && open) { event.preventDefault(); setOpen(false) } }}
         className="flex items-center gap-1.5 rounded-control-sm px-1.5 py-1 text-helper font-semibold text-ink-900 hover:bg-surface-subtle">
         Step {current + 1} of {steps.length} · {steps[current]}
-        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-500" />
+        <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
       </button>
       {open && (
         <Popover id={menuId} label="Setup Steps" width={240} placement="bottom-start"
@@ -110,7 +110,7 @@ export function FlowStepMenu({ steps, current, reached, completed, onGo }: Stepp
 /** the 4px bar under the top bar on narrow screens */
 export function FlowProgress({ current, total }: { current: number; total: number }) {
   return (
-    <div role="progressbar" aria-label="Setup progress" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1} className="h-1 w-full bg-line">
+    <div role="progressbar" aria-label="Setup progress" aria-valuemin={1} aria-valuemax={total} aria-valuenow={current + 1} className="h-1 w-full bg-fill-muted">
       <div className="h-full rounded-r-xs bg-brand-600" style={{ width: `${((current + 1) / total) * 100}%` }} />
     </div>
   )

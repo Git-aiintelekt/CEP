@@ -29,7 +29,7 @@ const fromSource = (list: ContactList, source: Source) =>
 function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: string }) {
   return (
     <button type="button" aria-pressed={pressed} onClick={onClick}
-      className={`h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${pressed ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+      className={`h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${pressed ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
       {children}
     </button>
   )
@@ -84,7 +84,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
       {tab === 'existing' && (
         <div className="flex flex-col gap-4">
           <label className="flex h-10 items-center gap-2 rounded-control-lg bg-surface-sunken px-3 focus-within:bg-surface focus-within:shadow-focus">
-            <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
+            <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
             <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists by name" aria-label="Search contact lists"
               className="min-w-0 flex-1 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-300" autoFocus />
           </label>
@@ -95,13 +95,13 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
           </div>
 
           {lists.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink-500">
+            <p className="py-6 text-center text-sm text-ink-800">
               No active contact lists yet.{' '}
               {canMake && sending ? 'Upload one on the Upload New tab, or make one from an audience.' : <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link>}
             </p>
           ) : (
             <div className="rounded-lg border border-line">
-              <label className="flex items-center gap-3 border-b border-line bg-surface-subtle px-4 py-2.5 text-xs font-semibold text-ink-700">
+              <label className="flex items-center gap-3 border-b border-line bg-surface-subtle px-4 py-2.5 text-xs font-semibold text-ink-800">
                 <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={allPicked} disabled={pickable.length === 0}
                   onChange={(event) => setPicked((now) => (event.target.checked ? [...new Set([...now, ...pickable.map((list) => list.id)])] : now.filter((id) => !pickable.some((list) => list.id === id))))}
                   aria-label="Select every list shown" />
@@ -119,8 +119,8 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
                         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" aria-label={list.name}
                           checked={already || picked.includes(list.id)} disabled={already || elsewhere} onChange={(event) => toggle(list.id, event.target.checked)} />
                         <span className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className={`truncate text-sm font-semibold ${already || elsewhere ? 'text-ink-500' : 'text-ink-900'}`}>{list.name}</span>
-                          <span className="flex flex-wrap items-center gap-1.5 text-helper text-ink-500">
+                          <span className={`truncate text-sm font-semibold ${already || elsewhere ? 'text-ink-800' : 'text-ink-900'}`}>{list.name}</span>
+                          <span className="flex flex-wrap items-center gap-1.5 text-helper text-ink-800">
                             <Tag>{sourceLabel(list.source_type)}</Tag>
                             {list.list_environment === 'TEST' && <Tag tone="warning">Test</Tag>}
                             {already && <Tag>{sending ? 'Added' : 'Left Out'}</Tag>}
@@ -128,8 +128,8 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
                             {(list.live_campaigns ?? 0) > 0 && <span>on {list.live_campaigns} live campaign{list.live_campaigns === 1 ? '' : 's'}</span>}
                           </span>
                         </span>
-                        <span className="cep-num w-20 shrink-0 text-right text-sm text-ink-700">{formatNumber(list.member_count)}</span>
-                        <span className="cep-num hidden w-28 shrink-0 text-sm text-ink-700 sm:block">{formatDate(list.updated_at)}</span>
+                        <span className="cep-num w-20 shrink-0 text-right text-sm text-ink-800">{formatNumber(list.member_count)}</span>
+                        <span className="cep-num hidden w-28 shrink-0 text-sm text-ink-800 sm:block">{formatDate(list.updated_at)}</span>
                       </label>
                     </li>
                   )
@@ -137,7 +137,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
                 {shown.length === 0 && (
                   <li className="px-4 py-6 text-center">
                     <p className="text-sm font-semibold text-ink-900">Nothing left to add</p>
-                    <p className="text-helper text-ink-500">Clear the search or filters to see more.</p>
+                    <p className="text-helper text-ink-800">Clear the search or filters to see more.</p>
                   </li>
                 )}
               </ul>

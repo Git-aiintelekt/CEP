@@ -23,7 +23,7 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
             key={channel}
             type="button"
             onClick={() => onPick(channel)}
-            className="group flex flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-line-subtle"
+            className="group flex flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle"
           >
             <span aria-hidden className={`flex h-[88px] w-full items-center justify-center ${look.tint}`}>
               <span className={`flex h-14 w-14 items-center justify-center rounded-full ${look.halo} ${look.iconColor}`}>
@@ -35,12 +35,12 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
                 <span className="text-[15px] font-semibold text-ink-900">New {look.label}</span>
                 <span
                   aria-hidden
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-700 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800"
                 >
                   <ArrowRight size={14} strokeWidth={1.5} />
                 </span>
               </span>
-              <span className="text-helper text-ink-500">{DESCRIPTION[channel]}</span>
+              <span className="text-helper text-ink-800">{DESCRIPTION[channel]}</span>
             </span>
           </button>
         )

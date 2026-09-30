@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoreVertical, Plus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
@@ -28,7 +28,7 @@ export function TypeBadge({ environment }: { environment: string }) {
 function StatCard({ label, value }: { label: string; value: number | undefined }) {
   return (
     <div className="rounded-lg border border-line bg-surface px-4 py-3">
-      <dt className="text-xs font-semibold text-ink-700">{label}</dt>
+      <dt className="text-xs font-semibold text-ink-800">{label}</dt>
       <dd className="cep-num mt-1 font-display text-2xl font-semibold text-ink-900">{value === undefined ? '–' : formatNumber(value)}</dd>
     </div>
   )
@@ -88,7 +88,7 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
         </>
       }
     >
-      <p className="mb-4 text-sm text-ink-700">
+      <p className="mb-4 text-sm text-ink-800">
         The copy starts with the {formatNumber(source.member_count)} contacts that are in “{source.name}” now. It is a snapshot: the two lists are independent from here on.
       </p>
       <Field label="Name of the Copy" required error={clone.isError ? problemText(clone.error) : undefined}>
@@ -114,8 +114,8 @@ function ReachCell({ list }: { list: ContactList }) {
   const { email, sms } = reach.data
   return (
     <span className="cep-num inline-flex flex-col items-end text-xs leading-4" data-reach title={`Email: ${formatNumber(email.sendable)} of ${formatNumber(email.total)} · Texts: ${formatNumber(sms.sendable)} of ${formatNumber(sms.total)}`}>
-      <span><span className="text-ink-500">Email </span><span className="font-medium text-ink-900">{formatNumber(email.sendable)}</span></span>
-      <span><span className="text-ink-500">SMS </span><span className="font-medium text-ink-900">{formatNumber(sms.sendable)}</span></span>
+      <span><span className="text-ink-800">Email </span><span className="font-medium text-ink-900">{formatNumber(email.sendable)}</span></span>
+      <span><span className="text-ink-800">SMS </span><span className="font-medium text-ink-900">{formatNumber(sms.sendable)}</span></span>
     </span>
   )
 }
@@ -127,7 +127,9 @@ export function ContactListsPage() {
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
   const [source, setSource] = useState('')
-  const [wizard, setWizard] = useState(false)
+  // ?new=1 (Home's Create New) opens the wizard straight away
+  const [params, setParams] = useSearchParams()
+  const [wizard, setWizard] = useState(() => params.get('new') === '1')
   const [cloning, setCloning] = useState<ContactList | null>(null)
   const [deleting, setDeleting] = useState<ContactList | null>(null)
   const [notice, setNotice] = useState('')
@@ -161,7 +163,7 @@ export function ContactListsPage() {
       render: (row) => (
         <div className="min-w-0">
           <p className="truncate font-medium text-ink-900">{row.name}{row.status === 'ARCHIVED' && <span className="ml-2 align-middle"><Tag>Archived</Tag></span>}</p>
-          {row.description && <p className="truncate text-xs text-ink-500">{row.description}</p>}
+          {row.description && <p className="truncate text-xs text-ink-800">{row.description}</p>}
         </div>
       ),
     },
@@ -214,18 +216,18 @@ export function ContactListsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search lists" aria-label="Search lists"
-          className="h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
-        <label className="flex items-center gap-2 text-sm text-ink-500">
+          className="h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
+        <label className="flex items-center gap-2 text-sm text-ink-800">
           Type
-          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
+          <select value={type} onChange={(event) => setType(event.target.value)} className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
             <option value="">All</option>
             <option value="PRODUCTION">Production</option>
             <option value="TEST">Test</option>
           </select>
         </label>
-        <label className="flex items-center gap-2 text-sm text-ink-500">
+        <label className="flex items-center gap-2 text-sm text-ink-800">
           Source
-          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line bg-surface px-3 text-sm text-ink-900">
+          <select value={source} onChange={(event) => setSource(event.target.value)} className="h-10 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
             <option value="">All</option>
             <option value="UPLOAD">Upload</option>
             <option value="BI">BI / Extraction</option>
@@ -242,13 +244,13 @@ export function ContactListsPage() {
       {list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
       ) : list.isPending ? (
-        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-10 text-sm text-ink-500"><Spinner /> Loading contact lists</div>
+        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-5 py-10 text-sm text-ink-800"><Spinner /> Loading contact lists</div>
       ) : list.rows.length === 0 ? (
         <EmptyState title={filtered ? 'Nothing matches these filters' : 'No contact lists yet'} hint={filtered ? undefined : 'Create the first one from a file, an audience your data team defined, or an existing list.'} />
       ) : (
         <>
           <DataTable columns={columns} rows={list.rows} rowKey={(row) => row.id} onRowClick={(row) => navigate(`/contact-lists/${row.id}`)} caption="Contact Lists" />
-          <div className="mt-3 flex items-center justify-between gap-2 text-sm text-ink-500">
+          <div className="mt-3 flex items-center justify-between gap-2 text-sm text-ink-800">
             <span>{list.rows.length} list{list.rows.length === 1 ? '' : 's'} shown</span>
             {(list.hasNext || list.hasPrevious) && (
               <span className="flex gap-2">
@@ -260,7 +262,12 @@ export function ContactListsPage() {
         </>
       )}
 
-      {wizard && <CreateListWizard onClose={() => setWizard(false)} onCreated={refresh} />}
+      {wizard && editable && (
+        <CreateListWizard onClose={() => {
+          setWizard(false)
+          if (params.has('new')) setParams((current) => { current.delete('new'); return current }, { replace: true })
+        }} onCreated={refresh} />
+      )}
       {cloning && (
         <CloneDialog source={cloning} onClose={() => setCloning(null)} onCloned={(copy) => { setCloning(null); refresh(); navigate(`/contact-lists/${copy.id}`) }} />
       )}
@@ -275,7 +282,7 @@ export function ContactListsPage() {
             </>
           }
         >
-          <p className="text-sm text-ink-700">“{deleting.name}” and its {formatNumber(deleting.member_count)} memberships are removed. The people stay in CEP. Sends that were already built are not affected.</p>
+          <p className="text-sm text-ink-800">“{deleting.name}” and its {formatNumber(deleting.member_count)} memberships are removed. The people stay in CEP. Sends that were already built are not affected.</p>
           {remove.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-plain">{problemText(remove.error)}</p>}
         </Modal>
       )}

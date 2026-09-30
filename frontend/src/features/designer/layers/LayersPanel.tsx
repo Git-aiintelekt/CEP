@@ -40,8 +40,8 @@ function flatten(nodes: LayerNode[], level = 1, parentId: string | null = null):
 export const FOOTER_NOTE = 'The footer can’t be deleted'
 
 const ACTION = 'inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-sm'
-const ACTION_ON = `${ACTION} text-ink-700 hover:bg-line`
-const ACTION_OFF = `${ACTION} cursor-not-allowed bg-line-subtle text-ink-300`
+const ACTION_ON = `${ACTION} text-ink-800 hover:bg-fill-muted`
+const ACTION_OFF = `${ACTION} cursor-not-allowed bg-fill-subtle text-ink-300`
 
 export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, onToggleVisible, onRename, onDelete, onMove, onHover }: LayersPanelProps) {
   const rows = useMemo(() => flatten(nodes), [nodes])
@@ -169,7 +169,7 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
                   <button
                     type="button"
                     aria-label={node.open ? `Collapse ${node.name}` : `Expand ${node.name}`}
-                    className="inline-flex h-[22px] w-[14px] shrink-0 items-center justify-center text-ink-700"
+                    className="inline-flex h-[22px] w-[14px] shrink-0 items-center justify-center text-ink-800"
                     onClick={(event) => {
                       event.stopPropagation()
                       onToggleOpen(node.id)
@@ -189,12 +189,12 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
                     </span>
                   )}
                   {node.hiddenOnPhones ? (
-                    <span title={PHONES_NOTE} aria-label={PHONES_MARKER_LABEL} className="ml-[2px] flex shrink-0 text-ink-700">
+                    <span title={PHONES_NOTE} aria-label={PHONES_MARKER_LABEL} className="ml-[2px] flex shrink-0 text-ink-800">
                       <Smartphone size={13} strokeWidth={1.5} aria-hidden />
                     </span>
                   ) : null}
                   {node.hiddenOnDesktop ? (
-                    <span title={DESKTOP_NOTE} aria-label={DESKTOP_MARKER_LABEL} className="ml-[2px] flex shrink-0 text-ink-700">
+                    <span title={DESKTOP_NOTE} aria-label={DESKTOP_MARKER_LABEL} className="ml-[2px] flex shrink-0 text-ink-800">
                       <Monitor size={13} strokeWidth={1.5} aria-hidden />
                     </span>
                   ) : null}
@@ -255,8 +255,8 @@ export function LayersPanel({ nodes, disabled = false, onSelect, onToggleOpen, o
         )
       })}
       {rows.some((row) => !row.node.visible) && <p className="px-3 py-1.5 text-[11px] text-ink-300">{HIDDEN_NOTE}</p>}
-      {rows.some((row) => row.node.hiddenOnPhones) && <p className="px-3 py-1.5 text-[11px] text-ink-700">{PHONES_NOTE}</p>}
-      {rows.some((row) => row.node.hiddenOnDesktop) && <p className="px-3 py-1.5 text-[11px] text-ink-700">{DESKTOP_NOTE}</p>}
+      {rows.some((row) => row.node.hiddenOnPhones) && <p className="px-3 py-1.5 text-[11px] text-ink-800">{PHONES_NOTE}</p>}
+      {rows.some((row) => row.node.hiddenOnDesktop) && <p className="px-3 py-1.5 text-[11px] text-ink-800">{DESKTOP_NOTE}</p>}
     </div>
   )
 }

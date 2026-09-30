@@ -64,7 +64,7 @@ export function FloatingDialog({ labelledBy, onClose, header, children, footer, 
           aria-labelledby={labelledBy}
           className={`flex w-full animate-sheet-up flex-col overflow-hidden bg-surface motion-reduce:animate-none ${fullSheet ? 'h-dvh' : 'h-[90dvh] rounded-t-lg'}`}
         >
-          {!fullSheet && <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line" />}
+          {!fullSheet && <div aria-hidden className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-fill-muted" />}
           <div className="shrink-0">{header}</div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
           {footer && <div className="shrink-0 pb-[env(safe-area-inset-bottom)]">{footer}</div>}

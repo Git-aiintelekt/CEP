@@ -7,8 +7,8 @@ import type { DesignerAsset } from '../EmailDesigner'
 export const EMPTY_NOTE = 'No images yet. Upload one to get started.'
 
 const TILE_BASE = 'flex w-full flex-col gap-1 rounded-sm p-1 text-left'
-const TILE = `${TILE_BASE} transition-colors hover:bg-line-subtle`
-const TILE_DISABLED = `${TILE_BASE} bg-line-subtle`
+const TILE = `${TILE_BASE} transition-colors hover:bg-fill-subtle`
+const TILE_DISABLED = `${TILE_BASE} bg-fill-subtle`
 const THUMB = 'aspect-square w-full rounded-lg border border-line bg-surface-subtle object-contain'
 const CAPTION = 'truncate text-xs'
 /** How far the pointer travels before a press counts as carrying the image rather than choosing it. */
@@ -27,7 +27,7 @@ interface AssetGridProps {
 }
 
 export function AssetGrid({ assets, uploading = [], disabled = false, onUse, onDragStart, columns = 2 }: AssetGridProps) {
-  if (assets.length === 0 && uploading.length === 0) return <p className="text-sm text-ink-700">{EMPTY_NOTE}</p>
+  if (assets.length === 0 && uploading.length === 0) return <p className="text-sm text-ink-800">{EMPTY_NOTE}</p>
 
   return (
     <div className={`grid gap-2 ${columns === 4 ? 'grid-cols-4' : 'grid-cols-2'}`}>
@@ -88,7 +88,7 @@ function Tile({ asset, disabled, onUse, onDragStart }: { asset: DesignerAsset; d
         </span>
         // alt is empty because the file name below is already the tile's accessible name
       : <img src={asset.url} alt="" loading="lazy" draggable={false} className={THUMB} onError={() => setBroken(true)} />}
-      <span className={`${CAPTION} ${disabled ? 'text-ink-300' : 'text-ink-700'}`} title={asset.name}>
+      <span className={`${CAPTION} ${disabled ? 'text-ink-300' : 'text-ink-800'}`} title={asset.name}>
         {asset.name}
       </span>
     </button>
@@ -111,7 +111,7 @@ function Placeholder({ name }: { name: string }) {
       <span className={`${THUMB} flex items-center justify-center`}>
         <span className="h-4 w-4 animate-spin rounded-pill border-2 border-line border-t-brand-600" aria-hidden />
       </span>
-      <span className={`${CAPTION} text-ink-500`} title={name}>
+      <span className={`${CAPTION} text-ink-800`} title={name}>
         {name}
       </span>
     </div>

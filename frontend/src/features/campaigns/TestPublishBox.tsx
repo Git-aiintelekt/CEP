@@ -37,19 +37,19 @@ export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { c
   return (
     // not a <form>: the wizard's step is one already, and forms do not nest
     <div role="group" aria-label="Send a Test">
-      <p className="text-sm text-ink-500">
+      <p className="text-sm text-ink-800">
         Goes out now through the campaign's sender, with sample values in place of personal data, marked [TEST]. It is recorded as a test run and never counts towards the results.
         {testIsOn(campaign.ab_config) && ' With the subject line test on, each address gets both, marked [TEST A] and [TEST B].'}
       </p>
       {!texts && people.length > 0 && (
         <fieldset className="mt-3">
-          <legend className="text-sm font-medium text-ink-700">People of This Workspace</legend>
+          <legend className="text-sm font-medium text-ink-800">People of This Workspace</legend>
           <div className="mt-1 grid max-h-40 gap-1 overflow-y-auto sm:grid-cols-2">
             {people.map((person) => (
               <label key={person.id} className="flex items-center gap-2 text-sm text-ink-900">
                 <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={userIds.includes(person.id)}
                   onChange={(event) => setUserIds((current) => (event.target.checked ? [...current, person.id] : current.filter((item) => item !== person.id)))} />
-                <span className="truncate">{person.name} <span className="text-ink-500">{person.email}</span></span>
+                <span className="truncate">{person.name} <span className="text-ink-800">{person.email}</span></span>
               </label>
             ))}
           </div>
@@ -63,7 +63,7 @@ export function TestPublishBox({ campaign, people, defaultTo = '', onSent }: { c
         </div>
         <Button variant="primary" className="mb-5" disabled={!ready} loading={send.isPending} onClick={() => send.mutate()}>Send Test</Button>
       </div>
-      {blocked && <p className="text-xs text-ink-500">{blocked}</p>}
+      {blocked && <p className="text-xs text-ink-800">{blocked}</p>}
       {send.isError && <div className="mt-3"><Notice tone="error" layout="box"><p className="font-semibold">The test was not sent</p><p>{problemText(send.error)}</p></Notice></div>}
       {send.data && (
         <div className="mt-3">

@@ -13,7 +13,7 @@ interface SwitchProps {
 /** 32×18 pill track, 14px knob that slides in 110ms. Disabled keeps on and off apart so the setting stays readable. */
 export function Switch({ checked, onChange, label, ariaLabel, labelledBy, describedBy, id, disabled = false }: SwitchProps) {
   const track =
-    disabled ? (checked ? 'bg-ink-300' : 'bg-line')
+    disabled ? (checked ? 'bg-ink-300' : 'bg-fill-muted')
     : checked ? 'bg-brand-600 group-hover:bg-brand-800'
     : 'bg-ink-300'
   return (
@@ -34,7 +34,7 @@ export function Switch({ checked, onChange, label, ariaLabel, labelledBy, descri
           className={`h-3.5 w-3.5 rounded-pill bg-surface transition-transform duration-base ease-standard motion-reduce:transition-none ${checked ? 'translate-x-3.5' : 'translate-x-0'}`}
         />
       </span>
-      {label && <span className={`text-xs ${disabled ? 'text-ink-300' : 'text-ink-700'}`}>{label}</span>}
+      {label && <span className={`text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{label}</span>}
     </button>
   )
 }

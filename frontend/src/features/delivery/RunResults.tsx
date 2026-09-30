@@ -43,11 +43,11 @@ export function RunResults({ run, zone, channel }: { run: CampaignRun; zone: str
   const at = (iso: string) => dateTimeInZone(iso, zone)
   return (
     <section aria-label={`Results of run ${run.run_number}`} className="flex flex-col gap-5">
-      <p className="flex flex-wrap items-center gap-2 text-helper text-ink-500">
+      <p className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
         {LIVE.has(status) && <Spinner className="h-3.5 w-3.5" />}
         <StatusBadge status={status} /> {results.data.completed_at ? `finished ${at(results.data.completed_at)}` : results.data.started_at ? `started ${at(results.data.started_at)}` : 'waiting to start'}
       </p>
-      {audience.members === 0 && status === 'SCHEDULED' ? <p className="text-sm text-ink-500">The audience is built when the run starts.</p> : (
+      {audience.members === 0 && status === 'SCHEDULED' ? <p className="text-sm text-ink-800">The audience is built when the run starts.</p> : (
         <>
           <dl className="grid grid-cols-2 gap-6 sm:grid-cols-4 xl:grid-cols-7">
             <Stat label="On the Lists" value={audience.members} />
@@ -58,8 +58,8 @@ export function RunResults({ run, zone, channel }: { run: CampaignRun; zone: str
             {texts ? <Stat label="Opted Out" value={messages.opted_out ?? 0} /> : <Stat label="Bounced" value={messages.bounced + messages.complained} />}
             <Stat label="Failed" value={messages.failed} />
           </dl>
-          {messages.queued > 0 && <p className="text-helper text-ink-500">{formatNumber(messages.queued)} still waiting to be sent.</p>}
-          {texts && messages.sent > 0 && <p className="text-helper text-ink-500">{formatNumber(messages.parts ?? 0)} message parts: a long text, or one with an emoji or accent, is billed as several.</p>}
+          {messages.queued > 0 && <p className="text-helper text-ink-800">{formatNumber(messages.queued)} still waiting to be sent.</p>}
+          {texts && messages.sent > 0 && <p className="text-helper text-ink-800">{formatNumber(messages.parts ?? 0)} message parts: a long text, or one with an emoji or accent, is billed as several.</p>}
           {suppressed.length > 0 && (
             <div className="flex flex-col gap-3">
               <CardSubheading>Left Out of This Run</CardSubheading>
@@ -83,13 +83,13 @@ export function ReceiptApiDetails({ campaignRef, published }: { campaignRef: str
   }, null, 2)
   return (
     <>
-      <p className="text-sm text-ink-500">
-        {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
-        The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-line-subtle px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
+      <p className="text-sm text-ink-800">
+        {published ? 'This campaign is live.' : 'Publish the campaign first.'} Your point of sale or web shop then asks for one receipt at a time with an API key that has the scope <code className="rounded bg-fill-subtle px-1 text-xs text-ink-900">receipts:send</code> (Settings → API keys).
+        The receipt number makes retries safe: asking twice sends once. Attach a PDF copy with <code className="rounded bg-fill-subtle px-1 text-xs text-ink-900">attachments</code> (name, content_type, base64 data).
       </p>
       <p className="mt-3 cep-num text-xs font-semibold text-ink-900">POST /api/v1/receipts/send/ · Authorization: Bearer cep_… · X-Tenant: your workspace code</p>
       <pre className="mt-2 max-h-72 overflow-auto rounded-lg border border-line bg-surface-subtle p-3 text-xs leading-5 text-ink-900">{example}</pre>
-      <p className="mt-2 text-xs text-ink-500">201 sent · 200 already sent (duplicate) · 422 refused (blocked address, or the email engine rejected it) · 424 the email engine is failing temporarily: call again with the same number.</p>
+      <p className="mt-2 text-xs text-ink-800">201 sent · 200 already sent (duplicate) · 422 refused (blocked address, or the email engine rejected it) · 424 the email engine is failing temporarily: call again with the same number.</p>
     </>
   )
 }
@@ -111,11 +111,11 @@ export function TextReplies({ campaignId, zone }: { campaignId: string; zone: st
             <div className="flex min-w-0 flex-col gap-1">
               <span className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-sm font-semibold text-ink-900">{reply.name ?? reply.from_number}</span>
-                {reply.name && <span className="cep-num text-helper text-ink-500">{reply.from_number}</span>}
+                {reply.name && <span className="cep-num text-helper text-ink-800">{reply.from_number}</span>}
               </span>
-              <span className="text-sm break-words text-ink-700">{reply.body}</span>
+              <span className="text-sm break-words text-ink-800">{reply.body}</span>
             </div>
-            <span className="flex shrink-0 items-center gap-2 text-helper text-ink-500">
+            <span className="flex shrink-0 items-center gap-2 text-helper text-ink-800">
               <StatusBadge status={REPLY[reply.action].status} label={REPLY[reply.action].label} />
               <span className="cep-num whitespace-nowrap">{at(reply.received_at)}</span>
             </span>

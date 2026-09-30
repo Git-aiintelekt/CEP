@@ -131,7 +131,7 @@ test('read-only rows are grey and inert, never faded, while the search still fil
   const { onPick } = renderPanel({ disabled: true })
   const first = row(/First name/)
   expect(first.getAttribute('aria-disabled')).toBe('true')
-  expect(first.className).toContain('bg-line-subtle')
+  expect(first.className).toContain('bg-fill-subtle')
   expect(first.className).not.toContain('opacity')
   await user.click(first)
   await flush()

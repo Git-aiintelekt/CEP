@@ -77,16 +77,16 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
             </p>
           )}
           {templates.isPending ? (
-            <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner className="h-4 w-4" /> Loading templates</p>
+            <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner className="h-4 w-4" /> Loading templates</p>
           ) : templates.isError ? (
             <ErrorState error={templates.error} onRetry={() => void templates.refetch()} />
           ) : usable.length === 0 ? (
-            <p className="text-sm text-ink-500">No {channelName} templates yet.</p>
+            <p className="text-sm text-ink-800">No {channelName} templates yet.</p>
           ) : (
             <>
               {usable.length > 6 && (
                 <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search templates" aria-label="Search templates"
-                  className="mb-3 h-10 w-full rounded-control-lg border border-line bg-surface px-3 text-sm sm:w-64" />
+                  className="mb-3 h-10 w-full rounded-control-lg border border-line-control bg-surface px-3 text-sm sm:w-64" />
               )}
               <div role="radiogroup" aria-label="Template" className="grid max-h-[26rem] gap-3 overflow-y-auto sm:grid-cols-2">
                 {shown.map((item) => (
@@ -94,10 +94,10 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
                     className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors ${chosen === item.id ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface hover:bg-surface-subtle'}`}>
                     <span className="w-full truncate text-sm font-semibold text-ink-900">{item.name}</span>
                     <span className="flex flex-wrap items-center gap-1.5"><Tag>{item.channel}</Tag><StatusBadge status={item.status} /></span>
-                    <span className="text-xs text-ink-500">Edited {formatDate(item.updated_at)}{item.latest_version ? ` · version ${item.latest_version}` : ''}</span>
+                    <span className="text-xs text-ink-800">Edited {formatDate(item.updated_at)}{item.latest_version ? ` · version ${item.latest_version}` : ''}</span>
                   </button>
                 ))}
-                {shown.length === 0 && <p className="text-sm text-ink-500">No template matches that search.</p>}
+                {shown.length === 0 && <p className="text-sm text-ink-800">No template matches that search.</p>}
               </div>
               {picked?.status === 'DRAFT' && !wrongChannel && (
                 <p className="mt-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
@@ -147,15 +147,15 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
           {pickedSender && pickedSender.verification_status !== 'VERIFIED' && (
             <p className="mt-3 rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">This sender is not verified yet. Publishing needs a verified sender.</p>
           )}
-          {marketing && <p className="mt-3 text-xs text-ink-500">Marketing messages must let people opt out: an unsubscribe link in email, “Reply STOP” in a text. The pre-publish check looks for it.</p>}
+          {marketing && <p className="mt-3 text-xs text-ink-800">Marketing messages must let people opt out: an unsubscribe link in email, “Reply STOP” in a text. The pre-publish check looks for it.</p>}
         </Panel>
       </div>
 
       <Panel title="Preview" className="self-start">
         {!chosen ? (
-          <p className="text-sm text-ink-500">Choose a template to see it here.</p>
+          <p className="text-sm text-ink-800">Choose a template to see it here.</p>
         ) : !campaign ? (
-          <p className="text-sm text-ink-500">The preview appears once the draft is saved.</p>
+          <p className="text-sm text-ink-800">The preview appears once the draft is saved.</p>
         ) : (
           <>
             <MessagePreview campaignId={campaign.id} templateId={chosen} />

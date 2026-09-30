@@ -22,19 +22,19 @@ function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
   return (
     <li className="rounded-lg border border-line bg-surface p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-sm font-medium text-ink-700">{meter.label}</h3>
-        {meter.percent !== null && <span className="text-xs font-semibold text-ink-500">{meter.percent}%</span>}
+        <h3 className="text-sm font-medium text-ink-800">{meter.label}</h3>
+        {meter.percent !== null && <span className="text-xs font-semibold text-ink-800">{meter.percent}%</span>}
       </div>
       <p className="mt-1 text-xl font-semibold text-ink-900">
         {formatNumber(meter.used)}{unit}
-        {meter.limit !== null && <span className="text-sm font-normal text-ink-500"> of {formatNumber(meter.limit)}{unit}</span>}
+        {meter.limit !== null && <span className="text-sm font-normal text-ink-800"> of {formatNumber(meter.limit)}{unit}</span>}
       </p>
       {meter.limit !== null && (
-        <div role="progressbar" aria-label={meter.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(meter.percent ?? 0, 100)} className="mt-3 h-2 overflow-hidden rounded-full bg-line-subtle">
+        <div role="progressbar" aria-label={meter.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(meter.percent ?? 0, 100)} className="mt-3 h-2 overflow-hidden rounded-full bg-fill-subtle">
           <div className={`h-full rounded-full ${BAR[meter.state]}`} style={{ width: `${Math.min(meter.percent ?? 0, 100)}%` }} />
         </div>
       )}
-      <p className={`mt-2 text-xs ${meter.state === 'blocked' ? 'font-medium text-danger-text' : meter.state === 'ok' ? 'text-ink-500' : 'text-warning-text'}`}>{note}</p>
+      <p className={`mt-2 text-xs ${meter.state === 'blocked' ? 'font-medium text-danger-text' : meter.state === 'ok' ? 'text-ink-800' : 'text-warning-text'}`}>{note}</p>
     </li>
   )
 }
@@ -44,7 +44,7 @@ export function PlanUsagePage() {
   const invoices = useQuery({ queryKey: ['workspace', 'invoices'], queryFn: ({ signal }) => api.get<Invoice[]>('/workspace/invoices/', undefined, signal) })
 
   if (usage.isError) return <ErrorState error={usage.error} onRetry={() => void usage.refetch()} />
-  if (usage.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading usage</p>
+  if (usage.isPending) return <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading usage</p>
 
   const { plan, meters, breakdown, month, can_send } = usage.data
   const currency = plan?.currency ?? 'USD'
@@ -66,7 +66,7 @@ export function PlanUsagePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-card-title font-semibold text-ink-900">{plan ? `${plan.name} Plan` : 'No Plan'}</h2>
-          <p className="text-sm text-ink-500">
+          <p className="text-sm text-ink-800">
             {plan ? (plan.monthly_price ? `${money(plan.monthly_price, currency)} per month` : 'Custom pricing') : 'Usage is measured, but no limits apply.'} · usage for {monthName(month)}, refreshed every hour
           </p>
         </div>
@@ -76,10 +76,10 @@ export function PlanUsagePage() {
       <ul aria-label="Usage" className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">{meters.map((meter) => <Meter key={meter.label} meter={meter} currency={currency} />)}</ul>
 
       <div className="rounded-lg border border-line bg-surface p-4">
-        <h3 className="text-sm font-medium text-ink-700">Messages by Channel</h3>
+        <h3 className="text-sm font-medium text-ink-800">Messages by Channel</h3>
         <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
           {Object.entries(breakdown).map(([label, value]) => (
-            <div key={label}><dt className="text-xs text-ink-500">{label}</dt><dd className="text-sm font-semibold text-ink-900">{formatNumber(value)}</dd></div>
+            <div key={label}><dt className="text-xs text-ink-800">{label}</dt><dd className="text-sm font-semibold text-ink-900">{formatNumber(value)}</dd></div>
           ))}
         </dl>
       </div>
@@ -87,7 +87,7 @@ export function PlanUsagePage() {
       <div>
         <h2 className="mb-3 font-display text-section-title font-semibold text-ink-900">Invoices</h2>
         {invoices.isError ? <ErrorState error={invoices.error} onRetry={() => void invoices.refetch()} />
-          : invoices.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading invoices</p>
+          : invoices.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading invoices</p>
           : invoices.data.length === 0 ? <EmptyState title="No invoices yet" hint="An invoice appears here once it has been issued, shortly after the end of each month." />
           : <DataTable columns={columns} rows={invoices.data} rowKey={(invoice) => invoice.id} caption="Invoices" />}
       </div>

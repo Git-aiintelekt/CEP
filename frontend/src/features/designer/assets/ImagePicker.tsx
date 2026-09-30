@@ -32,13 +32,13 @@ export function ImagePicker({ assets, uploading = [], onUpload, onChoose, onClos
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex h-8 items-center rounded-sm border border-line bg-surface px-3 text-sm font-medium text-ink-700 transition-colors duration-base ease-standard hover:bg-surface-subtle"
+          className="inline-flex h-8 items-center rounded-sm border border-line bg-surface px-3 text-sm font-medium text-ink-800 transition-colors duration-base ease-standard hover:bg-surface-subtle"
         >
           {PICKER_CANCEL}
         </button>
       }
     >
-      <p className="mb-3 text-sm text-ink-700">{PICKER_HELP}</p>
+      <p className="mb-3 text-sm text-ink-800">{PICKER_HELP}</p>
       <div className="mb-4 max-w-[240px]">
         <UploadButton onUpload={onUpload} />
       </div>

@@ -55,14 +55,14 @@ export function TagPickerButton({ tags, channel, recent, onPick, disabled = fals
         className={
           inset ?
             `inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-sm transition-colors duration-base ease-standard ${
-              disabled ? 'cursor-not-allowed bg-line-subtle text-ink-300'
+              disabled ? 'cursor-not-allowed bg-fill-subtle text-ink-300'
               : open ? 'bg-brand-100 text-brand-600'
-              : 'text-ink-700 hover:bg-line'
+              : 'text-ink-800 hover:bg-fill-muted'
             }`
           : `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
-              disabled ? 'cursor-not-allowed border-line bg-line-subtle text-ink-300'
+              disabled ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300'
               : open ? 'border-brand-600 bg-brand-100 text-brand-800'
-              : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'
+              : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'
             }`
         }
       >

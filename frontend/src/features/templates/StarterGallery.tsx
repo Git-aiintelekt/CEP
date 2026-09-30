@@ -104,10 +104,10 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
   return (
     <fieldset className="rounded-lg border border-line bg-surface p-5">
       <legend className="px-1 text-sm font-semibold text-ink-900">Start From</legend>
-      <p className="mb-4 text-sm text-ink-500">A starter is only a beginning: it becomes version 1 of your template and you can change everything in it.</p>
+      <p className="mb-4 text-sm text-ink-800">A starter is only a beginning: it becomes version 1 of your template and you can change everything in it.</p>
 
       {starters.isPending ? (
-        <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading starters</p>
+        <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading starters</p>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[176px_minmax(0,1fr)]">
           <nav aria-label={CATEGORIES_LABEL}>
@@ -122,11 +122,11 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
                       aria-label={`${row.name}, ${starterCount(row.count)}`}
                       onClick={() => setChosen({ channel, category: row.name })}
                       className={`flex h-8 w-full items-center justify-between gap-3 rounded-sm px-3 text-sm font-medium transition-colors ${
-                        selected ? 'bg-brand-100 text-brand-800' : 'text-ink-700 hover:bg-surface-subtle'
+                        selected ? 'bg-brand-100 text-brand-800' : 'text-ink-800 hover:bg-surface-subtle'
                       }`}
                     >
                       <span className="truncate">{row.name}</span>
-                      <span className={`cep-num text-xs ${selected ? 'text-brand-800' : 'text-ink-500'}`}>{row.count}</span>
+                      <span className={`cep-num text-xs ${selected ? 'text-brand-800' : 'text-ink-800'}`}>{row.count}</span>
                     </button>
                   </li>
                 )
@@ -139,7 +139,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
               <div aria-hidden className="flex h-52 items-center justify-center border-b border-line bg-surface-subtle text-4xl font-light text-ink-300">+</div>
               <div className="p-3">
                 <p className="text-sm font-semibold text-ink-900">Blank</p>
-                <p className="mt-0.5 text-xs text-ink-500">{isMessage ? 'Write the message from scratch.' : 'A simple skeleton with a heading, a button and the unsubscribe footer.'}</p>
+                <p className="mt-0.5 text-xs text-ink-800">{isMessage ? 'Write the message from scratch.' : 'A simple skeleton with a heading, a button and the unsubscribe footer.'}</p>
               </div>
             </button>
 
@@ -155,9 +155,9 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
                   <div className="p-3">
                     <p className="flex items-center justify-between gap-2 text-sm font-semibold text-ink-900">
                       {starter.name}
-                      <span className="rounded-md bg-line-subtle px-1.5 py-0.5 text-xs font-medium text-ink-700">{starter.category}</span>
+                      <span className="rounded-md bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{starter.category}</span>
                     </p>
-                    <p className="mt-0.5 text-xs text-ink-500">{starter.description}</p>
+                    <p className="mt-0.5 text-xs text-ink-800">{starter.description}</p>
                   </div>
                 </button>
                 {/* beside the card, not inside it: a button cannot hold a button */}
@@ -166,7 +166,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
                   aria-label={`Preview ${starter.name}`}
                   title="Preview"
                   onClick={() => setPreview({ channel, starter })}
-                  className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-line bg-surface text-ink-700 transition-colors hover:bg-surface-subtle"
+                  className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-sm border border-line bg-surface text-ink-800 transition-colors hover:bg-surface-subtle"
                 >
                   <Eye size={16} strokeWidth={1.5} aria-hidden />
                 </button>
@@ -175,7 +175,7 @@ export function StarterGallery({ channel, value, onChange }: StarterGalleryProps
           </div>
         </div>
       )}
-      {starters.isError && <p className="mt-3 text-sm text-ink-500">Starters could not be loaded. You can still create a blank template.</p>}
+      {starters.isError && <p className="mt-3 text-sm text-ink-800">Starters could not be loaded. You can still create a blank template.</p>}
 
       {previewing && (
         <StarterPreview

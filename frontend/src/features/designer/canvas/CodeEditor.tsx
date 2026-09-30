@@ -46,8 +46,8 @@ export function CodeEditor({ ref, label, value, onChange, describedBy, invalid =
 
   return (
     // the focus ring sits on the frame: the textarea fills it edge to edge, so its own outline would be clipped
-    <div className={`flex max-h-[50vh] min-h-64 overflow-hidden rounded-lg border bg-surface focus-within:border-brand-600 focus-within:shadow-focus ${invalid ? 'border-danger' : 'border-line'}`}>
-      <div ref={gutter} aria-hidden className={`${TEXT} shrink-0 overflow-hidden border-r border-line bg-surface-subtle pt-3 pr-2 pb-8 pl-3 text-right text-ink-500 select-none`}>
+    <div className={`flex max-h-[50vh] min-h-64 overflow-hidden rounded-lg border bg-surface focus-within:border-brand-600 focus-within:shadow-focus ${invalid ? 'border-danger' : 'border-line-control'}`}>
+      <div ref={gutter} aria-hidden className={`${TEXT} shrink-0 overflow-hidden border-r border-line bg-surface-subtle pt-3 pr-2 pb-8 pl-3 text-right text-ink-800 select-none`}>
         {Array.from({ length: lines }, (_, index) => (
           <div key={index}>{index + 1}</div>
         ))}

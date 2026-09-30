@@ -114,7 +114,7 @@ export function BlockPalette({ blocks, disabled = false, message, onDragStart, o
         {/* aria-hidden: the live region below is the one a reader hears, so the note is not announced twice */}
         {message && (
           <div aria-hidden>
-            <Notice layout="panel" icon={Info} iconClass="text-ink-700" textClass="text-ink-700">
+            <Notice layout="panel" icon={Info} iconClass="text-ink-800" textClass="text-ink-800">
               {message}
             </Notice>
           </div>

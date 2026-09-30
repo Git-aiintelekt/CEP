@@ -83,7 +83,7 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
         </Field>
 
         <fieldset>
-          <legend className="text-sm font-medium text-ink-700">Tags (Optional)</legend>
+          <legend className="text-sm font-medium text-ink-800">Tags (Optional)</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {TAG_CHOICES.map((tag) => {
               const on = picked.includes(tag)
@@ -94,7 +94,7 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggle(tag)}
-                  className={`inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-xs font-semibold transition-colors duration-fast ease-standard ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle active:bg-line-subtle'}`}
+                  className={`inline-flex h-7 items-center gap-1 rounded-sm border px-2.5 text-xs font-semibold transition-colors duration-fast ease-standard ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`}
                 >
                   <Mark size={12} strokeWidth={2} aria-hidden />
                   {tag}
@@ -104,8 +104,8 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3 text-helper text-ink-500">
-          <span className="text-[11px] font-semibold tracking-wide text-ink-500 uppercase">Channel</span>
+        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3 text-helper text-ink-800">
+          <span className="text-[11px] font-semibold tracking-wide text-ink-800 uppercase">Channel</span>
           <Tag>{look.label}</Tag>
           <span>can't be changed later</span>
         </div>

@@ -18,7 +18,7 @@ export function ProgressBar({ job, className = '' }: { job: Pick<ListImport, 'pr
   const percent = job.working ? job.progress.percent : failed ? 0 : 100
   return (
     <div className={className}>
-      <div role="progressbar" aria-label={job.phase} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 w-full overflow-hidden rounded-full bg-line-subtle">
+      <div role="progressbar" aria-label={job.phase} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="h-1.5 w-full overflow-hidden rounded-full bg-fill-subtle">
         <div className={`h-full rounded-full transition-[width] duration-500 ${failed ? 'bg-danger' : job.working ? 'bg-brand-600' : 'bg-success'}`} style={{ width: `${percent}%` }} />
       </div>
     </div>
@@ -104,13 +104,13 @@ export function UploadsIndicator() {
         <div role="dialog" aria-label="List Uploads" className="absolute right-0 z-30 mt-2 w-80 rounded-md border border-line bg-surface shadow-menu">
           <p className="border-b border-line px-3 py-2 text-sm font-semibold text-ink-900">List Uploads</p>
           {all.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-ink-500">No file has been uploaded yet.</p>
+            <p className="px-3 py-6 text-center text-sm text-ink-800">No file has been uploaded yet.</p>
           ) : (
             <ul className="max-h-80 divide-y divide-line-subtle overflow-y-auto">
               {all.slice(0, 6).map((job) => (
                 <li key={job.id} className="px-3 py-2">
                   <p className="truncate text-sm font-medium text-ink-900">{job.list_name}</p>
-                  <p className="truncate text-xs text-ink-500">{job.file_name} · {jobSummary(job)}</p>
+                  <p className="truncate text-xs text-ink-800">{job.file_name} · {jobSummary(job)}</p>
                   {job.working && <ProgressBar job={job} className="mt-1.5" />}
                   {resumeLink(job) && <Link to={resumeLink(job) as string} onClick={() => setOpen(false)} className="mt-1 inline-block text-xs font-semibold text-brand-800 hover:underline">Continue →</Link>}
                 </li>
@@ -129,7 +129,7 @@ export function UploadsIndicator() {
             </span>
             <div className="min-w-0 grow">
               <p className="text-sm font-semibold text-ink-900">{toast.title}</p>
-              <p className="text-xs text-ink-700">{toast.text}</p>
+              <p className="text-xs text-ink-800">{toast.text}</p>
               <Link to={toast.to} onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))} className="mt-1 inline-block text-xs font-semibold text-brand-800 hover:underline">{toast.action} →</Link>
             </div>
             <button type="button" aria-label="Dismiss" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))} className={iconButtonClass({ size: 'xs' })}>

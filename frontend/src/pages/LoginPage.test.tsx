@@ -62,7 +62,7 @@ test('the right password starts the animation before the dashboard', async () =>
 
   await fillCredentials(user, 'correct-horse')
 
-  expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   expect(show).toHaveBeenCalledWith('Logging you in…')
 })
 
@@ -76,7 +76,7 @@ test('a workspace that requires a code asks for one instead of signing in', asyn
   await user.type(screen.getByLabelText('Authentication Code'), MFA_CODE)
   await user.click(screen.getByRole('button', { name: 'Verify' }))
 
-  expect(await screen.findByText('Welcome back, Aby')).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   const verify = calls.find((call) => call.url.endsWith('/auth/mfa/verify/'))
   expect(verify?.body).toEqual({ mfa_token: 'mfa-token-1', code: MFA_CODE })
 })

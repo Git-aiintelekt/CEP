@@ -106,7 +106,7 @@ test('a disabled primary stays focusable, does nothing when clicked and explains
   expect(button.getAttribute('aria-disabled')).toBe('true')
   expect(button.hasAttribute('disabled')).toBe(false) // must stay in the tab order
   expect(button.getAttribute('title')).toBe('Save your changes first.')
-  expect(button.className).toContain('bg-line')
+  expect(button.className).toContain('bg-fill-muted')
   expect(button.className).toContain('text-ink-300')
   expect(button.className).not.toContain('opacity')
   // no leftover primary utilities: two backgrounds or two text colours resolve by stylesheet order

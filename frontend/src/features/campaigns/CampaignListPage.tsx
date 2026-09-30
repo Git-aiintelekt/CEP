@@ -32,7 +32,7 @@ import { CampaignFilters } from './CampaignFilters'
 import { campaignMenuItems, type CampaignMenuItem } from './campaignMenu'
 import { CampaignPreview } from './CampaignPreview'
 import { ChannelIcon } from './ChannelIcon'
-import { EMPTY_FILTERS, SAVED_VIEWS, savedViewOf, type Filters, type SavedView } from './listFilters'
+import { EMPTY_FILTERS, type Filters, filtersFromParams, SAVED_VIEWS, type SavedView, savedViewOf, withFilterParams } from './listFilters'
 import { CampaignSetupDialog } from './setup/CampaignSetupDialog'
 import { setupHref, stepsFor } from './setupFlow'
 import { BULK_DONE, CONFIRM, useBulkAction, useCampaignAction, type BulkAction, type StatusAction } from './useCampaignAction'
@@ -58,7 +58,7 @@ function NextSendCell({ campaign, zone }: { campaign: Campaign; zone: string }) 
   const when = campaign.next_run_at
   return (
     <div className="min-w-0">
-      <span className="cep-num block whitespace-nowrap text-helper text-ink-500">{scheduledText(campaign)}</span>
+      <span className="cep-num block whitespace-nowrap text-helper text-ink-800">{scheduledText(campaign)}</span>
       {when && <span className="cep-num block whitespace-nowrap text-helper text-ink-300">{timeInZone(when, campaign.send_timezone || zone)}{campaign.timezone_optimization ? ' · local time' : ''}</span>}
     </div>
   )
@@ -96,7 +96,7 @@ function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: 
       {upcoming.isError ? (
         <ErrorState title="The upcoming campaigns could not be loaded" error={upcoming.error} onRetry={() => void upcoming.refetch()} />
       ) : rows.length === 0 ? (
-        <p className="rounded-lg border border-line bg-surface px-4 py-4 text-sm text-ink-500">
+        <p className="rounded-lg border border-line bg-surface px-4 py-4 text-sm text-ink-800">
           {upcoming.isPending ? 'Loading' : `Nothing is scheduled. A campaign appears here once it is published with a send time ahead${canEdit ? ': choose “Schedule for later” or “Recurring” on the Scheduling step.' : '.'}`}
         </p>
       ) : (
@@ -106,11 +106,11 @@ function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: 
               <li key={campaign.id} className="min-w-0">
                 <Link to={`/campaigns/${campaign.id}`} className="flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
                   <span className="flex min-w-0 items-center gap-2">
-                    <ChannelIcon channel={campaign.channel} aria-label={channelLabel(campaign.channel)} className="shrink-0 text-ink-700" />
+                    <ChannelIcon channel={campaign.channel} aria-label={channelLabel(campaign.channel)} className="shrink-0 text-ink-800" />
                     <span className="truncate text-sm font-semibold text-ink-900">{campaign.name}</span>
                   </span>
                   <span className="cep-num font-display text-page-title font-semibold text-ink-900">{formatDate(campaign.next_run_at)}</span>
-                  <span className="text-helper text-ink-500">
+                  <span className="text-helper text-ink-800">
                     {timeInZone(campaign.next_run_at, campaign.send_timezone || workspaceZone)}
                     {campaign.audience_size ? ` · ${formatNumber(campaign.audience_size)} in the lists` : ''}
                   </span>
@@ -146,7 +146,7 @@ function EmptyCampaigns({ filtered, canEdit, onClear, onCreate }: { filtered: bo
       <EmptyDrawing />
       <div className="flex flex-col items-center gap-1.5">
         <h2 className="font-display text-xl font-semibold text-ink-900">{filtered ? 'No matching campaigns' : 'You haven’t created any campaigns yet'}</h2>
-        <p className="max-w-[380px] text-sm text-ink-500">{filtered ? 'Try widening the date range or clearing filters.' : 'Build an email, SMS or MMS campaign, or let a journey generate one for you.'}</p>
+        <p className="max-w-[380px] text-sm text-ink-800">{filtered ? 'Try widening the date range or clearing filters.' : 'Build an email, SMS or MMS campaign, or let a journey generate one for you.'}</p>
       </div>
       {filtered ? (
         <button type="button" onClick={onClear} className={buttonPrimary}><X size={16} strokeWidth={1.5} aria-hidden />Clear Filters</button>
@@ -163,20 +163,20 @@ function Footer({ page, pageSize, total, onPage, onPageSize, divided }: { page: 
   const last = Math.min(page * pageSize, total)
   return (
     <div className={`flex flex-col gap-3 px-6 py-3 md:flex-row md:items-center md:justify-between ${divided ? 'border-t border-line-subtle' : ''}`}>
-      <p aria-live="polite" className="cep-num text-helper text-ink-500">Showing {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)} campaign{total === 1 ? '' : 's'}</p>
+      <p aria-live="polite" className="cep-num text-helper text-ink-800">Showing {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)} campaign{total === 1 ? '' : 's'}</p>
       <div className="flex flex-wrap items-center gap-4">
-        <div role="group" aria-label="Rows per Page" className="flex items-center gap-2 text-helper text-ink-500">
+        <div role="group" aria-label="Rows per Page" className="flex items-center gap-2 text-helper text-ink-800">
           <span aria-hidden>Rows per Page</span>
           {PAGE_SIZES.map((size) => (
             <button key={size} type="button" aria-pressed={size === pageSize} onClick={() => onPageSize(size)}
-              className={`cep-num h-8 min-w-[38px] rounded-control-md border px-2 text-helper font-semibold transition-colors duration-fast ease-standard ${size === pageSize ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-500 hover:bg-surface-subtle'}`}>
+              className={`cep-num h-8 min-w-[38px] rounded-control-md border px-2 text-helper font-semibold transition-colors duration-fast ease-standard ${size === pageSize ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
               {size}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-1">
           <IconButton label="Previous Page" icon={ChevronLeft} disabled={page <= 1} onClick={() => onPage(page - 1)} />
-          <span className="cep-num px-1 text-helper text-ink-500">Page {page} of {pages}</span>
+          <span className="cep-num px-1 text-helper text-ink-800">Page {page} of {pages}</span>
           <IconButton label="Next Page" icon={ChevronRight} disabled={page >= pages} onClick={() => onPage(page + 1)} />
         </div>
       </div>
@@ -187,7 +187,7 @@ function Footer({ page, pageSize, total, onPage, onPageSize, divided }: { page: 
 function ChannelCell({ channel }: { channel: string }) {
   return (
     <span className="inline-flex items-center gap-2 text-ink-900">
-      <ChannelIcon channel={channel} aria-hidden className="shrink-0 text-ink-700" />
+      <ChannelIcon channel={channel} aria-hidden className="shrink-0 text-ink-800" />
       {channelLabel(channel)}
     </span>
   )
@@ -198,7 +198,7 @@ function TriggeredCell({ campaign }: { campaign: Campaign }) {
   const Icon = journey ? Workflow : User
   return (
     <div className="min-w-0 max-w-40">
-      <span className="flex items-center gap-2 text-ink-500"><Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{journey ? 'Journey' : 'Manual'}</span>
+      <span className="flex items-center gap-2 text-ink-800"><Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{journey ? 'Journey' : 'Manual'}</span>
       <span className="block truncate pl-6 text-helper text-ink-300">{journey ? 'Automated' : campaign.owner_name || 'No owner'}</span>
     </div>
   )
@@ -214,7 +214,8 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const canEdit = can('campaign.edit')
   const canPublish = can('campaign.publish')
   const canApprove = can('campaign.approve')
-  const saved = savedViewOf(params.get('saved'))
+  // ?approval=requested is the Awaiting Approval view under another name
+  const saved = savedViewOf(params.get('saved') ?? (params.get('approval')?.toLowerCase() === 'requested' ? 'approval' : null))
   const savedQuery = SAVED_VIEWS.find((item) => item.key === saved)?.query ?? {}
   const wide = useMinWidth(BREAKPOINT.md)
   const menus = useSingleDropdown<string>()
@@ -222,7 +223,9 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const closeCreate = () => { setCreateOpen(false); if (creating) navigate('/campaigns', { replace: true }) }
 
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [localFilters, setLocalFilters] = useState<Filters>(EMPTY_FILTERS)
+  // Status, Type and Channel are read from the address, so a refresh keeps them and Back undoes a change
+  const filters: Filters = { ...localFilters, ...filtersFromParams(params) }
   const [ordering, setOrdering] = useState('-created_at')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
@@ -265,21 +268,30 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const allPicked = pageIds.length > 0 && pageIds.every((id) => selected.includes(id))
 
   function change(patch: Partial<Filters>) {
-    setFilters((current) => ({ ...current, ...patch }))
+    const { status, type, channel, ...rest } = patch
+    const inUrl = Object.fromEntries(Object.entries({ status, type, channel }).filter(([, value]) => value !== undefined))
+    setLocalFilters((current) => ({ ...current, ...rest }))
+    if (Object.keys(inUrl).length) setParams((current) => withFilterParams(current, inUrl))
     setPage(1)
     setSelected([])
   }
   function clearAll() {
     setSearch('')
-    setFilters(EMPTY_FILTERS)
+    setLocalFilters(EMPTY_FILTERS)
+    setParams((current) => {
+      const now = withFilterParams(current, { status: '', type: '', channel: '' })
+      now.delete('saved')
+      now.delete('approval')
+      return now
+    }, { replace: true })
     setPage(1)
     setSelected([])
-    pickSaved('')
   }
   function pickSaved(next: SavedView) {
     setParams((current) => {
       const now = new URLSearchParams(current)
       if (next) now.set('saved', next); else now.delete('saved')
+      now.delete('approval')
       return now
     }, { replace: true })
     setPage(1)
@@ -419,7 +431,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         <div role="group" aria-label="Saved views" className="mb-3 flex flex-wrap gap-2">
           {SAVED_VIEWS.filter((item) => item.key !== 'approval' || canApprove || canPublish).map((item) => (
             <button key={item.key || 'all'} type="button" aria-pressed={saved === item.key} onClick={() => pickSaved(item.key)}
-              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
               {item.label}
             </button>
           ))}
@@ -462,7 +474,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
       ) : list.isPending ? (
-        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-6 py-10 text-sm text-ink-500"><Spinner /> Loading campaigns</div>
+        <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-6 py-10 text-sm text-ink-800"><Spinner /> Loading campaigns</div>
       ) : rows.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface"><EmptyCampaigns filtered={filtered} canEdit={canEdit} onClear={clearAll} onCreate={() => setCreateOpen(true)} /></div>
       ) : wide ? (
@@ -482,7 +494,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                     const direction = ordering === column.key ? 'ascending' : ordering === `-${column.key}` ? 'descending' : undefined
                     return (
                       <th key={column.label} scope="col" aria-sort={column.key ? (direction ?? 'none') : undefined}
-                        className={`px-2 text-sm font-semibold whitespace-nowrap text-ink-700 first:pl-6 text-left`}>
+                        className={`px-2 text-sm font-semibold whitespace-nowrap text-ink-900 first:pl-6 text-left`}>
                         {column.key ? (
                           <button type="button" onClick={() => sortBy(column.key)} className="inline-flex items-center gap-1 hover:text-ink-900">
                             {column.label}
@@ -508,7 +520,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                         </td>
                       )}
                       <td className={`${cell} max-w-[280px] min-w-[180px]`}>{nameCell(row)}</td>
-                      <td className={`${cell} whitespace-nowrap text-ink-500`}>{typeShortLabel(row.campaign_type)}</td>
+                      <td className={`${cell} whitespace-nowrap text-ink-800`}>{typeShortLabel(row.campaign_type)}</td>
                       <td className={cell}><ChannelCell channel={row.channel} /></td>
                       <td className={`${cell} whitespace-nowrap`}>
                         <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -519,7 +531,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                       <td className={cell}><TriggeredCell campaign={row} /></td>
                       <td className={`${cell} cep-num font-medium ${row.audience_size === null ? 'text-ink-300' : 'text-ink-900'}`}>{formatNumber(row.audience_size)}</td>
                       <td className={cell}><NextSendCell campaign={row} zone={workspaceZone} /></td>
-                      <td className={`${cell} cep-num whitespace-nowrap text-helper text-ink-500`}>{formatDate(row.created_at)}</td>
+                      <td className={`${cell} cep-num whitespace-nowrap text-helper text-ink-800`}>{formatDate(row.created_at)}</td>
                       <td className={`${cell} text-right whitespace-nowrap`}><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</td>
                     </tr>
                   )
@@ -539,7 +551,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                   {nameCell(row)}
                   <span className="flex shrink-0 items-center"><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-helper text-ink-500">
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-helper text-ink-800">
                   <StatusBadge status={row.display_status} label={row.display_status_label} />
                   {row.approval?.status === 'REQUESTED' && <Tag>Awaiting Approval</Tag>}
                   <ChannelCell channel={row.channel} />
@@ -575,7 +587,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
             </>
           }
         >
-          <p className="text-sm text-ink-700">{CONFIRM[confirming.action]!.text(confirming.campaign)}</p>
+          <p className="text-sm text-ink-800">{CONFIRM[confirming.action]!.text(confirming.campaign)}</p>
           {act.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-text">{problemText(act.error)}</p>}
         </Modal>
       )}
@@ -590,7 +602,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
             </>
           }
         >
-          <p className="text-sm text-ink-700">They leave the everyday list. Nothing is deleted: results stay available, and each can be restored. A campaign that cannot be archived now is left as it is and named afterwards.</p>
+          <p className="text-sm text-ink-800">They leave the everyday list. Nothing is deleted: results stay available, and each can be restored. A campaign that cannot be archived now is left as it is and named afterwards.</p>
         </Modal>
       )}
       {bulkAsked && (
@@ -604,7 +616,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
             </>
           }
         >
-          <p className="text-sm text-ink-700">Sending stops for each of them; messages already handed to the provider still go out. A campaign that cannot be paused now is left as it is and named afterwards.</p>
+          <p className="text-sm text-ink-800">Sending stops for each of them; messages already handed to the provider still go out. A campaign that cannot be paused now is left as it is and named afterwards.</p>
         </Modal>
       )}
       {createOpen && canEdit && <CampaignSetupDialog onClose={closeCreate} />}

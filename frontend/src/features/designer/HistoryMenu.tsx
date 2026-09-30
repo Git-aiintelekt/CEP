@@ -63,13 +63,13 @@ export function HistoryMenu({
           <PopoverHeading>{heading}</PopoverHeading>
           <div className="max-h-80 overflow-y-auto">
             {failed ?
-              <p className="px-3 py-3 text-helper text-ink-700">{HISTORY_FAILED}</p>
+              <p className="px-3 py-3 text-helper text-ink-800">{HISTORY_FAILED}</p>
             : versions === null ?
-              <p className="flex items-center gap-2 px-3 py-3 text-helper text-ink-700">
+              <p className="flex items-center gap-2 px-3 py-3 text-helper text-ink-800">
                 <Spinner className="h-4 w-4" /> Loading
               </p>
             : ordered.length === 0 ?
-              <p className="px-3 py-3 text-helper text-ink-700">{HISTORY_EMPTY}</p>
+              <p className="px-3 py-3 text-helper text-ink-800">{HISTORY_EMPTY}</p>
             : ordered.map((version) => {
                 const number = version.version_number
                 const isShown = number === shown
@@ -80,9 +80,9 @@ export function HistoryMenu({
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="text-helper font-semibold text-ink-900">
                         Version {number}
-                        {current ? <span className="font-normal text-ink-700"> · current</span> : null}
+                        {current ? <span className="font-normal text-ink-800"> · current</span> : null}
                       </span>
-                      <span className="truncate text-xs text-ink-700" title={meta}>
+                      <span className="truncate text-xs text-ink-800" title={meta}>
                         {meta}
                       </span>
                     </span>
@@ -91,7 +91,7 @@ export function HistoryMenu({
                       data-dropdown-item
                       aria-disabled={isShown || busy || undefined}
                       onClick={isShown || busy ? undefined : () => onLoad(number)}
-                      className={`${ROW_BUTTON} ${isShown || busy ? 'cursor-not-allowed border-line bg-line-subtle text-ink-300' : 'border-line bg-surface text-ink-900 hover:bg-line-subtle'}`}
+                      className={`${ROW_BUTTON} ${isShown || busy ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-900 hover:bg-fill-subtle'}`}
                     >
                       {current ? CURRENT_LABEL : LOAD_LABEL}
                     </button>

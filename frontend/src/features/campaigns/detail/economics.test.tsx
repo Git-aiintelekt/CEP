@@ -56,7 +56,7 @@ test('meter: an 8px bar on the Gray 100 track, brand until the target is met, th
   const clicks = screen.getByRole('progressbar', { name: 'Clicks against target' })
   expect(clicks.className).toContain('h-2')
   expect(clicks.className).toContain('rounded-xs')
-  expect(clicks.className).toContain('bg-line-subtle')
+  expect(clicks.className).toContain('bg-fill-subtle')
   expect((clicks.firstElementChild as HTMLElement).className).toContain('bg-brand-600')
   const revenue = screen.getByRole('progressbar', { name: 'Revenue against target' })
   expect(revenue.getAttribute('aria-valuenow')).toBe('100')

@@ -31,7 +31,7 @@ export function MenuRow({ title, detail, leading, trailing, tone = 'default', se
   const state =
     disabled ? 'cursor-not-allowed text-ink-300'
     : selected ? 'bg-surface-subtle'
-    : 'hover:bg-surface-subtle active:bg-line-subtle'
+    : 'hover:bg-surface-subtle active:bg-fill-subtle'
   return (
     <button
       {...props}
@@ -45,7 +45,7 @@ export function MenuRow({ title, detail, leading, trailing, tone = 'default', se
       {leading && <span className="mt-0.5 flex shrink-0 items-center">{leading}</span>}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className={`text-helper font-semibold ${disabled ? '' : TITLE_TONE[tone]}`}>{title}</span>
-        {detail && <span className={`text-helper ${disabled ? '' : 'text-ink-700'}`}>{detail}</span>}
+        {detail && <span className={`text-helper ${disabled ? '' : 'text-ink-800'}`}>{detail}</span>}
       </span>
       {trailing && <span className="flex shrink-0 items-center self-center">{trailing}</span>}
     </button>

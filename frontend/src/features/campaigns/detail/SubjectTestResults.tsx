@@ -55,7 +55,7 @@ export function SubjectTestResults({ campaignId, run, zone }: { campaignId: stri
           <thead>
             <tr className="border-b border-line bg-surface-subtle">
               {['Variant', 'Subject', 'Sent', 'Open Rate', 'Click Rate'].map((label, index) => (
-                <th key={label} scope="col" className={`h-10 px-4 text-xs font-semibold text-ink-700 ${index >= 2 ? 'text-right' : 'text-left'}`}>{label}</th>
+                <th key={label} scope="col" className={`h-10 px-4 text-xs font-semibold text-ink-900 ${index >= 2 ? 'text-right' : 'text-left'}`}>{label}</th>
               ))}
             </tr>
           </thead>
@@ -74,7 +74,7 @@ export function SubjectTestResults({ campaignId, run, zone }: { campaignId: stri
           </tbody>
         </table>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle px-4 py-3 text-sm text-ink-700">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle px-4 py-3 text-sm text-ink-800">
         {decided ? (
           <p>{variants.find((variant) => variant.is_winner)?.variant_key} won on {metricText(metric)} and went to the other {formatNumber(waiting)} people.</p>
         ) : (
@@ -100,7 +100,7 @@ export function SubjectTestResults({ campaignId, run, zone }: { campaignId: stri
               </button>
             </>
           }>
-          <div className="space-y-2 text-sm text-ink-700">
+          <div className="space-y-2 text-sm text-ink-800">
             <p>The other <span className="cep-num">{formatNumber(waiting)}</span> people get subject {choosing.variant_key}: <strong className="text-ink-900">{choosing.subject_line}</strong></p>
             <p>This ends the test now instead of waiting for the {metricText(metric)}. It cannot be undone.</p>
             {choose.isError && <ErrorState title="The winner was not chosen" error={choose.error} />}

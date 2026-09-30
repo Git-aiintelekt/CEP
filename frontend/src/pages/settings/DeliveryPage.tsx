@@ -203,7 +203,7 @@ export function DeliveryPage() {
   const providerColumns: Column<DeliveryProvider>[] = [
     { key: 'name', header: 'Provider', render: (row) => (
       <div><p className="font-medium text-ink-900">{row.name}<span className="ml-2"><Tag>{row.channel === 'SMS' ? 'Texts' : 'Email'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
-        <p className="text-xs text-ink-500">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
+        <p className="text-xs text-ink-800">{labels[row.provider_type]?.label ?? row.provider_type}{row.config.endpoint ? ` · ${row.config.endpoint}` : row.config.host ? ` · ${row.config.host}` : ''}{row.has_transactional_secret ? ' · separate key for receipts' : ''}</p></div>) },
     { key: 'state', header: 'State', render: (row) => !row.is_active ? <StatusBadge status="ARCHIVED" label="Switched Off" />
       : row.last_check_ok === false ? <StatusBadge status="FAILED" label="Check Failed" /> : row.last_check_ok ? <StatusBadge status="ACTIVE" label={`Checked ${formatDateTime(row.last_checked_at)}`} /> : <StatusBadge status="DRAFT" label="Not Checked Yet" /> },
     { key: 'webhook', header: 'Callbacks', render: (row) => row.webhook_url
@@ -215,10 +215,10 @@ export function DeliveryPage() {
               onClick={() => window.confirm(`Rotate the callback address of ${row.name}? The current address stops working at once; callbacks resume when the new one is registered with the engine.`) && rotate.mutate(row)}>Rotate Address</button>}
           </span>
           {row.last_callback_at
-            ? <span className="cep-num text-xs text-ink-500">Last received {formatDateTime(row.last_callback_at)} · {formatNumber(row.callbacks_24h ?? 0)} in 24 h</span>
+            ? <span className="cep-num text-xs text-ink-800">Last received {formatDateTime(row.last_callback_at)} · {formatNumber(row.callbacks_24h ?? 0)} in 24 h</span>
             : <span className="text-xs font-medium text-warning-text">No callback has ever arrived. Register the address with the engine so deliveries, bounces, opens and clicks come back.</span>}
         </span>
-      : <span className="text-xs text-ink-500">No callbacks</span> },
+      : <span className="text-xs text-ink-800">No callbacks</span> },
     { key: 'actions', header: '', align: 'right', render: (row) => (
       <span className="flex justify-end gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={check.isPending} onClick={() => check.mutate(row)}>Check</button>
@@ -231,7 +231,7 @@ export function DeliveryPage() {
   const senderColumns: Column<DeliverySender>[] = [
     { key: 'name', header: 'Sender', render: (row) => (
       <div><p className="font-medium text-ink-900">{row.display_name}<span className="ml-2"><Tag>{row.channel === 'EMAIL' ? 'Email' : 'Texts'}</Tag></span>{row.is_default && <span className="ml-1"><Tag>Default</Tag></span>}</p>
-        <p className="text-xs text-ink-500">{row.from_address ?? row.sender_id}</p></div>) },
+        <p className="text-xs text-ink-800">{row.from_address ?? row.sender_id}</p></div>) },
     { key: 'provider', header: 'Sends Through', render: (row) => row.provider_name },
     { key: 'status', header: 'Verification', render: (row) => <StatusBadge status={row.verification_status === 'VERIFIED' ? 'ACTIVE' : row.verification_status === 'FAILED' ? 'FAILED' : 'PAUSED'}
         label={row.verification_status === 'VERIFIED' ? 'Verified' : row.verification_status === 'FAILED' ? 'Verification Failed' : 'Not Verified Yet'} /> },
@@ -252,11 +252,11 @@ export function DeliveryPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2>
-            <p className="text-sm text-ink-500">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
+            <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add Engine</button>
         </div>
-        {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading providers</p>
+        {providers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading providers</p>
           : rows.length === 0 ? <EmptyState title="No sending engine yet" hint="Add Postal or SendGrid for email or a text engine here, or offer your own mail server as a campaign sender under Email server." />
           : <DataTable columns={providerColumns} rows={rows} rowKey={(row) => row.id} caption="Sending Engines" />}
       </section>
@@ -265,12 +265,12 @@ export function DeliveryPage() {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="senders-heading" className="font-display text-section-title font-semibold text-ink-900">Senders</h2>
-            <p className="text-sm text-ink-500">Who a campaign comes from: a From name and address for email, a short code or number for texts. A sender must be verified before a campaign using it can be published.</p>
+            <p className="text-sm text-ink-800">Who a campaign comes from: a From name and address for email, a short code or number for texts. A sender must be verified before a campaign using it can be published.</p>
           </div>
           <button type="button" className={buttonSecondary} disabled={rows.every((row) => row.manageable === false)} onClick={() => setEditingSender('new')}>Add Sender</button>
         </div>
         {senders.isError ? <ErrorState error={senders.error} onRetry={() => void senders.refetch()} />
-          : senders.isPending ? <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading senders</p>
+          : senders.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading senders</p>
           : senders.data.length === 0 ? <EmptyState title="No sender yet" hint="Add a provider first, then the From address your campaigns should use." />
           : <DataTable columns={senderColumns} rows={senders.data} rowKey={(row) => row.id} caption="Senders" />}
       </section>

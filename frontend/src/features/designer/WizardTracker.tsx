@@ -29,9 +29,9 @@ export function WizardTracker({ steps, currentIndex }: WizardTrackerProps) {
           const current = index === currentIndex
           return (
             <li key={step.label} className="flex min-w-0 items-center gap-2">
-              {index > 0 && <span aria-hidden className="h-px w-6 shrink-0 bg-line" />}
+              {index > 0 && <span aria-hidden className="h-px w-6 shrink-0 bg-fill-muted" />}
               {done && step.href ? (
-                <Link to={step.href} className="flex items-center gap-1.5 text-xs font-medium text-ink-700 transition-colors duration-base ease-standard hover:text-ink-900">
+                <Link to={step.href} className="flex items-center gap-1.5 text-xs font-medium text-ink-800 transition-colors duration-base ease-standard hover:text-ink-900">
                   <Dot done />
                   {step.label}
                 </Link>
@@ -39,7 +39,7 @@ export function WizardTracker({ steps, currentIndex }: WizardTrackerProps) {
                 <span
                   aria-current={current ? 'step' : undefined}
                   aria-disabled={!current && !done ? true : undefined}
-                  className={`flex items-center gap-1.5 text-xs font-medium ${current ? 'text-ink-900' : done ? 'text-ink-700' : 'text-ink-300'}`}
+                  className={`flex items-center gap-1.5 text-xs font-medium ${current ? 'text-ink-900' : done ? 'text-ink-800' : 'text-ink-300'}`}
                 >
                   <Dot done={done} current={current} />
                   {step.label}
@@ -56,7 +56,7 @@ export function WizardTracker({ steps, currentIndex }: WizardTrackerProps) {
 function Dot({ done = false, current = false }: { done?: boolean; current?: boolean }) {
   if (done) {
     return (
-      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line text-ink-700">
+      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line text-ink-800">
         <Check size={10} strokeWidth={1.5} />
       </span>
     )

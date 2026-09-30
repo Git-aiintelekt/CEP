@@ -120,20 +120,21 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
     }
   }
 
+  // the editors are an approved exact copy: their secondary buttons stay solid blue, the primary look
   const footer =
     editing ?
       <>
-        <Button onClick={() => leaveEditing(() => {})}>{DISCARD_LABEL}</Button>
+        <Button variant="primary" onClick={() => leaveEditing(() => {})}>{DISCARD_LABEL}</Button>
         <Button variant="primary" softDisabled={!changed} title={changed ? undefined : APPLY_HINT} loading={applying} onClick={() => void apply()}>
           {APPLY_LABEL}
         </Button>
       </>
     : <>
-        <Button onClick={onClose}>{CLOSE_LABEL}</Button>
-        <Button onClick={() => void copy(tab === 'mjml' ? shown : html)}>{COPY_LABEL}</Button>
+        <Button variant="primary" onClick={onClose}>{CLOSE_LABEL}</Button>
+        <Button variant="primary" onClick={() => void copy(tab === 'mjml' ? shown : html)}>{COPY_LABEL}</Button>
         {tab === 'mjml' ?
           <>
-            <Button onClick={() => onDownloadMjml(shown)}>{DOWNLOAD_MJML_LABEL}</Button>
+            <Button variant="primary" onClick={() => onDownloadMjml(shown)}>{DOWNLOAD_MJML_LABEL}</Button>
             {canEdit ? <Button variant="primary" onClick={requestEdit}>{EDIT_LABEL}</Button> : null}
           </>
         : <Button variant="primary" onClick={onDownloadHtml}>{DOWNLOAD_HTML_LABEL}</Button>}
@@ -192,7 +193,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
                 describedBy={problem ? problemId : undefined}
                 onChange={setDraft}
               />
-              <p className="text-xs text-ink-500">{REPLACE_WARNING}</p>
+              <p className="text-xs text-ink-800">{REPLACE_WARNING}</p>
             </div>
           : <div className="flex flex-col gap-2">
               {tab === 'mjml' && adjusted.length > 0 ?
@@ -203,7 +204,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
               <pre aria-label={tab === 'mjml' ? MJML_TAB : HTML_TAB} tabIndex={0} className={READ}>
                 {tab === 'mjml' ? shown : html}
               </pre>
-              {tab === 'mjml' ? <p className="text-xs text-ink-500">{FORMATTED_HINT}</p> : null}
+              {tab === 'mjml' ? <p className="text-xs text-ink-800">{FORMATTED_HINT}</p> : null}
             </div>
           }
         </div>
@@ -216,7 +217,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
           onClose={() => setPending(null)}
           footer={
             <>
-              <Button autoFocus onClick={() => setPending(null)}>
+              <Button variant="primary" autoFocus onClick={() => setPending(null)}>
                 {GATE_CANCEL}
               </Button>
               <Button
@@ -232,7 +233,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
             </>
           }
         >
-          <p className="text-sm text-ink-700">{GATE_NOTE}</p>
+          <p className="text-sm text-ink-800">{GATE_NOTE}</p>
         </Modal>
       : null}
 
@@ -242,7 +243,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
           onClose={() => setPending(null)}
           footer={
             <>
-              <Button autoFocus onClick={() => setPending(null)}>
+              <Button variant="primary" autoFocus onClick={() => setPending(null)}>
                 {KEEP_EDITING}
               </Button>
               <Button
@@ -259,7 +260,7 @@ export function CodeDialog({ mjml, html, canEdit, onCheck, onApply, onDownloadHt
             </>
           }
         >
-          <p className="text-sm text-ink-700">{DISCARD_NOTE}</p>
+          <p className="text-sm text-ink-800">{DISCARD_NOTE}</p>
         </Modal>
       : null}
     </>
