@@ -116,7 +116,7 @@ def _run_of_today(tenant_id, campaign) -> CampaignRun:
 
 
 def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | None = None, party_id: str | None = None, name: str = "",
-         attachments: list[dict] | None = None, idempotency_key: str | None = None) -> dict:
+         attachments: list[dict] | None = None, idempotency_key: str | None = None, extra_sources: dict | None = None) -> dict:
     """Runs inside the caller's tenant transaction (the API request). -> {'status', 'execution_id', 'provider_message_id', 'duplicate'}"""
     number = str(idempotency_key or receipt.get("number") or receipt.get("order_number") or "").strip()
     if not number:
@@ -159,7 +159,7 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
     renderer.html = receipt_layout.apply(campaign.template, renderer.html, receipt, store, currency)
     rendered = renderer.render(
         customer=customer, member={"custom_value_pairs": coupon_values(receipt)}, system={"email": to},
-        sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}}, html_blocks={"receipt_body": items_html(receipt.get("items") or [], currency)})
+        sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}, **(extra_sources or {})}, html_blocks={"receipt_body": items_html(receipt.get("items") or [], currency)})
     if rendered["codes_left_out"]:
         log.info("receipt %s went without its code block (%s): no usable value", number, ", ".join(sorted(set(rendered["codes_left_out"]))))
 

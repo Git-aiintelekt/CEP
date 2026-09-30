@@ -1001,5 +1001,105 @@ INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_s
 ON CONFLICT (tag_key) DO NOTHING;
 
 -- =====================================================================================
+-- POINT OF SALE E-RECEIPTS (patch 0029)
+--   The point of sale posts a TransactionTree TTDR 3.2.2 transaction to POST /api/v1/pos/transactions/ (workspace API key, scope
+--   receipts:send); CEP validates it, renders the e-receipt and sends it, and keeps only the integration log row (what was
+--   received, what was answered) and the receipt's mailer_execution. The transaction and the customer are never stored: they
+--   belong to C360. `store` is the workspace's own list of its locations, because a transaction names a store by number only.
+--   Tags read from the transaction come from a new resolution source, TRANSACTION.
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS store (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    store_number        VARCHAR(40) NOT NULL,                            -- as the point of sale sends it (TransactionLocation/StoreNumber)
+    name                VARCHAR(150) NOT NULL,
+    brand               VARCHAR(150),
+    address1            VARCHAR(200),
+    address2            VARCHAR(200),
+    city                VARCHAR(120),
+    state               VARCHAR(60),
+    postal_code         VARCHAR(20),
+    country             VARCHAR(60),
+    district            VARCHAR(120),
+    phone               VARCHAR(40),
+    email               VARCHAR(254),
+    manager             VARCHAR(150),
+    return_policy       TEXT,
+    url1                VARCHAR(300),
+    url2                VARCHAR(300),
+    url3                VARCHAR(300),
+    url4                VARCHAR(300),
+    image_url           VARCHAR(300),
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ux_store_number UNIQUE (tenant_id, store_number)
+);
+COMMENT ON TABLE store IS 'The workspace''s stores, by the number the point of sale sends; fills the STORE tags of an e-receipt';
+DROP TRIGGER IF EXISTS trg_store_touch ON store;
+CREATE TRIGGER trg_store_touch BEFORE UPDATE ON store FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_store_audit ON store;
+CREATE TRIGGER trg_store_audit AFTER INSERT OR UPDATE OR DELETE ON store FOR EACH ROW EXECUTE FUNCTION fn_definition_audit();
+ALTER TABLE store ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_store_tenant ON store;
+CREATE POLICY rls_store_tenant ON store
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON store TO cep_app;
+GRANT ALL ON store TO cep_admin;
+ALTER TABLE personalization_tag DROP CONSTRAINT IF EXISTS ck_personalization_tag_resolution_source;
+ALTER TABLE personalization_tag ADD CONSTRAINT ck_personalization_tag_resolution_source
+    CHECK (resolution_source IN ('CUSTOMER_MASTER', 'CAMPAIGN_LIST_MEMBER', 'CAMPAIGN', 'CAMPAIGN_RUN', 'STORE', 'SYSTEM', 'STATIC', 'INNER_TEMPLATE', 'RECEIPT', 'TRANSACTION'));
+ALTER TABLE platform_personalization_tag DROP CONSTRAINT IF EXISTS ck_platform_personalization_tag_source;
+ALTER TABLE platform_personalization_tag ADD CONSTRAINT ck_platform_personalization_tag_source
+    CHECK (resolution_source IN ('CUSTOMER_MASTER', 'CAMPAIGN_LIST_MEMBER', 'CAMPAIGN', 'CAMPAIGN_RUN', 'STORE', 'SYSTEM', 'STATIC', 'RECEIPT', 'TRANSACTION'));
+-- the standard e-receipt tags a point-of-sale template uses, inherited by every workspace
+INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_source, source_path, data_type, applies_to_channels, description, sample_value) VALUES
+    ('trans_id', 'Transaction ID', 'STANDARD', 'TRANSACTION', 'id', 'STRING', '{E_RECEIPT}', 'The point of sale''s transaction number', '243309'),
+    ('trans_cat', 'Transaction Category', 'STANDARD', 'TRANSACTION', 'category', 'STRING', '{E_RECEIPT}', 'Sale, Return, Exchange, Void, Layaway', 'Sale'),
+    ('trans_date', 'Transaction Date', 'STANDARD', 'TRANSACTION', 'date', 'DATE', '{E_RECEIPT}', 'The day of the transaction', '2026-09-23'),
+    ('trans_time', 'Transaction Time', 'STANDARD', 'TRANSACTION', 'time', 'STRING', '{E_RECEIPT}', 'The time of the transaction', '18:07:18'),
+    ('register_number', 'Register Number', 'STANDARD', 'TRANSACTION', 'register_number', 'STRING', '{E_RECEIPT}', 'The register the sale was rung on', '1'),
+    ('terminal_id', 'Terminal ID', 'STANDARD', 'TRANSACTION', 'terminal_id', 'STRING', '{E_RECEIPT}', 'The payment terminal', '0000000000'),
+    ('clerk_id', 'Clerk ID', 'STANDARD', 'TRANSACTION', 'clerk_id', 'STRING', '{E_RECEIPT}', 'The associate''s id', '4097067'),
+    ('clerk_name', 'Clerk Name', 'STANDARD', 'TRANSACTION', 'clerk_name', 'STRING', '{E_RECEIPT}', 'The associate''s name', 'Jose'),
+    ('item_count', 'Item Count', 'STANDARD', 'TRANSACTION', 'item_count', 'NUMBER', '{E_RECEIPT}', 'How many items were sold', '6'),
+    ('bar_code', 'Receipt Barcode Value', 'STANDARD', 'TRANSACTION', 'barcode_value', 'STRING', '{E_RECEIPT}', 'The value the receipt barcode carries (a barcode block draws it)', '0080101243309092326'),
+    ('layaway_number', 'Layaway Number', 'STANDARD', 'TRANSACTION', 'layaway_number', 'STRING', '{E_RECEIPT}', 'The layaway this transaction belongs to', ''),
+    ('customer_id', 'Customer ID', 'STANDARD', 'TRANSACTION', 'customer.id', 'STRING', '{E_RECEIPT}', 'The customer id the point of sale sent', '20946472'),
+    ('customer_fullname', 'Customer Full Name', 'STANDARD', 'TRANSACTION', 'customer.full_name', 'STRING', '{E_RECEIPT}', 'First and last name as the point of sale sent them', 'Jordan Lee'),
+    ('email_address', 'Customer Email Address', 'STANDARD', 'TRANSACTION', 'customer.email', 'STRING', '{E_RECEIPT}', 'The address the receipt goes to', 'jordan@example.com'),
+    ('phone', 'Customer Phone', 'STANDARD', 'TRANSACTION', 'customer.phone', 'STRING', '{E_RECEIPT}', 'The phone number the point of sale sent', '4249440599'),
+    ('birthday', 'Customer Birthday', 'STANDARD', 'TRANSACTION', 'customer.birthday', 'STRING', '{E_RECEIPT}', 'From the transaction''s demographics, when sent', ''),
+    ('full_address', 'Customer Full Address', 'STANDARD', 'TRANSACTION', 'customer.full_address', 'STRING', '{E_RECEIPT}', 'The customer''s address as the point of sale sent it', ''),
+    ('loyalty_balance', 'Points Balance', 'STANDARD', 'TRANSACTION', 'loyalty.balance', 'NUMBER', '{E_RECEIPT}', 'The loyalty balance after this transaction', ''),
+    ('loyalty_earned', 'Points Earned', 'STANDARD', 'TRANSACTION', 'loyalty.earned', 'NUMBER', '{E_RECEIPT}', 'Points earned on this transaction', ''),
+    ('store_id', 'Store Number', 'STANDARD', 'STORE', 'id', 'STRING', '{E_RECEIPT}', 'The store number the point of sale sent', '801'),
+    ('store_name', 'Store Name', 'STANDARD', 'STORE', 'name', 'STRING', '{E_RECEIPT}', 'From the workspace''s store list', 'Northwind Apparel Buckhead'),
+    ('store_brand', 'Store Brand', 'STANDARD', 'STORE', 'brand', 'STRING', '{E_RECEIPT}', 'From the workspace''s store list', 'Northwind Apparel'),
+    ('store_address', 'Store Address 1', 'STANDARD', 'STORE', 'address1', 'STRING', '{E_RECEIPT}', 'From the store list, or the transaction when it carries an address', '1200 Peachtree St NE'),
+    ('store_address_2', 'Store Address 2', 'STANDARD', 'STORE', 'address2', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_city', 'Store City', 'STANDARD', 'STORE', 'city', 'STRING', '{E_RECEIPT}', 'From the store list', 'Atlanta'),
+    ('store_state', 'Store State', 'STANDARD', 'STORE', 'state', 'STRING', '{E_RECEIPT}', 'From the store list', 'GA'),
+    ('store_postal', 'Store Postal Code', 'STANDARD', 'STORE', 'postal_code', 'STRING', '{E_RECEIPT}', 'From the store list', '30309'),
+    ('store_country', 'Store Country', 'STANDARD', 'STORE', 'country', 'STRING', '{E_RECEIPT}', 'From the store list', 'US'),
+    ('store_district', 'Store District', 'STANDARD', 'STORE', 'district', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_phone', 'Store Phone', 'STANDARD', 'STORE', 'phone', 'STRING', '{E_RECEIPT}', 'From the store list', '(404) 555-0100'),
+    ('store_email', 'Store Email', 'STANDARD', 'STORE', 'email', 'STRING', '{E_RECEIPT}', 'From the store list', 'buckhead@northwindapparel.example'),
+    ('store_manager', 'Store Manager', 'STANDARD', 'STORE', 'manager', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_return_policy', 'Store Return Policy', 'STANDARD', 'STORE', 'return_policy', 'STRING', '{E_RECEIPT}', 'From the store list', 'Returns within 30 days with this receipt.'),
+    ('store_url1', 'Store URL 1', 'STANDARD', 'STORE', 'url1', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_url2', 'Store URL 2', 'STANDARD', 'STORE', 'url2', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_url3', 'Store URL 3', 'STANDARD', 'STORE', 'url3', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_url4', 'Store URL 4', 'STANDARD', 'STORE', 'url4', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('store_image_url', 'Store Image URL', 'STANDARD', 'STORE', 'image_url', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
+    ('current_date', 'Current Date', 'SYSTEM', 'SYSTEM', 'today', 'DATE', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The date of the send (same as today)', '2026-09-30')
+ON CONFLICT (tag_key) DO NOTHING;
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

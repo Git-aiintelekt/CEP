@@ -41,7 +41,7 @@ def resolve_tenant(request):
         from apps.delivery.engine import unsubscribe
         claims = unsubscribe.read(request.GET.get("t", ""))
         return _lookup("code", claims["t"]) if claims and claims.get("t") else None
-    header = request.headers.get("X-Tenant")
+    header = request.headers.get("X-Tenant") or request.headers.get("X-Tenant-Key")      # the point of sale names the workspace as X-Tenant-Key
     if header:
         return _lookup("code", header) or _lookup("subdomain", header)
     host = request.get_host().split(":")[0].lower()
