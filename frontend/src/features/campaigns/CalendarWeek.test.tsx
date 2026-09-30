@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -85,7 +85,7 @@ test('Month / Week is a radio group in the address; Back returns to the month; t
 
   window.history.go(-5)                                                                               // Today, two Previous, Next, then Week
   await vi.waitFor(() => expect(search().get('mode')).toBeNull())
-  expect(within(modes).getByRole('radio', { name: 'Month' }).getAttribute('aria-checked')).toBe('true')
+  await waitFor(() => expect(within(modes).getByRole('radio', { name: 'Month' }).getAttribute('aria-checked')).toBe('true'))    // the address changes before the router re-renders
 })
 
 test('the week: seven day columns from today, sends by time in their status colours, journey runs marked, Sent on past ones', async () => {

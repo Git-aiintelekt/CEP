@@ -269,3 +269,40 @@ workspace can offer the preference centre or keep only the unsubscribe link, fro
 - **Campaign setup, Content step**: a *Topic* panel with *Filed Under* (required to publish) appears for a marketing
   email or text campaign when the centre is on and a topic is offered on that channel. The campaign's details list
   the topic; the audience reasons gain *Opted Out of This Topic*.
+
+## 12. Campaign → Recipients, and Blocked & Unsubscribed (2026-09-30)
+
+Asked for as "ensure I can troubleshoot what is sent from CEP, what Postal says, whether the send succeeded, and see opens, clicks,
+bounces, suppressions and spam complaints in CEP", then "I want to see who is blocked or unsubscribed, why, since when, in the
+campaign itself". Before this the campaign page had aggregate counts only; a failed recipient's reason lived in the integration log
+under a reference nobody knew.
+
+- **Recipients tab** (`detail/RecipientsTab.tsx`, after Performance; on every campaign but a receipt one without runs): a segmented
+  control *Recipients | Blocked & Unsubscribed*. Recipients: Run, Status (with counts) and Search above a table — Recipient (address,
+  name; the address is the button), Status tag (Queued grey, Sent amber, Delivered / Opened / Clicked green, Bounced / Marked as Spam
+  / Failed red), Reason, Sent, Delivered, Opened, Clicked, Engine ID — paged 50 at a time, refreshed every 5 s while the run sends,
+  Export CSV. A row opens a dialog: the status line, *What Happened* (a timeline: queued, handed to the engine, the engine's callbacks
+  as "Engine said: MessageDelivered", opens and clicks with the link), a line saying how many callbacks reached the message (or that
+  none did, with where to look), *This Address Now* when it is blocked, unsubscribed or has bounced, *Engine Calls* with the log
+  reference, and **Check with the Engine**, which shows the engine's own record (status, held, last delivery attempt, every attempt
+  with the receiving server's answer).
+- **Blocked & Unsubscribed**: one line of explanation, reason chips with counts (Unsubscribed / Bounced / Complained / Blocked by You)
+  that filter, Channel and Search, a table (Contact, Channel, Reason tag, Source with the detail under it, Since), Export CSV. The same
+  rows and words as Settings → Suppressions, kept to this campaign's people.
+- **Settings → Sending Engines**: the Callback Address column became *Callbacks*: the copy button, then "Last received … · N in 24 h",
+  or in warning text "No callback has ever arrived. Register the address with the engine…".
+
+## 13. Settings → POS Receipts (2026-09-30)
+
+For the point of sale posting TTDR 3.2.2 transactions (docs/POS_ERECEIPTS.md). A tab after Preference Centre, shown when the plan has
+e-receipts. Left column: **E-Receipt Campaign** (two selects: sales and everything else, returns and exchanges; each change is one PUT)
+and **Stores** (table: number · name with the brand under it, address, phone, In Use; *Add Store* opens a two-column dialog with every
+store field, a return-policy text area, an In Use switch and Remove; *Import CSV* takes a file straight from the button and reports
+added / updated / skipped lines). Right column: **Tell the Point of Sale** (the endpoint with Copy, the two header forms, where the key
+comes from, the answer codes in one line) and **Received from the Point of Sale** (Answer and Transaction ID filters; a table of when,
+transaction, the answer as a tag — green S100, amber S101, grey S102, red E… — with the message under it, and the receipt's engine id).
+- **Same day, second pass — EntryType, returns, text receipts.** The transaction's `EntryType` decides what goes out (answers `S103` text sent,
+  `S104` nothing asked for, `S105` text not sent, with filters in the trail); a return or void renders as a refund. Settings → POS Receipts
+  gains **Text Receipt** (an e-receipt campaign on the SMS channel) and **Phone Numbers Are From**; the Email Receipt select lists email
+  campaigns only. The campaign setup dialog now shows the Channel choice for an E-Receipt too, limited to Email and SMS (Email preselected),
+  and the Content step offers message templates to a text receipt.

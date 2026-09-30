@@ -7,7 +7,7 @@ import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
-              SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
+              RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -198,6 +198,20 @@ export const deliverySenders: DeliverySender[] = [
   { id: 'snd-email', delivery_provider: 'prov-postal', display_name: 'Northwind Rewards', channel: 'EMAIL', from_address: 'rewards@northwind.example', reply_to_address: null, sender_id: null,
     verification_status: 'PENDING', is_default: true, provider_type: 'POSTAL', provider_name: 'Postal (self-hosted)' },
 ]
+const recipient = (overrides: Partial<RunRecipient>): RunRecipient => ({
+  id: 1, party_id: 'P-100001', address: 'brianna.garcia@example.com', status: 'OPENED', status_reason: null, provider_message_id: 'postal-7205256a6e7d', attempts: 1, variant_key: null, bounce_type: null,
+  created_at: '2026-09-18T10:00:00Z', submitted_at: '2026-09-18T10:00:20Z', delivered_at: '2026-09-18T10:01:30Z', opened_at: '2026-09-18T12:00:00Z', clicked_at: null, bounced_at: null, complained_at: null,
+  failed_at: null, send_after: null, first_name: 'Brianna', last_name: 'Garcia', ...overrides,
+})
+export const runRecipients: RunRecipient[] = [
+  recipient({}),
+  recipient({ id: 2, party_id: 'P-100002', address: 'devon.okafor@example.com', status: 'BOUNCED', status_reason: '550 5.1.1 The email account does not exist', bounce_type: 'HARD', provider_message_id: 'postal-91aa0c2b3f10',
+              delivered_at: null, opened_at: null, bounced_at: '2026-09-18T10:01:40Z', first_name: 'Devon', last_name: 'Okafor' }),
+  recipient({ id: 3, party_id: 'P-100003', address: 'maria.chen@example.com', status: 'FAILED', status_reason: 'ValidationError: the to address is not valid', provider_message_id: null, delivered_at: null, opened_at: null,
+              first_name: 'Maria', last_name: 'Chen' }),
+  recipient({ id: 4, party_id: 'P-100004', address: 'sam.lee@example.com', status: 'SUBMITTED', delivered_at: null, opened_at: null, provider_message_id: 'postal-0ffe1a77bd02', first_name: 'Sam', last_name: 'Lee' }),
+]
+
 export const runResults: RunResults = {
   id: 'r1', status: 'COMPLETED', started_at: '2026-09-18T10:00:00Z', completed_at: '2026-09-18T10:02:00Z',
   audience: { members: 90, eligible: 72, suppressed: { NO_CONSENT: 11, UNSUBSCRIBED: 4, BLOCKED_ADDRESS: 2, FREQUENCY_CAP: 1 } },
@@ -363,6 +377,14 @@ export function installMockApi(options: MockOptions = {}) {
     calls.push(call)
     const path = url.split('?')[0]
 
+    if (/\/campaigns\/[^/]+\/suppressions\/export\.csv$/.test(path)) return new Response('contact,channel,reason\n', { status: 200, headers: { 'Content-Type': 'text/csv' } })
+    if (/\/campaigns\/[^/]+\/suppressions\/$/.test(path)) {                    // the campaign page's own view of the Suppressions rows
+      const reason = new URL(url, 'http://test.local').searchParams.get('reason')
+      const rows = toolsState.suppressions.filter((row) => !reason || row.group === reason)
+      const groups = (['UNSUBSCRIBED', 'BOUNCED', 'COMPLAINED', 'BLOCKED'] as const).map((key) => ({ key, label: key === 'BLOCKED' ? 'Blocked by You' : key.charAt(0) + key.slice(1).toLowerCase(),
+        count: toolsState.suppressions.filter((row) => row.group === key).length, email: 0, phone: 0, this_week: 0 }))
+      return json({ count: rows.length, page: 1, page_size: 50, results: rows, summary: { total: toolsState.suppressions.length, this_week: 0, groups } })
+    }
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
     if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
@@ -405,6 +427,7 @@ export function installMockApi(options: MockOptions = {}) {
       void secret
       return json({ ...deliveryProviders[0], ...rest, id: 'prov-new', has_secret: true, has_transactional_secret: Boolean(body.transactional_secret), is_default: false, webhook_url: 'http://localhost:8000/api/v1/webhooks/delivery/NWA/prov-new/tok/' }, 201)
     }
+    if (/\/delivery-providers\/[^/]+\/rotate-webhook\/$/.test(path)) return json({ ...deliveryProviders[0], webhook_url: 'https://cep.example.com/api/v1/webhooks/delivery/NWA/prov-postal/rotated-token/' })
     if (path.includes('/delivery-providers/') && method === 'PATCH') return json({ ...deliveryProviders[0], has_transactional_secret: Boolean(options.providerHasTransactionalKey), ...(body as Partial<DeliveryProvider>) })
     if (path.endsWith('/delivery-providers/')) return json((options.texts ? [...deliveryProviders, textEngine] : deliveryProviders).map((item) => item.id === 'prov-postal' ? { ...item, has_transactional_secret: Boolean(options.providerHasTransactionalKey) } : item))
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
@@ -412,6 +435,30 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/delivery-senders/') && method === 'POST') return json({ ...deliverySenders[0], ...(body as Partial<DeliverySender>), id: 'snd-new', verification_status: 'PENDING', is_default: false }, 201)
     if (path.endsWith('/delivery-senders/')) return json(options.texts ? [...deliverySenders, textSender] : deliverySenders)
     if (path.endsWith('/results/')) return json(options.texts ? textResults : runResults)
+    if (/\/campaign-runs\/[^/]+\/recipients\/export\.csv$/.test(path)) return new Response('address,status\n' + runRecipients.map((row) => `${row.address},${row.status}`).join('\n'), { status: 200, headers: { 'Content-Type': 'text/csv' } })
+    if (/\/campaign-runs\/[^/]+\/recipients\/\d+\/check\/$/.test(path)) {
+      return json({ provider: 'Postal (self-hosted)', provider_type: 'POSTAL', id: 3913, message_id: 'postal-7205256a6e7d', status: 'Sent', held: false, hold_expiry: null, last_delivery_attempt: '2026-09-18T10:01:30Z',
+                    to: 'brianna@example.com', from: 'rewards@mail.northwindapparel.example', subject: 'Fall Rewards', sent_at: '2026-09-18T10:00:20Z',
+                    deliveries: [{ at: '2026-09-18T10:01:30Z', status: 'Sent', details: 'Message for brianna@example.com accepted by mx.example.com', output: '250 2.0.0 OK', sent_with_ssl: true, time: 0.4 }] })
+    }
+    const recipientMatch = path.match(/\/campaign-runs\/[^/]+\/recipients\/(\d+)\/$/)
+    if (recipientMatch) {
+      const row = runRecipients.find((item) => item.id === Number(recipientMatch[1])) ?? runRecipients[0]
+      return json({ recipient: row, callbacks: row.status === 'SUBMITTED' ? 0 : 2,
+                    events: [{ at: row.created_at, kind: 'cep', what: 'Queued', detail: null }, { at: row.submitted_at, kind: 'cep', what: 'Handed to the engine', detail: null },
+                             ...(row.delivered_at ? [{ at: row.delivered_at, kind: 'callback', what: 'MessageDelivered', detail: 'PROCESSED' }] : []),
+                             ...(row.failed_at || row.status === 'FAILED' ? [{ at: row.submitted_at, kind: 'cep', what: 'Failed', detail: row.status_reason }] : [])],
+                    log: [{ id: 501, at: row.submitted_at, direction: 'OUT', outcome: row.status === 'FAILED' ? 'REJECTED' : 'OK', response_status: 200, error: row.status_reason }],
+                    standing: { blocked: row.status === 'BOUNCED', block_reason: row.status === 'BOUNCED' ? 'HARD_BOUNCE' : null, hard_bounces: row.status === 'BOUNCED' ? 1 : 0, soft_bounces: 0, complaints: 0, consent: 'OPTED_IN', opt_out_method: null } })
+    }
+    if (/\/campaign-runs\/[^/]+\/recipients\/$/.test(path)) {
+      const params = new URL(url, 'http://test.local').searchParams
+      const status = params.get('status'), q = (params.get('q') ?? '').toLowerCase()
+      const rows = runRecipients.filter((row) => (!status || status.split(',').includes(row.status)) && (!q || row.address.includes(q) || `${row.first_name} ${row.last_name}`.toLowerCase().includes(q)))
+      const byStatus = runRecipients.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {})
+      return json({ run: { id: 'r1', run_number: 1, status: 'COMPLETED', test_mode: false, family: 'EMAIL' }, count: rows.length, page: 1, page_size: 50, results: rows, by_status: byStatus,
+                    statuses: ['QUEUED', 'SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED', 'FAILED'] })
+    }
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'
       const sender = mailNow.server?.campaign_sender ? { id: 'snd-smtp', display_name: mailNow.server.from_name ?? mailNow.server.from_email, from_address: mailNow.server.from_email, verification_status: ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null

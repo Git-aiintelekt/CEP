@@ -171,6 +171,9 @@ export interface DeliveryProvider {
   last_checked_at: string | null
   last_check_ok: boolean | null
   last_check_error: string | null
+  /** when the engine last called the callback address, and how many times in the last 24 hours: a dead webhook reads "never" */
+  last_callback_at?: string | null
+  callbacks_24h?: number
   row_version: number
   manageable?: boolean
 }
@@ -1302,6 +1305,147 @@ export interface SuppressionPage {
   page: number
   page_size: number
   results: SuppressionRow[]
+}
+
+/** one recipient of a run: CEP's record of the message (GET /campaign-runs/{id}/recipients/) */
+export interface RunRecipient {
+  id: number
+  party_id: string
+  address: string
+  status: string
+  status_reason: string | null
+  provider_message_id: string | null
+  attempts: number
+  variant_key: string | null
+  bounce_type: string | null
+  created_at: string
+  submitted_at: string | null
+  delivered_at: string | null
+  opened_at: string | null
+  clicked_at: string | null
+  bounced_at: string | null
+  complained_at: string | null
+  failed_at: string | null
+  send_after: string | null
+  first_name: string | null
+  last_name: string | null
+}
+
+export interface RunRecipientPage {
+  run: { id: string; run_number: number; status: string; test_mode: boolean; family: 'EMAIL' | 'SMS' }
+  count: number
+  page: number
+  page_size: number
+  results: RunRecipient[]
+  by_status: Record<string, number>
+  statuses: string[]
+}
+
+export interface RunRecipientEvent {
+  at: string
+  /** cep: a timestamp on the message; tracking: an open or click; callback: what the engine sent back */
+  kind: 'cep' | 'tracking' | 'callback'
+  what: string
+  detail: string | null
+  id?: number
+}
+
+export interface RunRecipientDetail {
+  recipient: RunRecipient
+  events: RunRecipientEvent[]
+  callbacks: number
+  /** the engine calls for this message in the integration log */
+  log: { id: number; at: string; direction: 'IN' | 'OUT'; outcome: string; response_status: number | null; error: string | null }[]
+  standing: { blocked: boolean; block_reason: string | null; hard_bounces: number; soft_bounces: number; complaints: number; consent: string; opt_out_method: string | null } | null
+}
+
+/** the engine's own record of a message (POST .../check/), Postal today */
+export interface ProviderMessageStatus {
+  provider: string
+  provider_type: string
+  id: number | null
+  message_id: string | null
+  status: string | null
+  held: boolean
+  hold_expiry: string | null
+  last_delivery_attempt: string | null
+  to: string | null
+  from: string | null
+  subject: string | null
+  sent_at: string | null
+  deliveries: { at: string | null; status: string | null; details: string | null; output: string | null; sent_with_ssl: boolean | null; time: number | null }[]
+}
+
+/** a store of the workspace, by the number the point of sale sends (GET /stores/) */
+export interface Store {
+  id: string
+  store_number: string
+  name: string
+  brand: string | null
+  address1: string | null
+  address2: string | null
+  city: string | null
+  state: string | null
+  postal_code: string | null
+  country: string | null
+  district: string | null
+  phone: string | null
+  email: string | null
+  manager: string | null
+  return_policy: string | null
+  url1: string | null
+  url2: string | null
+  url3: string | null
+  url4: string | null
+  image_url: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type StoreInput = Omit<Store, 'id' | 'created_at' | 'updated_at'>
+
+/** Settings → POS Receipts (GET/PUT /workspace/pos/) */
+export interface PosSettings {
+  campaign: string | null
+  return_campaign: string | null
+  /** the e-receipt campaign on the SMS channel used when the transaction's EntryType asks for a text */
+  text_campaign: string | null
+  /** two-letter country for reading a ten-digit phone number (US / CA add +1) */
+  default_country: string
+  endpoint: string
+  tenant_key: string
+  headers: string[]
+  scope: string
+  campaigns: { id: string; name: string; code: string | null; status: string; channel: string; ready: boolean }[]
+  stores: number
+}
+
+/** one transaction the point of sale posted, as the integration log kept it (GET /workspace/pos/received/) */
+export interface PosReceived {
+  id: number
+  at: string
+  transaction_id: string | null
+  code: string | null
+  code_label: string | null
+  message: string | null
+  http_status: number | null
+  outcome: string
+  execution_id: number | null
+  message_id: string | null
+  bytes: number
+  duration_ms: number | null
+}
+
+export interface PosReceivedPage {
+  results: PosReceived[]
+  more: boolean
+  next_before: string | null
+  days: number
+}
+
+export interface CampaignSuppressions extends SuppressionPage {
+  summary: SuppressionSummary
 }
 
 export interface SuppressionSummary {

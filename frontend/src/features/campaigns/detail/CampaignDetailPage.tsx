@@ -39,15 +39,16 @@ import { FailedRunBanner } from './FailedRunBanner'
 import { ActivityTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
 import { PerformanceTab } from './PerformanceTab'
+import { RecipientsTab } from './RecipientsTab'
 
-type TabKey = 'overview' | 'performance' | 'audience' | 'content' | 'activity'
+type TabKey = 'overview' | 'performance' | 'recipients' | 'audience' | 'content' | 'activity'
 const TABS: TabItem<TabKey>[] = [
-  { id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'audience', label: 'Audience' },
+  { id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'recipients', label: 'Recipients' }, { id: 'audience', label: 'Audience' },
   { id: 'content', label: 'Content' }, { id: 'activity', label: 'Activity Log' },
 ]
 
 const tabsFor = (campaign: Campaign) => TABS.filter((item) =>
-  (item.id !== 'performance' || hasResults(campaign)) && (item.id !== 'audience' || campaign.campaign_type !== 'E_RECEIPT'))
+  (item.id !== 'performance' && item.id !== 'recipients' || hasResults(campaign)) && (item.id !== 'audience' || campaign.campaign_type !== 'E_RECEIPT'))
 const LIVE_RUN = ['SCHEDULED', 'PREPARING', 'SENDING']
 
 function MainButton({ main, disabled, onAction }: { main: CampaignMainAction; disabled: boolean; onAction: (action: StatusAction) => void }) {
@@ -219,6 +220,7 @@ export function CampaignDetailPage() {
       <div role="tabpanel" id={tabPanelId('campaign', tab)} aria-labelledby={tabId('campaign', tab)}>
         {tab === 'overview' && <OverviewTab campaign={data} zone={zone} live={live} />}
         {tab === 'performance' && <PerformanceTab campaign={data} zone={zone} live={live} focusRun={params.get('run') ?? undefined} />}
+        {tab === 'recipients' && <RecipientsTab campaign={data} zone={zone} live={live} />}
         {tab === 'audience' && <AudienceTab campaign={data} zone={zone} />}
         {tab === 'content' && <ContentTab campaign={data} focusTest={focusTest} />}
         {tab === 'activity' && <ActivityTab campaign={data} zone={zone} live={live} />}

@@ -129,10 +129,10 @@ test('banners: a scheduled send with its time and Cancel schedule; a journey cam
   expect(screen.getAllByRole('link', { name: 'View Journey (opens in a new tab)' }).map((link) => link.getAttribute('target'))).toEqual(['_blank', '_blank'])   // the main button and the banner's link
 })
 
-test('five tabs: Performance once a production send exists, Audience except for e-receipts; hidden or unknown tabs open Overview', async () => {
+test('six tabs: Performance and Recipients once a production send exists, Audience except for e-receipts; hidden or unknown tabs open Overview', async () => {
   const names = () => within(screen.getByRole('tablist', { name: 'Campaign sections' })).getAllByRole('tab').map((tab) => tab.textContent)
   await openCampaign(completed(), '?tab=nothing')
-  expect(names()).toEqual(['Overview', 'Performance', 'Audience', 'Content', 'Activity Log'])
+  expect(names()).toEqual(['Overview', 'Performance', 'Recipients', 'Audience', 'Content', 'Activity Log'])
   expect(screen.getByRole('tab', { name: 'Overview', selected: true })).toBeTruthy()
   await vi.waitFor(() => expect(window.location.search).toBe(''))
 

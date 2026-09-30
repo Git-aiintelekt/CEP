@@ -1,6 +1,7 @@
 /** Reports, suppressions, notifications and approvals for the mock API: shaped like the backend's answers, stateful where a test writes. */
 import type {
-  ApprovalSettings, NotificationSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, SubscriptionTopic, SuppressionRow, SuppressionSummary,
+  ApprovalSettings, NotificationSettings, PosReceived, PosSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, Store, SubscriptionTopic,
+  SuppressionRow, SuppressionSummary,
 } from '@/lib/types'
 
 interface Request {
@@ -86,6 +87,9 @@ export interface WorkspaceToolsState {
   approvals: ApprovalSettings
   preferenceCenter: PreferenceCenterSettings
   topics: SubscriptionTopic[]
+  pos: PosSettings
+  stores: Store[]
+  received: PosReceived[]
 }
 
 export const topicRows: SubscriptionTopic[] = [
@@ -110,6 +114,17 @@ export function workspaceToolsState(overrides: Partial<WorkspaceToolsState> = {}
                         footer: '', privacy_url: '', allow_opt_in: true, workspace_name: 'Northwind Apparel', tag: '{{preference_url}}', preview_url: 'https://cep.example.com/api/v1/public/preferences/?t=preview',
                         stats: { days: 30, opened: 1284, unsubscribed: 61, opted_in: 9, topics_unticked: 286 }, topics: 2 },
     topics: topicRows.map((row) => ({ ...row })),
+    pos: { campaign: null, return_campaign: null, text_campaign: null, default_country: 'US', endpoint: 'https://cep.example.com/api/v1/pos/transactions/', tenant_key: 'NWA', headers: ['X-Tenant-Key', 'accessTokenKey'], scope: 'receipts:send',
+           campaigns: [{ id: 'c-receipt', name: 'Store E-Receipt', code: 'CMP-2026-0004', status: 'ACTIVE', channel: 'EMAIL', ready: true }, { id: 'c-receipt-draft', name: 'Holiday Receipt', code: null, status: 'DRAFT', channel: 'EMAIL', ready: false },
+                       { id: 'c-receipt-text', name: 'Text Receipt', code: 'CMP-2026-0009', status: 'ACTIVE', channel: 'SMS', ready: true }], stores: 1 },
+    stores: [{ id: 'st-801', store_number: '801', name: 'Northwind Apparel Buckhead', brand: 'Northwind Apparel', address1: '1200 Peachtree St NE', address2: null, city: 'Atlanta', state: 'GA', postal_code: '30309', country: 'US',
+               district: null, phone: '(404) 555-0100', email: null, manager: 'Dana Reyes', return_policy: 'Returns within 30 days with this receipt.', url1: null, url2: null, url3: null, url4: null, image_url: null, is_active: true,
+               created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' }],
+    received: [
+      { id: 901, at: '2026-09-30T18:07:20Z', transaction_id: '243309', code: 'S100', code_label: 'Receipt sent', message: null, http_status: 200, outcome: 'OK', execution_id: 5001, message_id: 'm-1@postal.example', bytes: 18_402, duration_ms: 412 },
+      { id: 902, at: '2026-09-30T18:09:03Z', transaction_id: '243310', code: 'S101', code_label: 'No email address', message: 'Accepted; the recipient has no email address, so no e-receipt was sent.', http_status: 200, outcome: 'OK', execution_id: null, message_id: null, bytes: 17_990, duration_ms: 88 },
+      { id: 903, at: '2026-09-30T18:12:41Z', transaction_id: null, code: 'E103', code_label: 'Document refused', message: 'The document does not follow TTDR 3.2.2: line 3: TTDRVersion', http_status: 400, outcome: 'REJECTED', execution_id: null, message_id: null, bytes: 2_100, duration_ms: 15 },
+    ],
     ...overrides,
   }
 }
@@ -182,6 +197,40 @@ export function handleWorkspaceTools({ path, url, method, body }: Request, state
                               events: (body?.events as NotificationSettings['events']) ?? state.notifications.events, webhook_tested_at: url === state.notifications.webhook_url ? state.notifications.webhook_tested_at : null }
     }
     return json(state.notifications)
+  }
+  if (path.endsWith('/workspace/pos/received/')) {
+    const code = query.get('code'), q = query.get('q')
+    return json({ results: state.received.filter((row) => (!code || row.code === code) && (!q || (row.transaction_id ?? '').includes(q))), more: false, next_before: null, days: 30 })
+  }
+  if (path.endsWith('/workspace/pos/')) {
+    if (method === 'PUT') {
+      const next = body as Partial<PosSettings>
+      for (const key of ['campaign', 'return_campaign'] as const) {
+        if (key in next && next[key] && !state.pos.campaigns.some((c) => c.id === next[key])) return invalid({ [key]: ["Choose one of this workspace's e-receipt campaigns."] })
+      }
+      state.pos = { ...state.pos, ...next }
+    }
+    return json({ ...state.pos, stores: state.stores.length })
+  }
+  if (path.endsWith('/stores/import/')) { state.stores = [...state.stores, { ...state.stores[0], id: 'st-802', store_number: '802', name: 'Northwind Apparel Midtown' }]; return json({ added: 1, updated: 0, problems: [] }) }
+  if (path.endsWith('/stores/')) {
+    if (method === 'POST') {
+      const input = body as Partial<Store>
+      if (!input.store_number) return invalid({ store_number: ['Give the store its number, as the point of sale sends it.'] })
+      if (state.stores.some((row) => row.store_number === input.store_number)) return invalid({ store_number: [`Store ${input.store_number} is already listed.`] })
+      const row = { ...state.stores[0], ...input, id: `st-${input.store_number}`, is_active: input.is_active !== false } as Store
+      state.stores = [...state.stores, row]
+      return json(row, 201)
+    }
+    return json(state.stores)
+  }
+  const store = path.match(/\/stores\/([^/]+)\/$/)
+  if (store) {
+    const index = state.stores.findIndex((row) => row.id === store[1])
+    if (index < 0) return json({ detail: 'Not found.' }, 404)
+    if (method === 'DELETE') { state.stores = state.stores.filter((row) => row.id !== store[1]); return json(null, 204) }
+    if (method === 'PATCH') state.stores[index] = { ...state.stores[index], ...(body as Partial<Store>) }
+    return json(state.stores[index])
   }
   if (path.endsWith('/workspace/preference-center/')) {
     if (method === 'PUT') {

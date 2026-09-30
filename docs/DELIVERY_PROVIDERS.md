@@ -124,8 +124,11 @@ link all come from the engine.
 {API_PUBLIC_URL}/api/v1/webhooks/delivery/<TENANT CODE>/<provider id>/<token>/
 ```
 
-Shown per provider in **Settings → Sending engines** ("Copy webhook URL"). The token is an HMAC of the provider id with the
-installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup. Every event is stored raw in
+Shown per provider in **Settings → Sending engines** ("Copy Webhook URL"). The token is an HMAC of the provider id (and, once
+rotated, its rotation key) with the installation's `SECRET_KEY`; the tenant code lets the request be routed before any lookup.
+**Rotate Address** on the engine (`POST /delivery-providers/{id}/rotate-webhook/`, `provider.edit`) stores a fresh random
+`webhook_key` in the engine's config: the old address answers 404 at once and the new one has to be registered with the
+provider. The column also says when the engine last called back and how often in the last day, or that it never has. Every event is stored raw in
 `delivery_webhook_event` first, then applied; the endpoint answers `200` with counts
 (`received / applied / ignored / unmatched / failed`) so providers do not retry events that were understood.
 A wrong token is `404`, a failed provider signature `401`.
@@ -134,6 +137,21 @@ Status only moves forward (`SUBMITTED → DELIVERED → OPENED → CLICKED`); bo
 A hard bounce or a complaint blocks the address in `contact_point_status` (three soft bounces do too); a complaint or a
 provider-side unsubscribe also records an opt-out. The next run leaves those people out with the reason shown on the
 campaign page.
+
+### 6.1 Troubleshooting a send (campaign → Recipients)
+
+Every question about a bulk send has one place to be answered, on the campaign page:
+
+| Question | Where |
+|---|---|
+| What did CEP send, exactly, and what did the engine answer? | Settings → Integrations → Call Log (every call with request and answer; **Retry Send** on a failure) — and from a recipient's row, "Engine Calls" with the log reference `mailer_execution:<id>` |
+| Who was it sent to and what became of each message? | Campaign → **Recipients**: one row per person of a run — address and name, status (Queued / Sent / Delivered / Opened / Clicked / Bounced / Marked as Spam / Failed), the reason text, the times, the engine's message id; filter by status, search by address, name or customer id; CSV. `GET /campaign-runs/{id}/recipients/`, `…/export.csv` |
+| Why did *this* message fail, and did the engine ever confirm it? | A recipient's row opens its timeline (queued, handed to the engine, every callback the engine sent, opens and clicks with the link, the address's standing today) — `GET …/recipients/{execution_id}/` |
+| What does the engine itself say about the message? | **Check with the Engine** on the row: Postal's own record, read now — status, held or not, the last delivery attempt, every attempt with the receiving server's answer (`POST …/recipients/{execution_id}/check/`, `PostalProvider.message_status`; Postal's messages API takes the numeric id the send answered with, found in the call log by the Message-ID) |
+| Who on this campaign's lists cannot be sent to, why, from where, since when? | Campaign → Recipients → **Blocked & Unsubscribed**: the Suppressions rows kept to this campaign's people (attached lists and every frozen run list), with the group chips (Unsubscribed / Bounced / Complained / Blocked), channel, search and CSV — `GET /campaigns/{id}/suppressions/`, `…/export.csv` |
+| Is the engine calling back at all? | Settings → Sending Engines → Callbacks: "Last received … · N in 24 h", or "No callback has ever arrived" — a dead webhook otherwise looks like a send that never delivers (`last_callback_at`, `callbacks_24h` on the provider) |
+
+Reading the picture: a row **Sent** with no delivered time and "No callback from the engine has reached this message" while *Check with the Engine* says **Sent** = the send worked and the webhook is not registered (or points at the wrong Postal mail server). **Failed** with a reason = the engine refused the message (the reason is Postal's own words). **Bounced** / **Marked as Spam** = the callback arrived and the address is now blocked for every campaign (see Blocked & Unsubscribed).
 
 ## 7. Who is left out of a run (`engine/audience.py`)
 

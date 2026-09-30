@@ -33,10 +33,8 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     from apps.integrations.bridge.logbook import Stopwatch
     watch = Stopwatch()
     tenant_id = context.require().tenant_id
-    if not hmac.compare_digest(token, webhook_token(provider_id)):
-        return JsonResponse({"title": "Not found", "status": 404}, status=404)
     provider = DeliveryProvider.objects.filter(pk=provider_id, tenant_id=tenant_id, deleted_at__isnull=True).first()
-    if provider is None:
+    if provider is None or not hmac.compare_digest(token, webhook_token(provider)):       # a rotated address retires the old token
         return JsonResponse({"title": "Not found", "status": 404}, status=404)
     try:
         adapter = registry.adapter_class(provider.provider_type)(config=provider.config or {}, secret=None, provider_id=str(provider.pk), tenant_id=tenant_id)

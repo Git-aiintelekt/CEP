@@ -186,7 +186,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
         const receipt = nextType === 'E_RECEIPT'
         const sendType = nextType === 'DRIP' ? 'DRIP' : receipt || campaign.send_type === 'DRIP' ? 'IMMEDIATE' : campaign.send_type
         return api.patch<Campaign>(`/campaigns/${campaign.id}/`, {
-          ...basics, campaign_type: nextType, channel: receipt ? 'EMAIL' : values.channel, send_type: sendType,
+          ...basics, campaign_type: nextType, channel: receipt ? (values.channel === 'SMS' ? 'SMS' : 'EMAIL') : values.channel, send_type: sendType,
           ...(sendType !== campaign.send_type && sendType !== 'SCHEDULED' ? { scheduled_at: null } : {}),
           ...(sendType === 'DRIP' && !campaign.drip_config ? { drip_config: { time: '09:00', steps: [{ day: 0 }] } } : {}),
           ...(receipt ? { contact_lists: [], excluded_lists: [] } : {}),
@@ -195,7 +195,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
       const created: CampaignFormValues = {
         ...full,
         campaign_type: values.campaign_type as CampaignType,
-        channel: (values.campaign_type === 'E_RECEIPT' ? 'EMAIL' : values.channel) as Channel,
+        channel: (values.campaign_type === 'E_RECEIPT' ? (values.channel === 'SMS' ? 'SMS' : 'EMAIL') : values.channel) as Channel,
         send_type: values.campaign_type === 'DRIP' ? 'DRIP' : 'IMMEDIATE',
       }
       return api.post<Campaign>('/campaigns/', { ...toInput(created), setup_step: PROGRESS.created })
@@ -237,7 +237,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   function chooseType(next: CampaignType) {
     setValue('campaign_type', next, { shouldDirty: true, shouldValidate: Boolean(errors.campaign_type) })
     if (!purposeChosen) setValue('solicitation_type', PURPOSE_OF[next], { shouldDirty: true, shouldValidate: Boolean(errors.solicitation_type) })
-    if (next === 'E_RECEIPT') setValue('channel', 'EMAIL', { shouldDirty: true, shouldValidate: Boolean(errors.channel) })
+    if (next === 'E_RECEIPT' && channel !== 'SMS') setValue('channel', 'EMAIL', { shouldDirty: true, shouldValidate: Boolean(errors.channel) })      // a receipt is email, or a text
     else if (type === 'E_RECEIPT') setValue('channel', '', { shouldDirty: true })
   }
 
@@ -295,11 +295,11 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               )}
             </div>
 
-            {!receipt && (
+            {(
               <div data-field="channel">
                 {locked ? <LockedChoice label="Channel" choice={channelChoice} /> : (
-                  <ChoiceGroup label="Channel" required strong error={errors.channel?.message} hint={editing ? undefined : FIXED_NOTE} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-                    {CHANNELS.filter((item) => channelAllowed(has, item.value, channel)).map((item) => (
+                  <ChoiceGroup label="Channel" required strong error={errors.channel?.message} hint={receipt ? 'An email receipt, or a text receipt for registers that ask for SMS.' : editing ? undefined : FIXED_NOTE} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+                    {CHANNELS.filter((item) => channelAllowed(has, item.value, channel) && (!receipt || item.value === 'EMAIL' || item.value === 'SMS')).map((item) => (
                       <ChoiceCard key={item.value} tile selected={channel === item.value} title={item.title} text={item.text} icon={item.icon}
                         onSelect={() => setValue('channel', item.value, { shouldDirty: true, shouldValidate: Boolean(errors.channel) })} />
                     ))}

@@ -19,6 +19,7 @@ const TABS: { to: string; label: string; feature?: Feature }[] = [
   { to: '/settings/integrations', label: 'Integrations' },
   { to: '/settings/suppressions', label: 'Suppressions' },
   { to: '/settings/preference-center', label: 'Preference Centre' },
+  { to: '/settings/pos', label: 'POS Receipts', feature: 'ereceipt' },
   { to: '/settings/notifications', label: 'Notifications' },
   { to: '/settings/approvals', label: 'Approvals' },
 ]

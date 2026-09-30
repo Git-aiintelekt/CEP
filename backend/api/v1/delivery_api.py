@@ -1,6 +1,8 @@
 """Delivery settings for a workspace: providers (Postal, SendGrid, ... one adapter each), senders, test sends, run results."""
 from django.conf import settings
 from django.core import signing
+from datetime import timedelta
+
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, viewsets
@@ -28,12 +30,17 @@ SENDER_ID = re.compile(r"^(\+[1-9][0-9]{7,14}|[0-9]{3,8}|[A-Za-z0-9 ]{3,11})$") 
 MANAGE = [IsAuthenticated, SameTenant, HasPermissionCode.for_("provider.edit")]
 
 
-def webhook_token(provider_id) -> str:
-    return signing.Signer(salt=WEBHOOK_SALT).signature(str(provider_id))[:32]
+WEBHOOK_KEY = "webhook_key"                                # in the engine's config once the address has been rotated; blank = the first address
 
 
-def webhook_url(tenant_code: str, provider_id) -> str:
-    return f"{params.public_api_url()}/api/v1/webhooks/delivery/{tenant_code}/{provider_id}/{webhook_token(provider_id)}/"
+def webhook_token(provider) -> str:
+    """The secret part of the callback address: a signature of the engine's id and its rotation key, so a rotation retires the old address."""
+    key = str((provider.config or {}).get(WEBHOOK_KEY) or "")
+    return signing.Signer(salt=WEBHOOK_SALT).signature(f"{provider.pk}:{key}" if key else str(provider.pk))[:32]
+
+
+def webhook_url(tenant_code: str, provider) -> str:
+    return f"{params.public_api_url()}/api/v1/webhooks/delivery/{tenant_code}/{provider.pk}/{webhook_token(provider)}/"
 
 
 # ------------------------------------------------------------------------------------------------------------ providers
@@ -47,13 +54,33 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
     has_transactional_secret = serializers.SerializerMethodField()
     webhook_url = serializers.SerializerMethodField()
     sender_count = serializers.SerializerMethodField()
+    last_callback_at = serializers.SerializerMethodField()
+    callbacks_24h = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryProvider
         fields = ("id", "provider_type", "channel", "name", "config", "secret", "has_secret", "secret_ref", "transactional_secret", "drop_transactional_secret",
                   "has_transactional_secret", "rate_limit_per_minute", "is_default", "is_active", "webhook_url", "sender_count", "last_checked_at", "last_check_ok",
-                  "last_check_error", "row_version")
+                  "last_check_error", "last_callback_at", "callbacks_24h", "row_version")
         read_only_fields = ("channel", "last_checked_at", "last_check_ok", "last_check_error", "row_version")
+
+    def _callbacks(self, provider):
+        """When the engine last called back, and how often in the last day: a dead webhook shows as 'never' next to a busy engine."""
+        cache = self.context.setdefault("callbacks", {})
+        if provider.pk not in cache:
+            from django.db.models import Count, Max, Q
+            from apps.integrations.models import IntegrationLog
+            since = timezone.now() - timedelta(hours=24)
+            found = IntegrationLog.objects.filter(tenant_id=provider.tenant_id, direction="IN", integration__delivery_provider_id=provider.pk).aggregate(
+                last=Max("started_at"), day=Count("id", filter=Q(started_at__gte=since)))
+            cache[provider.pk] = (found["last"], found["day"] or 0)
+        return cache[provider.pk]
+
+    def get_last_callback_at(self, provider):
+        return self._callbacks(provider)[0]
+
+    def get_callbacks_24h(self, provider) -> int:
+        return self._callbacks(provider)[1]
 
     def get_has_secret(self, provider) -> bool:
         return bool(provider.secret_enc or provider.secret_ref)
@@ -63,7 +90,7 @@ class DeliveryProviderSerializer(serializers.ModelSerializer):
 
     def get_webhook_url(self, provider) -> str | None:
         cls = registry.adapter_class(provider.provider_type) if provider.provider_type in {c["provider_type"] for c in registry.catalogue()} else None
-        return webhook_url(self.context["tenant_code"], provider.pk) if cls is not None and cls.supports_webhooks else None
+        return webhook_url(self.context["tenant_code"], provider) if cls is not None and cls.supports_webhooks else None
 
     def get_sender_count(self, provider) -> int:
         return provider.sender_profiles.filter(deleted_at__isnull=True).count() if hasattr(provider, "sender_profiles") else \
@@ -152,6 +179,18 @@ class DeliveryProviderViewSet(viewsets.ModelViewSet):
         now = timezone.now()
         SenderProfile.objects.filter(delivery_provider=provider, deleted_at__isnull=True).update(deleted_at=now, is_default=False)
         DeliveryProvider.objects.filter(pk=provider.pk).update(deleted_at=now, is_default=False, is_active=False, name=f"{provider.name} (removed {now:%Y-%m-%d %H:%M:%S})"[:150])
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path="rotate-webhook")
+    def rotate_webhook(self, request, pk=None, version=None):
+        """A new callback address for the engine; the old one answers 404 from now on. Register the new one with the provider."""
+        import secrets
+        provider = self.get_object()
+        if not registry.adapter_class(provider.provider_type).supports_webhooks:
+            raise ValidationError({"detail": "This engine sends no callbacks."})
+        DeliveryProvider.objects.filter(pk=provider.pk).update(config={**(provider.config or {}), WEBHOOK_KEY: secrets.token_urlsafe(18)}, updated_by_id=request.user.pk)
+        provider.refresh_from_db()
+        return Response(self.get_serializer(provider).data)
 
     @extend_schema(request=None, responses={200: None})
     @action(detail=True, methods=["post"])
