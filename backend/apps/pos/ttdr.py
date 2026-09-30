@@ -18,8 +18,19 @@ MAX_BYTES = 2 * 1024 * 1024
 CARD = re.compile(r"(?<!\d)(\d{6})\d{3,9}(\d{4})(?!\d)")     # a card number that slipped through unmasked
 _schema = None
 
-SALE_TYPES = {"SaleTransaction": "Sale", "ReturnTransaction": "Return", "ExchangeTransaction": "Exchange", "VoidTransaction": "Void", "LayawayTransaction": "Layaway",
-              "PostVoidTransaction": "Void", "OrderTransaction": "Order"}
+# TTDR's TransactionType vocabulary folded into the few words a receipt uses; anything else keeps its own name
+CATEGORIES = {
+    "Sale": {"SaleTransaction", "Sale", "EmployeeSale", "TaxExemptSale", "REGISTER", "WEBORDER", "MOBILE", "Delivery", "CurbsidePickup", "InStorePickup", "OrderNotification", "RemotePay"},
+    "Return": {"ReturnTransaction", "Return", "EmployeeReturn", "TaxExemptReturn", "InstantReturn", "MobileReturn", "PostReturn", "ManualRA"},
+    "Exchange": {"ExchangeTransaction", "EmployeeExchange", "TaxExemptExchange", "VehicleExchange"},
+    "Void": {"Voided", "PostVoidSale", "PostVoidReturn"},
+    "Layaway": {"LayAway", "EmployeeLayAway"},
+    "Reprint": {"Reprint"},
+    "Order": {"SuspendedTransaction", "Update"},
+}
+CATEGORY_OF = {name: category for category, names in CATEGORIES.items() for name in names}
+RETURNED_LINE = {"Return", "TradeIn"}                        # ItemReceivedType values that mean the line came back
+VOID_LINE = {"Void"}
 
 
 class TtdrError(ValueError):
@@ -105,8 +116,11 @@ def _read(doc) -> dict:
     data = doc.find(f"{{{NS}}}TransactionData")
     settings = data.find(f"{{{NS}}}TransactionSettings") if data is not None else None
     kind = _t(doc, "TransactionType")
+    qualifier = doc.find(f"{{{NS}}}TransactionQualifier")
     transaction = {
-        "id": _t(doc, "TransId"), "original_id": _t(doc, "OriginalTransId"), "type": kind, "category": SALE_TYPES.get(kind, kind.replace("Transaction", "") or "Sale"),
+        "id": _t(doc, "TransId"), "original_id": _t(doc, "OriginalTransId"), "type": kind, "category": CATEGORY_OF.get(kind, kind.replace("Transaction", "") or "Sale"),
+        "employee_sale": (_t(qualifier, "IsEmployeeTransaction").lower() in ("true", "1", "y", "yes")) if qualifier is not None else kind.startswith("Employee"),
+        "tax_exempt": (_t(qualifier, "IsTaxExemptTransaction").lower() in ("true", "1", "y", "yes")) if qualifier is not None else kind.startswith("TaxExempt"),
         "merchant_number": _t(doc, "MerchantNumber"), "application": _t(doc, "ApplicationID"), "entry_type": _t(doc, "EntryType"),
         "historical": _t(doc, "TransactionHistory").upper() == "Y", "at": _when(doc), "date": _t(doc, "TransactionDateTime/TransactionDate"),
         "time": _t(doc, "TransactionDateTime/TransactionTime"),
@@ -142,15 +156,26 @@ def _read(doc) -> dict:
         "discount_total": _cents(_t(totals, "Totals/DiscountTotal")) if totals is not None else None,
         "tax_total": _cents(_t(totals, "TotalTax/TotalTaxAmount")) if totals is not None else None,
         "grand_total": _cents(_t(totals, "Totals/TotalAmount")) if totals is not None else None,
+        "shipping_total": _cents(_t(totals, "Totals/TotalShippingAmount") or _t(totals, "Totals/ShippingTotal")) if totals is not None else None,
+        "handling_total": _cents(_t(totals, "Totals/TotalHandlingAmount") or _t(totals, "Totals/HandlingTotal")) if totals is not None else None,
+        "cash_back": _cents(_t(totals, "Totals/CashBackAmount")) if totals is not None else None,
         "change_due": _cents(_t(totals, "Totals/Change")) if totals is not None else None,
         "balance": _cents(_t(totals, "Totals/Balance")) if totals is not None else None,
     }
     if summary["grand_total"] is None and settings is not None:
         summary["grand_total"] = _cents(_t(settings, "TotalAmount"))
+    discounts = []
+    if totals is not None:
+        for node in _all(totals, "TransactionLevelDiscounts/Discount"):
+            discounts.append({"description": _t(node, "Description"), "coupon_type": _t(node, "CouponType"), "amount": _cents(_t(node, "Value")), "code": _t(node, "ItemIdentifier")})
+        extra = totals.find(f"{{{NS}}}Discounts")
+        if extra is not None and (_t(extra, "AdditionalDiscountAmount") or _t(extra, "AdditionalDiscountDescription")):
+            discounts.append({"description": _t(extra, "AdditionalDiscountDescription"), "coupon_type": "", "amount": _cents(_t(extra, "AdditionalDiscountAmount")),
+                              "percent": _number(_t(extra, "AdditionalDiscountPercent")), "code": ""})
     taxes = [{"description": _t(node, "TaxDescription"), "percent": _number(_t(node, "TaxPercent")), "amount": _cents(_t(node, "TaxAmount")),
               "taxable": _cents(_t(node, "TaxAmountTaxable"))} for node in _all(data, "FinalTaxLines")] if data is not None else []
     return {"transaction": transaction, "store": store, "recipient": recipient, "recipients": recipients, "items": items, "tenders": tenders, "totals": summary,
-            "taxes": taxes, "loyalty": recipient.get("loyalty") or {}}
+            "taxes": taxes, "discounts": discounts, "loyalty": recipient.get("loyalty") or {}}
 
 
 def _recipient(node) -> dict:
@@ -177,11 +202,19 @@ def _item(node) -> dict:
         quantity = (sold or 0) / 100 if sold is not None and sold >= 100 and sold % 1 == 0 else (sold or 1)
     attributes = {(_t(a, "AttributeDescription") or _t(a, "AttributeType")): _t(a, "AttributeData") for a in _all(node, "ItemAttributes/Attribute")}
     taxes = [_cents(_t(t, "TaxAmount")) or 0 for t in _all(node, "ItemTax/Tax")]
+    status = _t(node, "ItemStatus/ItemReceivedType")
+    voided = status in VOID_LINE or _t(node, "ItemVoid").lower() in ("true", "1", "y", "yes")
+    line_discounts = [{"description": _t(d, "DiscountDescription") or _t(d, "Description"), "amount": _cents(_t(d, "DiscountAmount")), "percent": _number(_t(d, "DiscountPercent")),
+                       "promo_code": _t(d, "DiscountPromoCode"), "reason": _t(d, "DiscountReasonCode")} for d in _all(node, "ItemDiscounts/Discount")]
     return {
         "sku": _t(node, "ProductId"), "id_type": _t(node, "ProductIDType"), "description": _t(node, "Description"), "department": _t(node, "DepartmentCode"),
+        "department_name": _t(node, "DepartmentName"),
         "quantity": quantity, "unit_price": unit, "discount": _cents(_t(node, "Price/DiscountDollarAmount")), "total": extended,
-        "original_price": _cents(_t(node, "Price/OrginalAmount")), "tax": round(sum(taxes), 2) if taxes else None,
-        "status": _t(node, "ItemStatus/ItemReceivedType"), "upc": attributes.get("ProductUPC", ""), "color": attributes.get("Color", ""), "size": attributes.get("Size", ""),
+        "original_price": _cents(_t(node, "Price/OrginalAmount")), "return_amount": _cents(_t(node, "Price/ReturnAmount")), "tax": round(sum(taxes), 2) if taxes else None,
+        "status": status, "returned": status in RETURNED_LINE, "voided": voided, "gift_receipt": _t(node, "GiftReceipt").lower() in ("true", "1", "y", "yes"),
+        "original_transaction_id": _t(node, "OriginalTransId"), "original_date": _t(node, "OriginalTransactionDate"), "original_store": _t(node, "OriginalStoreNumber"),
+        "discounts": line_discounts, "promo_codes": [d["promo_code"] for d in line_discounts if d["promo_code"]],
+        "upc": attributes.get("ProductUPC", ""), "color": attributes.get("Color", ""), "size": attributes.get("Size", ""),
         "style": attributes.get("ProductStyle", ""), "product_class": attributes.get("ProductClass", ""), "attributes": attributes,
     }
 
@@ -193,5 +226,7 @@ def _tender(node) -> dict:
         "type": _t(node, "TenderType"), "entry": _t(node, "TenderEntryMethod"), "amount": _cents(_t(node, "TotalAmount")),
         "account": mask(account), "last4": re.sub(r"\D", "", account)[-4:] if account else "", "auth_code": _t(node, "AuthCode"),
         "method": _t(response, "PaymentMethod") if response is not None else "", "approval": _t(response, "ApprovalStatus") if response is not None else "",
-        "terminal_id": _t(response, "TerminalID") if response is not None else "",
+        "terminal_id": _t(response, "TerminalID") if response is not None else "", "card_type": _t(response, "CardType") if response is not None else "",
+        "voided": _t(node, "TenderVoided").lower() in ("true", "1", "y", "yes"), "change": _cents(_t(response, "CashChange")) if response is not None else None,
+        "remaining_balance": _cents(_t(response, "RemainingCardBalance")) if response is not None else None,
     }

@@ -22,7 +22,7 @@ from apps.integrations.bridge import logbook
 from apps.integrations.bridge.inbound import InboundLogMixin
 from apps.integrations.models import IntegrationLog
 from apps.platform_ops import params
-from apps.pos import mapping, ttdr
+from apps.pos import mapping, receipt_text, ttdr
 from apps.pos.models import Store
 from apps.tenants import context
 from apps.tenants.models import Tenant
@@ -36,7 +36,18 @@ STORE_FIELDS = ("store_number", "name", "brand", "address1", "address2", "city",
                 "url1", "url2", "url3", "url4", "image_url", "is_active")
 
 # the answers the point of sale reads: S = accepted, E = refused (the receipt was not sent)
-S_SENT, S_NO_RECIPIENT, S_DUPLICATE = "S100", "S101", "S102"
+S_SENT, S_NO_RECIPIENT, S_DUPLICATE, S_TEXT_SENT, S_PRINTED, S_TEXT_NOT_SENT = "S100", "S101", "S102", "S103", "S104", "S105"
+
+
+def asks_for(entry_type: str) -> tuple[bool, bool]:
+    """(email, text) from the transaction's EntryType: EMAIL / BOTH / ALL / EMAIL_SMS… want an email; SMS / SMS_LINK / EMAIL_SMS… want a text;
+    PRINT / NOPRINT / PUSH / NONE and the registration flows (SMS_REGISTER, SMS_UPDATE) want nothing from CEP."""
+    value = (entry_type or "PRINT").upper()
+    if value in ("SMS_REGISTER", "SMS_UPDATE"):
+        return False, False
+    email = "EMAIL" in value or value in ("BOTH", "ALL", "PUSH_BOTH")
+    text = "SMS" in value or value == "ALL"
+    return email, text
 E_KEY, E_ENGINE, E_CAMPAIGN, E_BLOCKED, E_LIMIT, E_PAUSED, E_FEATURE = "E888", "E900", "E120", "E121", "E429", "E503", "E122"
 
 
@@ -100,24 +111,50 @@ class PosTransactionView(InboundLogMixin, APIView):
         transaction = read["transaction"]
         recipient = read["recipient"]
         tenant = Tenant.objects.get(pk=context.require().tenant_id)
+        entry = (transaction.get("entry_type") or "PRINT").upper()
+        wants_email, wants_text = asks_for(entry)
+        if not wants_email and not wants_text:
+            return xml_answer(S_PRINTED, transaction_id=transaction["id"], message=f"Accepted; EntryType {entry} asks for no e-receipt. Nothing was sent.")
+        prefs = mapping.settings_of(tenant)
+        key = f"{transaction['merchant_number']}:{transaction['store_number']}:{transaction['register_number']}:{transaction['id']}:{transaction['date']}"
+        common = {"receipt": mapping.receipt_of(read), "store": mapping.store_tags(tenant.pk, read), "party_id": recipient.get("customer_id") or None,
+                  "name": " ".join(p for p in (recipient.get("first_name"), recipient.get("last_name")) if p), "extra_sources": {"TRANSACTION": mapping.transaction_tags(read)}}
+
+        text_note: dict = {}
+        if wants_text:                                     # the text goes first when both are asked for: its outcome rides along in the answer
+            number = mapping.e164(recipient.get("phone") or "", prefs["default_country"])
+            text_ref = mapping.text_campaign_for(tenant)
+            if not number:
+                text_note = {"TEXT_STATUS": "NOT_SENT", "TEXT_MESSAGE": "The recipient has no mobile number."}
+            elif not text_ref:
+                text_note = {"TEXT_STATUS": "NOT_SENT", "TEXT_MESSAGE": "No text e-receipt campaign is published or chosen under Settings, POS Receipts."}
+            else:
+                try:
+                    texted = receipt_text.send(tenant.pk, campaign_ref=text_ref, to_number=number, idempotency_key=key + ":SMS", **common)
+                    text_note = {"TEXT_STATUS": "DUPLICATE" if texted.get("duplicate") else "SENT", "TEXT_EXECUTION_ID": texted.get("execution_id"), "TEXT_MESSAGE_ID": texted.get("provider_message_id")}
+                except receipts.ReceiptRefused as exc:
+                    text_note = {"TEXT_STATUS": "NOT_SENT", "TEXT_MESSAGE": str(exc)}
+            if not wants_email:
+                if text_note["TEXT_STATUS"] == "SENT":
+                    return xml_answer(S_TEXT_SENT, transaction_id=transaction["id"], extra=text_note)
+                if text_note["TEXT_STATUS"] == "DUPLICATE":
+                    return xml_answer(S_DUPLICATE, transaction_id=transaction["id"], message="This transaction was received before; the text receipt is not sent twice.", extra=text_note)
+                return xml_answer(S_TEXT_NOT_SENT, transaction_id=transaction["id"], message=text_note.get("TEXT_MESSAGE", ""), extra={"TEXT_STATUS": "NOT_SENT"})
+
         if not recipient.get("email"):
-            return xml_answer(S_NO_RECIPIENT, transaction_id=transaction["id"], message="Accepted; the recipient has no email address, so no e-receipt was sent.")
+            return xml_answer(S_NO_RECIPIENT, transaction_id=transaction["id"], message="Accepted; the recipient has no email address, so no e-receipt was sent.", extra=text_note)
         try:
-            campaign_ref = mapping.campaign_for(tenant, read)
-            result = receipts.send(tenant.pk, campaign_ref=campaign_ref, to=recipient["email"], receipt=mapping.receipt_of(read), store=mapping.store_tags(tenant.pk, read),
-                                   party_id=recipient.get("customer_id") or None, name=" ".join(p for p in (recipient.get("first_name"), recipient.get("last_name")) if p),
-                                   idempotency_key=f"{transaction['merchant_number']}:{transaction['store_number']}:{transaction['register_number']}:{transaction['id']}:{transaction['date']}",
-                                   extra_sources={"TRANSACTION": mapping.transaction_tags(read)})
+            result = receipts.send(tenant.pk, campaign_ref=mapping.campaign_for(tenant, read), to=recipient["email"], idempotency_key=key, **common)
         except receipts.ReceiptRefused as exc:
             if exc.field == "campaign":
-                return xml_answer(E_CAMPAIGN, transaction_id=transaction["id"], message=str(exc), status=409)
+                return xml_answer(E_CAMPAIGN, transaction_id=transaction["id"], message=str(exc), status=409, extra=text_note)
             if exc.field == "to":
-                return xml_answer(E_BLOCKED, transaction_id=transaction["id"], message=str(exc), status=422)
-            return xml_answer(E_ENGINE, transaction_id=transaction["id"], message=str(exc), status=exc.status if exc.status in (424, 422) else 424)
+                return xml_answer(E_BLOCKED, transaction_id=transaction["id"], message=str(exc), status=422, extra=text_note)
+            return xml_answer(E_ENGINE, transaction_id=transaction["id"], message=str(exc), status=exc.status if exc.status in (424, 422) else 424, extra=text_note)
         if result.get("duplicate"):
             return xml_answer(S_DUPLICATE, transaction_id=transaction["id"], message="This transaction was received before; the receipt is not sent twice.",
-                              extra={"EXECUTION_ID": result.get("execution_id")})
-        return xml_answer(S_SENT, transaction_id=transaction["id"], extra={"EXECUTION_ID": result.get("execution_id"), "MESSAGE_ID": result.get("provider_message_id")})
+                              extra={"EXECUTION_ID": result.get("execution_id"), **text_note})
+        return xml_answer(S_SENT, transaction_id=transaction["id"], extra={"EXECUTION_ID": result.get("execution_id"), "MESSAGE_ID": result.get("provider_message_id"), **text_note})
 
 
 def _document(request) -> bytes:
@@ -230,7 +267,7 @@ class PosSettingsView(APIView):
         live = Campaign.objects.filter(tenant_id=tenant.pk, deleted_at__isnull=True, campaign_type="E_RECEIPT").order_by("name")
         return {**mapping.settings_of(tenant), "endpoint": f"{params.public_api_url()}/api/v1/pos/transactions/", "tenant_key": tenant.code,
                 "headers": ["X-Tenant-Key", "accessTokenKey"], "scope": "receipts:send",
-                "campaigns": [{"id": str(c.pk), "name": c.name, "code": c.code, "status": c.status, "ready": c.status in ("PRODUCTION_PUBLISHED", "ACTIVE")} for c in live],
+                "campaigns": [{"id": str(c.pk), "name": c.name, "code": c.code, "status": c.status, "channel": c.channel, "ready": c.status in ("PRODUCTION_PUBLISHED", "ACTIVE")} for c in live],
                 "stores": Store.objects.filter(tenant_id=tenant.pk).count()}
 
     @extend_schema(responses={200: None})
@@ -242,14 +279,15 @@ class PosSettingsView(APIView):
         from apps.campaigns.models import Campaign
         tenant = Tenant.objects.get(pk=context.require().tenant_id)
         data = request.data if isinstance(request.data, dict) else {}
-        for key in ("campaign", "return_campaign"):
-            if data.get(key) and not Campaign.objects.filter(pk=data[key], tenant_id=tenant.pk, deleted_at__isnull=True, campaign_type="E_RECEIPT").exists():
-                raise ValidationError({key: "Choose one of this workspace's e-receipt campaigns."})
+        for key, channels in (("campaign", ("EMAIL", "MULTI")), ("return_campaign", ("EMAIL", "MULTI")), ("text_campaign", ("SMS", "MMS"))):
+            if data.get(key) and not Campaign.objects.filter(pk=data[key], tenant_id=tenant.pk, deleted_at__isnull=True, campaign_type="E_RECEIPT", channel__in=channels).exists():
+                raise ValidationError({key: "Choose one of this workspace's e-receipt campaigns" + (" on the SMS channel." if key == "text_campaign" else " on the email channel.")})
         mapping.save_settings(tenant, data)
         return Response(self._payload(tenant))
 
 
-CODE_WORDS = {"S100": "Receipt sent", "S101": "No email address", "S102": "Already received", "E888": "Wrong key", "E900": "Engine refused", "E120": "No campaign",
+CODE_WORDS = {"S100": "Receipt sent", "S101": "No email address", "S102": "Already received", "S103": "Text receipt sent", "S104": "Printed, no e-receipt", "S105": "Text not sent",
+              "E888": "Wrong key", "E900": "Engine refused", "E120": "No campaign",
               "E121": "Address blocked", "E122": "Not in the plan", "E429": "Over the limit", "E503": "Paused"}
 
 

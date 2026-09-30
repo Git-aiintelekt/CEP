@@ -1419,11 +1419,15 @@ export type StoreInput = Omit<Store, 'id' | 'created_at' | 'updated_at'>
 export interface PosSettings {
   campaign: string | null
   return_campaign: string | null
+  /** the e-receipt campaign on the SMS channel used when the transaction's EntryType asks for a text */
+  text_campaign: string | null
+  /** two-letter country for reading a ten-digit phone number (US / CA add +1) */
+  default_country: string
   endpoint: string
   tenant_key: string
   headers: string[]
   scope: string
-  campaigns: { id: string; name: string; code: string | null; status: string; ready: boolean }[]
+  campaigns: { id: string; name: string; code: string | null; status: string; channel: string; ready: boolean }[]
   stores: number
 }
 

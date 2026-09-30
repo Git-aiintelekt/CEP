@@ -22,7 +22,7 @@ import { useDebouncedValue } from '@/lib/useDebouncedValue'
 const KEY = ['workspace', 'pos']
 const STORES = ['stores']
 const RECEIVED = ['workspace', 'pos', 'received']
-const CODE_TONE: Record<string, TagTone> = { S100: 'success', S101: 'warning', S102: 'neutral' }
+const CODE_TONE: Record<string, TagTone> = { S100: 'success', S101: 'warning', S102: 'neutral', S103: 'success', S104: 'neutral', S105: 'warning' }
 const EMPTY_STORE: StoreInput = { store_number: '', name: '', brand: '', address1: '', address2: '', city: '', state: '', postal_code: '', country: '', district: '', phone: '', email: '', manager: '',
                                   return_policy: '', url1: '', url2: '', url3: '', url4: '', image_url: '', is_active: true }
 
@@ -30,7 +30,7 @@ export function PosReceiptsPage() {
   const queryClient = useQueryClient()
   const settings = useQuery({ queryKey: KEY, queryFn: ({ signal }) => api.get<PosSettings>('/workspace/pos/', undefined, signal) })
   const save = useMutation({
-    mutationFn: (body: { campaign?: string | null; return_campaign?: string | null }) => api.put<PosSettings>('/workspace/pos/', body),
+    mutationFn: (body: { campaign?: string | null; return_campaign?: string | null; text_campaign?: string | null; default_country?: string }) => api.put<PosSettings>('/workspace/pos/', body),
     onSuccess: (next) => queryClient.setQueryData(KEY, next),
   })
   const [copied, setCopied] = useState('')
@@ -40,6 +40,8 @@ export function PosReceiptsPage() {
   if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
   const data = settings.data
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
+  const emailCampaigns = data.campaigns.filter((c) => c.channel !== 'SMS' && c.channel !== 'MMS')
+  const textCampaigns = data.campaigns.filter((c) => c.channel === 'SMS' || c.channel === 'MMS')
 
   return (
     <div className="space-y-5">
@@ -54,16 +56,27 @@ export function PosReceiptsPage() {
             <h3 className="font-display text-card-heading font-semibold text-ink-900">E-Receipt Campaign</h3>
             <p className="mt-1 text-sm text-ink-500">Transactions go out on this campaign's template and sender. It must be published to production with a verified sender.</p>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <Field label="Sales and Everything Else" required error={errors.campaign}>
+              <Field label="Email Receipt" required error={errors.campaign} hint="Sent when the transaction's EntryType asks for EMAIL (or BOTH, ALL, EMAIL_SMS…).">
                 {(ids) => <Select {...ids} value={data.campaign ?? ''} onChange={(event) => save.mutate({ campaign: event.target.value || null })}>
-                  <option value="">{data.campaigns.filter((c) => c.ready).length === 1 ? 'The one published campaign' : 'Choose a Campaign'}</option>
-                  {data.campaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
+                  <option value="">{emailCampaigns.filter((c) => c.ready).length === 1 ? 'The one published campaign' : 'Choose a Campaign'}</option>
+                  {emailCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Returns and Exchanges" error={errors.return_campaign} hint="Leave empty to use the same campaign.">
+              <Field label="Returns and Exchanges" error={errors.return_campaign} hint="Leave empty to use the same campaign. A return renders as a refund: negative amounts, the tender as Refund to….">
                 {(ids) => <Select {...ids} value={data.return_campaign ?? ''} onChange={(event) => save.mutate({ return_campaign: event.target.value || null })}>
                   <option value="">Same Campaign</option>
-                  {data.campaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
+                  {emailCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
+                </Select>}
+              </Field>
+              <Field label="Text Receipt" error={errors.text_campaign} hint="An e-receipt campaign on the SMS channel, sent when EntryType asks for SMS (SMS, EMAIL_SMS, SMS_LINK…). Empty: texts are accepted and answered S105.">
+                {(ids) => <Select {...ids} value={data.text_campaign ?? ''} onChange={(event) => save.mutate({ text_campaign: event.target.value || null })}>
+                  <option value="">{textCampaigns.filter((c) => c.ready).length === 1 ? 'The one published text campaign' : textCampaigns.length ? 'Choose a Campaign' : 'No text e-receipt campaign yet'}</option>
+                  {textCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
+                </Select>}
+              </Field>
+              <Field label="Phone Numbers Are From" error={errors.default_country} hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
+                {(ids) => <Select {...ids} value={data.default_country} onChange={(event) => save.mutate({ default_country: event.target.value })}>
+                  <option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="GB">United Kingdom (+44)</option><option value="IN">India (+91)</option><option value="AU">Australia (+61)</option>
                 </Select>}
               </Field>
             </div>
@@ -93,7 +106,11 @@ export function PosReceiptsPage() {
               </div>
               <div>
                 <dt className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Answers</dt>
-                <dd className="mt-1 text-ink-700">XML: <code>S100</code> receipt sent · <code>S101</code> accepted, no email address · <code>S102</code> already received · <code>E1xx</code> the document is refused (the message says where) · <code>E120</code> no campaign · <code>E888</code> wrong key · <code>E900</code> the engine did not accept it, call again later.</dd>
+                <dd className="mt-1 text-ink-700">XML: <code>S100</code> email receipt sent · <code>S101</code> accepted, no email address · <code>S102</code> already received · <code>S103</code> text receipt sent · <code>S104</code> no e-receipt asked for, nothing sent · <code>S105</code> text asked for but not sent (the message says why) · <code>E1xx</code> the document is refused (the message says where) · <code>E120</code> no campaign · <code>E888</code> wrong key · <code>E900</code> the engine did not accept it, call again later.</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold tracking-wide text-ink-500 uppercase">What triggers a receipt</dt>
+                <dd className="mt-1 text-ink-700">The transaction's <code>EntryType</code>: <code>EMAIL</code>, <code>BOTH</code>, <code>ALL</code> and every <code>…EMAIL…</code> value send the email receipt; <code>SMS</code>, <code>SMS_LINK</code>, <code>ALL</code> and every <code>…SMS…</code> value send the text receipt (both when both are named — the text's outcome rides in the answer as <code>TEXT_STATUS</code>); <code>PRINT</code>, <code>NOPRINT</code>, <code>PUSH</code> and <code>NONE</code> are accepted and send nothing. A return or void renders as a refund; an exchange shows the returned lines as negatives.</dd>
               </div>
             </dl>
           </section>
@@ -230,6 +247,7 @@ function ReceivedCard() {
         <Field label="Answer">
           {(ids) => <Select {...ids} controlSize="sm" value={code} onChange={(event) => setCode(event.target.value)}>
             <option value="">All</option><option value="S100">S100 Receipt sent</option><option value="S101">S101 No email address</option><option value="S102">S102 Already received</option>
+            <option value="S103">S103 Text receipt sent</option><option value="S104">S104 Printed, no e-receipt</option><option value="S105">S105 Text not sent</option>
             <option value="E103">E103 Document refused</option><option value="E120">E120 No campaign</option><option value="E900">E900 Engine refused</option>
           </Select>}
         </Field>

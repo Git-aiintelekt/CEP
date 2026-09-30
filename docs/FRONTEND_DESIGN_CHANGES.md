@@ -301,3 +301,8 @@ store field, a return-policy text area, an In Use switch and Remove; *Import CSV
 added / updated / skipped lines). Right column: **Tell the Point of Sale** (the endpoint with Copy, the two header forms, where the key
 comes from, the answer codes in one line) and **Received from the Point of Sale** (Answer and Transaction ID filters; a table of when,
 transaction, the answer as a tag — green S100, amber S101, grey S102, red E… — with the message under it, and the receipt's engine id).
+- **Same day, second pass — EntryType, returns, text receipts.** The transaction's `EntryType` decides what goes out (answers `S103` text sent,
+  `S104` nothing asked for, `S105` text not sent, with filters in the trail); a return or void renders as a refund. Settings → POS Receipts
+  gains **Text Receipt** (an e-receipt campaign on the SMS channel) and **Phone Numbers Are From**; the Email Receipt select lists email
+  campaigns only. The campaign setup dialog now shows the Channel choice for an E-Receipt too, limited to Email and SMS (Email preselected),
+  and the Content step offers message templates to a text receipt.

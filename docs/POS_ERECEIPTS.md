@@ -37,6 +37,35 @@ The answer is XML, whatever happened, in the shape the point of sale already rea
 | `S100` | 200 | Accepted and the receipt was handed to the engine (`EXECUTION_ID`, `MESSAGE_ID`) |
 | `S101` | 200 | Accepted; the recipient has no `EmailAddress`, so nothing was sent — ask the point of sale to include it |
 | `S102` | 200 | This transaction was received before; the receipt is not sent again |
+| `S103` | 200 | Accepted and the **text receipt** was handed to the text engine (`TEXT_EXECUTION_ID`, `TEXT_MESSAGE_ID`) |
+| `S104` | 200 | Accepted; `EntryType` asks for no e-receipt (`PRINT`, `NOPRINT`, `PUSH`, `NONE`, the SMS registration flows) — nothing from CEP |
+| `S105` | 200 | Accepted; a text was asked for but not sent — the message says why (no usable mobile number, no text campaign, number blocked, engine refused) |
+
+**What triggers a receipt is the transaction's `EntryType`** (`api/v1/pos_api.py asks_for`): every value naming `EMAIL`, plus `BOTH`,
+`ALL`, `PUSH_BOTH`, sends the **email** receipt to the recipient's `EmailAddress` (else `S101`); every value naming `SMS`, plus `ALL`,
+sends the **text** receipt to the recipient's `PhoneNumber` on the workspace's text e-receipt campaign; `EMAIL_SMS`, `EMAIL_SMS_PRINT`
+and `ALL` send both — the email decides the answer code and the text's outcome rides along as `TEXT_STATUS` (SENT / DUPLICATE /
+NOT_SENT with `TEXT_MESSAGE`), `TEXT_EXECUTION_ID`, `TEXT_MESSAGE_ID`. `PRINT`, `NOPRINT`, `PUSH*`, `NONE`, `SMS_REGISTER` and
+`SMS_UPDATE` are accepted and send nothing (`S104`). Any value outside the schema's list fails validation (`E103`). The trail keeps every
+answer, so a store that prints when it should email shows up as a run of `S104`.
+
+**Returns, exchanges, voids.** `TransactionType` is folded into a category (`ttdr.CATEGORIES`): Sale (SaleTransaction, Sale, EmployeeSale,
+TaxExemptSale, WEBORDER, MOBILE, Delivery, CurbsidePickup, InStorePickup…), Return (ReturnTransaction, Return, EmployeeReturn,
+TaxExemptReturn, InstantReturn, MobileReturn, PostReturn…), Exchange, Void (Voided, PostVoidSale, PostVoidReturn), Layaway, Reprint, Order;
+anything else keeps its own name. A **Return or Void renders as a refund**: every amount negative, the tender "Refund to debit ···3425",
+`receipt.refund = true`, `receipt.kind = Return`; the return campaign (Settings → POS Receipts) carries it when one is chosen, else the same
+campaign. An **Exchange** shows only the lines whose `ItemReceivedType` is `Return` or `TradeIn` as negatives; voided lines (`ItemVoid`,
+`ItemReceivedType Void`) and voided tenders are left out. Also read: `OriginalTransId` (and per line the original transaction, date and
+store), `IsEmployeeTransaction`, `IsTaxExemptTransaction`, `GiftReceipt`, item discounts with their promo codes, transaction-level
+discounts (`TransactionLevelDiscounts` and `Discounts/AdditionalDiscount…` → `receipt.discount_code`, tag `discount_words`), shipping and
+handling totals, cash back, the card type and remaining gift-card balance.
+
+**Text receipts** (`apps/pos/receipt_text.py`): an e-receipt campaign on the **SMS channel** (the setup dialog offers Email or SMS for an
+e-receipt; its template is a message template with the same tags) chosen under Settings → POS Receipts → Text Receipt, or the one
+published. The message is rendered with RECEIPT / STORE / TRANSACTION tags, sent through the campaign's sender and text engine
+(Digivize, or the sandbox engine), recorded as an `sms_execution` under the campaign's run of the day (callbacks, STOP handling and
+the Recipients tab apply), idempotent on the transaction key + `:SMS`. A number that replied STOP or is blocked is refused. Ten-digit
+numbers are read as +1 when the workspace's *Phone Numbers Are From* setting is US or CA.
 | `E101` / `E102` / `E103` / `E104` | 400 | No XML / not well formed / does not follow TTDR 3.2.2 (`RESPONSE_MESSAGE` says the line and the rule) / too large |
 | `E120` | 409 | No e-receipt campaign is published, or more than one and none chosen under Settings → POS Receipts |
 | `E121` | 422 | The address is blocked (hard bounce, complaint): nothing sent |
@@ -91,10 +120,11 @@ APPLICATION_URL (put the logo and the link into the template itself).
 
 ## 4. Settings → POS Receipts
 
-- **E-Receipt Campaign**: the campaign transactions go out on (and, optionally, another one for returns and exchanges). With
-  exactly one published e-receipt campaign no choice is needed. `GET` / `PUT /workspace/pos/` (`user.admin`,
-  `tenant.settings.pos`); the answer also carries the endpoint, the tenant key, the header names and the scope to give the
-  point of sale.
+- **E-Receipt Campaign**: the email campaign transactions go out on, optionally another one for returns and exchanges, the
+  **text** campaign (SMS channel) for `EntryType` values that ask for a text, and *Phone Numbers Are From* (the country a ten-digit
+  number belongs to). With exactly one published campaign of a kind no choice is needed. `GET` / `PUT /workspace/pos/`
+  (`user.admin`, `tenant.settings.pos`: `campaign`, `return_campaign`, `text_campaign`, `default_country`); the answer also carries
+  the endpoint, the tenant key, the header names and the scope to give the point of sale.
 - **Stores** (`/stores/`, reads `campaign.view`, changes `user.admin`; `store` table, RLS, audited): number, name, brand,
   address, city, state, postal code, country, district, phone, email, manager, return policy, four URLs, an image URL, in use.
   **Import CSV** (`POST /stores/import/`, multipart `file`): a header row with `store_number` and `name` at least; a listed
