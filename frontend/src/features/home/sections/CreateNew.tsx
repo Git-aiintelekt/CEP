@@ -1,28 +1,22 @@
-import { ChevronRight, Plus } from 'lucide-react'
+import { useId } from 'react'
 import { Link } from 'react-router-dom'
 
-import { HomeCard } from '../components/HomeCard'
 import type { CreateTile } from '../createNewTiles'
 
-const WIDE_COLUMNS = ['', 'min-[768px]:grid-cols-1', 'min-[768px]:grid-cols-2', 'min-[768px]:grid-cols-3', 'min-[768px]:grid-cols-4']
-// 1px dividers between tiles wherever they fall: one row from 768px, two per row from 480px, one per row below
-const DIVIDERS = 'border-line-subtle max-[479px]:[&:not(:first-child)]:border-t min-[480px]:max-[767px]:[&:nth-child(even)]:border-l min-[480px]:max-[767px]:[&:nth-child(n+3)]:border-t min-[768px]:[&:not(:first-child)]:border-l'
+const BUTTON = 'inline-flex h-10 items-center gap-2 rounded-control-lg border border-line-control bg-surface pr-3.5 pl-2.5 text-sm font-medium whitespace-nowrap text-ink-900 transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle'
 
-/** One row of create shortcuts, each a whole-tile link; the caller hides the section when there are none. */
+/** The create shortcuts as a row of buttons beside the greeting, each with its plum icon; the caller hides the section when there are none. */
 export function CreateNew({ tiles }: { tiles: CreateTile[] }) {
+  const titleId = useId()
   return (
-    <HomeCard title="Create New" icon={Plus} flush>
-      <ul className={`grid grid-cols-1 ${tiles.length > 1 ? 'min-[480px]:grid-cols-2' : ''} ${WIDE_COLUMNS[tiles.length]}`}>
-        {tiles.map(({ key, label, icon: Icon, to }) => (
-          <li key={key} className={`min-w-0 ${DIVIDERS}`}>
-            <Link to={to} data-create={key} className="flex h-16 items-center gap-3 px-4 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
-              <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md bg-plum-100 text-plum-700"><Icon size={16} strokeWidth={1.5} /></span>
-              <span className="min-w-0 truncate text-card-title font-semibold text-ink-900">{label}</span>
-              <ChevronRight size={16} strokeWidth={1.5} aria-hidden className="ml-auto shrink-0 text-ink-800" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </HomeCard>
+    <section aria-labelledby={titleId} className="flex min-w-0 flex-wrap items-center gap-2">
+      <h2 id={titleId} className="mr-1 text-helper font-normal text-ink-800">Create New</h2>
+      {tiles.map(({ key, label, icon: Icon, to }) => (
+        <Link key={key} to={to} data-create={key} className={BUTTON}>
+          <span aria-hidden data-plum-icon className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control-sm bg-plum-100 text-plum-700"><Icon size={14} strokeWidth={1.5} /></span>
+          {label}
+        </Link>
+      ))}
+    </section>
   )
 }

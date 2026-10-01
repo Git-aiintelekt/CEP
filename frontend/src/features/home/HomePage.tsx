@@ -1,5 +1,5 @@
 /**
- * Home, the operating cockpit: the greeting, Create New, Needs Attention, Marketing Performance with the page-wide filters, then
+ * Home, the operating cockpit: the greeting with the Create New buttons beside it, Needs Attention as a strip, Marketing Performance with the page-wide filters, then
  * the cards: the designed rows when all are there, otherwise two per row (see homeLayout).
  */
 import { Fragment, type ReactNode } from 'react'
@@ -105,9 +105,10 @@ export function HomePage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <h1 className="truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1>
-
-      {layout.createNew && <CreateNew tiles={tiles} />}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1>
+        {layout.createNew && <CreateNew tiles={tiles} />}
+      </div>
       {layout.attention && <NeedsAttention result={attention} />}
       <MarketingPerformance filters={filters} onChange={setFilters} onClear={clearFilters} singleCampaign={layout.singleCampaign ? campaignName ?? '1 campaign' : undefined} />
       {layout.rows.map((row) => <CardRow key={row.name} row={row} render={render} />)}

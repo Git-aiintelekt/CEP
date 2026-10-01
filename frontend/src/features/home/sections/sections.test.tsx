@@ -21,7 +21,7 @@ const tile = (label: string) => document.querySelector(`[data-kpi="${label}"]`) 
 const member = (denied: string[]): HomeViewer => ({ ...SAMPLE_VIEWER, can: (permission) => !denied.includes(permission) })
 
 // ---------------------------------------------------------------- Needs Attention
-test('alert cards: red, then amber, then periwinkle, larger counts first; four until View All; each card one link', async () => {
+test('alert cells: red, then amber, then periwinkle, larger counts first; four until View All; each cell one link', async () => {
   const user = userEvent.setup()
   renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [
     group('gov', 'governance', 900), group('block-small', 'blocking', 1), group('crit-small', 'critical', 2), group('block-big', 'blocking', 7), group('crit-big', 'critical', 5),
@@ -31,9 +31,11 @@ test('alert cards: red, then amber, then periwinkle, larger counts first; four u
   const first = cards()[0]
   expect(first.getAttribute('href')).toBe('/go/crit-big')
   expect(first.querySelector('a')).toBeNull()
-  expect(first.className).toContain('rounded-lg border border-line bg-surface p-4')
   expect(first.className).toContain('hover:bg-surface-subtle')
+  expect(first.querySelector('[data-severity-icon="critical"]')).toBeTruthy()                                   // the icon on its tint, the category in words beside it
+  expect(first.textContent).toContain('crit-big label')
   expect(first.textContent).toContain('crit-big action')
+  expect(first.closest('ul')!.className).toContain('flex-wrap')                                                   // one strip; cells wrap whole, never squeeze
   expect(first.querySelector('.lucide-arrow-right')).toBeTruthy()
   expect(within(attention()).getByText('Updated today at 6:00 AM')).toBeTruthy()
 
@@ -73,7 +75,7 @@ test('no alerts, unavailable or forbidden: no Needs Attention at all, not even i
   expect(screen.queryByRole('region', { name: 'Needs Attention' })).toBeNull()
 })
 
-test('alerts loading show four placeholder cards; an error keeps the section and shows Try Again', () => {
+test('alerts loading show four placeholder cells; an error keeps the section and shows Try Again', () => {
   renderHome({ source: withAttention({ status: 'loading' }) })
   expect(document.querySelector('[data-attention="loading"]')!.children).toHaveLength(4)
   cleanup()
@@ -152,13 +154,13 @@ test('without report.view the strip is one line; the filters stay', () => {
 })
 
 // ---------------------------------------------------------------- Create New
-test('Create New: one tile per permission, each a link; Journey needs the feature, the permission and a create flow', () => {
+test('Create New: one button per permission beside the greeting, each a link; Journey needs the feature, the permission and a create flow', () => {
   renderHome()
   const tiles = () => within(screen.getByRole('region', { name: 'Create New' })).getAllByRole('link')
   expect(tiles().map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
     ['Campaign', '/campaigns/new'], ['Journey', '/'], ['Template', '/templates/new'], ['Contact List', '/contact-lists?new=1'],   // the sample's "#" stays on the page
   ])
-  expect(tiles()[0].className).toContain('h-16')
+  expect(tiles()[0].className).toContain('h-10')
   expect(tiles()[0].querySelector('.bg-plum-100')).toBeTruthy()
   cleanup()
   renderHome({ viewer: member(['template.edit', 'journey.edit']) })

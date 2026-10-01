@@ -50,12 +50,13 @@ test('busy: the greeting, then every section in order, each a region named by it
   expect(within(region('Marketing Performance')!).getByText('Campaign Contribution')).toBeTruthy()
 })
 
-test('no alerts: Create New sits straight above Marketing Performance, with nothing between', () => {
+test('no alerts: Marketing Performance follows the greeting row (Create New sits inside it), with nothing between', () => {
   renderHome({ state: 'noAlerts' })
   expect(order().slice(1, 3)).toEqual(['Create New', 'Marketing Performance'])
-  const page = region('Create New')!.parentElement!
-  expect(region('Create New')!.nextElementSibling).toBe(region('Marketing Performance'))
-  expect(page.className).toContain('gap-5')
+  const greetingRow = screen.getByRole('heading', { level: 1 }).parentElement!
+  expect(greetingRow.contains(region('Create New'))).toBe(true)
+  expect(greetingRow.nextElementSibling).toBe(region('Marketing Performance'))
+  expect(greetingRow.parentElement!.className).toContain('gap-5')
 })
 
 test('with no first name the greeting stands alone', () => {

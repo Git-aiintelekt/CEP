@@ -151,7 +151,7 @@ Derived convenience roles also exist for links, focus, icons and legacy surface 
 Only Journey and Campaign are built (`components/CategoryTag.tsx`); the other four wait for a data field. A new category never reuses a status hue, and its text must pass 4.5:1 on its background.
 
 **Plum accent**: `--plum-50 #FBF4F9`, `--plum-100 #F4E4F1`, `--plum-200 #E8C6E0`, `--plum-500 #A8488F`, `--plum-700 #8A3375`, `--plum-800 #6E2A5E`.
-- Use for: journey markers; icon badges (a `plum-700` icon on a `plum-100` square) on KPI tiles, Create New tiles and section headers; at most one `plum-50` header strip per section; small highlight marks.
+- Use for: journey markers; icon badges (a `plum-700` icon on a `plum-100` square) on KPI tiles, the Create New buttons and section headers; at most one `plum-50` header strip per section; small highlight marks.
 - Never for: buttons, links, status, large fills, body text, or more than two plum elements in one small component. Blue 600 stays the only action colour.
 - Keep plum at least 8px away from a violet Test Published tag so the two don't read as one.
 
@@ -283,6 +283,8 @@ The Home page (`frontend/src/features/home/`) is built from these parts; reuse t
 - **HomeCard** (`features/home/components/HomeCard.tsx`): a `<section>` named by its heading, white with a 1px hairline and 8px corners, no shadow; renders nothing when its data is unavailable.
 - **Diverging target bars** (`features/home/sections/TopBottom.tsx`): from a 1px 100% line, over target grows right in Blue 600, under grows left in the danger accent, each with its % beside it; bar length against the largest deviation shown.
 - **Freshness line** (`features/home/sections/NeedsAttention.tsx`): a 6px green dot and "Updated at 14:05 EDT", the load time in the workspace zone.
+- **Create New is a row of outline buttons beside the greeting** (2026-10-02), each with its plum icon, no card: the page's first block is what needs attention.
+- **Needs Attention is one strip of alert cells** (2026-10-02), 64px tall: the severity icon on its tint, the count, the label with the category under it, and the action as a link after a hairline. A cell is as wide as its words and wraps whole to the next line of the strip; four show until View All.
 - **Needs Attention is hidden when there are no alert groups** (also when alerts are unavailable or forbidden); no collapsed row, no heading. Loading keeps its placeholder cards and an error keeps the section with Try Again. The page order is greeting, Create New, Needs Attention, Marketing Performance, then the card rows (`features/home/homeLayout.ts` decides what shows).
 
 
