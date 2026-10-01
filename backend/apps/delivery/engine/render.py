@@ -22,8 +22,11 @@ from django.utils import timezone
 
 TAG_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
 BODY_RE = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
-PREHEADER_STYLE = "display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all;"
-PREHEADER_FILL = "&#847;&zwnj;&nbsp;" * 40                  # keeps the body's first words out of the inbox line after a short preheader
+PREHEADER_STYLE = "display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;visibility:hidden;mso-hide:all;"
+# After the preheader, enough invisible characters that no inbox line reaches the body's first words (image alt text, the nav links).
+# Gmail shows up to ~140 characters after the subject, Outlook on the web and the phone apps ~100; each pair counts as one, so 40 left
+# room for "Banner Insider's Club CTA HOME SHOP…" to follow a short preheader. 200 covers every client.
+PREHEADER_FILL = "&#847;&zwnj;&nbsp;" * 200
 
 
 def subject_of(campaign, content) -> str:
