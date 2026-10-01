@@ -906,7 +906,8 @@ export interface DesignVersion {
   saved_by: string | null
 }
 
-export type ReceiptLayoutPreset = 'COMPACT' | 'STANDARD' | 'ITEMIZED' | 'CUSTOM_HTML'
+/** REGISTER: the paper receipt as the register prints it, a fixed layout with nothing to configure */
+export type ReceiptLayoutPreset = 'COMPACT' | 'STANDARD' | 'ITEMIZED' | 'REGISTER' | 'CUSTOM_HTML'
 interface ReceiptSectionBase {
   label: string
   /** required sections: always visible, can't be hidden or removed */

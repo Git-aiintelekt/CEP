@@ -49,6 +49,17 @@ def _date_text(value) -> str:
     return f"{moment.strftime('%b')} {moment.day}, {moment.year}"
 
 
+def _stamp_text(value) -> str:
+    """07/02/2026 17:31: the register's own date and time."""
+    if not value:
+        return ""
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return str(value)
+    return moment.strftime("%m/%d/%Y %H:%M")
+
+
 def _time_text(value) -> str:
     if not value:
         return ""
@@ -69,7 +80,7 @@ def transaction_from(receipt: dict, store: dict | None, currency: str = "USD") -
         amount = _number(item.get("total", item.get("amount")), None)
         items.append({"sku": str(item.get("sku") or ""), "description": str(item.get("description") or item.get("name") or "Item"),
                       "image_url": item.get("image_url") or None, "quantity": quantity, "unit_price": unit,
-                      "amount": amount if amount is not None else quantity * unit})
+                      "amount": amount if amount is not None else quantity * unit, "discount": abs(_number(item.get("discount"), 0.0))})
     discount_total = _number(receipt.get("discount_total"), 0.0)
     subtotal = _number(receipt.get("subtotal"), None)
     if subtotal is None:
@@ -86,7 +97,21 @@ def transaction_from(receipt: dict, store: dict | None, currency: str = "USD") -
     if loyalty is not None and loyalty.get("enrolled") is False:
         loyalty = None
     when = receipt.get("transaction_at")
+    taxes = [{"label": str(tax.get("description") or "Sales Tax"), "percent": _number(tax.get("percent"), None), "amount": _number(tax.get("amount"), 0.0)}
+             for tax in (receipt.get("taxes") or []) if isinstance(tax, dict)] or ([{"label": "Sales Tax", "percent": None, "amount": tax}] if tax else [])
+    tenders = [{"label": str(x.get("label") or ""), "amount": _number(x.get("amount"), 0.0), "auth": str(x.get("auth_code") or "")}
+               for x in (receipt.get("tenders") or []) if isinstance(x, dict) and x.get("amount") is not None]
+    if not tenders and (receipt.get("tender_summary") or receipt.get("payment_method")):
+        tenders = [{"label": str(receipt.get("tender_summary") or receipt.get("payment_method")).upper(), "amount": _number(receipt.get("amount_paid"), total), "auth": ""}]
+    item_count = _number(receipt.get("item_count"), None)
+    register = {
+        "trans_number": str(receipt.get("number") or receipt.get("order_number") or ""), "register": str(receipt.get("register") or ""),
+        "store_number": str(receipt.get("store_number") or store.get("number") or store.get("id") or ""), "trans_at": _stamp_text(when),
+        "cashier": str(receipt.get("clerk") or ""), "item_count": item_count if item_count is not None else sum(abs(item["quantity"]) for item in items),
+        "taxes": taxes, "tenders": tenders, "change_due": _number(receipt.get("change_due"), 0.0),
+    }
     return {
+        "register": register,
         "source": "ECOMMERCE" if online else "POS", "currency": currency,
         "order_number": str(receipt.get("order_number") or receipt.get("number") or ""), "order_date": _date_text(when),
         "store": str(store.get("name") or receipt.get("store_name") or ""), "receipt_id": str(receipt.get("number") or receipt.get("order_number") or ""),
@@ -258,6 +283,67 @@ def barcode_block(number: str, image_url: str) -> str:
             f'<span style="font-size:12px;line-height:16px;color:{COLOR["muted"]};{NUMERIC}">{_e(number)}</span></td></tr></table>')
 
 
+# ------------------------------------------------------------------------------------------------ the Store Register layout
+REGISTER = {"panel": "#ebe7f2", "text": "#1f1f1f", "rule": "#cbc4d8", "line": "#dcd7e6", "discount": "#2e9e3a"}
+REGISTER_PRESET = "REGISTER"
+
+
+def _count_text(value: float) -> str:
+    return f"{value:g}"
+
+
+def render_register(t: dict) -> str:
+    """The receipt as the register prints it: YOUR RECEIPT, the transaction's numbers in two rows of three, Description and
+    Amount with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with its rate,
+    TOTAL, every tender with its authorisation, and the change. Nothing in it is configurable."""
+    currency = t.get("currency") or "USD"
+    r = t.get("register") or {}
+    cell = f'font-size:12px;line-height:18px;color:{REGISTER["text"]};'
+    strong = cell + "font-weight:700;"
+
+    def meta(label, value, align):
+        return f'<td align="{align}" style="padding:1px 0;{cell}text-align:{align};"><span style="font-weight:700;">{_e(label)}:</span> {_e(value)}</td>'
+
+    header = (f'<table {TABLE}><tr>{meta("Trans Num", r.get("trans_number", ""), "left")}{meta("Register", r.get("register", ""), "center")}{meta("Store", r.get("store_number", ""), "right")}</tr>'
+              f'<tr>{meta("Trans Dt", r.get("trans_at", ""), "left")}{meta("Cashier", r.get("cashier", ""), "center")}{meta("Item(s) Sold", _count_text(_number(r.get("item_count"), 0.0)), "right")}</tr></table>')
+
+    lines = []
+    for item in t["line_items"]:
+        discount = (f'<br /><span style="color:{REGISTER["discount"]};">Discount: ({_e(money(item["discount"], currency))})</span>' if item.get("discount") else "")
+        lines.append(f'<tr><td valign="bottom" style="padding:10px 0;border-bottom:1px solid {REGISTER["line"]};{cell}">{_e(item["description"])}{discount}'
+                     f'<br /><span>{_e(_count_text(item["quantity"]))} @ {_e(money(item["unit_price"], currency))}</span></td>'
+                     f'<td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid {REGISTER["line"]};{cell}{NUMERIC}white-space:nowrap;text-align:right;">{_e(money(item["amount"], currency))}</td></tr>')
+    lines_total = sum(item["amount"] for item in t["line_items"])
+    items = (f'<table {TABLE}><tr><td style="padding:8px 0;border-bottom:2px solid {REGISTER["rule"]};{strong}">Description</td>'
+             f'<td align="right" style="padding:8px 0;border-bottom:2px solid {REGISTER["rule"]};{strong}text-align:right;">Amount</td></tr>{"".join(lines)}'
+             f'<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid {REGISTER["line"]};{strong}{NUMERIC}text-align:right;">{_e(money(lines_total, currency))}</td></tr></table>')
+
+    def total_row(label, value, big=False):
+        size = "font-size:14px;line-height:20px;" if big else ""
+        return (f'<tr><td align="right" style="padding:2px 0;{strong}{size}text-align:right;">{_e(label)}:</td>'
+                f'<td align="right" width="96" style="padding:2px 0 2px 12px;{cell}{size}{NUMERIC}text-align:right;">{_e(value)}</td></tr>')
+
+    rows = [total_row("Subtotal", money(t["subtotal"], currency))]
+    for tax in r.get("taxes") or []:
+        rate = f" ({_count_text(tax['percent'])}%)" if tax.get("percent") is not None else ""
+        rows.append(total_row(f"{tax['label']}{rate}", money(tax["amount"], currency)))
+    rows.append(total_row("TOTAL", money(t["total"], currency), big=True))
+    for tender in r.get("tenders") or []:
+        auth = f" (Auth: {tender['auth']})" if tender.get("auth") else ""
+        rows.append(total_row(f"Paid with {tender['label']}{auth}", money(tender["amount"], currency)))
+    if any((tender.get("label") or "").startswith("CASH") for tender in r.get("tenders") or []) or r.get("change_due"):
+        rows.append(total_row("Cash Change", money(_number(r.get("change_due"), 0.0), currency)))
+    totals = f'<table {TABLE}>{"".join(rows)}</table>'
+
+    return (f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
+            f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{REGISTER["panel"]};font-family:{FONT};color:{REGISTER["text"]};">\n'
+            f'        <tr><td data-section="register-title" align="center" style="padding:18px 20px 8px;font-size:16px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</td></tr>\n'
+            f'        <tr><td data-section="register-header" style="padding:0 20px 10px;">{header}</td></tr>\n'
+            f'        <tr><td data-section="register-items" style="padding:0 20px;">{items}</td></tr>\n'
+            f'        <tr><td data-section="register-totals" style="padding:10px 20px 18px;">{totals}</td></tr>\n'
+            f'      </table>\n    </td>\n  </tr>\n</table>')
+
+
 def _support(section: dict, t: dict, barcode_url: str | None) -> str:
     policy = str(section.get("policy_text") or "").strip()
     policy_html = (f'<p style="margin:4px 0 0;font-size:14px;line-height:20px;color:{COLOR["muted"]};">{_e(policy).replace(chr(13) + chr(10), "<br />").replace(chr(10), "<br />")}</p>'
@@ -285,9 +371,11 @@ def _body(section: dict, t: dict, currency: str, barcode_url: str | None) -> str
     return ""
 
 
-def render(sections: list[dict], transaction: dict, barcode_url: str | None = None) -> str:
+def render(sections: list[dict], transaction: dict, barcode_url: str | None = None, preset: str | None = None) -> str:
     """The receipt, ready for the slot: the hide-on-phones rule, then one centred 600px table, a hairline between
-    sections and a dashed one above Totals."""
+    sections and a dashed one above Totals. The Store Register preset has a fixed layout of its own."""
+    if preset == REGISTER_PRESET:
+        return render_register(transaction)
     currency = transaction.get("currency") or "USD"
     ordered = sorted((s for s in sections if isinstance(s, dict) and s.get("key") in ORDER), key=lambda s: (s.get("order", ORDER.index(s["key"])), ORDER.index(s["key"])))
     shown = [s for s in ordered if shows(s, transaction)]
@@ -344,4 +432,4 @@ def apply(template, html: str, receipt: dict, store: dict | None, currency: str,
     transaction = transaction_from(receipt, store, currency)
     if barcode_url is None and transaction["receipt_id"] and barcode.valid(transaction["receipt_id"]):
         barcode_url = barcode.url(transaction["receipt_id"])
-    return inject(html, render(layout.get("sections") or [], transaction, barcode_url))
+    return inject(html, render(layout.get("sections") or [], transaction, barcode_url, layout.get("layout_preset")))

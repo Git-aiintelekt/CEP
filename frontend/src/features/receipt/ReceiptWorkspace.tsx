@@ -146,7 +146,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
     return () => window.clearTimeout(timer)
   }, [canvasTick, designRestored, designSaved.shown, refreshFooter])
 
-  const renderCombinedHtml = useCallback((transaction: SampleTransaction) => combinedFor(outer, layout.sections, transaction), [outer, layout.sections])
+  const renderCombinedHtml = useCallback((transaction: SampleTransaction) => combinedFor(outer, layout.sections, transaction, layout.layout_preset), [outer, layout.sections, layout.layout_preset])
 
   const saveNote =
     `${DESIGN_NAME} ${versionText(designSaved)} · ${LAYOUT_NAME.toLowerCase()} ${versionText(layoutSaved)}` +

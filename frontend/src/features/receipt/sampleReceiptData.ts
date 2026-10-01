@@ -11,6 +11,22 @@ export interface SampleLineItem {
   quantity: number
   unit_price: number
   amount: number
+  /** the line's own discount, a positive amount; the Store Register layout prints it under the description */
+  discount?: number
+}
+
+/** What the register prints at the top and the bottom: the Store Register layout reads these, the sections never do */
+export interface RegisterDetails {
+  trans_number: string
+  register: string
+  store_number: string
+  /** 07/02/2026 17:31 */
+  trans_at: string
+  cashier: string
+  item_count: number
+  taxes: { label: string; percent: number | null; amount: number }[]
+  tenders: { label: string; amount: number; auth: string }[]
+  change_due: number
 }
 
 export interface SampleTransaction {
@@ -33,6 +49,8 @@ export interface SampleTransaction {
   payment: { masked_method: string; authorized_at: string; billing_address: string }
   /** null for a customer who is not enrolled; an enrolled customer always carries their numbers */
   loyalty: { enrolled: true; points_earned: number; points_balance: number; tier_progress: string } | null
+  /** a point-of-sale transaction's register details; derived from the rest when absent */
+  register?: RegisterDetails
 }
 
 const ORDER_48219: SampleTransaction = {
@@ -146,6 +164,12 @@ const SALE_POS3391: SampleTransaction = {
   total: 49.06,
   payment: { masked_method: 'Visa •••• 4242 · contactless', authorized_at: 'Sep 22, 2026, 12:41 PM', billing_address: '12 Harbour Road, Portland, ME 04101' },
   loyalty: { enrolled: true, points_earned: 49, points_balance: 2429, tier_progress: '571 points to Gold' },
+  register: {
+    trans_number: '3391', register: '1', store_number: '450', trans_at: '09/22/2026 12:41', cashier: '9999', item_count: 2,
+    taxes: [{ label: 'Sales Tax', percent: 5.5, amount: 2.56 }],
+    tenders: [{ label: 'CREDIT-VISA', amount: 49.06, auth: '096837' }],
+    change_due: 0,
+  },
 }
 
 /** Cash: nothing to mask, and the change due belongs on the receipt. */

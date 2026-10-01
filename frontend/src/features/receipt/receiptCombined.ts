@@ -4,7 +4,7 @@
  */
 import type { EmailDesignerHandle } from '@/features/designer/EmailDesigner'
 import { isEmptyDesign } from '@/features/designer/preview/previewState'
-import type { ReceiptSection } from '@/lib/types'
+import type { ReceiptLayoutPreset, ReceiptSection } from '@/lib/types'
 
 import { injectReceiptIntoOuterHtml } from './injectReceipt'
 import { RECEIPT_HIDE_MOBILE_STYLE, renderReceiptEmailHtml } from './receiptEmailHtml'
@@ -16,8 +16,8 @@ export function withHeadStyle(html: string, css: string): string {
   return at === -1 ? html : `${html.slice(0, at)}<style>${css}</style>${html.slice(at)}`
 }
 
-export function combineReceiptEmail(outerHtml: string, sections: ReceiptSection[], transaction: SampleTransaction): string {
-  return injectReceiptIntoOuterHtml(withHeadStyle(outerHtml, RECEIPT_HIDE_MOBILE_STYLE), renderReceiptEmailHtml(sections, transaction))
+export function combineReceiptEmail(outerHtml: string, sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
+  return injectReceiptIntoOuterHtml(withHeadStyle(outerHtml, RECEIPT_HIDE_MOBILE_STYLE), renderReceiptEmailHtml(sections, transaction, preset))
 }
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;' }
@@ -54,6 +54,6 @@ export function compileOuter(editor: Compiler | null | undefined): OuterEmail {
   }
 }
 
-export function combinedFor(outer: OuterEmail, sections: ReceiptSection[], transaction: SampleTransaction): string {
-  return outer.ready ? combineReceiptEmail(outer.html, sections, transaction) : outer.message
+export function combinedFor(outer: OuterEmail, sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
+  return outer.ready ? combineReceiptEmail(outer.html, sections, transaction, preset) : outer.message
 }

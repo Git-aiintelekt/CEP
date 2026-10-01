@@ -13,8 +13,9 @@ import { titleCase } from '@/lib/format'
 import type { ReceiptLayout, ReceiptSection, ReceiptSectionKey } from '@/lib/types'
 
 import { ReceiptPreview } from './ReceiptPreview'
+import { renderRegisterEmailHtml } from './receiptEmailHtml'
 import { PRESET_CARDS, defaultSectionsFor, inOrder, moveSection } from './receiptPresets'
-import { DEFAULT_SAMPLE_TRANSACTION } from './sampleReceiptData'
+import { DEFAULT_SAMPLE_TRANSACTION, SAMPLE_TRANSACTIONS } from './sampleReceiptData'
 
 export type ReceiptLayoutConfig = Pick<ReceiptLayout, 'layout_preset' | 'sections' | 'custom_html' | 'custom_css'>
 
@@ -25,11 +26,14 @@ interface ReceiptLayoutPaneProps {
 }
 
 const PANEL_TITLE = 'px-3 pt-3 pb-2 text-xs font-semibold text-ink-800'
+/** the in-store sale: the one sample that carries register details */
+const REGISTER_SAMPLE = SAMPLE_TRANSACTIONS.find((entry) => entry.data.register)?.data ?? DEFAULT_SAMPLE_TRANSACTION
 
 export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: ReceiptLayoutPaneProps) {
   const [selectedKey, setSelectedKey] = useState<ReceiptSectionKey>('items')
   const [insideShell, setInsideShell] = useState(false)
   const custom = layout.layout_preset === 'CUSTOM_HTML'
+  const register = layout.layout_preset === 'REGISTER'
   const sections = inOrder(layout.sections)
   const selected = sections.find((section) => section.key === selectedKey) ?? sections[0]
 
@@ -47,7 +51,7 @@ export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: Receip
       <aside aria-label="Receipt Layout" className="flex h-full w-[264px] shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
         <h2 className={PANEL_TITLE}>Presentation</h2>
         <PresetCards value={layout.layout_preset} disabled={readOnly} onChange={choosePreset} />
-        {custom ? null : (
+        {custom || register ? null : (
           <>
             <h2 className={`${PANEL_TITLE} mt-2 border-t border-line`}>Receipt Sections</h2>
             <ul className="flex flex-col gap-0.5 px-2 pb-3">
@@ -71,6 +75,20 @@ export function ReceiptLayoutPane({ layout, onChange, readOnly = false }: Receip
 
       {custom ?
         <CustomHtml layout={layout} disabled={readOnly} onChange={onChange} />
+      : register ?
+        <>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-surface-subtle p-6">
+              {/* the same HTML the email carries; the sample is a point-of-sale transaction with its register details */}
+              <div data-testid="register-preview" className="mx-auto max-w-[600px]" dangerouslySetInnerHTML={{ __html: renderRegisterEmailHtml(REGISTER_SAMPLE) }} />
+            </div>
+          </div>
+          <aside aria-label="Section Settings" className="flex h-full w-[296px] shrink-0 flex-col overflow-y-auto border-l border-line bg-surface p-4 max-[1439px]:w-[272px] max-[1199px]:w-[264px]">
+            <h2 className="text-card-title font-semibold text-ink-900">Store Register</h2>
+            <p className="mt-2 text-sm text-ink-800">The receipt as the register prints it: the transaction numbers, each line with its discount and quantity at price, the lines’ sum, then the subtotal, every tax with its rate, the total, each tender with its authorisation, and the change.</p>
+            <p className="mt-2 text-sm text-ink-800">Everything comes from the transaction, so there is nothing to configure here. Choose Standard, Compact or Itemized for sections you can switch and reorder.</p>
+          </aside>
+        </>
       : <>
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-12 shrink-0 items-center justify-end gap-2 border-b border-line bg-surface px-4">

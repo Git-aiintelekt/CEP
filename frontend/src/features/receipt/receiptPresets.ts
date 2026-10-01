@@ -9,6 +9,7 @@ export const PRESET_CARDS: { value: ReceiptLayoutPreset; title: string; descript
   { value: 'COMPACT', title: 'Compact', description: 'Item and amount only — best for one- or two-line orders.' },
   { value: 'STANDARD', title: 'Standard', description: 'Images, quantity and unit price.' },
   { value: 'ITEMIZED', title: 'Itemized', description: 'Adds SKU and every totals row — for B2B and expense claims.' },
+  { value: 'REGISTER', title: 'Store Register', description: 'The paper receipt as the register prints it: transaction numbers, each line’s discount, taxes and tenders.' },
   { value: 'CUSTOM_HTML', title: 'Custom HTML', description: 'Write the receipt’s HTML and CSS yourself.' },
 ]
 

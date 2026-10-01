@@ -338,7 +338,7 @@ class DesignVersionSerializer(serializers.Serializer):
 
 
 class ReceiptLayoutSaveSerializer(serializers.Serializer):
-    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "CUSTOM_HTML"])
+    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "REGISTER", "CUSTOM_HTML"])
     sections = serializers.ListField(child=serializers.DictField(), default=list, help_text="the typed section list the editor owns; kept loose here, same as editor_state")
     custom_html = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
     custom_css = serializers.CharField(trim_whitespace=False, allow_null=True, allow_blank=True, required=False, default=None)
@@ -349,7 +349,7 @@ class ReceiptLayoutSerializer(serializers.Serializer):
     template = serializers.UUIDField()
     version_number = serializers.IntegerField()
     latest_version = serializers.IntegerField()
-    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "CUSTOM_HTML"])
+    layout_preset = serializers.ChoiceField(choices=["COMPACT", "STANDARD", "ITEMIZED", "REGISTER", "CUSTOM_HTML"])
     sections = serializers.ListField(child=serializers.DictField())
     custom_html = serializers.CharField(allow_null=True)
     custom_css = serializers.CharField(allow_null=True)
