@@ -35,6 +35,9 @@ def delivery_webhook(request, tenant_code, provider_id, token, version=None):
     tenant_id = context.require().tenant_id
     provider = DeliveryProvider.objects.filter(pk=provider_id, tenant_id=tenant_id, deleted_at__isnull=True).first()
     if provider is None or not hmac.compare_digest(token, webhook_token(provider)):       # a rotated address retires the old token
+        # the one silent path: an engine posting to an address CEP no longer accepts shows up here, with where it came from
+        log.warning("callback for %s/%s refused: %s (from %s, %s)", tenant_code, provider_id, "unknown engine" if provider is None else "retired address",
+                    request.META.get("HTTP_CF_CONNECTING_IP") or request.META.get("REMOTE_ADDR"), request.META.get("HTTP_USER_AGENT", "")[:80])
         return JsonResponse({"title": "Not found", "status": 404}, status=404)
     try:
         adapter = registry.adapter_class(provider.provider_type)(config=provider.config or {}, secret=None, provider_id=str(provider.pk), tenant_id=tenant_id)
