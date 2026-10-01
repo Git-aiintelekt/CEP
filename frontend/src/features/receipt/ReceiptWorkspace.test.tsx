@@ -84,6 +84,29 @@ test('a change in any mode makes the whole editor unsaved', async () => {
   expect(note()).not.toContain('unsaved changes')
 })
 
+test("the receipt's subject and preheader are fields above the outer design, saved with it; an empty subject holds Activate back", async () => {
+  const { user, backend } = setup()
+  const subject = screen.getByLabelText('Subject') as HTMLInputElement
+  const preheader = screen.getByLabelText('Preheader') as HTMLInputElement
+  expect(subject.value).toBe('Your Northline receipt')
+  expect(preheader.value).toBe('')
+  expect(screen.getByRole('button', { name: 'Activate' }).getAttribute('aria-disabled')).not.toBe('true')
+
+  await user.type(preheader, 'Keep this receipt for returns')
+  expect(note()).toContain('unsaved changes')
+  await user.click(save())
+  await waitFor(() => expect(note()).not.toContain('unsaved'))
+  expect(backend.saveDesign).toHaveBeenCalledWith(expect.objectContaining({ subject_line: 'Your Northline receipt', preheader: 'Keep this receipt for returns' }))
+
+  await user.clear(subject)
+  expect(screen.getByText('A receipt needs a subject line before the template can be activated.')).toBeTruthy()
+  await user.click(save())
+  await waitFor(() => expect(note()).not.toContain('unsaved'))
+  const activate = screen.getByRole('button', { name: 'Activate' })
+  expect(activate.getAttribute('aria-disabled')).toBe('true')
+  expect(document.getElementById(activate.getAttribute('aria-describedby')!)!.textContent).toBe('Add a subject line first.')
+})
+
 test('Save saves both parts, says so once, and leaves nothing unsaved', async () => {
   const { user, backend } = setup()
   await removeFooter(user)

@@ -4,7 +4,7 @@
  * Talks to a `ReceiptBackend`, so the template page passes the API and the dev playground passes an in-memory one.
  */
 import { LayoutTemplate, MonitorSmartphone, ReceiptText } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { NavBar } from '@/components/NavBar'
@@ -16,6 +16,10 @@ import { HistoryMenu } from '@/features/designer/HistoryMenu'
 import type { PillKey } from '@/features/designer/IssuePills'
 import { ConflictStrip, ReadOnlyStrip, VersionStrip } from '@/features/designer/NoticeStrips'
 import { saveErrorDetail } from '@/features/designer/saveErrors'
+import { HeaderField } from '@/features/designer/HeaderField'
+import { PREHEADER_ADVISORY, SUBJECT_ADVISORY, SUBJECT_MAX } from '@/features/designer/issues'
+import { asToken } from '@/features/designer/tags'
+import { insertIntoHeader, type HeaderField as HeaderFieldName } from '@/features/designer/tags/insertIntoHeader'
 import { useRecentTags } from '@/features/designer/tags/useRecentTags'
 import { useLeaveGuard } from '@/features/designer/useLeaveGuard'
 import type { ReceiptSlotPreset } from '@/features/designer/inspector/receiptSettings'
@@ -96,6 +100,12 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
 
   // the outer design: the canvas holds the content, this holds where it stands
   const [header, setHeader] = useState({ subject: design.subject_line, preheader: design.preheader })
+  const [headerSaved, setHeaderSaved] = useState({ subject: design.subject_line, preheader: design.preheader })
+  const subjectRef = useRef<HTMLInputElement>(null)
+  const preheaderRef = useRef<HTMLInputElement>(null)
+  const subjectId = useId()
+  const preheaderId = useId()
+  const [noRoom, setNoRoom] = useState<{ field: HeaderFieldName; message: string } | null>(null)
   const [designSaved, setDesignSaved] = useState<Saved>({ version: design.latest_version, shown: design.version_number })
   const [canvasDirty, setCanvasDirty] = useState(false)
   const [canvasTick, setCanvasTick] = useState(0)
@@ -119,7 +129,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   const [hasFooterBlock, setHasFooterBlock] = useState(() => designHasFooter(design.mjml_source ?? RECEIPT_STARTER_MJML))
   const [checks, setChecks] = useState<ReceiptCheckSummary | null>(null)
 
-  const designDirty = canvasDirty || designRestored
+  const headerDirty = header.subject !== headerSaved.subject || header.preheader !== headerSaved.preheader
+  const designDirty = canvasDirty || designRestored || headerDirty
   const layoutDirty = layoutRestored || !sameConfig(layout, layoutSaved.config)
   const dirty = designDirty || layoutDirty
   const guard = useLeaveGuard(dirty, () => navigate(backTo))
@@ -168,11 +179,12 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       await handle.commitEdit()
       const snapshot = handle.getDesign()
       const config = layout
+      const sent = header
       const [designResult, layoutResult] = await Promise.allSettled([
         saveDesign ?
           backend.saveDesign({
             editor_state: snapshot.editor_state as Record<string, unknown>, mjml_source: snapshot.mjml_source,
-            subject_line: header.subject, preheader: header.preheader, base_version: designSaved.version,
+            subject_line: sent.subject, preheader: sent.preheader, base_version: designSaved.version,
           })
         : Promise.resolve(null),
         saveLayout ? backend.saveReceiptLayout({ ...config, base_version: layoutSaved.version }) : Promise.resolve(null),
@@ -182,6 +194,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       if (designResult.status === 'fulfilled' && designResult.value) {
         const result = designResult.value
         handle.markSaved()
+        setHeaderSaved(sent)
         setDesignRestored(false)
         setDesignSaved({ version: result.version_number, shown: result.version_number })
         setDesignConflict(false)
@@ -273,6 +286,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       const older = await backend.loadDesignVersion(number)
       editor.current?.load(older)
       setHeader({ subject: older.subject_line, preheader: older.preheader })
+      setHeaderSaved({ subject: older.subject_line, preheader: older.preheader })
       const isLatest = number === older.latest_version
       setDesignSaved({ version: older.latest_version, shown: number })
       setDesignRestored(!isLatest)
@@ -354,7 +368,47 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
   const activateReason =
     dirty ? 'Save your changes first.'
     : designSaved.version === 0 || layoutSaved.version === 0 ? 'Save the receipt once first.'
+    : !header.subject.trim() ? 'Add a subject line first.'
     : undefined
+
+  /** The subject and the preheader take a tag, or an emoji, at the caret, unless it would push them past the server's limit. */
+  function insertHeaderText(field: HeaderFieldName, text: string, tagKey?: string) {
+    const [input, value] = field === 'subject' ? [subjectRef.current, header.subject] : [preheaderRef.current, header.preheader]
+    const start = input?.selectionStart ?? value.length
+    const end = input?.selectionEnd ?? start
+    const next = insertIntoHeader(field, value, start, end, text)
+    if ('refused' in next) {
+      setNoRoom({ field, message: next.refused })
+      input?.focus()
+      return
+    }
+    if (tagKey) rememberTag(tagKey)
+    setNoRoom(null)
+    setHeader((current) => ({ ...current, [field]: next.value }))
+    window.setTimeout(() => {
+      input?.focus()
+      input?.setSelectionRange(next.caret, next.caret)
+    }, 0)
+  }
+
+  // the receipt's own inbox line: what the email says before it is opened. Saved with the outer design.
+  const headerFields = (
+    <div className="shrink-0 border-b border-line-subtle bg-surface px-6 py-2.5">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+        <HeaderField id={subjectId} label="Subject" advisory={SUBJECT_ADVISORY} max={SUBJECT_MAX} inputRef={subjectRef} value={header.subject}
+          placeholder="Your {{store_name}} receipt · {{trans_id}}" readOnly={readOnly} note={noRoom?.field === 'subject' ? noRoom.message : null}
+          hint={header.subject.trim() ? null : 'A receipt needs a subject line before the template can be activated.'}
+          onChange={(value) => { setHeader((current) => ({ ...current, subject: value })); setNoRoom(null) }}
+          picker={{ tags, channel: 'E_RECEIPT', recent: recentTags, onPick: (key) => insertHeaderText('subject', asToken(key), key) }}
+          onPickEmoji={(emoji) => insertHeaderText('subject', emoji)} />
+        <HeaderField id={preheaderId} label="Preheader" advisory={PREHEADER_ADVISORY} max={SUBJECT_MAX} inputRef={preheaderRef} value={header.preheader}
+          placeholder="Total {{receipt.total}} · keep this receipt for returns" readOnly={readOnly} note={noRoom?.field === 'preheader' ? noRoom.message : null}
+          onChange={(value) => { setHeader((current) => ({ ...current, preheader: value })); setNoRoom(null) }}
+          picker={{ tags, channel: 'E_RECEIPT', recent: recentTags, onPick: (key) => insertHeaderText('preheader', asToken(key), key) }}
+          onPickEmoji={(emoji) => insertHeaderText('preheader', emoji)} />
+      </div>
+    </div>
+  )
 
   const note =
     checks === null || checks.failing === 0 ? 'All checks pass.'
@@ -423,6 +477,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
           {
             id: 'outer',
             content: (
+              <div className="flex min-h-0 flex-1 flex-col">
+              {headerFields}
               <OuterDesignPane
                 ref={editor}
                 initialState={design.editor_state}
@@ -444,6 +500,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
                 onReceiptPresetChange={readOnly ? undefined : applyPreset}
                 sampleCode={backend.sampleCode}
               />
+              </div>
             ),
           },
           { id: 'layout', content: <ReceiptLayoutPane layout={layout} onChange={setLayout} readOnly={readOnly} /> },
