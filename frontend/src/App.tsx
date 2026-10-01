@@ -51,6 +51,7 @@ const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/Messa
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ReceiptPlayground')) : null
 const DevFields = import.meta.env.DEV ? lazy(() => import('@/pages/DevFields')) : null
 const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/HomePlayground')) : null
+const SettingsPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/SettingsPlayground')) : null
 const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CalendarPlayground')) : null
 
 const queryClient = new QueryClient({
@@ -109,6 +110,7 @@ export default function App() {
               // inside the app shell, like the real Home; outside RequireAuth, so it works with no backend
               <Route element={<AppShell />}>
                 <Route path="/dev/home" element={<Suspense fallback={<FullPageSpinner label="Loading Home" />}><HomePlayground /></Suspense>} />
+                <Route path="/dev/settings/*" element={<Suspense fallback={<FullPageSpinner label="Loading Settings" />}>{SettingsPlayground && <SettingsPlayground />}</Suspense>} />
                 {CalendarPlayground && <Route path="/dev/calendar" element={<Suspense fallback={<FullPageSpinner label="Loading the calendar" />}><CalendarPlayground /></Suspense>} />}
               </Route>
             )}
