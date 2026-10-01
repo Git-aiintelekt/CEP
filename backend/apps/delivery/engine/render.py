@@ -21,6 +21,13 @@ from html import escape
 from django.utils import timezone
 
 TAG_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
+# the standard templates' own spelling, ${STORE_NAME}: the same tag as {{store_name}}
+LEGACY_TAG_RE = re.compile(r"\$\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}")
+
+
+def modern_tags(text: str | None) -> str:
+    """${STORE_NAME} written as {{store_name}}, so a template pasted from the standard set renders like one built here."""
+    return LEGACY_TAG_RE.sub(lambda m: "{{" + m.group(1).lower() + "}}", text or "")
 BODY_RE = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
 PREHEADER_STYLE = "display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;visibility:hidden;mso-hide:all;"
 # After the preheader, enough invisible characters that no inbox line reaches the body's first words (image alt text, the nav links).
@@ -161,5 +168,5 @@ class Renderer:
         from apps.templates.design import html_to_text
         plain = lambda m: html_to_text(blocks[m.group(1)]) if m.group(1) in blocks else self._value(m.group(1), customer, member, system)      # noqa: E731
         safe = lambda m: blocks[m.group(1)] if m.group(1) in blocks else escape(self._value(m.group(1), customer, member, system), quote=True)  # noqa: E731
-        return {"subject": " ".join(TAG_RE.sub(plain, self.subject if subject is None else subject).split())[:300], "html": TAG_RE.sub(safe, html),
-                "preheader": " ".join(TAG_RE.sub(plain, self.preheader).split()), "text": TAG_RE.sub(plain, self.text), "codes_left_out": left_out}
+        return {"subject": " ".join(TAG_RE.sub(plain, modern_tags(self.subject if subject is None else subject)).split())[:300], "html": TAG_RE.sub(safe, modern_tags(html)),
+                "preheader": " ".join(TAG_RE.sub(plain, modern_tags(self.preheader)).split()), "text": TAG_RE.sub(plain, modern_tags(self.text)), "codes_left_out": left_out}

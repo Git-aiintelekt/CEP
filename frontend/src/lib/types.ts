@@ -808,6 +808,17 @@ export interface PersonalizationTag {
   is_active: boolean
   /** inherited from the platform catalogue: the back-office changes it, the workspace cannot */
   platform_tag_id?: string | null
+  /** where the value is read from at send time (Settings -> Tags) */
+  resolution_source?: string
+  source_path?: string | null
+  format_spec?: string | null
+  row_version?: number
+}
+
+/** GET /personalization-tags/data-points/: what a tag can read */
+export interface TagDataPoints {
+  sources: { key: string; label: string; points: { path: string; label: string; data_type: string; prefix: boolean }[] }[]
+  static: { key: string; label: string }
 }
 
 export interface DesignFindings {

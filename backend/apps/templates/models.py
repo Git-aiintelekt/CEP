@@ -115,6 +115,7 @@ class PersonalizationTag(models.Model):
         STATIC = 'STATIC', 'Static'
         INNER_TEMPLATE = 'INNER_TEMPLATE', 'Inner Template'
         RECEIPT = 'RECEIPT', 'Receipt'
+        TRANSACTION = 'TRANSACTION', 'Transaction'
 
     class DataType(models.TextChoices):
         STRING = 'STRING', 'String'

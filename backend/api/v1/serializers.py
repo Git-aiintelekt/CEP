@@ -405,10 +405,37 @@ class MediaAssetSerializer(serializers.ModelSerializer):
 
 
 class PersonalizationTagSerializer(TenantModelSerializer):
+    """The workspace's own tags are made and changed here (Settings -> Tags); an inherited one is read only. The key is the word
+    inside {{ }}; the source and path are checked against the data points the renderer can read."""
     class Meta(TenantModelSerializer.Meta):
         model = PersonalizationTag
         fields = "__all__"
         read_only_fields = (*AUDIT_FIELDS, "platform_tag_id")   # the link to the platform catalogue is the platform's
+        extra_kwargs = {"source_system": {"required": False, "default": "CEP"}, "tag_kind": {"required": False, "default": "CUSTOM"}}
+
+    def validate_tag_key(self, value):
+        key = (value or "").strip().strip("{}").strip()
+        if not key.replace("_", "").replace(".", "").isalnum() or not key[:1].isalpha() or key != key.lower():
+            raise serializers.ValidationError("Lower-case letters, digits and underscores, starting with a letter: the word inside {{ }}.")
+        others = PersonalizationTag.objects.filter(tag_key=key, deleted_at__isnull=True)       # RLS keeps this inside the tenant
+        if self.instance is not None:
+            others = others.exclude(pk=self.instance.pk)
+        if others.exists():
+            raise serializers.ValidationError("Another tag already uses this key.")
+        return key
+
+    def validate(self, attrs):
+        from apps.templates import datapoints
+        current = lambda name: attrs[name] if name in attrs else getattr(self.instance, name, None)   # noqa: E731
+        source, path, static = current("resolution_source"), current("source_path"), current("static_value")
+        found = datapoints.problem(source or "", path, static)
+        if found:
+            raise serializers.ValidationError({"static_value" if source == "STATIC" else "source_path": found})
+        if source == "STATIC":
+            attrs["source_path"] = None
+        else:
+            attrs["static_value"] = None
+        return attrs
 
 
 class MePrincipalSerializer(serializers.Serializer):

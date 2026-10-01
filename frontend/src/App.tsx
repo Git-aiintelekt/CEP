@@ -37,6 +37,7 @@ import { RolesPage } from '@/pages/settings/RolesPage'
 import { SecurityPage } from '@/pages/settings/SecurityPage'
 import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
+import { TagsPage } from '@/pages/settings/TagsPage'
 import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
 import { UsersPage } from '@/pages/settings/UsersPage'
@@ -137,6 +138,7 @@ export default function App() {
                   <Route index element={<Navigate to="users" replace />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="roles" element={<RolesPage />} />
+                  <Route path="tags" element={<TagsPage />} />
                   <Route path="api-keys" element={<ApiKeysPage />} />
                   <Route path="plan" element={<PlanUsagePage />} />
                   <Route path="security" element={<SecurityPage />} />

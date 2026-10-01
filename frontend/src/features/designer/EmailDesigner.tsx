@@ -1101,7 +1101,6 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
             panel: (
               <BlockPalette
                 blocks={blocksFor(props.channel ?? 'EMAIL', { dynamicCodes: Boolean(props.sampleCode) })}
-                flat={props.channel === 'E_RECEIPT'}
                 disabled={props.readOnly}
                 message={paletteMessage}
                 onDragStart={beginBlockDrag}
