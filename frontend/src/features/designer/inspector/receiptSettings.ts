@@ -71,6 +71,7 @@ export const RECEIPT_PRESETS: { value: ReceiptSlotPreset; label: string }[] = [
   { value: 'COMPACT', label: 'Compact' },
   { value: 'STANDARD', label: 'Standard' },
   { value: 'ITEMIZED', label: 'Itemized' },
+  { value: 'REGISTER', label: 'Store Register' },
 ]
 
 export const RECEIPT_SLOT_NOTE = 'This slot is fixed. The itemized receipt is built in Receipt Layout and inserted here.'

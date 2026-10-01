@@ -302,7 +302,7 @@ def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, secti
         for pattern, message in FORBIDDEN:
             if pattern.search(custom_html or "") or pattern.search(custom_css or ""):
                 errors.setdefault("custom_html", message)
-    elif not sections:
+    elif not sections and layout_preset != "REGISTER":           # the Store Register layout has nothing to configure: no sections needed
         errors["sections"] = "Choose a layout preset."
     if errors:
         raise ValidationError(errors)

@@ -73,6 +73,13 @@ def e164(phone: str, country: str = "US") -> str | None:
     return "+" + digits if 8 <= len(digits) <= 15 else None
 
 
+def tender_label(tender: dict) -> str:
+    """The tender as the register prints it: CASH, CREDIT-VISA, DEBIT."""
+    kind = (tender.get("type") or tender.get("method") or "").upper().replace(" ", "-")
+    card = (tender.get("card_type") or "").upper().replace(" ", "-")
+    return f"{kind}-{card}" if card and card not in kind else kind
+
+
 def tender_words(tenders: list[dict], refund: bool = False) -> str:
     parts = []
     for tender in tenders:
@@ -118,6 +125,8 @@ def receipt_of(read: dict) -> dict:
         "original_number": t["original_id"], "store_number": t["store_number"], "register": t["register_number"], "clerk": t["clerk_name"] or t["clerk_id"],
         "barcode_value": t["barcode_value"], "coupon_barcode_value": t["barcode_value"], "discount_code": ", ".join(dict.fromkeys(codes)),
         "discounts": read.get("discounts") or [], "employee_sale": t.get("employee_sale", False), "tax_exempt": t.get("tax_exempt", False),
+        "tenders": [{"label": tender_label(x), "amount": _signed(x["amount"], refund) if x.get("amount") is not None else None, "auth_code": x.get("auth_code") or "",
+                     "change": x.get("change")} for x in read["tenders"] if not x.get("voided")],
     }
     if read["loyalty"]:
         receipt["loyalty"] = read["loyalty"]
@@ -147,6 +156,15 @@ def transaction_tags(read: dict) -> dict:
                      "full_address": ", ".join(part for part in (address.get("line1"), address.get("line2"), address.get("city"), address.get("state"), address.get("postal_code")) if part)},
         "loyalty": read["loyalty"],
     }
+
+
+def missing_store_note(tenant_id, read: dict) -> str | None:
+    """A sentence for the answer when the document's store is not in Settings -> POS Receipts -> Stores: its tags went out without an address."""
+    from .models import Store
+    number = read["transaction"]["store_number"]
+    if not number or Store.objects.filter(tenant_id=tenant_id, store_number=number, is_active=True).exists():
+        return None
+    return f"Store {number} is not in Settings -> POS Receipts -> Stores, so the store name, address and phone tags went out empty. Add it with that exact number."
 
 
 def store_tags(tenant_id, read: dict) -> dict:

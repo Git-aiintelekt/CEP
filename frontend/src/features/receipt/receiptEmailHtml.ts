@@ -7,12 +7,12 @@
  * decision about what shows.
  */
 import { HIDE_MOBILE_CLASS, HIDE_MOBILE_RULE } from '@/features/designer/blocks/register'
-import type { ReceiptItemsSection, ReceiptSection } from '@/lib/types'
+import type { ReceiptItemsSection, ReceiptLayoutPreset, ReceiptSection } from '@/lib/types'
 
 import { barcodeUrl } from './barcode'
 import { inOrder } from './receiptPresets'
 import { formatMoney, fulfillmentOf, showsSection, totalsRows } from './receiptRules'
-import type { SampleTransaction } from './sampleReceiptData'
+import type { RegisterDetails, SampleTransaction } from './sampleReceiptData'
 
 /** The values ReceiptPreview draws with (the app's tokens in index.css), written out because email has no variables. */
 const COLOR = {
@@ -187,11 +187,75 @@ function body(section: ReceiptSection, transaction: SampleTransaction): string {
   }
 }
 
+// ---------------------------------------------------------------- the Store Register layout (receipt_layout.render_register on the server)
+const REGISTER = { panel: '#ebe7f2', text: '#1f1f1f', rule: '#cbc4d8', line: '#dcd7e6', discount: '#2e9e3a' } as const
+
+const count = (value: number) => String(Number(value.toFixed(3)))
+
+/** The register details of a sample, derived from the rest when the sample carries none. */
+export function registerDetails(transaction: SampleTransaction): RegisterDetails {
+  if (transaction.register) return transaction.register
+  return {
+    trans_number: transaction.receipt_id || transaction.order_number, register: '', store_number: transaction.store, trans_at: transaction.order_date, cashier: '',
+    item_count: transaction.line_items.reduce((sum, item) => sum + Math.abs(item.quantity), 0),
+    taxes: transaction.tax ? [{ label: 'Sales Tax', percent: null, amount: transaction.tax }] : [],
+    tenders: transaction.payment.masked_method ? [{ label: transaction.payment.masked_method.toUpperCase(), amount: transaction.total, auth: '' }] : [],
+    change_due: 0,
+  }
+}
+
+/**
+ * The receipt as the register prints it: YOUR RECEIPT, the transaction's numbers in two rows of three, Description and
+ * Amount with each line's discount (green) and its "1 @ $19.99", the lines' sum, then Subtotal, each tax with its rate,
+ * TOTAL, every tender with its authorisation, and the change. Nothing in it is configurable.
+ */
+export function renderRegisterEmailHtml(transaction: SampleTransaction): string {
+  const r = registerDetails(transaction)
+  const cell = `font-size:12px;line-height:18px;color:${REGISTER.text};`
+  const strong = `${cell}font-weight:700;`
+  const meta = (label: string, value: string, align: 'left' | 'center' | 'right') =>
+    `<td align="${align}" style="padding:1px 0;${cell}text-align:${align};"><span style="font-weight:700;">${escapeHtml(label)}:</span> ${escapeHtml(value)}</td>`
+  const header = `<table ${TABLE}><tr>${meta('Trans Num', r.trans_number, 'left')}${meta('Register', r.register, 'center')}${meta('Store', r.store_number, 'right')}</tr><tr>${meta('Trans Dt', r.trans_at, 'left')}${meta('Cashier', r.cashier, 'center')}${meta('Item(s) Sold', count(r.item_count), 'right')}</tr></table>`
+
+  const lines = transaction.line_items.map((item) => {
+    const discount = item.discount ? `<br /><span style="color:${REGISTER.discount};">Discount: (${escapeHtml(formatMoney(item.discount))})</span>` : ''
+    return `<tr><td valign="bottom" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${cell}">${escapeHtml(item.description)}${discount}<br /><span>${escapeHtml(count(item.quantity))} @ ${escapeHtml(formatMoney(item.unit_price))}</span></td><td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid ${REGISTER.line};${cell}${NUMERIC}white-space:nowrap;text-align:right;">${escapeHtml(formatMoney(item.amount))}</td></tr>`
+  })
+  const linesTotal = transaction.line_items.reduce((sum, item) => sum + item.amount, 0)
+  const items = `<table ${TABLE}><tr><td style="padding:8px 0;border-bottom:2px solid ${REGISTER.rule};${strong}">Description</td><td align="right" style="padding:8px 0;border-bottom:2px solid ${REGISTER.rule};${strong}text-align:right;">Amount</td></tr>${lines.join('')}<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
+
+  const totalRow = (label: string, value: string, big = false) => {
+    const size = big ? 'font-size:14px;line-height:20px;' : ''
+    return `<tr><td align="right" style="padding:2px 0;${strong}${size}text-align:right;">${escapeHtml(label)}:</td><td align="right" width="96" style="padding:2px 0 2px 12px;${cell}${size}${NUMERIC}text-align:right;">${escapeHtml(value)}</td></tr>`
+  }
+  const rows = [totalRow('Subtotal', formatMoney(transaction.subtotal))]
+  for (const tax of r.taxes) rows.push(totalRow(`${tax.label}${tax.percent !== null ? ` (${count(tax.percent)}%)` : ''}`, formatMoney(tax.amount)))
+  rows.push(totalRow('TOTAL', formatMoney(transaction.total), true))
+  for (const tender of r.tenders) rows.push(totalRow(`Paid with ${tender.label}${tender.auth ? ` (Auth: ${tender.auth})` : ''}`, formatMoney(tender.amount)))
+  if (r.tenders.some((tender) => tender.label.startsWith('CASH')) || r.change_due) rows.push(totalRow('Cash Change', formatMoney(r.change_due)))
+  const totals = `<table ${TABLE}>${rows.join('')}</table>`
+
+  return `<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
+  <tr>
+    <td style="padding:8px 24px 24px;">
+      <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${REGISTER.panel};font-family:${FONT};color:${REGISTER.text};">
+        <tr><td data-section="register-title" align="center" style="padding:18px 20px 8px;font-size:16px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</td></tr>
+        <tr><td data-section="register-header" style="padding:0 20px 10px;">${header}</td></tr>
+        <tr><td data-section="register-items" style="padding:0 20px;">${items}</td></tr>
+        <tr><td data-section="register-totals" style="padding:10px 20px 18px;">${totals}</td></tr>
+      </table>
+    </td>
+  </tr>
+</table>`
+}
+
 /**
  * The receipt, ready for the slot: a <style> carrying only the hide-on-phones rule, then one centred 600px table.
  * The hairlines between sections are solid except the dashed one above Totals, where the money starts.
+ * The Store Register preset has a fixed layout of its own.
  */
-export function renderReceiptEmailHtml(sections: ReceiptSection[], transaction: SampleTransaction): string {
+export function renderReceiptEmailHtml(sections: ReceiptSection[], transaction: SampleTransaction, preset?: ReceiptLayoutPreset): string {
+  if (preset === 'REGISTER') return renderRegisterEmailHtml(transaction)
   const shown = inOrder(sections).filter((section) => showsSection(section, transaction))
   const cells = shown.map((section, index) => {
     const divider =

@@ -154,7 +154,8 @@ class PosTransactionView(InboundLogMixin, APIView):
         if result.get("duplicate"):
             return xml_answer(S_DUPLICATE, transaction_id=transaction["id"], message="This transaction was received before; the receipt is not sent twice.",
                               extra={"EXECUTION_ID": result.get("execution_id"), **text_note})
-        return xml_answer(S_SENT, transaction_id=transaction["id"], extra={"EXECUTION_ID": result.get("execution_id"), "MESSAGE_ID": result.get("provider_message_id"), **text_note})
+        return xml_answer(S_SENT, transaction_id=transaction["id"], message=mapping.missing_store_note(tenant.pk, read),
+                          extra={"EXECUTION_ID": result.get("execution_id"), "MESSAGE_ID": result.get("provider_message_id"), **text_note})
 
 
 def _document(request) -> bytes:
