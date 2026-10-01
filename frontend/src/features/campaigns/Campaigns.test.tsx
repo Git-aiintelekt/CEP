@@ -185,14 +185,14 @@ test('list: pausing asks first and then shows Paused with Resume; bulk clone and
   await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Copy of Fall Launch' })).toBeNull())
 })
 
-test('campaign page: five tabs; results against targets with a chart and its numbers; the frozen Campaign List; the log, filtered', async () => {
+test('campaign page: six tabs; results against targets with a chart and its numbers; the frozen Campaign List; the log, filtered', async () => {
   installMockApi({ campaign: makeCampaign({ status: 'COMPLETED', completed_at: '2026-09-18T10:02:00Z', runs: [run({})] as never,
     targets: { target_revenue: '25000.00', target_opens: null, target_clicks: 40, target_conversions: null, target_redemptions: null, planned_cost: null, planned_offer_cost: null, notes: null } }) })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1')
 
   const tabs = await screen.findByRole('tablist', { name: 'Campaign sections' })
-  expect(within(tabs).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Overview', 'Performance', 'Audience', 'Content', 'Activity Log'])
+  expect(within(tabs).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Overview', 'Performance', 'Recipients', 'Audience', 'Content', 'Activity Log'])
   expect(await screen.findByText('Delivery Rate')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Clone' })).toBeTruthy()
   expect(within(await openMore(user)).getAllByRole('button').map((item) => item.textContent)).toEqual(['Archive', 'Copy Campaign ID'])   // nothing to pause or publish

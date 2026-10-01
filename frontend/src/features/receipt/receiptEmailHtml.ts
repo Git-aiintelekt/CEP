@@ -188,7 +188,7 @@ function body(section: ReceiptSection, transaction: SampleTransaction): string {
 }
 
 // ---------------------------------------------------------------- the Store Register layout (receipt_layout.render_register on the server)
-const REGISTER = { panel: '#ebe7f2', text: '#1f1f1f', rule: '#cbc4d8', line: '#dcd7e6', discount: '#2e9e3a' } as const
+const REGISTER = { band: '#e4deed', header: '#ffffff', columns: '#f5f5f5', card: '#ffffff', text: '#1f1f1f', line: '#e6e2ed', discount: '#2e9e3a' } as const
 
 const count = (value: number) => String(Number(value.toFixed(3)))
 
@@ -222,7 +222,8 @@ export function renderRegisterEmailHtml(transaction: SampleTransaction): string 
     return `<tr><td valign="bottom" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${cell}">${escapeHtml(item.description)}${discount}<br /><span>${escapeHtml(count(item.quantity))} @ ${escapeHtml(formatMoney(item.unit_price))}</span></td><td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid ${REGISTER.line};${cell}${NUMERIC}white-space:nowrap;text-align:right;">${escapeHtml(formatMoney(item.amount))}</td></tr>`
   })
   const linesTotal = transaction.line_items.reduce((sum, item) => sum + item.amount, 0)
-  const items = `<table ${TABLE}><tr><td style="padding:8px 0;border-bottom:2px solid ${REGISTER.rule};${strong}">Description</td><td align="right" style="padding:8px 0;border-bottom:2px solid ${REGISTER.rule};${strong}text-align:right;">Amount</td></tr>${lines.join('')}<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
+  const columns = `<table ${TABLE}><tr><td style="padding:0;${strong}">Description</td><td align="right" style="padding:0;${strong}text-align:right;">Amount</td></tr></table>`
+  const items = `<table ${TABLE}>${lines.join('')}<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid ${REGISTER.line};${strong}${NUMERIC}text-align:right;">${escapeHtml(formatMoney(linesTotal))}</td></tr></table>`
 
   const totalRow = (label: string, value: string, big = false) => {
     const size = big ? 'font-size:14px;line-height:20px;' : ''
@@ -235,14 +236,17 @@ export function renderRegisterEmailHtml(transaction: SampleTransaction): string 
   if (r.tenders.some((tender) => tender.label.startsWith('CASH')) || r.change_due) rows.push(totalRow('Cash Change', formatMoney(r.change_due)))
   const totals = `<table ${TABLE}>${rows.join('')}</table>`
 
+  const block = (name: string, colour: string, padding: string, inner: string) =>
+    `          <table data-section="${name}" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${colour};"><tr><td style="padding:${padding};">${inner}</td></tr></table>\n`
+  const gap = `          <table ${TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n`
+  const title = '<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</p>'
   return `<table ${TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">
   <tr>
     <td style="padding:8px 24px 24px;">
-      <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${REGISTER.panel};font-family:${FONT};color:${REGISTER.text};">
-        <tr><td data-section="register-title" align="center" style="padding:18px 20px 8px;font-size:16px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</td></tr>
-        <tr><td data-section="register-header" style="padding:0 20px 10px;">${header}</td></tr>
-        <tr><td data-section="register-items" style="padding:0 20px;">${items}</td></tr>
-        <tr><td data-section="register-totals" style="padding:10px 20px 18px;">${totals}</td></tr>
+      <table ${TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:${REGISTER.band};font-family:${FONT};color:${REGISTER.text};">
+        <tr><td style="padding:16px;">
+${block('register-header', REGISTER.header, '14px 18px 12px', title + header)}${gap}          <table data-section="register-body" ${TABLE} style="border-radius:4px;border-collapse:separate;background-color:${REGISTER.card};"><tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid ${REGISTER.line};background-color:${REGISTER.columns};">${columns}</td></tr><tr><td style="padding:2px 18px 16px;"><div data-section="register-items">${items}</div><div data-section="register-totals" style="margin-top:12px;">${totals}</div></td></tr></table>
+        </td></tr>
       </table>
     </td>
   </tr>
