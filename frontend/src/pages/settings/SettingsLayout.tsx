@@ -1,28 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
-import { NavLink, Outlet } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
+import { Outlet, useLocation } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { PageHeader } from '@/components/ResourceList'
 import { ErrorState } from '@/components/States'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Feature, Workspace } from '@/lib/types'
+import type { Workspace } from '@/lib/types'
 
-const TABS: { to: string; label: string; feature?: Feature }[] = [
-  { to: '/settings/users', label: 'Users' },
-  { to: '/settings/roles', label: 'Roles' },
-  { to: '/settings/api-keys', label: 'API Keys', feature: 'api_access' },
-  { to: '/settings/plan', label: 'Plan & Usage' },
-  { to: '/settings/security', label: 'Security' },
-  { to: '/settings/email', label: 'Email Server' },
-  { to: '/settings/delivery', label: 'Sending Engines' },
-  { to: '/settings/integrations', label: 'Integrations' },
-  { to: '/settings/suppressions', label: 'Suppressions' },
-  { to: '/settings/preference-center', label: 'Preference Centre' },
-  { to: '/settings/pos', label: 'POS Receipts', feature: 'ereceipt' },
-  { to: '/settings/notifications', label: 'Notifications' },
-  { to: '/settings/approvals', label: 'Approvals' },
-]
+import { SettingsMenu } from './SettingsMenu'
+import { groupOf, pageAt } from './settingsCatalogue'
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -33,8 +20,24 @@ function Fact({ label, value }: { label: string; value: string }) {
   )
 }
 
+const TrailChevron = () => <ChevronRight size={14} strokeWidth={1.5} aria-hidden className="text-ink-300" />
+
+/** "Settings › Sending › Sending Engines": where in the menu the page sits */
+function Trail({ path }: { path: string }) {
+  const page = pageAt(path)
+  const group = groupOf(path)
+  if (!page || !group) return null
+  return (
+    <nav aria-label="Where you are" className="flex items-center gap-1.5 text-helper text-ink-800">
+      <span>Settings</span><TrailChevron /><span>{group.label}</span><TrailChevron /><span aria-current="page" className="font-semibold text-ink-900">{page.label}</span>
+    </nav>
+  )
+}
+
+/** Settings: the menu panel on the left (the pages in their groups), the page on the right with the workspace's facts above it. */
 export function SettingsLayout() {
-  const { can, has } = useAuth()
+  const { can } = useAuth()
+  const { pathname } = useLocation()
   const allowed = can('user.admin')
   const workspace = useQuery({ queryKey: ['workspace'], queryFn: ({ signal }) => api.get<Workspace>('/workspace/', undefined, signal), enabled: allowed })
 
@@ -44,26 +47,29 @@ export function SettingsLayout() {
 
   const data = workspace.data
   return (
-    <section>
-      <PageHeader title="Settings" description="Who can sign in to this workspace, what they may do, and which systems may call the API." />
-      {data && (
-        <dl className="mb-5 grid grid-cols-2 gap-4 rounded-lg border border-line bg-surface p-4 lg:grid-cols-5">
-          <Fact label="Workspace" value={`${data.name} (${data.code})`} />
-          <Fact label="Plan" value={data.plan ?? 'No plan'} />
-          <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
-          <Fact label="Time Zone" value={data.timezone} />
-          <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
-        </dl>
-      )}
-      <nav aria-label="Settings sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-line whitespace-nowrap">
-        {TABS.filter((tab) => !tab.feature || has(tab.feature)).map((tab) => (
-          <NavLink key={tab.to} to={tab.to} className={({ isActive }) =>
-            `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${isActive ? 'border-brand-600 text-brand-800' : 'border-transparent text-ink-800 hover:text-ink-900'}`}>
-            {tab.label}
-          </NavLink>
-        ))}
-      </nav>
-      <Outlet />
-    </section>
+    <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+        <div>
+          <h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-800">Who can sign in to this workspace, what they may do, and which systems may call the API.</p>
+        </div>
+        {data && (
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3 sm:grid-cols-5">
+            <Fact label="Workspace" value={`${data.name} (${data.code})`} />
+            <Fact label="Plan" value={data.plan ?? 'No plan'} />
+            <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
+            <Fact label="Time Zone" value={data.timezone} />
+            <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
+          </dl>
+        )}
+      </div>
+      <div className="flex min-w-0 items-start gap-5">
+        <SettingsMenu />
+        <section aria-label="Settings page" className="flex min-w-0 flex-1 flex-col gap-4">
+          <Trail path={pathname} />
+          <Outlet />
+        </section>
+      </div>
+    </div>
   )
 }
