@@ -55,7 +55,7 @@ test('no alerts: Create New sits straight above Marketing Performance, with noth
   expect(order().slice(1, 3)).toEqual(['Create New', 'Marketing Performance'])
   const page = region('Create New')!.parentElement!
   expect(region('Create New')!.nextElementSibling).toBe(region('Marketing Performance'))
-  expect(page.className).toContain('gap-6')
+  expect(page.className).toContain('gap-5')
 })
 
 test('with no first name the greeting stands alone', () => {
