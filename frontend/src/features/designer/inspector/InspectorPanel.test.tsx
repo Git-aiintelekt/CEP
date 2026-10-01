@@ -156,7 +156,7 @@ test('the receipt slot says it is fixed, opens Receipt layout and switches the l
 
   const select = screen.getByLabelText('Current Layout') as HTMLSelectElement
   expect(select.value).toBe('STANDARD')
-  expect([...select.options].map((option) => option.textContent)).toEqual(['Compact', 'Standard', 'Itemized'])
+  expect([...select.options].map((option) => option.textContent)).toEqual(['Compact', 'Standard', 'Itemized', 'Store Register'])
   await user.selectOptions(select, 'ITEMIZED')
   expect(onPresetChange).toHaveBeenCalledWith('ITEMIZED')
 })

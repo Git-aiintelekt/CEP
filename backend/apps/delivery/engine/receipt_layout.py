@@ -284,7 +284,7 @@ def barcode_block(number: str, image_url: str) -> str:
 
 
 # ------------------------------------------------------------------------------------------------ the Store Register layout
-REGISTER = {"panel": "#ebe7f2", "text": "#1f1f1f", "rule": "#cbc4d8", "line": "#dcd7e6", "discount": "#2e9e3a"}
+REGISTER = {"band": "#e4deed", "header": "#ffffff", "columns": "#f5f5f5", "card": "#ffffff", "text": "#1f1f1f", "line": "#e6e2ed", "discount": "#2e9e3a"}
 REGISTER_PRESET = "REGISTER"
 
 
@@ -314,8 +314,9 @@ def render_register(t: dict) -> str:
                      f'<br /><span>{_e(_count_text(item["quantity"]))} @ {_e(money(item["unit_price"], currency))}</span></td>'
                      f'<td align="right" valign="bottom" style="padding:10px 0 10px 16px;border-bottom:1px solid {REGISTER["line"]};{cell}{NUMERIC}white-space:nowrap;text-align:right;">{_e(money(item["amount"], currency))}</td></tr>')
     lines_total = sum(item["amount"] for item in t["line_items"])
-    items = (f'<table {TABLE}><tr><td style="padding:8px 0;border-bottom:2px solid {REGISTER["rule"]};{strong}">Description</td>'
-             f'<td align="right" style="padding:8px 0;border-bottom:2px solid {REGISTER["rule"]};{strong}text-align:right;">Amount</td></tr>{"".join(lines)}'
+    columns = (f'<table {TABLE}><tr><td style="padding:0;{strong}">Description</td>'
+               f'<td align="right" style="padding:0;{strong}text-align:right;">Amount</td></tr></table>')
+    items = (f'<table {TABLE}>{"".join(lines)}'
              f'<tr><td colspan="2" align="right" style="padding:10px 0;border-bottom:1px solid {REGISTER["line"]};{strong}{NUMERIC}text-align:right;">{_e(money(lines_total, currency))}</td></tr></table>')
 
     def total_row(label, value, big=False):
@@ -335,13 +336,19 @@ def render_register(t: dict) -> str:
         rows.append(total_row("Cash Change", money(_number(r.get("change_due"), 0.0), currency)))
     totals = f'<table {TABLE}>{"".join(rows)}</table>'
 
+    def block(name, colour, padding, inner):
+        return f'          <table data-section="{name}" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{colour};"><tr><td style="padding:{padding};">{inner}</td></tr></table>\n'
+
+    gap = f'          <table {TABLE}><tr><td style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr></table>\n'
+    title = '<p data-section="register-title" style="margin:0 0 10px;font-size:15px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</p>'
     return (f'<table {TABLE} align="center" style="width:100%;max-width:600px;margin:0 auto;">\n  <tr>\n    <td style="padding:8px 24px 24px;">\n'
-            f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{REGISTER["panel"]};font-family:{FONT};color:{REGISTER["text"]};">\n'
-            f'        <tr><td data-section="register-title" align="center" style="padding:18px 20px 8px;font-size:16px;line-height:20px;font-weight:700;letter-spacing:0.02em;text-align:center;">YOUR RECEIPT</td></tr>\n'
-            f'        <tr><td data-section="register-header" style="padding:0 20px 10px;">{header}</td></tr>\n'
-            f'        <tr><td data-section="register-items" style="padding:0 20px;">{items}</td></tr>\n'
-            f'        <tr><td data-section="register-totals" style="padding:10px 20px 18px;">{totals}</td></tr>\n'
-            f'      </table>\n    </td>\n  </tr>\n</table>')
+            f'      <table {TABLE} data-layout="register" style="border-radius:6px;border-collapse:separate;background-color:{REGISTER["band"]};font-family:{FONT};color:{REGISTER["text"]};">\n'
+            f'        <tr><td style="padding:16px;">\n'
+            + block("register-header", REGISTER["header"], "14px 18px 12px", title + header) + gap
+            + f'          <table data-section="register-body" {TABLE} style="border-radius:4px;border-collapse:separate;background-color:{REGISTER["card"]};">'
+            f'<tr><td data-section="register-columns" style="padding:8px 18px;border-radius:4px 4px 0 0;border-bottom:1px solid {REGISTER["line"]};background-color:{REGISTER["columns"]};">{columns}</td></tr>'
+            f'<tr><td style="padding:2px 18px 16px;"><div data-section="register-items">{items}</div><div data-section="register-totals" style="margin-top:12px;">{totals}</div></td></tr></table>\n'
+            + '        </td></tr>\n      </table>\n    </td>\n  </tr>\n</table>')
 
 
 def _support(section: dict, t: dict, barcode_url: str | None) -> str:
