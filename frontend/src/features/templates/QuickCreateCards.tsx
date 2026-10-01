@@ -1,4 +1,4 @@
-/** The banner's four "New …" cards: one per channel the workspace can use. */
+/** The banner's four channel cards: one per channel the workspace can use. */
 import { ArrowRight } from 'lucide-react'
 
 import { CHANNEL_LOOK, type TemplateChannel } from './channels'
@@ -23,6 +23,7 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
             key={channel}
             type="button"
             onClick={() => onPick(channel)}
+            aria-label={`Create ${look.label} template`}
             className="group flex flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle"
           >
             <span aria-hidden className={`flex h-[88px] w-full items-center justify-center ${look.tint}`}>
@@ -32,7 +33,7 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
             </span>
             <span className="flex flex-col gap-1 px-4 pt-3.5 pb-4">
               <span className="flex items-center justify-between gap-2">
-                <span className="text-[15px] font-semibold text-ink-900">New {look.label}</span>
+                <span className="text-card-title font-semibold text-ink-900">{look.label}</span>
                 <span
                   aria-hidden
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800"

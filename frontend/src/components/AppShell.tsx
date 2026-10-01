@@ -370,7 +370,7 @@ export function AppShell() {
         </header>
 
         {/* same side padding as the header and no width cap, so content lines up with the search bar and Sign out */}
-        <main className="w-full min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main className="w-full min-w-0 flex-1 px-4 py-5 md:px-8 md:py-6">
           <Outlet />
         </main>
       </div>

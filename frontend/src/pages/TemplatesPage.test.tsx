@@ -106,14 +106,14 @@ test('the status filter stays, and presets step aside because they have no statu
 
 test('a quick-create card shows for every channel the workspace can use', async () => {
   await openLanding()
-  for (const name of ['New Email', 'New SMS', 'New MMS', 'New E-Receipt']) expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toBeTruthy()
-  expect(screen.getByRole('button', { name: /^New MMS/ }).textContent).not.toMatch(/video/i)
+  for (const name of ['Email', 'SMS', 'MMS', 'E-Receipt']) expect(screen.getByRole('button', { name: `Create ${name} template` })).toBeTruthy()   // the card reads the channel's name, no "New"
+  expect(screen.getByRole('button', { name: 'Create MMS template' }).textContent).not.toMatch(/video/i)
 })
 
 test('with e-receipts switched off there is no E-Receipt card or tab', async () => {
   await openLanding({ me: { features: { ereceipt: false } } })
-  expect(screen.getByRole('button', { name: /^New Email/ })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: /^New E-Receipt/ })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Create Email template' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Create E-Receipt template' })).toBeNull()
   expect(screen.queryByRole('tab', { name: 'E-Receipt' })).toBeNull()
   // offered whatever the tags, but only where e-receipts are on
   for (const name of RECEIPT_PRESET_NAMES) expect(screen.queryByText(name)).toBeNull()
@@ -121,7 +121,7 @@ test('with e-receipts switched off there is no E-Receipt card or tab', async () 
 
 test('without template.edit the cards are hidden and presets cannot be clicked', async () => {
   await openLanding({ me: { principal: { ...me.principal, kind: 'user', permissions: me.principal.permissions.filter((code) => code !== 'template.edit') } } })
-  expect(screen.queryByRole('button', { name: /^New Email/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Create Email template' })).toBeNull()
   expect(screen.queryByRole('button', { name: /, CEP preset$/ })).toBeNull()
   expect(screen.getByText('Announce a sale')).toBeTruthy()
 })
@@ -209,7 +209,7 @@ test('a preset that cannot be copied says so in a toast', async () => {
 test('the create dialog needs a name, sends the description but not the tags, and opens the editor', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: /^New SMS/ }))
+  await user.click(screen.getByRole('button', { name: 'Create SMS template' }))
 
   const dialog = await screen.findByRole('dialog', { name: 'New SMS Template' })
   const submit = within(dialog).getByRole('button', { name: 'Continue to Editor' }) as HTMLButtonElement
@@ -230,7 +230,7 @@ test('the create dialog needs a name, sends the description but not the tags, an
 test('the create dialog shows the server refusing the name under the field', async () => {
   await openLanding({ onSaveTemplate: () => problem(400, { title: 'Invalid input', errors: { name: ['A template with this name already exists.'] } }) })
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: /^New Email/ }))
+  await user.click(screen.getByRole('button', { name: 'Create Email template' }))
   const dialog = await screen.findByRole('dialog', { name: 'New Email Template' })
   await user.type(within(dialog).getByLabelText(/^Template Name/), 'Fall Email')
   await user.click(within(dialog).getByRole('button', { name: 'Continue to Editor' }))

@@ -52,7 +52,7 @@ function CardRow({ row, render }: { row: LayoutRow; render: (card: CardKey) => R
   if (row.layout === 'side') {
     const [main, ...side] = row.cards
     return (
-      <div data-row={row.name} data-layout="2:1" className="grid gap-6 min-[1200px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div data-row={row.name} data-layout="2:1" className="grid gap-5 min-[1200px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {render(main)}
         <div data-side-column className="grid min-w-0 content-start gap-4 min-[640px]:grid-cols-2 min-[1200px]:grid-cols-1">
           {side.map((card) => <Fragment key={card}>{render(card)}</Fragment>)}
@@ -61,7 +61,7 @@ function CardRow({ row, render }: { row: LayoutRow; render: (card: CardKey) => R
     )
   }
   return (
-    <div data-row={row.name} data-layout={row.layout} className={`grid gap-6 ${row.layout === 'full' ? '' : COLUMNS[row.layout]}`}>
+    <div data-row={row.name} data-layout={row.layout} className={`grid gap-5 ${row.layout === 'full' ? '' : COLUMNS[row.layout]}`}>
       {row.cards.map((card) => <Fragment key={card}>{render(card)}</Fragment>)}
     </div>
   )
@@ -104,7 +104,7 @@ export function HomePage() {
   const campaignName = layout.singleCampaign && campaigns.status === 'ready' ? campaigns.data.options.find((item) => item.id === filters.campaignIds[0])?.name : undefined
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-5">
       <h1 className="truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1>
 
       {layout.createNew && <CreateNew tiles={tiles} />}
