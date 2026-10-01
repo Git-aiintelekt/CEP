@@ -1571,3 +1571,52 @@ export interface TestPublishResult {
   status: string
   results: { to: string; ok: boolean; detail: string | null; variant?: 'A' | 'B'; subject?: string }[]
 }
+
+// ---------------------------------------------------------------- Home overview (GET /home/overview/)
+export interface HomeOverviewAttention {
+  /** campaigns whose production send failed in the last week (not paused, not waiting for approval) */
+  failed_ids: string[]
+  awaiting_publish: number
+  awaiting_approval: number
+}
+
+export interface HomeRevenueCost {
+  granularity: 'day' | 'week'
+  /** one per day, or per week over a month; revenue null throughout when no campaign in scope has attributed revenue */
+  points: { day: string; revenue: number | null; cost: number; target_pace: number | null }[]
+  by_campaign: { top: { id: string; name: string; revenue: number }[]; others: { count: number; revenue: number } | null }
+  summary: { revenue: number | null; cost: number; roi: number | null; revenue_per_1000_delivered: number | null }
+}
+
+export interface HomeGovernance {
+  contacted: number
+  held_back: number
+  reasons: { frequency_cap: number; no_consent: number; suppression: number }
+}
+
+export interface HomeJourneyRow {
+  id: string
+  name: string
+  /** FAILED: the journey's last run failed */
+  status: 'ACTIVE' | 'PAUSED' | 'FAILED'
+  channels: string[]
+  paused_at: string | null
+  paused_by: string | null
+  failing_since: string | null
+  /** the failed step's channel */
+  failing_step: string | null
+  in_flight: number
+  entered: number
+  completed: number
+  conversion_rate: number
+}
+
+export interface HomeOverview {
+  period: { from: string; to: string; timezone: string; days: number }
+  attention: HomeOverviewAttention
+  /** null: the viewer cannot read reports */
+  revenue_cost: HomeRevenueCost | null
+  governance: HomeGovernance | null
+  /** null: the workspace has no journeys feature, or the viewer cannot read journeys */
+  journeys: { rows: HomeJourneyRow[]; total: number } | null
+}

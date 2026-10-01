@@ -8,7 +8,7 @@ import { addDays, todayIn } from '@/features/reports/period'
 import type { Campaign } from '@/lib/types'
 import { atZone } from '@/lib/zonedTime'
 import { installMockApi, makeCampaign, signIn } from '@/test/mockApi'
-import { reportSummary } from '@/test/mockWorkspaceTools'
+import { homeOverview, reportSummary } from '@/test/mockWorkspaceTools'
 
 import { SAMPLE_VIEWER } from './sampleViewer'
 import { DEFAULT_FILTERS, type HomeDataSource, type HomeFilters, type SectionResult } from './types'
@@ -43,14 +43,9 @@ async function ready<T>(use: (source: HomeDataSource) => SectionResult<T>): Prom
 
 const filters = (next: Partial<HomeFilters> = {}): HomeFilters => ({ ...DEFAULT_FILTERS, ...next })
 const paths = (calls: { url: string }[], part: string) => calls.filter((call) => call.url.includes(part)).map((call) => call.url.replace(/^.*\/api\/v1/, ''))
-const requested = { status: 'REQUESTED', requested_by: 'u2', requested_by_name: 'Sam', requested_at: null, note: null, decided_by_name: null, decided_at: null, decision_note: null } as Campaign['approval']
 
-test('Needs Attention from the campaign list: failed sends (not paused or awaiting approval), awaiting publish, awaiting approval', async () => {
-  const calls = installMockApi({ campaigns: [
-    makeCampaign({ id: 'a', name: 'Test A', status: 'TEST_PUBLISHED' }), makeCampaign({ id: 'b', name: 'Test B', status: 'TEST_PUBLISHED' }),
-    makeCampaign({ id: 'c', name: 'Asked', status: 'DRAFT', approval: requested }),
-    makeCampaign({ id: 'd', name: 'Broke', status: 'FAILED' as Campaign['status'] }), makeCampaign({ id: 'e', name: 'Held', status: 'PAUSED' }),
-  ] })
+test('Needs Attention from the overview: failed sends by id, awaiting publish, awaiting approval, in one request', async () => {
+  const calls = installMockApi({ campaigns: [makeCampaign({ id: 'c-failed', name: 'Broke', status: 'FAILED' as Campaign['status'] })] })
   const attention = await ready((source) => source.useAttention(filters()))
   expect(attention.groups.map((group) => [group.label, group.count, group.severity, group.href])).toEqual([
     ['Campaigns with delivery failures', 1, 'critical', '/campaigns?saved=attention'],
@@ -58,13 +53,19 @@ test('Needs Attention from the campaign list: failed sends (not paused or awaiti
     ['Campaigns waiting for approval', 1, 'blocking', '/campaigns?saved=approval'],
   ])
   expect(attention.freshness).toMatch(/^Updated at \d\d:\d\d E[DS]T$/)
-  expect(paths(calls, '/campaigns/?')).toEqual(expect.arrayContaining([
-    '/campaigns/?view=attention&page_size=100', '/campaigns/?status=TEST_PUBLISHED&page_size=1', '/campaigns/?approval=requested&page_size=1',
-  ]))
+  expect(paths(calls, '/home/overview/')).toHaveLength(1)
+  expect(paths(calls, '/home/overview/')[0]).toMatch(/^\/home\/overview\/\?from=\d{4}-\d\d-\d\d&to=\d{4}-\d\d-\d\d$/)
+  expect(paths(calls, '/campaigns/?')).toEqual([])                                                             // no list calls for the counts any more
+})
+
+test('one campaign: the overview says whether its send failed; publish and approval come from the campaign itself', async () => {
+  installMockApi({ campaigns: [makeCampaign({ id: 'c-failed', status: 'TEST_PUBLISHED' })], campaign: makeCampaign({ id: 'c-failed', status: 'TEST_PUBLISHED' }) })
+  const attention = await ready((source) => source.useAttention(filters({ campaignIds: ['c-failed'] })))
+  expect(attention.groups.map((group) => [group.label, group.count])).toEqual([['Campaigns with delivery failures', 1], ['Campaigns awaiting production publish', 1]])
 })
 
 test('groups with nothing in them are left out', async () => {
-  installMockApi({ campaigns: [makeCampaign({ id: 'a', status: 'DRAFT' })] })
+  installMockApi({ workspaceTools: { overview: { ...homeOverview(), attention: { failed_ids: [], awaiting_publish: 0, awaiting_approval: 0 } } } })
   expect((await ready((source) => source.useAttention(filters()))).groups).toEqual([])
 })
 
@@ -155,7 +156,50 @@ test('the funnel and the KPIs share one request per period', async () => {
   const { result } = renderHook(() => ({ kpis: liveSource.useKpis(filters()), funnel: liveSource.useFunnel(filters()) }), { wrapper })
   await waitFor(() => expect([result.current.kpis.status, result.current.funnel.status]).toEqual(['ready', 'ready']))
   expect(paths(calls, '/reports/summary/')).toHaveLength(2)                                                   // this period and the one before, not three
-  expect(liveSource.useRevenueCost(filters())).toEqual({ status: 'unavailable' })
+})
+
+test('Revenue vs. Cost, Governance, Active Journeys and Needs Attention share one GET /home/overview/ for the filters', async () => {
+  const calls = installMockApi()
+  const { liveSource, wrapper } = await load()
+  const { result } = renderHook(() => ({
+    revenue: liveSource.useRevenueCost(filters({ channel: 'SMS', campaignIds: ['c1', 'c3'] })), governance: liveSource.useGovernance(filters({ channel: 'SMS', campaignIds: ['c1', 'c3'] })),
+    journeys: liveSource.useJourneys(filters({ channel: 'SMS', campaignIds: ['c1', 'c3'] })), attention: liveSource.useAttention(filters({ channel: 'SMS', campaignIds: ['c1', 'c3'] })),
+  }), { wrapper })
+  await waitFor(() => expect(Object.values(result.current).map((part) => part.status)).toEqual(['ready', 'ready', 'ready', 'ready']))
+  expect(paths(calls, '/home/overview/')).toEqual([expect.stringMatching(/^\/home\/overview\/\?from=.*&to=.*&channel=SMS&campaigns=c1%2Cc3$/)])
+})
+
+test('Revenue vs. Cost from the overview: the points, the top campaigns with the rest as one row, the four figures', async () => {
+  installMockApi()
+  const series = await ready((source) => source.useRevenueCost(filters()))
+  expect(series.granularity).toBe('day')
+  expect(series.points[0]).toEqual({ day: '2026-09-01', revenue: 6_000, cost: 400, targetPace: 7_000 })
+  expect(series.byCampaign.top.map((row) => row.name)).toEqual(['Fall Launch', 'Spring Clearance'])
+  expect(series.byCampaign.others).toEqual({ count: 3, revenue: 2_400 })
+  expect(series.summary).toEqual({ revenue: 42_400, cost: 2_100, roi: 20.19, revenuePer1000Delivered: 2_365.6 })
+})
+
+test('a part the viewer cannot read is null in the overview and unavailable on the page', async () => {
+  installMockApi({ workspaceTools: { overview: { ...homeOverview(), revenue_cost: null, governance: null, journeys: null } } })
+  const { liveSource, wrapper } = await load()
+  const { result } = renderHook(() => ({ revenue: liveSource.useRevenueCost(filters()), governance: liveSource.useGovernance(filters()), journeys: liveSource.useJourneys(filters()) }), { wrapper })
+  await waitFor(() => expect(Object.values(result.current).map((part) => part.status)).toEqual(['unavailable', 'unavailable', 'unavailable']))
+})
+
+test('Governance from the overview: contacted, held back, the three reasons', async () => {
+  installMockApi()
+  expect(await ready((source) => source.useGovernance(filters()))).toEqual({ contacted: 12_380, heldBack: 940, reasons: { frequencyCap: 500, noConsent: 300, suppression: 140 } })
+})
+
+test('Active Journeys from the overview: a failing step with its time in the workspace zone, who paused, the channels', async () => {
+  installMockApi()
+  const journeys = await ready((source) => source.useJourneys(filters()))
+  expect(journeys.totalJourneys).toBe(3)
+  expect(journeys.rows.map((row) => [row.name, row.status, row.contextLine, row.inFlight, row.entered, row.conversionRate])).toEqual([
+    ['Cart Recovery', 'FAILED', 'SMS step failing since 00:12 EDT', 1_206, 9_480, 12.9],
+    ['Birthday Reward', 'PAUSED', 'Paused by Maya Patel, 28 Sep', 640, 1_880, 15.2],
+    ['Welcome Series', 'ACTIVE', 'Email, SMS', 3_842, 6_120, 8.4],
+  ])
 })
 
 const targets = (revenue: string) => ({ target_revenue: revenue, target_opens: null, target_clicks: null, target_conversions: null, target_redemptions: null, planned_cost: null, planned_offer_cost: null, notes: null })
@@ -231,12 +275,14 @@ test('Recent Campaigns: the 50 latest from the list, joined by id with the perio
     makeCampaign({ id: 'c1', name: 'Fall Launch', channel: 'EMAIL', status: 'PRODUCTION_PUBLISHED', targets: targets('30000') }),
     makeCampaign({ id: 'c3', name: 'Weekend SMS', channel: 'SMS', status: 'PRODUCTION_PUBLISHED' }),
     makeCampaign({ id: 'c9', name: 'Not Sent Yet', channel: 'EMAIL', status: 'DRAFT' }),
+    makeCampaign({ id: 'c-failed', name: 'Broke', channel: 'EMAIL', status: 'PRODUCTION_PUBLISHED' }),
   ] })
   const recent = await ready((source) => source.useRecentCampaigns(filters()))
-  expect(recent.total).toBe(3)
+  expect(recent.total).toBe(4)
   expect(recent.attributionSetUp).toBe(true)
   const row = (id: string) => recent.rows.find((item) => item.id === id)!
   expect(row('c1')).toMatchObject({ delivered: 11_700, openRate: 43.6, revenue: 31_880, target: 30_000, status: 'PRODUCTION_PUBLISHED', attention: 4 })
+  expect(row('c-failed')).toMatchObject({ attention: 0 })                                                        // the overview's failed ids mark the row
   expect(row('c3')).toMatchObject({ delivered: 294, openRate: 'not_tracked', revenue: null, target: null })
   expect(row('c9')).toMatchObject({ delivered: null, openRate: null, status: 'DRAFT' })
   expect(row('c9').contextLine).toMatch(/^Regular · edited \d{1,2} [A-Z][a-z]{2} \d{4}$/)

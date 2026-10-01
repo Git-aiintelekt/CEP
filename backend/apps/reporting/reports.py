@@ -2,13 +2,15 @@
 
 Figures come from the execution tables (mailer_execution, sms_execution) joined to their runs, test runs left out, and
 from consent_record for unsubscribes and campaign_actual for revenue. Nothing new is collected. A period is a range of
-days in the workspace's time zone; the partition key (created_at) bounds every scan.
+days in the workspace's time zone; the partition key (created_at) bounds every scan. Each execution table is read once
+(grouping sets give the totals, the days, the campaigns and the hours from one pass) and a summary is kept for 30 s.
 """
 import csv
 import io
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from django.core.cache import cache
 from django.utils import timezone
 
 from apps.campaigns import service
@@ -76,41 +78,45 @@ def summary(tenant, start: date | None = None, end: date | None = None, *, chann
     families = ["EMAIL", "SMS"] if not channel else [channel.upper()]
     if any(family not in TABLE for family in families):
         raise ReportError("channel", "Filter by EMAIL or SMS.")
+    cache_key = f"cep:report_summary:{tenant.pk}:{first_day}:{last_day}:{channel or ''}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
     args = {"tenant": str(tenant.pk), "since": since, "until": until, "zone": zone.key}
     totals = {"sent": 0, "delivered": 0, "opened": 0, "clicked": 0, "bounced": 0, "complained": 0, "failed": 0, "unsubscribed": 0, "replied": 0}
     by_channel, days, campaigns, hours = {}, {}, {}, {}
     with _conn().cursor() as cursor:
         for family in families:
-            table = TABLE[family]
-            cursor.execute(f"""SELECT {COUNTS[family]} FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id
-                                WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s""", args)
-            sent, delivered, opened, clicked, bounced, complained, failed = [int(v) for v in cursor.fetchone()]
-            by_channel[family] = {"sent": sent, "delivered": delivered, "opened": opened, "clicked": clicked, "bounced": bounced, "complained": complained, "failed": failed}
-            for key, value in by_channel[family].items():
-                totals[key] += value
-            cursor.execute(f"""SELECT (x.submitted_at AT TIME ZONE %(zone)s)::date, {COUNTS[family]} FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id
-                                WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s AND x.submitted_at IS NOT NULL
-                                GROUP BY 1""", args)
-            for day, sent, delivered, opened, clicked, *_ in cursor.fetchall():
-                slot = days.setdefault(day, {"day": day, "sent": 0, "delivered": 0, "opened": 0, "clicked": 0})
-                slot["sent"] += int(sent); slot["delivered"] += int(delivered); slot["opened"] += int(opened); slot["clicked"] += int(clicked)     # noqa: E702
-            cursor.execute(f"""SELECT c.id, c.name, c.channel, c.campaign_type, min(x.submitted_at), {COUNTS[family]}
-                                 FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
-                                WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s
-                                GROUP BY 1, 2, 3, 4""", args)
-            for pk, name, chan, kind, first_sent, sent, delivered, opened, clicked, bounced, complained, failed in cursor.fetchall():
-                row = campaigns.setdefault(str(pk), {"id": str(pk), "name": name, "channel": chan, "campaign_type": kind, "first_sent_at": first_sent, "sent": 0, "delivered": 0,
-                                                     "opened": 0, "clicked": 0, "bounced": 0, "complained": 0, "failed": 0, "unsubscribed": 0, "revenue": None, "conversions": 0})
-                row["first_sent_at"] = min(filter(None, [row["first_sent_at"], first_sent]), default=None)
-                for key, value in zip(("sent", "delivered", "opened", "clicked", "bounced", "complained", "failed"), (sent, delivered, opened, clicked, bounced, complained, failed)):
-                    row[key] += int(value)
-            if family == "EMAIL":
-                cursor.execute(f"""SELECT extract(hour FROM x.submitted_at AT TIME ZONE %(zone)s)::int, count(*) FILTER (WHERE x.status IN ('DELIVERED', 'OPENED', 'CLICKED')),
-                                          count(*) FILTER (WHERE x.status IN ('OPENED', 'CLICKED'))
-                                     FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id
-                                    WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s AND x.submitted_at IS NOT NULL
-                                    GROUP BY 1""", args)
-                hours = {int(hour): (int(delivered), int(opened)) for hour, delivered, opened in cursor.fetchall()}
+            # one pass: grouping(day, campaign, hour) is 7 for the totals, 3 for a day, 5 for a campaign, 6 for an hour
+            cursor.execute(f"""SELECT grouping(x.day, x.campaign_id, x.hour), x.day, x.campaign_id::text, x.hour, min(x.submitted_at), {COUNTS[family]}
+                                 FROM (SELECT (x.submitted_at AT TIME ZONE %(zone)s)::date AS day, x.campaign_id, extract(hour FROM x.submitted_at AT TIME ZONE %(zone)s)::int AS hour,
+                                              x.submitted_at, x.status
+                                         FROM {TABLE[family]} x JOIN campaign_run r ON r.id = x.campaign_run_id
+                                        WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s) x
+                                GROUP BY GROUPING SETS ((x.day), (x.campaign_id), (x.hour), ())""", args)
+            by_channel[family] = {"sent": 0, "delivered": 0, "opened": 0, "clicked": 0, "bounced": 0, "complained": 0, "failed": 0}
+            for group, day, pk, hour, first_sent, sent, delivered, opened, clicked, bounced, complained, failed in cursor.fetchall():
+                counts = {"sent": int(sent), "delivered": int(delivered), "opened": int(opened), "clicked": int(clicked), "bounced": int(bounced), "complained": int(complained), "failed": int(failed)}
+                if group == 7:
+                    by_channel[family] = counts
+                    for key, value in counts.items():
+                        totals[key] += value
+                elif group == 3 and day is not None:
+                    slot = days.setdefault(day, {"day": day, "sent": 0, "delivered": 0, "opened": 0, "clicked": 0})
+                    for key in ("sent", "delivered", "opened", "clicked"):
+                        slot[key] += counts[key]
+                elif group == 5:
+                    row = campaigns.setdefault(pk, {"id": pk, "name": None, "channel": None, "campaign_type": None, "first_sent_at": None, "sent": 0, "delivered": 0,
+                                                    "opened": 0, "clicked": 0, "bounced": 0, "complained": 0, "failed": 0, "unsubscribed": 0, "revenue": None, "conversions": 0})
+                    row["first_sent_at"] = min(filter(None, [row["first_sent_at"], first_sent]), default=None)
+                    for key, value in counts.items():
+                        row[key] += value
+                elif group == 6 and hour is not None and family == "EMAIL" and counts["delivered"]:
+                    hours[int(hour)] = (counts["delivered"], counts["opened"])
+        if campaigns:
+            cursor.execute("SELECT id::text, name, channel, campaign_type FROM campaign WHERE tenant_id = %(tenant)s AND id::text = ANY(%(ids)s)", {**args, "ids": list(campaigns)})
+            for pk, name, chan, kind in cursor.fetchall():
+                campaigns[pk].update(name=name, channel=chan, campaign_type=kind)
         cursor.execute("""SELECT campaign_id::text, count(*) FROM consent_record WHERE tenant_id = %(tenant)s AND action = 'OPT_OUT' AND occurred_at >= %(since)s AND occurred_at < %(until)s
                           GROUP BY 1""", args)
         for pk, count in cursor.fetchall():
@@ -132,11 +138,13 @@ def summary(tenant, start: date | None = None, end: date | None = None, *, chann
                   "most_unsubscribes": max(rated, key=lambda row: row["rates"]["unsubscribe"], default=None),
                   "best_send_hour": {"hour": best_hour[0], "open_rate": _rate(best_hour[1], best_hour[2])} if best_hour else None}
     revenue = [row["revenue"] for row in rows if row["revenue"] is not None]
-    return {"period": {"from": first_day, "to": last_day, "timezone": zone.key, "days": (last_day - first_day).days + 1}, "channel": channel and channel.upper(),
+    result = {"period": {"from": first_day, "to": last_day, "timezone": zone.key, "days": (last_day - first_day).days + 1}, "channel": channel and channel.upper(),
             "totals": {**totals, "campaigns": len(rows), "revenue": round(sum(revenue), 2) if revenue else None, "conversions": sum(row["conversions"] for row in rows)},
             "rates": _rates(totals), "by_channel": by_channel, "days": [days[key] for key in sorted(days)],
             "campaigns": rows, "highlights": {key: ({"id": value["id"], "name": value["name"], "rates": value["rates"]} if isinstance(value, dict) and "rates" in value else value)
                                               for key, value in highlights.items()}}
+    cache.set(cache_key, result, service.RESULTS_CACHE_TTL)
+    return result
 
 
 def csv_text(report: dict) -> str:

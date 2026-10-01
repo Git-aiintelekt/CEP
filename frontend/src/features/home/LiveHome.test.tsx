@@ -67,8 +67,8 @@ test('"/" is the new Home: the greeting, every live section, and no request made
   await waitFor(() => expect(region('Recent Campaigns')).toBeTruthy())
   await waitFor(() => expect(region('Next 7 Days')).toBeTruthy())
   for (const name of ['Marketing Performance', 'Create New']) expect(region(name)).toBeTruthy()
-  await waitFor(() => expect(region('Needs Attention')).toBeNull())                                                                   // loaded, and the mock workspace has nothing needing attention
-  for (const name of ['Attributed Revenue vs. Campaign Cost', 'Active Journeys', 'Governance']) expect(region(name)).toBeNull()        // no data behind them yet
+  await waitFor(() => expect(region('Needs Attention')).toBeTruthy())                                                                 // the mock overview has alerts
+  for (const name of ['Attributed Revenue vs. Campaign Cost', 'Active Journeys', 'Governance']) await waitFor(() => expect(region(name)).toBeTruthy())   // from GET /home/overview/
   expect(screen.getByRole('button', { name: 'All Campaigns' })).toBeTruthy()                                                          // the Campaign filter, live
   await new Promise((resolve) => setTimeout(resolve, 50))
   const requests = apiPaths(calls).filter((path) => path.startsWith('GET') && path !== 'GET /contact-lists/imports/')                  // the shell's upload poll repeats by design

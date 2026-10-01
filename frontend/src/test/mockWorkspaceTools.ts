@@ -1,6 +1,6 @@
 /** Reports, suppressions, notifications and approvals for the mock API: shaped like the backend's answers, stateful where a test writes. */
 import type {
-  ApprovalSettings, NotificationSettings, PosReceived, PosSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, Store, SubscriptionTopic,
+  ApprovalSettings, HomeOverview, NotificationSettings, PosReceived, PosSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, Store, SubscriptionTopic,
   SuppressionRow, SuppressionSummary,
 } from '@/lib/types'
 
@@ -81,6 +81,8 @@ const CATALOGUE = [
 const ALL_OFF = { owner: false, recipients: false, webhook: false }
 
 export interface WorkspaceToolsState {
+  /** GET /home/overview/: the same answer whatever the period, channel or campaigns asked for */
+  overview: HomeOverview
   schedule: ReportSchedule
   suppressions: SuppressionRow[]
   notifications: NotificationSettings
@@ -92,6 +94,30 @@ export interface WorkspaceToolsState {
   received: PosReceived[]
 }
 
+/** Home's overview for the busy sample workspace: two alerts, a fortnight of revenue against cost, governance holds, three journeys */
+export function homeOverview(): HomeOverview {
+  const days = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05']
+  return {
+    period: { from: '2026-09-01', to: '2026-09-30', timezone: 'America/New_York', days: 30 },
+    attention: { failed_ids: ['c-failed'], awaiting_publish: 2, awaiting_approval: 1 },
+    revenue_cost: {
+      granularity: 'day',
+      points: days.map((day, index) => ({ day, revenue: 6_000 + index * 500, cost: 400 + index * 10, target_pace: 7_000 })),
+      by_campaign: { top: [{ id: 'c1', name: 'Fall Launch', revenue: 31_880 }, { id: 'c2', name: 'Spring Clearance', revenue: 8_120 }], others: { count: 3, revenue: 2_400 } },
+      summary: { revenue: 42_400, cost: 2_100, roi: 20.19, revenue_per_1000_delivered: 2_365.6 },
+    },
+    governance: { contacted: 12_380, held_back: 940, reasons: { frequency_cap: 500, no_consent: 300, suppression: 140 } },
+    journeys: {
+      rows: [
+        { id: 'j-cart', name: 'Cart Recovery', status: 'FAILED', channels: ['EMAIL', 'SMS'], paused_at: null, paused_by: null, failing_since: '2026-09-30T04:12:00Z', failing_step: 'SMS', in_flight: 1_206, entered: 9_480, completed: 1_223, conversion_rate: 12.9 },
+        { id: 'j-birthday', name: 'Birthday Reward', status: 'PAUSED', channels: ['EMAIL'], paused_at: '2026-09-28T15:00:00Z', paused_by: 'Maya Patel', failing_since: null, failing_step: null, in_flight: 640, entered: 1_880, completed: 286, conversion_rate: 15.2 },
+        { id: 'j-welcome', name: 'Welcome Series', status: 'ACTIVE', channels: ['EMAIL', 'SMS'], paused_at: null, paused_by: null, failing_since: null, failing_step: null, in_flight: 3_842, entered: 6_120, completed: 514, conversion_rate: 8.4 },
+      ],
+      total: 3,
+    },
+  }
+}
+
 export const topicRows: SubscriptionTopic[] = [
   { id: 'top-1', code: 'rewards_and_offers', name: 'Rewards and offers', description: 'Member offers, points balance and birthday rewards.', channels: ['EMAIL', 'SMS'], is_shown: true, sort_order: 10, opted_out: 312, campaigns: 2, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' },
   { id: 'top-2', code: 'new_arrivals', name: 'New arrivals', description: 'What is new in store and online, about twice a month.', channels: ['EMAIL'], is_shown: true, sort_order: 20, opted_out: 1048, campaigns: 0, created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-01T10:00:00Z' },
@@ -99,6 +125,7 @@ export const topicRows: SubscriptionTopic[] = [
 
 export function workspaceToolsState(overrides: Partial<WorkspaceToolsState> = {}): WorkspaceToolsState {
   return {
+    overview: homeOverview(),
     schedule: { enabled: false, weekday: 0, hour: 8, recipients: [], last_sent_on: null },
     suppressions: suppressionRows.map((row) => ({ ...row })),
     notifications: {
@@ -140,6 +167,7 @@ function summaryOf(rows: SuppressionRow[]): SuppressionSummary {
 
 export function handleWorkspaceTools({ path, url, method, body }: Request, state: WorkspaceToolsState): Response | null {
   const query = new URL(url, 'http://mock').searchParams
+  if (path.endsWith('/home/overview/')) return json({ ...state.overview, period: { ...state.overview.period, from: query.get('from') ?? state.overview.period.from, to: query.get('to') ?? state.overview.period.to } })
   if (path.endsWith('/reports/summary/')) {
     const channel = query.get('channel')
     const campaigns = reportSummary.campaigns.filter((row) => !channel || row.channel === channel)

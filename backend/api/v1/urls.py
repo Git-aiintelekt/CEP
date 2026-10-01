@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, integrations_api, pos_api, preferences_api, preferences_public,
-               recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
+               home_api, recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -79,6 +79,7 @@ urlpatterns = [
     path("suppressions/export.csv", suppressions_api.SuppressionExportView.as_view(), name="suppression-export"),
     path("suppressions/block/", suppressions_api.SuppressionBlockView.as_view(), name="suppression-block"),
     path("suppressions/<str:kind>/<str:pk>/unblock/", suppressions_api.SuppressionUnblockView.as_view(), name="suppression-unblock"),
+    path("home/overview/", home_api.HomeOverviewView.as_view(), name="home-overview"),
     path("reports/summary/", reports_api.ReportSummaryView.as_view(), name="report-summary"),
     path("reports/campaigns.csv", reports_api.ReportCsvView.as_view(), name="report-csv"),
     path("reports/compare/", reports_api.ReportCompareView.as_view(), name="report-compare"),
