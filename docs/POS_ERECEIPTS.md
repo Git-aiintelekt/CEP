@@ -115,6 +115,14 @@ all on the `E_RECEIPT` channel. Standard-template names in brackets.
 
 Already there and unchanged: `receipt.number`, `receipt.transaction_at`, `receipt.subtotal` … `receipt.tender_summary`
 (RECEIPT), `first_name` / `last_name` (CUSTOMER_MASTER), `{{receipt_body}}` (TRANS_HTML), `today`, `campaign_name`.
+A template may write a tag the standard templates' way, `${STORE_NAME}`: the renderer and the designer's checks read it as
+`{{store_name}}` (the name lower-cased), so a layout pasted from a standard template fills in without editing.
+
+A workspace adds tags of its own in **Settings → Tags** (Workspace group): a key, a label, where the value is read from (a
+customer field or attribute, a list-upload column, the campaign or run, the system, the receipt, the store, the transaction, or a
+static value), the type, a default and a sample, and the channels it is offered in. Tags from the platform catalogue are listed
+there too, read only; the back-office changes those.
+
 Not offered, because CEP has no such feature yet: SURVEY_SECRET / SURVEY_AUTO_SUBMIT, SR_STATUS, COUPON_ID, CLIENT_LOGO /
 APPLICATION_URL (put the logo and the link into the template itself).
 

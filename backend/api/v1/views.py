@@ -26,7 +26,7 @@ from api.permissions import HasPermissionCode, SameTenant
 from apps.delivery.models import SenderProfile
 from apps.media.models import MediaAsset
 from apps.platform_ops import billing, params
-from apps.templates import design, starters
+from apps.templates import datapoints, design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
 from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
@@ -428,6 +428,15 @@ class PersonalizationTagViewSet(BaseTenantViewSet):
             from apps.templates.inherit import INHERITED_MESSAGE
             raise PermissionDenied(INHERITED_MESSAGE)
         super().perform_destroy(instance)
+
+    @extend_schema(responses={200: None})
+    @action(detail=False, methods=["get"], url_path="data-points")
+    def data_points(self, request, version=None):
+        """What a tag can read: every source with its data points (a path ending in "." takes a key of the person's own), and Static."""
+        sources = [{"key": source, "label": name, "points": [{"path": path, "label": label, "data_type": data_type, "prefix": datapoints.is_prefix(path)}
+                                                              for path, label, data_type in datapoints.DATA_POINTS.get(source, [])]}
+                   for source, name in datapoints.SOURCES.items() if source != "STATIC"]
+        return Response({"sources": sources, "static": {"key": "STATIC", "label": datapoints.SOURCES["STATIC"]}})
 
 
 class JourneyViewSet(BaseTenantViewSet):

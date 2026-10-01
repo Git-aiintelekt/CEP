@@ -18,10 +18,19 @@ export interface RegisterOptions extends PaletteOptions {
 
 const CATEGORY_LABEL = new Map(BLOCK_CATEGORIES.map((category) => [category.id, category.label]))
 
-/** A receipt has a palette of its own: six blocks, its footer a transactional one with no unsubscribe link. Both palettes end with the
- *  barcode and QR code blocks where the workspace has them. */
+/** The blocks a receipt's palette has in place of the email's: its brand header, the marketing block and a transactional footer with no
+ *  unsubscribe link. Its own button, image and divider stay registered for templates that hold them but are no longer offered: the
+ *  email's editable ones, with their layout and appearance panels, took their place (2026-10-02). */
+const RECEIPT_PALETTE_IDS = new Set(['receipt-brand-header', 'receipt-marketing', 'receipt-footer'])
+/** the email's footer carries an unsubscribe link, which a receipt never does */
+const MARKETING_ONLY_IDS = new Set(['footer'])
+
+/** A receipt gets the email's structure, content and brand blocks plus its own three; both palettes end with the barcode and QR code
+ *  blocks where the workspace has them. */
 export function blocksFor(channel: string, { dynamicCodes = false }: PaletteOptions = {}): CepBlock[] {
-  const own = channel === 'E_RECEIPT' ? RECEIPT_BLOCKS : CEP_BLOCKS
+  const own = channel === 'E_RECEIPT'
+    ? [...CEP_BLOCKS.filter((block) => !MARKETING_ONLY_IDS.has(block.id)), ...RECEIPT_BLOCKS.filter((block) => RECEIPT_PALETTE_IDS.has(block.id))]
+    : CEP_BLOCKS
   return dynamicCodes ? [...own, ...CODE_BLOCKS] : own
 }
 

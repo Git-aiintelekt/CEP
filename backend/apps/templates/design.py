@@ -18,6 +18,7 @@ from api.exceptions import Conflict
 from .models import PersonalizationTag, RenderedTemplateContent, TemplateDesignState, TemplateMaster, TemplateTag
 
 TAG_RE = re.compile(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}")
+LEGACY_TAG_RE = re.compile(r"\$\{\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\}")          # ${STORE_NAME}: the standard templates' spelling of {{store_name}}
 DESIGNER_CHANNELS = ("EMAIL", "E_RECEIPT")
 MAX_MJML_BYTES = 512 * 1024
 MAX_STATE_BYTES = 3 * 1024 * 1024
@@ -35,7 +36,7 @@ def extract_tags(*texts: str | None) -> list[str]:
     """Tag keys in order of first appearance: '{{ first_name }}' -> 'first_name'."""
     seen: dict[str, None] = {}
     for text in texts:
-        for match in TAG_RE.finditer(text or ""):
+        for match in TAG_RE.finditer(LEGACY_TAG_RE.sub(lambda m: "{{" + m.group(1).lower() + "}}", text or "")):
             seen.setdefault(match.group(1), None)
     return list(seen)
 

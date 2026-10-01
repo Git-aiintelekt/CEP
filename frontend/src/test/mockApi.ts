@@ -84,9 +84,19 @@ export const stagedImport: ListImport = {
 
 const tag = (tag_key: string, label: string, tag_kind: string, sample_value: string): PersonalizationTag => ({
   id: tag_key, tag_key, label, tag_kind, data_type: 'STRING', applies_to_channels: ['EMAIL', 'SMS', 'MMS'], description: null, sample_value,
-  default_value: null, static_value: null, is_active: true,
+  default_value: null, static_value: null, is_active: true, resolution_source: tag_kind === 'CUSTOM' ? 'CAMPAIGN_LIST_MEMBER' : 'CUSTOMER_MASTER',
+  source_path: tag_kind === 'CUSTOM' ? `custom_value_pairs.${tag_key}` : tag_key, platform_tag_id: tag_kind === 'STANDARD' ? `platform-${tag_key}` : null, row_version: 1,
 })
 export const tags: PersonalizationTag[] = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017')]
+/** GET /personalization-tags/data-points/: a cut of the catalogue the Tags page's form reads */
+export const tagDataPoints = {
+  sources: [
+    { key: 'CUSTOMER_MASTER', label: 'Customer', points: [{ path: 'first_name', label: 'First name', data_type: 'STRING', prefix: false }, { path: 'custom_attributes.', label: 'A customer attribute', data_type: 'STRING', prefix: true }] },
+    { key: 'TRANSACTION', label: 'Transaction (e-receipts from the point of sale)', points: [{ path: 'id', label: 'Transaction ID', data_type: 'STRING', prefix: false }, { path: 'grand_total', label: 'Total', data_type: 'NUMBER', prefix: false }] },
+    { key: 'STORE', label: 'Store (e-receipts)', points: [{ path: 'name', label: 'Store Name', data_type: 'STRING', prefix: false }] },
+  ],
+  static: { key: 'STATIC', label: 'Static value' },
+}
 /** every tag the marketing presets use, with the sample values the SMS lengths are counted with */
 export const presetTags: PersonalizationTag[] = [...tags, tag('discount_pct', 'Discount %', 'CUSTOM', '20'), tag('shop_url', 'Shop URL', 'SYSTEM', 'https://shop.example.com'),
   tag('unsubscribe_url', 'Unsubscribe URL', 'SYSTEM', 'https://example.com/unsubscribe'), tag('loyalty_points', 'Loyalty points', 'STANDARD', '1,250'),
@@ -367,6 +377,7 @@ export function installMockApi(options: MockOptions = {}) {
   let securityNow: SecuritySettings = { ...security }
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
+  const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
@@ -561,7 +572,23 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/receipt/')) return json(receiptLayout)
     if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
-    if (path.endsWith('/personalization-tags/')) return json({ next: null, previous: null, results: options.tags ?? tags })
+    if (path.endsWith('/personalization-tags/data-points/')) return json(tagDataPoints)
+    if (path.endsWith('/personalization-tags/') && method === 'POST') {
+      const input = (body ?? {}) as Partial<PersonalizationTag>
+      const made = { ...tag(String(input.tag_key), String(input.label), 'CUSTOM', String(input.sample_value ?? '')), ...input, id: 'tag-new', platform_tag_id: null }
+      tagRows.push(made as PersonalizationTag)
+      return json(made, 201)
+    }
+    if (path.endsWith('/personalization-tags/')) return json({ next: null, previous: null, results: tagRows })
+    const tagMatch = path.match(/\/personalization-tags\/([^/]+)\/$/)
+    if (tagMatch && (method === 'PATCH' || method === 'DELETE')) {
+      const found = tagRows.find((item) => item.id === tagMatch[1])
+      if (!found) return json({ title: 'Not found', status: 404 }, 404)
+      if (found.platform_tag_id) return json({ title: 'This tag comes from the platform catalogue; the back-office changes it.', status: 403 }, 403)
+      if (method === 'DELETE') { tagRows.splice(tagRows.indexOf(found), 1); return json(null, 204) }
+      Object.assign(found, body)
+      return json(found)
+    }
     if (path.endsWith('/template-starters/')) return json(starters.filter((item) => url.includes(`channel=${item.channel}`)))
     if (path.endsWith('/media-assets/') && method === 'POST') return json({ ...mediaLibrary[0], id: 'img-up', file_name: 'uploaded.png', mime_type: 'image/png' }, 201)
     if (path.endsWith('/media-assets/')) return json({ next: null, previous: null, results: mediaLibrary })

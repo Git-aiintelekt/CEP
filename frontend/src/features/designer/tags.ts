@@ -2,12 +2,16 @@
 import type { PersonalizationTag } from '@/lib/types'
 
 const TAG_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}/g
+const LEGACY_TAG_PATTERN = /\$\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}/g
+
+/** ${STORE_NAME}, the standard templates' spelling, read as {{store_name}}: the server does the same when it sends. */
+export const modernTags = (text: string) => text.replace(LEGACY_TAG_PATTERN, (_, key: string) => `{{${key.toLowerCase()}}}`)
 
 /** Tag keys in order of first appearance. */
 export function extractTags(...texts: (string | null | undefined)[]): string[] {
   const seen = new Set<string>()
   for (const text of texts) {
-    for (const match of (text ?? '').matchAll(TAG_PATTERN)) seen.add(match[1])
+    for (const match of modernTags(text ?? '').matchAll(TAG_PATTERN)) seen.add(match[1])
   }
   return [...seen]
 }

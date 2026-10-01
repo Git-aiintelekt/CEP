@@ -54,21 +54,21 @@ test('the category is the sentence-case label, not the id', () => {
   expect(new Set(added.map((item) => item.props.category))).toEqual(new Set(['Structure', 'Content', 'Brand', 'Commerce']))
 })
 
-test('a receipt is offered its own six blocks, in its grid order', () => {
+test("a receipt is offered the email's structure, content and brand blocks, then its own brand header, marketing block and transactional footer", () => {
   const { editor, added } = mockEditor()
   registerBlocks(editor, { channel: 'E_RECEIPT' })
 
-  expect(added.map((item) => item.id)).toEqual([
-    'receipt-brand-header', 'receipt-marketing', 'receipt-button', 'receipt-footer', 'receipt-image', 'receipt-divider',
-  ])
-  expect(added.map((item) => item.props.label)).toEqual(['Brand Header', 'Marketing', 'Button', 'Footer', 'Image', 'Divider'])
+  const ids = added.map((item) => item.id)
+  for (const offered of ['columns-1', 'columns-2', 'columns-3', 'columns-4', 'spacer', 'divider', 'heading', 'text', 'image', 'button', 'html', 'header', 'social']) {
+    expect(ids, offered).toContain(offered)
+  }
+  expect(ids.slice(-3)).toEqual(['receipt-brand-header', 'receipt-marketing', 'receipt-footer'])
+  expect(added.slice(-3).map((item) => item.props.label)).toEqual(['Brand Header', 'Marketing', 'Footer'])
 })
 
-test('none of the Email palette is offered to a receipt', () => {
+test("the email's footer (it carries an unsubscribe link) and the receipt's old button, image and divider are not offered to a receipt", () => {
   const ids = blockIdsInOrder('E_RECEIPT')
-  for (const excluded of ['text', 'heading', 'columns-1', 'columns-2', 'columns-3', 'columns-4', 'social', 'product-card', 'coupon', 'spacer', 'footer']) {
-    expect(ids, excluded).not.toContain(excluded)
-  }
+  for (const excluded of ['footer', 'receipt-button', 'receipt-image', 'receipt-divider']) expect(ids, excluded).not.toContain(excluded)
   expect(blockIdsInOrder('EMAIL')).toEqual(CEP_BLOCKS.map((block) => block.id))
 })
 
@@ -77,7 +77,7 @@ test('blockIdsInOrder matches what was registered', () => {
   registerBlocks(editor, { channel: 'EMAIL' })
 
   expect(blockIdsInOrder('EMAIL')).toEqual(added.map((item) => item.id))
-  expect(blockIdsInOrder('E_RECEIPT')).toHaveLength(6)
+  expect(blockIdsInOrder('E_RECEIPT')).toHaveLength(CEP_BLOCKS.length - 1 + 3)
 })
 
 // ---- footer rules --------------------------------------------------------
