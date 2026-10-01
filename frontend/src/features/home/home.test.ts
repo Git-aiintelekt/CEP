@@ -94,13 +94,9 @@ test('sample states: no alerts, a light account, and no attribution (revenue nul
   expect(ready(none.useEReceipts(filters()))?.offerRevenue).toBeNull()
 })
 
-test('the live source wires everything the API can feed; the rest is unavailable', () => {
-  const wired = ['capabilities', 'useCampaignOptions', 'useAttention', 'useKpis', 'useFunnel', 'useTopBottom', 'useSchedule', 'useRecentCampaigns', 'useEReceipts']
-  const rest = Object.entries(liveSource).filter(([name]) => !wired.includes(name))
-  expect(rest.map(([name]) => name)).toEqual(['useRevenueCost', 'useJourneys', 'useGovernance'])
-  for (const [name, hook] of rest) {
-    expect({ name, result: (hook as (value: HomeFilters) => unknown)(filters()) }).toEqual({ name, result: { status: 'unavailable' } })
-  }
+test('the live source wires every section; a journey cannot be created from the app yet', () => {
+  expect(Object.keys(liveSource).sort()).toEqual(['capabilities', 'useAttention', 'useCampaignOptions', 'useEReceipts', 'useFunnel', 'useGovernance', 'useJourneys', 'useKpis', 'useRecentCampaigns',
+                                                  'useRevenueCost', 'useSchedule', 'useTopBottom'])
   expect(liveSource.capabilities.journeyCreateFlow).toBe(false)
 })
 

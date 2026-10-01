@@ -17,7 +17,7 @@ import type {
   RecentCampaigns, RecentStatus, RevenueCostSeries, Schedule, ScheduledRun, SectionResult, TopBottom, JourneyRow,
 } from './types'
 
-/** liveToday: busy figures, but Revenue vs. Cost, Active Journeys and Governance unavailable, as the live source is today */
+/** liveToday: busy figures, but Revenue vs. Cost, Active Journeys and Governance unavailable, as for a viewer who cannot read reports in a workspace without journeys */
 export type SampleState = 'busy' | 'light' | 'noAttribution' | 'noAlerts' | 'liveToday'
 
 export const SAMPLE_STATES: { value: SampleState; label: string }[] = [
@@ -25,7 +25,7 @@ export const SAMPLE_STATES: { value: SampleState; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'noAttribution', label: 'No Attribution' },
   { value: 'noAlerts', label: 'No Alerts' },
-  { value: 'liveToday', label: 'Live Today' },
+  { value: 'liveToday', label: 'Cards Missing' },
 ]
 
 interface SampleCampaign {

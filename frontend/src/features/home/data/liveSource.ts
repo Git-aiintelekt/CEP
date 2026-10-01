@@ -1,11 +1,14 @@
-/** The real page's source. Sections the API can feed are wired; the rest are 'unavailable' (hidden) until a later phase. */
+/**
+ * The real page's source. The report, the campaign list and the calendar feed most sections; Needs Attention, Revenue vs. Cost,
+ * Governance and Active Journeys read GET /home/overview/, one request for the four.
+ */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 
 import { api, ApiError } from '@/lib/api'
-import { formatClock, zoneAbbreviation } from '@/lib/format'
+import { formatClock, formatShortDay, zoneAbbreviation } from '@/lib/format'
 import { typeShortLabel } from '@/features/campaigns/vocabulary'
 import { addDays, todayIn } from '@/features/reports/period'
-import type { Campaign, CampaignCalendarData, CountedPage, ReportCampaignRow, ReportSummary } from '@/lib/types'
+import type { Campaign, CampaignCalendarData, CountedPage, HomeJourneyRow, HomeOverview, ReportCampaignRow, ReportSummary } from '@/lib/types'
 
 import { homePeriod, PERIOD_DAYS } from '../period'
 import { useHomeData } from './homeDataContext'
@@ -13,11 +16,9 @@ import { buildKpis, sumFigures, type CampaignFigures, type Figures } from './kpi
 import { rankTopBottom, type RankCandidate } from './rankTopBottom'
 import { marketingOnly, receiptFigures } from './receipts'
 import { contextLine } from './recentContext'
-import type { Attention, AttentionGroup, CampaignOptions, EReceipts, FunnelChannel, HomeDataSource, HomeFilters, Kpis, MessageChannel, RecentCampaigns, RecentStatus, Schedule, ScheduledRun, SectionResult, TopBottom } from './types'
+import type { Attention, AttentionGroup, CampaignOptions, EReceipts, FunnelChannel, Governance, HomeDataSource, HomeFilters, Journeys, Kpis, MessageChannel, RecentCampaigns, RecentStatus, RevenueCostSeries, Schedule, ScheduledRun, SectionResult, TopBottom } from './types'
 
 const unavailable = <T,>(): SectionResult<T> => ({ status: 'unavailable' })
-/** the attention view is read in one page; a longer list shows as "100+" */
-const PAGE = 100
 
 /** a section whose request the viewer may not make (403) hides like one the API can't feed */
 const forbidden = (error: unknown) => error instanceof ApiError && error.status === 403
@@ -36,42 +37,87 @@ const GROUPS = {
   approval: { id: 'awaiting-approval', severity: 'blocking', category: 'Blocking a Send', label: 'Campaigns waiting for approval', actionLabel: 'Review', href: '/campaigns?saved=approval' },
 } satisfies Record<string, Omit<AttentionGroup, 'count'>>
 
-/** the attention view (paused, a failed send in the last week, waiting for approval), shared by Needs Attention and Recent Campaigns */
-const attentionQuery = {
-  queryKey: ['home', 'attention', 'failures'],
-  queryFn: ({ signal }: { signal: AbortSignal }) => api.get<CountedPage<Campaign>>('/campaigns/', { view: 'attention', page_size: PAGE }, signal),
+/** GET /home/overview/ for Home's period, channel and campaigns: the alerts, Revenue vs. Cost, Governance and Active Journeys in one request */
+const overviewQuery = (filters: HomeFilters, zone: string) => {
+  const range = homePeriod(filters.period, zone)
+  const params = { from: range.from, to: range.to, channel: filters.channel === 'ALL' ? undefined : filters.channel, campaigns: filters.campaignIds.length ? filters.campaignIds.join(',') : undefined }
+  return { queryKey: ['home', 'overview', params], queryFn: ({ signal }: { signal: AbortSignal }) => api.get<HomeOverview>('/home/overview/', params, signal) }
 }
-
-/** view=attention is paused, a failed production send in the last 7 days, or waiting for approval: only the failures are left here */
-const failedSend = (campaign: Campaign) => campaign.status !== 'PAUSED' && campaign.approval?.status !== 'REQUESTED'
 
 function useAttention(filters: HomeFilters): SectionResult<Attention> {
   const { viewer } = useHomeData()
   const single = filters.campaignIds.length === 1 ? filters.campaignIds[0] : null
-  const attention = useQuery(attentionQuery)
-  const publish = useQuery({ queryKey: ['home', 'attention', 'publish'], enabled: !single,
-    queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', { status: 'TEST_PUBLISHED', page_size: 1 }, signal) })
-  const approval = useQuery({ queryKey: ['home', 'attention', 'approval'], enabled: !single,
-    queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', { approval: 'requested', page_size: 1 }, signal) })
+  const overview = useQuery(overviewQuery(filters, viewer.timezone))
   const one = useQuery({ queryKey: ['campaigns', 'detail', single], enabled: Boolean(single), queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${single}/`, undefined, signal) })
 
-  return combine(single ? [attention, one] : [attention, publish, approval], () => {
-    const rows = attention.data!.results
-    const loadedAt = Math.max(attention.dataUpdatedAt, publish.dataUpdatedAt, approval.dataUpdatedAt, one.dataUpdatedAt)
-    const at = new Date(loadedAt)
+  return combine(single ? [overview, one] : [overview], () => {
+    const alerts = overview.data!.attention
+    const at = new Date(Math.max(overview.dataUpdatedAt, one.dataUpdatedAt))
     const freshness = `Updated at ${formatClock(at.toISOString(), viewer.timezone)} ${zoneAbbreviation(viewer.timezone, at)}`
     const groups: AttentionGroup[] = single
       ? [
-        { ...GROUPS.failures, count: rows.some((row) => row.id === single && failedSend(row)) ? 1 : 0 },
+        { ...GROUPS.failures, count: alerts.failed_ids.includes(single) ? 1 : 0 },
         { ...GROUPS.publish, count: one.data!.status === 'TEST_PUBLISHED' ? 1 : 0 },
         { ...GROUPS.approval, count: one.data!.approval?.status === 'REQUESTED' ? 1 : 0 },
       ]
       : [
-        { ...GROUPS.failures, count: rows.filter(failedSend).length, atLeast: attention.data!.count > rows.length },
-        { ...GROUPS.publish, count: publish.data!.count },
-        { ...GROUPS.approval, count: approval.data!.count },
+        { ...GROUPS.failures, count: alerts.failed_ids.length },
+        { ...GROUPS.publish, count: alerts.awaiting_publish },
+        { ...GROUPS.approval, count: alerts.awaiting_approval },
       ]
     return { groups: groups.filter((group) => group.count > 0), freshness }
+  })
+}
+
+/** revenue and cost per day (per week over a month), by campaign, and the four summary figures */
+function useRevenueCost(filters: HomeFilters): SectionResult<RevenueCostSeries> {
+  const { viewer } = useHomeData()
+  const overview = useQuery(overviewQuery(filters, viewer.timezone))
+  if (overview.data && overview.data.revenue_cost === null) return unavailable()
+  return combine([overview], () => {
+    const data = overview.data!.revenue_cost!
+    return {
+      granularity: data.granularity,
+      points: data.points.map((point) => ({ day: point.day, revenue: point.revenue, cost: point.cost, targetPace: point.target_pace })),
+      byCampaign: { top: data.by_campaign.top, others: data.by_campaign.others },
+      summary: { revenue: data.summary.revenue, cost: data.summary.cost, roi: data.summary.roi, revenuePer1000Delivered: data.summary.revenue_per_1000_delivered },
+    }
+  })
+}
+
+/** customers the period's production sends reached, and how many governance held back and why */
+function useGovernance(filters: HomeFilters): SectionResult<Governance> {
+  const { viewer } = useHomeData()
+  const overview = useQuery(overviewQuery(filters, viewer.timezone))
+  if (overview.data && overview.data.governance === null) return unavailable()
+  return combine([overview], () => {
+    const data = overview.data!.governance!
+    return { contacted: data.contacted, heldBack: data.held_back, reasons: { frequencyCap: data.reasons.frequency_cap, noConsent: data.reasons.no_consent, suppression: data.reasons.suppression } }
+  })
+}
+
+const CHANNEL_WORD: Record<string, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
+
+/** "SMS step failing since 00:12 EDT", "Paused by Maya Patel, 28 Sep", or the channels it sends on */
+function journeyContext(row: HomeJourneyRow, zone: string): string {
+  if (row.status === 'FAILED' && row.failing_since) {
+    return `${CHANNEL_WORD[row.failing_step ?? ''] ?? 'A'} step failing since ${formatClock(row.failing_since, zone)} ${zoneAbbreviation(zone, new Date(row.failing_since))}`
+  }
+  if (row.status === 'PAUSED' && row.paused_at) return `Paused${row.paused_by ? ` by ${row.paused_by}` : ''}, ${formatShortDay(todayIn(zone, new Date(row.paused_at)))}`
+  return row.channels.map((channel) => CHANNEL_WORD[channel] ?? channel).join(', ')
+}
+
+/** active and paused journeys with who is in them; a journey whose last run failed reads FAILED */
+function useJourneys(filters: HomeFilters): SectionResult<Journeys> {
+  const { viewer } = useHomeData()
+  const overview = useQuery(overviewQuery(filters, viewer.timezone))
+  if (overview.data && overview.data.journeys === null) return unavailable()
+  return combine([overview], () => {
+    const data = overview.data!.journeys!
+    return {
+      rows: data.rows.map((row) => ({ id: row.id, name: row.name, status: row.status, contextLine: journeyContext(row, viewer.timezone), inFlight: row.in_flight, entered: row.entered, conversionRate: row.conversion_rate })),
+      totalJourneys: data.total,
+    }
   })
 }
 
@@ -286,11 +332,11 @@ function useRecentCampaigns(filters: HomeFilters, status: RecentStatus = 'ALL'):
   // without report.view the list still shows, with no figures
   const reports = viewer.can('report.view')
   const summary = useQuery({ ...summaryQuery(range.from, range.to, reportChannel(filters)), enabled: reports })
-  const attention = useQuery(attentionQuery)
+  const overview = useQuery(overviewQuery(filters, zone))
 
-  return combine(reports ? [list, summary, attention] : [list, attention], () => {
+  return combine(reports ? [list, summary, overview] : [list, overview], () => {
     const report = new Map((summary.data?.campaigns ?? []).map((row) => [row.id, row]))
-    const failed = new Set(attention.data!.results.filter(failedSend).map((campaign) => campaign.id))
+    const failed = new Set(overview.data!.attention.failed_ids)
     const picked = filters.campaignIds.length > 0 ? list.data!.results.filter((campaign) => filters.campaignIds.includes(campaign.id)) : list.data!.results
     const rows = picked.map((campaign) => {
       const row = report.get(campaign.id)
@@ -335,14 +381,14 @@ function useCampaignOptions(): SectionResult<CampaignOptions> {
 export const liveSource: HomeDataSource = {
   capabilities: { journeyCreateFlow: false },
   useCampaignOptions, // GET /campaigns/?status=…&ordering=-updated_at&page_size=200 (one page; the menu says so when there are more)
-  useAttention, // GET /campaigns/?view=attention, ?status=TEST_PUBLISHED, ?approval=requested; bounce rate, frequency caps and journey alerts: no endpoint yet
+  useAttention, // GET /home/overview/ attention (one campaign: plus its detail); bounce rate, frequency caps and journey alerts: no endpoint yet
   useKpis, // GET /reports/summary/ for this period and the one before
   useTopBottom, // GET /reports/summary/ (this period and the one before) joined with GET /campaigns/ targets
-  useRevenueCost: unavailable, // no endpoint yet: /reports/summary/ days carry no revenue, and actual cost (campaign_actual) is per campaign, not per day
+  useRevenueCost, // GET /home/overview/ revenue_cost: per-campaign revenue and cost (campaign_actual, else planned cost) spread over each campaign's send days
   useFunnel, // GET /reports/summary/ (the KPIs' own request): by_channel and the campaign rows
   useSchedule, // GET /campaigns/calendar/?date_from&date_to (journey runs come as journey-generated campaigns)
-  useJourneys: unavailable, // no journey stats endpoint yet: GET /journeys/ has names and statuses, no in-flight, entered, conversion or failure reason
-  useRecentCampaigns, // GET /campaigns/?ordering=-updated_at&page_size=50 joined with GET /reports/summary/; the other sorts are within those 50
-  useGovernance: unavailable, // no governance endpoint yet: /suppressions/summary/ counts suppressed contacts, not customers held back by caps or consent
+  useJourneys, // GET /home/overview/ journeys: enrollments per journey; null (hidden) without the journeys feature
+  useRecentCampaigns, // GET /campaigns/?ordering=-updated_at&page_size=50 joined with GET /reports/summary/ and the overview's failed ids; the other sorts are within those 50
+  useGovernance, // GET /home/overview/ governance: the period's campaign lists, distinct people contacted and held back by reason
   useEReceipts, // the e-receipt campaign rows of GET /reports/summary/ (the marketing figures leave them out)
 }

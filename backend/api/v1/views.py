@@ -91,7 +91,7 @@ def _enqueue_run(tenant_id: str, run_id: str) -> None:
 
 
 class CampaignViewSet(BaseTenantViewSet):
-    queryset = (Campaign.objects.select_related("template", "sender_profile")
+    queryset = (Campaign.objects.select_related("template", "sender_profile", "topic")
                 .prefetch_related("campaign_runs", "contact_list_campaigns__contact_list"))
     EDITABLE = (Campaign.Status.DRAFT, Campaign.Status.TEST_PUBLISHED)
 
