@@ -18,6 +18,18 @@ const SEVERITY: Record<Severity, { colours: string; icon: LucideIcon; iconColour
   governance: { colours: 'bg-callout-bg text-callout-text', icon: ShieldCheck, iconColour: 'text-callout-icon' },
 }
 
+const ICON_TINT: Record<Severity, string> = { critical: 'bg-danger-bg text-danger', blocking: 'bg-warning-bg text-warning', governance: 'bg-callout-bg text-callout-icon' }
+
+/** The severity's icon on its tint, a 32px square: the alert strip's mark (the words beside it carry the meaning). */
+export function SeverityIcon({ severity }: { severity: Severity }) {
+  const { icon: Icon } = SEVERITY[severity]
+  return (
+    <span aria-hidden data-severity-icon={severity} className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md ${ICON_TINT[severity]}`}>
+      <Icon size={16} strokeWidth={1.5} />
+    </span>
+  )
+}
+
 /** An alert group's category ("Delivery Failure", "Blocking a Send", "Governance") with its severity's colour and icon. */
 export function SeverityTag({ severity, label }: { severity: Severity; label: string }) {
   const { colours, icon: Icon, iconColour } = SEVERITY[severity]
