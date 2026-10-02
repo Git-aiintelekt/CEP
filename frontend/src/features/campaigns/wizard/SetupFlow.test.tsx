@@ -284,3 +284,17 @@ test('the setup-in-progress line says how far the setup got, and the back button
   expect(back.getAttribute('href')).toBe('/campaigns')
   expect(back.querySelector('svg')?.getAttribute('class')).toContain('lucide-arrow-left')
 })
+
+test('a text campaign with an email list attached says what the list may lack, and the Audience card names the biggest reason people are left out', async () => {
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', channel: 'SMS' }) })
+  await renderAppAt('/campaigns/c1/edit?step=audience')
+  expect(await stepHeading('Audience')).toBeTruthy()
+  expect(await screen.findByText('An email list: its people may have no mobile number or no text consent.')).toBeTruthy()
+  expect((await screen.findByTestId('audience-reason')).textContent).toBe('9 left out: Unsubscribed')
+  cleanup()
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', channel: 'EMAIL' }) })
+  await renderAppAt('/campaigns/c1/edit?step=audience')
+  expect(await stepHeading('Audience')).toBeTruthy()
+  await screen.findByTestId('audience-reason')
+  expect(screen.queryByText(/its people may have no/)).toBeNull()
+})

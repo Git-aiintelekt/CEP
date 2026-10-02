@@ -419,10 +419,12 @@ export interface AudienceStatusLine {
   count: number
 }
 
+export type ListChannel = 'EMAIL' | 'SMS' | 'BOTH'
+
 export interface CampaignAudience {
   /** with ?local_time=1, or once the campaign sends at each recipient's local time: how many have a time zone CEP can work out */
   local_time?: { people: number; local_time_known: number }
-  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; role: 'INCLUDE' | 'EXCLUDE' }[]
+  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; channel?: string; role: 'INCLUDE' | 'EXCLUDE' }[]
   gross: number
   unique: number
   duplicates_removed: number
@@ -582,6 +584,8 @@ export interface ContactList extends Audited {
   refresh_mode: string
   last_refreshed_at: string | null
   list_environment: 'TEST' | 'PRODUCTION' | string
+  /** what the list is for: the required upload column and how a new person is recognised */
+  channel: ListChannel | string
   /** DRAFT = made by the upload wizard, waiting for its first import */
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string
   member_count: number
@@ -694,6 +698,8 @@ export interface ListImport {
   /** property -> column name */
   mapping: Record<string, string>
   properties: ImportProperty[]
+  /** the list's channel: which properties are required */
+  list_channel?: string
   review: ImportReview | null
   /** there once the file has been checked */
   summary?: UploadSummary | null

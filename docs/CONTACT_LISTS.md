@@ -38,12 +38,27 @@ from campaign pickers, and leaving the wizard deletes the draft with everything 
 
 CSV only, up to 50 MB and 250,000 rows; `,` `;` tab or `|`; UTF-8 (with or without BOM) or Windows-1252.
 
+**What the list is for (patch 0031, `contact_list.channel`: EMAIL, SMS or BOTH)** is chosen on the wizard's first step ("What the
+List Is For": Email, Texts, Email and Texts), shown as the For column of the list table, and changed on the list's Edit Details.
+It decides the column an upload must have and how a new person is recognised:
+
+| For | Must have | A new person is recognised by | Judged on |
+|---|---|---|---|
+| Email | Email | the address | email consent and the address's status |
+| Texts | Mobile number (an address is optional; one that is not recognised is left out and the row still imports) | the address when there is a usable one, else the number | text consent and the number's status (STOP, registry, blocked) |
+| Email and Texts | Email and Mobile number | the address | email consent and the address's status |
+
+A campaign's Send To table notes a list made for the other channel ("An email list: its people may have no mobile number or no
+text consent." / "A text list: its people may have no email address."), and the Audience card names the biggest reason people
+are left out ("1 left out: No consent on record"). Lists that were already attached to a text campaign became Email and Texts.
+
 **The file format, as the upload step states it (`features/contact-lists/uploadTemplate.ts`, "Download Sample CSV"):** a header row,
-then one contact per row. **Email** is the only column that must be there; the others are optional and can be in any order:
-First name, Last name, Mobile number (with the country code, `+14045550101`), Postal code, Loyalty ID, Loyalty tier, Last order
-date and Consent date (dates as `YYYY-MM-DD`). Column names are matched by meaning (`Email Address`, `Surname`, `Cell`, `ZIP` are
-recognised; see `PROPERTIES` in `apps/contact_lists/imports.py`) and confirmed on the Match Columns step. The sample file is built
-in the browser from the same column list, with a UTF-8 byte order mark and CRLF line ends so Excel opens it cleanly.
+then one contact per row. The required column follows what the list is for (above); the others are optional and can be in any
+order: First name, Last name, Mobile number (with the country code, `+14045550101`), Postal code, Loyalty ID, Loyalty tier, Last
+order date, Email consent date and Text consent date (dates as `YYYY-MM-DD`). Column names are matched by meaning (`Email Address`,
+`Surname`, `Cell`, `ZIP`, `Consent date` = email consent, `SMS opt-in` = text consent; see `PROPERTIES` in
+`apps/contact_lists/imports.py`) and confirmed on the Match Columns step. The sample file is built in the browser from the same
+column list, with a UTF-8 byte order mark and CRLF line ends so Excel opens it cleanly.
 
 Any other column is kept on the list member (`custom_value_pairs`) under its header. Coupon columns named `coupon_code`,
 `coupon_barcode_value` and `coupon_qr_value` feed the tags of the same names, which the designer's Barcode and QR Code
@@ -156,9 +171,11 @@ in the future becomes an email opt-in (`consent_record`: `OPT_IN`, source `IMPOR
 for people CEP has no consent answer for**. It never overrides an unsubscribe. Without it, new people have no consent
 answer and marketing sends leave them out (`NO_CONSENT`), as for anyone else.
 
-Properties: Email (required), First name, Last name, Mobile number, Postal code, Loyalty ID, Loyalty tier, Last order
-date, Consent date. First / last name, postal code, tier and last order date are also kept on the membership
-(`contact_list_member.custom_attributes`).
+Properties: Email (required for Email and Email-and-Texts lists), Mobile number (required for Texts and Email-and-Texts lists),
+First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Email consent date (an EMAIL opt-in),
+Text consent date (an SMS opt-in; marketing texts need it). First / last name, postal code, tier and last order date are also
+kept on the membership (`contact_list_member.custom_attributes`). A row of a Texts list without a usable address is a person of
+CEP's own keyed by the number (`UPL-` + hash of workspace and number, `matched_by = PHONE`); a known number recognises the person.
 
 ## 4. API (`api/v1/contact_lists_api.py`)
 
@@ -208,5 +225,5 @@ marked Test, archived, deleted or still a draft.
 ## 7. Not in this version
 
 * Excel files (`.xlsx`); adding to an *existing* list from a file (the endpoint accepts it, the screen does not offer it yet).
-* Text-message consent from a file; per-list preferences.
+* Per-list preferences.
 * Row-level edit of a contact's name or address (the customer master is the record for that).

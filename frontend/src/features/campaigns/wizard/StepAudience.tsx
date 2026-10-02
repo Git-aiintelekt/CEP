@@ -17,7 +17,7 @@ import { Notice } from '@/components/Notice'
 import { SkeletonLine } from '@/components/States'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Campaign, ContactList, Page } from '@/lib/types'
+import type { Campaign, CampaignAudience, ContactList, Page } from '@/lib/types'
 
 import { AudiencePicture } from '../AudiencePicture'
 import { estimateSummary, useAudienceEstimate } from '../audienceNumbers'
@@ -59,6 +59,7 @@ function SummaryCard({ included, pending, estimate }: { included: number; pendin
     body = (
       <div className={`flex flex-col gap-5 transition-opacity duration-base ${estimate.isFetching ? 'opacity-60' : ''}`} aria-busy={estimate.isFetching || undefined}>
         <AudienceSummary numbers={estimateSummary(data)} />
+        {topReason(data) && <p className="cep-num text-helper text-ink-800" data-testid="audience-reason">{topReason(data)}</p>}
         <dl className="grid grid-cols-1 gap-4 border-t border-line-subtle pt-4 sm:grid-cols-3 lg:grid-cols-1">
           <Fact label="In Your Lists">{formatNumber(data.gross)}</Fact>
           <Fact label="Unique People" secondary="After duplicates and excluded lists">{formatNumber(data.after_exclusions)}</Fact>
@@ -126,6 +127,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
     if (!list && !saved) return null
     return {
       id, name: list?.name ?? saved!.name, source_type: list?.source_type ?? saved?.list_kind ?? '', list_environment: list?.list_environment ?? saved?.list_environment ?? 'PRODUCTION',
+      channel: list?.channel ?? (saved as { channel?: string } | undefined)?.channel,
       member_count: list?.member_count ?? saved?.member_count ?? 0, updated_at: list?.updated_at ?? null, state, attachedAt: saved?.attached_at ?? null,
     }
   }
@@ -171,7 +173,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
                   <div className="mt-2">{addButton}</div>
                 </div>
               ) : (
-                <ListsTable rows={sendRows} caption="Lists this campaign is sent to" zone={zone}
+                <ListsTable rows={sendRows} caption="Lists this campaign is sent to" zone={zone} campaignChannel={watch('channel')}
                   onRemove={(row) => {
                     if (row.state === 'review') setPending((now) => now.filter((list) => list.id !== row.id))
                     else setValue('contact_lists', included.filter((id) => id !== row.id), touch)
@@ -236,4 +238,10 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
       )}
     </div>
   )
+}
+
+/** the biggest reason people are left out, when any are: "1 left out: No consent on record" */
+function topReason(audience: CampaignAudience): string | null {
+  const worst = audience.statuses.filter((line) => !line.sendable && line.count > 0).sort((a, b) => b.count - a.count)[0]
+  return worst ? `${formatNumber(worst.count)} left out: ${worst.label}` : null
 }

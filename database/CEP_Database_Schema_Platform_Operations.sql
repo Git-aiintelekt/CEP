@@ -1178,6 +1178,18 @@ CREATE POLICY rls_deliverability_test_tenant ON deliverability_test
 GRANT SELECT, INSERT, UPDATE, DELETE ON deliverability_test TO cep_app;
 GRANT ALL ON deliverability_test TO cep_admin;
 
+-- -------------------------------------------------------------------------------------
+-- 19. LIST CHANNELS: what a contact list is for decides which column an upload must have
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list ADD COLUMN IF NOT EXISTS channel VARCHAR(10) NOT NULL DEFAULT 'EMAIL';   -- EMAIL | SMS | BOTH
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_channel;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_channel CHECK (channel IN ('EMAIL', 'SMS', 'BOTH'));
+COMMENT ON COLUMN contact_list.channel IS 'What the list is for: EMAIL (an email address per row), SMS (a mobile number per row), BOTH. Decides the required upload column and how a new person is recognised';
+-- lists already attached to a text campaign were uploaded with emails and used for texts: both
+UPDATE contact_list l SET channel = 'BOTH'
+ WHERE l.channel = 'EMAIL' AND EXISTS (SELECT 1 FROM contact_list_campaign x JOIN campaign c ON c.id = x.campaign_id
+                                        WHERE x.contact_list_id = l.id AND c.channel IN ('SMS', 'MMS') AND c.deleted_at IS NULL);
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================
