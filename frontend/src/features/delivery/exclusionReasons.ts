@@ -12,6 +12,7 @@ const REASONS: Record<string, string> = {
   NO_PHONE: 'No Mobile Number', INVALID_NUMBER: 'No Mobile Number in International Format', BLOCKED_NUMBER: 'Number Blocked (STOP Reply, Registry or Undeliverable)',
   DUPLICATE_NUMBER: 'Same Number as Someone Else in the Run', HARD_BOUNCE: 'Hard Bounce', SOFT_BOUNCE: 'Soft Bounce',
   COMPLAINT: 'Marked as Spam', BLOCKED: 'Blocked', FREQUENCY_CAP: 'Over Frequency Limit', TOPIC_OPTED_OUT: 'Opted Out of This Topic',
+  LIST_NOT_APPROVED: 'In a List Awaiting Approval',
 }
 
 /** `channel`: the campaign's (EMAIL, SMS, MMS, E_RECEIPT, MULTI); unknown or mixed channels say "No Consent". Short labels; each place that shows one explains it in its own line */

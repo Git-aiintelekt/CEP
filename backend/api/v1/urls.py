@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (auth_api, campaigns_api, codes_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
+from . import (auth_api, campaigns_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
 
@@ -56,6 +56,7 @@ urlpatterns = [
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
+    path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),
     path("public/code/<str:token>.png", delivery_public.code_image_view, name="code-image"),
     path("codes/sample/", codes_api.CodeSampleView.as_view(), name="code-sample"),

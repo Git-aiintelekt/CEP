@@ -4,6 +4,7 @@ Set-based on purpose: one INSERT ... SELECT builds the frozen campaign list from
 creates the mailer_execution rows. Rules, in order (first match is the recorded suppression_reason):
 
     EXCLUDED_LIST      the party is in a list attached to this campaign as an exclusion
+    LIST_NOT_APPROVED  every list the party is in awaits approval (or was refused) under the workspace's consent policy
     UNKNOWN_PARTY      the list names a party that is not in customer_master
     NO_EMAIL           no valid email address on the customer
     BLOCKED_ADDRESS    contact_point_status.blocked (hard bounce, complaint, manual, registry)
@@ -28,11 +29,12 @@ PRIMARY_EMAIL = """(SELECT lower(e ->> 'address') FROM jsonb_array_elements(cm.e
 
 BUILD = f"""
 WITH picked AS (                                          -- PARTY_ID_LAST_WINS across the attached lists
-    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes
+    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status
       FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
+      JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
      WHERE m.tenant_id = %(tenant)s
-     ORDER BY m.party_id, m.added_at DESC
+     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC
 ), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
     SELECT DISTINCT m.party_id FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
@@ -56,6 +58,7 @@ WITH picked AS (                                          -- PARTY_ID_LAST_WINS 
 ), judged AS (
     SELECT r.*, k.policy_id,
            CASE WHEN EXISTS (SELECT 1 FROM excluded e WHERE e.party_id = r.party_id) THEN 'EXCLUDED_LIST'
+                WHEN r.approval_status IN ('AWAITING', 'REFUSED') THEN 'LIST_NOT_APPROVED'
                 WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
                 WHEN r.email IS NULL THEN 'NO_EMAIL'
                 WHEN cps.blocked THEN 'BLOCKED_ADDRESS'

@@ -16,6 +16,7 @@ export interface ListRow {
   source_type: string
   list_environment: string
   channel?: string
+  approval_status?: string
   member_count: number
   updated_at: string | null
   /** attached: saved or picked here; auto: made here from an audience or a clone; review: an upload waiting for a confirmation */
@@ -32,6 +33,13 @@ interface ListsTableProps {
   campaignChannel?: string
   onRemove: (row: ListRow) => void
   onConfirm?: (row: ListRow) => void
+}
+
+/** a list awaiting approval under the consent policy sends to nobody until it is approved */
+function approvalNote(status: string | undefined): string | null {
+  if (status === 'AWAITING') return 'Awaiting approval: no campaign sends to it until someone with Consent · Edit approves it.'
+  if (status === 'REFUSED') return 'Refused under the consent policy: no campaign sends to it.'
+  return null
 }
 
 /** a list uploaded for one channel attached to a campaign of the other: what will be missing */
@@ -59,6 +67,7 @@ export function ListsTable({ rows, caption, zone, campaignChannel, onRemove, onC
           className="truncate text-card-title font-semibold text-brand-800 hover:underline">{row.name}</a>
         <span className={`text-helper ${row.state === 'review' ? 'font-medium text-warning-text' : 'text-ink-800'}`}>{row.state === 'review' ? <>Needs Review · {note(row)}</> : note(row)}</span>
         {mismatch(row.channel, campaignChannel) && <span className="text-helper font-medium text-warning-text">{mismatch(row.channel, campaignChannel)}</span>}
+        {approvalNote(row.approval_status) && <span data-approval={row.approval_status} className="text-helper font-medium text-warning-text">{approvalNote(row.approval_status)}</span>}
         {row.state === 'review' && (
           <span className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" className={buttonClass({ variant: 'primary', size: 'sm' })} onClick={() => onConfirm?.(row)}>Confirm</button>

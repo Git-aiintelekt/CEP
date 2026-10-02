@@ -38,7 +38,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.contact_lists import governance, imports, jobs, lists
+from apps.contact_lists import consent, governance, imports, jobs, lists
 from apps.contact_lists.models import ContactList, ContactListImport
 from apps.tenants import context
 
@@ -60,12 +60,17 @@ class ContactListSerializer(TenantModelSerializer):
     attached_campaigns = serializers.IntegerField(read_only=True, default=0)
     live_campaigns = serializers.IntegerField(read_only=True, default=0)
     parent_name = serializers.CharField(source="parent_contact_list.name", read_only=True, default=None)
+    approved_by_name = serializers.SerializerMethodField()
 
     class Meta(TenantModelSerializer.Meta):
         model = ContactList
         fields = "__all__"
-        read_only_fields = AUDIT_FIELDS + ("member_count", "last_refreshed_at", "source_reference", "criteria", "parent_contact_list", "legacy_contact_list_id")
+        read_only_fields = AUDIT_FIELDS + ("member_count", "last_refreshed_at", "source_reference", "criteria", "parent_contact_list", "legacy_contact_list_id",
+                                           "approval_status", "approved_by", "approved_at", "approval_note")
         extra_kwargs = {"source_type": {"required": False}}      # POST makes an upload list; the other sources have their own endpoints
+
+    def get_approved_by_name(self, item) -> str | None:
+        return consent.user_name(item.approved_by)
 
     def get_source_label(self, item) -> str:
         return SOURCE_LABEL.get(item.source_type, item.source_type)
@@ -126,6 +131,16 @@ class MappingSerializer(serializers.Serializer):
     mapping = serializers.DictField(child=serializers.CharField(allow_blank=True, allow_null=True))
 
 
+class ConsentDeclarationSerializer(serializers.Serializer):
+    basis = serializers.ChoiceField(choices=[key for key, _ in consent.BASES])
+    collected_at = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    attested = serializers.BooleanField()
+
+
+class ApprovalSerializer(serializers.Serializer):
+    note = serializers.CharField(required=False, allow_blank=True, max_length=300)
+
+
 PHASE = {"UPLOADED": "Waiting to be read", "STAGING": "Reading the file", "STAGED": "Read. Match the columns to continue", "MATCHING": "Checking the rows",
          "REVIEW": "Checked. Review it to continue", "APPLYING": "Adding contacts to the list", "APPLIED": "Imported", "FAILED": "Failed", "CANCELLED": "Cancelled"}
 WAITING = {"STAGE": "Waiting to be read", "REVIEW": "Waiting to be checked", "APPLY": "Waiting to be imported"}
@@ -144,6 +159,7 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
         "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(imports.channel_of(record.contact_list)),
         "list_channel": imports.channel_of(record.contact_list),
         "review": None, "applied_count": record.applied_count, "new_people": record.new_customer_count, "consents_recorded": record.consent_count,
+        "consent": consent.declaration_of(record),
         "created_at": record.created_at, "started_at": record.started_at, "completed_at": record.completed_at,
         "created_by_name": getattr(record.created_by, "display_name", None) or getattr(record.created_by, "email", None),
     }
@@ -158,6 +174,7 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
 
 
 HELD_BACK = (("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("NO_MOBILE", "No mobile number"), ("INVALID_MOBILE", "Mobile number not recognised"),
+             ("NO_CONSENT_DATE", "No consent date (refused by the workspace policy)"), ("NO_TEXT_CONSENT_DATE", "No text consent date (refused by the workspace policy)"),
              ("DUPLICATE_IN_FILE", "The same person earlier in the file"))
 
 
@@ -177,6 +194,7 @@ def reconciliation(record: ContactListImport) -> dict | None:
         "ready": {"total": ready.get("total", 0), "new": ready.get("new", 0), "existing": ready.get("existing", 0)},
         "governance": {"sendable": sendable, "not_sendable": ready.get("total", 0) - sendable, "statuses": lines},
         "mobile": stored.get("mobile"),
+        "policy": stored.get("policy"),
         "result": None if result is None else {**result, "new_people": record.new_customer_count, "consents_recorded": record.consent_count},
         "balanced": stored.get("rows", 0) == held.get("total", 0) + ready.get("total", 0) and sum(line["count"] for line in lines) == ready.get("total", 0)
                     and (result is None or result["added"] + result["already_in_list"] == ready.get("total", 0)),
@@ -431,6 +449,46 @@ class ContactListViewSet(BaseTenantViewSet):
         except imports.ImportError_ as exc:
             raise ValidationError({"mapping": str(exc)}) from exc
         return Response(import_payload(record), status=202)
+
+    @extend_schema(request=ConsentDeclarationSerializer, responses=dict)
+    @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/consent", parser_classes=[JSONParser],
+            permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("list.import")])
+    def import_consent(self, request, pk=None, import_id=None, version=None):
+        """Where the file's people agreed to marketing, and the uploader's word that they did. Required before the import is applied."""
+        record = self._import(self.get_object(), import_id)
+        body = ConsentDeclarationSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            record = consent.declare(record, user_id=_user_id(request), **body.validated_data)
+        except consent.ConsentError as exc:
+            raise ValidationError({exc.field: str(exc)}) from exc
+        return Response(import_payload(record))
+
+    @extend_schema(request=ApprovalSerializer, responses=dict)
+    @action(detail=True, methods=["post"], url_path="approve", parser_classes=[JSONParser], permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("consent.edit")])
+    def approve(self, request, pk=None, version=None):
+        return self._decide(request, approved=True)
+
+    @extend_schema(request=ApprovalSerializer, responses=dict)
+    @action(detail=True, methods=["post"], url_path="refuse", parser_classes=[JSONParser], permission_classes=[IsAuthenticated, SameTenant, HasPermissionCode.for_("consent.edit")])
+    def refuse(self, request, pk=None, version=None):
+        return self._decide(request, approved=False)
+
+    def _decide(self, request, approved: bool):
+        contact_list = self.get_object()
+        body = ApprovalSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        try:
+            consent.decide(contact_list, approved=approved, user_id=_user_id(request), note=body.validated_data.get("note", ""))
+        except consent.ConsentError as exc:
+            raise Conflict(str(exc)) from exc
+        return self._respond(ContactList.objects.get(pk=contact_list.pk))
+
+    @extend_schema(responses=dict)
+    @action(detail=True, methods=["get"], url_path="compliance")
+    def compliance(self, request, pk=None, version=None):
+        """The list's compliance record: its source, consent basis, attestation, approval, the policy at the time, and today's consent breakdown."""
+        return Response(consent.record_of(self.get_object()))
 
     @extend_schema(request=None, responses={202: dict})
     @action(detail=True, methods=["post"], url_path=r"imports/(?P<import_id>[0-9a-f-]{36})/apply", parser_classes=[JSONParser],

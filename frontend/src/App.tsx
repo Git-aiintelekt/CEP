@@ -39,6 +39,7 @@ import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
 import { TagsPage } from '@/pages/settings/TagsPage'
 import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
+import { ConsentPolicyPage } from '@/pages/settings/ConsentPolicyPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
 import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
@@ -147,6 +148,7 @@ export default function App() {
                   <Route path="integrations" element={<IntegrationsPage />} />
                   <Route path="suppressions" element={<SuppressionsPage />} />
                   <Route path="preference-center" element={<PreferenceCenterPage />} />
+                  <Route path="consent" element={<ConsentPolicyPage />} />
                   <Route path="pos" element={<PosReceiptsPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />

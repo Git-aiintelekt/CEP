@@ -10,15 +10,16 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Copy, Database, Download, FileSpreadsheet, Upload } from 'lucide-react'
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 
+import { Checkbox } from '@/components/Checkbox'
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { Spinner } from '@/components/States'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Audience, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
+import type { Audience, ConsentBasis, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
 
 import { problemText } from './problem'
 import { POLL_MS, watchedUploads } from './uploadJobs'
@@ -26,10 +27,10 @@ import { UploadReport } from './UploadReport'
 import { downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
 
-type Step = 'method' | 'file' | 'map' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
+type Step = 'method' | 'file' | 'map' | 'consent' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
 
 const STEPS: Record<ListSource, Step[]> = {
-  UPLOAD: ['method', 'file', 'map', 'review', 'done'],                                   // 'importing' is the tail of the review step
+  UPLOAD: ['method', 'file', 'map', 'consent', 'review', 'done'],                        // 'importing' is the tail of the review step
   BI: ['method', 'audience', 'done'],
   CLONE: ['method', 'clone', 'done'],
 }
@@ -38,6 +39,7 @@ const TITLES: Record<Step, [string, string]> = {
   method: ['New Contact List', ''],
   file: ['Add Your File', 'Upload the CSV that holds your contacts.'],
   map: ['Match Your Columns', 'Tell CEP what each column in your file means.'],
+  consent: ['Where Did These People Agree?', 'Every upload records its consent basis. It is kept with the list and shown on its compliance record.'],
   review: ['Review Before Importing', 'Check what comes in and what gets held back.'],
   importing: ['Importing Your Contacts', 'This runs in the background. You can keep working.'],
   audience: ['Choose an Audience', 'Pick an audience your data team already defined.'],
@@ -50,6 +52,13 @@ const SOURCES: { value: ListSource; title: string; text: string; icon: ReactNode
   { value: 'BI', title: 'BI or Extraction Tool', text: 'Choose an audience someone already defined.', icon: <Database size={18} strokeWidth={1.5} aria-hidden /> },
   { value: 'CLONE', title: 'Clone a List', text: 'Copy a list you have and adjust from there.', icon: <Copy size={18} strokeWidth={1.5} aria-hidden /> },
 ]
+
+const BASIS_TEXT: Record<ConsentBasis, string> = {
+  WEB_FORM: 'A form with a marketing opt-in. The form name goes in the evidence.',
+  IN_STORE: 'Paper or POS sign-up with a marketing tick box.',
+  CUSTOMER_REQUEST: 'An email, a call or a message to customer service, recorded there.',
+  IMPLIED: 'Bought from us in the last two years and never opted out. Marketing texts cannot use this basis.',
+}
 
 const TYPES = [
   { value: 'PRODUCTION', title: 'Production', text: 'Available to Corporate Communication Governance sends.' },
@@ -140,6 +149,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [draft, setDraft] = useState<ContactList | null>(null)
   const [upload, setUpload] = useState<ListImport | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [basis, setBasis] = useState<ConsentBasis | ''>('')
+  const [collectedAt, setCollectedAt] = useState('')
+  const [attested, setAttested] = useState(false)
   const [audience, setAudience] = useState('')
   const [parent, setParent] = useState('')
   const [filter, setFilter] = useState('')
@@ -193,7 +205,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         setChannel((list.channel as ListChannel) || 'EMAIL')
         setUpload(staged)
         setMapping(staged.mapping)
-        setStep(staged.status === 'APPLYING' ? 'importing' : staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed ? 'review' : 'map')
+        if (staged.consent?.basis) { setBasis(staged.consent.basis); setCollectedAt(staged.consent.collected_at ?? ''); setAttested(Boolean(staged.consent.attested_at)) }
+        const declared = !staged.consent?.required || Boolean(staged.consent?.attested_at)
+        setStep(staged.status === 'APPLYING' ? 'importing' : (staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed) ? (declared ? 'review' : 'consent') : 'map')
       } catch (problem) {
         if (alive) setError(problemText(problem))
       }
@@ -288,6 +302,17 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       setUpload(queued)
       queryClient.setQueryData(['contact-lists', 'import', queued.contact_list, queued.id], queued)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', 'imports'] })
+      // the check runs in the background while the consent questions are answered
+      setStep(queued.consent?.required === false ? 'review' : 'consent')
+    })
+
+  /** where the file's people agreed, and the uploader's word that they did: kept on the import and the list's compliance record */
+  const declare = () =>
+    run(async () => {
+      if (!draft || !upload || !basis) return
+      const declared = await api.post<ListImport>(`/contact-lists/${draft.id}/imports/${upload.id}/consent/`, { basis, collected_at: collectedAt, attested })
+      setUpload(declared)
+      queryClient.setQueryData(['contact-lists', 'import', declared.contact_list, declared.id], declared)
       setStep('review')
     })
 
@@ -327,10 +352,19 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const missing = (upload?.properties ?? []).filter((item) => item.required && columnOf(item.key) === '')
   const emailMapped = missing.length === 0
 
+  // ---- consent: the bases the list may use, and what the policy will do with people who have no date
+  const consent = job?.consent ?? upload?.consent
+  const basisAllowed = (consent?.bases ?? []).find((item) => item.key === basis)?.allowed ?? false
+  const consentKey = channel === 'SMS' ? 'sms_consent_date' : 'consent_date'
+  const consentMapped = columnOf(consentKey) !== ''
+  const refuses = consent?.policy.without_consent === 'REFUSE'
+  const textsNeedDate = Boolean(consent?.policy.texts_need_date) && channel !== 'EMAIL' && columnOf('sms_consent_date') === ''
+
   const primary: { label: string; action: () => void; disabled: boolean } | null =
     step === 'method' ? { label: 'Continue', action: fromMethod, disabled: name.trim() === '' }
     : step === 'file' ? { label: 'Continue', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
     : step === 'map' ? { label: 'Continue', action: review, disabled: !emailMapped }
+    : step === 'consent' ? { label: 'Continue', action: declare, disabled: basis === '' || !basisAllowed || !attested }
     : step === 'review' ? { label: 'Import Contacts', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
     : step === 'audience' ? { label: 'Create List', action: fromAudience, disabled: audience === '' }
     : step === 'clone' ? { label: 'Create List', action: fromClone, disabled: parent === '' }
@@ -525,6 +559,54 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
           <p className={`mt-3 text-sm ${emailMapped ? 'text-ink-800' : 'font-medium text-danger-plain'}`} aria-live="polite">
             {mappedCount} of {upload.columns.length} columns mapped{emailMapped ? '' : ` · ${missing.map((item) => item.label.toLowerCase()).join(' and ')} still ${missing.length === 1 ? 'needs' : 'need'} a column`}
           </p>
+        </div>
+      )}
+
+      {step === 'consent' && upload && consent && (
+        <div className="space-y-5">
+          <div>
+            <p id="cl-basis" className="mb-2 text-sm font-semibold text-ink-900">Consent Basis <span aria-hidden className="text-danger-text">*</span></p>
+            <div role="radiogroup" aria-labelledby="cl-basis" className="space-y-2">
+              {consent.bases.map((item) => (
+                <ChoiceCard key={item.key} selected={basis === item.key} onSelect={() => item.allowed && setBasis(item.key)} title={item.label} text={BASIS_TEXT[item.key]}
+                  badge={!item.allowed ? 'Not for Texts' : undefined} />
+              ))}
+              <ChoiceCard selected={false} onSelect={() => undefined} title="Bought or rented list" text="Cannot be imported. CEP sends only to people who agreed to hear from the workspace." badge="Not Allowed" />
+            </div>
+            {basis && !basisAllowed && (
+              <p role="alert" className="mt-3 rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
+                A texts list needs express consent: marketing texts need a written opt-in with a date (TCPA, CASL). Map a Text consent date column, or choose a basis where people opted in.
+              </p>
+            )}
+          </div>
+          <Field label="Where the Consent Was Collected" hint="Optional. A form name, a store, a campaign: whatever lets you find the proof later." limit={{ used: collectedAt.length, max: 300 }}>
+            {(ids) => <TextInput {...ids} value={collectedAt} onChange={(event) => setCollectedAt(event.target.value)} maxLength={300} placeholder="e.g. Fall 2026 sign-up form" />}
+          </Field>
+          <div className="rounded-lg border border-line bg-surface-subtle p-3">
+            <Checkbox label={consent.attestation} checked={attested} onChange={(event: ChangeEvent<HTMLInputElement>) => setAttested(event.target.checked)} />
+            <p className="mt-1 pl-6 text-xs text-ink-800">
+              Recorded with your name and the time.{' '}
+              {consentMapped
+                ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people CEP has no answer for.`
+                : 'No consent date column is mapped.'}
+            </p>
+          </div>
+          {textsNeedDate ? (
+            <p role="status" className="rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
+              Workspace policy: a number needs a text consent date. No Text consent date column is mapped, so every row will be refused. Go back and map the column.
+            </p>
+          ) : !consentMapped && refuses ? (
+            <p role="status" className="rounded-sm border border-warning bg-warning-bg px-3 py-2 text-sm text-warning-text">
+              Workspace policy refuses new people without a consent date. No consent date column is mapped, so new people will not be imported. Go back and map a column, or ask an admin to change the policy.
+            </p>
+          ) : (
+            <p role="status" className="rounded-sm border border-line bg-callout-bg px-3 py-2 text-sm text-callout-text">
+              {refuses
+                ? 'Workspace policy: rows without a valid consent date are refused.'
+                : 'People without a consent date are imported and held back until they confirm. Workspace policy: hold back people without consent.'}
+              {consent.policy.approval_before_send ? ' The list will wait for approval before any campaign sends to it.' : ''}
+            </p>
+          )}
         </div>
       )}
 

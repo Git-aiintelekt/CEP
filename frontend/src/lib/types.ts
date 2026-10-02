@@ -426,7 +426,7 @@ export type ListChannel = 'EMAIL' | 'SMS' | 'BOTH'
 export interface CampaignAudience {
   /** with ?local_time=1, or once the campaign sends at each recipient's local time: how many have a time zone CEP can work out */
   local_time?: { people: number; local_time_known: number }
-  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; channel?: string; role: 'INCLUDE' | 'EXCLUDE' }[]
+  lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; channel?: string; approval_status?: string; role: 'INCLUDE' | 'EXCLUDE' }[]
   gross: number
   unique: number
   duplicates_removed: number
@@ -588,6 +588,11 @@ export interface ContactList extends Audited {
   list_environment: 'TEST' | 'PRODUCTION' | string
   /** what the list is for: the required upload column and how a new person is recognised */
   channel: ListChannel | string
+  /** NOT_REQUIRED, or AWAITING / APPROVED / REFUSED under the workspace's consent policy; AWAITING and REFUSED hold the list out of every send */
+  approval_status?: ListApprovalStatus
+  approved_by_name?: string | null
+  approved_at?: string | null
+  approval_note?: string | null
   /** DRAFT = made by the upload wizard, waiting for its first import */
   status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED' | string
   member_count: number
@@ -675,6 +680,51 @@ export interface ListGovernance {
 }
 
 /** An upload is a background job: the API answers at once and the file is read, checked and imported by a worker. */
+export type ListApprovalStatus = 'NOT_REQUIRED' | 'AWAITING' | 'APPROVED' | 'REFUSED'
+export type ConsentBasis = 'WEB_FORM' | 'IN_STORE' | 'CUSTOMER_REQUEST' | 'IMPLIED'
+
+/** the upload's declaration: where its people agreed, and the uploader's word that they did */
+export interface ListConsentDeclaration {
+  required: boolean
+  basis: ConsentBasis | null
+  basis_label: string | null
+  collected_at: string | null
+  attested_by_name: string | null
+  attested_at: string | null
+  /** the sentence the uploader confirms, with the workspace's name in it */
+  attestation: string
+  bases: { key: ConsentBasis; label: string; allowed: boolean }[]
+  policy: { without_consent: 'HOLD_BACK' | 'REFUSE'; texts_need_date: boolean; approval_before_send: boolean }
+}
+
+/** Settings → Consent Policy */
+export interface ConsentPolicy {
+  without_consent: 'HOLD_BACK' | 'REFUSE'
+  texts_need_date: boolean
+  approval_before_send: boolean
+  lifetime_months: number
+  attestation: string
+  attestation_preview: string
+  workspace_name: string
+  lifetimes: number[]
+  bases: { key: ConsentBasis; label: string }[]
+}
+
+export interface ComplianceRecord {
+  list: { id: string; name: string; channel: string; member_count: number; source_type: string; source_reference: string | null; created_at: string }
+  /** a segment or a clone: its people carry the consent records of where they came from */
+  inherited: boolean
+  uploads: {
+    id: string; file_name: string; completed_at: string | null; rows: number; applied: number; consents_recorded: number
+    basis: ConsentBasis | null; basis_label: string | null; collected_at: string | null; attested_by_name: string | null; attested_at: string | null
+    held_back: Record<string, number>
+  }[]
+  approval: { status: ListApprovalStatus; by_name: string | null; at: string | null; note: string | null }
+  policy: { without_consent: 'HOLD_BACK' | 'REFUSE'; texts_need_date: boolean; approval_before_send: boolean; lifetime_months: number; attestation: string }
+  consent: { channel: 'EMAIL' | 'SMS'; opted_in_from_file: number; confirmed_since: number; no_consent: number; unsubscribed: number }[]
+  generated_at: string
+}
+
 export interface ListImport {
   id: string
   contact_list: string
@@ -709,6 +759,7 @@ export interface ListImport {
   applied_count: number
   new_people?: number
   consents_recorded?: number
+  consent?: ListConsentDeclaration
   list?: ContactList
 }
 

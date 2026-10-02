@@ -115,6 +115,7 @@ function explain(code: string, channel: string): string {
     FREQUENCY_CAP: 'Already had as many marketing messages as the corporate limits allow for now',
     TOPIC_OPTED_OUT: "Unticked this campaign's topic on the preference page",
     EXCLUDED_LIST: 'Also in a list this campaign excludes',
+    LIST_NOT_APPROVED: 'Only in a list that waits for approval under the consent policy',
   }
   return EXPLAIN[code] ?? 'Left out by the send rules'
 }

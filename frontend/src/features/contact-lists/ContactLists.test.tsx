@@ -66,7 +66,7 @@ test('create from a file: name and type, the file, the columns, the review, then
   await user.click(await screen.findByRole('button', { name: 'Create List' }))
 
   let dialog = await screen.findByRole('dialog', { name: 'New Contact List' })
-  expect(within(dialog).getByText(/^Step 1 of 5/)).toBeTruthy()
+  expect(within(dialog).getByText(/^Step 1 of 6/)).toBeTruthy()
   expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)
   expect(within(dialog).getByRole('radio', { name: /Upload a File/ }).getAttribute('aria-checked')).toBe('true')
   await user.type(within(dialog).getByLabelText(/^List Name/), 'Trade show leads')
@@ -93,6 +93,16 @@ test('create from a file: name and type, the file, the columns, the review, then
   await user.selectOptions(within(dialog).getByLabelText('CEP Property for Email Address'), 'email')
   expect((within(dialog).getByLabelText('CEP Property for Notes') as HTMLSelectElement).value).toBe('')
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+
+  // where these people agreed, and the uploader's word that they did: the check already runs in the background meanwhile
+  dialog = await screen.findByRole('dialog', { name: 'Where Did These People Agree?' })
+  expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
+  await user.type(within(dialog).getByLabelText(/^Where the Consent Was Collected/), 'Booth sign-up sheet')
+  expect((within(dialog).getByRole('button', { name: 'Continue' }) as HTMLButtonElement).disabled).toBe(true)      // the attestation is not optional
+  await user.click(within(dialog).getByLabelText('I confirm these people agreed to receive marketing from Northwind Apparel'))
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+  expect(calls.find((call) => call.url.endsWith('/consent/'))?.body).toEqual({ basis: 'WEB_FORM', collected_at: 'Booth sign-up sheet', attested: true })
 
   dialog = await screen.findByRole('dialog', { name: 'Review Before Importing' })
   expect(calls.find((call) => call.url.endsWith('/review/'))?.body).toEqual({ mapping: { first_name: 'First Name', email: 'Email Address' } })
@@ -296,6 +306,10 @@ test('building a list inside campaign setup: a vetted list is attached at once, 
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   await within(dialog).findByRole('heading', { name: 'Match Your Columns' })
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+  await within(dialog).findByRole('heading', { name: 'Where Did These People Agree?' })
+  await user.click(within(dialog).getByRole('radio', { name: /Enrolled in store/ }))
+  await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   await within(dialog).findByRole('heading', { name: 'Review Before Importing' })
   await user.click(await ready(dialog, 'Import Contacts'))
   await within(dialog).findByRole('heading', { name: 'List Created' })
@@ -326,6 +340,10 @@ test('a large upload runs in the background: progress in the wizard, leave it ru
   await within(dialog).findByText('leads.csv')
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))             // the columns are known from the first lines: no waiting for the whole file
   await user.click(within(await screen.findByRole('dialog', { name: 'Match Your Columns' })).getByRole('button', { name: 'Continue' }))
+  dialog = await screen.findByRole('dialog', { name: 'Where Did These People Agree?' })
+  await user.click(within(dialog).getByRole('radio', { name: /Asked us directly/ }))
+  await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   dialog = await screen.findByRole('dialog', { name: 'Review Before Importing' })
   await user.click(await ready(dialog, 'Import Contacts'))
 

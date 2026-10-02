@@ -1190,6 +1190,27 @@ UPDATE contact_list l SET channel = 'BOTH'
  WHERE l.channel = 'EMAIL' AND EXISTS (SELECT 1 FROM contact_list_campaign x JOIN campaign c ON c.id = x.campaign_id
                                         WHERE x.contact_list_id = l.id AND c.channel IN ('SMS', 'MMS') AND c.deleted_at IS NULL);
 
+-- -------------------------------------------------------------------------------------
+-- 20. CONTACT COMPLIANCE: an upload declares where its people agreed; a list can need approval before a send
+--     The policy (what happens to people without consent, whether texts need a date, approval before the first send,
+--     the consent lifetime, the attestation wording) lives in tenant.settings -> 'consent_policy'.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_basis VARCHAR(30);             -- WEB_FORM | IN_STORE | CUSTOMER_REQUEST | IMPLIED (a bought list is refused)
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS consent_collected_at VARCHAR(300);     -- where the consent was collected: a form, a store, a campaign
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS attested_by UUID;                      -- the user who confirmed these people agreed
+ALTER TABLE contact_list_import ADD COLUMN IF NOT EXISTS attested_at TIMESTAMPTZ;
+ALTER TABLE contact_list_import DROP CONSTRAINT IF EXISTS ck_contact_list_import_consent_basis;
+ALTER TABLE contact_list_import ADD CONSTRAINT ck_contact_list_import_consent_basis
+    CHECK (consent_basis IS NULL OR consent_basis IN ('WEB_FORM', 'IN_STORE', 'CUSTOMER_REQUEST', 'IMPLIED'));
+COMMENT ON COLUMN contact_list_import.consent_basis IS 'Where the people in the file agreed to marketing, declared by the uploader; kept on the list''s compliance record';
+ALTER TABLE contact_list ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) NOT NULL DEFAULT 'NOT_REQUIRED';  -- NOT_REQUIRED | AWAITING | APPROVED | REFUSED
+ALTER TABLE contact_list ADD COLUMN IF NOT EXISTS approved_by UUID;
+ALTER TABLE contact_list ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE contact_list ADD COLUMN IF NOT EXISTS approval_note VARCHAR(300);
+ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_approval_status;
+ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_approval_status CHECK (approval_status IN ('NOT_REQUIRED', 'AWAITING', 'APPROVED', 'REFUSED'));
+COMMENT ON COLUMN contact_list.approval_status IS 'AWAITING or REFUSED: no campaign sends to this list (LIST_NOT_APPROVED in the audience build) until someone with consent.edit approves it';
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

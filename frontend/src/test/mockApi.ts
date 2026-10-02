@@ -78,10 +78,28 @@ export const uploadSummary: UploadSummary = {
   ready: { total: 4, new: 3, existing: 1 }, governance: { sendable: 2, not_sendable: 2, statuses: GOVERNANCE }, mobile: null, result: null, balanced: true,
 }
 /** as POST .../imports/ answers: stored and queued, nothing read yet. The mock "worker" moves it on at the next poll. */
+/** the consent declaration an upload starts with: nothing declared, the workspace's policy holds people back */
+export const consentDeclaration = (channel = 'EMAIL'): NonNullable<ListImport['consent']> => ({
+  required: true, basis: null, basis_label: null, collected_at: null, attested_by_name: null, attested_at: null,
+  attestation: 'I confirm these people agreed to receive marketing from Northwind Apparel',
+  bases: [
+    { key: 'WEB_FORM', label: 'Signed up on our website or app', allowed: true }, { key: 'IN_STORE', label: 'Enrolled in store or in the loyalty programme', allowed: true },
+    { key: 'CUSTOMER_REQUEST', label: 'Asked us directly', allowed: true }, { key: 'IMPLIED', label: 'Existing customers under implied consent', allowed: channel === 'EMAIL' },
+  ],
+  policy: { without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: false },
+})
+
+export const consentPolicy = {
+  without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: false, lifetime_months: 24,
+  attestation: 'I confirm these people agreed to receive marketing from {workspace}', attestation_preview: 'I confirm these people agreed to receive marketing from Northwind Apparel',
+  workspace_name: 'Northwind Apparel', lifetimes: [6, 12, 24, 36],
+  bases: [{ key: 'WEB_FORM', label: 'Signed up on our website or app' }, { key: 'IN_STORE', label: 'Enrolled in store or in the loyalty programme' }, { key: 'CUSTOMER_REQUEST', label: 'Asked us directly' }, { key: 'IMPLIED', label: 'Existing customers under implied consent' }],
+}
+
 export const stagedImport: ListImport = {
   id: 'imp-1', contact_list: 'cl-new', list_name: 'Trade show leads', list_status: 'DRAFT', file_name: 'leads.csv', file_size: 2048, status: 'UPLOADED', phase: 'Waiting to be read',
   working: true, progress: { done: 0, total: 2048, percent: 0, unit: 'bytes' }, mapping_confirmed: false, error: null, created_at: '2026-09-21T10:00:00Z', completed_at: null,
-  created_by_name: 'Aby John', row_count: 0, applied_count: 0, review: null, properties: PROPERTIES,
+  created_by_name: 'Aby John', row_count: 0, applied_count: 0, review: null, properties: PROPERTIES, consent: consentDeclaration(),
   columns: [{ name: 'Email Address', samples: ['a@x.example'], guess: 'email' }, { name: 'First Name', samples: ['Ana'], guess: 'first_name' }, { name: 'Notes', samples: ['vip'], guess: null }],
   mapping: { email: 'Email Address', first_name: 'First Name' },
 }
@@ -418,6 +436,7 @@ export function installMockApi(options: MockOptions = {}) {
   let listsNow: ContactList[] = [...(options.lists ?? contactLists)]
   let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
+  const consentPolicyNow = { ...consentPolicy }
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let securityNow: SecuritySettings = { ...security }
@@ -529,6 +548,10 @@ export function installMockApi(options: MockOptions = {}) {
       const sender = mailNow.server?.campaign_sender ? { id: 'snd-smtp', display_name: mailNow.server.from_name ?? mailNow.server.from_email, from_address: mailNow.server.from_email, verification_status: ok ? 'VERIFIED' as const : 'PENDING' as const, is_default: false } : null
       mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
       return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
+    }
+    if (path.endsWith('/workspace/consent-policy/')) {
+      if (method === 'PUT') Object.assign(consentPolicyNow, body ?? {}, { attestation_preview: String((body?.attestation as string) ?? consentPolicyNow.attestation).replace('{workspace}', 'Northwind Apparel') })
+      return json(consentPolicyNow)
     }
     if (path.endsWith('/workspace/mail-server/')) {
       if (method === 'DELETE') { mailNow = { ...mailNow, server: null, sender_profile: null, in_use: 'console' }; return json(null, 204) }
@@ -793,11 +816,22 @@ export function installMockApi(options: MockOptions = {}) {
         jobsNow = [made, ...jobsNow]
         return json(made, 201)
       }
+      if (job && path.endsWith('/consent/')) {
+        const basis = String(body?.basis ?? '')
+        if (basis === 'IMPLIED' && job.list_channel && job.list_channel !== 'EMAIL') {
+          return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { basis: 'A texts list needs express consent.' } }, 400)
+        }
+        if (!body?.attested) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { attested: 'Confirm that these people agreed to receive marketing.' } }, 400)
+        const declared = { ...(job.consent ?? consentDeclaration(job.list_channel)), basis: basis as NonNullable<ListImport['consent']>['basis'], basis_label: basis,
+                           collected_at: String(body?.collected_at ?? '') || null, attested_by_name: 'Aby John', attested_at: '2026-09-21T10:01:00Z' }
+        return json(put({ ...job, consent: declared }))
+      }
       if (job && path.endsWith('/review/')) {
         return json(put({ ...job, status: 'MATCHING', phase: 'Checking the rows', working: true, mapping_confirmed: true, mapping: body?.mapping as Record<string, string>, review: null,
                           progress: { done: 3, total: 6, percent: 50, unit: 'rows' } }), 202)
       }
       if (job && path.endsWith('/apply/')) {
+        if (job.consent?.required && !job.consent.attested_at) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'Say where these people agreed to marketing first.' }, 409)
         importDoneAt.set(job.id, Date.now() + (options.listImportMs ?? 0))
         return json(put({ ...job, status: 'APPLYING', phase: 'Adding contacts to the list', working: true, progress: { done: 2, total: 6, percent: 33, unit: 'rows' } }), 202)
       }
@@ -812,6 +846,25 @@ export function installMockApi(options: MockOptions = {}) {
                             issues: [{ line: 5, kind: 'error', message: 'Same email address as line 3', value: 'A@x.example' }, { line: 4, kind: 'warning', message: 'Mobile number not recognised: left out', value: 'b@x.example' }] }))
         }
         return json(jobsNow.find((item) => item.id === job.id))
+      }
+      if (one && /\/(approve|refuse)\/$/.test(path) && method === 'POST') {
+        const approved = path.endsWith('/approve/')
+        listsNow = listsNow.map((entry) => (entry.id === one ? { ...entry, approval_status: approved ? 'APPROVED' : 'REFUSED', approved_by_name: 'Aby John', approved_at: '2026-09-21T11:00:00Z',
+                                                                 approval_note: String(body?.note ?? '') || null } : entry))
+        return json(find(one))
+      }
+      if (one && path.endsWith('/compliance/')) {
+        const entry = find(one)
+        return json({
+          list: { id: one, name: entry?.name ?? '', channel: entry?.channel ?? 'EMAIL', member_count: entry?.member_count ?? 0, source_type: entry?.source_type ?? 'UPLOAD', source_reference: 'leads.csv', created_at: '2026-09-20T09:00:00Z' },
+          inherited: entry?.source_type !== 'UPLOAD',
+          uploads: entry?.source_type === 'UPLOAD' ? [{ id: 'imp-0', file_name: 'leads.csv', completed_at: '2026-09-20T09:05:00Z', rows: 6, applied: 4, consents_recorded: 3, basis: 'WEB_FORM', basis_label: 'Signed up on our website or app',
+                                                        collected_at: 'Fall sign-up form', attested_by_name: 'Maya Patel', attested_at: '2026-09-20T09:02:00Z', held_back: {} }] : [],
+          approval: { status: entry?.approval_status ?? 'NOT_REQUIRED', by_name: entry?.approved_by_name ?? null, at: entry?.approved_at ?? null, note: entry?.approval_note ?? null },
+          policy: { without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: true, lifetime_months: 24, attestation: 'I confirm these people agreed to receive marketing from Northwind Apparel' },
+          consent: [{ channel: 'EMAIL', opted_in_from_file: 3, confirmed_since: 0, no_consent: 1, unsubscribed: 0 }],
+          generated_at: '2026-09-21T12:00:00Z',
+        })
       }
       if (path.endsWith('/contact-lists/') && method === 'POST') {
         if (listsNow.some((item) => item.name.toLowerCase() === String(body?.name).toLowerCase())) {

@@ -187,6 +187,10 @@ async function uploadList(user: ReturnType<typeof userEvent.setup>, name: string
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   await within(dialog).findByRole('heading', { name: 'Match Your Columns' })
   await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
+  await within(dialog).findByRole('heading', { name: 'Where Did These People Agree?' })
+  await user.click(within(dialog).getByRole('radio', { name: /Signed up on our website or app/ }))
+  await user.click(within(dialog).getByLabelText(/^I confirm these people agreed/))
+  await user.click(within(dialog).getByRole('button', { name: 'Continue' }))
   const importButton = await within(dialog).findByRole('button', { name: 'Import Contacts' }) as HTMLButtonElement
   await vi.waitFor(() => expect(importButton.disabled).toBe(false))
   await user.click(importButton)

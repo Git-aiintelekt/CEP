@@ -177,6 +177,28 @@ Text consent date (an SMS opt-in; marketing texts need it). First / last name, p
 kept on the membership (`contact_list_member.custom_attributes`). A row of a Texts list without a usable address is a person of
 CEP's own keyed by the number (`UPL-` + hash of workspace and number, `matched_by = PHONE`); a known number recognises the person.
 
+### 3.4 The compliance process (`apps/contact_lists/consent.py`, patch 0032)
+
+CEP sends only to people who agreed to hear from the workspace, and the workspace can show where that agreement came from.
+
+* **The declaration.** After the columns are matched, the wizard asks where the file's people agreed (`consent_basis`: signed up on the
+  website or app, enrolled in store or in the loyalty programme, asked us directly, existing customers under implied consent; a bought or rented
+  list is refused), where the proof is (`consent_collected_at`, free text) and the uploader confirms the attestation sentence in their own name
+  (`attested_by`, `attested_at`). `POST .../imports/{import}/consent/`; the import cannot be applied without it (409). A Texts or Email and Texts
+  list refuses the implied basis (marketing texts need an express opt-in). Consent records written from the file carry the basis and where it was
+  collected in their evidence.
+* **The policy** (`tenant.settings.consent_policy`, Settings → Audience → Consent Policy, `GET`/`PUT /workspace/consent-policy/`; read by anyone who
+  uploads, changed by administrators): `without_consent` HOLD_BACK (default: imported and held back until they confirm) or REFUSE (the row is held
+  back as "No consent date", reported on the review and the row-by-row CSV); `texts_need_date` (a Texts list refuses a number without a text consent
+  date, "No text consent date"); `approval_before_send` (a fresh upload sets its list to AWAITING); `lifetime_months` (kept for the reminder job that
+  is still to come); `attestation` (the sentence, `{workspace}` becomes the workspace's name).
+* **The gate.** `contact_list.approval_status` NOT_REQUIRED | AWAITING | APPROVED | REFUSED with `approved_by`, `approved_at`, `approval_note`.
+  `POST /contact-lists/{id}/approve/` and `/refuse/` (`consent.edit`). The audience build (email and texts) and the estimate hold the people of an
+  awaiting or refused list back as `LIST_NOT_APPROVED`, unless an approved list also has them; the Send To table says so on the list's row.
+* **The record.** `GET /contact-lists/{id}/compliance/`: the source, every applied upload with its declaration and refusals, the approval, the policy
+  as it is today and today's consent by channel (opted in from the file, confirmed since, no consent, unsubscribed), rebuilt from consent records on
+  every read. A segment or a clone inherits (`inherited`) and needs no attestation.
+
 ## 4. API (`api/v1/contact_lists_api.py`)
 
 | | | Permission |
@@ -203,12 +225,18 @@ CEP's own keyed by the number (`UPL-` + hash of workspace and number, `matched_b
 | `POST /contact-lists/{id}/imports/{import}/cancel/` | | `list.import` |
 | `GET /contact-lists/{id}/imports/{import}/report/` | CSV, one line per row of the file: outcome, detail, recognised, governance status (409 before the file was checked) | `list.view` |
 | `GET /contact-lists/{id}/governance/` | the list's people as a marketing email send would judge them today: `total`, `sendable`, `not_sendable`, `statuses[]` | `list.view` |
+| `POST /contact-lists/{id}/imports/{import}/consent/` | `{basis, collected_at, attested}`: the declaration (3.4); required before apply | `list.import` |
+| `POST /contact-lists/{id}/approve/` · `/refuse/` | `{note}`; 409 for a list that needs no approval | `consent.edit` |
+| `GET /contact-lists/{id}/compliance/` | the compliance record (3.4) | `list.view` |
+| `GET` / `PUT /workspace/consent-policy/` | the policy (3.4) | read: `list.view`, `list.import` or `user.admin`; write: `user.admin` |
 
 "Live" = a campaign in `PRODUCTION_PUBLISHED` or `ACTIVE`. `POST /campaigns/{id}/publish/` refuses a list that is
 marked Test, archived, deleted or still a draft.
 
 ## 5. Schema
 
+`database/patches/0032_contact_compliance.sql` (section 20): `contact_list_import.consent_basis`, `consent_collected_at`, `attested_by`, `attested_at`;
+`contact_list.approval_status`, `approved_by`, `approved_at`, `approval_note`.
 `database/patches/0013_list_upload_governance.sql` (section 13): `contact_list_import_row.governance_status`, `contact_list_import.summary`.
 `database/patches/0012_list_upload_jobs.sql` (section 12): the queue on `contact_list_import` (`next_action`, progress, `heartbeat_at`, `worker`,
 `attempts`, statuses `STAGING` / `STAGED` / `APPLYING` / `CANCELLED`) and the three `lists.import_*` global parameters.
