@@ -2,7 +2,7 @@
  * The navigation rail's parts, shared by the app shell and the template editors' bar so the two look and behave
  * the same: the brand mark, a link (with its tooltip while the rail is collapsed) and the divider between groups.
  */
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink } from 'react-router-dom'
 
@@ -13,12 +13,20 @@ type OnNavigate = (to: string, event: MouseEvent) => void
 const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent'
 
 /** "CEP" on a 32px brand-blue square, and the product name beside it when there is room */
-export function RailMark({ expanded, onNavigate }: { expanded: boolean; onNavigate?: OnNavigate }) {
+export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onNavigate?: OnNavigate; end?: ReactNode }) {
+  const go = (event: MouseEvent<HTMLAnchorElement>) => onNavigate?.('/', event)
   return (
-    <Link to="/" aria-label="CEP home" onClick={(event) => onNavigate?.('/', event)} className={`flex w-fit items-center gap-2.5 rounded-sm ${FOCUS}`}>
-      <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-sm font-bold tracking-[-0.03em] text-white">CEP</span>
-      {expanded && <span aria-hidden className="font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-white">Customer Engagement</span>}
-    </Link>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <Link to="/" aria-label="CEP home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-sm font-bold tracking-[-0.03em] text-white">CEP</span>
+        </Link>
+        {end}
+      </div>
+      {expanded && (
+        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-white">Customer Engagement</Link>
+      )}
+    </div>
   )
 }
 

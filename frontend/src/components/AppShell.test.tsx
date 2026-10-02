@@ -29,7 +29,7 @@ test('240px expanded: the brand, Home and the everyday pages, then Settings belo
   expect(rail().className).not.toContain('border')
   const mark = within(rail()).getByRole('link', { name: 'CEP home' })
   expect(within(mark).getByText('CEP').className).toContain('bg-brand-600')
-  expect(within(mark).getByText('Customer Engagement')).toBeTruthy()
+  expect(within(rail()).getByText('Customer Engagement')).toBeTruthy()                            // the wordmark sits under the mark, outside the link
 
   const [pages, admin] = within(nav()).getAllByRole('list')
   expect(within(pages).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Reports', 'Journeys', 'Templates', 'Contact lists'])
