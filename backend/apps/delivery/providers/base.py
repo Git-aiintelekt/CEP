@@ -259,5 +259,16 @@ class SmsProvider(EmailProvider):
     def send(self, message: SmsMessage) -> SendResult:       # type: ignore[override]
         """Hand one message to the aggregator. REJECTED / RETRY for a per-message problem, ProviderError when nothing can be sent."""
 
+    def send_many(self, messages: list[SmsMessage]) -> list[SendResult]:
+        """Several messages, results in order. Aggregators with a batch call override this; the default is one call each."""
+        return [self.send(message) for message in messages]
+
+    def send_many_guarded(self, messages: list[SmsMessage], *, related_ref: str | None = None) -> list[SendResult]:
+        """What the engine calls for a batch: one guard decision and one log row when the adapter batches, else one per message."""
+        if type(self).send_many is SmsProvider.send_many:
+            return [self.send_guarded(message, related_ref=related_ref) for message in messages]
+        from apps.integrations.bridge.outbound import guarded_send_many
+        return guarded_send_many(self, messages, related_ref)
+
     def parse_inbound(self, payload) -> list[InboundMessage]:
         return []
