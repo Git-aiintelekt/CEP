@@ -75,7 +75,7 @@ test('a card whose section is unavailable renders nothing; loading and errors sh
 test('KPI tiles: the figure with its change and benchmark, the bar; Not Tracked and Not Set Up Yet never show $0', () => {
   render(
     <MemoryRouter>
-      <KpiStrip label="Marketing Performance">
+      <KpiStrip label="Key Figures">
         <KpiTile label="Open Rate" note="Email Only" value="37.5%" change={{ value: 1.1, unit: 'pt' }} benchmark="Good" supporting="405,585 opened" />
         <KpiTile label="Attributed Revenue" value="$1.39M" change={{ value: 9.7, unit: '%' }} progress={{ value: 95, label: 'Revenue against target' }} supporting="95% of $1.47M target" />
         <KpiTile label="SMS Opens" state="notTracked" />
@@ -85,7 +85,7 @@ test('KPI tiles: the figure with its change and benchmark, the bar; Not Tracked 
       </KpiStrip>
     </MemoryRouter>,
   )
-  const strip = screen.getByRole('group', { name: 'Marketing Performance' })
+  const strip = screen.getByRole('group', { name: 'Key Figures' })
   expect(strip.className).toContain('min-[1200px]:grid-cols-6')
   expect(strip.className).toContain('min-[768px]:grid-cols-3')
   const open = document.querySelector('[data-kpi="Open Rate"]')!

@@ -19,7 +19,7 @@ export interface Call {
 const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-02T10:00:00Z', row_version: 1 }
 
 export const me = {
-  principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false,
+  principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false, roles: ['Marketing Admin'],
                permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },

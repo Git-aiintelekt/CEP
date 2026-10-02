@@ -33,6 +33,8 @@ export interface Me {
     is_platform_admin?: boolean
     permissions?: string[]
     scopes?: string[]
+    /** the user's role names, for the header: ["Marketing Admin"] */
+    roles?: string[]
   }
   tenant: { id: string; code: string; timezone: string; db_alias: string; db_status: string }
   /** industry profile of the workspace, e.g. RETAIL */

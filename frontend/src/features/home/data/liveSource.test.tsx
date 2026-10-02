@@ -107,18 +107,17 @@ test('a campaign filter sums the campaign rows, since the report takes no ids; r
   expect(sms.attributedRevenue.value).toBeNull()
 })
 
-test('the page on the live source: the store revenue tile says it isn’t connected; revenue tiles are Not Set Up when null; no journey tile', async () => {
+test('the page on the live source: the ROI tile reads the overview’s cost; revenue tiles are Not Set Up when null; no journey button', async () => {
   installMockApi()
   const { wrapper } = await load()
   const { HomePage } = await import('../HomePage')
   render(<HomePage />, { wrapper })
-  const contribution = await waitFor(() => {
-    const node = document.querySelector('[data-kpi="Campaign Contribution"]') as HTMLElement
-    expect(node.textContent).toContain('Store revenue isn’t connected yet.')
+  const roi = await waitFor(() => {
+    const node = document.querySelector('[data-kpi="Campaign ROI"]') as HTMLElement
+    expect(node.textContent).toMatch(/campaign cost|×/)
     return node
   })
-  expect(within(contribution).getByText('—').className).toContain('text-ink-800')
-  expect(within(contribution).queryByRole('img')).toBeNull()
+  expect(roi.querySelector('[data-kpi-loading]')).toBeNull()
   expect(document.querySelector('[data-kpi="Attributed Revenue"]')!.textContent).toContain('Attributed to campaigns')
   expect(within(screen.getByRole('region', { name: 'Create New' })).queryByRole('link', { name: 'Journey' })).toBeNull()
   cleanup()
@@ -127,7 +126,7 @@ test('the page on the live source: the store revenue tile says it isn’t connec
   const { HomePage: Page } = await import('../HomePage')
   render(<Page />, { wrapper: again })
   await waitFor(() => expect(document.querySelector('[data-kpi="Attributed Revenue"]')!.textContent).toContain('Not Set Up Yet'))
-  expect(document.querySelector('[data-kpi="Campaign Contribution"]')!.textContent).toContain('Not Set Up Yet')
+  expect(document.querySelector('[data-kpi="Campaign ROI"]')!.textContent).toContain('Not Set Up Yet')
 })
 
 test('without report.view no summary is asked for', async () => {

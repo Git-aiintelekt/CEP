@@ -1,4 +1,4 @@
-import { Filter } from 'lucide-react'
+import { ArrowDownToLine } from 'lucide-react'
 import { useState } from 'react'
 
 import { SegmentedControl } from '@/components/SegmentedControl'
@@ -40,6 +40,23 @@ function funnelRows(channel: FunnelChannel): BarListRow[] {
   return rows
 }
 
+/** the two end-to-end rates under the funnel: delivered to converted, delivered to opened (or clicked where opens aren't tracked) */
+function Rates({ channel }: { channel: FunnelChannel | undefined }) {
+  const rate = (value: number | null | undefined) => (channel && value !== null && value !== undefined && channel.delivered > 0 ? formatPercent((value / channel.delivered) * 100, 2) : '—')
+  const engagement = channel?.opened === null ? ['Delivered → Clicked', rate(channel?.clicked)] : ['Delivered → Opened', rate(channel?.opened)]
+  const tiles: [string, string][] = [['Delivered → Converted', rate(channel?.converted)], [engagement[0], engagement[1]]]
+  return (
+    <dl data-funnel-rates className="grid grid-cols-2 gap-3">
+      {tiles.map(([label, value]) => (
+        <div key={label} className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-line bg-surface-subtle px-3 py-2.5">
+          <dd className="font-display text-xl leading-tight font-semibold text-ink-900 cep-num">{value}</dd>
+          <dt className="text-helper text-ink-800">{label}</dt>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 /** One channel's engagement funnel, picked with a toggle when more than one channel has data and the page isn't filtered to one. */
 export function EngagementFunnel({ filters }: { filters: HomeFilters }) {
   const { source } = useHomeData()
@@ -52,21 +69,13 @@ export function EngagementFunnel({ filters }: { filters: HomeFilters }) {
     ? channels.find((item) => item.channel === filters.channel)
     : channels.find((item) => item.channel === picked) ?? channels[0]
   const showToggle = filters.channel === 'ALL' && channels.length > 1
-  const endToEnd = current && current.converted !== null && current.delivered > 0 ? formatPercent((current.converted / current.delivered) * 100, 2) : '—'
 
   return (
-    <HomeCard title="Engagement Funnel by Channel" icon={Filter}
-      footer={(
-        <div data-funnel-footer className="flex max-w-[720px] items-center justify-between gap-3 text-helper">
-          <span className="text-ink-800">Delivered to Converted</span>
-          <span className="font-semibold text-ink-900 cep-num">{endToEnd}</span>
-        </div>
-      )}>
-      {/* on a full-width row the funnel stops at 720px, so the counts stay near their labels */}
-      <div data-funnel-body className="flex max-w-[720px] flex-col gap-4">
-        {showToggle && current && (
-          <div className="self-start"><SegmentedControl label="Funnel Channel" variant="outline" options={channels.map((item) => ({ value: item.channel, label: CHANNEL_LABEL[item.channel] }))} value={current.channel} onChange={setPicked} /></div>
-        )}
+    <HomeCard title="Engagement Funnel" icon={ArrowDownToLine}
+      actions={showToggle && current ? (
+        <SegmentedControl label="Funnel Channel" variant="outline" options={channels.map((item) => ({ value: item.channel, label: CHANNEL_LABEL[item.channel] }))} value={current.channel} onChange={setPicked} />
+      ) : undefined}>
+      <div data-funnel-body className="flex h-full flex-col gap-4">
         <BarList
           title={current ? `${CHANNEL_LABEL[current.channel]} engagement funnel` : 'Engagement funnel'}
           rows={current ? funnelRows(current) : []}
@@ -77,6 +86,7 @@ export function EngagementFunnel({ filters }: { filters: HomeFilters }) {
           onRetry={result.status === 'error' ? result.retry : undefined}
           emptyText="Nothing was delivered in this period."
         />
+        {result.status === 'ready' && current && <div className="mt-auto"><Rates channel={current} /></div>}
       </div>
     </HomeCard>
   )

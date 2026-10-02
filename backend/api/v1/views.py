@@ -31,6 +31,7 @@ from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
 from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
 from apps.contact_lists.models import ContactList
+from apps.identity.models import Role
 from apps.journeys.models import Journey
 from apps.templates.models import PersonalizationTag, TemplateMaster
 from apps.tenants import context
@@ -490,7 +491,8 @@ class MeViewSet(viewsets.ViewSet):
         else:
             principal = {"kind": "user", "id": str(user.id), "email": user.email, "display_name": user.display_name,
                          "is_staff": user.is_staff, "is_platform_admin": user.is_platform_admin,
-                         "permissions": sorted(user.permission_codes())}
+                         "permissions": sorted(user.permission_codes()),
+                         "roles": list(Role.objects.filter(deleted_at__isnull=True, user_roles__user=user).order_by("name").values_list("name", flat=True))}
         workspace = params.context_for(request.tenant["id"])
         session = getattr(getattr(request, "_request", request), "support_session", None)
         if principal["kind"] == "user":

@@ -448,6 +448,7 @@ class MePrincipalSerializer(serializers.Serializer):
     is_platform_admin = serializers.BooleanField(required=False)
     permissions = serializers.ListField(child=serializers.CharField(), required=False)
     scopes = serializers.ListField(child=serializers.CharField(), required=False)
+    roles = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 class MeTenantSerializer(serializers.Serializer):
