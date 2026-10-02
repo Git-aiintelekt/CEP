@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact compliance: the consent step, the gate and the record</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --danger:#dd514c; --danger-bg:#fae2e2; --danger-text:#a92e26; --warning:#e8a13b; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --success:#5ec16a; --success-bg:#e3f5e5; --success-text:#1f6b2d;
+    --callout-bg:#eef2fe; --callout-icon:#7570d4; --callout-link:#4139c2; --callout-text:#312e7c;
+    --plum-100:#f1e6f5; --plum-700:#6b3f86;
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .label { max-width:1440px; margin:28px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.4 var(--font-sans); color:var(--ink-800); margin-top:2px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, 1fr); gap:16px }
+  .row.three { grid-template-columns:repeat(3, 1fr) }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .frame .cap { font-size:12px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .modal { padding:20px }
+  .modal h2 { font-size:18px } .modal .sub { font-size:13px; color:var(--ink-800); margin-top:2px }
+  .steps { display:flex; gap:6px; margin:14px 0 18px; font-size:12px; color:var(--ink-800) }
+  .steps span { display:flex; align-items:center; gap:6px } .steps span::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--line) }
+  .steps span.done::before { background:var(--success) } .steps span.on { color:var(--brand-800); font-weight:600 } .steps span.on::before { background:var(--brand-600) }
+  .steps span + span { margin-left:8px }
+  .field { display:flex; flex-direction:column; gap:6px; margin-bottom:16px }
+  .lbl { font-weight:600 } .lbl .req { color:var(--danger-text); margin-left:2px }
+  .hint { font-size:12px; color:var(--ink-800) }
+  .ctl { height:40px; border:1px solid var(--line-control); border-radius:8px; padding:0 12px; display:flex; align-items:center; justify-content:space-between; background:#fff }
+  .ctl .ph { color:var(--ink-300) }
+  .radios { display:grid; gap:8px }
+  .radio { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border:1px solid var(--line); border-radius:8px }
+  .radio.on { border-color:var(--brand-600); background:var(--brand-100) }
+  .radio i { flex:none; width:16px; height:16px; margin-top:2px; border-radius:50%; border:1px solid var(--line-control); background:#fff }
+  .radio.on i { border:5px solid var(--brand-600) }
+  .radio b { display:block; font-weight:600 } .radio small { display:block; font-size:12px; color:var(--ink-800) }
+  .radio.off { color:var(--ink-300) } .radio.off small { color:var(--ink-300) }
+  .check { display:flex; gap:10px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-subtle) }
+  .check i { flex:none; width:16px; height:16px; margin-top:2px; border-radius:2px; border:1px solid var(--line-control); background:#fff }
+  .check.on i { background:var(--brand-600); border-color:var(--brand-600); position:relative }
+  .check.on i::after { content:""; position:absolute; left:5px; top:1px; width:4px; height:9px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg) }
+  .check small { display:block; font-size:12px; color:var(--ink-800); margin-top:2px }
+  .callout { display:flex; gap:10px; padding:12px 14px; border-radius:8px; font-size:13px }
+  .callout.info { background:var(--callout-bg); color:var(--callout-text) } .callout.info svg { color:var(--callout-icon) }
+  .callout.warn { background:var(--warning-bg); color:var(--warning-text) } .callout.warn svg { color:var(--warning) }
+  .callout.bad { background:var(--danger-bg); color:var(--danger-text) } .callout.bad svg { color:var(--danger) }
+  .callout.good { background:var(--success-bg); color:var(--success-text) } .callout.good svg { color:var(--success) }
+  .callout svg { flex:none; margin-top:1px } .callout b { display:block } .callout a { color:inherit; font-weight:600 }
+  .foot { display:flex; justify-content:space-between; align-items:center; margin-top:20px; padding-top:16px; border-top:1px solid var(--line-subtle) }
+  .btn { height:40px; padding:0 16px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 14px var(--font-sans); display:inline-flex; align-items:center; gap:8px; color:var(--ink-900) }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.disabled { opacity:.45 }
+  .btn.link { border:0; padding:0 4px; color:var(--brand-800); height:auto }
+  .btn.sm { height:32px; border-radius:6px; font-size:13px; padding:0 12px }
+  .figures { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:14px 0 }
+  .fig { border:1px solid var(--line); border-radius:8px; padding:12px; background:var(--surface-subtle) }
+  .fig b { display:block; font:600 22px/1.2 var(--font-display); letter-spacing:-0.02em } .fig span { font-size:12px; color:var(--ink-800) }
+  .fig.bad b { color:var(--danger-text) }
+  table { border-collapse:collapse; width:100%; font-size:13px } th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top }
+  th { color:var(--ink-900); font-weight:600; font-size:12px; background:var(--surface-subtle) } td.num, th.num { text-align:right; font-variant-numeric:tabular-nums }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap }
+  .tag.ok { background:var(--success-bg); color:var(--success-text) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) } .tag.bad { background:var(--danger-bg); color:var(--danger-text) }
+  .tag.grey { background:var(--fill-subtle); color:var(--ink-800) } .tag.callout { background:var(--callout-bg); color:var(--callout-text) }
+  .kv { display:grid; grid-template-columns:180px 1fr; gap:6px 16px; font-size:13px } .kv dt { color:var(--ink-800) } .kv dd { margin:0 }
+  .card { padding:16px } .card h3 { font-size:16px; margin-bottom:4px } .card .sub { font-size:13px; color:var(--ink-800); margin-bottom:12px }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line) }
+  .head h3 { font-size:16px; display:flex; align-items:center; gap:8px }
+  .head h3 .ico { width:28px; height:28px; border-radius:6px; background:var(--plum-100); color:var(--plum-700); display:inline-flex; align-items:center; justify-content:center }
+  .list { display:grid; gap:10px }
+  .setting { display:flex; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--line-subtle) } .setting:last-child { border-bottom:0 }
+  .setting b { display:block; font-weight:600 } .setting small { display:block; font-size:12px; color:var(--ink-800) }
+  .switch { flex:none; width:36px; height:20px; border-radius:999px; background:var(--line); position:relative } .switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff }
+  .switch.on { background:var(--brand-600) } .switch.on::after { left:18px }
+  .sel { flex:none; height:32px; border:1px solid var(--line-control); border-radius:6px; padding:0 10px; display:flex; align-items:center; gap:8px; font-size:13px; white-space:nowrap }
+  .rules { max-width:1440px; margin:28px auto 48px; padding:0 16px } .rules .frame { max-width:860px; padding:16px }
+  .rules h3 { font-size:14px; margin-bottom:8px } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--ink-800) } .rules li { margin-bottom:4px }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Contact compliance.</strong> Three things, in the wizard and after it: a declared consent basis with an attestation on every upload, a workspace policy that decides what happens to people without consent, and a per-list record of all of it. The pictures below show the wizard step two ways (its own step, or folded into Review), then the pieces both share: the workspace policy, the approval gate on the list, and the compliance record. The send engine keeps deciding at send time; nothing here changes who a campaign reaches.</p>
+
+<div class="label">Option 1 — a Consent step of its own, between Map and Review<span>The uploader answers two questions before seeing the breakdown: where the consent came from, and that they have it. The step is skipped for lists built from a segment or a clone (their people already carry their own consent records).</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: a consent column was mapped, the policy allows people without a date (held back, not refused)</div>
+    <div class="modal">
+      <h2>Where did these people agree?</h2><p class="sub">Every upload records its consent basis. It is kept with the list and shown on its compliance record.</p>
+      <div class="steps"><span class="done">What the list is for</span><span class="done">File</span><span class="done">Columns</span><span class="on">Consent</span><span>Review</span></div>
+      <div class="field"><div class="lbl">Consent Basis<span class="req">*</span></div>
+        <div class="radios">
+          <div class="radio on"><i></i><div><b>Signed up on our website or app</b><small>A form with a marketing opt-in. The form name goes in the evidence.</small></div></div>
+          <div class="radio"><i></i><div><b>Enrolled in store or in the loyalty programme</b><small>Paper or POS sign-up with a marketing tick box.</small></div></div>
+          <div class="radio"><i></i><div><b>Asked us directly</b><small>An email, a call or a message to customer service, recorded there.</small></div></div>
+          <div class="radio"><i></i><div><b>Existing customers under implied consent</b><small>Bought from us in the last two years and never opted out. Marketing texts cannot use this basis.</small></div></div>
+          <div class="radio off"><i></i><div><b>Bought or rented list</b><small>Cannot be imported. CEP sends only to people who agreed to hear from NWA.</small></div></div>
+        </div>
+      </div>
+      <div class="field"><div class="lbl">Where the Consent Was Collected</div><div class="ctl">Fall 2026 sign-up form, northwindapparel.example/join</div><p class="hint">Optional. A form name, a store, a campaign: whatever lets you find the proof later.</p></div>
+      <div class="check on"><i></i><div><b>I confirm these people agreed to receive marketing from NWA</b><small>Recorded with your name and the time. Columns mapped: Email consent date → email opt-in (1,187 of 1,240 rows have one).</small></div></div>
+      <div style="height:12px"></div>
+      <div class="callout info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div><b>53 rows have no consent date</b>They are imported and held back until they confirm. Workspace policy: <a href="#">Hold back people without consent</a>.</div></div>
+      <div class="foot"><span class="btn link">Back</span><span class="btn primary">Continue</span></div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse: no consent column, the policy refuses people without a date, implied consent chosen for a Texts list</div>
+    <div class="modal">
+      <h2>Where did these people agree?</h2><p class="sub">Every upload records its consent basis. It is kept with the list and shown on its compliance record.</p>
+      <div class="steps"><span class="done">What the list is for</span><span class="done">File</span><span class="done">Columns</span><span class="on">Consent</span><span>Review</span></div>
+      <div class="field"><div class="lbl">Consent Basis<span class="req">*</span></div>
+        <div class="radios">
+          <div class="radio"><i></i><div><b>Signed up on our website or app</b><small>A form with a marketing opt-in. The form name goes in the evidence.</small></div></div>
+          <div class="radio"><i></i><div><b>Enrolled in store or in the loyalty programme</b><small>Paper or POS sign-up with a marketing tick box.</small></div></div>
+          <div class="radio"><i></i><div><b>Asked us directly</b><small>An email, a call or a message to customer service, recorded there.</small></div></div>
+          <div class="radio on" style="border-color:var(--danger);background:var(--danger-bg)"><i style="border-color:var(--danger)"></i><div><b>Existing customers under implied consent</b><small>Bought from us in the last two years and never opted out. Marketing texts cannot use this basis.</small></div></div>
+          <div class="radio off"><i></i><div><b>Bought or rented list</b><small>Cannot be imported. CEP sends only to people who agreed to hear from NWA.</small></div></div>
+        </div>
+      </div>
+      <div class="callout bad"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><div><b>A Texts list needs express consent</b>Marketing texts need a written opt-in with a date (TCPA, CASL). Map a Text consent date column, or choose a basis where people opted in.</div></div>
+      <div style="height:12px"></div>
+      <div class="check"><i></i><div><b>I confirm these people agreed to receive marketing from NWA</b><small>Recorded with your name and the time. No consent column is mapped: 412 of 412 rows will be refused by the workspace policy.</small></div></div>
+      <div class="foot"><span class="btn link">Back</span><span class="btn primary disabled">Continue</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Option 2 — the same questions inside Review, above the breakdown<span>One step fewer. The breakdown already says who is held back; the consent basis and the attestation sit above it, and Import Contacts stays disabled until the box is ticked. Busier on one screen, and the consent choice cannot change the numbers the uploader is already looking at.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: the review with the consent card on top</div>
+    <div class="modal">
+      <h2>Review before importing</h2><p class="sub">1,240 rows read. Who can be reached today, and what the file says about consent.</p>
+      <div class="steps"><span class="done">What the list is for</span><span class="done">File</span><span class="done">Columns</span><span class="on">Review</span></div>
+      <div class="frame" style="margin-bottom:14px"><div class="card">
+        <h3>Consent</h3><p class="sub">Where these people agreed, kept with the list.</p>
+        <div class="field" style="margin-bottom:10px"><div class="lbl">Consent Basis<span class="req">*</span></div><div class="ctl">Signed up on our website or app <span style="color:var(--ink-800)">▾</span></div></div>
+        <div class="field" style="margin-bottom:10px"><div class="lbl">Where the Consent Was Collected</div><div class="ctl"><span class="ph">A form name, a store, a campaign</span></div></div>
+        <div class="check on"><i></i><div><b>I confirm these people agreed to receive marketing from NWA</b><small>Recorded with your name and the time.</small></div></div>
+      </div></div>
+      <div class="figures"><div class="fig"><b>1,187</b><span>Can receive marketing email</span></div><div class="fig"><b>53</b><span>Held back: no consent on record</span></div><div class="fig"><b>0</b><span>Refused</span></div></div>
+      <table><tr><th>Status</th><th class="num">People</th></tr>
+        <tr><td><span class="tag ok">Can receive marketing email</span></td><td class="num">1,187</td></tr>
+        <tr><td><span class="tag warn">No consent on record</span></td><td class="num">53</td></tr>
+        <tr><td><span class="tag grey">Unsubscribed</span></td><td class="num">0</td></tr></table>
+      <div class="foot"><span class="btn link">Back</span><span class="btn primary">Import Contacts</span></div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse: nothing ticked yet, the policy refuses people without consent</div>
+    <div class="modal">
+      <h2>Review before importing</h2><p class="sub">412 rows read. Who can be reached today, and what the file says about consent.</p>
+      <div class="steps"><span class="done">What the list is for</span><span class="done">File</span><span class="done">Columns</span><span class="on">Review</span></div>
+      <div class="frame" style="margin-bottom:14px"><div class="card">
+        <h3>Consent</h3><p class="sub">Where these people agreed, kept with the list.</p>
+        <div class="field" style="margin-bottom:10px"><div class="lbl">Consent Basis<span class="req">*</span></div><div class="ctl"><span class="ph">Choose where these people agreed</span><span style="color:var(--ink-800)">▾</span></div></div>
+        <div class="check"><i></i><div><b>I confirm these people agreed to receive marketing from NWA</b><small>Recorded with your name and the time.</small></div></div>
+      </div></div>
+      <div class="callout warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17h.01"/></svg><div><b>No consent column is mapped</b>Workspace policy refuses new people without a consent date: 412 of 412 rows will not be imported. <a href="#">Go back and map a column</a>, or ask an admin to change the policy.</div></div>
+      <div class="figures"><div class="fig"><b>0</b><span>Can receive marketing email</span></div><div class="fig"><b>0</b><span>Held back</span></div><div class="fig bad"><b>412</b><span>Refused: no consent date</span></div></div>
+      <div class="foot"><span class="btn link">Back</span><span class="btn primary disabled">Import Contacts</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Shared by both — the workspace policy (Settings → Governance → Consent), the approval gate on the list, and the compliance record<span>The policy is set by an admin once. The gate and the record live on the list's page; the record is what you hand to a carrier, a regulator or a client.</span></div>
+<div class="row three">
+  <div class="frame"><div class="head"><h3><span class="ico">✓</span>Consent Policy</h3><span class="tag grey">Admins</span></div>
+    <div class="card" style="padding-top:4px">
+      <div class="setting"><div><b>People Without Consent</b><small>What an upload does with a new person who has no consent date.</small></div><div class="sel">Hold back until they confirm ▾</div></div>
+      <div class="setting"><div><b>Texts Need a Consent Date</b><small>A Texts or Email and Texts list cannot import a number without a text consent date.</small></div><div class="switch on"></div></div>
+      <div class="setting"><div><b>Approval Before First Send</b><small>A new upload must be approved by someone with Consent · Edit before a campaign can send to it.</small></div><div class="switch on"></div></div>
+      <div class="setting"><div><b>Double Opt-In for Email</b><small>New email opt-ins get a confirmation message; they count once they click. Later: needs the confirmation campaign.</small></div><div class="switch"></div></div>
+      <div class="setting"><div><b>Consent Lifetime</b><small>Implied consent lapses after this long without a purchase; a reminder goes 30 days before.</small></div><div class="sel">2 years ▾</div></div>
+      <div class="setting"><div><b>Attestation Wording</b><small>The sentence the uploader confirms. Shown on every record.</small></div><span class="btn sm">Edit</span></div>
+    </div>
+  </div>
+  <div class="frame"><div class="head"><h3><span class="ico">⚑</span>Approval</h3><span class="tag warn">Awaiting Approval</span></div>
+    <div class="card">
+      <p class="sub">Fall 2026 Sign-Ups was uploaded by Maya Patel on 3 Oct 2026. Campaigns can be built with it, but none will send until it is approved.</p>
+      <dl class="kv"><dt>Consent basis</dt><dd>Signed up on our website or app</dd><dt>Collected at</dt><dd>Fall 2026 sign-up form, northwindapparel.example/join</dd><dt>Attested by</dt><dd>Maya Patel, 3 Oct 2026, 09:14 EDT</dd><dt>Consent dates</dt><dd>1,187 of 1,240 rows (53 held back)</dd></dl>
+      <div style="height:14px"></div>
+      <div class="callout info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg><div>Approving records your name on the compliance record. Refusing keeps the list but no campaign can send to it.</div></div>
+      <div class="foot" style="justify-content:flex-end;gap:8px"><span class="btn">Refuse</span><span class="btn primary">Approve List</span></div>
+    </div>
+  </div>
+  <div class="frame"><div class="head"><h3><span class="ico">▤</span>Compliance Record</h3><span class="btn sm">Download PDF</span></div>
+    <div class="card">
+      <dl class="kv"><dt>List</dt><dd>Fall 2026 Sign-Ups · Email · 1,240 people</dd><dt>Source</dt><dd>Upload fall_signups_2026.csv, 3 Oct 2026</dd><dt>Consent basis</dt><dd>Signed up on our website or app</dd><dt>Collected at</dt><dd>Fall 2026 sign-up form</dd><dt>Attested by</dt><dd>Maya Patel, 3 Oct 2026, 09:14 EDT</dd><dt>Approved by</dt><dd>Aby John, 3 Oct 2026, 11:02 EDT</dd><dt>Policy at the time</dt><dd>Hold back without consent · Texts need a date · Lifetime 2 years</dd></dl>
+      <div style="height:14px"></div>
+      <table><tr><th>Consent today</th><th class="num">People</th></tr>
+        <tr><td><span class="tag ok">Opted in (from the file)</span></td><td class="num">1,187</td></tr>
+        <tr><td><span class="tag warn">No consent on record</span></td><td class="num">41</td></tr>
+        <tr><td><span class="tag callout">Confirmed since upload</span></td><td class="num">9</td></tr>
+        <tr><td><span class="tag bad">Unsubscribed since upload</span></td><td class="num">3</td></tr></table>
+      <p class="hint" style="margin-top:10px">Every line links to the people behind it. The record is rebuilt from consent records each time it is opened; the attestation and approvals never change.</p>
+    </div>
+  </div>
+</div>
+
+<div class="label">The sparse record<span>A list made from a segment or a clone: no attestation, because its people carry the consent records of the lists they came from.</span></div>
+<div class="row three">
+  <div class="frame"><div class="head"><h3><span class="ico">▤</span>Compliance Record</h3><span class="btn sm">Download PDF</span></div>
+    <div class="card">
+      <dl class="kv"><dt>List</dt><dd>Loyalty Gold · Email and Texts · 3,810 people</dd><dt>Source</dt><dd>Segment "Gold members", refreshed nightly</dd><dt>Consent basis</dt><dd>Inherited from each person's own records</dd><dt>Approval</dt><dd>Not required for segments</dd></dl>
+      <div style="height:14px"></div>
+      <table><tr><th>Consent today</th><th class="num">Email</th><th class="num">Texts</th></tr>
+        <tr><td><span class="tag ok">Opted in</span></td><td class="num">3,702</td><td class="num">2,118</td></tr>
+        <tr><td><span class="tag warn">No consent on record</span></td><td class="num">96</td><td class="num">1,680</td></tr>
+        <tr><td><span class="tag bad">Unsubscribed</span></td><td class="num">12</td><td class="num">12</td></tr></table>
+    </div>
+  </div>
+</div>
+
+<div class="rules"><div class="frame">
+  <h3>What gets built, in words</h3>
+  <ul>
+    <li><strong>Upload:</strong> <code>contact_list_import</code> gains <code>consent_basis</code>, <code>consent_collected_at</code> (free text), <code>attested_by</code> / <code>attested_at</code>; the attestation sentence is a workspace parameter. A bought list cannot be chosen. A Texts list refuses the implied basis and a missing text consent column.</li>
+    <li><strong>Policy:</strong> workspace parameters <code>consent.without_consent</code> (hold back | refuse), <code>consent.texts_need_date</code>, <code>consent.approval_before_send</code>, <code>consent.lifetime_months</code>. "Refuse" reports the rows on the review and the row-by-row CSV, exactly like an invalid address does today.</li>
+    <li><strong>Gate:</strong> <code>contact_list.approval_status</code> (not required | awaiting | approved | refused) with who and when. The send engine's audience build skips a list that is awaiting or refused and names it in the run's hold-back reasons; the campaign's Send To table shows the tag.</li>
+    <li><strong>Record:</strong> <code>GET /contact-lists/{id}/compliance/</code> builds the page from the import, the approvals and today's consent records; PDF through the existing report renderer. Consent records written from the file carry the basis in their evidence.</li>
+    <li><strong>Later, behind the switches that stay off:</strong> the double opt-in confirmation campaign, and the consent-lifetime reminder job.</li>
+  </ul>
+</div></div>
+
+</body>
+</html>

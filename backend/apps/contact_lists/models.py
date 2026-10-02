@@ -67,6 +67,10 @@ class ContactList(models.Model):
     channel = models.CharField(max_length=10, default='EMAIL', choices=Channel.choices)  # EMAIL, SMS, BOTH: the required upload column and how a new person is recognised
     status = models.CharField(max_length=20, default='ACTIVE', choices=Status.choices)
     member_count = models.IntegerField(default=0)  # maintained by import worker
+    approval_status = models.CharField(max_length=20, default='NOT_REQUIRED')  # NOT_REQUIRED, AWAITING, APPROVED, REFUSED: AWAITING / REFUSED hold the list out of every send
+    approved_by = models.UUIDField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_note = models.CharField(max_length=300, null=True, blank=True)
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     updated_at = models.DateTimeField(db_default=Now())
@@ -162,6 +166,10 @@ class ContactListImport(models.Model):
     file_encoding = models.CharField(max_length=20, null=True, blank=True)
     file_delimiter = models.CharField(max_length=4, null=True, blank=True)
     summary = models.JSONField(default=dict)  # the reconciliation: rows = held back + ready; ready = governance buckets = added + already in the list
+    consent_basis = models.CharField(max_length=30, null=True, blank=True)  # WEB_FORM, IN_STORE, CUSTOMER_REQUEST, IMPLIED: where these people agreed, declared by the uploader
+    consent_collected_at = models.CharField(max_length=300, null=True, blank=True)  # a form, a store, a campaign: where to find the proof
+    attested_by = models.UUIDField(null=True, blank=True)  # the user who confirmed these people agreed to marketing
+    attested_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     completed_at = models.DateTimeField(null=True, blank=True)

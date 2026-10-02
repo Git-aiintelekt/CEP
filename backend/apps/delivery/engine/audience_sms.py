@@ -25,11 +25,12 @@ PRIMARY_PHONE = r"""(SELECT e ->> 'number' FROM jsonb_array_elements(cm.phones) 
 
 BUILD = f"""
 WITH picked AS (
-    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes
+    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status
       FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
+      JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
      WHERE m.tenant_id = %(tenant)s
-     ORDER BY m.party_id, m.added_at DESC
+     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC
 ), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
     SELECT DISTINCT m.party_id FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
@@ -51,6 +52,7 @@ WITH picked AS (
 ), judged AS (
     SELECT r.*,
            CASE WHEN EXISTS (SELECT 1 FROM excluded e WHERE e.party_id = r.party_id) THEN 'EXCLUDED_LIST'
+                WHEN r.approval_status IN ('AWAITING', 'REFUSED') THEN 'LIST_NOT_APPROVED'
                 WHEN r.known IS NULL THEN 'UNKNOWN_PARTY'
                 WHEN r.numbers = 0 THEN 'NO_PHONE'
                 WHEN r.phone IS NULL THEN 'INVALID_NUMBER'

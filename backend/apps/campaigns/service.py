@@ -400,15 +400,22 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
     params = {"tenant": tenant, "include": include or [""], "exclude": exclude or [""]}
     with _conn().cursor() as cursor:
         cursor.execute("""SELECT l.id::text, l.name, l.member_count, l.updated_at, l.list_environment, l.source_type,
-                                 (SELECT count(*) FROM contact_list_member m WHERE m.tenant_id = l.tenant_id AND m.contact_list_id = l.id), l.channel
+                                 (SELECT count(*) FROM contact_list_member m WHERE m.tenant_id = l.tenant_id AND m.contact_list_id = l.id), l.channel, l.approval_status
                             FROM contact_list l WHERE l.tenant_id = %(tenant)s AND l.id::text = ANY(%(ids)s)""", {"tenant": tenant, "ids": (include + exclude) or [""]})
-        lists = {row[0]: {"id": row[0], "name": row[1], "member_count": row[6], "updated_at": row[3], "list_environment": row[4], "source_type": row[5], "channel": row[7]}
+        lists = {row[0]: {"id": row[0], "name": row[1], "member_count": row[6], "updated_at": row[3], "list_environment": row[4], "source_type": row[5], "channel": row[7],
+                          "approval_status": row[8]}
                  for row in cursor.fetchall()}
+        # a list awaiting approval (or refused) keeps its people out, unless an approved list also has them: the same rule as the send
         base = """WITH picked AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(include)s)),
                        dropped AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(exclude)s)),
-                       kept AS (SELECT p.party_id FROM picked p WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = p.party_id))"""
-        cursor.execute(base + " SELECT (SELECT count(*) FROM picked), (SELECT count(*) FROM kept)", params)
-        unique, kept = cursor.fetchone()
+                       unapproved AS (SELECT p.party_id FROM picked p
+                                       WHERE NOT EXISTS (SELECT 1 FROM contact_list_member m JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
+                                                          WHERE m.tenant_id = %(tenant)s AND m.party_id = p.party_id AND m.contact_list_id::text = ANY(%(include)s)
+                                                            AND l.approval_status NOT IN ('AWAITING', 'REFUSED'))),
+                       kept AS (SELECT p.party_id FROM picked p WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = p.party_id)
+                                                                 AND NOT EXISTS (SELECT 1 FROM unapproved u WHERE u.party_id = p.party_id))"""
+        cursor.execute(base + " SELECT (SELECT count(*) FROM picked), (SELECT count(*) FROM kept), (SELECT count(*) FROM unapproved u WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = u.party_id))", params)
+        unique, kept, not_approved = cursor.fetchone()
         if channel == "EMAIL":
             judged = f"""SELECT k.party_id, {governance.status_sql()} AS status, {governance.PRIMARY_EMAIL_SQL} AS address, cm.first_name, cm.last_name
                            FROM kept k LEFT JOIN customer_master cm ON cm.party_id = k.party_id AND cm.tenant_id = %(tenant)s
@@ -447,6 +454,9 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
     if topic_out:
         statuses = [dict(line, count=line["count"] - topic_out) if line["code"] == "MARKETABLE" else line for line in statuses]
         statuses.append({"code": "TOPIC_OPTED_OUT", "label": "Opted out of this topic", "sendable": False, "count": int(topic_out)})
+    if not_approved:
+        statuses.append({"code": "LIST_NOT_APPROVED", "label": "In a list awaiting approval", "sendable": False, "count": int(not_approved)})
+        kept += not_approved                              # they count as left out by governance, not as excluded by a list
     gross = sum(lists[i]["member_count"] for i in include if i in lists)
     return {"lists": [dict(lists[i], role="INCLUDE") for i in include if i in lists] + [dict(lists[i], role="EXCLUDE") for i in exclude if i in lists],
             "gross": gross, "unique": unique, "duplicates_removed": gross - unique, "excluded_by_list": unique - kept, "after_exclusions": kept,

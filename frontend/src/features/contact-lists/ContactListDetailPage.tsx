@@ -5,13 +5,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { Field, Select, TextArea, TextInput, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, FullPageSpinner, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { api } from '@/lib/api'
-import { formatDate, formatNumber, titleize } from '@/lib/format'
-import type { ContactList, ListGovernance, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
+import { formatDate, formatDateTime, formatNumber, titleize } from '@/lib/format'
+import type { ComplianceRecord, ContactList, ListGovernance, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
 
 import { CloneDialog, TypeBadge } from './ContactListsPage'
 import { problemText } from './problem'
@@ -118,6 +118,109 @@ const CONSENT_FILTERS = [
   { value: 'INVALID_ADDRESS', label: 'Invalid Address' }, { value: 'SUPPRESSED', label: 'Suppressed' },
 ]
 
+const APPROVAL_TAG: Record<string, { label: string; tone: 'warning' | 'success' | 'error' }> = {
+  AWAITING: { label: 'Awaiting Approval', tone: 'warning' }, APPROVED: { label: 'Approved', tone: 'success' }, REFUSED: { label: 'Refused', tone: 'error' },
+}
+
+function ApprovalCard({ list, canDecide, pending, error, onDecide }: { list: ContactList; canDecide: boolean; pending: boolean; error: unknown; onDecide: (approved: boolean, note: string) => void }) {
+  const [note, setNote] = useState('')
+  const status = list.approval_status ?? 'AWAITING'
+  const tag = APPROVAL_TAG[status] ?? APPROVAL_TAG.AWAITING
+  return (
+    <section aria-label="Approval" className="mb-4 rounded-lg border border-line bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+        <h2 className="text-card-title font-semibold text-ink-900">Approval</h2>
+        <Tag tone={tag.tone}>{tag.label}</Tag>
+      </div>
+      <div className="p-4">
+        {status === 'AWAITING' ? (
+          <p className="text-sm text-ink-800">
+            The workspace's consent policy asks for approval before the first send. Campaigns can be built with this list, but none will send to it until someone with Consent · Edit approves it.
+          </p>
+        ) : (
+          <p className="text-sm text-ink-800">
+            {status === 'APPROVED' ? 'Approved' : 'Refused'}{list.approved_by_name ? ` by ${list.approved_by_name}` : ''}{list.approved_at ? ` on ${formatDateTime(list.approved_at)}` : ''}.
+            {list.approval_note ? ` “${list.approval_note}”` : ''}
+            {status === 'REFUSED' ? ' No campaign sends to it. Approving it later lifts that.' : ''}
+          </p>
+        )}
+        {canDecide && status !== 'APPROVED' && (
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="min-w-0 grow">
+              <Field label="Note" hint="Optional. Kept on the compliance record." limit={{ used: note.length, max: 300 }}>
+                {(ids) => <TextInput {...ids} value={note} onChange={(event) => setNote(event.target.value)} maxLength={300} />}
+              </Field>
+            </div>
+            {status === 'AWAITING' && <button type="button" className={buttonSecondary} disabled={pending} onClick={() => onDecide(false, note)}>Refuse</button>}
+            <button type="button" className={buttonPrimary} disabled={pending} onClick={() => onDecide(true, note)}>Approve List</button>
+          </div>
+        )}
+        {error ? <div className="mt-3"><ErrorState title="The decision was not saved" error={error} /></div> : null}
+      </div>
+    </section>
+  )
+}
+
+const HELD_BACK_LABEL: Record<string, string> = { NO_CONSENT_DATE: 'refused: no consent date', NO_TEXT_CONSENT_DATE: 'refused: no text consent date' }
+
+function ComplianceCard({ record }: { record: ComplianceRecord }) {
+  const [open, setOpen] = useState(false)
+  const latest = record.uploads[record.uploads.length - 1]
+  const policy = record.policy
+  const policyWords = [policy.without_consent === 'REFUSE' ? 'Refuse without consent' : 'Hold back without consent', policy.texts_need_date ? 'Texts need a date' : null,
+    policy.approval_before_send ? 'Approval before first send' : null, `Lifetime ${policy.lifetime_months % 12 === 0 ? `${policy.lifetime_months / 12} year${policy.lifetime_months === 12 ? '' : 's'}` : `${policy.lifetime_months} months`}`].filter(Boolean).join(' · ')
+  const channelLabel = (code: string) => (code === 'SMS' ? 'Texts' : 'Email')
+  return (
+    <section aria-label="Compliance Record" className="mb-4 rounded-lg border border-line bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+        <h2 className="text-card-title font-semibold text-ink-900">Compliance Record</h2>
+        <button type="button" className={buttonSecondary} aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide Details' : 'Show Details'}</button>
+      </div>
+      <div className="grid gap-4 p-4 md:grid-cols-2">
+        <dl className="grid grid-cols-[150px_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dt className="text-ink-800">Source</dt><dd className="text-ink-900">{record.inherited ? `${record.list.source_type === 'CLONE' ? 'Copy of a list' : 'Audience'}${record.list.source_reference ? `, ${record.list.source_reference}` : ''}` : latest ? `Upload ${latest.file_name}${latest.completed_at ? `, ${formatDateTime(latest.completed_at)}` : ''}` : 'No upload yet'}</dd>
+          <dt className="text-ink-800">Consent basis</dt><dd className="text-ink-900">{record.inherited ? "Inherited from each person's own records" : latest?.basis_label ?? 'Not declared'}</dd>
+          {!record.inherited && latest?.collected_at && <><dt className="text-ink-800">Collected at</dt><dd className="text-ink-900">{latest.collected_at}</dd></>}
+          {!record.inherited && latest?.attested_by_name && <><dt className="text-ink-800">Attested by</dt><dd className="text-ink-900">{latest.attested_by_name}{latest.attested_at ? `, ${formatDateTime(latest.attested_at)}` : ''}</dd></>}
+          <dt className="text-ink-800">Approval</dt>
+          <dd className="text-ink-900">{record.approval.status === 'NOT_REQUIRED' ? (record.inherited ? 'Not required for audiences and copies' : 'Not required') : `${APPROVAL_TAG[record.approval.status]?.label ?? record.approval.status}${record.approval.by_name ? ` by ${record.approval.by_name}` : ''}${record.approval.at ? `, ${formatDateTime(record.approval.at)}` : ''}`}</dd>
+          <dt className="text-ink-800">Policy today</dt><dd className="text-ink-900">{policyWords}</dd>
+        </dl>
+        <table className="w-full text-sm">
+          <caption className="sr-only">Consent today</caption>
+          <thead className="text-xs font-semibold text-ink-900"><tr><th scope="col" className="py-1 text-left">Consent today</th>{record.consent.map((line) => <th key={line.channel} scope="col" className="py-1 text-right">{channelLabel(line.channel)}</th>)}</tr></thead>
+          <tbody className="divide-y divide-line-subtle">
+            {([['Opted in (from the file)', 'opted_in_from_file'], ['Confirmed since', 'confirmed_since'], ['No consent on record', 'no_consent'], ['Unsubscribed', 'unsubscribed']] as const).map(([label, key]) => (
+              <tr key={key} data-consent-line={key}><td className="py-1 text-ink-800">{label}</td>{record.consent.map((line) => <td key={line.channel} className="cep-num py-1 text-right text-ink-900">{formatNumber(line[key])}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {open && (
+        <div className="border-t border-line-subtle px-4 py-3 text-sm">
+          <p className="mb-2 text-xs font-semibold text-ink-800">Attestation wording</p>
+          <p className="mb-3 text-ink-900">{policy.attestation}</p>
+          {record.uploads.length > 0 && (
+            <>
+              <p className="mb-1 text-xs font-semibold text-ink-800">Uploads</p>
+              <ul className="divide-y divide-line-subtle">
+                {record.uploads.map((upload) => (
+                  <li key={upload.id} className="py-1.5 text-ink-800">
+                    <span className="font-medium text-ink-900">{upload.file_name}</span>{upload.completed_at ? ` · ${formatDateTime(upload.completed_at)}` : ''} · {formatNumber(upload.rows)} rows, {formatNumber(upload.applied)} added, {formatNumber(upload.consents_recorded)} consents recorded
+                    {upload.basis_label ? ` · ${upload.basis_label}` : ''}{upload.attested_by_name ? ` · attested by ${upload.attested_by_name}` : ''}
+                    {Object.entries(upload.held_back).map(([code, count]) => ` · ${formatNumber(count)} ${HELD_BACK_LABEL[code] ?? code}`).join('')}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="mt-2 text-xs text-ink-800">The consent figures are rebuilt from consent records each time this page opens; the attestation and the approval never change. Generated {formatDateTime(record.generated_at)}.</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function ContactListDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
@@ -134,6 +237,15 @@ export function ContactListDetailPage() {
   const list = useQuery({ queryKey: ['contact-lists', id], queryFn: ({ signal }) => api.get<ContactList>(`/contact-lists/${id}/`, undefined, signal) })
   const usage = useQuery({ queryKey: ['contact-lists', id, 'usage'], queryFn: ({ signal }) => api.get<ListUsage>(`/contact-lists/${id}/usage/`, undefined, signal) })
   const governance = useQuery({ queryKey: ['contact-lists', id, 'governance'], queryFn: ({ signal }) => api.get<ListGovernance>(`/contact-lists/${id}/governance/`, undefined, signal) })
+  const compliance = useQuery({ queryKey: ['contact-lists', id, 'compliance'], queryFn: ({ signal }) => api.get<ComplianceRecord>(`/contact-lists/${id}/compliance/`, undefined, signal) })
+  const decide = useMutation({
+    mutationFn: ({ approved, note }: { approved: boolean; note: string }) => api.post<ContactList>(`/contact-lists/${id}/${approved ? 'approve' : 'refuse'}/`, { note }),
+    onSuccess: (next) => {
+      queryClient.setQueryData(['contact-lists', id], next)
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists', id, 'compliance'] })
+      void queryClient.invalidateQueries({ queryKey: ['contact-lists'] })
+    },
+  })
   const members = useQuery({
     queryKey: ['contact-lists', id, 'members', search.trim(), consent, page],
     queryFn: ({ signal }) => api.get<ListMembersPage>(`/contact-lists/${id}/members/`, { search: search.trim() || undefined, status: consent || undefined, page, page_size: PAGE_SIZE }, signal),
@@ -258,6 +370,13 @@ export function ContactListDetailPage() {
           </ul>
         </section>
       )}
+
+      {data.approval_status && data.approval_status !== 'NOT_REQUIRED' && (
+        <ApprovalCard list={data} canDecide={can('consent.edit')} pending={decide.isPending} error={decide.isError ? decide.error : null}
+          onDecide={(approved, note) => decide.mutate({ approved, note })} />
+      )}
+
+      {compliance.data && <ComplianceCard record={compliance.data} />}
 
       {governance.data && governance.data.total > 0 && (
         <section aria-label="Governance Check" className="mb-4 rounded-lg border border-line bg-surface p-4">

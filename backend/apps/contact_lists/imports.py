@@ -30,7 +30,7 @@ from django.utils import timezone
 from apps.delivery.engine import session
 from apps.tenants import context
 
-from . import governance
+from . import consent, governance
 from .models import ContactList, ContactListImport
 
 MAX_BYTES = 50 * 1024 * 1024
@@ -242,6 +242,12 @@ def confirm_mapping(record: ContactListImport, mapping: dict) -> ContactListImpo
 
 
 def request_apply(record: ContactListImport) -> ContactListImport:
+    if record.contact_list.source_type == "UPLOAD" and not record.attested_at:
+        raise ImportError_("Say where these people agreed to marketing first.")
+    return _request_apply(record)
+
+
+def _request_apply(record: ContactListImport) -> ContactListImport:
     from . import jobs
     if record.status in ("APPLYING", "APPLIED"):
         raise ImportError_("This import was already added to the list.")
@@ -362,6 +368,11 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     last_line = record.row_count + 1
     ranges = list(_ranges(last_line, chunk_rows))
     steps, done = len(ranges) * 2 + 3, 0
+    policy = consent.policy_of(record.tenant)
+    # the workspace's policy: a new person without a consent date is refused outright (REFUSE), or imported and held back (HOLD_BACK);
+    # a text list can require the text consent date for every number
+    refuse_without = policy["without_consent"] == consent.REFUSE
+    texts_need_date = policy["texts_need_date"] and channel != "EMAIL"
     # a valid consent date in the file, not in the future, for someone CEP has no answer for, becomes an opt-in when the
     # file is imported: the check already counts that person as marketable
     from_file = f"({v[consent_key + '_ok']} AND ({v[consent_key]})::date <= current_date AND COALESCE(cs.consent_status, 'UNKNOWN') = 'UNKNOWN')"
@@ -411,6 +422,14 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                                           SET match_status = 'REJECTED',
                                               error_message = CASE WHEN {v['mobile']} IS NULL THEN 'No mobile number' ELSE 'Mobile number not recognised' END
                                         WHERE {span} AND r.match_status = 'PENDING' AND ({v['mobile_e164']}) IS NULL""", params)
+                if texts_need_date:                            # the policy: every number needs a text consent date in the file
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'REJECTED', error_message = 'No text consent date'
+                                        WHERE {span} AND r.match_status = 'PENDING'
+                                          AND NOT ({v['sms_consent_date_ok']} AND ({v['sms_consent_date']})::date <= current_date)""", params)
+                if refuse_without:                             # the policy: a consent date for the list's channel, or the row is refused
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'REJECTED', error_message = 'No consent date'
+                                        WHERE {span} AND r.match_status = 'PENDING'
+                                          AND NOT ({v[consent_key + '_ok']} AND ({v[consent_key]})::date <= current_date)""", params)
             tick()
 
         with session.tx(), connection.cursor() as cursor:                 # 2. the same person again, anywhere further down the file
@@ -481,9 +500,11 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
             cursor.execute(f"""SELECT count(*) FILTER (WHERE r.error_message = 'No email address'),
                                       count(*) FILTER (WHERE r.match_status = 'REJECTED' AND r.error_message IN ('The email address is too long', 'Not a valid email address')),
                                       count(*) FILTER (WHERE r.error_message = 'No mobile number'),
-                                      count(*) FILTER (WHERE r.error_message = 'Mobile number not recognised')
+                                      count(*) FILTER (WHERE r.error_message = 'Mobile number not recognised'),
+                                      count(*) FILTER (WHERE r.error_message = 'No consent date'),
+                                      count(*) FILTER (WHERE r.error_message = 'No text consent date')
                                  FROM contact_list_import_row r WHERE {mine}""", base)
-            no_email, bad_email, no_mobile, bad_mobile = cursor.fetchone()
+            no_email, bad_email, no_mobile, bad_mobile, no_consent_date, no_text_consent_date = cursor.fetchone()
             mobile = None
             if "mobile" in mapping:                       # text campaigns: how many usable numbers, how many of them blocked (STOP, registry)
                 cursor.execute(f"""SELECT count(*) FILTER (WHERE m.number IS NOT NULL), count(*) FILTER (WHERE p.blocked)
@@ -512,7 +533,8 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     record.progress_done = record.progress_total = record.row_count
     record.summary = {"rows": record.row_count,
                       "held_back": {"total": rejected + duplicate, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "NO_MOBILE": no_mobile, "INVALID_MOBILE": bad_mobile,
-                                    "DUPLICATE_IN_FILE": duplicate},
+                                    "NO_CONSENT_DATE": no_consent_date, "NO_TEXT_CONSENT_DATE": no_text_consent_date, "DUPLICATE_IN_FILE": duplicate},
+                      "policy": {"without_consent": policy["without_consent"], "texts_need_date": bool(texts_need_date)},
                       "ready": {"total": matched + new, "new": new, "existing": matched},
                       "governance": {code: int(by_status.get(code, 0)) for code in governance.STATUSES},
                       "mobile": mobile, "checked_at": timezone.now().isoformat()}
@@ -541,7 +563,8 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
     """A range of lines per transaction. Safe to run again after a crash: every insert skips what is already there."""
     contact_list = record.contact_list
     v, base = _expressions(record.column_mapping, channel_of(contact_list))
-    base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "list": str(contact_list.pk), "file": record.file_name})
+    base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "list": str(contact_list.pk), "file": record.file_name,
+                 "basis": record.consent_basis, "collected": record.consent_collected_at})
     span = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s AND r.row_number BETWEEN %(a)s AND %(b)s"
     created = added = consents = 0
     for a, b in _ranges(record.row_count + 1, chunk_rows):
@@ -585,7 +608,8 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                       recorded AS (
                                         INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, contact_list_id, occurred_at)
                                         SELECT %(tenant)s, g.party_id, %(channel)s, 'OPT_IN', 'IMPORT',
-                                               jsonb_build_object('file', %(file)s, 'line', g.row_number, 'import_id', %(imp)s, 'consent_date', g.given_on),
+                                               jsonb_strip_nulls(jsonb_build_object('file', %(file)s, 'line', g.row_number, 'import_id', %(imp)s, 'consent_date', g.given_on,
+                                                                                    'basis', %(basis)s::text, 'collected_at', %(collected)s::text)),
                                                %(list)s, now()          -- consent_record is partitioned by month on occurred_at: the day it was GIVEN is in the evidence
                                           FROM given g RETURNING id, party_id, (evidence ->> 'consent_date')::date AS given_on)
                                    INSERT INTO consent_suppression (tenant_id, party_id, channel, consent_status, opted_in_at, marketable, last_consent_record_id, source_system, updated_at)
@@ -605,6 +629,9 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
         ContactList.objects.filter(pk=contact_list.pk).update(
             member_count=members, status=ContactList.Status.ACTIVE if contact_list.status == ContactList.Status.DRAFT else contact_list.status,
             last_refreshed_at=now, source_reference=contact_list.source_reference or record.file_name, updated_by_id=user_id or contact_list.updated_by_id)
+        # the policy: a file's people wait for someone with consent.edit before any campaign sends to the list
+        if consent.policy_of(record.tenant)["approval_before_send"]:
+            ContactList.objects.filter(pk=contact_list.pk).update(approval_status=consent.AWAITING, approved_by=None, approved_at=None, approval_note=None)
     record.applied_count = from_this_file
     ready = record.matched_count + record.unmatched_count
     record.summary = {**(record.summary or {}), "result": {"added": from_this_file, "already_in_list": max(0, ready - from_this_file),

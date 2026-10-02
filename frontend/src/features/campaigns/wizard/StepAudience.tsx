@@ -128,6 +128,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
     return {
       id, name: list?.name ?? saved!.name, source_type: list?.source_type ?? saved?.list_kind ?? '', list_environment: list?.list_environment ?? saved?.list_environment ?? 'PRODUCTION',
       channel: list?.channel ?? (saved as { channel?: string } | undefined)?.channel,
+      approval_status: list?.approval_status ?? (saved as { approval_status?: string } | undefined)?.approval_status,
       member_count: list?.member_count ?? saved?.member_count ?? 0, updated_at: list?.updated_at ?? null, state, attachedAt: saved?.attached_at ?? null,
     }
   }

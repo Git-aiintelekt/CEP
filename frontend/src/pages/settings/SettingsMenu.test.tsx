@@ -28,7 +28,7 @@ test('the menu: every group with its pages, the current page selected, the trail
   await renderAppAt('/settings/delivery')
   await screen.findByRole('table', { name: 'Sending Engines' })
   for (const name of ['Workspace', 'Sending', 'Audience', 'Integrations']) expect(within(menu()).getByRole('button', { name })).toBeTruthy()
-  expect(links()).toEqual(['Users', 'Roles', 'Tags', 'Security', 'Approvals', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Integrations', 'API Keys', 'POS Receipts'])
+  expect(links()).toEqual(['Users', 'Roles', 'Tags', 'Security', 'Approvals', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts'])
   expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
   expect(current.getAttribute('aria-current')).toBe('page')
