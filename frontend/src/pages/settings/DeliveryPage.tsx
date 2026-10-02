@@ -8,6 +8,8 @@ import { buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } fr
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+
+import { DeliverabilityServiceSection } from './DeliverabilityServiceSection'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
@@ -274,6 +276,8 @@ export function DeliveryPage() {
           : senders.data.length === 0 ? <EmptyState title="No sender yet" hint="Add a provider first, then the From address your campaigns should use." />
           : <DataTable columns={senderColumns} rows={senders.data} rowKey={(row) => row.id} caption="Senders" />}
       </section>
+
+      <DeliverabilityServiceSection onNotice={setNotice} />
 
       {editing && catalogue.data && <ProviderForm catalogue={catalogue.data} provider={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {editingSender && providers.data && (editingSender !== 'new' || rows.some((row) => row.manageable !== false)) && (

@@ -31,6 +31,7 @@ FEATURES = {
     "scoring":       {"name": "AI scoring",                  "default": False, "plan_key": None},
     # off until tenant management switches it on for a workspace; a plan can still switch it off for all of its tenants
     "dynamic_codes": {"name": "Barcodes and QR codes",       "default": False, "plan_key": "dynamic_codes"},
+    "deliverability_tests": {"name": "Deliverability tests (inbox previews)", "default": True, "plan_key": "deliverability_tests"},
 }
 CHANNEL_FEATURE = {"EMAIL": "email", "E_RECEIPT": "ereceipt", "SMS": "sms", "MMS": "mms"}
 TERMS = ("customer", "location", "transaction")           # words an industry profile may rename

@@ -6,7 +6,7 @@ import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } f
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, FieldRule, FieldRules, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -88,6 +88,27 @@ const tag = (tag_key: string, label: string, tag_kind: string, sample_value: str
   source_path: tag_kind === 'CUSTOM' ? `custom_value_pairs.${tag_key}` : tag_key, platform_tag_id: tag_kind === 'STANDARD' ? `platform-${tag_key}` : null, row_version: 1,
 })
 export const tags: PersonalizationTag[] = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017')]
+/** GET /deliverability/clients/: a cut of Mailgun Inspect's client list */
+export const inspectClients: InspectClient[] = [
+  { id: 'outlook365', client: 'Outlook 365', os: 'Windows', category: 'Application', browser: '', default: true, image_blocking: true },
+  { id: 'applemail', client: 'Apple Mail', os: 'macOS 14', category: 'Application', browser: '', default: true, image_blocking: false },
+  { id: 'iphone15', client: 'iPhone 15 (iOS 17)', os: 'iOS 17', category: 'Mobile', browser: '', default: true, image_blocking: false },
+  { id: 'gmail_android', client: 'Gmail app', os: 'Android 14', category: 'Mobile', browser: '', default: false, image_blocking: true },
+  { id: 'gmail_chr_win', client: 'Gmail', os: 'Windows', category: 'Web', browser: 'Chrome', default: true, image_blocking: true },
+]
+
+const preview = (client: InspectClient, status: DeliverabilityTest['status'] = 'COMPLETE') => ({
+  id: client.id, name: client.client, client: client.client, os: client.os, category: client.category, browser: client.browser, status, detail: status === 'FAILED' ? 'The client did not load the message.' : '',
+  screenshot: status === 'COMPLETE' ? `https://shots.example/${client.id}.png` : '', screenshot_no_images: '', thumbnail: status === 'COMPLETE' ? `https://shots.example/${client.id}_t.png` : '', full_thumbnail: '',
+})
+
+/** one finished inbox-preview test of the Fall Email, v2 */
+export const finishedDeliverabilityTest: DeliverabilityTest = {
+  id: 'dt-1', template: 'tpl-email', template_version: 2, kind: 'PREVIEW', provider: 'MAILGUN_INSPECT', status: 'COMPLETE', subject: 'Aaliyah, 20% off this weekend only',
+  clients: inspectClients.map((c) => c.id), summary: { clients: 5, complete: 4, failed: 1, processing: 0 }, error: null, requested_by: 'Aby John',
+  requested_at: '2026-09-30T14:12:00Z', completed_at: '2026-09-30T14:15:00Z', previews: inspectClients.map((c, i) => preview(c, i === 3 ? 'FAILED' : 'COMPLETE')), spam: null, placement: null,
+}
+
 /** GET /field-rules/: the lengths the forms count against, as the tables set them */
 const text = (max: number | null, required = false): FieldRule => ({ type: 'string', required, max, min: null, blank: !required })
 export const fieldRules: FieldRules = {
@@ -303,6 +324,12 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** Settings -> Delivery -> Deliverability Testing: the account as stored; default: none */
+  deliverabilityService?: Partial<DeliverabilityService>
+  /** the template's past tests, newest first */
+  deliverabilityTests?: DeliverabilityTest[]
+  /** the plan's monthly allowance; null = unlimited */
+  deliverabilityLimit?: number | null
   campaign?: Campaign
   /** the workspace's campaigns (GET /campaigns/); default: the one campaign above */
   campaigns?: Campaign[]
@@ -393,6 +420,14 @@ export function installMockApi(options: MockOptions = {}) {
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
   const tagRows: PersonalizationTag[] = (options.tags ?? tags).map((item) => ({ ...item }))
+  let deliverabilityServiceNow: DeliverabilityService = { configured: false, provider: 'MAILGUN_INSPECT', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
+                                                           is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, ...options.deliverabilityService }
+  if (options.deliverabilityService?.has_api_key) deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: true, is_active: true }
+  const deliverabilityTests: DeliverabilityTest[] = [...(options.deliverabilityTests ?? [])]
+  const deliverabilityAllowance = () => {
+    const limit = options.deliverabilityLimit === undefined ? 20 : options.deliverabilityLimit
+    return { enabled: true, used: deliverabilityTests.length, limit, left: limit === null ? null : Math.max(0, limit - deliverabilityTests.length), month: '2026-10-01', plan: 'Growth', configured: deliverabilityServiceNow.configured }
+  }
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)
@@ -502,6 +537,49 @@ export function installMockApi(options: MockOptions = {}) {
         mailNow = { ...mailNow, in_use: 'tenant', server, sender_profile: sender }
       }
       return json(mailNow)
+    }
+    if (path.endsWith('/deliverability/service/check/')) {
+      deliverabilityServiceNow = { ...deliverabilityServiceNow, last_checked_at: '2026-10-02T09:00:00Z', last_check_ok: true, last_check_error: null }
+      return json({ ok: true, detail: null })
+    }
+    if (path.endsWith('/deliverability/service/')) {
+      if (method === 'PUT') {
+        const input = (body ?? {}) as Record<string, unknown>
+        if (!deliverabilityServiceNow.has_api_key && !input.api_key) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { api_key: ['Enter the Mailgun Inspect API key.'] } }, 400)
+        deliverabilityServiceNow = { ...deliverabilityServiceNow, region: (input.region as 'US' | 'EU') ?? 'US', username: String(input.username ?? ''), default_clients: (input.default_clients as string[]) ?? [],
+                                     image_blocking: Boolean(input.image_blocking), is_active: input.is_active !== false, has_api_key: true, configured: true }
+        return json(deliverabilityServiceNow)
+      }
+      if (method === 'DELETE') {
+        deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: false, has_api_key: false, is_active: false, username: '', default_clients: [] }
+        return json(null, 204)
+      }
+      return json(deliverabilityServiceNow)
+    }
+    if (path.endsWith('/deliverability/clients/')) return json(deliverabilityServiceNow.has_api_key ? { clients: inspectClients, detail: null } : { clients: [], detail: 'No inbox-preview account is set up.' })
+    if (path.endsWith('/deliverability/allowance/')) return json(deliverabilityAllowance())
+    if (path.includes('/templates/') && path.endsWith('/deliverability-tests/')) {
+      if (method === 'POST') {
+        const allowance = deliverabilityAllowance()
+        if (!allowance.configured) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'No inbox-preview account is set up. Add the Mailgun Inspect account under Settings → Delivery → Deliverability Testing.' }, 409)
+        if (allowance.left === 0) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: `This workspace has used its ${allowance.limit} deliverability tests for the month. Testing resumes next month, or ask for a plan upgrade.` }, 409)
+        const made: DeliverabilityTest = { ...finishedDeliverabilityTest, id: `dt-${deliverabilityTests.length + 2}`, template: path.split('/templates/')[1].split('/')[0], template_version: 3, status: 'PENDING', completed_at: null,
+                                           requested_at: '2026-10-02T09:30:00Z', summary: { clients: 5, complete: 0, failed: 0, processing: 5 }, previews: inspectClients.map((c) => preview(c, 'PROCESSING')) }
+        deliverabilityTests.unshift(made)
+        return json(made, 201)
+      }
+      return json({ tests: deliverabilityTests.map((t) => ({ ...t, previews: [] })), allowance: deliverabilityAllowance() })
+    }
+    if (path.includes('/deliverability-tests/')) {
+      const id = path.split('/deliverability-tests/')[1].replace(/\/$/, '')
+      const at = deliverabilityTests.findIndex((t) => t.id === id)
+      if (at < 0) return json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'No such test.' }, 404)
+      if (method === 'DELETE') { deliverabilityTests.splice(at, 1); return json(null, 204) }
+      const found = deliverabilityTests[at]
+      if (found.status === 'PENDING') {                                                     // the next read finishes it, as Inspect would in a minute
+        deliverabilityTests[at] = { ...found, status: 'COMPLETE', completed_at: '2026-10-02T09:33:00Z', summary: { clients: 5, complete: 5, failed: 0, processing: 0 }, previews: inspectClients.map((c) => preview(c)) }
+      }
+      return json(deliverabilityTests[at])
     }
     if (path.endsWith('/workspace/usage/')) return json(usage)
     if (path.endsWith('/workspace/invoices/')) return json(invoices)

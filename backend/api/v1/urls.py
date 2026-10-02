@@ -2,7 +2,8 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (auth_api, campaigns_api, codes_api, contact_lists_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api, preferences_public,
+from . import (auth_api, campaigns_api, codes_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
+               preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
 
 router = DefaultRouter()
@@ -81,6 +82,12 @@ urlpatterns = [
     path("suppressions/<str:kind>/<str:pk>/unblock/", suppressions_api.SuppressionUnblockView.as_view(), name="suppression-unblock"),
     path("home/overview/", home_api.HomeOverviewView.as_view(), name="home-overview"),
     path("field-rules/", field_rules.FieldRulesView.as_view(), name="field-rules"),
+    path("deliverability/service/", deliverability_api.ServiceView.as_view(), name="deliverability-service"),
+    path("deliverability/service/check/", deliverability_api.ServiceCheckView.as_view(), name="deliverability-service-check"),
+    path("deliverability/clients/", deliverability_api.ClientsView.as_view(), name="deliverability-clients"),
+    path("deliverability/allowance/", deliverability_api.AllowanceView.as_view(), name="deliverability-allowance"),
+    path("templates/<uuid:pk>/deliverability-tests/", deliverability_api.TemplateTestsView.as_view(), name="template-deliverability-tests"),
+    path("deliverability-tests/<uuid:pk>/", deliverability_api.TestView.as_view(), name="deliverability-test"),
     path("reports/summary/", reports_api.ReportSummaryView.as_view(), name="report-summary"),
     path("reports/campaigns.csv", reports_api.ReportCsvView.as_view(), name="report-csv"),
     path("reports/compare/", reports_api.ReportCompareView.as_view(), name="report-compare"),

@@ -12,14 +12,15 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import connections
+from django.db import connections, transaction
 from django.utils import timezone
 
 from . import params
 
 P = settings.PLATFORM_ALIAS
 MESSAGE_METRICS = ("EMAIL_SENT", "SMS_SENT", "MMS_SENT")
-LABELS = {"EMAIL_SENT": "Emails sent", "SMS_SENT": "SMS parts sent", "MMS_SENT": "MMS sent", "CONTACTS": "Contacts", "STORAGE_BYTES": "Storage"}
+LABELS = {"EMAIL_SENT": "Emails sent", "SMS_SENT": "SMS parts sent", "MMS_SENT": "MMS sent", "CONTACTS": "Contacts", "STORAGE_BYTES": "Storage",
+          "DELIVERABILITY_TESTS": "Deliverability tests"}
 
 
 def month_start(day: date | None = None) -> date:
@@ -48,6 +49,8 @@ def rollup_usage(month: date | None = None) -> dict:
         # point-in-time measures, recorded against the current month only
         "CONTACTS": ("SELECT tenant_id, count(DISTINCT party_id) FROM contact_list_member GROUP BY 1", False),
         "STORAGE_BYTES": ("SELECT tenant_id, COALESCE(sum(byte_size), 0) FROM media_asset WHERE deleted_at IS NULL GROUP BY 1", False),
+        # a test counts when it is requested: the provider bills it then, whatever comes back
+        "DELIVERABILITY_TESTS": ("SELECT tenant_id, count(*) FROM deliverability_test WHERE requested_at >= %s AND requested_at < %s GROUP BY 1", True),
     }
     written = 0
     with connections[P].cursor() as cursor:
@@ -65,13 +68,25 @@ def rollup_usage(month: date | None = None) -> dict:
 
 def plan_for(tenant_id) -> dict | None:
     rows = _rows("""SELECT p.code, p.name, p.max_messages_per_month, p.max_contacts, p.max_users, p.max_storage_gb, p.monthly_price, p.currency,
-                           p.overage_per_1k_messages, p.overage_per_1k_contacts, s.status
+                           p.overage_per_1k_messages, p.overage_per_1k_contacts, s.status, p.id
                       FROM tenant_subscription s JOIN subscription_plan p ON p.id = s.plan_id
                      WHERE s.tenant_id = %s AND s.status <> 'CANCELLED' ORDER BY s.started_at DESC LIMIT 1""", [str(tenant_id)])
     if not rows:
         return None
     keys = ("code", "name", "max_messages", "max_contacts", "max_users", "max_storage_gb", "monthly_price", "currency", "overage_messages", "overage_contacts", "subscription_status")
-    return dict(zip(keys, rows[0]))
+    plan = dict(zip(keys, rows[0]))
+    plan["max_deliverability_tests"] = _tests_allowance(rows[0][-1])
+    return plan
+
+
+def _tests_allowance(plan_id):
+    """The plan's deliverability-test allowance; None (unlimited) when the column is not there yet (a deploy ahead of patch 0030)."""
+    from django.db import ProgrammingError
+    try:
+        with transaction.atomic(using=P):
+            return _rows("SELECT max_deliverability_tests_per_month FROM subscription_plan WHERE id = %s", [plan_id])[0][0]
+    except ProgrammingError:
+        return None
 
 
 def usage_for(tenant_id, month: date | None = None) -> dict:
@@ -90,6 +105,11 @@ def _meter(label, used, limit, overage_price, unit=""):
             "overage": overage_price is not None, "overage_price_per_1k": float(overage_price) if overage_price is not None else None}
 
 
+def tests_this_month(tenant_id) -> int:
+    """Counted live (not from the hourly rollup), because the allowance is checked before every test."""
+    return _rows("SELECT count(*) FROM deliverability_test WHERE tenant_id = %s AND requested_at >= %s", [str(tenant_id), month_start()])[0][0]
+
+
 def quota(tenant_id) -> dict:
     """What Settings -> Plan and usage shows, and what publish checks."""
     plan = plan_for(tenant_id)
@@ -103,6 +123,7 @@ def quota(tenant_id) -> dict:
         _meter("Contacts", used.get("CONTACTS", 0), limits.get("max_contacts"), limits.get("overage_contacts")),
         _meter("Active users", users, limits.get("max_users"), None),
         _meter("Storage", storage_gb, limits.get("max_storage_gb"), None, "GB"),
+        _meter("Deliverability tests this month", tests_this_month(tenant_id), limits.get("max_deliverability_tests"), None),
     ]
     return {"month": month_start().isoformat(),
             "plan": {"code": plan["code"], "name": plan["name"], "monthly_price": float(plan["monthly_price"] or 0), "currency": plan["currency"],

@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 
 import { ErrorState } from '@/components/States'
+import { apiDeliverability } from '@/features/deliverability/backend'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { canEditTemplate } from '@/features/designer/editAccess'
@@ -45,6 +46,7 @@ export default function TemplateDesignerPage() {
       },
       // Barcodes and QR codes is switched on per workspace in tenant management
       sampleCode: codes ? (request) => api.post<CodeSample>('/codes/sample/', request) : undefined,
+      deliverability: apiDeliverability(id as string),
     }),
     [id, queryClient, codes],
   )

@@ -216,3 +216,44 @@ test("a campaign's New Sender link opens Add a Sender at once, on an engine of t
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(window.location.search).toBe('')
 })
+
+test('Deliverability Testing: no account shows the set-up call, the form wants the key, a stored account offers Check Connection and the client picker', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/settings/delivery')
+
+  const section = (await screen.findByRole('heading', { name: 'Deliverability Testing' })).closest('section') as HTMLElement
+  expect(await within(section).findByText('No inbox-preview account yet')).toBeTruthy()
+  await user.click(within(section).getByRole('button', { name: 'Set Up Mailgun Inspect' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Set Up Mailgun Inspect' })
+  expect(within(dialog).getByText('Save the API key first; the client list comes from the account.')).toBeTruthy()
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  expect(await within(dialog).findByText('Enter the Mailgun Inspect API key.')).toBeTruthy()
+
+  await user.selectOptions(within(dialog).getByLabelText(/^Region/), 'EU')
+  await user.type(within(dialog).getByLabelText(/^Username/), 'northline-inspect')
+  await user.type(within(dialog).getByLabelText(/^API Key/), 'inspect-key-1')
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  const put = calls.filter((call) => call.url.endsWith('/deliverability/service/') && call.method === 'PUT').at(-1)
+  expect(put?.body).toMatchObject({ region: 'EU', username: 'northline-inspect', api_key: 'inspect-key-1', default_clients: [], image_blocking: false, is_active: true })
+
+  expect(await within(section).findByText(/EU region · northline-inspect · API key stored/)).toBeTruthy()
+  expect(within(section).getByText('Not Checked Yet')).toBeTruthy()
+  await user.click(within(section).getByRole('button', { name: 'Check Connection' }))
+  expect(await screen.findByRole('status')).toBeTruthy()
+  expect(screen.getByRole('status').textContent).toContain('the account works')
+
+  await user.click(within(section).getByRole('button', { name: 'Edit' }))
+  const edit = await screen.findByRole('dialog', { name: 'Mailgun Inspect Account' })
+  expect(within(edit).getByText('Stored. Leave empty to keep it.')).toBeTruthy()
+  expect(await within(edit).findByRole('region', { name: 'Phones and Tablets' }).catch(() => null)).toBeNull()        // the picker is plain groups, not landmarks
+  await user.click(await within(edit).findByLabelText(/Gmail app/))
+  await user.click(within(edit).getByLabelText(/Render with images blocked/))
+  await user.click(within(edit).getByRole('button', { name: 'Save' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  const again = calls.filter((call) => call.url.endsWith('/deliverability/service/') && call.method === 'PUT').at(-1)
+  expect(again?.body).toMatchObject({ default_clients: ['gmail_android'], image_blocking: true })
+  expect(again?.body).not.toHaveProperty('api_key')
+  expect(await within(section).findByText(/1 default clients · images blocked/)).toBeTruthy()
+})

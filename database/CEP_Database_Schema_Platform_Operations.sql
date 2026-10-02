@@ -18,7 +18,11 @@
 -- -------------------------------------------------------------------------------------
 ALTER TABLE subscription_plan
     ADD COLUMN IF NOT EXISTS overage_per_1k_messages NUMERIC(10,4),      -- NULL = no overage: sending stops at the limit
-    ADD COLUMN IF NOT EXISTS overage_per_1k_contacts NUMERIC(10,4);
+    ADD COLUMN IF NOT EXISTS overage_per_1k_contacts NUMERIC(10,4),
+    ADD COLUMN IF NOT EXISTS max_deliverability_tests_per_month INTEGER;  -- inbox previews a workspace may run in a month; NULL = unlimited
+COMMENT ON COLUMN subscription_plan.max_deliverability_tests_per_month IS 'Deliverability tests (inbox previews) a workspace may request in a calendar month; NULL = unlimited';
+UPDATE subscription_plan SET max_deliverability_tests_per_month = CASE code WHEN 'STARTER' THEN 10 WHEN 'GROWTH' THEN 50 END
+ WHERE max_deliverability_tests_per_month IS NULL AND code IN ('STARTER', 'GROWTH');      -- ENTERPRISE is unlimited
 COMMENT ON COLUMN subscription_plan.overage_per_1k_messages IS 'Price per 1,000 messages above max_messages_per_month; NULL = hard limit, sending stops';
 COMMENT ON COLUMN subscription_plan.overage_per_1k_contacts IS 'Price per 1,000 contacts above max_contacts; NULL = hard limit';
 
@@ -1099,6 +1103,80 @@ INSERT INTO platform_personalization_tag (tag_key, label, tag_kind, resolution_s
     ('store_image_url', 'Store Image URL', 'STANDARD', 'STORE', 'image_url', 'STRING', '{E_RECEIPT}', 'From the store list', ''),
     ('current_date', 'Current Date', 'SYSTEM', 'SYSTEM', 'today', 'DATE', '{EMAIL,E_RECEIPT,SMS,MMS}', 'The date of the send (same as today)', '2026-09-30')
 ON CONFLICT (tag_key) DO NOTHING;
+
+-- -------------------------------------------------------------------------------------
+-- 18. DELIVERABILITY TESTS: the workspace's inbox-preview account and every test it ran
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS deliverability_service (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL UNIQUE REFERENCES tenant(id),
+    provider            VARCHAR(30) NOT NULL DEFAULT 'MAILGUN_INSPECT',
+    region              VARCHAR(10) NOT NULL DEFAULT 'US',                 -- US | EU: which Mailgun API host
+    username            VARCHAR(200),
+    api_key_enc         TEXT,                                               -- encrypted with FIELD_ENCRYPTION_KEY
+    default_clients     JSONB NOT NULL DEFAULT '[]'::jsonb,                 -- client ids a test renders in; empty = the service's own defaults
+    image_blocking      BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    last_checked_at     TIMESTAMPTZ,
+    last_check_ok       BOOLEAN,
+    last_check_error    TEXT,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_deliverability_service_region CHECK (region IN ('US', 'EU'))
+);
+COMMENT ON TABLE deliverability_service IS 'The workspace''s account with an inbox-preview service (Mailgun Inspect); one per tenant';
+DROP TRIGGER IF EXISTS trg_deliverability_service_touch ON deliverability_service;
+CREATE TRIGGER trg_deliverability_service_touch BEFORE UPDATE ON deliverability_service FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+ALTER TABLE deliverability_service ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deliverability_service FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_deliverability_service_tenant ON deliverability_service;
+CREATE POLICY rls_deliverability_service_tenant ON deliverability_service
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON deliverability_service TO cep_app;
+GRANT ALL ON deliverability_service TO cep_admin;
+
+CREATE TABLE IF NOT EXISTS deliverability_test (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    template_id         UUID NOT NULL REFERENCES template_master(id) ON DELETE CASCADE,
+    template_version    INTEGER NOT NULL,
+    campaign_id         UUID REFERENCES campaign(id) ON DELETE SET NULL,
+    kind                VARCHAR(20) NOT NULL DEFAULT 'PREVIEW',
+    provider            VARCHAR(30) NOT NULL,
+    provider_test_id    VARCHAR(100),
+    status              VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    subject             VARCHAR(300),
+    clients             JSONB NOT NULL DEFAULT '[]'::jsonb,
+    summary             JSONB NOT NULL DEFAULT '{}'::jsonb,                 -- {"clients": n, "complete": n, "failed": n, "processing": n}
+    results             JSONB NOT NULL DEFAULT '{}'::jsonb,                 -- per client: name, client, os, category, browser, status, screenshot, thumbnail
+    error               TEXT,
+    requested_by        UUID REFERENCES app_user(id),
+    requested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),                 -- the allowance counts this (the provider bills on request)
+    checked_at          TIMESTAMPTZ,
+    completed_at        TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_deliverability_test_kind CHECK (kind IN ('PREVIEW', 'SPAM', 'PLACEMENT')),
+    CONSTRAINT ck_deliverability_test_status CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETE', 'FAILED'))
+);
+COMMENT ON TABLE deliverability_test IS 'A test of a template''s content: inbox previews today; spam verdict and inbox placement have their slots (kind)';
+CREATE INDEX IF NOT EXISTS ix_deliverability_test_template ON deliverability_test (tenant_id, template_id, requested_at DESC);
+CREATE INDEX IF NOT EXISTS ix_deliverability_test_month ON deliverability_test (tenant_id, requested_at);
+DROP TRIGGER IF EXISTS trg_deliverability_test_touch ON deliverability_test;
+CREATE TRIGGER trg_deliverability_test_touch BEFORE UPDATE ON deliverability_test FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+ALTER TABLE deliverability_test ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deliverability_test FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_deliverability_test_tenant ON deliverability_test;
+CREATE POLICY rls_deliverability_test_tenant ON deliverability_test
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON deliverability_test TO cep_app;
+GRANT ALL ON deliverability_test TO cep_admin;
 
 -- =====================================================================================
 -- End of platform operations layer.
