@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, Keyboard, LogOut, Menu, Search, ShieldCheck, X, type LucideIcon } from 'lucide-react'
+import { Bell, ChevronDown, Keyboard, LogOut, Menu, PanelLeft, Search, ShieldCheck, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -16,8 +16,6 @@ import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
 import { RailGroup, RailMark } from './Rail'
 
 const SECURITY = '/account/security'
-const RAIL_EXPANDED = 240
-const RAIL_COLLAPSED = 64
 
 /**
  * Labels leave at the start of a collapse and come back at the end of an expand (240ms, the width's own
@@ -290,7 +288,7 @@ export function AppShell() {
   }
 
   const toggleLabel = !isMd ? 'Close navigation' : expanded ? 'Collapse navigation' : 'Expand navigation'
-  const ToggleIcon = !isMd ? X : expanded ? ChevronsLeft : ChevronsRight
+  const ToggleIcon = !isMd ? X : PanelLeft                         // one glyph for both states, as editors show it; the label and aria-expanded say which
   const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
 
   return (
@@ -301,22 +299,24 @@ export function AppShell() {
         <>
           <aside aria-label="Sidebar"
             className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar py-5 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'}`}>
-            <div className="mb-8 shrink-0 px-4"><RailMark expanded={labels} /></div>
+            <div className="mb-8 shrink-0 px-4">
+              <RailMark expanded={labels} end={
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-label={toggleLabel}
+                  aria-expanded={isMd ? expanded : undefined}
+                  className="flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed"
+                >
+                  <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
+                </button>
+              } />
+            </div>
             <nav aria-label="Main" className="flex flex-col px-3">
               <RailGroup label="Pages" items={main} expanded={labels} />
               <RailGroup label="Administration" items={admin} expanded={labels} divided={main.length > 0} />
             </nav>
           </aside>
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label={toggleLabel}
-            aria-expanded={isMd ? expanded : undefined}
-            style={{ left: (expanded ? RAIL_EXPANDED : RAIL_COLLAPSED) - 16 }}
-            className="fixed top-5 z-50 flex h-8 w-8 items-center justify-center rounded-sm border border-sidebar-divider bg-sidebar text-sidebar-text transition-[left,background-color] duration-moderate ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed motion-reduce:transition-none"
-          >
-            <ToggleIcon size={16} strokeWidth={1.5} aria-hidden />
-          </button>
         </>
       )}
 
