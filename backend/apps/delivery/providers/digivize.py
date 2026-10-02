@@ -2,7 +2,8 @@
 
     POST {endpoint}{send_path}?key=<api key>&timestamp=<unix seconds>&signature=<hex>
          single (the default; what /api/v1/external/sms/send serves, 2026-10-02 on citi-sandbox and lab):
-                 {brand_id, to, message, message_type, external_ref, idempotency_key, variable_normalization, callback_url}
+                 {brand_id, to, message, message_type, external_ref, variable_normalization, callback_url}
+                 (idempotency_key makes that route answer 500; a marketing text without a STOP keyword is refused as COMPLIANCE_FAILED)
          batch (send_mode = batch, for the batch route when Digivize provides it; it did not exist on either host):
                  {brand_id, message, message_type, recipients: [{to, variables, external_ref}], variable_normalization, auto_create_contacts, idempotency_key, callback_url}
     signature = HMAC-SHA256(secret key, canonical) where canonical is the body plus `key` and `timestamp`, top-level keys sorted,
@@ -192,8 +193,9 @@ class DigivizeProvider(SmsProvider):
         return results
 
     def _single_body(self, message: SmsMessage, ref: str) -> dict:
+        # no idempotency_key here: the sms/send route answers 500 to it (probed 2026-10-02); external_ref carries our id and is accepted
         body = {"brand_id": self._brand_id, "to": message.to_number, "message": message.text, "message_type": self._message_type, "external_ref": ref,
-                "idempotency_key": f"cep-{uuid.uuid5(BATCH_NAMESPACE, ref)}", "variable_normalization": VARIABLE_NORMALIZATION}
+                "variable_normalization": VARIABLE_NORMALIZATION}
         if self.config.get("callback_url"):
             body["callback_url"] = str(self.config["callback_url"])
         if message.media_url:
