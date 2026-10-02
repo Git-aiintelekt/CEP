@@ -2,10 +2,11 @@
  * Development only (/dev/designer, not registered in production builds): the real designer on an in-memory backend.
  * No sign-in and no API, so the editor can be worked on and checked visually in isolation.
  */
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { offlineSample } from '@/features/designer/blocks/codes'
+import { sampleDeliverability } from '@/features/deliverability/backend'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { extractTags, unknownTags } from '@/features/designer/tags'
@@ -51,6 +52,7 @@ export default function DesignerPlayground() {
     [preset, params],
   )
 
+  const [deliverability] = useState(() => sampleDeliverability())
   const backend = useMemo<DesignerBackend>(
     () => ({
       save: async (input) => {
@@ -71,8 +73,9 @@ export default function DesignerPlayground() {
       uploadAsset: async (file) => ({ url: URL.createObjectURL(file), name: file.name }),
       // no server here: the code blocks are offered (?codes=off hides them) and show the browser's stand-in
       sampleCode: params.get('codes') === 'off' ? undefined : offlineSample,
+      deliverability,
     }),
-    [state, params],
+    [state, params, deliverability],
   )
 
   if (state === 'loading') return <EditorLoading label="Opening the designer" />

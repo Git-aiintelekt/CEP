@@ -2,12 +2,14 @@
  * Everything around the canvas: subject line, save with version lock, findings, preview, tag catalogue, history.
  * Talks to a `DesignerBackend`, so the template page passes the API and the dev playground passes an in-memory one.
  */
-import { Eye, PencilRuler } from 'lucide-react'
+import { Eye, PencilRuler, SendHorizontal } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { NavBar } from '@/components/NavBar'
 import { useToast } from '@/components/Toast'
+import { DeliverabilityPanel } from '@/features/deliverability/DeliverabilityPanel'
+import type { DeliverabilityBackend } from '@/features/deliverability/backend'
 import { ApiError } from '@/lib/api'
 import { formatUtcClock } from '@/lib/format'
 import type { CodeSample, CodeSampleRequest, Design, DesignFindings, DesignSaveInput, DesignVersion, PersonalizationTag } from '@/lib/types'
@@ -41,13 +43,16 @@ export interface DesignerBackend {
   activate?: () => Promise<void>
   /** the workspace has Barcodes and QR codes: draws a code block's sample */
   sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
+  /** inbox previews of the saved design; absent when the template has no deliverability testing (receipts, SMS) */
+  deliverability?: DeliverabilityBackend
 }
 
-type EditorTab = 'content' | 'preview'
+type EditorTab = 'content' | 'preview' | 'deliverability'
 
 const TABS: EditorTabDef<EditorTab>[] = [
   { id: 'content', label: 'Content', Icon: PencilRuler },
   { id: 'preview', label: 'Preview', Icon: Eye },
+  { id: 'deliverability', label: 'Deliverability', Icon: SendHorizontal },
 ]
 
 interface WorkspaceProps {
@@ -415,6 +420,9 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
   )
 
   const previewPane = <PreviewPane state={preview} subject={subject} preheader={preheader} tags={tags} />
+  const deliverabilityPane = backend.deliverability
+    ? <DeliverabilityPanel backend={backend.deliverability} active={tab === 'deliverability'} savedVersion={saved.version} dirty={dirty} readOnly={readOnly} />
+    : null
 
   return (
     <>
@@ -439,7 +447,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
         event.preventDefault()
         guard.requestLeave(() => navigate(backTo))
       }}
-      tabs={TABS}
+      tabs={backend.deliverability ? TABS : TABS.filter((item) => item.id !== 'deliverability')}
       tab={tab}
       onTabChange={(next) => void changeTab(next)}
       tabBarEnd={pillBar}
@@ -454,6 +462,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       panes={[
         { id: 'content', content: contentPane },
         { id: 'preview', content: previewPane, scrolls: true },
+        ...(deliverabilityPane ? [{ id: 'deliverability' as const, content: deliverabilityPane, scrolls: true }] : []),
       ]}
       />
     </>

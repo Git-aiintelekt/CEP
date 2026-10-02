@@ -108,6 +108,7 @@ class SubscriptionPlan(models.Model):
     max_messages_per_month = models.BigIntegerField(null=True, blank=True)
     max_users = models.IntegerField(null=True, blank=True)
     max_storage_gb = models.IntegerField(null=True, blank=True)
+    max_deliverability_tests_per_month = models.IntegerField(null=True, blank=True)  # inbox previews a workspace may run in a month; NULL = unlimited
     features = models.JSONField(default=dict)  # feature flags: journeys, ereceipt, ab_testing, custom_domain ...
     monthly_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     overage_per_1k_messages = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)  # NULL = hard limit: sending stops

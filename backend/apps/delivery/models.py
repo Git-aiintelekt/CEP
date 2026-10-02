@@ -279,3 +279,68 @@ class DeadLetterMessage(models.Model):
 
     def __str__(self):
         return str(self.party_id)
+
+
+class DeliverabilityService(models.Model):
+    """The workspace's account with an inbox-preview service (Mailgun Inspect): one row per tenant, the key encrypted."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    provider = models.CharField(max_length=30, default='MAILGUN_INSPECT')
+    region = models.CharField(max_length=10, default='US')  # US, EU
+    username = models.CharField(max_length=200, null=True, blank=True)
+    api_key_enc = models.TextField(null=True, blank=True)
+    default_clients = models.JSONField(default=list)  # Inspect client ids a test renders in; empty = the service's defaults
+    image_blocking = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_check_ok = models.BooleanField(null=True, blank=True)
+    last_check_error = models.TextField(null=True, blank=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'deliverability_service'
+
+
+class DeliverabilityTest(models.Model):
+    """One test of a template's content: inbox previews today; spam verdict and inbox placement have their slots."""
+    class Kind(models.TextChoices):
+        PREVIEW = 'PREVIEW', 'Inbox previews'
+        SPAM = 'SPAM', 'Spam check'
+        PLACEMENT = 'PLACEMENT', 'Inbox placement'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        PROCESSING = 'PROCESSING', 'Processing'
+        COMPLETE = 'COMPLETE', 'Complete'
+        FAILED = 'FAILED', 'Failed'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    template = models.ForeignKey('templates.TemplateMaster', on_delete=models.CASCADE, db_column='template_id', related_name='deliverability_tests')
+    template_version = models.IntegerField()
+    campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.SET_NULL, db_column='campaign_id', related_name='+', null=True, blank=True)
+    kind = models.CharField(max_length=20, default='PREVIEW', choices=Kind.choices)
+    provider = models.CharField(max_length=30)
+    provider_test_id = models.CharField(max_length=100, null=True, blank=True)
+    status = models.CharField(max_length=20, default='PENDING', choices=Status.choices)
+    subject = models.CharField(max_length=300, null=True, blank=True)
+    clients = models.JSONField(default=list)
+    summary = models.JSONField(default=dict)  # {"clients": n, "complete": n, "failed": n, "processing": n}
+    results = models.JSONField(default=dict)  # per client id: name, client, os, category, browser, status, screenshot, thumbnail
+    error = models.TextField(null=True, blank=True)
+    requested_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='requested_by', related_name='+', null=True, blank=True)
+    requested_at = models.DateTimeField(db_default=Now())
+    checked_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'deliverability_test'

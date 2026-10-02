@@ -1658,3 +1658,82 @@ export interface FieldRules {
   generated_at: string
   resources: Record<string, Record<string, FieldRule>>
 }
+
+/** Deliverability testing: the workspace's inbox-preview account (GET /deliverability/service/) */
+export interface DeliverabilityService {
+  configured: boolean
+  provider: string
+  region: 'US' | 'EU'
+  username: string
+  has_api_key: boolean
+  default_clients: string[]
+  image_blocking: boolean
+  is_active: boolean
+  last_checked_at: string | null
+  last_check_ok: boolean | null
+  last_check_error: string | null
+}
+
+/** one inbox client the service can render in (GET /deliverability/clients/) */
+export interface InspectClient {
+  id: string
+  client: string
+  os: string
+  category: string
+  browser: string
+  default: boolean
+  image_blocking: boolean
+}
+
+/** GET /deliverability/allowance/: tests this month against the plan */
+export interface DeliverabilityAllowance {
+  enabled: boolean
+  used: number
+  /** null = unlimited */
+  limit: number | null
+  left: number | null
+  month: string
+  plan: string | null
+  configured: boolean
+}
+
+export interface DeliverabilityPreview {
+  id: string
+  name: string
+  client: string
+  os: string
+  category: string
+  browser: string
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETE' | 'FAILED'
+  detail: string
+  screenshot: string
+  screenshot_no_images: string
+  thumbnail: string
+  full_thumbnail: string
+}
+
+export interface DeliverabilityTest {
+  id: string
+  template: string
+  template_version: number
+  kind: 'PREVIEW' | 'SPAM' | 'PLACEMENT'
+  provider: string
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETE' | 'FAILED'
+  subject: string | null
+  clients: string[]
+  summary: { clients?: number | null; complete?: number; failed?: number; processing?: number | null }
+  error: string | null
+  requested_by: string | null
+  requested_at: string
+  completed_at: string | null
+  /** empty in the history list; the detail carries them */
+  previews: DeliverabilityPreview[]
+  /** the slots the panel shows; filled when the spam check and inbox placement arrive */
+  spam: null | { verdict: string; score: number | null; detail: string }
+  placement: null | { inbox: number; spam: number; missing: number; providers: { name: string; folder: string }[] }
+}
+
+export interface DeliverabilityTestList {
+  tests: DeliverabilityTest[]
+  allowance: DeliverabilityAllowance
+}
