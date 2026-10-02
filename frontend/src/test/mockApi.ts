@@ -40,7 +40,7 @@ export const senders: SenderProfile[] = [
 
 const list = (id: string, name: string, member_count: number, is_master = false, extra: Partial<ContactList> = {}): ContactList => ({
   ...audit, id, name, description: null, source_type: 'UPLOAD', source_label: 'Upload', vetted: false, list_kind: 'STATIC', is_master, refresh_mode: 'MANUAL',
-  last_refreshed_at: null, list_environment: 'PRODUCTION', status: 'ACTIVE', member_count, parent_contact_list: null, attached_campaigns: 0, live_campaigns: 0, ...extra,
+  last_refreshed_at: null, list_environment: 'PRODUCTION', channel: 'EMAIL', status: 'ACTIVE', member_count, parent_contact_list: null, attached_campaigns: 0, live_campaigns: 0, ...extra,
 })
 export const contactLists: ContactList[] = [
   list('cl-master', 'Fall Master Audience', 90, true, { description: 'Active loyalty members', attached_campaigns: 2, live_campaigns: 1 }),
@@ -55,10 +55,14 @@ export const listMembers: ListMember[] = [
   { id: 12, party_id: 'P-2', email: 'm.okonkwo@fabrikam.example', first_name: 'Miriam', last_name: 'Okonkwo', mobile: '+14045550002', added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true, email_status: 'MARKETABLE', email_status_label: 'Can receive marketing email', sendable: true },
   { id: 13, party_id: 'P-3', email: 's.ramachandran@tailspin.example', first_name: 'Sana', last_name: 'Ramachandran', mobile: null, added_at: '2026-08-24T10:00:00Z', source: 'MANUAL', known: true, email_status: 'UNSUBSCRIBED', email_status_label: 'Unsubscribed', sendable: false },
 ]
-const PROPERTIES = [
-  { key: 'email', label: 'Email', required: true, help: 'Who the person is.' }, { key: 'first_name', label: 'First name', required: false, help: '' },
-  { key: 'last_name', label: 'Last name', required: false, help: '' }, { key: 'consent_date', label: 'Consent date', required: false, help: 'Recorded as an email opt-in.' },
+/** the import's properties with the required flags of a list of this channel */
+export const propertiesFor = (channel = 'EMAIL') => [
+  { key: 'email', label: 'Email', required: channel !== 'SMS', help: 'Who the person is.' }, { key: 'first_name', label: 'First name', required: false, help: '' },
+  { key: 'last_name', label: 'Last name', required: false, help: '' }, { key: 'mobile', label: 'Mobile number', required: channel !== 'EMAIL', help: 'Kept for text campaigns.' },
+  { key: 'consent_date', label: 'Email consent date', required: false, help: 'Recorded as an email opt-in.' },
+  { key: 'sms_consent_date', label: 'Text consent date', required: false, help: 'Recorded as a text opt-in.' },
 ]
+const PROPERTIES = propertiesFor('EMAIL')
 const REVIEW = { ready: 4, held_back: 2, new: 3, existing: 1, warnings: 1, errors: 2, duplicates: 1, rejected: 1 }
 const GOVERNANCE: GovernanceLine[] = [
   { code: 'MARKETABLE', label: 'Can receive marketing email', sendable: true, count: 2 }, { code: 'UNSUBSCRIBED', label: 'Unsubscribed', sendable: false, count: 1 },
@@ -784,7 +788,8 @@ export function installMockApi(options: MockOptions = {}) {
       if (path.endsWith('/imports/') && method === 'POST') {
         const custom = options.onListUpload?.(call)
         if (custom) return custom
-        const made: ListImport = { ...stagedImport, id: `imp-${jobsNow.length + 1}`, contact_list: String(one), list_name: find(one)?.name ?? '' }
+        const channel = find(one)?.channel ?? 'EMAIL'
+        const made: ListImport = { ...stagedImport, id: `imp-${jobsNow.length + 1}`, contact_list: String(one), list_name: find(one)?.name ?? '', list_channel: channel, properties: propertiesFor(channel) }
         jobsNow = [made, ...jobsNow]
         return json(made, 201)
       }
@@ -812,7 +817,7 @@ export function installMockApi(options: MockOptions = {}) {
         if (listsNow.some((item) => item.name.toLowerCase() === String(body?.name).toLowerCase())) {
           return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { name: 'Another list already has this name.' } }, 400)
         }
-        const made = list('cl-new', String(body?.name), 0, true, { status: 'DRAFT', description: (body?.description as string) || null, list_environment: String(body?.list_environment ?? 'PRODUCTION') })
+        const made = list('cl-new', String(body?.name), 0, true, { status: 'DRAFT', description: (body?.description as string) || null, list_environment: String(body?.list_environment ?? 'PRODUCTION'), channel: String(body?.channel ?? 'EMAIL') })
         listsNow = [made, ...listsNow]
         return json(made, 201)
       }

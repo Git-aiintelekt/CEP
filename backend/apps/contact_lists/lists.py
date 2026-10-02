@@ -81,7 +81,7 @@ def sync_from_segment(contact_list: ContactList, user_id=None) -> dict:
     return {"added": added, "removed": removed, "member_count": members}
 
 
-def create_from_audience(*, tenant_id, segment_id, name, description, environment, user_id=None) -> ContactList:
+def create_from_audience(*, tenant_id, segment_id, name, description, environment, channel="EMAIL", user_id=None) -> ContactList:
     with _conn().cursor() as cursor:
         cursor.execute("SELECT code, name, source_system FROM segment WHERE tenant_id = %s AND id = %s", [str(tenant_id), str(segment_id)])
         row = cursor.fetchone()
@@ -91,7 +91,7 @@ def create_from_audience(*, tenant_id, segment_id, name, description, environmen
     contact_list = ContactList.objects.create(
         tenant_id=tenant_id, name=name, description=description or None, source_type=ContactList.SourceType.BI, source_reference=f"{segment_name} ({code})"[:300],
         list_kind=ContactList.ListKind.SEGMENT, is_master=True, criteria={"segment_id": str(segment_id), "segment_code": code, "source_system": source},
-        refresh_mode=ContactList.RefreshMode.SCHEDULED, refresh_interval_minutes=60, list_environment=environment, status=ContactList.Status.ACTIVE, created_by_id=user_id)
+        refresh_mode=ContactList.RefreshMode.SCHEDULED, refresh_interval_minutes=60, list_environment=environment, channel=channel, status=ContactList.Status.ACTIVE, created_by_id=user_id)
     sync_from_segment(contact_list, user_id)
     return contact_list
 
@@ -110,14 +110,14 @@ def refresh_due(tenant_id) -> int:
 
 
 # ---------------------------------------------------------------- clone
-def clone(source: ContactList, *, name, description, environment, user_id=None) -> ContactList:
+def clone(source: ContactList, *, name, description, environment, channel=None, user_id=None) -> ContactList:
     """A snapshot: the people who are in the source now. The two lists are independent from here on."""
     if source.status == ContactList.Status.DRAFT:
         raise ListError("This list is still being imported. Finish or cancel the import first.")
     copy = ContactList.objects.create(
         tenant_id=source.tenant_id, name=name, description=description or None, source_type=ContactList.SourceType.CLONE, source_reference=source.name[:300],
         list_kind=ContactList.ListKind.STATIC, is_master=True, parent_contact_list=source, refresh_mode=ContactList.RefreshMode.MANUAL,
-        list_environment=environment, status=ContactList.Status.ACTIVE, created_by_id=user_id)
+        list_environment=environment, channel=channel or source.channel, status=ContactList.Status.ACTIVE, created_by_id=user_id)
     with _conn().cursor() as cursor:
         cursor.execute("""INSERT INTO contact_list_member (contact_list_id, tenant_id, party_id, custom_attributes, membership_source, matched_by)
                           SELECT %s, m.tenant_id, m.party_id, m.custom_attributes, 'CLONE', m.matched_by

@@ -35,6 +35,11 @@ class ContactList(models.Model):
         SCHEDULED = 'SCHEDULED', 'Scheduled'
         ON_CAMPAIGN_BUILD = 'ON_CAMPAIGN_BUILD', 'On Campaign Build'
 
+    class Channel(models.TextChoices):
+        EMAIL = 'EMAIL', 'Email'
+        SMS = 'SMS', 'Texts'
+        BOTH = 'BOTH', 'Email and texts'
+
     class ListEnvironment(models.TextChoices):
         TEST = 'TEST', 'Test'
         PRODUCTION = 'PRODUCTION', 'Production'
@@ -59,6 +64,7 @@ class ContactList(models.Model):
     refresh_interval_minutes = models.IntegerField(null=True, blank=True)
     last_refreshed_at = models.DateTimeField(null=True, blank=True)
     list_environment = models.CharField(max_length=20, default='PRODUCTION', choices=ListEnvironment.choices)  # TEST, PRODUCTION
+    channel = models.CharField(max_length=10, default='EMAIL', choices=Channel.choices)  # EMAIL, SMS, BOTH: the required upload column and how a new person is recognised
     status = models.CharField(max_length=20, default='ACTIVE', choices=Status.choices)
     member_count = models.IntegerField(default=0)  # maintained by import worker
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)

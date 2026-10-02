@@ -104,6 +104,7 @@ class NewListSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
     description = serializers.CharField(required=False, allow_blank=True, default="")
     list_environment = serializers.ChoiceField(choices=ContactList.ListEnvironment.choices, default="PRODUCTION")
+    channel = serializers.ChoiceField(choices=ContactList.Channel.choices, required=False)   # a clone keeps the source's when not given
 
     def validate_name(self, value):
         return ContactListSerializer(context=self.context).validate_name(value)
@@ -140,7 +141,8 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
         "phase": WAITING[record.next_action] if record.next_action and record.status not in ("STAGING", "MATCHING", "APPLYING") else PHASE.get(record.status, record.status),
         "working": working, "progress": {"done": record.progress_done, "total": total, "percent": percent, "unit": "bytes" if record.status in ("UPLOADED", "STAGING") else "rows"},
         "mapping_confirmed": record.mapping_confirmed, "error": record.error,
-        "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(),
+        "row_count": record.row_count, "columns": record.file_columns, "mapping": record.column_mapping, "properties": imports.catalogue(imports.channel_of(record.contact_list)),
+        "list_channel": imports.channel_of(record.contact_list),
         "review": None, "applied_count": record.applied_count, "new_people": record.new_customer_count, "consents_recorded": record.consent_count,
         "created_at": record.created_at, "started_at": record.started_at, "completed_at": record.completed_at,
         "created_by_name": getattr(record.created_by, "display_name", None) or getattr(record.created_by, "email", None),
@@ -155,7 +157,8 @@ def import_payload(record: ContactListImport, with_issues: bool = False) -> dict
     return data
 
 
-HELD_BACK = (("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("DUPLICATE_IN_FILE", "Same address earlier in the file"))
+HELD_BACK = (("NO_EMAIL", "No email address"), ("INVALID_EMAIL", "Not a valid email address"), ("NO_MOBILE", "No mobile number"), ("INVALID_MOBILE", "Mobile number not recognised"),
+             ("DUPLICATE_IN_FILE", "The same person earlier in the file"))
 
 
 def reconciliation(record: ContactListImport) -> dict | None:
@@ -261,7 +264,7 @@ class ContactListViewSet(BaseTenantViewSet):
         body.is_valid(raise_exception=True)
         try:
             created = lists.create_from_audience(tenant_id=context.require().tenant_id, segment_id=body.validated_data["audience"], name=body.validated_data["name"],
-                                                 description=body.validated_data["description"], environment=body.validated_data["list_environment"], user_id=_user_id(request))
+                                                 description=body.validated_data["description"], environment=body.validated_data["list_environment"], channel=body.validated_data.get("channel") or "EMAIL", user_id=_user_id(request))
         except lists.ListError as exc:
             raise ValidationError({"audience": str(exc)}) from exc
         return self._respond(created, 201)
@@ -284,7 +287,7 @@ class ContactListViewSet(BaseTenantViewSet):
         body.is_valid(raise_exception=True)
         try:
             copy = lists.clone(source, name=body.validated_data["name"], description=body.validated_data["description"],
-                               environment=body.validated_data["list_environment"], user_id=_user_id(request))
+                               environment=body.validated_data["list_environment"], channel=body.validated_data.get("channel"), user_id=_user_id(request))
         except lists.ListError as exc:
             raise Conflict(str(exc)) from exc
         return self._respond(copy, 201)

@@ -15,6 +15,7 @@ export interface ListRow {
   name: string
   source_type: string
   list_environment: string
+  channel?: string
   member_count: number
   updated_at: string | null
   /** attached: saved or picked here; auto: made here from an audience or a clone; review: an upload waiting for a confirmation */
@@ -27,11 +28,22 @@ interface ListsTableProps {
   rows: ListRow[]
   caption: string
   zone: string
+  /** the campaign's channel: a list made for the other one gets a note */
+  campaignChannel?: string
   onRemove: (row: ListRow) => void
   onConfirm?: (row: ListRow) => void
 }
 
-export function ListsTable({ rows, caption, zone, onRemove, onConfirm }: ListsTableProps) {
+/** a list uploaded for one channel attached to a campaign of the other: what will be missing */
+function mismatch(listChannel: string | undefined, campaignChannel: string | undefined): string | null {
+  if (!listChannel || !campaignChannel || listChannel === 'BOTH') return null
+  const texts = campaignChannel === 'SMS' || campaignChannel === 'MMS'
+  if (texts && listChannel === 'EMAIL') return 'An email list: its people may have no mobile number or no text consent.'
+  if (!texts && listChannel === 'SMS') return 'A text list: its people may have no email address.'
+  return null
+}
+
+export function ListsTable({ rows, caption, zone, campaignChannel, onRemove, onConfirm }: ListsTableProps) {
   const today = new Date().toISOString()
   const attached = (row: ListRow) =>
     row.state === 'review' ? 'Uploaded file · not counted until you confirm'
@@ -46,6 +58,7 @@ export function ListsTable({ rows, caption, zone, onRemove, onConfirm }: ListsTa
         <a href={`/contact-lists/${row.id}`} target="_blank" rel="noreferrer" aria-label={`${row.name} (opens in a new tab)`}
           className="truncate text-card-title font-semibold text-brand-800 hover:underline">{row.name}</a>
         <span className={`text-helper ${row.state === 'review' ? 'font-medium text-warning-text' : 'text-ink-800'}`}>{row.state === 'review' ? <>Needs Review · {note(row)}</> : note(row)}</span>
+        {mismatch(row.channel, campaignChannel) && <span className="text-helper font-medium text-warning-text">{mismatch(row.channel, campaignChannel)}</span>}
         {row.state === 'review' && (
           <span className="mt-2 flex flex-wrap items-center gap-2">
             <button type="button" className={buttonClass({ variant: 'primary', size: 'sm' })} onClick={() => onConfirm?.(row)}>Confirm</button>

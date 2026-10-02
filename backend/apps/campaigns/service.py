@@ -400,9 +400,10 @@ def audience(campaign, include: list | None = None, exclude: list | None = None,
     params = {"tenant": tenant, "include": include or [""], "exclude": exclude or [""]}
     with _conn().cursor() as cursor:
         cursor.execute("""SELECT l.id::text, l.name, l.member_count, l.updated_at, l.list_environment, l.source_type,
-                                 (SELECT count(*) FROM contact_list_member m WHERE m.tenant_id = l.tenant_id AND m.contact_list_id = l.id)
+                                 (SELECT count(*) FROM contact_list_member m WHERE m.tenant_id = l.tenant_id AND m.contact_list_id = l.id), l.channel
                             FROM contact_list l WHERE l.tenant_id = %(tenant)s AND l.id::text = ANY(%(ids)s)""", {"tenant": tenant, "ids": (include + exclude) or [""]})
-        lists = {row[0]: {"id": row[0], "name": row[1], "member_count": row[6], "updated_at": row[3], "list_environment": row[4], "source_type": row[5]} for row in cursor.fetchall()}
+        lists = {row[0]: {"id": row[0], "name": row[1], "member_count": row[6], "updated_at": row[3], "list_environment": row[4], "source_type": row[5], "channel": row[7]}
+                 for row in cursor.fetchall()}
         base = """WITH picked AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(include)s)),
                        dropped AS (SELECT DISTINCT m.party_id FROM contact_list_member m WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = ANY(%(exclude)s)),
                        kept AS (SELECT p.party_id FROM picked p WHERE NOT EXISTS (SELECT 1 FROM dropped d WHERE d.party_id = p.party_id))"""

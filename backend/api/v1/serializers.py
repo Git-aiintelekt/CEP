@@ -47,7 +47,7 @@ class SenderProfileSerializer(serializers.ModelSerializer):
 class AttachedContactListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactList
-        fields = ("id", "name", "list_kind", "is_master", "list_environment", "status", "member_count")
+        fields = ("id", "name", "list_kind", "is_master", "list_environment", "channel", "status", "member_count")
         read_only_fields = fields
 
 

@@ -24,8 +24,9 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
   const [name, setName] = useState(list.name)
   const [description, setDescription] = useState(list.description ?? '')
   const [environment, setEnvironment] = useState(list.list_environment)
+  const [channel, setChannel] = useState(list.channel || 'EMAIL')
   const save = useMutation({
-    mutationFn: () => api.patch<ContactList>(`/contact-lists/${list.id}/`, { name, description, list_environment: environment }),
+    mutationFn: () => api.patch<ContactList>(`/contact-lists/${list.id}/`, { name, description, list_environment: environment, channel }),
     onSuccess: onSaved,
   })
   const errors = save.isError ? problemText(save.error) : undefined
@@ -56,6 +57,15 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
             <Select {...ids} value={environment} onChange={(event) => setEnvironment(event.target.value)}>
               <option value="PRODUCTION">Production</option>
               <option value="TEST">Test</option>
+            </Select>
+          )}
+        </Field>
+        <Field label="What the List Is For" hint="Decides which column an upload must have: the address for email, the mobile number for texts, both for both.">
+          {(ids) => (
+            <Select {...ids} value={channel} onChange={(event) => setChannel(event.target.value)}>
+              <option value="EMAIL">Email</option>
+              <option value="SMS">Texts</option>
+              <option value="BOTH">Email and Texts</option>
             </Select>
           )}
         </Field>

@@ -53,9 +53,19 @@ PROPERTIES = {
                    ("loyaltyid", "loyaltynumber", "loyaltyno", "memberid", "membernumber", "membershipid", "cardnumber")),
     "loyalty_tier": ("Loyalty tier", False, "", ("loyaltytier", "tier", "memberlevel", "level")),
     "last_order_date": ("Last order date", False, "", ("lastorderdate", "lastorder", "lastpurchase", "lastpurchasedate", "lastpurchaseat")),
-    "consent_date": ("Consent date", False, "Recorded as an email opt-in for people CEP has no consent answer for. It never overrides an unsubscribe.",
-                     ("consentdate", "optindate", "optin", "consent", "subscribedat", "subscribedate", "optindatetime")),
+    "consent_date": ("Email consent date", False, "Recorded as an email opt-in for people CEP has no consent answer for. It never overrides an unsubscribe.",
+                     ("consentdate", "optindate", "optin", "consent", "subscribedat", "subscribedate", "optindatetime", "emailconsentdate", "emailconsent", "emailoptin", "emailoptindate")),
+    "sms_consent_date": ("Text consent date", False, "Recorded as a text (SMS) opt-in for people CEP has no consent answer for. It never overrides a STOP.",
+                         ("textconsentdate", "smsconsentdate", "textconsent", "smsconsent", "smsoptin", "textoptin", "smsoptindate", "textoptindate", "mobileconsent", "mobileoptin", "mobileconsentdate")),
 }
+# the column an upload must have, by what the list is for
+REQUIRED = {"EMAIL": ("email",), "SMS": ("mobile",), "BOTH": ("email", "mobile")}
+MISSING = {"email": "Choose the column that holds the email address.", "mobile": "Choose the column that holds the mobile number."}
+
+
+def channel_of(contact_list) -> str:
+    channel = str(getattr(contact_list, "channel", "") or "EMAIL").upper()
+    return channel if channel in REQUIRED else "EMAIL"
 EMAIL_RE = r"^[a-z0-9._%+'-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$"           # passed as a query parameter, applied to the lower-cased address
 PARTY_ID = "'UPL-' || substr(encode(sha256(convert_to(r.tenant_id::text || ':' || lower({email}), 'UTF8')), 'hex'), 1, 32)"
 
@@ -68,8 +78,10 @@ class Cancelled(Exception):
     """The operator cancelled the upload while a worker was on it."""
 
 
-def catalogue() -> list[dict]:
-    return [{"key": key, "label": label, "required": required, "help": help_} for key, (label, required, help_, _) in PROPERTIES.items()]
+def catalogue(channel: str = "EMAIL") -> list[dict]:
+    """The properties with the required flags for a list of this channel."""
+    needed = set(REQUIRED.get(channel, REQUIRED["EMAIL"]))
+    return [{"key": key, "label": label, "required": key in needed, "help": help_} for key, (label, _, help_, _) in PROPERTIES.items()]
 
 
 def _conn():
@@ -206,8 +218,9 @@ def clean_mapping(record: ContactListImport, mapping: dict) -> dict:
             raise ImportError_(f"“{column}” is mapped to both {PROPERTIES[used[column]][0]} and {PROPERTIES[key][0]}. Use each column once.")
         used[column] = key
         cleaned[key] = column
-    if "email" not in cleaned:
-        raise ImportError_("Choose the column that holds the email address.")
+    for key in REQUIRED[channel_of(record.contact_list)]:
+        if key not in cleaned:
+            raise ImportError_(MISSING[key])
     return cleaned
 
 
@@ -305,8 +318,9 @@ def _stage_as(record: ContactListImport, encoding: str, chunk_rows: int, beat) -
 
 
 # ---------------------------------------------------------------- worker: check the rows
-def _expressions(mapping: dict) -> tuple[dict, dict]:
-    """SQL expressions over contact_list_import_row r for every property, and their parameters."""
+def _expressions(mapping: dict, channel: str = "EMAIL") -> tuple[dict, dict]:
+    """SQL expressions over contact_list_import_row r for every property, and their parameters. `identity` is what a new
+    person is recognised by: the email address, or for a text list the mobile number when the row has no usable address."""
     params, value = {}, {}
     for key in PROPERTIES:
         if key in mapping:
@@ -320,8 +334,12 @@ def _expressions(mapping: dict) -> tuple[dict, dict]:
                                     WHEN length({digits}) = 10 THEN '+1' || {digits}
                                     WHEN length({digits}) = 11 AND {digits} LIKE '1%%' THEN '+' || {digits}
                                     ELSE NULL END"""
-    for key in ("last_order_date", "consent_date"):
+    for key in ("last_order_date", "consent_date", "sms_consent_date"):
         value[f"{key}_ok"] = f"({value[key]} IS NOT NULL AND pg_input_is_valid({value[key]}, 'date'))"
+    params["email_re"] = EMAIL_RE
+    value["email_ok"] = f"({value['email']} IS NOT NULL AND length({value['email']}) <= 254 AND lower({value['email']}) ~ %(email_re)s)"
+    value["email_use"] = f"CASE WHEN {value['email_ok']} THEN lower({value['email']}) END"
+    value["identity"] = f"COALESCE({value['email_use']}, {value['mobile_e164']})" if channel == "SMS" else f"lower({value['email']})"
     return value, params
 
 
@@ -335,8 +353,10 @@ def _ranges(last_line: int, chunk_rows: int):
 
 def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     mapping = clean_mapping(record, record.column_mapping)
-    v, base = _expressions(mapping)
+    channel = channel_of(record.contact_list)
+    v, base = _expressions(mapping, channel)
     base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "email_re": EMAIL_RE})
+    consent_key = "sms_consent_date" if channel == "SMS" else "consent_date"              # the consent the governance check reads from the file
     mine = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s"
     span = mine + " AND r.row_number BETWEEN %(a)s AND %(b)s"
     last_line = record.row_count + 1
@@ -344,7 +364,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     steps, done = len(ranges) * 2 + 3, 0
     # a valid consent date in the file, not in the future, for someone CEP has no answer for, becomes an opt-in when the
     # file is imported: the check already counts that person as marketable
-    from_file = f"({v['consent_date_ok']} AND ({v['consent_date']})::date <= current_date AND COALESCE(cs.consent_status, 'UNKNOWN') = 'UNKNOWN')"
+    from_file = f"({v[consent_key + '_ok']} AND ({v[consent_key]})::date <= current_date AND COALESCE(cs.consent_status, 'UNKNOWN') = 'UNKNOWN')"
 
     def tick():
         nonlocal done
@@ -356,7 +376,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
         # who CEP knows, once per job and indexed, instead of scanning the customer master for every range of lines.
         # Temporary tables are private to this database session; the worker keeps the connection for the whole job.
         with session.tx(), connection.cursor() as cursor:
-            cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty")
+            cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone")
             cursor.execute("""CREATE TEMP TABLE cep_known_email AS
                               SELECT lower(e ->> 'address') AS address, min(cm.party_id) AS party_id
                                 FROM customer_master cm, jsonb_array_elements(cm.emails) e
@@ -366,6 +386,11 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                               SELECT upper(cm.custom_attributes ->> 'loyalty_id') AS loyalty_id, min(cm.party_id) AS party_id
                                 FROM customer_master cm WHERE cm.tenant_id = %(tenant)s AND cm.custom_attributes ? 'loyalty_id' GROUP BY 1""", base)
             cursor.execute("CREATE UNIQUE INDEX ON cep_known_loyalty (loyalty_id)")
+            cursor.execute("""CREATE TEMP TABLE cep_known_phone AS
+                              SELECT p ->> 'number' AS number, min(cm.party_id) AS party_id
+                                FROM customer_master cm, jsonb_array_elements(cm.phones) p
+                               WHERE cm.tenant_id = %(tenant)s AND COALESCE(p ->> 'number', '') <> '' GROUP BY 1""", base)
+            cursor.execute("CREATE UNIQUE INDEX ON cep_known_phone (number)")
             cursor.execute("ANALYZE cep_known_email")
         tick()
 
@@ -374,20 +399,26 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
             with session.tx(), connection.cursor() as cursor:
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'PENDING', match_method = NULL, matched_party_id = NULL,
                                           error_message = NULL, warning = NULL, governance_status = NULL WHERE {span}""", params)
-                cursor.execute(f"""UPDATE contact_list_import_row r
-                                      SET match_status = 'REJECTED',
-                                          error_message = CASE WHEN {v['email']} IS NULL THEN 'No email address'
-                                                               WHEN length({v['email']}) > 254 THEN 'The email address is too long'
-                                                               ELSE 'Not a valid email address' END
-                                    WHERE {span} AND ({v['email']} IS NULL OR length({v['email']}) > 254 OR lower({v['email']}) !~ %(email_re)s)""", params)
+                if channel != "SMS":                           # an email list, or both: the address is who the person is
+                    cursor.execute(f"""UPDATE contact_list_import_row r
+                                          SET match_status = 'REJECTED',
+                                              error_message = CASE WHEN {v['email']} IS NULL THEN 'No email address'
+                                                                   WHEN length({v['email']}) > 254 THEN 'The email address is too long'
+                                                                   ELSE 'Not a valid email address' END
+                                        WHERE {span} AND ({v['email']} IS NULL OR length({v['email']}) > 254 OR lower({v['email']}) !~ %(email_re)s)""", params)
+                if channel != "EMAIL":                         # a text list, or both: a usable mobile number
+                    cursor.execute(f"""UPDATE contact_list_import_row r
+                                          SET match_status = 'REJECTED',
+                                              error_message = CASE WHEN {v['mobile']} IS NULL THEN 'No mobile number' ELSE 'Mobile number not recognised' END
+                                        WHERE {span} AND r.match_status = 'PENDING' AND ({v['mobile_e164']}) IS NULL""", params)
             tick()
 
-        with session.tx(), connection.cursor() as cursor:                 # 2. the same address again, anywhere further down the file
+        with session.tx(), connection.cursor() as cursor:                 # 2. the same person again, anywhere further down the file
             cursor.execute(f"""UPDATE contact_list_import_row r
-                                  SET match_status = 'DUPLICATE', error_message = 'Same email address as line ' || d.first_line
+                                  SET match_status = 'DUPLICATE', error_message = 'Same {"mobile number" if channel == "SMS" else "email address"} as line ' || d.first_line
                                  FROM (SELECT r.id, row_number() OVER w AS n, first_value(r.row_number) OVER w AS first_line
                                          FROM contact_list_import_row r WHERE {mine} AND r.match_status = 'PENDING'
-                                       WINDOW w AS (PARTITION BY lower({v['email']}) ORDER BY r.row_number)) d
+                                       WINDOW w AS (PARTITION BY {v['identity']} ORDER BY r.row_number)) d
                                 WHERE {mine} AND r.id = d.id AND d.n > 1""", base)
         tick()
 
@@ -402,28 +433,45 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                                          FROM cep_known_loyalty k
                                         WHERE {span} AND r.match_status = 'PENDING' AND upper({v['loyalty_id']}) = k.loyalty_id""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'EMAIL', matched_party_id = k.party_id
-                                     FROM cep_known_email k WHERE {span} AND r.match_status = 'PENDING' AND lower({v['email']}) = k.address""", params)
-                cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED', match_method = 'EMAIL',
-                                          matched_party_id = {PARTY_ID.format(email=v['email'])}
+                                     FROM cep_known_email k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) = k.address""", params)
+                if channel == "SMS":                           # a text list: the number recognises someone CEP knows when the row has no usable address
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'PHONE', matched_party_id = k.party_id
+                                         FROM cep_known_phone k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) IS NULL AND ({v['mobile_e164']}) = k.number""", params)
+                cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED', match_method = CASE WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
+                                          matched_party_id = {PARTY_ID.format(email=v['identity'])}
                                     WHERE {span} AND r.match_status = 'PENDING'""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r
                                       SET warning = NULLIF(concat_ws('; ', r.warning,
                                             CASE WHEN {v['mobile']} IS NOT NULL AND ({v['mobile_e164']}) IS NULL THEN 'Mobile number not recognised: left out' END,
+                                            CASE WHEN {v['email']} IS NOT NULL AND NOT {v['email_ok']} THEN 'Email address not recognised: left out' END,
+                                            CASE WHEN {v['sms_consent_date']} IS NOT NULL AND NOT {v['sms_consent_date_ok']} THEN 'Text consent date not recognised: no consent recorded'
+                                                 WHEN {v['sms_consent_date_ok']} AND ({v['sms_consent_date']})::date > current_date THEN 'Text consent date is in the future: no consent recorded' END,
                                             CASE WHEN {v['last_order_date']} IS NOT NULL AND NOT {v['last_order_date_ok']} THEN 'Last order date not recognised: left out' END,
                                             CASE WHEN {v['consent_date']} IS NOT NULL AND NOT {v['consent_date_ok']} THEN 'Consent date not recognised: no consent recorded'
                                                  WHEN {v['consent_date_ok']} AND ({v['consent_date']})::date > current_date THEN 'Consent date is in the future: no consent recorded' END), '')
                                     WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')""", params)
                 # 6. the governance check. The address judged is the one a send would use: the customer's primary address for
                 #    someone known, the address in the file for someone new.
-                cursor.execute(f"""UPDATE contact_list_import_row r SET governance_status = g.status
-                                     FROM (SELECT r.id, {governance.status_sql(from_file)} AS status
-                                             FROM contact_list_import_row r
-                                             LEFT JOIN customer_master cm ON cm.party_id = r.matched_party_id AND cm.tenant_id = r.tenant_id
-                                             LEFT JOIN consent_suppression cs ON cs.tenant_id = r.tenant_id AND cs.party_id = r.matched_party_id AND cs.channel = 'EMAIL'
-                                             LEFT JOIN contact_point_status cps ON cps.tenant_id = r.tenant_id AND cps.contact_point_type = 'EMAIL'
-                                                  AND cps.contact_value = COALESCE({governance.PRIMARY_EMAIL_SQL}, lower({v['email']}))::citext
-                                            WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')) g
-                                    WHERE {span} AND r.id = g.id""", params)
+                if channel == "SMS":                           # a text list is judged on the number: STOP, registry, blocked, text consent
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET governance_status = g.status
+                                         FROM (SELECT r.id, {governance.status_sql(from_file)} AS status
+                                                 FROM contact_list_import_row r
+                                                 LEFT JOIN customer_master cm ON cm.party_id = r.matched_party_id AND cm.tenant_id = r.tenant_id
+                                                 LEFT JOIN consent_suppression cs ON cs.tenant_id = r.tenant_id AND cs.party_id = r.matched_party_id AND cs.channel = 'SMS'
+                                                 LEFT JOIN contact_point_status cps ON cps.tenant_id = r.tenant_id AND cps.contact_point_type = 'PHONE'
+                                                      AND cps.contact_value = ({v['mobile_e164']})::citext
+                                                WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')) g
+                                        WHERE {span} AND r.id = g.id""", params)
+                else:
+                    cursor.execute(f"""UPDATE contact_list_import_row r SET governance_status = g.status
+                                         FROM (SELECT r.id, {governance.status_sql(from_file)} AS status
+                                                 FROM contact_list_import_row r
+                                                 LEFT JOIN customer_master cm ON cm.party_id = r.matched_party_id AND cm.tenant_id = r.tenant_id
+                                                 LEFT JOIN consent_suppression cs ON cs.tenant_id = r.tenant_id AND cs.party_id = r.matched_party_id AND cs.channel = 'EMAIL'
+                                                 LEFT JOIN contact_point_status cps ON cps.tenant_id = r.tenant_id AND cps.contact_point_type = 'EMAIL'
+                                                      AND cps.contact_value = COALESCE({governance.PRIMARY_EMAIL_SQL}, lower({v['email']}))::citext
+                                                WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')) g
+                                        WHERE {span} AND r.id = g.id""", params)
             tick()
 
         with session.tx(), connection.cursor() as cursor:
@@ -431,9 +479,11 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                                 WHERE {mine} AND r.match_status IN ('MATCHED', 'UNMATCHED') GROUP BY 1""", base)
             by_status = dict(cursor.fetchall())
             cursor.execute(f"""SELECT count(*) FILTER (WHERE r.error_message = 'No email address'),
-                                      count(*) FILTER (WHERE r.match_status = 'REJECTED' AND r.error_message <> 'No email address')
+                                      count(*) FILTER (WHERE r.match_status = 'REJECTED' AND r.error_message IN ('The email address is too long', 'Not a valid email address')),
+                                      count(*) FILTER (WHERE r.error_message = 'No mobile number'),
+                                      count(*) FILTER (WHERE r.error_message = 'Mobile number not recognised')
                                  FROM contact_list_import_row r WHERE {mine}""", base)
-            no_email, bad_email = cursor.fetchone()
+            no_email, bad_email, no_mobile, bad_mobile = cursor.fetchone()
             mobile = None
             if "mobile" in mapping:                       # text campaigns: how many usable numbers, how many of them blocked (STOP, registry)
                 cursor.execute(f"""SELECT count(*) FILTER (WHERE m.number IS NOT NULL), count(*) FILTER (WHERE p.blocked)
@@ -453,7 +503,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     finally:
         try:
             with connection.cursor() as cursor:
-                cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty")
+                cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone")
         except Exception:                                 # noqa: BLE001  (the session ends with the job anyway)
             pass
     record.column_mapping = mapping
@@ -461,7 +511,8 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
     record.rejected_count, record.warning_count = rejected, warnings
     record.progress_done = record.progress_total = record.row_count
     record.summary = {"rows": record.row_count,
-                      "held_back": {"total": rejected + duplicate, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "DUPLICATE_IN_FILE": duplicate},
+                      "held_back": {"total": rejected + duplicate, "NO_EMAIL": no_email, "INVALID_EMAIL": bad_email, "NO_MOBILE": no_mobile, "INVALID_MOBILE": bad_mobile,
+                                    "DUPLICATE_IN_FILE": duplicate},
                       "ready": {"total": matched + new, "new": new, "existing": matched},
                       "governance": {code: int(by_status.get(code, 0)) for code in governance.STATUSES},
                       "mobile": mobile, "checked_at": timezone.now().isoformat()}
@@ -488,8 +539,8 @@ def issues(record: ContactListImport, limit: int = 50) -> list[dict]:
 # ---------------------------------------------------------------- worker: add to the list
 def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> None:
     """A range of lines per transaction. Safe to run again after a crash: every insert skips what is already there."""
-    v, base = _expressions(record.column_mapping)
     contact_list = record.contact_list
+    v, base = _expressions(record.column_mapping, channel_of(contact_list))
     base.update({"imp": str(record.pk), "tenant": str(record.tenant_id), "list": str(contact_list.pk), "file": record.file_name})
     span = "r.tenant_id = %(tenant)s AND r.import_id = %(imp)s AND r.row_number BETWEEN %(a)s AND %(b)s"
     created = added = consents = 0
@@ -499,7 +550,8 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
             # people CEP did not know: its own customer rows (not a C360 copy), addressed by a key derived from workspace + address
             cursor.execute(f"""INSERT INTO customer_master (party_id, tenant_id, first_name, last_name, emails, phones, primary_address, custom_attributes, source_system, is_synced_copy)
                                SELECT r.matched_party_id, r.tenant_id, left({v['first_name']}, 120), left({v['last_name']}, 120),
-                                      jsonb_build_array(jsonb_build_object('address', lower({v['email']}), 'is_primary', TRUE, 'is_valid', TRUE)),
+                                      CASE WHEN ({v['email_use']}) IS NULL THEN '[]'::jsonb
+                                           ELSE jsonb_build_array(jsonb_build_object('address', {v['email_use']}, 'is_primary', TRUE, 'is_valid', TRUE)) END,
                                       CASE WHEN ({v['mobile_e164']}) IS NULL THEN '[]'::jsonb
                                            ELSE jsonb_build_array(jsonb_build_object('number', {v['mobile_e164']}, 'type', 'MOBILE', 'is_primary', TRUE)) END,
                                       CASE WHEN {v['postal_code']} IS NULL THEN NULL ELSE jsonb_build_object('postal_code', {v['postal_code']}) END,
@@ -520,26 +572,28 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                 ORDER BY r.matched_party_id, r.row_number
                                ON CONFLICT (tenant_id, contact_list_id, party_id) DO NOTHING""", params)
             added += cursor.rowcount
-            if "consent_date" in record.column_mapping:
+            for consent_column, consent_channel in (("consent_date", "EMAIL"), ("sms_consent_date", "SMS")):
+                if consent_column not in record.column_mapping:
+                    continue
                 cursor.execute(f"""WITH given AS (
-                                        SELECT DISTINCT ON (r.matched_party_id) r.matched_party_id AS party_id, r.row_number, ({v['consent_date']})::date AS given_on
+                                        SELECT DISTINCT ON (r.matched_party_id) r.matched_party_id AS party_id, r.row_number, ({v[consent_column]})::date AS given_on
                                           FROM contact_list_import_row r
-                                         WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED') AND {v['consent_date_ok']} AND ({v['consent_date']})::date <= current_date
+                                         WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED') AND {v[consent_column + '_ok']} AND ({v[consent_column]})::date <= current_date
                                            AND NOT EXISTS (SELECT 1 FROM consent_suppression cs WHERE cs.tenant_id = r.tenant_id AND cs.party_id = r.matched_party_id
-                                                              AND cs.channel = 'EMAIL' AND cs.consent_status <> 'UNKNOWN')
+                                                              AND cs.channel = %(channel)s AND cs.consent_status <> 'UNKNOWN')
                                          ORDER BY r.matched_party_id, r.row_number),
                                       recorded AS (
                                         INSERT INTO consent_record (tenant_id, party_id, channel, action, source, evidence, contact_list_id, occurred_at)
-                                        SELECT %(tenant)s, g.party_id, 'EMAIL', 'OPT_IN', 'IMPORT',
+                                        SELECT %(tenant)s, g.party_id, %(channel)s, 'OPT_IN', 'IMPORT',
                                                jsonb_build_object('file', %(file)s, 'line', g.row_number, 'import_id', %(imp)s, 'consent_date', g.given_on),
                                                %(list)s, now()          -- consent_record is partitioned by month on occurred_at: the day it was GIVEN is in the evidence
                                           FROM given g RETURNING id, party_id, (evidence ->> 'consent_date')::date AS given_on)
                                    INSERT INTO consent_suppression (tenant_id, party_id, channel, consent_status, opted_in_at, marketable, last_consent_record_id, source_system, updated_at)
-                                   SELECT %(tenant)s, party_id, 'EMAIL', 'OPTED_IN', given_on, TRUE, id, 'CEP', now() FROM recorded
+                                   SELECT %(tenant)s, party_id, %(channel)s, 'OPTED_IN', given_on, TRUE, id, 'CEP', now() FROM recorded
                                    ON CONFLICT (tenant_id, party_id, channel) DO UPDATE
                                       SET consent_status = 'OPTED_IN', opted_in_at = EXCLUDED.opted_in_at, marketable = NOT consent_suppression.suppressed,
                                           marketable_reason = NULL, last_consent_record_id = EXCLUDED.last_consent_record_id, updated_at = now()
-                                    WHERE consent_suppression.consent_status = 'UNKNOWN'""", params)
+                                    WHERE consent_suppression.consent_status = 'UNKNOWN'""", {**params, "channel": consent_channel})
                 consents += cursor.rowcount
         beat(min(b - 1, record.row_count), record.row_count)
 

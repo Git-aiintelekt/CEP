@@ -11,6 +11,8 @@ import { Modal } from '@/components/Modal'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+
+import { CHANNEL_LABEL } from './uploadTemplate'
 import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { useFieldRules } from '@/lib/fieldRules'
@@ -170,6 +172,7 @@ export function ContactListsPage() {
       ),
     },
     { key: 'type', header: 'Type', render: (row) => <TypeBadge environment={row.list_environment} /> },
+    { key: 'for', header: 'For', render: (row) => <Tag>{CHANNEL_LABEL[row.channel] ?? 'Email'}</Tag> },
     { key: 'source', header: 'Source', render: (row) => <Tag>{row.source_label ?? row.source_type}</Tag> },
     { key: 'contacts', header: 'Contacts', align: 'right', render: (row) => formatNumber(row.member_count) },
     { key: 'reach', header: 'Can Reach', align: 'right', render: (row) => <ReachCell list={row} /> },

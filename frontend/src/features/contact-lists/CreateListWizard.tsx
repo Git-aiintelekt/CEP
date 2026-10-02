@@ -18,12 +18,12 @@ import { Spinner } from '@/components/States'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
-import type { Audience, ContactList, ListImport, ListSource, Page } from '@/lib/types'
+import type { Audience, ContactList, ListImport, ListSource, Page, ListChannel } from '@/lib/types'
 
 import { problemText } from './problem'
 import { POLL_MS, watchedUploads } from './uploadJobs'
 import { UploadReport } from './UploadReport'
-import { downloadTemplate, FORMAT_LINE, UPLOAD_COLUMNS } from './uploadTemplate'
+import { downloadTemplate, formatLine, uploadColumns } from './uploadTemplate'
 import { ProgressBar } from './UploadsIndicator'
 
 type Step = 'method' | 'file' | 'map' | 'review' | 'importing' | 'audience' | 'clone' | 'done'
@@ -56,21 +56,27 @@ const TYPES = [
   { value: 'TEST', title: 'Test', text: 'Held out of governed sends until you promote it.' },
 ]
 
+const CHANNELS: { value: ListChannel; title: string; text: string }[] = [
+  { value: 'EMAIL', title: 'Email', text: 'An email address per row. For email campaigns.' },
+  { value: 'SMS', title: 'Texts', text: 'A mobile number per row; an address is optional. For SMS and MMS campaigns.' },
+  { value: 'BOTH', title: 'Email and Texts', text: 'An address and a number per row. One list for every channel.' },
+]
+
 /** Under the drop zone: the file format in one line, the columns the import knows, and the sample to download. */
-function TemplateNote() {
+function TemplateNote({ channel }: { channel: ListChannel }) {
   return (
     <div className="mt-4 rounded-lg border border-line bg-surface p-4" data-upload-template>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink-900">File Format</p>
-          <p className="mt-1 text-xs text-ink-800">{FORMAT_LINE}</p>
+          <p className="mt-1 text-xs text-ink-800">{formatLine(channel)}</p>
         </div>
-        <button type="button" className={buttonSecondary} onClick={downloadTemplate}>
+        <button type="button" className={buttonSecondary} onClick={() => downloadTemplate(channel)}>
           <Download size={16} strokeWidth={1.5} aria-hidden />Download Sample CSV
         </button>
       </div>
       <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Columns the import recognises">
-        {UPLOAD_COLUMNS.map((column) => (
+        {uploadColumns(channel).map((column) => (
           <li key={column.header} title={column.note || undefined}
             className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-brand-600 bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-800'}`}>
             {column.header}{column.required ? ' · required' : ''}
@@ -125,6 +131,7 @@ interface WizardProps {
 export function CreateListWizard({ onClose, onCreated, inCampaign = false, resume, initialSource = 'UPLOAD', sources, embedded = false }: WizardProps) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<Step>('method')
+  const [channel, setChannel] = useState<ListChannel>('EMAIL')
   const [source, setSource] = useState<ListSource>(initialSource)
   const [name, setName] = useState('')
   const rule = useFieldRules('new_contact_list')
@@ -183,6 +190,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         setName(list.name)
         setDescription(list.description ?? '')
         setEnvironment(list.list_environment)
+        setChannel((list.channel as ListChannel) || 'EMAIL')
         setUpload(staged)
         setMapping(staged.mapping)
         setStep(staged.status === 'APPLYING' ? 'importing' : staged.status === 'REVIEW' || staged.status === 'MATCHING' || staged.mapping_confirmed ? 'review' : 'map')
@@ -249,7 +257,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
         setStep(source === 'BI' ? 'audience' : 'clone')
         return
       }
-      const body = { name, description, list_environment: environment }
+      const body = { name, description, list_environment: environment, channel }
       setDraft(draft ? await api.patch<ContactList>(`/contact-lists/${draft.id}/`, body) : await api.post<ContactList>('/contact-lists/', body))
       setStep('file')
     })
@@ -299,8 +307,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
     onClose()
   }
 
-  const fromAudience = () => run(async () => finish(await api.post<ContactList>('/contact-lists/from-audience/', { name, description, list_environment: environment, audience })))
-  const fromClone = () => run(async () => finish(await api.post<ContactList>(`/contact-lists/${parent}/clone/`, { name, description, list_environment: environment })))
+  const fromAudience = () => run(async () => finish(await api.post<ContactList>('/contact-lists/from-audience/', { name, description, list_environment: environment, channel, audience })))
+  const fromClone = () => run(async () => finish(await api.post<ContactList>(`/contact-lists/${parent}/clone/`, { name, description, list_environment: environment, channel })))
 
   const back = () => {
     setError('')
@@ -316,7 +324,8 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       return property ? { ...next, [property]: column } : next
     })
   const mappedCount = upload ? upload.columns.filter((column) => propertyOf(column.name)).length : 0
-  const emailMapped = columnOf('email') !== ''
+  const missing = (upload?.properties ?? []).filter((item) => item.required && columnOf(item.key) === '')
+  const emailMapped = missing.length === 0
 
   const primary: { label: string; action: () => void; disabled: boolean } | null =
     step === 'method' ? { label: 'Continue', action: fromMethod, disabled: name.trim() === '' }
@@ -408,6 +417,14 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             {draft && <p className="mt-2 text-xs text-ink-800">The file upload has started for this list. Cancel to choose another source.</p>}
           </div>
           <div>
+            <p id="cl-channel" className="mb-2 text-sm font-semibold text-ink-900">What the List Is For</p>
+            <div role="radiogroup" aria-labelledby="cl-channel" className="grid gap-3 sm:grid-cols-3">
+              {CHANNELS.map((item) => (
+                <ChoiceCard key={item.value} selected={channel === item.value} onSelect={() => !draft && setChannel(item.value)} title={item.title} text={item.text} />
+              ))}
+            </div>
+          </div>
+          <div>
             <p id="cl-type" className="mb-2 text-sm font-semibold text-ink-900">List Type</p>
             <div role="radiogroup" aria-labelledby="cl-type" className="grid gap-3 sm:grid-cols-2">
               {TYPES.map((item) => (
@@ -458,7 +475,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               </button>
             </div>
           )}
-          {!upload && <TemplateNote />}
+          {!upload && <TemplateNote channel={channel} />}
         </div>
       )}
 
@@ -506,7 +523,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             </table>
           </div>
           <p className={`mt-3 text-sm ${emailMapped ? 'text-ink-800' : 'font-medium text-danger-plain'}`} aria-live="polite">
-            {mappedCount} of {upload.columns.length} columns mapped{emailMapped ? '' : ' · email still needs a column'}
+            {mappedCount} of {upload.columns.length} columns mapped{emailMapped ? '' : ` · ${missing.map((item) => item.label.toLowerCase()).join(' and ')} still ${missing.length === 1 ? 'needs' : 'need'} a column`}
           </p>
         </div>
       )}
