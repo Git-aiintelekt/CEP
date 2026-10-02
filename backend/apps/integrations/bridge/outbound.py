@@ -15,7 +15,7 @@ import requests
 from django.core.cache import cache
 from django.utils import timezone
 
-from . import logbook, throttle
+from . import logbook, redact, throttle
 
 log = logging.getLogger("cep.integrations")
 
@@ -142,10 +142,10 @@ class LoggedSession(requests.Session):
         try:
             response = super().request(method, url, **kwargs)
         except requests.RequestException as exc:
-            self.guard.log(method=method, url=url, request_headers=merged_headers, request_body=body, outcome="ERROR",
+            self.guard.log(method=method, url=redact.url(url), request_headers=merged_headers, request_body=body, outcome="ERROR",
                            error_class=exc.__class__.__name__, error_message=str(exc), duration_ms=watch.ms())
             raise
-        self.guard.log(method=method, url=url, request_headers=merged_headers, request_body=body, response_status=response.status_code,
+        self.guard.log(method=method, url=redact.url(url), request_headers=merged_headers, request_body=body, response_status=response.status_code,
                        response_headers=dict(response.headers), response_body=response.content, outcome=outcome_for_status(response.status_code),
                        duration_ms=watch.ms())
         return response
@@ -173,6 +173,32 @@ def _trouble(guard, integration, exc) -> None:
 
 def guarded_send(adapter, message, related_ref: str | None = None):
     """adapter.send(message) with the integration's pause, circuit breaker and throttle in front of it, and a log row behind it."""
+    summary = {"to": getattr(message, "to_email", None) or getattr(message, "to_number", None), "subject": getattr(message, "subject", None),
+               "idempotency_key": getattr(message, "idempotency_key", None), "tag": getattr(message, "tag", None), "traffic": getattr(message, "traffic", None)}
+    return _guarded(adapter, message, summary, lambda: adapter.send(message), related_ref)
+
+
+def guarded_send_many(adapter, messages: list, related_ref: str | None = None) -> list:
+    """adapter.send_many(messages) under the same guard: one pause / breaker / throttle decision and one log row for the batch.
+    The batch's outcome for the breaker is its worst one: a RETRY in it counts as a failure."""
+    from apps.delivery.providers.base import Outcome, SendResult
+
+    first = messages[0] if messages else None
+    summary = {"to": f"{len(messages)} recipients", "idempotency_key": getattr(first, "idempotency_key", None), "tag": getattr(first, "tag", None),
+               "traffic": getattr(first, "traffic", None), "batch": [getattr(m, "idempotency_key", None) for m in messages[:50]]}
+
+    def call():
+        results = adapter.send_many(messages)
+        worst = next((r for r in results if r.outcome is Outcome.RETRY), None) or next((r for r in results if r.outcome is Outcome.REJECTED), None)
+        accepted = sum(1 for r in results if r.outcome is Outcome.ACCEPTED)
+        summary_result = SendResult(worst.outcome if worst else Outcome.ACCEPTED, "", f"{accepted} of {len(results)} accepted" + (f"; {worst.reason}" if worst else ""))
+        summary_result.results = results
+        return summary_result
+
+    return _guarded(adapter, first, summary, call, related_ref).results
+
+
+def _guarded(adapter, message, summary: dict, call, related_ref: str | None):
     from apps.delivery.providers.base import Outcome, ProviderError
 
     guard = getattr(adapter, "guard", None)
@@ -181,8 +207,6 @@ def guarded_send(adapter, message, related_ref: str | None = None):
     guard.related_ref = related_ref
     integration = guard.integration
     synthetic_url = f"{guard.system.lower()}://{adapter.provider_id or 'engine'}"
-    summary = {"to": getattr(message, "to_email", None) or getattr(message, "to_number", None), "subject": getattr(message, "subject", None),
-               "idempotency_key": getattr(message, "idempotency_key", None), "tag": getattr(message, "tag", None), "traffic": getattr(message, "traffic", None)}
 
     if integration and integration.get("status") == "PAUSED":
         guard.log(method="SEND", url=synthetic_url, request_body=summary, outcome="PAUSED", error_message="The integration is paused")
@@ -201,7 +225,7 @@ def guarded_send(adapter, message, related_ref: str | None = None):
     before = guard.calls
     watch = logbook.Stopwatch()
     try:
-        result = adapter.send(message)
+        result = call()
     except ProviderError as exc:
         opened = guard.breaker.failure()
         if guard.calls == before:

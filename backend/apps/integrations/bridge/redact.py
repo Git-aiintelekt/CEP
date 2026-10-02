@@ -71,3 +71,16 @@ def body(raw, max_bytes: int) -> tuple[str | None, int]:
         digest = hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
         text = text.encode("utf-8", errors="replace")[:max_bytes].decode("utf-8", errors="ignore") + f"\n… [truncated: {size} bytes, sha256 {digest}]"
     return text, size
+
+
+QUERY_SECRETS = {"key", "api_key", "apikey", "signature", "token", "access_token", "secret", "secret_key", "password", "sig"}
+
+
+def url(raw: str | None) -> str | None:
+    """The URL with credential-like query values masked: ?key=***&timestamp=1700000000&signature=***"""
+    if not raw or "?" not in raw:
+        return raw
+    from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+    parts = urlsplit(raw)
+    pairs = [(name, "***" if name.lower() in QUERY_SECRETS else value) for name, value in parse_qsl(parts.query, keep_blank_values=True)]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(pairs, safe="*"), parts.fragment))

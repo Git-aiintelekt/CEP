@@ -90,6 +90,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         raise
 
     try:
+        prepared = []                                           # (execution_id, member_id, claimed, text, metrics, message)
         for execution_id in execution_ids:
             claimed = _claim(tenant_id, execution_id)
             if claimed is None:
@@ -110,20 +111,29 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                             reason="The message is empty after personalization" if not text else f"The message is {len(text)} characters after personalization (at most {design.MAX_MESSAGE_CHARS})")
                     counts["failed"] += 1
                     continue
-                result = provider.send_guarded(SmsMessage(to_number=phone, from_sender=from_sender or "", text=text, media_url=media_url if message_type == "MMS" else None,
-                                                  subject=rendered["subject"] if message_type == "MMS" else "", idempotency_key=idempotency_key, tag=campaign.code or "",
-                                                  metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)}), related_ref=f"sms_execution:{execution_id}")
-            except ProviderError as exc:
-                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
-                if exc.retryable:
-                    raise RetryBatch(execution_ids, str(exc)) from None
-                raise
+                message = SmsMessage(to_number=phone, from_sender=from_sender or "", text=text, media_url=media_url if message_type == "MMS" else None,
+                                     subject=rendered["subject"] if message_type == "MMS" else "", idempotency_key=idempotency_key, tag=campaign.code or "",
+                                     metadata={"cep_tenant": tenant_code, "cep_run": str(run.pk)})
             except Exception as exc:                        # noqa: BLE001  one person's data must not stop the run
                 log.exception("text execution %s could not be prepared", execution_id)
                 _record(tenant_id, execution_id, member_id, status="FAILED", reason=f"{exc.__class__.__name__}: {exc}"[:200])
                 counts["failed"] += 1
                 continue
+            prepared.append((execution_id, member_id, claimed, text, metrics, message))
 
+        # one guarded call for the batch: an aggregator with a batch endpoint (Digivize) makes one request per identical text,
+        # the others one request per message; a refused credential stops the run with every message back in the queue
+        try:
+            results = provider.send_many_guarded([item[5] for item in prepared], related_ref=f"sms_run:{run_id}:{len(prepared)}") if prepared else []
+        except ProviderError as exc:
+            for execution_id, member_id, *_ in prepared:
+                _record(tenant_id, execution_id, member_id, status="QUEUED", reason=str(exc)[:200])
+            if exc.retryable:
+                raise RetryBatch([item[0] for item in prepared], str(exc)) from None
+            raise
+
+        for (execution_id, member_id, claimed, text, metrics, message), result in zip(prepared, results):
+            attempts = claimed[4]
             answer = {"outcome": result.outcome.value, "provider_message_id": result.provider_message_id, "reason": result.reason}
             if result.outcome is Outcome.ACCEPTED:
                 _record(tenant_id, execution_id, member_id, status="SUBMITTED", message_id=result.provider_message_id, text=text, segments=metrics["segments"],

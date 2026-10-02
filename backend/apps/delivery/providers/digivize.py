@@ -1,18 +1,16 @@
-"""Digivize External SMS/MMS API (https://lab.digivize.ai/api/v1/external/sms/...).
+"""Digivize External SMS API: the batch send, signed the way Digivize's own Postman pre-request script signs it.
 
-Written from Digivize's Postman documentation (documenter.getpostman.com/view/2956319/2sBYAsyXk4, "External SMS/MMS
-API"). Every call carries X-Api-Key, X-Timestamp (unix seconds, within 5 minutes of their clock) and X-Signature, an
-HMAC-SHA256 with the secret key. The documentation shows the header scheme but not the string that is signed for a
-JSON request (the query-string form it documents is for the other API groups), and its examples carry one signature
-for every SMS request of the same timestamp, whatever the body. So the adapter knows the plausible forms and the Check
-button finds the one Digivize accepts: it asks for the status of a made-up tracking id with each form until the answer
-is not "invalid signature", then remembers the form on the engine (`signature_scheme`). A form can also be typed in.
+    POST {endpoint}{send_path}?key=<api key>&timestamp=<unix seconds>&signature=<hex>
+         body (JSON, no auth fields): {brand_id, message, message_type, recipients: [{to, variables, external_ref}],
+                                       variable_normalization: "gsm7_safe", auto_create_contacts, idempotency_key, callback_url}
+    signature = HMAC-SHA256(secret key, canonical) where canonical is the body plus `key` and `timestamp`, top-level keys sorted,
+                serialised like PHP's http_build_query (recipients[0][to]=..., spaces as +, !'()* percent-encoded, true/false as 1/0,
+                nested keys in the order they are sent), joined with &. The JSON body is written in the same key order it was signed in.
 
-    send:      POST sms/send   {to, message | trigger_slug, variables, media_urls, callback_url, store_number}
-               -> data.tracking_id (their message id), status queued; 60 requests per minute per API key
-    receipts:  the webhook registered with Digivize posts {event, timestamp, data: {tracking_id, to, status, error_code}}
-               events sms.delivered, sms.failed (undelivered / expired / failed), sms.opted_out
-    inbound:   Digivize has no free-text reply webhook; STOP / START are reported as sms.opted_out (blocked here)
+The reply and the callback shapes are not in the script; the adapter reads the plausible fields (a per-recipient list with
+external_ref / to, tracking_id / message_id / id, status; a batch id) and the callback by external_ref, which carries CEP's
+own message id. CEP personalises the text itself, so a batch holds every recipient of one identical text and sends no variables.
+Receipts: events sms.delivered / sms.failed / sms.undelivered / sms.expired / sms.opted_out, or a status per recipient.
 """
 import hashlib
 import hmac
@@ -20,6 +18,8 @@ import json
 import time
 import uuid
 from datetime import datetime, timezone
+from itertools import groupby
+from urllib.parse import quote, urlencode
 
 import requests
 
@@ -27,51 +27,87 @@ from .base import ConfigField, DeliveryEvent, EventType, InboundMessage, Provide
 from .registry import register
 
 DEFAULT_ENDPOINT = "https://lab.digivize.ai"
-BASE_PATH = "/api/v1/external"
-
-# what Digivize may be signing, tried in this order by Check; each takes (timestamp, api_key, method, path, body) -> the string
-SCHEMES = {
-    "timestamp": lambda ts, key, method, path, body: ts,
-    "key_timestamp": lambda ts, key, method, path, body: key + ts,
-    "timestamp_key": lambda ts, key, method, path, body: ts + key,
-    "timestamp_body": lambda ts, key, method, path, body: ts + body,
-    "canonical": lambda ts, key, method, path, body: "\n".join([ts, method, path, body]),
-    "key_timestamp_body": lambda ts, key, method, path, body: key + ts + body,
-}
+DEFAULT_SEND_PATH = "/api/v1/external/sms/batch"
+MESSAGE_TYPES = ("marketing", "transactional")
+VARIABLE_NORMALIZATION = "gsm7_safe"
+BATCH_NAMESPACE = uuid.UUID("5a1d1e1c-0d2b-4d8e-9f0a-7c6b5a4d3e2f")
 
 # failed / undelivered reasons that mean the number can never receive: the number is blocked for the next run
 PERMANENT = {"invalid_number", "landline", "blocked", "opted_out", "suppressed", "unsubscribed", "deactivated", "unreachable"}
 EVENTS = {"sms.delivered": EventType.DELIVERED, "sms.failed": EventType.BOUNCED, "sms.undelivered": EventType.BOUNCED, "sms.expired": EventType.BOUNCED,
           "sms.opted_out": EventType.BOUNCED}
+FAILED_STATUSES = {"failed", "rejected", "invalid", "error", "undelivered", "blocked"}
+
+
+# ---- the signature, exactly as the Postman script builds it
+def php_urlencode(value) -> str:
+    """encodeURIComponent, then spaces as + and !'()* percent-encoded: what PHP's urlencode produces."""
+    return quote(str(value), safe="").replace("%20", "+")
+
+
+def php_query(value, prefix: str = "") -> list[str]:
+    """http_build_query pairs: arrays as prefix[i], objects as prefix[key], booleans as 1 / 0, nulls left out."""
+    if value is None:
+        return []
+    if isinstance(value, bool):
+        return [f"{php_urlencode(prefix)}={'1' if value else '0'}"]
+    if isinstance(value, (list, tuple)):
+        return [pair for index, item in enumerate(value) for pair in php_query(item, f"{prefix}[{index}]")]
+    if isinstance(value, dict):
+        return [pair for key, item in value.items() for pair in php_query(item, f"{prefix}[{key}]" if prefix else str(key))]
+    return [f"{php_urlencode(prefix)}={php_urlencode(value)}"]
+
+
+def canonical_string(payload: dict) -> str:
+    """Top-level keys sorted; everything below in the order it is sent."""
+    return "&".join(php_query({key: payload[key] for key in sorted(payload)}))
+
+
+def signature_for(secret: str, payload: dict) -> str:
+    return hmac.new((secret or "").strip().encode(), canonical_string(payload).encode(), hashlib.sha256).hexdigest()
 
 
 @register
 class DigivizeProvider(SmsProvider):
     provider_type = "DIGIVIZE"
     label = "Digivize"
-    description = "Digivize SMS / MMS aggregator over its External API. Delivery receipts through a webhook registered with Digivize."
+    description = "Digivize SMS aggregator over its External API: one signed batch per identical text. Delivery receipts through the callback address."
     supports_webhooks = True
     supports_mms = True
-    default_rate_limit_per_minute = 60                       # Digivize's own limit per API key
+    default_rate_limit_per_minute = 60                       # Digivize's own limit per API key; a batch is one request
+    max_batch = 100
     config_fields = (
         ConfigField("endpoint", "API Address", kind="url", placeholder=DEFAULT_ENDPOINT, required=False,
                     help=f"Leave empty for {DEFAULT_ENDPOINT}. Digivize's sandbox has its own address."),
-        ConfigField("api_key", "API Key", help="The X-Api-Key Digivize gave you (sk_...). It identifies the account; the secret key below signs each call."),
-        ConfigField("secret_key", "Secret Key", secret=True, help="Signs every call (HMAC-SHA256). Never shown again once saved."),
-        ConfigField("store_number", "Store Number", required=False, help="Optional. Sent with every message for Digivize's own tracking."),
+        ConfigField("send_path", "Batch Send Path", required=False, placeholder=DEFAULT_SEND_PATH,
+                    help="The path of the batch request in Digivize's Postman collection, when it differs from the placeholder."),
+        ConfigField("api_key", "API Key", help="Digivize's api_key: travels as the `key` query parameter and inside the signed string."),
+        ConfigField("secret_key", "Secret Key", secret=True, help="Digivize's secret_key: signs every call (HMAC-SHA256). Never shown again once saved."),
+        ConfigField("brand_id", "Brand ID", help="The brand the texts are sent under, as Digivize numbers it (brand_id)."),
+        ConfigField("message_type", "Message Type", required=False, placeholder="marketing",
+                    help="marketing (the default) or transactional. Digivize applies its own rules per type."),
         ConfigField("callback_url", "Callback Address to Send", required=False, kind="url",
-                    help="Optional. Paste this engine's callback address (Copy webhook URL on its row): Digivize then posts delivery receipts there per message. "
-                         "Registering the address once with Digivize (their webhooks endpoint) does the same for every message."),
+                    help="Optional. Paste this engine's callback address (Copy Webhook URL on its row): Digivize then posts delivery results there per batch."),
         ConfigField("webhook_secret", "Webhook Secret", required=False,
-                    help="Optional. The secret you gave Digivize for the webhook: receipts are then verified (X-Signature over the body). Empty: the callback address's own token is the check."),
-        ConfigField("signature_scheme", "Signature Form", required=False, placeholder="found by Check",
-                    help="What the HMAC signs. Leave empty: Check tries the known forms and keeps the one Digivize accepts. Forms: " + ", ".join(SCHEMES)),
+                    help="Optional. The secret you gave Digivize for the callback: results are then verified (X-Signature over the body). Empty: the callback address's own token is the check."),
     )
 
     # ---- calls
     @property
-    def _base(self) -> str:
-        return str(self.config.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/") + BASE_PATH
+    def _url(self) -> str:
+        base = str(self.config.get("endpoint") or DEFAULT_ENDPOINT).rstrip("/")
+        path = str(self.config.get("send_path") or DEFAULT_SEND_PATH).strip()
+        return base + ("/" + path.lstrip("/"))
+
+    @property
+    def _message_type(self) -> str:
+        kind = str(self.config.get("message_type") or "marketing").strip().lower()
+        return kind if kind in MESSAGE_TYPES else "marketing"
+
+    @property
+    def _brand_id(self):
+        raw = str(self.config.get("brand_id") or "").strip()
+        return int(raw) if raw.isdigit() else raw
 
     def open(self) -> None:
         self._session = self.new_session()
@@ -83,22 +119,24 @@ class DigivizeProvider(SmsProvider):
             session.close()
             self._session = None
 
-    def _signature(self, scheme: str, timestamp: str, method: str, path: str, body: str) -> str:
-        canonical = SCHEMES[scheme](timestamp, str(self.config.get("api_key") or ""), method.upper(), path, body)
-        return hmac.new((self.secret or "").encode(), canonical.encode(), hashlib.sha256).hexdigest()
-
-    def _request(self, method: str, path: str, body: dict | None = None, scheme: str | None = None):
-        """One signed call. `path` is under /api/v1/external; the body is sent exactly as signed."""
+    def _post(self, body: dict):
+        """The signed batch call: auth in the query string, the body as JSON in the order it was signed."""
         if getattr(self, "_session", None) is None:
             self.open()
-        scheme = scheme or str(self.config.get("signature_scheme") or "").strip() or next(iter(SCHEMES))
-        if scheme not in SCHEMES:
-            raise ProviderError(f"Digivize: unknown signature form '{scheme}'. Leave the field empty and use Check.", retryable=False)
+        key = str(self.config.get("api_key") or "")
         timestamp = str(int(time.time()))
-        text = json.dumps(body, separators=(",", ":"), ensure_ascii=False) if body is not None else ""
-        headers = {"X-Api-Key": str(self.config.get("api_key") or ""), "X-Timestamp": timestamp,
-                   "X-Signature": self._signature(scheme, timestamp, method, BASE_PATH + path, text)}
-        return self._session.request(method.upper(), self._base + path, data=text.encode() if text else None, headers=headers, timeout=20)
+        signature = signature_for(self.secret or "", {**body, "key": key, "timestamp": timestamp})
+        url = f"{self._url}?{urlencode({'key': key, 'timestamp': timestamp, 'signature': signature})}"
+        return self._session.request("POST", url, data=json.dumps(body, ensure_ascii=False).encode(), timeout=30)
+
+    def _body(self, text: str, recipients: list[dict], *, media_url: str | None = None, batch_key: str = "") -> dict:
+        body = {"brand_id": self._brand_id, "message": text, "message_type": self._message_type, "recipients": recipients,
+                "variable_normalization": VARIABLE_NORMALIZATION, "auto_create_contacts": False, "idempotency_key": batch_key or f"cep-{uuid.uuid4()}"}
+        if self.config.get("callback_url"):
+            body["callback_url"] = str(self.config["callback_url"])
+        if media_url:
+            body["media_urls"] = [media_url]                  # not in Digivize's script: unconfirmed until an MMS batch is tried
+        return body
 
     @staticmethod
     def _answer(response) -> dict:
@@ -109,63 +147,110 @@ class DigivizeProvider(SmsProvider):
         return data if isinstance(data, dict) else {}
 
     @staticmethod
-    def _refused(response, answer: dict) -> bool:
-        """401 / 403, or Digivize's own wording for a bad key or signature."""
-        text = str(answer.get("error") or "").lower()
-        return response.status_code in (401, 403) or "signature" in text or "api key" in text
+    def _error(answer: dict, response) -> str:
+        for key in ("error", "message", "detail"):
+            value = answer.get(key)
+            if isinstance(value, dict):
+                value = value.get("message") or json.dumps(value)[:160]
+            if value:
+                return str(value)[:200]
+        errors = answer.get("errors")
+        if isinstance(errors, dict):
+            return "; ".join(f"{k}: {', '.join(map(str, v)) if isinstance(v, list) else v}" for k, v in errors.items())[:200]
+        return f"HTTP {response.status_code}"
+
+    @classmethod
+    def _refused(cls, response, answer: dict) -> bool:
+        """401 / 403, or Digivize's own wording for a bad key, signature or timestamp."""
+        text = cls._error(answer, response).lower()
+        return response.status_code in (401, 403) or "signature" in text or "api key" in text or "api_key" in text or "unauthori" in text or "timestamp" in text
 
     # ---- sending
     def send(self, message: SmsMessage) -> SendResult:
-        body = {"to": message.to_number, "message": message.text}
-        if message.media_url:
-            body["media_urls"] = [message.media_url]
-        if self.config.get("store_number"):
-            body["store_number"] = str(self.config["store_number"])
-        if self.config.get("callback_url"):
-            body["callback_url"] = str(self.config["callback_url"])
-        if message.idempotency_key:
-            body["variables"] = {"cep_id": message.idempotency_key}
-        try:
-            response = self._request("POST", "/sms/send", body)
-        except requests.RequestException as exc:
-            return SendResult.retry(f"{exc.__class__.__name__}: {exc}")
-        answer = self._answer(response)
-        if response.status_code == 429 or response.status_code >= 500:
-            return SendResult.retry(f"Digivize answered HTTP {response.status_code}: {answer.get('error') or ''}".strip(": "))
-        if self._refused(response, answer):
-            raise ProviderError(f"Digivize refused the API key or the signature: {answer.get('error') or response.status_code}. Use Check on the engine.", retryable=False)
-        data = answer.get("data") or {}
-        if answer.get("success") and data.get("tracking_id"):
-            return SendResult.accepted(str(data["tracking_id"]))
-        reason = str(answer.get("error") or data.get("status") or f"HTTP {response.status_code}")
-        return SendResult.rejected(reason)
+        return self.send_many([message])[0]
 
-    # ---- the Check button: which form does Digivize sign?
+    def send_many(self, messages: list[SmsMessage]) -> list[SendResult]:
+        """One batch per run of identical text (CEP already personalised it), at most max_batch recipients each. Results in order."""
+        results: list[SendResult] = []
+        for (text, media_url), group in groupby(messages, key=lambda m: (m.text, m.media_url)):
+            items = list(group)
+            for start in range(0, len(items), self.max_batch):
+                results.extend(self._send_chunk(text, media_url, items[start:start + self.max_batch]))
+        return results
+
+    def _send_chunk(self, text: str, media_url: str | None, chunk: list[SmsMessage]) -> list[SendResult]:
+        refs = [m.idempotency_key or f"cep-{uuid.uuid4().hex}" for m in chunk]
+        recipients = [{"to": m.to_number, "variables": {}, "external_ref": ref} for m, ref in zip(chunk, refs)]
+        batch_key = f"cep-{uuid.uuid5(BATCH_NAMESPACE, '|'.join(refs))}"                     # the same recipients again = the same batch, not a second send
+        try:
+            response = self._post(self._body(text, recipients, media_url=media_url, batch_key=batch_key))
+        except requests.RequestException as exc:
+            return [SendResult.retry(f"{exc.__class__.__name__}: {exc}")] * len(chunk)
+        answer = self._answer(response)
+        if self._refused(response, answer):
+            raise ProviderError(f"Digivize refused the API key, the signature or the timestamp: {self._error(answer, response)}. Use Check on the engine.", retryable=False)
+        if response.status_code == 429 or response.status_code >= 500:
+            return [SendResult.retry(f"Digivize answered HTTP {response.status_code}: {self._error(answer, response)}")] * len(chunk)
+        if response.status_code >= 400 or answer.get("success") is False:
+            return [SendResult.rejected(self._error(answer, response))] * len(chunk)
+        data = answer.get("data") if isinstance(answer.get("data"), dict) else answer
+        batch_id = str(data.get("batch_id") or data.get("tracking_id") or data.get("id") or "")
+        per_recipient = self._per_recipient(data, answer)
+        out = []
+        for m, ref in zip(chunk, refs):
+            item = per_recipient.get(ref) or per_recipient.get(m.to_number)
+            if item is None:
+                out.append(SendResult.accepted(batch_id))
+                continue
+            status = str(item.get("status") or "").lower()
+            own_id = str(item.get("tracking_id") or item.get("message_id") or item.get("id") or batch_id)
+            if status in FAILED_STATUSES or item.get("error") or item.get("error_code"):
+                out.append(SendResult.rejected(str(item.get("error") or item.get("error_code") or status)[:200]))
+            else:
+                out.append(SendResult.accepted(own_id))
+        return out
+
+    @staticmethod
+    def _per_recipient(data: dict, answer: dict) -> dict[str, dict]:
+        """Whatever list the reply carries per recipient, keyed by external_ref and by number."""
+        rows = None
+        for source in (data, answer):
+            for key in ("recipients", "messages", "results", "items"):
+                if isinstance(source.get(key), list):
+                    rows = source[key]
+                    break
+            if rows is not None:
+                break
+        found: dict[str, dict] = {}
+        for item in rows or []:
+            if isinstance(item, dict):
+                for key in (item.get("external_ref"), item.get("to")):
+                    if key:
+                        found[str(key)] = item
+        return found
+
+    # ---- the Check button: an empty batch proves the key, the secret and the path without sending anything
     def check(self) -> tuple[bool, str]:
         if not self.config.get("api_key") or not self.secret:
             return False, "Enter the API key and the secret key first."
-        probe = f"/sms/status/{uuid.uuid4()}"
-        chosen = str(self.config.get("signature_scheme") or "").strip()
-        candidates = [chosen] if chosen else list(SCHEMES)
-        if chosen and chosen not in SCHEMES:
-            return False, f"Unknown signature form '{chosen}'. Leave it empty and check again."
+        if not str(self.config.get("brand_id") or "").strip():
+            return False, "Enter the brand ID first."
         try:
-            for scheme in candidates:
-                try:
-                    response = self._request("GET", probe, scheme=scheme)
-                except requests.RequestException as exc:
-                    return False, f"Cannot reach Digivize: {exc.__class__.__name__}: {exc}"
-                answer = self._answer(response)
-                if self._refused(response, answer):
-                    continue
-                if response.status_code >= 500:
-                    return False, f"Digivize answered HTTP {response.status_code}."
-                self.detected_config = {"signature_scheme": scheme}          # the check endpoint stores it on the engine
-                return True, ("" if chosen else f"Signature form: {scheme}.")
+            response = self._post(self._body("CEP connection check", [], batch_key=f"cep-check-{uuid.uuid4()}"))
+        except requests.RequestException as exc:
+            return False, f"Cannot reach Digivize: {exc.__class__.__name__}: {exc}"
         finally:
             self.close()
-        return False, ("Digivize refused the API key or the signature." if chosen else
-                       "Digivize refused every known signature form: check the API key and the secret key, or ask Digivize what the signature signs.")
+        answer = self._answer(response)
+        if self._refused(response, answer):
+            return False, f"Digivize refused the API key or the signature: {self._error(answer, response)}"
+        if response.status_code == 404:
+            return False, "Digivize knows no such path. Set the batch send path from the Postman request."
+        if response.status_code >= 500:
+            return False, f"Digivize answered HTTP {response.status_code}."
+        if response.status_code >= 400:
+            return True, f"The key and the signature are accepted; Digivize validated the request ({self._error(answer, response)})."
+        return True, ""
 
     # ---- what comes back
     def verify_webhook(self, headers: dict[str, str], body: bytes) -> bool:
@@ -178,13 +263,19 @@ class DigivizeProvider(SmsProvider):
 
     @staticmethod
     def _items(payload) -> list[dict]:
+        """Every per-recipient record: a list, {events: [...]}, one event, or a batch callback with data.recipients[]."""
         if isinstance(payload, list):
             return [item for item in payload if isinstance(item, dict)]
-        if isinstance(payload, dict):
-            if isinstance(payload.get("events"), list):
-                return [item for item in payload["events"] if isinstance(item, dict)]
-            return [payload]
-        return []
+        if not isinstance(payload, dict):
+            return []
+        if isinstance(payload.get("events"), list):
+            return [item for item in payload["events"] if isinstance(item, dict)]
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+        rows = next((data[key] for key in ("recipients", "messages", "results") if isinstance(data.get(key), list)), None)
+        if rows is not None:
+            head = {k: v for k, v in payload.items() if k != "data"} | {k: v for k, v in data.items() if not isinstance(v, list)}
+            return [{**head, "data": {**{k: v for k, v in data.items() if not isinstance(v, list)}, **row}} for row in rows if isinstance(row, dict)]
+        return [payload]
 
     def parse_webhook(self, payload) -> list[DeliveryEvent]:
         out = []
@@ -193,17 +284,18 @@ class DigivizeProvider(SmsProvider):
             data = item.get("data") if isinstance(item.get("data"), dict) else item
             status = str(data.get("status") or "").lower()
             kind = EVENTS.get(name)
-            if kind is None:                                # a status-only callback (callback_url form): read the status
-                kind = EventType.DELIVERED if status == "delivered" else EventType.BOUNCED if status in ("failed", "undelivered", "expired") else None
+            if kind is None:                                # a status-only record: read the status
+                kind = (EventType.DELIVERED if status == "delivered" else EventType.BOUNCED if status in ("failed", "undelivered", "expired", "opted_out") else None)
             if kind is None:
                 continue
-            code = str(data.get("error_code") or data.get("reason") or "").lower()
-            stamp = item.get("timestamp") or data.get("delivered_at") or data.get("failed_at")
+            code = str(data.get("error_code") or data.get("reason") or data.get("error") or "").lower()
+            stamp = item.get("timestamp") or data.get("timestamp") or data.get("delivered_at") or data.get("failed_at")
             variables = data.get("variables") if isinstance(data.get("variables"), dict) else {}
-            event = DeliveryEvent(kind, provider_message_id=str(data.get("tracking_id") or data.get("message_id") or ""),
-                                  idempotency_key=str(variables.get("cep_id") or ""), reason=(code or status or name)[:200], occurred_at=_when(stamp), raw=item)
+            event = DeliveryEvent(kind, provider_message_id=str(data.get("tracking_id") or data.get("message_id") or data.get("id") or ""),
+                                  idempotency_key=str(data.get("external_ref") or variables.get("cep_id") or ""), email=str(data.get("to") or ""),
+                                  reason=(code or status or name)[:200], occurred_at=_when(stamp), raw=item)
             if kind is EventType.BOUNCED:
-                opted_out = name == "sms.opted_out"
+                opted_out = name == "sms.opted_out" or status == "opted_out" or code == "opted_out"
                 event.bounce_type = "HARD" if opted_out or code in PERMANENT else "SOFT"
                 if opted_out:
                     event.reason = "opted_out"
