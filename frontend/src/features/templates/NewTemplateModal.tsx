@@ -8,6 +8,7 @@ import { buttonPrimary, buttonSecondary, Field, TextArea, TextInput } from '@/co
 import { Modal } from '@/components/Modal'
 import { Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { editorPathFor } from '@/lib/editorRoute'
 import type { Template } from '@/lib/types'
@@ -26,6 +27,7 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
   const [description, setDescription] = useState('')
   const [picked, setPicked] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
+  const rule = useFieldRules('template')
 
   const create = useMutation({
     mutationFn: () => api.post<Template>('/templates/', { name: name.trim(), channel, description: description.trim() || null }),
@@ -73,9 +75,9 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
       }
     >
       <form id={FORM_ID} onSubmit={onSubmit} noValidate className="space-y-4">
-        <Field label="Template Name" required error={errors.name} hint="Shown in the template list and when picking a template in a campaign">
+        <Field label="Template Name" required error={errors.name} hint="Shown in the template list and when picking a template in a campaign" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
           {(ids) => (
-            <TextInput {...ids} value={name} maxLength={200} placeholder="Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />
+            <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} placeholder="Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />
           )}
         </Field>
         <Field label="Description (Optional)" error={errors.description}>

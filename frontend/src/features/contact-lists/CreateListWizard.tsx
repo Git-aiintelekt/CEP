@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'rea
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { Spinner } from '@/components/States'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Audience, ContactList, ListImport, ListSource, Page } from '@/lib/types'
@@ -126,6 +127,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const [step, setStep] = useState<Step>('method')
   const [source, setSource] = useState<ListSource>(initialSource)
   const [name, setName] = useState('')
+  const rule = useFieldRules('new_contact_list')
   const [description, setDescription] = useState('')
   const [environment, setEnvironment] = useState('PRODUCTION')
   const [draft, setDraft] = useState<ContactList | null>(null)
@@ -386,9 +388,9 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
       {step === 'method' && (
         <div className="space-y-5">
-          <Field label="List Name" required>
+          <Field label="List Name" required limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
             {(ids) => (
-              <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={200} autoFocus />
+              <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={rule('name')?.max ?? 200} autoFocus />
             )}
           </Field>
           <Field label="Description" hint="Optional. Shown under the name in the table.">

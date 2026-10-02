@@ -1632,3 +1632,29 @@ export interface HomeOverview {
   /** null: the workspace has no journeys feature, or the viewer cannot read journeys */
   journeys: { rows: HomeJourneyRow[]; total: number } | null
 }
+
+/** GET /field-rules/: what each writable field accepts, read off the serializers and the tables behind them */
+export interface FieldRule {
+  type: 'string' | 'email' | 'url' | 'slug' | 'uuid' | 'boolean' | 'integer' | 'decimal' | 'datetime' | 'date' | 'time' | 'choice' | 'choices' | 'reference' | 'references' | 'list' | 'object' | 'json'
+  required: boolean
+  label?: string
+  /** characters, from the table column when the serializer sets none; null when the column is unlimited text */
+  max?: number | null
+  min?: number | null
+  blank?: boolean
+  nullable?: boolean
+  pattern?: string
+  min_value?: number | string | null
+  max_value?: number | string | null
+  decimal_places?: number | null
+  max_digits?: number | null
+  choices?: { value: string; label: string }[]
+  column?: { table: string; column: string; type: string; max: number | null }
+  /** for object and list rules */
+  fields?: Record<string, FieldRule>
+}
+
+export interface FieldRules {
+  generated_at: string
+  resources: Record<string, Record<string, FieldRule>>
+}

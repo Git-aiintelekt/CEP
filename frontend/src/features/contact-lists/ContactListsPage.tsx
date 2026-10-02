@@ -13,6 +13,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
 import type { ContactList, ListReach, ListStats } from '@/lib/types'
@@ -73,6 +74,7 @@ function RowMenu({ list, onAction }: { list: ContactList; onAction: (action: 'op
 
 export function CloneDialog({ source, onClose, onCloned }: { source: ContactList; onClose: () => void; onCloned: (list: ContactList) => void }) {
   const [name, setName] = useState(`${source.name} (copy)`)
+  const rule = useFieldRules('new_contact_list')
   const clone = useMutation({
     mutationFn: () => api.post<ContactList>(`/contact-lists/${source.id}/clone/`, { name, list_environment: source.list_environment }),
     onSuccess: onCloned,
@@ -91,9 +93,9 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
       <p className="mb-4 text-sm text-ink-800">
         The copy starts with the {formatNumber(source.member_count)} contacts that are in “{source.name}” now. It is a snapshot: the two lists are independent from here on.
       </p>
-      <Field label="Name of the Copy" required error={clone.isError ? problemText(clone.error) : undefined}>
+      <Field label="Name of the Copy" required error={clone.isError ? problemText(clone.error) : undefined} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
         {(ids) => (
-          <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={200} autoFocus />
+          <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={rule('name')?.max ?? 200} autoFocus />
         )}
       </Field>
     </Modal>

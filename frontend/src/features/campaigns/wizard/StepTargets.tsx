@@ -8,6 +8,7 @@ import { Controller, useFormContext, type FieldPath } from 'react-hook-form'
 
 import { Field, TextArea } from '@/components/Form'
 import { InputGroup } from '@/components/InputGroup'
+import { useFieldRules } from '@/lib/fieldRules'
 import { formatMoney, formatNumber } from '@/lib/format'
 
 import { useAudienceEstimate } from '../audienceNumbers'
@@ -125,6 +126,8 @@ export function StepTargets() {
   const estimate = useAudienceEstimate(receipt ? [] : watch('contact_lists'), watch('excluded_lists'), channel, watch('solicitation_type'))
   const recipients = estimate.data ? estimate.data.estimated_recipients : null
   const issues = errors.targets
+  const rule = useFieldRules('campaign')
+  const NOTES_MAX = rule('targets.notes')?.max ?? 1000
 
   const target = (key: TargetKey, label: string) => (
     <div key={key}>
@@ -154,7 +157,9 @@ export function StepTargets() {
             </div>
             <CostPicker name="planned_cost" label="Planned Campaign Cost" hint="Creative, sending and agency costs." error={issues?.planned_cost?.message} />
             <CostPicker name="planned_offer_cost" label="Planned Offer Cost" hint="Discounts and rewards you expect to give away." error={issues?.planned_offer_cost?.message} />
-            <Field label="Notes" strong error={issues?.notes?.message}>{(ids) => <TextArea {...ids} rows={3} {...register('targets.notes')} />}</Field>
+            <Field label="Notes" strong error={issues?.notes?.message} limit={{ used: (targets.notes ?? '').length, max: rule('targets.notes')?.max ?? NOTES_MAX }}>
+              {(ids) => <TextArea {...ids} rows={3} maxLength={rule('targets.notes')?.max ?? NOTES_MAX} {...register('targets.notes')} />}
+            </Field>
           </div>
         </DetailCard>
       </div>

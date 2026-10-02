@@ -6,7 +6,7 @@ import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } f
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, FieldRule, FieldRules, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -88,6 +88,21 @@ const tag = (tag_key: string, label: string, tag_kind: string, sample_value: str
   source_path: tag_kind === 'CUSTOM' ? `custom_value_pairs.${tag_key}` : tag_key, platform_tag_id: tag_kind === 'STANDARD' ? `platform-${tag_key}` : null, row_version: 1,
 })
 export const tags: PersonalizationTag[] = [tag('first_name', 'First name', 'STANDARD', 'Jordan'), tag('offer_code', 'Offer code', 'CUSTOM', 'FALL017')]
+/** GET /field-rules/: the lengths the forms count against, as the tables set them */
+const text = (max: number | null, required = false): FieldRule => ({ type: 'string', required, max, min: null, blank: !required })
+export const fieldRules: FieldRules = {
+  generated_at: '2026-10-02T00:00:00Z',
+  resources: {
+    campaign: { name: text(200, true), code: text(40), description: text(null), subject_line: text(300), preheader: text(300),
+                targets: { type: 'object', required: false, fields: { notes: text(1000) } },
+                drip_config: { type: 'json', required: false } },
+    template: { name: text(200, true), description: text(null) },
+    personalization_tag: { tag_key: text(100, true), label: text(150, true), static_value: text(null) },
+    contact_list: { name: text(200, true), description: text(null) },
+    new_contact_list: { name: text(200, true), description: text(null) },
+  },
+}
+
 /** GET /personalization-tags/data-points/: a cut of the catalogue the Tags page's form reads */
 export const tagDataPoints = {
   sources: [
@@ -572,6 +587,7 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.endsWith('/receipt/')) return json(receiptLayout)
     if (path.endsWith('/receipt/versions/')) return json([{ version_number: receiptLayout.latest_version, saved_at: '2026-09-02T10:00:00Z', saved_by: 'Devon Okafor' }])
+    if (path.endsWith('/field-rules/')) return json(fieldRules)
     if (path.endsWith('/personalization-tags/data-points/')) return json(tagDataPoints)
     if (path.endsWith('/personalization-tags/') && method === 'POST') {
       const input = (body ?? {}) as Partial<PersonalizationTag>

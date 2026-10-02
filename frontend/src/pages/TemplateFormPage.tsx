@@ -9,6 +9,7 @@ import { buttonPrimary, buttonSecondary, Field, FormSection, Select, TextArea, T
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { StarterGallery } from '@/features/templates/StarterGallery'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
@@ -35,6 +36,7 @@ export function TemplateFormPage() {
   const queryClient = useQueryClient()
   const formRef = useRef<HTMLFormElement>(null)
   const [name, setName] = useState('')
+  const rule = useFieldRules('template')
   const [channel, setChannel] = useState(() => channels[0]?.value ?? 'EMAIL')
   const [description, setDescription] = useState('')
   const [starter, setStarter] = useState('')
@@ -80,8 +82,8 @@ export function TemplateFormPage() {
       )}
       <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
         <FormSection title="Template">
-          <Field label="Name" required error={errors.name}>
-            {(ids) => <TextInput {...ids} value={name} maxLength={200} autoFocus onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
+          <Field label="Name" required error={errors.name} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+            {(ids) => <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} autoFocus onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
           </Field>
           <Field label="Channel" required error={errors.channel} hint={CHANNELS.find((item) => item.value === channel)?.hint}>
             {(ids) => (
