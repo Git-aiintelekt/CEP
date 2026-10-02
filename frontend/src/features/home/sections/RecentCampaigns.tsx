@@ -9,10 +9,9 @@ import { TruncatedText } from '@/components/Tooltip'
 import { buttonClass } from '@/components/buttonStyles'
 import { formatCompactMoney, formatNumber, formatPercent } from '@/lib/format'
 
-import { ChannelIcon } from '../components/ChannelIcon'
 import { HomeCard } from '../components/HomeCard'
 import { useHomeData } from '../data/homeDataContext'
-import type { HomeFilters, RecentCampaignRow, RecentStatus } from '../data/types'
+import type { HomeFilters, MessageChannel, RecentCampaignRow, RecentStatus } from '../data/types'
 import { sortRecent, type RecentSort as Sort } from '../sortRecent'
 
 const SORTS: { value: Sort; label: string }[] = [{ value: 'recent', label: 'Most Recent' }, { value: 'best', label: 'Best Performing' }, { value: 'attention', label: 'Needs Attention' }]
@@ -20,29 +19,24 @@ const STATUSES: { value: RecentStatus; label: string }[] = [{ value: 'ALL', labe
 /** the Campaigns list's own status values for each option */
 const LIST_STATUS: Record<RecentStatus, string | null> = { ALL: null, LIVE: 'PRODUCTION_PUBLISHED,ACTIVE', SCHEDULED: 'SCHEDULED', DRAFT: 'DRAFT' }
 const SHOWN = 6
+const CHANNEL_LABEL: Record<MessageChannel, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 
-const HEAD = 'h-10 px-3 text-xs font-semibold whitespace-nowrap text-ink-900'
-const NUMBER_HEAD = 'h-10 px-2 text-right text-xs font-semibold whitespace-nowrap text-ink-900'
-// by the card's own width (it can be the full page, two thirds or half), not the window's
-const WIDE = 'hidden @min-[520px]:table-cell'
-const MID = 'hidden @min-[440px]:table-cell'
+const HEAD = 'h-10 px-3 text-left text-xs font-semibold whitespace-nowrap text-ink-900'
+const NUMBER_HEAD = 'h-10 px-3 text-right text-xs font-semibold whitespace-nowrap text-ink-900'
+// by the card's own width (it is the full page or two thirds of it), not the window's
+const WIDE = 'hidden @min-[760px]:table-cell'
+const MID = 'hidden @min-[600px]:table-cell'
 /** in a narrow card the status goes under the name, so the name keeps its room */
-const STATUS = 'hidden @min-[680px]:table-cell'
+const STATUS = 'hidden @min-[480px]:table-cell'
 
 function RevenueCell({ row, attributed }: { row: RecentCampaignRow; attributed: boolean }) {
   if (!attributed) return <span className="text-helper text-ink-800">Not Set Up</span>
   if (row.revenue === null) return <>—</>
   const percent = row.target ? Math.round((row.revenue / row.target) * 100) : null
   return (
-    // one line from 640px; on phones the % goes under the money, and below 480px without its bar
-    <span className="inline-flex flex-col items-end gap-1 @min-[600px]:flex-row @min-[600px]:items-center @min-[600px]:gap-2">
+    <span className="inline-flex flex-col items-end gap-0.5">
       <span>{formatCompactMoney(row.revenue)}</span>
-      {percent !== null && (
-        <span className="inline-flex items-center gap-2">
-          <span aria-hidden data-target-bar className="hidden h-1 w-14 overflow-hidden rounded-pill bg-fill-subtle @min-[440px]:block"><span className="block h-full rounded-pill bg-chart-1" style={{ width: `${Math.min(100, percent)}%` }} /></span>
-          <span className="w-9 text-helper text-ink-800">{percent}%</span>
-        </span>
-      )}
+      {percent !== null && <span data-target-share className="text-helper text-ink-800">{percent}% of target</span>}
     </span>
   )
 }
@@ -52,20 +46,19 @@ function Row({ row, attributed }: { row: RecentCampaignRow; attributed: boolean 
     <tr data-campaign={row.id} className="h-16">
       <td className="px-3">
         <div className="flex min-w-0 flex-col items-start">
-          <span className="flex max-w-full min-w-0 items-center gap-2">
-            <ChannelIcon channel={row.channel} />
-            <Link to={`/campaigns/${row.id}`} className="min-w-0 rounded-sm text-sm text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
-          </span>
+          <Link to={`/campaigns/${row.id}`} className="max-w-full min-w-0 rounded-sm text-sm font-semibold text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
           <TruncatedText text={row.contextLine} className="text-helper text-ink-800" />
-          <span className="mt-1 @min-[680px]:hidden"><StatusBadge status={row.status} label={row.statusLabel} /></span>
+          <span className="mt-1 @min-[480px]:hidden"><StatusBadge status={row.status} label={row.statusLabel} /></span>
         </div>
       </td>
-      <td className={`${STATUS} px-2`}><StatusBadge status={row.status} label={row.statusLabel} /></td>
-      <td className={`${WIDE} px-2 text-right text-sm text-ink-900 cep-num`}>{row.delivered === null ? '—' : formatNumber(row.delivered)}</td>
-      <td className={`${MID} px-2 text-right text-sm cep-num`}>
+      <td className={`${STATUS} px-3`}><StatusBadge status={row.status} label={row.statusLabel} /></td>
+      <td className={`${MID} px-3 text-sm text-ink-900`}>{CHANNEL_LABEL[row.channel]}</td>
+      <td className={`${MID} px-3 text-right text-sm text-ink-900 cep-num`}>{row.delivered === null ? '—' : formatNumber(row.delivered)}</td>
+      <td className={`${WIDE} px-3 text-right text-sm cep-num`}>
         {row.openRate === 'not_tracked' ? <span className="whitespace-nowrap text-ink-800">Not Tracked</span> : <span className="text-ink-900">{row.openRate === null ? '—' : formatPercent(row.openRate)}</span>}
       </td>
-      <td className="pr-3 pl-2 text-right text-sm text-ink-900 cep-num"><RevenueCell row={row} attributed={attributed} /></td>
+      <td className="px-3 text-right text-sm text-ink-900 cep-num"><RevenueCell row={row} attributed={attributed} /></td>
+      <td className={`${WIDE} px-3 text-sm text-ink-900`}><TruncatedText text={row.owner ?? '—'} /></td>
     </tr>
   )
 }
@@ -114,11 +107,13 @@ export function RecentCampaigns({ filters }: { filters: HomeFilters }) {
           <caption className="sr-only">Recent campaigns</caption>
           <thead className="bg-surface-subtle">
             <tr className="border-b border-line-subtle">
-              <th scope="col" className={`${HEAD} text-left`}>Campaign</th>
-              <th scope="col" className={`${HEAD} ${STATUS} w-[160px] px-2 text-left`}>Status</th>
-              <th scope="col" className={`${NUMBER_HEAD} ${WIDE} w-[76px]`}>Delivered</th>
-              <th scope="col" className={`${NUMBER_HEAD} ${MID} w-[90px]`}>Open Rate</th>
-              <th scope="col" className={`${NUMBER_HEAD} w-[112px] @min-[600px]:w-[180px]`}>Revenue vs. Target</th>
+              <th scope="col" className={HEAD}>Campaign</th>
+              <th scope="col" className={`${HEAD} ${STATUS} w-[150px]`}>Status</th>
+              <th scope="col" className={`${HEAD} ${MID} w-[90px]`}>Channel</th>
+              <th scope="col" className={`${NUMBER_HEAD} ${MID} w-[96px]`}>Delivered</th>
+              <th scope="col" className={`${NUMBER_HEAD} ${WIDE} w-[96px]`}>Open Rate</th>
+              <th scope="col" className={`${NUMBER_HEAD} w-[120px]`}>Revenue</th>
+              <th scope="col" className={`${HEAD} ${WIDE} w-[140px]`}>Owner</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line-subtle">

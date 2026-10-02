@@ -70,6 +70,9 @@ const BUSY: SampleCampaign[] = [
   campaign('c15', 'Weekly Deals Digest', 'EMAIL', 370_960, 29.6, 2.8, 4530, 433_000, 91, -2.3, 'PRODUCTION_PUBLISHED', 14, 'Recurring weekly · Deal Seekers'),
 ]
 
+/** campaign owners, spread over the catalogue by id */
+const OWNERS = ['Maya Patel', 'Daniel Okafor', 'Marketing', 'Sarah Chen']
+
 const LIGHT: SampleCampaign[] = [
   campaign('l1', 'Welcome Series: New Members', 'EMAIL', 4200, 46.3, 6.4, 96, 7400, 92, 4.1, 'PRODUCTION_PUBLISHED', 1, 'Drip series · New Members'),
   campaign('l2', 'Spring Sale Reminder', 'SMS', 2600, null, 3.1, 41, 2900, 74, -6.3, 'PRODUCTION_PUBLISHED', 4, 'One-time send · All Subscribers'),
@@ -330,6 +333,7 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
           revenue: sent ? money(Math.round(item.revenue * factor)) : null,
           target: attribution && item.percentOfTarget !== null ? Math.round(((item.revenue * factor) / item.percentOfTarget) * 100) : null,
           lastActivity,
+          owner: OWNERS[Number(item.id.slice(1)) % OWNERS.length],
           attention: item.id === FAILED_SAMPLE ? 0 : item.status === 'TEST_PUBLISHED' ? 2 : item.status === 'PAUSED' ? 3 : 4,
         }
       }),

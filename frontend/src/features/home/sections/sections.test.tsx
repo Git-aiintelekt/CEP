@@ -21,22 +21,22 @@ const tile = (label: string) => document.querySelector(`[data-kpi="${label}"]`) 
 const member = (denied: string[]): HomeViewer => ({ ...SAMPLE_VIEWER, can: (permission) => !denied.includes(permission) })
 
 // ---------------------------------------------------------------- Needs Attention
-test('alert cells: red, then amber, then periwinkle, larger counts first; four until View All; each cell one link', async () => {
+test('alert cards: red, then amber, then periwinkle, larger counts first; three cards until View All; each card one link', async () => {
   const user = userEvent.setup()
   renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [
     group('gov', 'governance', 900), group('block-small', 'blocking', 1), group('crit-small', 'critical', 2), group('block-big', 'blocking', 7), group('crit-big', 'critical', 5),
   ] } }) })
-  const cards = () => within(attention()).getAllByRole('link')
-  expect(cards().map((card) => card.getAttribute('data-alert'))).toEqual(['crit-big', 'crit-small', 'block-big', 'block-small'])
+  const cards = () => [...attention().querySelectorAll('[data-alert]')] as HTMLElement[]
+  expect(cards().map((card) => card.getAttribute('data-alert'))).toEqual(['crit-big', 'crit-small'])                     // the opportunity card takes the third slot
   const first = cards()[0]
-  expect(first.getAttribute('href')).toBe('/go/crit-big')
-  expect(first.querySelector('a')).toBeNull()
-  expect(first.className).toContain('hover:bg-surface-subtle')
-  expect(first.querySelector('[data-severity-icon="critical"]')).toBeTruthy()                                   // the icon on its tint, the category in words beside it
+  expect(first.tagName).toBe('LI')
+  expect(first.className).toContain('rounded-lg border border-line bg-surface')
+  expect(first.querySelector('[data-severity-icon="critical"]')).toBeTruthy()                                   // the icon on its tint, the count and category in words beside it
+  expect(first.textContent).toContain('5 critical')
   expect(first.textContent).toContain('crit-big label')
-  expect(first.textContent).toContain('crit-big action')
-  expect(first.closest('ul')!.className).toContain('flex-wrap')                                                   // one strip; cells wrap whole, never squeeze
-  expect(first.querySelector('.lucide-arrow-right')).toBeTruthy()
+  expect(within(first).getByRole('link', { name: 'crit-big action' }).getAttribute('href')).toBe('/go/crit-big')
+  expect(within(first).getAllByRole('link')).toHaveLength(1)
+  expect(first.closest('ul')!.className).toContain('min-[1200px]:grid-cols-3')                                  // three cards across on a wide page
   expect(within(attention()).getByText('Updated today at 6:00 AM')).toBeTruthy()
 
   const toggle = within(attention()).getByRole('button', { name: 'View All (5)' })
@@ -46,20 +46,22 @@ test('alert cells: red, then amber, then periwinkle, larger counts first; four u
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
   expect(toggle.textContent).toBe('Show Fewer')
   await user.click(toggle)
-  expect(cards()).toHaveLength(4)
+  expect(cards()).toHaveLength(2)
+  cleanup()
+  renderHome({ source: { ...withAttention({ status: 'ready', data: { freshness: 'x', groups: [group('a', 'critical', 1), group('b', 'blocking', 1), group('c', 'governance', 1)] } }), useFunnel: () => ({ status: 'ready', data: [] }) } })
+  expect(cards()).toHaveLength(3)                                                                                 // no opportunity: three alerts
+  expect(within(attention()).queryByRole('button', { name: /View All/ })).toBeNull()
 })
 
-test('the count badge takes the tint of the most severe group', () => {
-  const badge = () => attention().querySelector('[data-count-badge]')!.className
+test('the opportunity card: the channel converting best against the others, from the funnel; nothing with one channel', () => {
   renderHome()
-  expect(badge()).toContain('bg-danger-bg text-danger-text')
+  const insight = attention().querySelector('[data-insight]') as HTMLElement
+  expect(insight.textContent).toContain('Opportunity: Email is driving strongest conversion')
+  expect(insight.textContent).toMatch(/Open rate is \d+%; SMS and MMS engagement is lower\./)
+  expect(within(insight).getByRole('link', { name: 'View Insight' }).getAttribute('href')).toBe('/reports')
   cleanup()
-  renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'x', groups: [group('a', 'governance', 3), group('b', 'blocking', 1)] } }) })
-  expect(badge()).toContain('bg-warning-bg text-warning-text')
-  expect(within(attention()).queryByRole('button', { name: /View All/ })).toBeNull()
-  cleanup()
-  renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'x', groups: [group('a', 'governance', 3)] } }) })
-  expect(badge()).toContain('bg-callout-bg text-callout-text')
+  renderHome({ url: '/?channel=EMAIL' })
+  expect(attention().querySelector('[data-insight]')).toBeNull()
 })
 
 test('no alerts, unavailable or forbidden: no Needs Attention at all, not even its heading or freshness line', () => {
@@ -75,22 +77,24 @@ test('no alerts, unavailable or forbidden: no Needs Attention at all, not even i
   expect(screen.queryByRole('region', { name: 'Needs Attention' })).toBeNull()
 })
 
-test('alerts loading show four placeholder cells; an error keeps the section and shows Try Again', () => {
+test('alerts loading show three placeholder cards; an error keeps the section and shows Try Again', () => {
   renderHome({ source: withAttention({ status: 'loading' }) })
-  expect(document.querySelector('[data-attention="loading"]')!.children).toHaveLength(4)
+  expect(document.querySelector('[data-attention="loading"]')!.children).toHaveLength(3)
   cleanup()
   renderHome({ source: withAttention({ status: 'error', error: new Error('Down'), retry: () => undefined }) })
   expect(within(attention()).getByRole('alert').textContent).toContain('Try Again')
 })
 
-// ---------------------------------------------------------------- Marketing Performance
+// ---------------------------------------------------------------- Key Figures
 test('busy: the six tiles in order with the mockup’s figures, % for counts and money, pt for rates and shares', () => {
   renderHome()
-  const strip = screen.getByRole('group', { name: 'Marketing Performance' })
+  const strip = screen.getByRole('group', { name: 'Key Figures' })
   expect([...strip.querySelectorAll('[data-kpi]')].map((node) => node.getAttribute('data-kpi')))
-    .toEqual(['Delivered', 'Open Rate', 'Click Rate', 'Conversions', 'Attributed Revenue', 'Campaign Contribution'])
+    .toEqual(['Delivered', 'Open Rate', 'Click Rate', 'Conversions', 'Attributed Revenue', 'Campaign ROI'])
+  expect(tile('Delivered').className).toContain('rounded-lg border border-line bg-surface')                   // each figure its own card
+  expect(tile('Delivered').querySelector('[data-kpi-disc]')).toBeTruthy()
   expect(tile('Delivered').textContent).toContain('1,584,560')
-  expect(tile('Delivered').textContent).toContain('52,819 per day')
+  expect(tile('Delivered').textContent).toContain('52,819 sends per day')
   expect(within(tile('Delivered')).getByRole('img').getAttribute('aria-label')).toBe('Up 6.2% on the previous period')
   expect(tile('Open Rate').textContent).toContain('Email Only')
   expect(tile('Open Rate').textContent).toContain('37.5%')
@@ -103,13 +107,14 @@ test('busy: the six tiles in order with the mockup’s figures, % for counts and
   expect(within(tile('Click Rate')).getByText('Fair')).toBeTruthy()
   expect(tile('Conversions').textContent).toContain('15,890')
   expect(tile('Conversions').textContent).toContain('25.9% of clicks')
+  expect(tile('Conversions').textContent).toContain('Steady click-to-conversion')
   expect(tile('Attributed Revenue').textContent).toContain('$1.39M')
   expect(tile('Attributed Revenue').textContent).toContain('95% of $1.47M target')
   expect(within(tile('Attributed Revenue')).getByRole('progressbar')).toBeTruthy()
   expect(strip.textContent).not.toMatch(/Lowest|Furthest Behind/)
-  expect(tile('Campaign Contribution').textContent).toContain('14.5%')
-  expect(tile('Campaign Contribution').textContent).toContain('of $9.60M store revenue')
-  expect(within(tile('Campaign Contribution')).getByRole('img').getAttribute('aria-label')).toBe('Up 0.6 pt on the previous period')
+  expect(tile('Campaign ROI').textContent).toContain('12.5×')
+  expect(within(tile('Campaign ROI')).getByText('High return')).toBeTruthy()
+  expect(tile('Campaign ROI').textContent).toContain('$111.3K campaign cost')
 })
 
 test('SMS: Open Rate is Not Tracked, "SMS does not report opens"; MMS says MMS', () => {
@@ -124,13 +129,13 @@ test('SMS: Open Rate is Not Tracked, "SMS does not report opens"; MMS says MMS',
 
 test('no attribution: both revenue tiles Not Set Up Yet, a link for admins, a sentence for others, and never $0', () => {
   renderHome({ state: 'noAttribution' })
-  for (const label of ['Attributed Revenue', 'Campaign Contribution']) {
+  for (const label of ['Attributed Revenue', 'Campaign ROI']) {
     expect(tile(label).textContent).toContain('Not Set Up Yet')
     expect(within(tile(label)).getByRole('link', { name: 'Set Up Attribution' }).getAttribute('href')).toBe('/settings/integrations')
   }
   cleanup()
   renderHome({ state: 'noAttribution', viewer: member(['user.admin']) })
-  for (const label of ['Attributed Revenue', 'Campaign Contribution']) {
+  for (const label of ['Attributed Revenue', 'Campaign ROI']) {
     expect(within(tile(label)).queryByRole('link')).toBeNull()
     expect(tile(label).textContent).toContain('Ask an admin to set up attribution.')
   }
@@ -148,29 +153,27 @@ test('one campaign: a draft shows "—" rates with no tags or chips', () => {
 
 test('without report.view the strip is one line; the filters stay', () => {
   renderHome({ viewer: member(['report.view']) })
-  expect(screen.queryByRole('group', { name: 'Marketing Performance' })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Key Figures' })).toBeNull()
   expect(screen.getByText('You don’t have access to performance reports.').className).toContain('border border-line')
   expect(screen.getByRole('group', { name: 'Filters' })).toBeTruthy()
 })
 
 // ---------------------------------------------------------------- Create New
-test('Create New: one button per permission beside the greeting, each a link; Journey needs the feature, the permission and a create flow', () => {
+test('Create New: Contact List and Template outlined, Create Campaign filled, each a link by permission; no Journey button', () => {
   renderHome()
   const tiles = () => within(screen.getByRole('region', { name: 'Create New' })).getAllByRole('link')
   expect(tiles().map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-    ['Campaign', '/campaigns/new'], ['Journey', '/'], ['Template', '/templates/new'], ['Contact List', '/contact-lists?new=1'],   // the sample's "#" stays on the page
+    ['Contact List', '/contact-lists?new=1'], ['Template', '/templates/new'], ['Create Campaign', '/campaigns/new'],
   ])
-  expect(tiles()[0].className).toContain('h-10')
-  expect(tiles()[0].querySelector('.bg-plum-100')).toBeTruthy()
+  expect(tiles()[2].className).toContain('bg-brand-600')
+  expect(tiles()[0].className).not.toContain('bg-brand-600')
+  expect(tiles()[0].querySelector('svg')).toBeTruthy()
   cleanup()
   renderHome({ viewer: member(['template.edit', 'journey.edit']) })
-  expect(tiles().map((link) => link.textContent)).toEqual(['Campaign', 'Contact List'])
-  cleanup()
-  renderHome({ viewer: { ...SAMPLE_VIEWER, has: (feature) => feature !== 'journeys' } })
-  expect(tiles().map((link) => link.textContent)).not.toContain('Journey')
+  expect(tiles().map((link) => link.textContent)).toEqual(['Contact List', 'Create Campaign'])
   cleanup()
   renderHome({ source: { ...createSampleSource('busy'), capabilities: liveSource.capabilities } })
-  expect(tiles().map((link) => link.textContent)).toEqual(['Campaign', 'Template', 'Contact List'])            // no journey create flow yet
+  expect(tiles().map((link) => link.textContent)).toEqual(['Contact List', 'Template', 'Create Campaign'])
 })
 
 test('a viewer with no create permission gets no Create New section at all', () => {

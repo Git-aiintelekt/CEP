@@ -1,20 +1,25 @@
+import { Plus } from 'lucide-react'
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
 
+import { buttonClass } from '@/components/buttonStyles'
+
 import type { CreateTile } from '../createNewTiles'
 
-const BUTTON = 'inline-flex h-10 items-center gap-2 rounded-control-lg border border-line-control bg-surface pr-3.5 pl-2.5 text-sm font-medium whitespace-nowrap text-ink-900 transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle'
+/** the design's order: the two secondary shortcuts, then Create Campaign as the page's one primary action */
+const ORDER: CreateTile['key'][] = ['list', 'template', 'campaign']
 
-/** The create shortcuts as a row of buttons beside the greeting, each with its plum icon; the caller hides the section when there are none. */
+/** The create shortcuts as buttons beside the greeting: Contact List and Template outlined, Create Campaign filled; the caller hides the section when there are none. */
 export function CreateNew({ tiles }: { tiles: CreateTile[] }) {
   const titleId = useId()
+  const shown = ORDER.map((key) => tiles.find((tile) => tile.key === key)).filter((tile): tile is CreateTile => Boolean(tile))
   return (
     <section aria-labelledby={titleId} className="flex min-w-0 flex-wrap items-center gap-2">
-      <h2 id={titleId} className="mr-1 text-helper font-normal text-ink-800">Create New</h2>
-      {tiles.map(({ key, label, icon: Icon, to }) => (
-        <Link key={key} to={to} data-create={key} className={BUTTON}>
-          <span aria-hidden data-plum-icon className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control-sm bg-plum-100 text-plum-700"><Icon size={14} strokeWidth={1.5} /></span>
-          {label}
+      <h2 id={titleId} className="sr-only">Create New</h2>
+      {shown.map(({ key, label, to }) => (
+        <Link key={key} to={to} data-create={key} className={buttonClass({ variant: key === 'campaign' ? 'primary' : 'secondary' })}>
+          <Plus size={16} strokeWidth={2} aria-hidden />
+          {key === 'campaign' ? 'Create Campaign' : label}
         </Link>
       ))}
     </section>

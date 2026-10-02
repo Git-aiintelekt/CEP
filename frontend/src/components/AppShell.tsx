@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bell, ChevronsLeft, ChevronsRight, Keyboard, Menu, Search, X, type LucideIcon } from 'lucide-react'
+import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, Keyboard, LogOut, Menu, Search, ShieldCheck, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
@@ -9,6 +9,9 @@ import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { SearchResults } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
+import { useSingleDropdown } from '@/lib/useSingleDropdown'
+import { MenuRow } from './MenuRow'
+import { Popover } from './Popover'
 import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
 import { RailGroup, RailMark } from './Rail'
 
@@ -177,7 +180,7 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
         ref={inputRef}
         type="search"
         aria-label="Search"
-        placeholder="Search campaigns, lists, templates  /"
+        placeholder="Search campaigns, audiences, templates or journeys"
         value={query}
         onChange={(event) => {
           setQuery(event.target.value)
@@ -238,6 +241,8 @@ export function AppShell() {
   const pages = [...main, ...admin]
   const labels = useLabelsAfterWidth(expanded)
   const name = me?.principal.display_name ?? me?.principal.email
+  const role = me?.principal.roles?.[0] ?? me?.principal.email
+  const account = useSingleDropdown<'account'>()
   const navigate = useNavigate()
   const searchRef = useRef<HTMLInputElement>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -333,9 +338,9 @@ export function AppShell() {
             <GlobalSearch pages={pages} inputRef={searchRef} />
           </div>
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-2 text-sm md:flex">
+            <span className="hidden items-center gap-2 text-sm whitespace-nowrap md:flex">
               <span className="text-ink-800">Tenant</span>
-              <span className="rounded-sm bg-fill-subtle px-2 py-0.5 font-semibold text-ink-900">{me?.tenant.code}</span>
+              <span className="font-semibold text-ink-900">{me?.tenant.code}</span>
               <span className="hidden text-ink-800 xl:inline">{me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
@@ -352,20 +357,34 @@ export function AppShell() {
             >
               <Bell size={20} strokeWidth={1.5} aria-hidden />
             </button>
-            <Link to={SECURITY} title="Account security" className="hidden rounded-sm px-2 py-1 text-right leading-tight transition-colors hover:bg-surface-subtle lg:block">
-              <p className="text-sm font-medium text-ink-900">{name}</p>
-              <p className="text-xs text-ink-800">{me?.principal.email}</p>
-            </Link>
-            <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
-              {initials(me?.principal.display_name)}
-            </span>
-            <button
-              type="button"
-              onClick={logout}
-              className="h-8 shrink-0 rounded-control-md border border-line px-3 text-sm font-medium whitespace-nowrap text-ink-800 transition-colors hover:bg-surface-subtle"
-            >
-              Sign out
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                {...account.triggerProps('account')}
+                aria-label={`Account: ${name ?? ''}`}
+                className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-surface-subtle"
+              >
+                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
+                  {initials(me?.principal.display_name)}
+                </span>
+                <span className="hidden min-w-0 flex-col text-left leading-tight lg:flex">
+                  <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
+                  <span data-role className="truncate text-xs text-ink-800">{role}</span>
+                </span>
+                <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-ink-800 lg:block" />
+              </button>
+              {account.isOpen('account') && (
+                <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={240}>
+                  <div className="border-b border-line-subtle px-3 py-2.5 leading-tight">
+                    <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
+                    <p className="truncate text-xs text-ink-800">{me?.principal.email}</p>
+                  </div>
+                  <MenuRow title="Account Security" leading={<ShieldCheck size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
+                    onClick={() => { account.close({ restoreFocus: false }); navigate(SECURITY) }} />
+                  <MenuRow title="Sign Out" leading={<LogOut size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => { account.close({ restoreFocus: false }); logout() }} />
+                </Popover>
+              )}
+            </div>
           </div>
         </header>
 
