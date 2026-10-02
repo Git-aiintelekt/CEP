@@ -88,7 +88,8 @@ test('roles: permissions are grouped by area, posted as codes, and a role in use
   const user = userEvent.setup()
   await renderAppAt('/settings/roles')
 
-  const inUse = (await screen.findByText('Marketing Admin')).closest('tr') as HTMLElement
+  // the header's account button also says Marketing Admin (the role): the row is the one inside the table
+  const inUse = (await within(await screen.findByRole('table')).findByText('Marketing Admin')).closest('tr') as HTMLElement
   expect((within(inUse).getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true)
 
   await user.click(screen.getByRole('button', { name: 'New Role' }))

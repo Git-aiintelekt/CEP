@@ -37,18 +37,24 @@ const GROUPS = {
   approval: { id: 'awaiting-approval', severity: 'blocking', category: 'Blocking a Send', label: 'Campaigns waiting for approval', actionLabel: 'Review', href: '/campaigns?saved=approval' },
 } satisfies Record<string, Omit<AttentionGroup, 'count'>>
 
+/**
+ * A request that failed is not retried when a card remounts: the layout re-packs when a card drops out, which remounts the
+ * rest, and refetching on each remount would loop between loading and unavailable. Try Again refetches on purpose.
+ */
+const SETTLED = { retryOnMount: false } as const
+
 /** GET /home/overview/ for Home's period, channel and campaigns: the alerts, Revenue vs. Cost, Governance and Active Journeys in one request */
 const overviewQuery = (filters: HomeFilters, zone: string) => {
   const range = homePeriod(filters.period, zone)
   const params = { from: range.from, to: range.to, channel: filters.channel === 'ALL' ? undefined : filters.channel, campaigns: filters.campaignIds.length ? filters.campaignIds.join(',') : undefined }
-  return { queryKey: ['home', 'overview', params], queryFn: ({ signal }: { signal: AbortSignal }) => api.get<HomeOverview>('/home/overview/', params, signal) }
+  return { ...SETTLED, queryKey: ['home', 'overview', params], queryFn: ({ signal }: { signal: AbortSignal }) => api.get<HomeOverview>('/home/overview/', params, signal) }
 }
 
 function useAttention(filters: HomeFilters): SectionResult<Attention> {
   const { viewer } = useHomeData()
   const single = filters.campaignIds.length === 1 ? filters.campaignIds[0] : null
   const overview = useQuery(overviewQuery(filters, viewer.timezone))
-  const one = useQuery({ queryKey: ['campaigns', 'detail', single], enabled: Boolean(single), queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${single}/`, undefined, signal) })
+  const one = useQuery({ ...SETTLED, queryKey: ['campaigns', 'detail', single], enabled: Boolean(single), queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${single}/`, undefined, signal) })
 
   return combine(single ? [overview, one] : [overview], () => {
     const alerts = overview.data!.attention
@@ -139,6 +145,7 @@ const reportChannel = (filters: HomeFilters) => (filters.channel === 'ALL' ? und
 
 /** one summary per period and channel, shared by the KPIs and the funnel */
 const rawSummaryQuery = (from: string, to: string, channel: string | undefined) => ({
+  ...SETTLED,
   queryKey: ['home', 'summary', { from, to, channel }],
   queryFn: ({ signal }: { signal: AbortSignal }) => api.get<ReportSummary>('/reports/summary/', { from, to, channel }, signal),
 })
@@ -215,6 +222,7 @@ const SENT_STATUSES = 'PRODUCTION_PUBLISHED,SCHEDULED,ACTIVE,PAUSED,COMPLETED,CA
 /** one page of 200 (the list's most): the Campaign filter's choices, and the targets Top and Bottom joins with */
 const OPTIONS_PAGE = 200
 const sentCampaignsQuery = {
+  ...SETTLED,
   queryKey: ['campaigns', 'home-sent', { status: SENT_STATUSES, ordering: '-updated_at', page_size: OPTIONS_PAGE }],
   queryFn: ({ signal }: { signal: AbortSignal }) => api.get<CountedPage<Campaign>>('/campaigns/', { status: SENT_STATUSES, ordering: '-updated_at', page_size: OPTIONS_PAGE }, signal),
 }
@@ -270,6 +278,7 @@ function useSchedule(filters: HomeFilters): SectionResult<Schedule> {
   const window = { date_from: today, date_to: addDays(today, 6) }
   const channel = filters.channel === 'ALL' ? undefined : filters.channel
   const calendar = useQuery({
+    ...SETTLED,
     queryKey: ['campaigns', 'calendar', window, { channel }],
     queryFn: ({ signal }) => api.get<CampaignCalendarData>('/campaigns/calendar/', { ...window, channel }, signal),
   })
@@ -328,7 +337,7 @@ function useRecentCampaigns(filters: HomeFilters, status: RecentStatus = 'ALL'):
   const range = homePeriod(filters.period, zone)
   const channel = filters.channel === 'ALL' ? undefined : filters.channel
   const query = { ordering: '-updated_at', page_size: RECENT_PAGE, status: RECENT_STATUS[status], channel }
-  const list = useQuery({ queryKey: ['campaigns', 'home-recent', query], queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', query, signal) })
+  const list = useQuery({ ...SETTLED, queryKey: ['campaigns', 'home-recent', query], queryFn: ({ signal }) => api.get<CountedPage<Campaign>>('/campaigns/', query, signal) })
   // without report.view the list still shows, with no figures
   const reports = viewer.can('report.view')
   const summary = useQuery({ ...summaryQuery(range.from, range.to, reportChannel(filters)), enabled: reports })
@@ -362,6 +371,7 @@ function useRecentCampaigns(filters: HomeFilters, status: RecentStatus = 'ALL'):
         revenue: row?.revenue ?? null,
         target: target > 0 ? target : null,
         lastActivity: latest([campaign.updated_at, lastSentAt])!,
+        owner: campaign.owner_name,
         attention: failed.has(campaign.id) ? 0 : campaign.approval?.status === 'REQUESTED' ? 1 : campaign.display_status === 'TEST_PUBLISHED' ? 2 : campaign.display_status === 'PAUSED' ? 3 : 4,
       }
     })

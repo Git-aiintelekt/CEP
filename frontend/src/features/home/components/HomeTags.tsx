@@ -7,9 +7,9 @@ import type { Severity } from '../data/types'
 
 const BENCHMARK_TONE: Record<Benchmark, TagTone> = { Good: 'success', Fair: 'warning', Poor: 'error' }
 
-/** The plain tag, no dot: the word carries the meaning. */
-export function BenchmarkTag({ benchmark }: { benchmark: Benchmark }) {
-  return <Tag tone={BENCHMARK_TONE[benchmark]}>{benchmark}</Tag>
+/** The plain tag, no dot: the word carries the meaning, or the caller's own words in the benchmark's colour ("High return"). */
+export function BenchmarkTag({ benchmark, text }: { benchmark: Benchmark; text?: string }) {
+  return <Tag tone={BENCHMARK_TONE[benchmark]}>{text ?? benchmark}</Tag>
 }
 
 const SEVERITY: Record<Severity, { colours: string; icon: LucideIcon; iconColour: string }> = {

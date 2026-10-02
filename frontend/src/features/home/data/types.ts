@@ -206,6 +206,8 @@ export interface RecentCampaignRow {
   target: number | null
   /** the last thing that happened to it (edited or sent), for Most Recent */
   lastActivity: string
+  /** the campaign's owner by name; null when nobody owns it */
+  owner: string | null
   /** for Needs Attention: 0 a failed send, 1 waiting for approval, 2 awaiting production publish, 3 paused, 4 the rest */
   attention: number
 }

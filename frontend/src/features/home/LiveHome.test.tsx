@@ -66,9 +66,9 @@ test('"/" is the new Home: the greeting, every live section, and no request made
   expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   await waitFor(() => expect(region('Recent Campaigns')).toBeTruthy())
   await waitFor(() => expect(region('Next 7 Days')).toBeTruthy())
-  for (const name of ['Marketing Performance', 'Create New']) expect(region(name)).toBeTruthy()
+  for (const name of ['Key Figures', 'Create New']) expect(region(name)).toBeTruthy()
   await waitFor(() => expect(region('Needs Attention')).toBeTruthy())                                                                 // the mock overview has alerts
-  for (const name of ['Attributed Revenue vs. Campaign Cost', 'Active Journeys', 'Governance']) await waitFor(() => expect(region(name)).toBeTruthy())   // from GET /home/overview/
+  for (const name of ['Marketing Performance', 'Governance & Audience Health']) await waitFor(() => expect(region(name)).toBeTruthy())   // from GET /home/overview/
   expect(screen.getByRole('button', { name: 'All Campaigns' })).toBeTruthy()                                                          // the Campaign filter, live
   await new Promise((resolve) => setTimeout(resolve, 50))
   const requests = apiPaths(calls).filter((path) => path.startsWith('GET') && path !== 'GET /contact-lists/imports/')                  // the shell's upload poll repeats by design
@@ -82,7 +82,7 @@ test('without report.view: no report is asked for, the KPI access line shows, an
   await renderAppAt('/')
   expect(await screen.findByText('You don’t have access to performance reports.')).toBeTruthy()
   await waitFor(() => expect(region('Recent Campaigns')).toBeTruthy())
-  for (const name of ['Top and Bottom Campaigns', 'Engagement Funnel by Channel', 'E-Receipts']) expect(region(name)).toBeNull()
+  for (const name of ['Top Campaigns', 'Engagement Funnel', 'Channel Snapshot', 'E-Receipts']) expect(region(name)).toBeNull()
   expect(apiPaths(calls).some((path) => path.includes('/reports/summary/'))).toBe(false)
   expect(within(region('Recent Campaigns')!).getAllByRole('row').length).toBeGreaterThan(1)
 })
@@ -94,8 +94,8 @@ test('journeys and e-receipts switched off, and a section the viewer may not loa
     (String(input).includes('/campaigns/calendar/') ? Promise.resolve(new Response(JSON.stringify({ detail: 'Not allowed.' }), { status: 403, headers: { 'Content-Type': 'application/json' } })) : fetch(input, init)))
   await renderAppAt('/')
   await waitFor(() => expect(region('Recent Campaigns')).toBeTruthy())
-  expect(region('Next 7 Days')).toBeNull()
+  await waitFor(() => expect(region('Next 7 Days')).toBeNull())
   expect(region('E-Receipts')).toBeNull()
-  expect(region('Active Journeys')).toBeNull()
+  expect(region('Channel Snapshot')!.textContent).not.toContain('Journey')
   expect(screen.queryByRole('alert')).toBeNull()
 })
