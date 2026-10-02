@@ -29,6 +29,7 @@ type Decision = 'request-approval' | 'approve' | 'send-back'
 export function ApprovalCard({ campaign }: { campaign: Campaign }) {
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
+  const NOTE_MAX = 500                                                                            // travels in the action's body, not a column
   const [asked, setAsked] = useState<Decision | null>(null)
   const act = useMutation({
     mutationFn: (decision: Decision) => api.post<Campaign>(`/campaigns/${campaign.id}/${decision}/`, { note: note.trim() }),
@@ -72,8 +73,8 @@ export function ApprovalCard({ campaign }: { campaign: Campaign }) {
 
           {can('request_approval') && (
             <>
-              <Field label="Note to the Approver" hint="What to check, or why it is ready. Optional.">
-                {(ids) => <TextArea {...ids} rows={3} value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} />}
+              <Field label="Note to the Approver" hint="What to check, or why it is ready. Optional." limit={{ used: note.length, max: NOTE_MAX }}>
+                {(ids) => <TextArea {...ids} rows={3} value={note} maxLength={NOTE_MAX} onChange={(event) => setNote(event.target.value)} />}
               </Field>
               <button type="button" className={`${buttonPrimary} w-full`} disabled={act.isPending} onClick={() => run('request-approval')}>
                 {busy('request-approval') && <Spinner size="sm" tone="onBrand" />}{status === 'RETURNED' ? 'Request Approval Again' : 'Request Approval'}
@@ -83,8 +84,8 @@ export function ApprovalCard({ campaign }: { campaign: Campaign }) {
 
           {deciding && (
             <>
-              <Field label="Note" hint="Goes to the person who asked. Sending back needs one: say what to change.">
-                {(ids) => <TextArea {...ids} rows={3} value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} />}
+              <Field label="Note" hint="Goes to the person who asked. Sending back needs one: say what to change." limit={{ used: note.length, max: NOTE_MAX }}>
+                {(ids) => <TextArea {...ids} rows={3} value={note} maxLength={NOTE_MAX} onChange={(event) => setNote(event.target.value)} />}
               </Field>
               <div className="flex gap-2">
                 {can('send_back') && (

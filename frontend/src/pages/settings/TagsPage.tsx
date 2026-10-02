@@ -12,6 +12,7 @@ import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { buttonClass } from '@/components/buttonStyles'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import type { Page, PersonalizationTag, TagDataPoints } from '@/lib/types'
 
@@ -66,6 +67,7 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
   const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }))
   const source = points?.sources.find((item) => item.key === draft.source)
   const chosen = source?.points.find((item) => item.path === draft.point)
+  const rule = useFieldRules('personalization_tag')
 
   const save = useMutation({
     mutationFn: () => (tag ? api.patch<PersonalizationTag>(`/personalization-tags/${tag.id}/`, bodyOf(draft)) : api.post<PersonalizationTag>('/personalization-tags/', bodyOf(draft))),
@@ -97,11 +99,11 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
       <form id="tag-form" onSubmit={onSubmit} noValidate className="space-y-4">
         {other !== null && <ErrorState title="Could not save the tag" error={other} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tag Key" required error={errors.tag_key} hint="The word inside {{ }}: lower-case letters, digits and underscores.">
-            {(ids) => <TextInput {...ids} value={draft.tag_key} maxLength={100} disabled={Boolean(tag)} onChange={(event) => set({ tag_key: event.target.value })} />}
+          <Field label="Tag Key" required error={errors.tag_key} hint="The word inside {{ }}: lower-case letters, digits and underscores." limit={{ used: draft.tag_key.length, max: rule('tag_key')?.max ?? 100 }}>
+            {(ids) => <TextInput {...ids} value={draft.tag_key} maxLength={rule('tag_key')?.max ?? 100} disabled={Boolean(tag)} onChange={(event) => set({ tag_key: event.target.value })} />}
           </Field>
-          <Field label="Label" required error={errors.label} hint="What the tag picker shows.">
-            {(ids) => <TextInput {...ids} value={draft.label} maxLength={150} onChange={(event) => set({ label: event.target.value })} />}
+          <Field label="Label" required error={errors.label} hint="What the tag picker shows." limit={{ used: draft.label.length, max: rule('label')?.max ?? 150 }}>
+            {(ids) => <TextInput {...ids} value={draft.label} maxLength={rule('label')?.max ?? 150} onChange={(event) => set({ label: event.target.value })} />}
           </Field>
         </div>
         <Field label="Reads From" required hint="Where the value comes from when a message is sent.">

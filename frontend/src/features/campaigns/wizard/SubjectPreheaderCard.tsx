@@ -8,12 +8,15 @@ import { Field, TextInput } from '@/components/Form'
 import { InboxRow } from '@/features/designer/preview/InboxRow'
 import { DEFAULT_PROFILE } from '@/features/designer/preview/previewProfiles'
 import { usePreviewContent } from '@/features/templates/preview/usePreviewContent'
+import { useFieldRules } from '@/lib/fieldRules'
 import type { Template } from '@/lib/types'
 
 import { Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 
 const HEADER_MAX = 300
+/** what an inbox shows before it cuts off; the table allows 300 */
+const INBOX_SHOWS: Record<Key, number> = { subject_line: 60, preheader: 90 }
 const LINK = 'text-sm font-medium text-brand-800 hover:underline'
 
 type Key = 'subject_line' | 'preheader'
@@ -25,6 +28,7 @@ export function SubjectPreheaderCard({ template }: { template: Template }) {
   const theirs: Record<Key, string> = { subject_line: email?.subject.trim() ?? '', preheader: email?.preheader.trim() ?? '' }
   const own: Record<Key, string> = { subject_line: watch('subject_line'), preheader: watch('preheader') }
   const set = (key: Key, value: string) => setValue(key, value, { shouldDirty: true, shouldValidate: true })
+  const rule = useFieldRules('campaign')
 
   const field = (key: Key, label: string, nothing: string) => {
     const mine = own[key].trim() !== ''
@@ -32,10 +36,10 @@ export function SubjectPreheaderCard({ template }: { template: Template }) {
       ? theirs[key] ? `This campaign's own. The template's: “${theirs[key]}”` : "This campaign's own. The template has none."
       : content.isPending ? 'Loading the template' : theirs[key] ? "Empty: the template's is used." : nothing
     return (
-      <Field label={label} error={errors[key]?.message} hint={hint}
+      <Field label={label} error={errors[key]?.message} hint={hint} limit={{ used: own[key].length, max: rule(key)?.max ?? HEADER_MAX, soft: INBOX_SHOWS[key] }}
         labelEnd={mine ? <button type="button" className={LINK} onClick={() => set(key, '')}>Use the Template's</button>
           : theirs[key] ? <button type="button" className={LINK} onClick={() => set(key, theirs[key])}>Edit the Template's</button> : null}>
-        {(ids) => <TextInput {...ids} {...register(key)} maxLength={HEADER_MAX} placeholder={theirs[key] || undefined} />}
+        {(ids) => <TextInput {...ids} {...register(key)} maxLength={rule(key)?.max ?? HEADER_MAX} placeholder={theirs[key] || undefined} />}
       </Field>
     )
   }

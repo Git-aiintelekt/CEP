@@ -41,6 +41,7 @@ function LocalTimeCoverage({ campaignId, zone }: { campaignId: string; zone: str
 export function StepSchedule({ options, workspaceZone, onChangeType, campaignId }: { options: CampaignFormOptions | undefined; workspaceZone: string; onChangeType?: () => void; campaignId?: string }) {
   const { register, control, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const steps = useFieldArray({ control, name: 'drip.steps' })
+  const LABEL_MAX = 60                                                                            // the steps live in the drip JSON, not a column
   const type = watch('campaign_type')
   const sendType = watch('send_type')
   const zone = watch('send_timezone') || workspaceZone
@@ -167,8 +168,8 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
                   <Field label={`Step ${index + 1}: Day`} required error={errors.drip?.steps?.[index]?.day?.message}>
                     {(ids) => <TextInput {...ids} inputMode="numeric" {...register(`drip.steps.${index}.day`)} />}
                   </Field>
-                  <Field label="Label" error={errors.drip?.steps?.[index]?.label?.message} hint="Shown on the run, e.g. Welcome, Reminder.">
-                    {(ids) => <TextInput {...ids} maxLength={60} {...register(`drip.steps.${index}.label`)} />}
+                  <Field label="Label" error={errors.drip?.steps?.[index]?.label?.message} hint="Shown on the run, e.g. Welcome, Reminder." limit={{ used: (watch(`drip.steps.${index}.label`) ?? '').length, max: LABEL_MAX }}>
+                    {(ids) => <TextInput {...ids} maxLength={LABEL_MAX} {...register(`drip.steps.${index}.label`)} />}
                   </Field>
                   <button type="button" aria-label={`Remove Step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)}
                     className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-800 transition-colors hover:bg-fill-subtle disabled:text-ink-300">

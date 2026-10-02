@@ -18,9 +18,9 @@ import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } fr
 import { Notice } from '@/components/Notice'
 import { Spinner } from '@/components/States'
 import { buttonClass } from '@/components/buttonStyles'
+import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { channelAllowed } from '@/lib/features'
-import { formatNumber } from '@/lib/format'
 import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
 import { ChoiceCard, ChoiceGroup } from '../parts'
@@ -130,6 +130,9 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   const type = watch('campaign_type')
   const channel = watch('channel')
   const description = watch('description')
+  const name = watch('name')
+  const code = watch('code')
+  const rule = useFieldRules('campaign')
   const receipt = type === 'E_RECEIPT'
 
   // Edit details: the type and channel stay open until the content is chosen
@@ -280,8 +283,8 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
             )}
 
             <div data-field="name">
-              <Field label="Campaign Name" required strong error={errors.name?.message} hint="Internal name, visible to your team only">
-                {(ids) => <TextInput {...ids} {...register('name')} maxLength={200} placeholder="e.g. Fall Promo Email" data-autofocus />}
+              <Field label="Campaign Name" required strong error={errors.name?.message} hint="Internal name, visible to your team only" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+                {(ids) => <TextInput {...ids} {...register('name')} maxLength={rule('name')?.max ?? 200} placeholder="e.g. Fall Promo Email" data-autofocus />}
               </Field>
             </div>
 
@@ -334,14 +337,14 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               {moreOpen && (
                 <div id={`${titleId}-more`} className="mt-4 flex flex-col gap-6">
                   <div data-field="code" className="sm:w-1/2 sm:pr-3">
-                    <Field label="Code (Optional)" strong error={errors.code?.message} hint="Leave blank to get one automatically · capitals, digits and hyphens">
-                      {(ids) => <TextInput {...ids} {...register('code')} maxLength={40} placeholder="CMP-2026-0021" className="uppercase placeholder:normal-case" />}
+                    <Field label="Code (Optional)" strong error={errors.code?.message} hint="Leave blank to get one automatically · capitals, digits and hyphens" limit={{ used: code.length, max: rule('code')?.max ?? 40 }}>
+                      {(ids) => <TextInput {...ids} {...register('code')} maxLength={rule('code')?.max ?? 40} placeholder="CMP-2026-0021" className="uppercase placeholder:normal-case" />}
                     </Field>
                   </div>
                   <div data-field="description">
                     <Field label="Description" strong error={errors.description?.message}
-                      labelEnd={<span className="cep-num text-helper text-ink-800">{formatNumber(description.length)} / 2,000</span>}>
-                      {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={2000} placeholder="What this campaign is for and who it's aimed at" />}
+                      limit={{ used: description.length, max: rule('description')?.max ?? 2000 }}>
+                      {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={rule('description')?.max ?? 2000} placeholder="What this campaign is for and who it's aimed at" />}
                     </Field>
                   </div>
                   <div data-field="tags">

@@ -2,6 +2,9 @@
 import { CircleAlert } from 'lucide-react'
 import { useId, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 
+import { formatNumber } from '@/lib/format'
+import { limitTone, type Limit } from '@/lib/fieldRules'
+
 import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
 
 interface FieldProps {
@@ -10,6 +13,8 @@ interface FieldProps {
   strong?: boolean
   /** at the end of the label row: a counter such as "12 / 2,000" */
   labelEnd?: ReactNode
+  /** the length counter, from the field's rule: grey, amber in the last 10%, red at the limit */
+  limit?: Limit
   hint?: string
   error?: string
   required?: boolean
@@ -17,7 +22,7 @@ interface FieldProps {
   children: (ids: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode
 }
 
-export function Field({ label, hint, error, required, strong = false, labelEnd, children }: FieldProps) {
+export function Field({ label, hint, error, required, strong = false, labelEnd, limit, children }: FieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
@@ -30,9 +35,11 @@ export function Field({ label, hint, error, required, strong = false, labelEnd, 
     </label>
   )
 
+  const counter = limit && limit.max !== null ? <Counter {...limit} /> : null
+  const end = labelEnd && counter ? <span className="flex items-baseline gap-3">{labelEnd}{counter}</span> : (labelEnd ?? counter)
   return (
     <div>
-      {labelEnd ? <div className="flex items-baseline justify-between gap-3">{labelText}{labelEnd}</div> : labelText}
+      {end ? <div className="flex items-baseline justify-between gap-3">{labelText}{end}</div> : labelText}
       {strong ? <div className="mt-1.5">{children({ id, describedBy, invalid: Boolean(error) })}</div> : children({ id, describedBy, invalid: Boolean(error) })}
       {hint && !error && (
         <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-800' : 'mt-1 text-xs text-ink-800'}>
@@ -46,6 +53,20 @@ export function Field({ label, hint, error, required, strong = false, labelEnd, 
         </p>
       )}
     </div>
+  )
+}
+
+const COUNTER_TONE = { quiet: 'text-ink-800', warn: 'text-warning-text', over: 'text-danger-text font-semibold' } as const
+
+/** "42 / 200" at the end of a label row. Reads as "42 of 200 characters" to a screen reader; nothing when the limit is unknown. */
+export function Counter({ used, max, soft }: Limit) {
+  if (max === null) return null
+  const ceiling = soft ?? max
+  const tone = limitTone({ used, max, soft })
+  return (
+    <span className={`cep-num shrink-0 text-xs font-medium ${COUNTER_TONE[tone]}`} aria-label={`${formatNumber(used)} of ${formatNumber(ceiling)} characters`} aria-live={tone === 'quiet' ? undefined : 'polite'}>
+      {formatNumber(used)} / {formatNumber(ceiling)}
+    </span>
   )
 }
 
