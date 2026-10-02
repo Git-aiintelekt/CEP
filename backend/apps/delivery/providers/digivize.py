@@ -1,8 +1,10 @@
-"""Digivize External SMS API: the batch send, signed the way Digivize's own Postman pre-request script signs it.
+"""Digivize External SMS API, signed the way Digivize's own Postman pre-request script signs it.
 
     POST {endpoint}{send_path}?key=<api key>&timestamp=<unix seconds>&signature=<hex>
-         body (JSON, no auth fields): {brand_id, message, message_type, recipients: [{to, variables, external_ref}],
-                                       variable_normalization: "gsm7_safe", auto_create_contacts, idempotency_key, callback_url}
+         single (the default; what /api/v1/external/sms/send serves, 2026-10-02 on citi-sandbox and lab):
+                 {brand_id, to, message, message_type, external_ref, idempotency_key, variable_normalization, callback_url}
+         batch (send_mode = batch, for the batch route when Digivize provides it; it did not exist on either host):
+                 {brand_id, message, message_type, recipients: [{to, variables, external_ref}], variable_normalization, auto_create_contacts, idempotency_key, callback_url}
     signature = HMAC-SHA256(secret key, canonical) where canonical is the body plus `key` and `timestamp`, top-level keys sorted,
                 serialised like PHP's http_build_query (recipients[0][to]=..., spaces as +, !'()* percent-encoded, true/false as 1/0,
                 nested keys in the order they are sent), joined with &. The JSON body is written in the same key order it was signed in.
@@ -27,8 +29,9 @@ from .base import ConfigField, DeliveryEvent, EventType, InboundMessage, Provide
 from .registry import register
 
 DEFAULT_ENDPOINT = "https://lab.digivize.ai"
-DEFAULT_SEND_PATH = "/api/v1/external/sms/batch"
+DEFAULT_SEND_PATH = "/api/v1/external/sms/send"
 MESSAGE_TYPES = ("marketing", "transactional")
+SEND_MODES = ("single", "batch")
 VARIABLE_NORMALIZATION = "gsm7_safe"
 BATCH_NAMESPACE = uuid.UUID("5a1d1e1c-0d2b-4d8e-9f0a-7c6b5a4d3e2f")
 
@@ -83,7 +86,10 @@ class DigivizeProvider(SmsProvider):
                     help="The path of the batch request in Digivize's Postman collection, when it differs from the placeholder."),
         ConfigField("api_key", "API Key", help="Digivize's api_key: travels as the `key` query parameter and inside the signed string."),
         ConfigField("secret_key", "Secret Key", secret=True, help="Digivize's secret_key: signs every call (HMAC-SHA256). Never shown again once saved."),
-        ConfigField("brand_id", "Brand ID", help="The brand the texts are sent under, as Digivize numbers it (brand_id)."),
+        ConfigField("brand_id", "Brand ID", help="The brand's number at Digivize (brand_id), e.g. 3. A name is refused: \"The brand id field must be an integer.\""),
+        ConfigField("send_mode", "Send Mode", required=False, placeholder="single",
+                    help="single (the default): one request per text, the shape the sms/send route serves. batch: one request per identical text with a recipients list, "
+                         "for the batch route once Digivize provides it (set the path above to it)."),
         ConfigField("message_type", "Message Type", required=False, placeholder="marketing",
                     help="marketing (the default) or transactional. Digivize applies its own rules per type."),
         ConfigField("callback_url", "Callback Address to Send", required=False, kind="url",
@@ -103,6 +109,11 @@ class DigivizeProvider(SmsProvider):
     def _message_type(self) -> str:
         kind = str(self.config.get("message_type") or "marketing").strip().lower()
         return kind if kind in MESSAGE_TYPES else "marketing"
+
+    @property
+    def _send_mode(self) -> str:
+        mode = str(self.config.get("send_mode") or "single").strip().lower()
+        return mode if mode in SEND_MODES else "single"
 
     @property
     def _brand_id(self):
@@ -170,13 +181,43 @@ class DigivizeProvider(SmsProvider):
         return self.send_many([message])[0]
 
     def send_many(self, messages: list[SmsMessage]) -> list[SendResult]:
-        """One batch per run of identical text (CEP already personalised it), at most max_batch recipients each. Results in order."""
+        """Results in order. single: one request per message. batch: one per run of identical text, at most max_batch recipients each."""
+        if self._send_mode == "single":
+            return [self._send_single(message) for message in messages]
         results: list[SendResult] = []
         for (text, media_url), group in groupby(messages, key=lambda m: (m.text, m.media_url)):
             items = list(group)
             for start in range(0, len(items), self.max_batch):
                 results.extend(self._send_chunk(text, media_url, items[start:start + self.max_batch]))
         return results
+
+    def _single_body(self, message: SmsMessage, ref: str) -> dict:
+        body = {"brand_id": self._brand_id, "to": message.to_number, "message": message.text, "message_type": self._message_type, "external_ref": ref,
+                "idempotency_key": f"cep-{uuid.uuid5(BATCH_NAMESPACE, ref)}", "variable_normalization": VARIABLE_NORMALIZATION}
+        if self.config.get("callback_url"):
+            body["callback_url"] = str(self.config["callback_url"])
+        if message.media_url:
+            body["media_urls"] = [message.media_url]
+        return body
+
+    def _send_single(self, message: SmsMessage) -> SendResult:
+        ref = message.idempotency_key or f"cep-{uuid.uuid4().hex}"
+        try:
+            response = self._post(self._single_body(message, ref))
+        except requests.RequestException as exc:
+            return SendResult.retry(f"{exc.__class__.__name__}: {exc}")
+        answer = self._answer(response)
+        if self._refused(response, answer):
+            raise ProviderError(f"Digivize refused the API key, the signature or the timestamp: {self._error(answer, response)}. Use Check on the engine.", retryable=False)
+        if response.status_code == 429 or response.status_code >= 500:
+            return SendResult.retry(f"Digivize answered HTTP {response.status_code}: {self._error(answer, response)}")
+        if response.status_code >= 400 or answer.get("success") is False:
+            return SendResult.rejected(self._error(answer, response))
+        data = answer.get("data") if isinstance(answer.get("data"), dict) else answer
+        status = str(data.get("status") or "").lower()
+        if status in FAILED_STATUSES or data.get("error_code"):
+            return SendResult.rejected(str(data.get("error") or data.get("error_code") or status)[:200])
+        return SendResult.accepted(str(data.get("tracking_id") or data.get("message_id") or data.get("id") or ""))
 
     def _send_chunk(self, text: str, media_url: str | None, chunk: list[SmsMessage]) -> list[SendResult]:
         refs = [m.idempotency_key or f"cep-{uuid.uuid4().hex}" for m in chunk]
@@ -236,7 +277,10 @@ class DigivizeProvider(SmsProvider):
         if not str(self.config.get("brand_id") or "").strip():
             return False, "Enter the brand ID first."
         try:
-            response = self._post(self._body("CEP connection check", [], batch_key=f"cep-check-{uuid.uuid4()}"))
+            # an empty batch (batch mode) or a body with no number (single mode): Digivize validates it and sends nothing
+            probe = (self._body("CEP connection check", [], batch_key=f"cep-check-{uuid.uuid4()}") if self._send_mode == "batch"
+                     else {k: v for k, v in self._single_body(SmsMessage(to_number="", from_sender="", text="CEP connection check"), f"cep-check-{uuid.uuid4().hex[:8]}").items() if k != "to"})
+            response = self._post(probe)
         except requests.RequestException as exc:
             return False, f"Cannot reach Digivize: {exc.__class__.__name__}: {exc}"
         finally:
