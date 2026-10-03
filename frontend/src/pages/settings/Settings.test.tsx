@@ -22,13 +22,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-test('settings opens on users with workspace facts; the administrator cannot deactivate themselves', async () => {
+test('settings opens on users; the administrator cannot deactivate themselves', async () => {
   installMockApi()
   await renderAppAt('/settings')
 
-  expect(await screen.findByText('Northwind Apparel (NWA)')).toBeTruthy()
-  expect(screen.getByText('2 of 50')).toBeTruthy()
   const table = await screen.findByRole('table', { name: 'Users' })
+  expect(screen.queryByText('Northwind Apparel (NWA)')).toBeNull()                                   // no facts strip: the page is the menu and the page
   const own = within(table).getByText('aby.john@aiintelekt.com').closest('tr') as HTMLElement
   expect(within(own).queryByRole('button', { name: 'Deactivate' })).toBeNull()
   const other = within(table).getByText('devon@example.com').closest('tr') as HTMLElement
