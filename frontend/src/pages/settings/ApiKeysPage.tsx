@@ -65,7 +65,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
           </ul>
         </fieldset>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Allowed IP Addresses" error={errors.allowed_ip_cidrs} hint="Optional. Addresses or CIDR ranges, separated by commas or new lines. Empty means any address.">
+          <Field label="Allowed IP Addresses" error={errors.allowed_ip_cidrs} help="A call from any other address is refused even with the right key. Use the caller's outbound address or range; empty allows any address." hint="Optional. Addresses or CIDR ranges, separated by commas or new lines. Empty means any address.">
             {(ids) => <TextArea {...ids} rows={2} value={cidrs} onChange={(event) => setCidrs(event.target.value)} placeholder="203.0.113.0/24" className="cep-num" />}
           </Field>
           <Field label="Expires" error={errors.expires_at} hint="Optional. Your local time.">

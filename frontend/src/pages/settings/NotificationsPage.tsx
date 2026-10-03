@@ -109,7 +109,7 @@ function NotificationsForm({ data, onSaved }: { data: NotificationSettings; onSa
               <h3 className="font-display text-card-heading font-semibold text-ink-900">Chat Webhook</h3>
               {data.webhook_url && (data.webhook_tested_at ? <StatusBadge status="ACTIVE" label="Working" /> : <StatusBadge status="DRAFT" label="Not Tested" />)}
             </div>
-            <Field label="Webhook URL" error={errors.webhook_url}
+            <Field label="Webhook URL" error={errors.webhook_url} help="Slack, Teams or anything that takes a text message. The events ticked under Webhook are posted here; Send a Test Message records when it last worked."
               hint={`Slack, Teams or anything that takes a JSON message with a text field.${data.webhook_tested_at ? ` Last worked ${formatDateTime(data.webhook_tested_at)}.` : ''}`}>
               {(ids) => <TextInput {...ids} type="url" value={webhook} onChange={(event) => setWebhook(event.target.value)} placeholder="https://hooks.slack.com/services/…" autoComplete="off" />}
             </Field>

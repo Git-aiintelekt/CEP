@@ -56,7 +56,119 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Saving, versions and activating
   - Examples
   - Things to know
+- Setting Up a New Workspace
+  - What this is
+  - Who does it
+  - The path, from the email
+  - The Set-Up page's controls
+  - What happens behind the scenes
+  - Things to know
 - Sending Engines and Senders
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Users
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Roles
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Tags
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Security
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Approvals
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Plan & Usage
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Email Server
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Notifications
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Suppressions
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Preference Centre
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Consent Policy
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Integrations
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- API Keys
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- POS Receipts
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Account Security
   - What this page is for
   - Who can use it
   - The fields and controls
@@ -111,7 +223,7 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Where to start
 
-A new workspace begins at **Settings → Set-Up**: seven steps, each opening the page that does it, read from the workspace so the page always knows what is done. The chapters for those pages are the ones to read first: Users and Roles, Sending Engines, Suppressions, Contact Lists, Notifications and Approvals.
+A new workspace begins with the chapter **Setting Up a New Workspace**: from the invitation email and the first sign-in through the seven set-up steps to the first production send. **Settings → Set-Up** is the page that walks them, read from the workspace so it always knows what is done. The chapters for the pages it opens come next: Users and Roles, Sending Engines, Suppressions, Contact Lists, Notifications and Approvals.
 
 ---
 
@@ -139,7 +251,7 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 | The greeting | Good morning, afternoon or evening in the workspace's time zone, with your first name. | Nothing. |
 | Create New | Campaign, Template, Contact List, and Journey where journeys are on: one tile each, only the ones you may create. | Opens the Create Campaign pop-up, the New Template page, the contact list wizard. |
 | Needs Attention | One card per thing to act on: campaigns with delivery failures in the last week, campaigns waiting for a production publish, campaigns waiting for approval; red first, then amber, then the rest; three cards until View All. An opportunity card from the funnel takes one slot when there is one. | Each card's link opens the campaign list filtered to those campaigns. The section is left out when there is nothing to act on. |
-| Set Up Your Workspace | For administrators until the workspace is ready: how many of the seven set-up steps are done and what comes next. | Continue Set-Up opens Settings → Set-Up. Hide Until Later on that page hides the card. |
+| Set Up Your Workspace | For administrators until the workspace is ready: how many of the seven set-up steps are done and what comes next. | Continue Set-Up opens Settings → Set-Up (the chapter Setting Up a New Workspace walks the whole path). Hide Until Later on that page hides the card. |
 
 ### Marketing Performance
 
@@ -723,6 +835,83 @@ Duplicate from the library makes a draft copy of the latest version; change the 
 
 ---
 
+# Setting Up a New Workspace
+
+**Where:** Settings → Workspace → Set-Up. The first sign-in of an administrator lands here while the workspace is not ready, and Home keeps a card pointing back until it is.
+
+## What this is
+
+The platform team creates the workspace and sends its first administrator an email with a one-time password link and the set-up list. From that email to the first production send is one path, and this chapter walks it: choosing a password, the first sign-in, the Set-Up page that knows what is done, the seven steps in order, a rehearsal with a test campaign, and the first real send. Nothing in it is a new form: every step opens the Settings page that does it, and those pages have their own chapters.
+
+## Who does it
+
+| | |
+|---|---|
+| Permission | The first administrator holds the Workspace Admin role, which has every permission including `user.admin`. Anyone with `user.admin` sees the Set-Up page. |
+| Features | Step 5 (texts) reads as not available without the **sms** feature; the API Keys link under step 7 needs **api_access**. The platform team switches features on per workspace. |
+
+## The path, from the email
+
+### Before the first sign-in
+
+1. **The email.** It names the workspace and its code (for example `NWA`), carries the password link and lists the set-up steps. The link is one-time: if it was used or has expired, ask the platform team, or any administrator who already has access, for a new one (Settings → Users → Password Link).
+2. **Choose a password.** The link opens the password page; choose one and continue to the sign-in.
+3. **Sign in.** The workspace code, your email and the password. When the workspace requires multi-factor authentication, the next screen walks you through it before anything else: scan the code with an authenticator app, type the six digits, store the recovery codes.
+4. **You land on Set-Up.** An administrator whose workspace is not ready lands here instead of Home: *Welcome, {name}. Let's set up {CODE}.* with step 1 already done. Everyone else, and every later sign-in, lands on Home, where a card says how far the set-up is until the workspace is ready.
+
+### The seven steps, in order
+
+| # | Step | What to do | Done when |
+|---|---|---|---|
+| 1 | Choose your password and sign in | Done by reading this. Account Security sets up your own second step. | You are signed in. |
+| 2 | Invite your team and give them roles | Users → Add User: email, name, a role. Three roles are ready: Workspace Admin, Campaign Manager, Analyst; Roles adds narrower ones, for example an approver. Each person gets their own password link. | At least one other active user with a role. |
+| 3 | Add an email engine | Sending Engines → Add Engine: Postal or SendGrid with its address and key → Check. Then Copy Webhook URL and register the address with the provider, so deliveries and bounces come back. | An active email engine whose last Check passed. |
+| 4 | Add an email sender and verify it | Sending Engines → Add Sender on the engine: the From name and address on a domain the engine may send for → Verify; the message arrives in your own inbox. Tick Default. | A verified email sender. |
+| 5 | Add a text engine and a sender number (optional) | Sending Engines → Add Engine: Digivize with its keys and brand, or the Sandbox to rehearse without an aggregator → a sender with the number → Verify by a text. | An active text engine with a verified number. Optional. |
+| 6 | Import your do-not-contact list, then your first contact list | Suppressions → Import the opt-outs from your previous system first, so no upload can reach them. Then Contact Lists → Create List → Upload a File: name it, say what it is for, match the columns, declare where the people agreed, review, import. | A production list with people. |
+| 7 | Decide who is told, and who approves (optional) | Notifications: the addresses or chat webhook that hear about failed sends. Approvals: whether a second person signs off before a production publish. API Keys: a key with `receipts:send` when the point of sale will send receipts. | A recipient, or approvals on, or a key. Optional. |
+
+**Ready** means steps 1, 2, 3, 4 and 6 are done. The Home card goes, and the page stays under Settings with the optional steps still listed.
+
+### Before the first real send
+
+Worth setting while the workspace is quiet, each with its own chapter:
+
+- **Consent Policy** (Settings → Audience): what an upload does with people without a consent date, whether text lists need a text consent date, approval before a fresh list's first send, and the sentence uploaders confirm.
+- **Preference Centre**: switch on when customers should choose topics; add the topics first and put `{{preference_url}}` in the templates' footer.
+- **Email Server**: your own SMTP server for password links and notifications, so they come from your domain.
+- **Tags**: the workspace's own personalization tags beyond the platform's catalogue.
+- **Security**: require multi-factor authentication for everyone, or sign in through your identity provider.
+- **Templates**: copy a preset, put your brand on it, Activate.
+
+### The rehearsal, then production
+
+1. **A test campaign.** Campaigns → Create Campaign → Regular Marketing, Email, Marketing → a Test list (Contact Lists lets you make one from a file of colleagues) → the template → Send a Test to yourself → Test Publish. A test publish sends to nobody real and counts in nothing.
+2. **The first production send.** The same campaign with the production list attached, the sender verified, a subject line, the topic when the preference centre is on → Review & Publish → Production Publish. The checklist on that step names anything missing.
+3. **Watch it land.** The campaign's Performance tab and Recipients show each message's story as the engine calls back; Home's Needs Attention raises a failed run; Settings → Integrations keeps every call.
+
+## The Set-Up page's controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The heading | *Welcome, {name}. Let's set up {CODE}.* on a brand-new workspace; *Set Up Your Workspace* afterwards. Under it the workspace's name, plan and time zone. | |
+| Hide Until Later / Show on Home Again | Hides the Home card, or brings it back. | The Home card and the first-sign-in landing. The page itself stays. |
+| n of 7 done, the meter | How many steps are done. | |
+| A step's row | Its number (blue for the next one, amber when it needs attention, a tick when done), its name, a sentence read from the workspace, a hint while it is the next step, a status tag (Done, Not verified, Not checked), and the buttons to the page that does it. | |
+| The callout | Which steps make the workspace ready, or that it is ready. | |
+
+## What happens behind the scenes
+
+Every load reads the users and roles, the engines and their last check, the senders, the suppressions and lists, the notification settings, the approval switch and the API keys, and decides each step from them; nothing is ticked by hand. The dismissal of the Home card is the only thing the page stores. The platform team sees the same readiness from their side, so they know when a workspace is sending.
+
+## Things to know
+
+- Until an email engine has been checked and a sender verified, test sends work and production publishing does not.
+- A password link is one-time; a new one replaces the old.
+- The optional steps never hold the workspace back, and the page keeps listing them until they are done.
+
+---
+
 # Sending Engines and Senders
 
 **Where:** Settings → Sending → Sending Engines.
@@ -829,6 +1018,16 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 | Sender Number (texts) | The number texts come from: a short code (`55123`), a long number with the country code (`+14045550155`) or an alphanumeric sender id where the aggregator allows one. | The number on every text; replies and STOP messages come back to it. |
 | Default | One sender per channel is the default. | Offered first when a campaign is set up. |
 
+### Deliverability Testing
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Set Up Mailgun Inspect | Region (US or EU), the Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | The designer's Deliverability tab can run inbox previews. |
+| Edit | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
+
+Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Tests count against the plan's monthly allowance, shown under Plan & Usage.
+
 ## How to
 
 **Connect an email engine.** Add Engine → choose the type → name it → paste the address and the key → Add Engine. Press **Check** on its row and wait for *Checked*. Then **Copy Webhook URL** and register that address with the provider (Postal: the mail server's Webhooks; SendGrid: Mail settings → Event Webhook). Within a day the Callbacks column should show callbacks arriving.
@@ -858,3 +1057,747 @@ The campaign's **Recipients** tab shows each message's story, and **Check with t
 - Removing an engine removes its senders. Switch it off instead when you may need it again.
 - Keys are stored encrypted and are never shown, exported or written to the audit trail.
 - The platform's own mail server (used for password links and notifications) is never a campaign engine. Your workspace's own mail server can be, from Settings → Email Server.
+
+---
+
+# Users
+
+**Where:** Settings → Workspace → Users.
+
+## What this page is for
+
+Who can sign in to the workspace, with which roles. People are invited by email with a one-time password link; they choose a password and sign in. Users are deactivated, never deleted, so everything they created keeps its author.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+| Features | Always on. A column reads SSO when the workspace signs people in through its identity provider (Settings → Security). |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The table | User (name and email, *you* on your own row), Roles, Status (Active or Deactivated), Sign-In (when they last signed in; *No password yet* until the password link is used; the provider's name for single sign-on accounts). | |
+| Add User | Opens the form. | |
+| Edit | The name and the roles. The email address is the sign-in name and cannot be changed. | |
+| Password Link | Makes a one-time link to choose a password, sends it by email when the workspace has a mail server, and shows it to copy otherwise. For a new user, for someone who forgot, or when a link expired. | The previous link stops working. |
+| Deactivate / Reactivate | Takes the sign-in away or gives it back. Nobody can deactivate themselves. | A deactivated user is left out of every count and every notification; their campaigns and templates stay. |
+
+### The user form
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Email | The sign-in name. Must not exist in the workspace. | Where the password link goes. Fixed once created. |
+| Name | Shown wherever the person appears: owner of a campaign, author of a template, the approver. | |
+| Roles | One or more of the workspace's roles. Without a role the user can sign in but sees nothing. | What the person may do. The permissions of all their roles add up. |
+
+## How to
+
+**Invite someone.** Add User → email, name, tick a role → Add. The password link goes by email when the workspace has a mail server; otherwise copy it from the Password Link dialog and send it yourself.
+
+**Someone forgot their password.** Password Link on their row. The link is one-time and expires; an older link stops working.
+
+**Someone leaves.** Deactivate. Their campaigns keep their name as owner; reassign the live ones from each campaign's Edit Details.
+
+## What happens behind the scenes
+
+1. Adding a user creates the account with no password and a one-time link. The workspace's own mail server carries the email when one is entered under Settings → Email Server; the platform's server otherwise; with no server at all the link is shown to copy.
+2. The first sign-in of an administrator lands on Settings → Set-Up while the workspace is not ready.
+3. When Security requires multi-factor authentication, a new user is asked to set it up on their first sign-in, before anything else.
+
+## Things to know
+
+- The workspace's plan caps the number of active users; Settings → Plan & Usage shows the count against the limit.
+- A single sign-on account has no password link: the identity provider signs it in.
+- Roles are defined on the Roles page; this page only assigns them.
+
+---
+
+# Roles
+
+**Where:** Settings → Workspace → Roles.
+
+## What this page is for
+
+A role is a named set of permissions. A user with the role may do what its permissions allow, and a user with several roles may do the union of them. Three roles come with every workspace: Workspace Admin (everything, including users, roles and API keys), Campaign Manager (builds and publishes campaigns, lists and templates) and Analyst (read-only with reports). Add your own for narrower jobs.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The table | Role (name and description), Permissions (how many of the catalogue), Users (how many hold it). | |
+| New Role, Edit | The form: Name, Description, and a checkbox per permission, grouped by area. | |
+| Delete | Removes a role nobody holds. A role with users is refused. | |
+
+### The permissions
+
+| Permission | What it allows |
+|---|---|
+| campaign.view | See campaigns, their results, recipients and activity. |
+| campaign.edit | Create, edit, clone and archive campaigns; send tests; ask for approval. |
+| campaign.publish | Publish to production, pause, resume, cancel a schedule, choose a subject test's winner. |
+| campaign.approve | Approve or send back a campaign when the workspace requires approvals. Never for the person who asked. |
+| journey.view, journey.edit, journey.activate | See, build and switch on journeys (with the journeys feature). |
+| template.view, template.edit | See templates; create, edit, activate and delete them. |
+| list.view, list.edit, list.import | See lists and their people; create, edit, clone and archive lists; upload files. |
+| consent.edit | Approve or refuse a list that waits for approval; block and unblock addresses under Suppressions. |
+| governance.edit | Change the frequency policies. |
+| provider.edit | Sending engines, senders, integrations and deliverability testing. |
+| report.view | Reports, Home's figures, Governance. |
+| user.admin | Settings as a whole: users, roles, tags, security, approvals, notifications, the plan, API keys, the consent policy, the preference centre, POS receipts. |
+
+## How to
+
+**Make an approver who cannot publish.** New Role → *Approver* → tick campaign.view and campaign.approve → Create. Give it to the people who sign off.
+
+**Let the store team upload lists only.** New Role → list.view, list.edit, list.import. They see Contact Lists and nothing else.
+
+## What happens behind the scenes
+
+Every API request checks the permission the endpoint needs against the union of the user's roles; a page without the permission says which one to ask for. Changing a role takes effect at the user's next request, no sign-out needed.
+
+## Things to know
+
+- Settings needs user.admin as a whole; a role with provider.edit alone cannot open Sending Engines through the menu, though the API allows it.
+- The three starting roles can be edited and renamed like any other; the Workspace Admin role is what the first administrator holds.
+
+---
+
+# Tags
+
+**Where:** Settings → Workspace → Tags.
+
+## What this page is for
+
+Tags are the words a template fills in for each person: `{{first_name}}`, `{{store_name}}`, `{{coupon_code}}`. The platform's own catalogue is inherited by every workspace and the same everywhere; this page shows it, and adds the workspace's own tags: a static text, or a value read from the customer record, a list upload column, the campaign, the run, a receipt or a store.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin` to open Settings; the tags themselves are read with `template.edit` wherever the designer offers them. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Offered In | All, Email, SMS, MMS, E-Receipt: the channel filter. | The table. |
+| The table | Tag (the key and its label), Reads From, Type, Offered In, Sample, Origin (Platform or Workspace). | |
+| Add Tag, Edit, Remove | For the workspace's own tags. A platform tag is read-only here and changed by the platform team. | |
+
+### The tag form
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Tag Key | The word inside the braces: lower-case letters, digits and underscores. | How the tag is typed in a template. Fixed once created. |
+| Label | What the tag picker shows. | |
+| Reads From | Where the value comes from at send time: a source (customer record, list upload column, campaign, run, system, receipt, store) or a static value. | |
+| Data Point, Key | For a source: the data point, and for a list column or an attribute, the key that completes the path. | The value each recipient gets. |
+| Static Value | The same text for everyone. | |
+| Type | Text, Number, Date, True/False. | How the value is formatted. |
+| Default Value | Used when the source is empty for a person. | What a person without the value sees. |
+| Sample Value | Shown in previews, the designer's canvas and test sends. | |
+| Offered In | The channels whose editors list the tag. | |
+| Description | A line for whoever picks it. | |
+
+## How to
+
+**Add a tag from an upload column.** Add Tag → key `loyalty_tier`, label *Loyalty Tier* → Reads From: list upload column → Key: the column's header → Default: *Member* → Sample: *Gold* → Add. Upload lists with that column; every template can use the tag.
+
+**A tag for one campaign's offer.** A static tag `offer_ends` with the date; change its value for the next campaign.
+
+## What happens behind the scenes
+
+At send time the engine fills each tag from its source: the workspace's catalogue, the list member's uploaded columns, the customer's attributes, then the default. A tag a template uses that is not in the catalogue is a finding on save. When the platform team changes a platform tag, every workspace's copy follows; a workspace tag with the same key is left alone.
+
+## Things to know
+
+- The coupon tags (`coupon_code`, `coupon_barcode_value`, `coupon_qr_value`) feed the designer's Barcode and QR Code blocks from list columns of the same names.
+- Removing a tag does not change saved templates; they keep the token and the designer reports it as unknown.
+
+---
+
+# Security
+
+**Where:** Settings → Workspace → Security.
+
+## What this page is for
+
+How people sign in to the workspace: whether everyone must use multi-factor authentication, single sign-on through your identity provider, and the record of every time platform support acted inside the workspace.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+| Features | Single sign-on needs the **sso** feature. |
+
+## The fields and controls
+
+### Multi-Factor Authentication
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Require for Everyone | Everyone signs in with a code from an authenticator app. | People who have not set it up are asked to on their next sign-in, before anything else; nobody can turn their own off while it is required. Single sign-on users are covered by the identity provider. Refused until you have set it up yourself. |
+
+### Single Sign-On (OpenID Connect)
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Name on the Sign-In Button | For example Okta, Microsoft, Google Workspace. | The button on the sign-in page. |
+| Issuer | The https address of your OpenID Connect provider. Checked when you save. | Where sign-ins go. |
+| Client ID, Client Secret | From the application registered at the provider. The secret is stored encrypted and never shown again; leave it empty to keep it. | |
+| Allowed Email Domains | Only addresses on these domains may sign in; empty means any address the provider vouches for. | |
+| Role for New Accounts | The role an account created on first sign-in gets. | Needed when accounts are created on first sign-in. |
+| Use Single Sign-On | Shows the button. | |
+| Create Accounts on First Sign-In | Otherwise only people added under Users can sign in. | |
+| Require Single Sign-On | Passwords stop working for everyone except administrators, who keep theirs for the day the provider is unreachable. | |
+
+### Support Access
+
+| Column | What it is |
+|---|---|
+| When, Support Person, Acted As, Reason, Access (read-only or could change), Ended | Every support session platform staff opened into this workspace, acting as one of its users, with when it ended or that it is open now. |
+
+## How to
+
+**Require a second step for everyone.** Set up your own under Account Security first (the account menu), then switch Require for Everyone on. From the next sign-in everyone without it is walked through the set-up.
+
+**Sign in with your company's identity provider.** Register CEP as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
+
+## What happens behind the scenes
+
+The issuer's configuration is fetched when you save, so a wrong address is refused at once. A sign-in through the provider creates or matches the account by email, within the allowed domains. A support session is recorded with who, as whom, why, read-only or not, and when it ended; a banner shows while one is open.
+
+## Things to know
+
+- Keep one administrator with a password while single sign-on is required: it is the way in when the provider is down.
+- Multi-factor authentication for yourself is under the account menu → Account Security; this page only sets the rule for the workspace.
+
+---
+
+# Approvals
+
+**Where:** Settings → Workspace → Approvals.
+
+## What this page is for
+
+Whether a campaign needs a second person's approval before it can be published to production, and who can give it. With approvals on, a campaign's Review & Publish step asks for approval and the approvers see it under Campaigns → Awaiting Approval.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin` for the switch; approving needs `campaign.approve` on a role. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Require Approval Before a Production Publish | The switch. Refused until at least one user can approve. | Production Publish answers *not approved* until an approver has approved; the pre-publish checklist gains an *Approved for production* line. |
+| Who Can Approve | Every active user whose role carries campaign.approve. | Add the permission to a role under Roles to add a person here. |
+| Waiting | How many campaigns wait, with a link to the list. | |
+
+## How to
+
+**Switch approvals on.** Roles → give campaign.approve to the approvers' role → here, switch on. From then on a Request Approval card appears on every campaign's Review & Publish step.
+
+**Approve.** Campaigns → Awaiting Approval → open the campaign → Approve, or Send Back with a note saying what to change. The person who asked can never approve their own.
+
+## What happens behind the scenes
+
+Asking emails every approver; the decision goes back to the person who asked. Any change to the campaign, its lists or its targets after a request withdraws the request or the approval, with a note in the activity log, so what is approved is what is published.
+
+## Things to know
+
+- Test publishing never needs approval.
+- Switching approvals off leaves pending requests where they are; the campaigns can simply be published.
+
+---
+
+# Plan & Usage
+
+**Where:** Settings → Workspace → Plan & Usage.
+
+## What this page is for
+
+What the workspace's plan allows and how much of it this month has used: messages, contacts, active users, storage, deliverability tests; the messages by channel; and the invoices the platform has issued. Plans and limits are changed by the platform team; this page is the reading.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The plan | Its name and status; the month shown. | |
+| Messages this month | Sent messages against the plan's limit; *Then … per 1,000* when the plan allows overage, *Hard limit* when it does not. | At a hard limit sends stop until the next month or a plan change. |
+| Contacts | People in the workspace against the limit. | |
+| Active users | Against the plan's limit; Users refuses a new one past it. | |
+| Storage | Media and files, in GB. | |
+| Deliverability tests this month | Inbox previews run against the allowance. | A spent allowance refuses the next test until next month. |
+| Messages by Channel | Email, SMS, MMS this month. | |
+| Invoices | Number, period, plan, amounts, status, issued and due dates. An invoice appears shortly after the end of each month. | |
+
+## How to
+
+**See whether a big send fits.** Compare the campaign's estimated recipients with what is left under Messages this month. A plan with overage sends and bills the extra; a hard limit stops the run when it is reached.
+
+**Ask for more.** The platform team changes the plan or its limits; the figures here follow within the hour.
+
+## What happens behind the scenes
+
+Usage is rolled up hourly from the sends, the contacts and the files; the meters are read from that roll-up, so a send from a minute ago may not show yet. The invoice is raised by the platform at month end from the same figures.
+
+## Things to know
+
+- The Sandbox text engine is not metered: trying text campaigns on it costs nothing against the plan.
+- E-receipts count as messages.
+
+---
+
+# Email Server
+
+**Where:** Settings → Sending → Email Server.
+
+## What this page is for
+
+The workspace's own SMTP server. It carries the messages the platform sends to your people (password links, notifications, the weekly report), and, if you offer it, your campaigns. Campaign email otherwise goes through the sending engines. Until a server is entered, the platform's own server carries the platform's messages with the platform's From address.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+
+## The fields and controls
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Outgoing Email | The status line: the platform's server until you enter your own; *no mail server* when the platform has none either, and password links then have to be copied and sent by hand. | |
+| Server, Port, Security | The host (for example smtp.office365.com), the port, and none, STARTTLS or SSL. | Where every message goes. |
+| Username, Password | Often the full email address; empty for a server that needs no sign-in. The password is stored encrypted and never shown again; empty keeps the stored one. Many providers want an app password rather than the account's. | |
+| From Address, From Name, Reply-To Address | What your people see; the address must be one the server is allowed to send as. | The From line on password links, notifications and, when offered, campaigns. |
+| Offer as a Campaign Sender | Adds this server as a sending engine (SMTP) with a sender made from the From address. | Campaigns can pick that sender; the engine reports no callbacks (bounces arrive as mail at the From address). |
+| Send a Test Message | To an address you type, with the saved settings. | Verifies the campaign sender when one was offered. |
+| Remove | Forgets the server. | The platform's server takes over the platform's messages; the SMTP engine and its sender go. |
+
+## How to
+
+**Use your Microsoft 365 or Google Workspace account.** Server, port 587, STARTTLS, the mailbox's address and an app password, the From address the mailbox owns → Save → Send a Test Message to yourself.
+
+**Send small campaigns through it.** Tick Offer as a Campaign Sender → Save → Send a Test Message, which verifies the sender. The engine appears under Sending Engines, read-only there; the sender appears in a campaign's Send From.
+
+## What happens behind the scenes
+
+Each message opens one connection to the server; a batch of campaign mail reuses it. A recipient the server refuses outright fails; a temporary refusal is retried. Nothing from your server is ever carried through the platform's.
+
+## Things to know
+
+- Mailbox providers rate-limit SMTP; for volume, a sending engine (Postal, SendGrid) is the right tool, and this server is for the platform's own messages.
+- The password is write-only: to replace it, type the new one; to keep it, leave the field empty.
+
+---
+
+# Notifications
+
+**Where:** Settings → Sending → Notifications.
+
+## What this page is for
+
+Who is told when something happens: a send completed or failed, an approval was asked for or decided, a sending engine is in trouble, a subject test chose its winner, the weekly report. Three channels: the campaign's owner by email, fixed recipient addresses, and a chat webhook (Slack, Teams, anything that takes a text message).
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Events | A row per event with a checkbox per channel: Owner by Email, Recipients by Email, Webhook. | Who hears about each event. |
+| Email Addresses | Up to 20, separated by commas. | They get the events ticked under Recipients by Email. |
+| Webhook URL | The chat webhook's address; *Working* once a test reached it, *Not Tested* before. | The events ticked under Webhook are posted there as a message. |
+| Save | | |
+| Send a Test Message | One message by every channel that is set, with the saved settings, and records when the webhook last worked. | |
+
+### The events
+
+| Event | When | Default channels |
+|---|---|---|
+| Send completed | A run finished, with sent and failed counts. | owner, webhook |
+| Send failed | A run could not start, or nothing went out. | owner, recipients, webhook |
+| Approval requested | Someone asked for approval. Every approver is always emailed; this adds the recipients and the webhook. | webhook |
+| Approved or sent back | The decision, to the person who asked. | owner |
+| Sending engine trouble | A circuit opened on an engine after repeated failures. | recipients, webhook |
+| A/B winner chosen | The subject test's winner, with the two rates. | owner |
+| Weekly report | Monday 08:00 in the workspace's zone, the last 7 days. | recipients |
+
+## How to
+
+**Get failures in a Slack channel.** Make an incoming webhook in Slack, paste its address, tick Webhook on Send failed and Sending engine trouble, Save, Send a Test Message.
+
+**Keep marketing ops informed.** Put the shared mailbox under Email Addresses and tick Recipients by Email on the events that matter.
+
+## What happens behind the scenes
+
+Notifications are prepared inside the work they report on and sent after it, so a failed notification never fails a send. Email goes through the workspace's own mail server when one is entered, the platform's otherwise. An integration's Email Alerts switch under Integrations decides whether that engine's trouble reaches these channels.
+
+## Things to know
+
+- The campaign's owner is set on its Edit Details; a campaign without an owner has nobody to email under Owner.
+- The weekly report's own recipients and schedule live under Reports.
+
+---
+
+# Suppressions
+
+**Where:** Settings → Audience → Suppressions.
+
+## What this page is for
+
+Everyone the workspace must not send to, in one list: people who unsubscribed or replied STOP, addresses that bounced, people who complained, and addresses or numbers blocked by you. A blocked address is left out of every audience from then on, whatever list it is on. The page shows the counts by reason, lets you search, unblock where that is allowed, and import a do-not-contact list before the first campaign.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `campaign.view` to read; `consent.edit` to unblock and import. Settings as a whole needs `user.admin`. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The counts | Per reason, with this week's additions; each is a filter. | |
+| Channel | All, Email, Phone. | The table. |
+| Reason | Every Reason, Unsubscribed, Bounced, Complained, Blocked by You. | The table. |
+| Search | An address, a number or a customer id. | |
+| The table | The contact, the person behind it, the reason in words, the source (an unsubscribe link, a STOP reply, the engine's bounce, an import, a request by phone), since when. 25 a page. | |
+| Unblock | Undoes a bounce or a block you made, after a confirmation. A complaint or an unsubscribe cannot be undone here: the person has to opt in again themselves. | The address is reachable again from the next run. |
+| Export CSV | The filtered rows as a file. | |
+| Import | Paste Addresses (one per line or comma-separated, up to 5,000) or Upload CSV (any cell that looks like an address or a number, up to 5 MB), with a Note for the consent record: a legal hold list, a request by phone. | Every address and number is blocked, matched to the person when the address is on file. The result says what was invalid and what was already blocked. |
+
+## How to
+
+**Import a do-not-contact list first.** Before the first upload, Import → Upload CSV → the list from your previous system → Note: *Opt-outs carried over from …* → Import. No campaign can reach them, even if a later list contains them.
+
+**A customer asks by phone never to be emailed.** Import → Paste Addresses → the address → Note: *Request by phone, 3 Oct*.
+
+**An address bounced wrongly.** Reason: Bounced → search → Unblock. The next run includes the person again.
+
+## What happens behind the scenes
+
+The list reads two records: what happened to an address or number (a hard bounce, repeated soft bounces, a complaint, a block) and what the person decided (unsubscribed, STOP). At every run the audience builder leaves out everyone on it, and the campaign's Recipients → Blocked & Unsubscribed shows the ones among that campaign's people. A ten-digit North American number pasted without a country code is read as +1.
+
+## Things to know
+
+- Uploading a list never adds anyone back: the suppression wins over any list membership.
+- Unsubscribes and complaints are the person's decision; only they can reverse them, on the preference page or by opting in through your forms.
+
+---
+
+# Preference Centre
+
+**Where:** Settings → Audience → Preference Centre.
+
+## What this page is for
+
+A page where a customer chooses which channels and topics they receive, reached from a link in your emails. Off by default: then only the unsubscribe link exists. Switched on, every marketing email can carry `{{preference_url}}`, campaigns are filed under topics, and a person who unticks a topic is left out of its campaigns.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. The topic a campaign is filed under is chosen with `campaign.edit` on its Content step. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Offer a Preference Centre | The switch. | Off: only the unsubscribe link; the tag resolves to it; topics and words are kept. On: the page is live and campaigns need a topic. |
+| In Your Templates | The tag `{{preference_url}}` with Copy. | The person's own page at send time; the unsubscribe page while the centre is off, so an email never carries a dead link. |
+| Last 30 Days | Page opened, topics unticked, unsubscribed from the page, opted in again. | |
+| Topics | A table: name and description, channels, Opted Out (people who unticked it), Shown or Hidden, Edit. Add Topic opens the form. | |
+| The topic form | Name (as shown on the page), Description (one line under it), Offered On (Email, Texts), Shown to Customers. Remove warns how many campaigns are filed under it. | A hidden topic stays on campaigns but not on the page. Removing a topic takes it off the page and the set-up's choices; a campaign filed under it is told at publish. |
+| Page | Brand Name (blank = the workspace's), Heading, Email Description, Text Messages Description, Footer (your postal address satisfies the sender-identification rule), Privacy Notice Link (https), Let People Opt In Again, Save, Open Preview. | The words on the customer's page. With opting in again off, a switched-off channel is shown locked with the date. |
+
+## How to
+
+**Switch it on.** Add the topics (for example *Rewards and offers*, *New arrivals*, *Store events*), write the page's words, Save, Open Preview; then the switch. Put `{{preference_url}}` in the footer of your templates.
+
+**File a campaign.** On the campaign's Content step, Filed Under → the topic. Needed to publish while the centre is on.
+
+## What happens behind the scenes
+
+The link carries a signed token naming the workspace, the person and the send; the page needs no sign-in and shows the masked address, an Email switch, a Texts switch when a mobile number is on file, a checkbox per shown topic, *Receipts and order updates* locked on, Save Preferences and *Unsubscribe from all marketing messages*. Channel changes are consent records; topic choices are kept per person, and the audience builder leaves out people who unticked the campaign's topic, counted as *Opted Out of This Topic*. A test send's link opens the page as a preview that saves nothing.
+
+## Things to know
+
+- The unsubscribe link stays required in marketing email whether the centre is on or off.
+- While a topic has no shown entry the page offers the channels only, and campaigns need no topic.
+
+---
+
+# Consent Policy
+
+**Where:** Settings → Audience → Consent Policy.
+
+## What this page is for
+
+How contacts come in. Every upload declares where its people agreed and the uploader confirms it in their own name; this page decides what happens to people without a consent date, whether a text list needs a text consent date for every number, whether a fresh upload must be approved before any campaign sends to it, the consent lifetime, and the sentence the uploader confirms. The send engine still decides for real at send time.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | Read by anyone who uploads lists (the wizard shows the consequence); changed with `user.admin`. Approving lists needs `consent.edit`. |
+
+## The fields and controls
+
+| Field | What it is | What it changes |
+|---|---|---|
+| People Without Consent | *Import and hold back until they confirm* (the default) or *Refuse the row*. | Hold back: a new person without a consent date is imported and left out of marketing sends as *No consent on record* until they opt in. Refuse: the row is held back at the review as *No consent date* and listed in the row-by-row report. |
+| Texts Need a Consent Date | A Texts or Email-and-Texts list cannot import a number without a text consent date in the file. | Marketing texts need an express opt-in; a number without one is held back as *No text consent date*. |
+| Approval Before First Send | A new upload must be approved by someone with Consent · Edit before any campaign sends to its list. | The list reads *awaiting approval*; every campaign holds its people back as *in a list awaiting approval* until Approve. |
+| Consent Lifetime | How long implied consent lasts without a purchase: 12, 24 or 36 months. | Kept on the compliance record; the reminder before it lapses is still to come. |
+| Attestation Wording | The sentence the uploader confirms on the Consent step, up to 300 characters; `{workspace}` becomes the workspace's name. Shown on every compliance record. | |
+
+## How to
+
+**Tighten before a regulated campaign.** Set People Without Consent to Refuse and Approval Before First Send on. Uploads then reach a campaign only clean and approved.
+
+**Word the attestation for your lawyers.** Save Wording with the sentence they gave you; the Consent step shows it from the next upload.
+
+## What happens behind the scenes
+
+The declaration (basis, where it was collected, who attested, when) is recorded on the upload and on every consent written from the file. The list's compliance record shows the source, every upload with its declaration, the approval, the policy as it stands today and today's consent by channel, rebuilt on every read.
+
+## Things to know
+
+- Changing the policy changes future uploads only; lists already imported keep what was recorded for them.
+- A bought or rented list is never an allowed basis; the wizard refuses it.
+
+---
+
+# Integrations
+
+**Where:** Settings → Integrations → Integrations.
+
+## What this page is for
+
+Every exchange with an outside system goes through one gate: the point of sale posting receipts in, the sending engines being called out, the callbacks coming back. This page shows each integration's health and pace, lets you pause one, and keeps the call log: every request and answer in either direction, with what was sent and what came back, for the day a receipt did not arrive or an engine refused a message.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `provider.edit`. |
+
+## The fields and controls
+
+### The cards
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The card | One per integration: POS Receipts (in), and one per sending engine (out). Its health: healthy, degraded (5 percent failures or more), circuit open, paused, no calls. | |
+| Calls 24 h, Failures, p95, Throttled | The last day's calls, the share that failed, the slow end of response times, the calls the pace limit held. | |
+| The chart | Calls per 15 minutes over 24 hours, with the failed and throttled share; the busiest quarter hour. | |
+| Email Alerts | Whether a circuit opening on this integration notifies the workspace by the channels under Notifications. | |
+| View Log | The call log filtered to this integration. | |
+| Pause / Resume | Pause stops the calls: the point of sale gets *paused* answers, an engine's sends wait. Resume continues and closes an open circuit at once. | |
+
+### The call log
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Integration, Direction (Both, Received, Sent), Failures Only | Filters. | |
+| Correlation ID or Reference | The id a caller sent, or a reference such as `receipt:R-1001` or `mailer_execution:240`: one search finds the call in, the send out and what the engine reported. | |
+| The table | Time, Integration (with the direction and the reference), Call (method and address), Outcome (OK, Rejected, Retry, Error, Throttled, Breaker, Paused) and the status code. 25 a page; Rows per Page is remembered per browser. | |
+| A call | Opens with its request and answer, headers and bodies, keys replaced by `***` and card numbers masked. **Retry Send** hands a failed send back to the engine; **Replay Callback** applies a received callback once more. | |
+
+## How to
+
+**A register says the receipt was accepted but the customer has nothing.** Search the transaction's number as `receipt:…`: the row in shows what the point of sale sent and the S-code answered; the row out shows what the engine said; a later row from the engine is the delivery or the bounce.
+
+**An engine is failing.** The card reads degraded or circuit open and Notifications told you. Open the log with Failures Only: the engine's own words are in each answer. Fix the key or the address under Sending Engines, press Check, and Resume to close the circuit without waiting.
+
+**Pause the point of sale during maintenance.** Pause on POS Receipts. Registers get a paused answer and nothing is lost; Resume afterwards.
+
+## What happens behind the scenes
+
+Each call is paced by a per-minute limit (an API key's own, the plan's inbound limit, the engine's Messages per Minute), guarded by a circuit breaker that opens after repeated failures and probes again after a cooldown, and written to the log with the request and the answer. The cards and charts read a per-minute roll-up, never the log itself. The log is kept three months.
+
+## Things to know
+
+- Keys and card numbers are masked in the log; everything else is stored exactly as exchanged, by design.
+- Throttled calls are not failures: the caller is told to slow down and tries again.
+
+---
+
+# API Keys
+
+**Where:** Settings → Integrations → API Keys.
+
+## What this page is for
+
+Keys for systems that call CEP's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin`. |
+| Features | **api_access**. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The table | Key (name and the visible prefix), Scopes, Allowed From, Status (Active, Expired, Revoked), Last Used, Expires. | |
+| New API Key | The form below; then *Copy the Key Now*, shown once. | |
+| Revoke | Stops the key at once. | The caller gets 401 from the next call. |
+
+### The form
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Name | The system that will use it, for example *POS integration*. | |
+| Scopes | Give the key only what it needs: `receipts:send` (the point of sale and the web shop), `lists:write`, `events:ingest`, `scores:write`, `customers:read`, `consent:write`. | What the key may call. |
+| Allowed IP Addresses | Optional addresses or CIDR ranges. Empty means any address. | A call from elsewhere is refused. |
+| Expires | Optional, your local time. | The key stops at that moment. |
+
+## How to
+
+**A key for the point of sale.** New API Key → *POS integration* → tick `receipts:send` → the stores' outbound address under Allowed IP Addresses → Create → copy the key into the register software now; it is never shown again. The POS Receipts page says which headers to send it in.
+
+**Rotate a key.** Create the new one, switch the caller over, Revoke the old one. The call log shows which key each call used.
+
+## What happens behind the scenes
+
+Only a hash of the key is stored; the prefix identifies it in the log. Each key has its own pace limit, and every answer carries the rate-limit headers so the caller can slow itself down. A revoked or expired key stops the caller at once.
+
+## Things to know
+
+- A key belongs to this workspace only; the caller also names the workspace with the X-Tenant header.
+- Keys are never written to the audit trail or an export.
+
+---
+
+# POS Receipts
+
+**Where:** Settings → Integrations → POS Receipts.
+
+## What this page is for
+
+E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; CEP validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | `user.admin` to open Settings; the trail is read with `campaign.view`. |
+| Features | **ereceipt**; text receipts need **sms** as well. |
+
+## The fields and controls
+
+### E-Receipt Campaign
+
+| Field | What it is | What it changes |
+|---|---|---|
+| Email Receipt | The published e-receipt campaign that renders the email receipt. Needed when more than one is published. | Sent when the transaction's EntryType asks for email. |
+| Returns and Exchanges | Optional: another campaign for refunds. Empty uses the same campaign. | A return renders as a refund: negative amounts, the tender as a refund. |
+| Text Receipt | An e-receipt campaign on the SMS channel. | Sent when EntryType asks for a text. Empty: no text receipts. |
+| Phone Numbers Are From | US, CA or none. | A ten-digit number from a register is read with +1; numbers sent with a country code are used as sent. |
+
+### Tell the Point of Sale
+
+| Item | What it is |
+|---|---|
+| Endpoint | The address to POST to, as application/xml or the form field XmlInput, with Copy. |
+| Headers | `X-Tenant-Key` with the workspace code and `accessTokenKey` with the API key, or `Authorization: Bearer`. |
+| API Key | One with the scope `receipts:send`, made under API Keys. |
+| Answers | The XML answers: S100 email receipt sent, S101 accepted but no email address, S102 already received, S103 text receipt sent, S104 printed with no e-receipt, S105 text asked for but not sent, and the E-codes for refused documents. |
+| What triggers a receipt | The transaction's EntryType: EMAIL, BOTH, ALL and every value naming EMAIL send the email; SMS values send the text; PRINT, NOPRINT, PUSH and NONE send nothing. |
+
+### Stores
+
+| Control | What it is | What it changes |
+|---|---|---|
+| The table | The stores: number, name, address, return policy, In Use. | The store's name and address on the receipt; the return policy in its Returns & support section. |
+| Add Store, Edit | Number, name, address lines, phone, return policy, In Use. | |
+| Import CSV | A file of stores. | |
+
+### Received from the Point of Sale
+
+| Control | What it is |
+|---|---|
+| Answer, Transaction ID | Filters by the code answered and the transaction number. |
+| The table | Every transaction received: when, store, transaction, what was answered, the receipt's status. A row opens the call in the log with the document as received, masked. |
+
+## How to
+
+**Connect a register.** API Keys → a key with `receipts:send` → here, copy the endpoint and give the register software the endpoint, the two headers and the key → publish an e-receipt campaign → choose it under Email Receipt → add the stores → run one test transaction and find it under Received.
+
+**A store prints when it should email.** Received → Answer: S104. The register sends an EntryType without EMAIL; the store's register settings are the fix.
+
+## What happens behind the scenes
+
+The document is checked against the TTDR schema; the merchant, store, register, transaction number and date make the transaction unique, so a register that retries gets S102 and nothing is sent twice. The receipt is rendered with the receipt, store and transaction tags and the campaign's receipt layout, sent through the campaign's engine, recorded as a message under the campaign's run of the day with callbacks like any other, and answered in the same call. A text receipt goes the same way through the text engine.
+
+## Things to know
+
+- A paused POS integration answers E503 to every register; nothing is queued.
+- A receipt to a blocked address is refused with its reason in the answer; the trail keeps it.
+
+---
+
+# Account Security
+
+**Where:** The account menu at the top right → Account Security.
+
+## What this page is for
+
+Your own second step when you sign in: a six-digit code from an authenticator app on your phone. Set it up here, keep the recovery codes, and turn it off when it is not required.
+
+## Who can use it
+
+| | |
+|---|---|
+| Permission | Everyone, for their own account. When Settings → Security requires it for everyone, it cannot be turned off. |
+
+## The fields and controls
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Turn On | Shows a QR code to scan with Google Authenticator, Microsoft Authenticator, 1Password, Authy or similar, and the key to type when scanning is not possible. | |
+| Code | The six digits the app shows, to confirm. | Multi-factor authentication is on from the next sign-in. |
+| Recovery codes | Ten one-time codes shown once, to sign in when the phone is lost. Store them somewhere safe. | |
+| The status | Since when, and how many recovery codes are left; a warning when two or fewer remain. | |
+| Turn Off | With the current code. Refused while the workspace requires it. | To get a new set of recovery codes, turn it off and on again. |
+
+## How to
+
+**Set it up.** Turn On → scan → type the code → store the recovery codes → Done. Sign out and in again to see the second step.
+
+**Lost the phone.** Sign in with a recovery code, then turn it off and on again with the new phone.
+
+## What happens behind the scenes
+
+The code is time-based (TOTP); the secret is stored encrypted. A recovery code works once. When the workspace requires it, a user without it is walked through this set-up on their next sign-in before anything else; single sign-on users are covered by the identity provider instead.
+
+## Things to know
+
+- Nobody can set it up for you, and support cannot read your codes; a lost phone and lost recovery codes mean an administrator sends a new password link and you set it up afresh.

@@ -7,16 +7,21 @@ import { ErrorState } from '@/components/States'
 import { SettingsMenu } from './SettingsMenu'
 import { groupOf, pageAt } from './settingsCatalogue'
 
+import { PageHelp } from '@/help/HelpPanel'
+import { HELP_FOR_PAGE } from '@/help/chapters'
+
 const TrailChevron = () => <ChevronRight size={14} strokeWidth={1.5} aria-hidden className="text-ink-300" />
 
-/** "Settings › Sending › Sending Engines": where in the menu the page sits */
+/** "Settings › Sending › Sending Engines": where in the menu the page sits, with the page's help icon when it has a chapter */
 function Trail({ path }: { path: string }) {
   const page = pageAt(path)
   const group = groupOf(path)
+  const chapter = path === '/settings/delivery' ? undefined : HELP_FOR_PAGE[path]                      // Sending Engines carries its own icon beside its heading
   if (!page || !group) return null
   return (
     <nav aria-label="Where you are" className="flex items-center gap-1.5 text-helper text-ink-800">
       <span>Settings</span><TrailChevron /><span>{group.label}</span><TrailChevron /><span aria-current="page" className="font-semibold text-ink-900">{page.label}</span>
+      {chapter && <PageHelp chapter={chapter} />}
     </nav>
   )
 }

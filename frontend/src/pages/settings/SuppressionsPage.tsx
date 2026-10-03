@@ -268,7 +268,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
               {(ids) => <input {...ids} type="file" accept=".csv,text/csv" className="block w-full text-sm text-ink-800" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />}
             </Field>
           )}
-          <Field label="Note" error={errors.note} hint="Why they are blocked, for the consent record: a legal hold list, a request by phone.">
+          <Field label="Note" error={errors.note} help="Kept on the consent record of every address blocked by this import, so the reason can be shown later: a legal hold list, a request by phone." hint="Why they are blocked, for the consent record: a legal hold list, a request by phone.">
             {(ids) => <TextInput {...ids} value={note} maxLength={200} onChange={(event) => setNote(event.target.value)} />}
           </Field>
           {other && <ErrorState title="Nothing was blocked" error={other} />}

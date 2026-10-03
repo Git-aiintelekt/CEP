@@ -178,7 +178,7 @@ function WordsCard({ data, onSaved }: { data: PreferenceCenterSettings; onSaved:
         {text('sms_description', 'Text Messages Description')}
       </div>
       <div className="mt-4 grid gap-4">
-        <Field label="Footer" error={errors.footer} hint="Your postal address here satisfies the sender-identification rule for marketing email.">
+        <Field label="Footer" error={errors.footer} help="Shown at the foot of the customer's page. Your postal address here satisfies the sender-identification rule for marketing email." hint="Your postal address here satisfies the sender-identification rule for marketing email.">
           {(ids) => <TextArea {...ids} rows={2} value={form.footer} onChange={(event) => set('footer', event.target.value)} />}
         </Field>
         {text('privacy_url', 'Privacy Notice Link', 'A full address, starting with https://.')}

@@ -90,7 +90,7 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
         <Field label="Client Secret" error={errors.client_secret} hint={form.has_client_secret ? 'A secret is stored. Leave this empty to keep it.' : 'Stored encrypted; never shown again.'}>
           {(ids) => <TextInput {...ids} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} autoComplete="new-password" placeholder={form.has_client_secret ? '••••••••' : ''} />}
         </Field>
-        <Field label="Allowed Email Domains" error={errors.allowed_email_domains} hint="Only these may sign in, e.g. example.com. Empty = any address your provider vouches for.">
+        <Field label="Allowed Email Domains" error={errors.allowed_email_domains} help="Only addresses on these domains may sign in through the provider, whatever the provider vouches for. Empty lets any address the provider knows sign in." hint="Only these may sign in, e.g. example.com. Empty = any address your provider vouches for.">
           {(ids) => <TextInput {...ids} value={domains} onChange={(event) => setDomains(event.target.value)} />}
         </Field>
         <Field label="Role for New Accounts" error={errors.default_role} hint="Used when accounts are created on first sign-in.">
