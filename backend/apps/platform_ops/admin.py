@@ -4,6 +4,7 @@ from datetime import timedelta
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
+from django.http import Http404
 from django.shortcuts import render
 from django.urls import path
 from django.utils import timezone
@@ -13,7 +14,7 @@ from unfold.widgets import (UnfoldAdminDecimalFieldWidget, UnfoldAdminIntegerFie
 
 from apps.adminutils import BaseAdmin, ReadOnlyAdmin, register_app_models
 
-from . import billing, crypto, mail, params, tenant_ops, typed_values
+from . import billing, crypto, guide, mail, params, tenant_ops, typed_values
 from .models import (IndustryProfile, JobRun, MailServer, PlatformAlert, PlatformPersonalizationTag, PlatformSetting, SupportAccessLog, TenantIdentityProvider, TenantInvoice,
                      TenantOperation)
 
@@ -326,6 +327,18 @@ class PlatformSettingAdmin(BaseAdmin):
     list_filter = ("category",)
     search_fields = ("key", "description", "category")
     ordering = ("category", "key")
+
+    def get_urls(self):
+        return [path("guide/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide"),
+                path("guide/<slug:slug>/", self.admin_site.admin_view(self.guide_view), name="platform_ops_guide_chapter"), *super().get_urls()]
+
+    def guide_view(self, request, slug=None):
+        """The Platform Guide: the chapters under docs/manuals/platform-guide, rendered here."""
+        current = guide.chapter(slug) if slug else None
+        if slug and current is None:
+            raise Http404("No such chapter.")
+        context = {**self.admin_site.each_context(request), "title": current["title"] if current else "Platform Guide", "chapters": guide.chapters(), "current": current}
+        return render(request, "admin/platform_ops/guide.html", context)
 
     def get_readonly_fields(self, request, obj=None):
         return ("key", "value_type") if obj else ()

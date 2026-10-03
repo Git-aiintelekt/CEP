@@ -158,3 +158,24 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
     .cep-row-side { width: 100%; padding-left: 1.25rem; }
 }
 @media (prefers-reduced-motion: reduce) { a.cep-card { transition: none; } a.cep-card:hover { transform: none; } }
+
+/* ---- the Platform Guide --------------------------------------------------------------------------------------------- */
+.cep-guide-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 1rem; align-items: start; }
+.cep-guide-chapters { position: sticky; top: 1rem; padding: 0.5rem 0; }
+.cep-guide-chapters ol { list-style: none; margin: 0; padding: 0; }
+.cep-guide-chapters li a { display: block; padding: 0.45rem 1rem; font-size: 0.875rem; }
+.cep-guide-chapters li.is-current a { font-weight: 600; background: color-mix(in oklab, var(--color-primary-500) 10%, transparent); }
+.cep-guide-chapter { padding: 1.5rem 1.75rem; max-width: 60rem; font-size: 0.9375rem; line-height: 1.6; }
+.cep-guide-chapter h2 { font-size: 1.125rem; font-weight: 600; margin: 1.75rem 0 0.5rem; }
+.cep-guide-chapter h2:first-child { margin-top: 0; }
+.cep-guide-chapter h3 { font-size: 0.9375rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
+.cep-guide-chapter p, .cep-guide-chapter ul, .cep-guide-chapter ol { margin: 0 0 0.75rem; }
+.cep-guide-chapter ul, .cep-guide-chapter ol { padding-left: 1.25rem; }
+.cep-guide-chapter li { margin: 0.2rem 0; }
+.cep-guide-chapter code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; padding: 0 0.25rem; border-radius: 0.25rem; background: color-mix(in oklab, var(--color-base-500) 12%, transparent); }
+.cep-guide-chapter table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.875rem; }
+.cep-guide-chapter th, .cep-guide-chapter td { text-align: left; vertical-align: top; padding: 0.4rem 0.5rem; border-bottom: 1px solid color-mix(in oklab, var(--color-base-500) 25%, transparent); }
+.cep-guide-chapter th { font-size: 0.75rem; letter-spacing: 0.02em; text-transform: uppercase; }
+.cep-guide-chapter td:first-child { font-weight: 500; width: 26%; }
+.cep-guide-chapter blockquote { margin: 0 0 0.75rem; padding-left: 0.75rem; border-left: 2px solid color-mix(in oklab, var(--color-base-500) 40%, transparent); }
+@media (max-width: 900px) { .cep-guide-layout { grid-template-columns: 1fr; } .cep-guide-chapters { position: static; } }

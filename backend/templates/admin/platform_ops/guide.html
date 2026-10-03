@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{% if current %}{{ current.title }} · {% endif %}Platform Guide | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home cep-guide">
+    <div class="cep-pagehead">
+        <div>
+            <h1>{% if current %}{{ current.title }}{% else %}Platform Guide{% endif %}</h1>
+            <p>{% if current %}From the CEP Platform Guide · <a class="cep-link" href="{% url 'admin:platform_ops_guide' %}">All chapters</a>{% else %}For the platform team: every section of the back-office, chapter by chapter. The same text ships as docs/manuals/CEP_Platform_Guide.docx.{% endif %}</p>
+        </div>
+    </div>
+
+    <div class="cep-guide-layout">
+        <nav class="cep-card cep-guide-chapters" aria-label="Chapters">
+            <ol>
+                {% for item in chapters %}
+                    <li{% if current and item.slug == current.slug %} class="is-current" aria-current="page"{% endif %}>
+                        <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' item.slug %}">{{ item.title }}</a>
+                    </li>
+                {% endfor %}
+            </ol>
+        </nav>
+        <article class="cep-card cep-guide-chapter">
+            {% if current %}
+                {{ current.html|safe }}
+            {% else %}
+                <h2>Where to start</h2>
+                <p>Onboarding a customer: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'onboarding' %}">Onboarding a Tenant</a>, then <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'industry-and-features' %}">Industry Profiles and Features</a> and <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'plans-and-billing' %}">Plans, Subscriptions, Usage and Invoices</a>. The installation's defaults: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'global-parameters' %}">Global Parameters</a>. What to watch: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'jobs-and-checks' %}">Jobs, Alerts and System Checks</a>.</p>
+                <p>Workspace users have their own guide, the CEP User Guide, shown inside the app behind the help icon on every page.</p>
+            {% endif %}
+        </article>
+    </div>
+</div>
+{% endblock %}
