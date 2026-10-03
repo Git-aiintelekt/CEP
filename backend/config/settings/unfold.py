@@ -21,6 +21,7 @@ def _versioned(path: str):
 
 
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
+GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
 
 
 def _under(link):
@@ -66,6 +67,7 @@ UNFOLD = {
                 {"title": "Home", "icon": "space_dashboard", "link": reverse_lazy("admin:index"), "active": lambda request: request.path == str(reverse_lazy("admin:index"))},
                 _link("Alerts", "notifications_active", "platform_ops_platformalert", badge="apps.platform_ops.admin_ui.open_alerts_badge", badge_variant="danger"),
                 {"title": "Usage against limits", "icon": "monitoring", "link": USAGE, "active": _under(USAGE)},
+                {"title": "Platform Guide", "icon": "menu_book", "link": GUIDE, "active": _under(GUIDE)},
             ]},
             {"title": "Tenants", "separator": True, "items": [
                 _link("Tenants", "apartment", "tenants_tenant"),

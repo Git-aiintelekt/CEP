@@ -13,6 +13,10 @@ Chapters are numbered so they sort into reading order (`00-introduction.md`, `20
 
 The workspace app shows the User Guide's chapters itself: `frontend/src/help/chapters.ts` maps a chapter key to its file, the `PageHelp` icon beside a page's title opens that chapter in a side panel, and a field's `help` text opens a note on that one field. The Markdown subset the panel renders (headings, paragraphs, bullet and numbered lists, tables, bold, code, links) is the one the chapters are written in; keep to it.
 
+## The Platform Guide in the back-office
+
+The back-office shows the Platform Guide itself: Overview → Platform Guide (`/admin/platform_ops/platformsetting/guide/`), one page per chapter, read from `platform-guide/*.md` at request time and rendered by `apps/platform_ops/guide.py` with the same Markdown subset. The chapter's address is its file name without the number (`04-onboarding.md` → `guide/onboarding/`).
+
 ## Building the Word copies
 
 ```bash
