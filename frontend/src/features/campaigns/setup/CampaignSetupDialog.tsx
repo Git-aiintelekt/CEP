@@ -168,7 +168,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
     if (IN_MORE_DETAILS.has(first)) setMoreOpen(true)
     requestAnimationFrame(() => {
       const holder = body.current?.querySelector<HTMLElement>(`[data-field="${first}"]`)
-      const target = holder?.querySelector<HTMLElement>('[role="radio"][tabindex="0"], input, select, textarea, button')
+      const target = holder?.querySelector<HTMLElement>('[role="radio"][tabindex="0"], input, select, textarea, button:not([data-field-note])')
       target?.focus()
     })
   }
@@ -283,7 +283,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
             )}
 
             <div data-field="name">
-              <Field label="Campaign Name" required strong error={errors.name?.message} hint="Internal name, visible to your team only" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+              <Field label="Campaign Name" required strong error={errors.name?.message} help="Unique among the workspace's live campaigns. It names the campaign in the list, the reports and Home; the code is the short handle for the API and the engine's logs." hint="Internal name, visible to your team only" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
                 {(ids) => <TextInput {...ids} {...register('name')} maxLength={rule('name')?.max ?? 200} placeholder="e.g. Fall Promo Email" data-autofocus />}
               </Field>
             </div>
@@ -312,7 +312,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
             )}
 
             <div data-field="solicitation_type" className="sm:w-1/2 sm:pr-3">
-              <Field label="Message Purpose" required strong error={errors.solicitation_type?.message} hint="Decides which consent and frequency rules apply.">
+              <Field label="Message Purpose" required strong error={errors.solicitation_type?.message} help="Marketing needs an opt-in and an unsubscribe link and counts against frequency limits. Transactional, service and legal skip the consent rules, but never a blocked or invalid address." hint="Decides which consent and frequency rules apply.">
                 {(ids) => (
                   <Select {...ids} {...register('solicitation_type', { onChange: () => setPurposeChosen(true) })} disabled={!type || receipt}>
                     {!type && <option value="">Pick a Type First</option>}
@@ -337,7 +337,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               {moreOpen && (
                 <div id={`${titleId}-more`} className="mt-4 flex flex-col gap-6">
                   <div data-field="code" className="sm:w-1/2 sm:pr-3">
-                    <Field label="Code (Optional)" strong error={errors.code?.message} hint="Leave blank to get one automatically · capitals, digits and hyphens" limit={{ used: code.length, max: rule('code')?.max ?? 40 }}>
+                    <Field label="Code (Optional)" strong error={errors.code?.message} help="The short handle reports, the API and the engine's call log use for this campaign. Made for you when left blank; fixed once the campaign exists." hint="Leave blank to get one automatically · capitals, digits and hyphens" limit={{ used: code.length, max: rule('code')?.max ?? 40 }}>
                       {(ids) => <TextInput {...ids} {...register('code')} maxLength={rule('code')?.max ?? 40} placeholder="CMP-2026-0021" className="uppercase placeholder:normal-case" />}
                     </Field>
                   </div>

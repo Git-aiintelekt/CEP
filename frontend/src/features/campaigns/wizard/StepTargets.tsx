@@ -153,7 +153,7 @@ export function StepTargets() {
         <DetailCard title="Economics">
           <div className="flex flex-col gap-6">
             <div className="sm:w-1/2 sm:pr-3">
-              <Field label="Target Revenue" strong error={issues?.target_revenue?.message}>{(ids) => <AmountInput name="targets.target_revenue" money ids={ids} />}</Field>
+              <Field label="Target Revenue" strong error={issues?.target_revenue?.message} help="What the campaign is meant to earn. Home reads attributed revenue against it, Top Campaigns ranks by revenue against target, and the Performance tab shows the progress.">{(ids) => <AmountInput name="targets.target_revenue" money ids={ids} />}</Field>
             </div>
             <CostPicker name="planned_cost" label="Planned Campaign Cost" hint="Creative, sending and agency costs." error={issues?.planned_cost?.message} />
             <CostPicker name="planned_offer_cost" label="Planned Offer Cost" hint="Discounts and rewards you expect to give away." error={issues?.planned_offer_cost?.message} />

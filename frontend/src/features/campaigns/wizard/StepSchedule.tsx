@@ -81,7 +81,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
         {isDrip && <p className="mt-2 text-xs text-ink-800">A drip campaign always sends as a series. To send once, change the campaign type on the first step.</p>}
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <Field label="Time Zone" error={errors.send_timezone?.message} hint={`Send times below are clock times in this zone. Workspace time zone: ${workspaceZone}.`}>
+          <Field label="Time Zone" error={errors.send_timezone?.message} help="Every time on this step is a clock time in this zone, daylight saving included. The workspace's zone unless changed; the list and Home show the time in this zone too." hint={`Send times below are clock times in this zone. Workspace time zone: ${workspaceZone}.`}>
             {(ids) => (
               <Select key={options ? 'ready' : 'loading'} {...ids} {...register('send_timezone')}>
                 {!zones.includes(zone) && <option value={zone}>{zone}</option>}
@@ -198,7 +198,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
           {watch('timezone_optimization') && campaignId && <div className="-mt-2 pl-7"><LocalTimeCoverage campaignId={campaignId} zone={watch('send_timezone') || workspaceZone} /></div>}
           {watch('timezone_optimization') && watch('send_type') === 'IMMEDIATE' && <p className="-mt-2 pl-7 text-xs text-ink-800">An immediate send uses the clock time of the moment it is published, in each recipient's zone: people in zones that have not reached it yet get it later today.</p>}
           <div className="sm:w-1/3">
-            <Field label="Messages per Hour, at Most" error={errors.rate_limit_per_hour?.message} hint="Leave blank for no limit of your own. Takes effect with the delivery engine integration.">
+            <Field label="Messages per Hour, at Most" error={errors.rate_limit_per_hour?.message} help="Stored and shown on the campaign, not enforced yet. To pace a send, set Messages per Minute on the sending engine under Settings." hint="Leave blank for no limit of your own. Takes effect with the delivery engine integration.">
               {(ids) => <TextInput {...ids} inputMode="numeric" {...register('rate_limit_per_hour')} />}
             </Field>
           </div>

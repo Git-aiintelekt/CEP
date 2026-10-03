@@ -80,11 +80,12 @@ function parse(source) {
 
 // ---------------------------------------------------------------- Word
 const FONT = 'Arial'
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
+const INLINE = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
 
 function runs(text, base = {}) {
   return text.split(INLINE).filter(Boolean).map((part) => {
     if (part.startsWith('**') && part.endsWith('**')) return new TextRun({ text: part.slice(2, -2), bold: true, font: FONT, ...base })
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) return new TextRun({ text: part.slice(1, -1), italics: true, font: FONT, ...base })
     if (part.startsWith('`') && part.endsWith('`')) return new TextRun({ text: part.slice(1, -1), font: 'Consolas', ...base })
     const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part)
     if (link) return new TextRun({ text: link[1], underline: {}, color: '2753E4', font: FONT, ...base })

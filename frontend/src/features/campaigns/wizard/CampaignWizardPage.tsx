@@ -38,6 +38,8 @@ import { StepTargets } from './StepTargets'
 import { StepTemplate } from './StepTemplate'
 import { StepTest } from './StepTest'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 const INTRO: Record<FlowStep, string> = {
   audience: 'Attach the contact lists to send to, and the ones to keep out.',
   content: 'Choose the message and who it comes from.',
@@ -304,7 +306,7 @@ export function CampaignWizardPage() {
           <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
             <div key={current} className="animate-step-in">
               <p className="text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
-              <h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1>
+              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1><PageHelp chapter="campaign-setup" /></span>
               <p className="mt-1 text-sm text-ink-800">{INTRO[current]}</p>
               {/* where the setup was left; not shown on the step it resumes at, which says so itself */}
               {(loaded.setup_complete || current !== reachedKey) && (

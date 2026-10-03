@@ -41,6 +41,8 @@ import { OverviewTab } from './OverviewTab'
 import { PerformanceTab } from './PerformanceTab'
 import { RecipientsTab } from './RecipientsTab'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 type TabKey = 'overview' | 'performance' | 'recipients' | 'audience' | 'content' | 'activity'
 const TABS: TabItem<TabKey>[] = [
   { id: 'overview', label: 'Overview' }, { id: 'performance', label: 'Performance' }, { id: 'recipients', label: 'Recipients' }, { id: 'audience', label: 'Audience' },
@@ -150,7 +152,7 @@ export function CampaignDetailPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3">
-          <h1 className="font-display text-page-title font-semibold break-words text-ink-900">{data.name}</h1>
+          <span className="flex min-w-0 items-start gap-1.5"><h1 className="font-display text-page-title font-semibold break-words text-ink-900">{data.name}</h1><PageHelp chapter="campaigns" /></span>
           <div className="flex flex-wrap items-center gap-2" data-testid="campaign-chips">
             <StatusBadge status={data.display_status} label={data.display_status_label} />
             <Tag icon={channelIconOf(data.channel)}>{channelLabel(data.channel)}</Tag>

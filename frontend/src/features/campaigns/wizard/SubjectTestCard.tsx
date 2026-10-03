@@ -75,7 +75,7 @@ export function SubjectTestCard({ campaign }: { campaign: Campaign }) {
               </Field>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Sample" hint={sample !== null ? `About ${formatNumber(sample)} people. The rest wait for the winner.` : 'The rest wait for the winner.'}>
+              <Field label="Sample" help="The share of the audience that gets the test, half A and half B. The rest wait for the winner. Fewer than 20 people in the run: no split, everyone gets A." hint={sample !== null ? `About ${formatNumber(sample)} people. The rest wait for the winner.` : 'The rest wait for the winner.'}>
                 {(ids) => <Select {...ids} value={draft.sample_pct} onChange={(event) => set('sample_pct', Number(event.target.value))}>
                   {SAMPLE_CHOICES.map((pct) => <option key={pct} value={pct}>{pct}% of the Audience</option>)}
                 </Select>}
@@ -85,7 +85,7 @@ export function SubjectTestCard({ campaign }: { campaign: Campaign }) {
                   {METRIC_CHOICES.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
                 </Select>}
               </Field>
-              <Field label="Decide After">
+              <Field label="Decide After" help="How long after the sample goes out the winner is chosen by the metric per message sent; a tie within one point goes to A. The held messages then go with the winning subject.">
                 {(ids) => <Select {...ids} value={draft.decide_after_minutes} onChange={(event) => set('decide_after_minutes', Number(event.target.value))}>
                   {DECIDE_CHOICES.map((minutes) => <option key={minutes} value={minutes}>{waitText(minutes)}</option>)}
                 </Select>}

@@ -56,7 +56,7 @@ test('busy: the greeting and its line, then every section in order, each a regio
 test('no alerts: the key figures follow the greeting row (Create New sits inside it), with nothing between', () => {
   renderHome({ state: 'noAlerts' })
   expect(order().slice(1, 3)).toEqual(['Create New', 'Key Figures'])
-  const greetingRow = screen.getByRole('heading', { level: 1 }).parentElement!.parentElement!
+  const greetingRow = screen.getByRole('heading', { level: 1 }).closest('[data-greeting-row]') as HTMLElement
   expect(greetingRow.contains(region('Create New'))).toBe(true)
   expect(greetingRow.nextElementSibling).toBe(region('Key Figures'))
   expect(greetingRow.parentElement!.className).toContain('gap-4')

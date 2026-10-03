@@ -16,7 +16,7 @@ interface DialogOptions {
 export function useDialogBehaviour(panel: RefObject<HTMLElement | null>, onClose: () => void, { returnFocus, escapeClosesMenusFirst = false }: DialogOptions = {}) {
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
-    const first = panel.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]') ?? panel.current?.querySelector<HTMLElement>('input, select, textarea, button')
+    const first = panel.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]') ?? panel.current?.querySelector<HTMLElement>('input, select, textarea, button:not([data-field-note])')
     first?.focus()
     const onKey = (event: KeyboardEvent) => {
       const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]')

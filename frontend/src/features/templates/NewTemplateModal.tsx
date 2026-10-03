@@ -75,7 +75,7 @@ export function NewTemplateModal({ channel, onClose }: { channel: TemplateChanne
       }
     >
       <form id={FORM_ID} onSubmit={onSubmit} noValidate className="space-y-4">
-        <Field label="Template Name" required error={errors.name} hint="Shown in the template list and when picking a template in a campaign" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+        <Field label="Template Name" required error={errors.name} help="How the template is listed in the library and offered on a campaign's Content step. It can be renamed from the library later." hint="Shown in the template list and when picking a template in a campaign" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
           {(ids) => (
             <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} placeholder="Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />
           )}

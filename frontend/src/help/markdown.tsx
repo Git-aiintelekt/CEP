@@ -9,9 +9,9 @@ import { Link } from 'react-router-dom'
 
 import { parse } from './markdownParse'
 
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
+const INLINE = /(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g
 
-/** bold, code and links; anything else is text */
+/** bold, italics, code and links; anything else is text */
 export function Inline({ text }: { text: string }) {
   const parts = text.split(INLINE)
   return (
@@ -19,6 +19,7 @@ export function Inline({ text }: { text: string }) {
       {parts.map((part, index) => {
         if (!part) return null
         if (part.startsWith('**') && part.endsWith('**')) return <strong key={index} className="font-semibold text-ink-900">{part.slice(2, -2)}</strong>
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) return <em key={index}>{part.slice(1, -1)}</em>
         if (part.startsWith('`') && part.endsWith('`')) return <code key={index} className="rounded-sm bg-surface-sunken px-1 py-px font-mono text-[0.9em] text-ink-900">{part.slice(1, -1)}</code>
         const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part)
         if (link) {
@@ -67,7 +68,7 @@ export function Markdown({ source, skipTitle = false }: { source: string; skipTi
           case 'table':
             return (
               <div key={index} className="-mx-1 overflow-x-auto">
-                <table className="w-full min-w-[320px] border-collapse text-left text-helper">
+                <table className="w-full border-collapse text-left text-helper">
                   {block.head.some(Boolean) && (
                     <thead>
                       <tr>{block.head.map((cell, cellIndex) => <th key={cellIndex} scope="col" className="border-b border-line px-2 py-1.5 align-bottom text-xs font-semibold tracking-wide text-ink-800 uppercase"><Inline text={cell} /></th>)}</tr>
@@ -76,7 +77,7 @@ export function Markdown({ source, skipTitle = false }: { source: string; skipTi
                   <tbody>
                     {block.rows.map((row, rowIndex) => (
                       <tr key={rowIndex} className="align-top">
-                        {row.map((cell, cellIndex) => <td key={cellIndex} className={`border-b border-line-subtle px-2 py-1.5 ${cellIndex === 0 ? 'font-medium whitespace-nowrap text-ink-900' : ''}`}><Inline text={cell} /></td>)}
+                        {row.map((cell, cellIndex) => <td key={cellIndex} className={`border-b border-line-subtle px-2 py-1.5 ${cellIndex === 0 ? 'w-[28%] min-w-[6rem] font-medium text-ink-900' : ''}`}><Inline text={cell} /></td>)}
                       </tr>
                     ))}
                   </tbody>
