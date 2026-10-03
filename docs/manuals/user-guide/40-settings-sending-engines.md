@@ -104,6 +104,16 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 | Sender Number (texts) | The number texts come from: a short code (`55123`), a long number with the country code (`+14045550155`) or an alphanumeric sender id where the aggregator allows one. | The number on every text; replies and STOP messages come back to it. |
 | Default | One sender per channel is the default. | Offered first when a campaign is set up. |
 
+### Deliverability Testing
+
+| Control | What it is | What it changes |
+|---|---|---|
+| Set Up Mailgun Inspect | Region (US or EU), the Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | The designer's Deliverability tab can run inbox previews. |
+| Edit | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
+
+Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Tests count against the plan's monthly allowance, shown under Plan & Usage.
+
 ## How to
 
 **Connect an email engine.** Add Engine → choose the type → name it → paste the address and the key → Add Engine. Press **Check** on its row and wait for *Checked*. Then **Copy Webhook URL** and register that address with the provider (Postal: the mail server's Webhooks; SendGrid: Mail settings → Event Webhook). Within a day the Callbacks column should show callbacks arriving.

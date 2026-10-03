@@ -99,7 +99,7 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
       <form id="tag-form" onSubmit={onSubmit} noValidate className="space-y-4">
         {other !== null && <ErrorState title="Could not save the tag" error={other} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tag Key" required error={errors.tag_key} hint="The word inside {{ }}: lower-case letters, digits and underscores." limit={{ used: draft.tag_key.length, max: rule('tag_key')?.max ?? 100 }}>
+          <Field label="Tag Key" required error={errors.tag_key} help="The word typed inside the braces in a template. Fixed once created: templates keep the token, so a renamed key would leave them pointing at nothing." hint="The word inside {{ }}: lower-case letters, digits and underscores." limit={{ used: draft.tag_key.length, max: rule('tag_key')?.max ?? 100 }}>
             {(ids) => <TextInput {...ids} value={draft.tag_key} maxLength={rule('tag_key')?.max ?? 100} disabled={Boolean(tag)} onChange={(event) => set({ tag_key: event.target.value })} />}
           </Field>
           <Field label="Label" required error={errors.label} hint="What the tag picker shows." limit={{ used: draft.label.length, max: rule('label')?.max ?? 150 }}>

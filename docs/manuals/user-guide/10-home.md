@@ -22,7 +22,7 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 | The greeting | Good morning, afternoon or evening in the workspace's time zone, with your first name. | Nothing. |
 | Create New | Campaign, Template, Contact List, and Journey where journeys are on: one tile each, only the ones you may create. | Opens the Create Campaign pop-up, the New Template page, the contact list wizard. |
 | Needs Attention | One card per thing to act on: campaigns with delivery failures in the last week, campaigns waiting for a production publish, campaigns waiting for approval; red first, then amber, then the rest; three cards until View All. An opportunity card from the funnel takes one slot when there is one. | Each card's link opens the campaign list filtered to those campaigns. The section is left out when there is nothing to act on. |
-| Set Up Your Workspace | For administrators until the workspace is ready: how many of the seven set-up steps are done and what comes next. | Continue Set-Up opens Settings → Set-Up. Hide Until Later on that page hides the card. |
+| Set Up Your Workspace | For administrators until the workspace is ready: how many of the seven set-up steps are done and what comes next. | Continue Set-Up opens Settings → Set-Up (the chapter Setting Up a New Workspace walks the whole path). Hide Until Later on that page hides the card. |
 
 ### Marketing Performance
 

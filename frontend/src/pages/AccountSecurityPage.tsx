@@ -9,6 +9,8 @@ import { api, ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import type { MfaSetup, MfaStatus, TokenPair } from '@/lib/types'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 /** The QR library is only needed during enrolment: loaded on demand, rendered as an inline SVG (no image request leaves the browser). */
 function QrCode({ text }: { text: string }) {
   const [svg, setSvg] = useState<string | null>(null)
@@ -82,7 +84,7 @@ export function AccountSecurityPage() {
 
   return (
     <section className="max-w-3xl">
-      <PageHeader title="Account Security" description="A second step when you sign in: a code from an authenticator app on your phone." />
+      <PageHeader title="Account Security" description="A second step when you sign in: a code from an authenticator app on your phone." help={<PageHelp chapter="account-security" />} />
       {forced && !codes && (
         <p role="status" className="mb-5 rounded-lg border border-warning bg-warning-bg px-4 py-3 text-sm text-warning-text">
           Your workspace requires multi-factor authentication. Set it up to continue: nothing else is available until you do.

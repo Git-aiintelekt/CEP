@@ -43,4 +43,4 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Where to start
 
-A new workspace begins at **Settings → Set-Up**: seven steps, each opening the page that does it, read from the workspace so the page always knows what is done. The chapters for those pages are the ones to read first: Users and Roles, Sending Engines, Suppressions, Contact Lists, Notifications and Approvals.
+A new workspace begins with the chapter **Setting Up a New Workspace**: from the invitation email and the first sign-in through the seven set-up steps to the first production send. **Settings → Set-Up** is the page that walks them, read from the workspace so it always knows what is done. The chapters for the pages it opens come next: Users and Roles, Sending Engines, Suppressions, Contact Lists, Notifications and Approvals.

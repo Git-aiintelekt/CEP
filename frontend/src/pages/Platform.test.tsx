@@ -186,7 +186,7 @@ test('security: single sign-on is configured with a write-only secret, and the s
   await user.type(screen.getByLabelText(/^Issuer/), 'https://login.example.com')
   await user.type(screen.getByLabelText(/^Client ID/), 'cep-client')
   await user.type(screen.getByLabelText(/^Client Secret/), 's3cret')
-  await user.type(screen.getByLabelText(/Allowed Email Domains/), 'example.com, partner.example')
+  await user.type(screen.getByRole('textbox', { name: 'Allowed Email Domains' }), 'example.com, partner.example')
   await user.click(screen.getByRole('button', { name: 'Save Single Sign-On' }))
 
   expect(await screen.findByText('Saved')).toBeTruthy()

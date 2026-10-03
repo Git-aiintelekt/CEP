@@ -74,7 +74,7 @@ export function PosReceiptsPage() {
                   {textCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Phone Numbers Are From" error={errors.default_country} hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
+              <Field label="Phone Numbers Are From" error={errors.default_country} help="How a ten-digit number from a register is read: with +1 for US or CA. A number sent with its country code is used as sent. It decides whether a text receipt can be sent at all." hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
                 {(ids) => <Select {...ids} value={data.default_country} onChange={(event) => save.mutate({ default_country: event.target.value })}>
                   <option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="GB">United Kingdom (+44)</option><option value="IN">India (+91)</option><option value="AU">Australia (+61)</option>
                 </Select>}

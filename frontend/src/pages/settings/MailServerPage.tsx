@@ -100,7 +100,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
       <section className="rounded-lg border border-line bg-surface p-5">
         <h2 className="text-card-title font-semibold text-ink-900">Sender</h2>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Field label="From Address" required error={errors.from_email} hint="Must be an address the server is allowed to send as.">
+          <Field label="From Address" required error={errors.from_email} help="The address password links, notifications and, when offered, campaigns come from. It must be one the server is allowed to send as, or the server refuses the message." hint="Must be an address the server is allowed to send as.">
             {(ids) => <TextInput {...ids} type="email" value={form.from_email} onChange={(event) => set('from_email', event.target.value)} autoComplete="off" />}
           </Field>
           <Field label="From Name" error={errors.from_name} hint="Shown next to the address, e.g. Northwind Apparel.">

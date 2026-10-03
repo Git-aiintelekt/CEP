@@ -110,3 +110,20 @@ test('every page with a chapter opens it from the icon beside its title: Home, C
     cleanup()
   }
 })
+
+test('every settings page opens its chapter from the icon in the trail; Account Security from its title', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  for (const [path, title] of [['/settings/users', 'Users'], ['/settings/roles', 'Roles'], ['/settings/api-keys', 'API Keys'], ['/settings/consent', 'Consent Policy'], ['/settings/setup', 'Setting Up a New Workspace']] as const) {
+    await renderAppAt(path)
+    const trail = await screen.findByRole('navigation', { name: 'Where you are' })
+    await user.click(within(trail).getByRole('button', { name: 'Help for this page' }))
+    const panel = await screen.findByRole('complementary', { name: title })
+    expect(await within(panel).findByRole('heading', { level: 3, name: /^What this (page is for|is)$/ })).toBeTruthy()   // the set-up chapter is a path, not a page
+    cleanup()
+  }
+  await renderAppAt('/account/security')
+  await screen.findByRole('heading', { level: 1, name: 'Account Security' })
+  await user.click(screen.getByRole('button', { name: 'Help for this page' }))
+  expect(await screen.findByRole('complementary', { name: 'Account Security' })).toBeTruthy()
+})

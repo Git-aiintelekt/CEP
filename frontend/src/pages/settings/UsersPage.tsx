@@ -52,7 +52,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
         {other !== null && <ErrorState title="Could not save the user" error={other} />}
-        <Field label="Email" required error={errors.email} hint={user ? 'The email address is the sign-in name and cannot be changed.' : 'They sign in with this address.'}>
+        <Field label="Email" required error={errors.email} help="The sign-in name, and where the password link goes. It cannot be changed once the user exists; deactivate and add a new user for a new address." hint={user ? 'The email address is the sign-in name and cannot be changed.' : 'They sign in with this address.'}>
           {(ids) => <TextInput {...ids} type="email" value={email} disabled={Boolean(user)} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />}
         </Field>
         <Field label="Name" required error={errors.display_name}>
