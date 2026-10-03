@@ -81,8 +81,8 @@ the last-call fields.
 | Back-office → Integration log | platform staff | Every call across tenants, searchable by correlation id, reference or URL. |
 | Back-office home → Integrations check; `alerts` | platform staff | Warns when an integration has its circuit open or a quarter of its calls failed in the last 15 minutes. |
 
-Endpoints: `GET /api/v1/integrations/`, `GET /api/v1/integrations/log/?integration=&direction=&outcome=&failed=1&q=&before=`
-(100 rows a page, `next_before` for the next), `GET /api/v1/integrations/log/{id}/`, `GET /api/v1/integrations/{id}/metrics/?hours=`,
+Endpoints: `GET /api/v1/integrations/`, `GET /api/v1/integrations/log/?integration=&direction=&outcome=&failed=1&q=&page=&page_size=`
+(`count`, `page`, `page_size`; 10, 25, 50 or 100 rows a page, 25 unless chosen; the page's Rows per Page choice is remembered per browser), `GET /api/v1/integrations/log/{id}/`, `GET /api/v1/integrations/{id}/metrics/?hours=`,
 `POST /api/v1/integrations/{id}/pause/` and `/resume/`.
 
 Global parameters (Configuration → Global parameters): `integrations.inbound_per_minute`, `integrations.log_body_max_bytes`,

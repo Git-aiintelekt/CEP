@@ -26,7 +26,8 @@ from apps.platform_ops import notifications
 from apps.tenants import context
 
 MANAGE = [IsAuthenticated, HasPermissionCode.for_("provider.edit")]
-PAGE = 100
+PAGE = 25                                                  # rows per page of the call log unless the viewer chose another size
+PAGE_SIZES = (10, 25, 50, 100)
 
 
 def _tenant_id():
@@ -61,7 +62,7 @@ class IntegrationLogListView(APIView):
 
     @extend_schema(parameters=[OpenApiParameter("integration", str), OpenApiParameter("direction", str), OpenApiParameter("outcome", str),
                                OpenApiParameter("q", str, description="a correlation id or a related reference"),
-                               OpenApiParameter("before", str, description="ISO time: rows started before it (the previous page's oldest)")],
+                               OpenApiParameter("page", int, description="1-based"), OpenApiParameter("page_size", int, description=f"one of {', '.join(map(str, PAGE_SIZES))}; default {PAGE}")],
                    responses=IntegrationLogRowSerializer(many=True))
     def get(self, request, version=None):
         rows = IntegrationLog.objects.filter(tenant_id=_tenant_id()).order_by("-started_at", "-id")
@@ -78,15 +79,26 @@ class IntegrationLogListView(APIView):
         if params.get("q"):
             q = params["q"].strip()[:200]
             rows = rows.filter(correlation_id=q) | rows.filter(related_ref=q)
-        if params.get("before"):
-            before = parse_datetime(params["before"])
-            if before is None:
-                raise ValidationError({"before": "Expected an ISO 8601 time."})
-            rows = rows.filter(started_at__lt=before)
-        page = list(rows[: PAGE + 1])
-        more = len(page) > PAGE
-        return Response({"results": IntegrationLogRowSerializer(page[:PAGE], many=True).data, "more": more,
-                         "next_before": page[PAGE - 1].started_at if more else None})
+        page, size = _page(params.get("page")), _page_size(params.get("page_size"))
+        count = rows.count()
+        start = (page - 1) * size
+        return Response({"results": IntegrationLogRowSerializer(rows[start:start + size], many=True).data, "count": count, "page": page, "page_size": size})
+
+
+def _page(raw) -> int:
+    try:
+        return max(1, int(raw or 1))
+    except (TypeError, ValueError):
+        raise ValidationError({"page": "Expected a page number."}) from None
+
+
+def _page_size(raw) -> int:
+    """one of the offered sizes; anything else is the default, so an old link still works"""
+    try:
+        size = int(raw)
+    except (TypeError, ValueError):
+        return PAGE
+    return size if size in PAGE_SIZES else PAGE
 
 
 class IntegrationAlertsView(APIView):

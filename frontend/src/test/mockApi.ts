@@ -397,6 +397,8 @@ interface MockOptions {
   me?: Partial<Me>
   /** GET /workspace/setup/ ; default: every step done, the workspace ready */
   setup?: Partial<WorkspaceSetup>
+  /** the call log padded to this many rows (clones of the sample rows), for paging */
+  integrationLogCount?: number
   /** answer for POST /auth/forgot-password/ ; default: 404, as the unbuilt endpoint really answers */
   onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
@@ -650,7 +652,10 @@ export function installMockApi(options: MockOptions = {}) {
       const query = new URL(url, 'http://test.local').searchParams
       const rows = integrationLog.filter((row) => (!query.get('integration') || row.integration_id === query.get('integration')) && (!query.get('direction') || row.direction === query.get('direction'))
         && (query.get('failed') !== '1' || row.outcome !== 'OK') && (!query.get('q') || row.correlation_id === query.get('q') || row.related_ref === query.get('q')))
-      return json({ results: rows.map(({ request_headers: _rh, request_body: _rb, response_headers: _sh, response_body: _sb, worker: _w, ...row }) => row), more: false, next_before: null })
+      const pageSize = [10, 25, 50, 100].includes(Number(query.get('page_size'))) ? Number(query.get('page_size')) : 25
+      const pageNo = Math.max(1, Number(query.get('page') ?? 1))
+      const all = options.integrationLogCount ? Array.from({ length: options.integrationLogCount }, (_, index) => ({ ...rows[index % rows.length], id: 1000 + index, correlation_id: `corr-${index}` })) : rows
+      return json({ results: all.slice((pageNo - 1) * pageSize, pageNo * pageSize).map(({ request_headers: _rh, request_body: _rb, response_headers: _sh, response_body: _sb, worker: _w, ...row }) => row), count: all.length, page: pageNo, page_size: pageSize })
     }
     if (/\/integrations\/log\/\d+\/retry\/$/.test(path) && method === 'POST') return json({ queued: true, execution: 42, run: 'r1', campaign: 'c1', note: "It goes out on the dispatcher's next pass; the new attempt appears in the log." })
     if (/\/integrations\/log\/\d+\/replay\/$/.test(path) && method === 'POST') return json({ received: 1, applied: 1, ignored: 0, unmatched: 0, failed: 0, duplicate: 0, replayed: 2 })

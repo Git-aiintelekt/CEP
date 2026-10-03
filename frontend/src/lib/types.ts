@@ -1295,8 +1295,9 @@ export interface IntegrationMetrics {
 
 export interface IntegrationLogPage {
   results: IntegrationLogRow[]
-  more: boolean
-  next_before: string | null
+  count: number
+  page: number
+  page_size: number
 }
 
 /** POST /codes/sample/ : a barcode or QR code block's sample, drawn by the same code that draws the sent email's */

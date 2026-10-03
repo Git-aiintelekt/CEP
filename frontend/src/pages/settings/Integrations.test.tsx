@@ -89,3 +89,33 @@ test('each card charts the last 24 hours from the metrics endpoint: bars to one 
   const pos = within(cards).getByRole('listitem', { name: 'POS receipts' })
   expect(await within(pos).findByText('No calls in the last 24 hours.')).toBeTruthy()
 })
+
+test('the call log is paged: rows per page is chosen and remembered, Previous and Next walk the pages, a new filter starts on page 1', async () => {
+  const calls = installMockApi({ integrationLogCount: 60 })
+  const user = userEvent.setup()
+  await renderAppAt('/settings/integrations')
+  const table = await screen.findByRole('table', { name: 'Call Log' })
+  expect(within(table).getAllByRole('row')).toHaveLength(26)                                       // 25 rows and the header
+  expect(screen.getByText('60 calls · page 1 of 3')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true)
+
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Rows per Page' }), '10')
+  await vi.waitFor(() => expect(screen.getByText('60 calls · page 1 of 6')).toBeTruthy())
+  expect(within(screen.getByRole('table', { name: 'Call Log' })).getAllByRole('row')).toHaveLength(11)
+  expect(window.localStorage.getItem('cep.integrations.logRows')).toBe('10')
+  const last = calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!
+  expect(last.url).toContain('page=1')
+  expect(last.url).toContain('page_size=10')
+
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(screen.getByText('60 calls · page 2 of 6')).toBeTruthy())
+  expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('page=2')
+  await user.click(screen.getByRole('button', { name: 'Previous' }))
+  await vi.waitFor(() => expect(screen.getByText('60 calls · page 1 of 6')).toBeTruthy())
+
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await vi.waitFor(() => expect(screen.getByText('60 calls · page 2 of 6')).toBeTruthy())
+  await user.click(screen.getByRole('checkbox', { name: 'Failures Only' }))                        // a new question: back to page 1
+  await vi.waitFor(() => expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('failed=1'))
+  expect(calls.filter((call) => call.url.includes('/integrations/log/?')).at(-1)!.url).toContain('page=1')
+})
