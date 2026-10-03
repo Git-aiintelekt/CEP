@@ -290,6 +290,18 @@ export function AppShell() {
   const toggleLabel = !isMd ? 'Close navigation' : expanded ? 'Collapse navigation' : 'Expand navigation'
   const ToggleIcon = !isMd ? X : PanelLeft                         // one glyph for both states, as editors show it; the label and aria-expanded say which
   const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
+  const toggleButton = (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={toggleLabel}
+      aria-expanded={isMd ? expanded : undefined}
+      data-rail-toggle={expanded ? 'beside' : 'above'}
+      className={`flex items-center justify-center rounded-sm text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed ${expanded ? 'h-8 w-8' : 'h-6 w-6'}`}
+    >
+      <ToggleIcon size={expanded ? 20 : 16} strokeWidth={1.5} aria-hidden />
+    </button>
+  )
 
   return (
     <div className="cep-settle-in min-h-screen">
@@ -298,19 +310,11 @@ export function AppShell() {
       {showRail && (
         <>
           <aside aria-label="Sidebar"
-            className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar py-5 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'}`}>
+            className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar pb-5 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60 pt-5' : 'w-16 pt-2'}`}>
             <div className="mb-8 shrink-0 px-4">
-              <RailMark expanded={labels} end={
-                <button
-                  type="button"
-                  onClick={toggle}
-                  aria-label={toggleLabel}
-                  aria-expanded={isMd ? expanded : undefined}
-                  className="flex h-8 w-8 items-center justify-center rounded-sm text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed"
-                >
-                  <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
-                </button>
-              } />
+              {/* collapsed, 64px has no room beside the mark: the toggle sits above it, smaller */}
+              {!expanded && <div className="mb-1.5 flex justify-center">{toggleButton}</div>}
+              <RailMark expanded={labels} end={expanded ? toggleButton : undefined} />
             </div>
             <nav aria-label="Main" className="flex flex-col px-3">
               <RailGroup label="Pages" items={main} expanded={labels} />
