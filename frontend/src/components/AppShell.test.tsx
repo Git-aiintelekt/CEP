@@ -49,9 +49,15 @@ test('collapsing: 64px, labels gone at once, remembered; expanding brings the la
   await screen.findByRole('navigation', { name: 'Main' })
   const toggle = screen.getByRole('button', { name: 'Collapse navigation' })
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
+  expect(toggle.getAttribute('data-rail-toggle')).toBe('beside')                                       // expanded: 32px beside the mark
+  expect(within(rail()).getByRole('link', { name: 'CEP home' }).compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
   await user.click(toggle)
   expect(rail().className).toContain('w-16')
+  const collapsedToggle = screen.getByRole('button', { name: 'Expand navigation' })                   // 64px has no room beside the mark: the toggle sits above it, 24px
+  expect(collapsedToggle.getAttribute('data-rail-toggle')).toBe('above')
+  expect(collapsedToggle.className).toContain('h-6 w-6')
+  expect(collapsedToggle.compareDocumentPosition(within(rail()).getByRole('link', { name: 'CEP home' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('')                 // named by aria-label only
   expect(within(rail()).queryByText('Customer Engagement')).toBeNull()
   expect(window.localStorage.getItem('cep.nav.collapsed')).toBe('1')
