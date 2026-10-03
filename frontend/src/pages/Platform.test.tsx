@@ -108,7 +108,6 @@ test('a support session forgets any earlier refresh token, shows who is acting a
 })
 
 test('features switched off for the workspace disappear from navigation, settings and channel choices', async () => {
-  const user = userEvent.setup()
   installMockApi({ me: { industry: 'FINANCIAL_SERVICES', features: { journeys: false, mms: false, ereceipt: false, api_access: false } } })
   await renderAppAt('/templates/new')
 
@@ -119,9 +118,7 @@ test('features switched off for the workspace disappear from navigation, setting
   cleanup()
   await renderAppAt('/settings')
   const tabs = await screen.findByRole('navigation', { name: 'Settings sections' })
-  await user.click(within(tabs).getByRole('button', { name: 'Integrations' }))
   expect(within(tabs).queryByText('API Keys')).toBeNull()
-  await user.click(within(tabs).getByRole('button', { name: 'Workspace' }))
   expect(within(tabs).getByText('Plan & Usage')).toBeTruthy()
 })
 

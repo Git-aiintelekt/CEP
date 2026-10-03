@@ -1,4 +1,4 @@
-/** /dev/settings (dev builds only): the Settings menu bar above a stand-in page, every feature on, nothing from the API; Set-Up is the real page on the sample workspace. */
+/** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up is the real page on the sample workspace. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Outlet, Route, Routes } from 'react-router-dom'
@@ -34,8 +34,8 @@ export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <div><h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1><p className="mt-1 text-sm text-ink-800">The menu on sample data: every feature on.</p></div>
-      <SettingsMenuPanel has={() => true} base="/dev/settings" />
       <div className="flex min-w-0 items-start gap-5">
+        <SettingsMenuPanel has={() => true} base="/dev/settings" />
         <section aria-label="Settings page" className="min-w-0 flex-1">
           <Routes>
             <Route element={<Outlet />}>

@@ -30,12 +30,7 @@ test('suppressions: the three new tabs are in Settings; counts per reason, and e
   await renderAppAt('/settings/suppressions')
 
   const tabs = await screen.findByRole('navigation', { name: 'Settings sections' })
-  const user = userEvent.setup()
-  for (const [group, name] of [['Audience', 'Suppressions'], ['Sending', 'Notifications'], ['Workspace', 'Approvals']] as const) {   // each page in its group's sub menu
-    await user.click(within(tabs).getByRole('button', { name: group }))
-    expect(within(within(tabs).getByRole('region', { name: group })).getByRole('link', { name })).toBeTruthy()
-  }
-  await user.keyboard('{Escape}')
+  for (const name of ['Suppressions', 'Notifications', 'Approvals']) expect(within(tabs).getByRole('link', { name })).toBeTruthy()
   expect(await screen.findByText('4 addresses and numbers held back · 1 added this week')).toBeTruthy()
   const table = await screen.findByRole('table', { name: 'Suppressed addresses and numbers' })
   expect(within(table).getByText('d.alvarez@northwind.example')).toBeTruthy()

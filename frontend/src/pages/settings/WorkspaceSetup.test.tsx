@@ -60,7 +60,6 @@ test('the page: seven steps with their state, the next one explained with its pr
 
   // the page sits in the Settings menu's Workspace group
   const menu = screen.getByRole('navigation', { name: 'Settings sections' })
-  await user.click(within(menu).getByRole('button', { name: 'Workspace' }))
   expect(within(within(menu).getByRole('region', { name: 'Workspace' })).getAllByRole('link').map((link) => link.textContent)[0]).toBe('Set-Up')
 })
 

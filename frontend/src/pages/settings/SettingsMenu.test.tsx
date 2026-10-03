@@ -23,37 +23,18 @@ afterEach(() => {
 const menu = () => screen.getByRole('navigation', { name: 'Settings sections' })
 const links = () => within(menu()).getAllByRole('link').map((link) => link.textContent)
 
-test('the sub menus: one button per group, its pages in a dropdown, the current group and page selected, the facts beside the page, the trail above it', async () => {
+test('the menu: every group with its pages, the current page selected, the trail above the page', async () => {
   installMockApi()
-  const user = userEvent.setup()
   await renderAppAt('/settings/delivery')
   await screen.findByRole('table', { name: 'Sending Engines' })
-  expect(menu().getAttribute('data-settings-menu')).toBe('submenus')
   for (const name of ['Workspace', 'Sending', 'Audience', 'Integrations']) expect(within(menu()).getByRole('button', { name })).toBeTruthy()
-  expect(within(menu()).queryByRole('link')).toBeNull()                                                   // nothing open: no page links in the bar
-  const sending = within(menu()).getByRole('button', { name: 'Sending' })
-  expect(sending.className).toContain('bg-brand-100 text-brand-800')                                     // the current page's group
-  expect(within(menu()).getByRole('button', { name: 'Workspace' }).className).not.toContain('bg-brand-100')
-  await user.click(sending)
-  const panel = within(menu()).getByRole('region', { name: 'Sending' })
-  expect(within(panel).getAllByRole('link').map((link) => link.textContent)).toEqual(['Sending Engines', 'Email Server', 'Notifications'])
-  const current = within(panel).getByRole('link', { name: 'Sending Engines' })
+  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts'])
+  expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
+  const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
   expect(current.getAttribute('aria-current')).toBe('page')
   expect(current.className).toContain('bg-brand-100 text-brand-800')
-  await user.click(within(menu()).getByRole('button', { name: 'Audience' }))                               // one sub menu at a time
-  expect(within(menu()).queryByRole('region', { name: 'Sending' })).toBeNull()
-  expect(within(within(menu()).getByRole('region', { name: 'Audience' })).getAllByRole('link').map((link) => link.textContent)).toEqual(['Suppressions', 'Preference Centre', 'Consent Policy'])
-  await user.keyboard('{Escape}')
-  expect(within(menu()).queryByRole('region', { name: 'Audience' })).toBeNull()
-  expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const trail = screen.getByRole('navigation', { name: 'Where you are' })
   expect(trail.textContent).toBe('SettingsSendingSending Engines')
-  // the menu sits across the top under the heading; the workspace facts in a column beside the page
-  const page = screen.getByRole('region', { name: 'Settings page' })
-  expect(menu().compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  const facts = await screen.findByRole('complementary', { name: 'Workspace facts' })
-  expect(facts.querySelector('dl')!.className).toContain('xl:grid-cols-1')
-  expect(page.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
 test('Find a Setting narrows the menu to the matching pages, by page or group; Escape and the clear button empty it', async () => {
@@ -74,37 +55,29 @@ test('Find a Setting narrows the menu to the matching pages, by page or group; E
   expect((box as HTMLInputElement).value).toBe('')
 })
 
-test('Recent is a sub menu of the pages visited here, newest first, three at most; Show All opens the columns, where a group folds and stays folded', async () => {
+test('Recent lists the pages visited here, newest first, three at most; a group folds and stays folded; the panel folds to icons', async () => {
   installMockApi()
   const user = userEvent.setup()
   await renderAppAt('/settings/users')
   await screen.findByRole('table', { name: 'Users' })
-  expect(within(menu()).queryByRole('button', { name: 'Recent' })).toBeNull()
-  const go = async (group: string, page: string) => {
-    await user.click(within(menu()).getByRole('button', { name: group }))
-    await user.click(within(within(menu()).getByRole('region', { name: group })).getByRole('link', { name: page }))
-  }
-  await go('Workspace', 'Roles')
-  await go('Workspace', 'Security')
-  await go('Sending', 'Notifications')
-  await user.click(within(menu()).getByRole('button', { name: 'Recent' }))
+  await user.click(within(menu()).getAllByRole('link', { name: 'Roles' }).at(-1)!)
+  await user.click(within(menu()).getAllByRole('link', { name: 'Security' }).at(-1)!)
+  await user.click(within(menu()).getAllByRole('link', { name: 'Notifications' }).at(-1)!)
   const recent = within(menu()).getByRole('region', { name: 'Recent' })
   expect(within(recent).getAllByRole('link').map((link) => link.textContent)).toEqual(['Security', 'Roles', 'Users'])   // the pages left, newest first; the current one is not listed
   expect(readRecent()).toEqual(['/settings/notifications', '/settings/security', '/settings/roles', '/settings/users'])
 
-  await user.click(within(menu()).getByRole('button', { name: 'Show all settings' }))
-  expect(menu().getAttribute('data-settings-menu')).toBe('open')
-  expect(within(menu()).getByRole('region', { name: 'Recent' })).toBeTruthy()                             // the columns: Recent first, then every group with its pages
-  expect(within(menu()).getByRole('link', { name: 'Suppressions' })).toBeTruthy()
   const audience = within(menu()).getByRole('button', { name: 'Audience' })
   await user.click(audience)
   expect(audience.getAttribute('aria-expanded')).toBe('false')
   expect(within(menu()).queryByRole('link', { name: 'Suppressions' })).toBeNull()
   expect(JSON.parse(window.localStorage.getItem('cep.settings.folded')!)).toEqual(['audience'])
-  expect(JSON.parse(window.localStorage.getItem('cep.settings.panel')!)).toBe(false)
 
-  await user.click(within(menu()).getByRole('button', { name: 'Show the sub menus' }))
-  expect(menu().getAttribute('data-settings-menu')).toBe('submenus')
+  await user.click(within(menu()).getByRole('button', { name: 'Collapse the settings menu' }))
+  expect(menu().getAttribute('data-settings-menu')).toBe('folded')
+  expect(within(menu()).queryByRole('searchbox')).toBeNull()
+  expect(within(menu()).getByRole('link', { name: 'Suppressions' })).toBeTruthy()                        // folded: every page as an icon, groups never fold
+  await user.click(within(menu()).getByRole('button', { name: 'Expand the settings menu' }))
   expect(within(menu()).getByRole('searchbox', { name: 'Find a setting' })).toBeTruthy()
 })
 
