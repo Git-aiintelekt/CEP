@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -14,6 +14,17 @@ import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
 import type { Integration, IntegrationHealth, IntegrationLogDetail, IntegrationLogPage, IntegrationLogRow, IntegrationMetrics, IntegrationOutcome } from '@/lib/types'
 
 const INTEGRATIONS = ['integrations']
+const PAGE_SIZES = [10, 25, 50, 100]
+const ROWS_KEY = 'cep.integrations.logRows'                                       // the rows per page this browser chose
+
+function readRows(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(ROWS_KEY))
+    return PAGE_SIZES.includes(stored) ? stored : 25
+  } catch {
+    return 25
+  }
+}
 
 const HEALTH: Record<IntegrationHealth, { status: string; label: string }> = {
   healthy: { status: 'ACTIVE', label: 'Healthy' },
@@ -246,18 +257,25 @@ export function IntegrationsPage() {
   const { can } = useAuth()
   const queryClient = useQueryClient()
   const allowed = can('provider.edit')
-  const [filters, setFilters] = useState<Filters>({ integration: '', direction: '', failed: false, q: '' })
+  const [filters, setFiltersOnly] = useState<Filters>({ integration: '', direction: '', failed: false, q: '' })
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [rows, setRows] = useState(readRows)
+  const setFilters = (next: Filters) => { setFiltersOnly(next); setPage(1) }                   // a new question starts on page 1
+  const chooseRows = (next: number) => {
+    setRows(next)
+    setPage(1)
+    try { window.localStorage.setItem(ROWS_KEY, String(next)) } catch { /* a private window forgets */ }
+  }
   const [open, setOpen] = useState<number | null>(null)
 
   const integrations = useQuery({ queryKey: INTEGRATIONS, queryFn: ({ signal }) => api.get<Integration[]>('/integrations/', undefined, signal), enabled: allowed, refetchInterval: 60_000 })
-  const log = useInfiniteQuery({
-    queryKey: [...INTEGRATIONS, 'log', filters],
-    queryFn: ({ pageParam, signal }) => api.get<IntegrationLogPage>('/integrations/log/', {
-      integration: filters.integration || undefined, direction: filters.direction || undefined, failed: filters.failed ? '1' : undefined, q: filters.q || undefined, before: pageParam ?? undefined,
+  const log = useQuery({
+    queryKey: [...INTEGRATIONS, 'log', filters, page, rows],
+    queryFn: ({ signal }) => api.get<IntegrationLogPage>('/integrations/log/', {
+      integration: filters.integration || undefined, direction: filters.direction || undefined, failed: filters.failed ? '1' : undefined, q: filters.q || undefined, page, page_size: rows,
     }, signal),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => (last.more ? last.next_before : undefined),
+    placeholderData: keepPreviousData,                                                       // the table stays while the next page loads
     enabled: allowed,
   })
   const toggle = useMutation({
@@ -274,7 +292,8 @@ export function IntegrationsPage() {
 
   const items = integrations.data ?? []
   const names = Object.fromEntries(items.map((item) => [item.id, item.name]))
-  const rows = log.data?.pages.flatMap((page) => page.results) ?? []
+  const calls = log.data?.results ?? []
+  const pages = log.data ? Math.max(1, Math.ceil(log.data.count / log.data.page_size)) : 1
   const columns: Column<IntegrationLogRow>[] = [
     { key: 'time', header: 'Time', render: (row) => <span className="cep-num whitespace-nowrap text-ink-900">{formatDateTime(row.started_at)}</span> },
     { key: 'integration', header: 'Integration', render: (row) => (
@@ -335,12 +354,23 @@ export function IntegrationsPage() {
         </form>
         {log.isError ? <ErrorState error={log.error} onRetry={() => void log.refetch()} />
           : log.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the log</p>
-          : rows.length === 0 ? <EmptyState title="No Calls Match" hint={filters.q || filters.integration || filters.direction || filters.failed ? 'Widen the filters, or check the correlation id.' : 'Calls appear here as soon as the point of sale sends a receipt or a campaign goes out.'} />
+          : calls.length === 0 ? <EmptyState title="No Calls Match" hint={filters.q || filters.integration || filters.direction || filters.failed ? 'Widen the filters, or check the correlation id.' : 'Calls appear here as soon as the point of sale sends a receipt or a campaign goes out.'} />
           : (<>
-              <DataTable columns={columns} rows={rows} rowKey={(row) => String(row.id)} caption="Call Log" onRowClick={(row) => setOpen(row.id)} />
-              {log.hasNextPage && <div className="mt-3 flex justify-center">
-                <button type="button" className={buttonSecondary} disabled={log.isFetchingNextPage} onClick={() => void log.fetchNextPage()}>{log.isFetchingNextPage ? 'Loading' : 'Show Older Calls'}</button>
-              </div>}
+              <DataTable columns={columns} rows={calls} rowKey={(row) => String(row.id)} caption="Call Log" onRowClick={(row) => setOpen(row.id)} />
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-sm text-ink-800">
+                <span className="cep-num">{formatNumber(log.data!.count)} call{log.data!.count === 1 ? '' : 's'} · page {log.data!.page} of {pages}</span>
+                <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-2">Rows per Page
+                    <Select controlSize="sm" value={String(rows)} onChange={(event) => chooseRows(Number(event.target.value))} aria-label="Rows per Page">
+                      {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+                    </Select>
+                  </label>
+                  <span className="flex gap-2">
+                    <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={page <= 1 || log.isFetching} onClick={() => setPage(page - 1)}>Previous</button>
+                    <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} disabled={page >= pages || log.isFetching} onClick={() => setPage(page + 1)}>Next</button>
+                  </span>
+                </span>
+              </div>
             </>)}
       </section>
 
