@@ -20,6 +20,7 @@ import { NeedsAttention } from './sections/NeedsAttention'
 import { NextSevenDays } from './sections/NextSevenDays'
 import { RecentCampaigns } from './sections/RecentCampaigns'
 import { RevenueCost } from './sections/RevenueCost'
+import { SetupCard } from './sections/SetupCard'
 import { TopCampaigns } from './sections/TopBottom'
 import { useHomeFilters } from './useHomeFilters'
 
@@ -76,6 +77,7 @@ export function HomePage() {
   const recent = source.useRecentCampaigns(filters)
   const governance = source.useGovernance(filters)
   const eReceipts = source.useEReceipts(filters)
+  const setup = source.useSetup()
 
   const tiles = createNewTiles(viewer, source.capabilities)
   const layout = homeLayout({
@@ -107,6 +109,7 @@ export function HomePage() {
         {layout.createNew && <CreateNew tiles={tiles} />}
       </div>
       {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}
+      <SetupCard result={setup} />
       <KeyFigures filters={filters} revenueCost={revenueCost} />
       {layout.rows.map((row) => <CardRow key={row.name} row={row} render={render} />)}
     </div>

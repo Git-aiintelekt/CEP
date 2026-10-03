@@ -20,6 +20,8 @@ import { tenantFromHost } from '@/lib/config'
 import { LOADING_HOLD_MS, loadingOverlay } from '@/lib/loadingOverlay'
 import type { AuthOptions } from '@/lib/types'
 
+import { markFreshSignIn } from '@/features/setup/setup'
+
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return 'Incorrect email or password. Try again.'
@@ -99,6 +101,7 @@ export function LoginPage() {
   async function leaveForApp() {
     loadingOverlay.show('Logging you in…')
     await new Promise((resolve) => window.setTimeout(resolve, LOADING_HOLD_MS))
+    if (from === '/') markFreshSignIn()                                            // the landing route may send an administrator to Set-Up
     navigate(from, { replace: true })
     loadingOverlay.fadeOut()
     window.setTimeout(() => loadingOverlay.hide(), LOADER_FADE_MS)

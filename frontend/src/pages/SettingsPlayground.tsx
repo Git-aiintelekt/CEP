@@ -1,8 +1,14 @@
-/** /dev/settings (dev builds only): the Settings menu bar above a stand-in page, every feature on, nothing from the API. */
+/** /dev/settings (dev builds only): the Settings menu bar above a stand-in page, every feature on, nothing from the API; Set-Up is the real page on the sample workspace. */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Outlet, Route, Routes } from 'react-router-dom'
 
 import { SettingsMenuPanel } from '@/pages/settings/SettingsMenu'
+import { WorkspaceSetupPage } from '@/pages/settings/WorkspaceSetupPage'
 import { SETTINGS_GROUPS, pageAt } from '@/pages/settings/settingsCatalogue'
+
+import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
+import { SETUP_KEY } from '@/features/setup/setup'
 
 function StandIn({ path }: { path: string }) {
   const page = pageAt(path)
@@ -14,6 +20,16 @@ function StandIn({ path }: { path: string }) {
   )
 }
 
+/** the Set-Up page as it reads half way through: three steps done, the sender to verify next (Hide Until Later has no API here) */
+function SampleSetup() {
+  const [client] = useState(() => {
+    const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+    seeded.setQueryData(SETUP_KEY, SAMPLE_SETUP)
+    return seeded
+  })
+  return <QueryClientProvider client={client}><WorkspaceSetupPage /></QueryClientProvider>
+}
+
 export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -23,7 +39,8 @@ export default function SettingsPlayground() {
         <section aria-label="Settings page" className="min-w-0 flex-1">
           <Routes>
             <Route element={<Outlet />}>
-              {SETTINGS_GROUPS.flatMap((group) => group.pages).map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
+              <Route path="setup" element={<SampleSetup />} />
+              {SETTINGS_GROUPS.flatMap((group) => group.pages).filter((page) => page.to !== '/settings/setup').map((page) => <Route key={page.to} path={page.to.replace('/settings/', '')} element={<StandIn path={page.to} />} />)}
               <Route index element={<StandIn path="/settings/users" />} />
             </Route>
           </Routes>

@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
 import { installMockApi, MFA_CODE } from '@/test/mockApi'
 
 async function renderApp() {
@@ -64,6 +65,16 @@ test('the right password starts the animation before the dashboard', async () =>
 
   expect(await screen.findByRole('heading', { level: 1, name: /^Good (morning|afternoon|evening), Aby$/ })).toBeTruthy()
   expect(show).toHaveBeenCalledWith('Logging you in…')
+})
+
+test('the first sign-in of an administrator whose workspace is not ready lands on Set-Up', async () => {
+  installMockApi({ setup: SAMPLE_SETUP })
+  const user = await renderApp()
+
+  await fillCredentials(user, 'correct-horse')
+
+  expect(await screen.findByRole('heading', { level: 2, name: 'Set Up Your Workspace' })).toBeTruthy()
+  expect(window.location.pathname).toBe('/settings/setup')
 })
 
 test('a workspace that requires a code asks for one instead of signing in', async () => {

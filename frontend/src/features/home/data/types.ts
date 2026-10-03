@@ -1,5 +1,5 @@
 /** The shapes every Home section reads, whichever source feeds them (sample data now, the API later). */
-import type { Feature, PermissionCode } from '@/lib/types'
+import type { Feature, PermissionCode, WorkspaceSetup } from '@/lib/types'
 
 export type HomeChannel = 'ALL' | 'EMAIL' | 'SMS' | 'MMS'
 export type MessageChannel = Exclude<HomeChannel, 'ALL'>
@@ -260,4 +260,6 @@ export interface HomeDataSource {
   useGovernance: (filters: HomeFilters) => SectionResult<Governance>
   /** ready with null: the workspace sends no e-receipts */
   useEReceipts: (filters: HomeFilters) => SectionResult<EReceipts | null>
+  /** the set-up card: null for anyone but an administrator; the card itself decides whether to show */
+  useSetup: () => SectionResult<WorkspaceSetup | null>
 }

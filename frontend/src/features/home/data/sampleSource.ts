@@ -12,13 +12,15 @@ import { PERIOD_DAYS } from '../period'
 import { buildKpis, sumFigures, type CampaignFigures, type Figures } from './kpiMath'
 import { rankTopBottom, type RankCandidate } from './rankTopBottom'
 import { contextLine } from './recentContext'
+
+import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
 import type {
   AttentionGroup, CampaignOption, EReceipts, FunnelChannel, Governance, HomeDataSource, HomeFilters, Journeys, Kpis, MessageChannel,
   RecentCampaigns, RecentStatus, RevenueCostSeries, Schedule, ScheduledRun, SectionResult, TopBottom, JourneyRow,
 } from './types'
 
 /** liveToday: busy figures, but Revenue vs. Cost, Active Journeys and Governance unavailable, as for a viewer who cannot read reports in a workspace without journeys */
-export type SampleState = 'busy' | 'light' | 'noAttribution' | 'noAlerts' | 'liveToday'
+export type SampleState = 'busy' | 'light' | 'noAttribution' | 'noAlerts' | 'liveToday' | 'settingUp'
 
 export const SAMPLE_STATES: { value: SampleState; label: string }[] = [
   { value: 'busy', label: 'Busy' },
@@ -26,6 +28,7 @@ export const SAMPLE_STATES: { value: SampleState; label: string }[] = [
   { value: 'noAttribution', label: 'No Attribution' },
   { value: 'noAlerts', label: 'No Alerts' },
   { value: 'liveToday', label: 'Cards Missing' },
+  { value: 'settingUp', label: 'Setting Up' },
 ]
 
 interface SampleCampaign {
@@ -382,5 +385,6 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
     useRecentCampaigns: (filters, status) => ready(recent(filters, status)),
     useGovernance: (filters) => (liveToday ? { status: 'unavailable' } : ready(governance(filters))),
     useEReceipts: (filters) => ready(eReceipts(filters)),
+    useSetup: () => ready(state === 'settingUp' ? SAMPLE_SETUP : null),
   }
 }

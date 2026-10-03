@@ -10,6 +10,7 @@ give the viewer.
 | Section | Request | Notes |
 |---|---|---|
 | Needs Attention | `GET /home/overview/` (`attention`) | failed production sends in the last week (ids), test-published campaigns, campaigns waiting for approval. Bounce rate, frequency cap and journey-step alerts still have no source. |
+| Workspace set-up card | `GET /workspace/setup/`, administrators only (nobody else asks) | under the alerts until every required set-up step is done or the card is hidden with Hide Until Later; `docs/WORKSPACE_SETUP.md` |
 | Marketing Performance (KPIs) | `GET /reports/summary/` for the period and the one before | store revenue and a summed revenue target are not available yet, so Campaign Contribution says so |
 | Top and Bottom Campaigns | the same two summaries, joined with `GET /campaigns/?status=…&page_size=200` for each campaign's target | ranks by revenue against target; by click rate when attribution is not set up |
 | Attributed Revenue vs. Campaign Cost | `GET /home/overview/` (`revenue_cost`) | per campaign: attributed revenue and cost from `campaign_actual` (else the campaign's planned cost), spread over the days it sent in proportion to its sends; weekly points over a month; the target pace is the campaigns' revenue targets over the period |

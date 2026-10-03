@@ -6,7 +6,8 @@ import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } f
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
-import type { CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
+import type { WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -394,6 +395,8 @@ interface MockOptions {
   onSettingsWrite?: (call: Call) => Response | null
   /** merged over the default GET /me/ answer: features, support_session, mfa_setup_required ... */
   me?: Partial<Me>
+  /** GET /workspace/setup/ ; default: every step done, the workspace ready */
+  setup?: Partial<WorkspaceSetup>
   /** answer for POST /auth/forgot-password/ ; default: 404, as the unbuilt endpoint really answers */
   onForgotPassword?: (call: Call) => Response | null
   /** GET /auth/options/ ; default: no single sign-on */
@@ -437,6 +440,7 @@ export function installMockApi(options: MockOptions = {}) {
   let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
   const consentPolicyNow = { ...consentPolicy }
+  let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let securityNow: SecuritySettings = { ...security }
@@ -620,6 +624,10 @@ export function installMockApi(options: MockOptions = {}) {
                         ...(provider === undefined ? {} : { identity_provider: provider === null ? null : ({ ...provider, client_secret: undefined, has_client_secret: Boolean(provider.client_secret) } as never) }) }
       }
       return json(securityNow)
+    }
+    if (path.endsWith('/workspace/setup/')) {
+      if (method === 'PUT') setupNow = { ...setupNow, dismissed: Boolean((body as { dismissed?: boolean } | null)?.dismissed) }
+      return json(setupNow)
     }
     if (path.endsWith('/workspace/')) return json(workspace)
     if (/\/integrations\/[^/]+\/(pause|resume)\/$/.test(path)) {
