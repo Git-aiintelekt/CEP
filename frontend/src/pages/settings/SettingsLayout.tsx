@@ -13,9 +13,9 @@ import { groupOf, pageAt } from './settingsCatalogue'
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-ink-900">{value}</dd>
+      <dd className="mt-0.5 truncate text-sm font-medium text-ink-900">{value}</dd>
     </div>
   )
 }
@@ -34,7 +34,7 @@ function Trail({ path }: { path: string }) {
   )
 }
 
-/** Settings: the menu panel on the left (the pages in their groups), the page on the right with the workspace's facts above it. */
+/** Settings: the menu bar across the top (the pages in their groups), the page below it with the workspace's facts in a column on the right. */
 export function SettingsLayout() {
   const { can } = useAuth()
   const { pathname } = useLocation()
@@ -48,27 +48,27 @@ export function SettingsLayout() {
   const data = workspace.data
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-        <div>
-          <h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1>
-          <p className="mt-1 max-w-2xl text-sm text-ink-800">Who can sign in to this workspace, what they may do, and which systems may call the API.</p>
-        </div>
-        {data && (
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3 sm:grid-cols-5">
-            <Fact label="Workspace" value={`${data.name} (${data.code})`} />
-            <Fact label="Plan" value={data.plan ?? 'No plan'} />
-            <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
-            <Fact label="Time Zone" value={data.timezone} />
-            <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
-          </dl>
-        )}
+      <div>
+        <h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1>
+        <p className="mt-1 max-w-2xl text-sm text-ink-800">Who can sign in to this workspace, what they may do, and which systems may call the API.</p>
       </div>
-      <div className="flex min-w-0 items-start gap-5">
-        <SettingsMenu />
-        <section aria-label="Settings page" className="flex min-w-0 flex-1 flex-col gap-4">
+      <SettingsMenu />
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_232px]">
+        <section aria-label="Settings page" className="flex min-w-0 flex-col gap-4">
           <Trail path={pathname} />
           <Outlet />
         </section>
+        {data && (
+          <aside aria-label="Workspace facts" className="rounded-lg border border-line bg-surface px-4 py-3">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5 xl:grid-cols-1 xl:gap-y-4">
+              <Fact label="Workspace" value={`${data.name} (${data.code})`} />
+              <Fact label="Plan" value={data.plan ?? 'No plan'} />
+              <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
+              <Fact label="Time Zone" value={data.timezone} />
+              <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
+            </dl>
+          </aside>
+        )}
       </div>
     </div>
   )
