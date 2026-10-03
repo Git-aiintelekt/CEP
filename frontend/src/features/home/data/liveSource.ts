@@ -8,7 +8,9 @@ import { api, ApiError } from '@/lib/api'
 import { formatClock, formatShortDay, zoneAbbreviation } from '@/lib/format'
 import { typeShortLabel } from '@/features/campaigns/vocabulary'
 import { addDays, todayIn } from '@/features/reports/period'
-import type { Campaign, CampaignCalendarData, CountedPage, HomeJourneyRow, HomeOverview, ReportCampaignRow, ReportSummary } from '@/lib/types'
+import type { Campaign, CampaignCalendarData, CountedPage, HomeJourneyRow, HomeOverview, ReportCampaignRow, ReportSummary, WorkspaceSetup } from '@/lib/types'
+
+import { SETUP_KEY, fetchSetup } from '@/features/setup/setup'
 
 import { homePeriod, PERIOD_DAYS } from '../period'
 import { useHomeData } from './homeDataContext'
@@ -388,6 +390,15 @@ function useCampaignOptions(): SectionResult<CampaignOptions> {
   }))
 }
 
+/** GET /workspace/setup/ for an administrator; anyone else gets null without a request */
+function useSetup(): SectionResult<WorkspaceSetup | null> {
+  const { viewer } = useHomeData()
+  const allowed = viewer.can('user.admin')
+  const query = useQuery({ ...SETTLED, queryKey: SETUP_KEY, enabled: allowed, queryFn: ({ signal }) => fetchSetup(signal) })
+  if (!allowed) return { status: 'ready', data: null }
+  return combine([query], () => query.data!)
+}
+
 export const liveSource: HomeDataSource = {
   capabilities: { journeyCreateFlow: false },
   useCampaignOptions, // GET /campaigns/?status=…&ordering=-updated_at&page_size=200 (one page; the menu says so when there are more)
@@ -401,4 +412,5 @@ export const liveSource: HomeDataSource = {
   useRecentCampaigns, // GET /campaigns/?ordering=-updated_at&page_size=50 joined with GET /reports/summary/ and the overview's failed ids; the other sorts are within those 50
   useGovernance, // GET /home/overview/ governance: the period's campaign lists, distinct people contacted and held back by reason
   useEReceipts, // the e-receipt campaign rows of GET /reports/summary/ (the marketing figures leave them out)
+  useSetup, // GET /workspace/setup/: the set-up card for an administrator until the workspace is ready
 }

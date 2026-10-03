@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workspace set-up: the administrator's first sign-in and the steps in the app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --danger:#dd514c; --danger-bg:#fae2e2; --danger-text:#a92e26; --warning:#e8a13b; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --success:#5ec16a; --success-bg:#e3f5e5; --success-text:#1f6b2d;
+    --callout-bg:#eef2fe; --callout-icon:#7570d4; --callout-text:#312e7c;
+    --plum-100:#f1e6f5; --plum-700:#6b3f86; --sidebar:#1b2a5a;
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .label { max-width:1440px; margin:28px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.4 var(--font-sans); color:var(--ink-800); margin-top:2px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, 1fr); gap:16px } .row.one { grid-template-columns:1fr } .row.three { grid-template-columns:repeat(3,1fr) }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .frame .cap { font-size:12px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .app { display:grid; grid-template-columns:200px 1fr; min-height:420px }
+  .rail { background:var(--sidebar); color:#fff; padding:16px 12px; font-size:13px } .rail b { display:block; margin:0 6px 14px; font-family:var(--font-display) }
+  .rail a { display:block; padding:7px 10px; border-radius:6px; color:#c9d3f2; text-decoration:none } .rail a.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600 }
+  .page { padding:20px 24px }
+  .pagehead { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:10px 16px; margin-bottom:14px } .pagehead h1 { font-size:22px } .pagehead p { color:var(--ink-800); font-size:13px; margin-top:4px }
+  .btn { height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 13px var(--font-sans); display:inline-flex; align-items:center; gap:6px; color:var(--ink-900); white-space:nowrap }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:30px; padding:0 10px; font-size:12px } .btn.link { border:0; background:none; color:var(--brand-800); padding:0 }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:8px }
+  .card .head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line) } .card .head h2 { font-size:16px; display:flex; align-items:center; gap:8px }
+  .card .head .ico { width:28px; height:28px; border-radius:6px; background:var(--plum-100); color:var(--plum-700); display:inline-flex; align-items:center; justify-content:center; font-size:13px }
+  .meterline { display:flex; align-items:center; gap:12px; font-size:13px; color:var(--ink-800) }
+  .meter { flex:1; height:6px; border-radius:999px; background:var(--fill-subtle); overflow:hidden } .meter i { display:block; height:100%; background:var(--brand-600) }
+  .step { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:flex-start; padding:14px 16px; border-bottom:1px solid var(--line-subtle) } .step:last-child { border-bottom:0 }
+  .step .mark { flex:none; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700 }
+  .mark.ok { background:var(--success-bg); color:var(--success-text) } .mark.todo { background:var(--fill-subtle); color:var(--ink-800); border:1px solid var(--line) } .mark.now { background:var(--brand-600); color:#fff } .mark.warn { background:var(--warning-bg); color:var(--warning-text) }
+  .step .body { flex:1 1 260px; min-width:0 } .step b { display:block; font-size:14px; color:var(--ink-900) } .step small { display:block; font-size:13px; color:var(--ink-800); margin-top:2px }
+  .step .why { display:block; font-size:12px; color:var(--ink-800); margin-top:6px; padding:8px 10px; background:var(--surface-subtle); border-radius:6px }
+  .step .act { flex:none; display:flex; gap:8px; align-items:center; margin-left:auto }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap }
+  .tag.ok { background:var(--success-bg); color:var(--success-text) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) } .tag.grey { background:var(--fill-subtle); color:var(--ink-800) } .tag.brand { background:var(--brand-100); color:var(--brand-800) }
+  .callout { display:flex; gap:10px; padding:12px 14px; border-radius:8px; font-size:13px } .callout.info { background:var(--callout-bg); color:var(--callout-text) } .callout.ok { background:var(--success-bg); color:var(--success-text) } .callout b { display:block }
+  .auth { max-width:420px; margin:28px auto; background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px }
+  .auth h1 { font-size:20px; margin-bottom:4px } .auth p { color:var(--ink-800); font-size:13px; margin-bottom:14px }
+  .field { margin-bottom:14px } .field label { display:block; font-size:13px; font-weight:600; margin-bottom:4px } .ctl { height:40px; border:1px solid var(--line-control); border-radius:8px; padding:0 12px; display:flex; align-items:center; background:#fff; color:var(--ink-900) } .ctl .ph { color:var(--ink-300) }
+  .hint { font-size:12px; color:var(--ink-800); margin-top:4px }
+  .seq { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(4, 1fr); gap:12px }
+  .seq .frame { padding:14px } .seq h3 { font-size:14px; display:flex; gap:8px; align-items:center } .seq h3 i { width:22px; height:22px; border-radius:50%; background:var(--brand-600); color:#fff; font-style:normal; font-size:12px; display:inline-flex; align-items:center; justify-content:center }
+  .seq p { font-size:13px; color:var(--ink-800); margin-top:6px }
+  .email { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; font-size:13px } .email .from { color:var(--ink-800); font-size:12px; margin-bottom:8px } .email ol { margin:8px 0 0; padding-left:18px } .email li { margin-bottom:4px }
+  .email .btnish { display:inline-block; background:#2753e4; color:#fff; font-weight:700; padding:8px 16px; border-radius:8px; margin:10px 0 }
+  .home-card { display:flex; gap:14px; align-items:center; padding:14px 16px; border:1px solid var(--line); border-radius:8px; background:#fff }
+  .home-card .ico { width:32px; height:32px; border-radius:6px; background:var(--brand-100); color:var(--brand-800); display:inline-flex; align-items:center; justify-content:center }
+  .home-card b { display:block } .home-card small { display:block; color:var(--ink-800); font-size:13px }
+  .rules { max-width:1440px; margin:28px auto 48px; padding:0 16px } .rules .frame { max-width:900px; padding:16px }
+  .rules h3 { font-size:14px; margin-bottom:8px } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--ink-800) } .rules li { margin-bottom:4px }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Workspace set-up, from the administrator's side.</strong> The back-office onboards the tenant and emails the first administrator a one-time password link with the set-up list. From there everything happens in the app: they choose a password, sign in, and land on <strong>Set Up Your Workspace</strong>, a page that knows what is done and what is not, and sends them to the right Settings page for each step. The page stays reachable from Home until the workspace is ready; nothing on it is a new form, it is a guide over the pages that exist.</p>
+
+<div class="label">The sequence — four screens before the first step<span>What the administrator sees, in order. Screens 1 and 2 exist today; screen 3 is the new landing; screen 4 is the Home card that leads back to it.</span></div>
+<div class="seq">
+  <div class="frame"><h3><i>1</i>The email</h3>
+    <div class="email" style="margin-top:10px"><div class="from">From CEP · to aby.john@northwindapparel.example</div><b>Welcome to NWA: choose your password</b><p>The platform team added you to the NWA workspace.</p><span class="btnish">Choose my password</span><p>The link works once and for 72 hours.</p><p style="margin-top:8px"><b>Setting up your workspace, in order</b></p><ol><li>Roles and users</li><li>Email engine, text engine, senders</li><li>Suppressions and lists</li><li>Notifications, approvals, API keys</li></ol></div>
+  </div>
+  <div class="frame"><h3><i>2</i>Choose a password, sign in</h3>
+    <div class="auth" style="margin:10px 0 0;max-width:none;padding:16px"><h1 style="font-size:16px">Set a New Password</h1><p>Choose a password you haven't used on CEP before.</p><div class="field"><label>New password</label><div class="ctl"><span class="ph">At least 12 characters</span></div></div><div class="field"><label>Again</label><div class="ctl"><span class="ph"></span></div></div><span class="btn primary">Save and Sign In</span><p class="hint" style="margin-top:10px">Then the sign-in page, with the workspace code NWA filled in. If the workspace requires MFA, the enrolment screen comes next and nothing else opens before it.</p></div>
+  </div>
+  <div class="frame"><h3><i>3</i>Set Up Your Workspace</h3><p>The first sign-in of an administrator in a workspace that is not ready lands here instead of Home. It reads the workspace and shows each step as done, in progress or still to do, with one button per step that opens the Settings page in question. Below.</p></div>
+  <div class="frame"><h3><i>4</i>Home, until it is ready</h3><div class="home-card" style="margin-top:10px"><span class="ico">✓</span><div><b>Set up your workspace · 3 of 7 done</b><small>Next: add an email sender and verify it. Campaigns cannot publish to production before that.</small></div><span class="btn sm" style="margin-left:auto">Continue Set-Up</span></div><p>A card under the alerts on Home, for administrators only, until every required step is done or the card is dismissed. Done, it disappears; the page stays under Settings → Set-Up.</p></div>
+</div>
+
+<div class="label">Option 1 — Set Up Your Workspace as a checklist page, one button per step<span>Each step says what it is for, whether it is done (read from the workspace, not ticked by hand), and opens the page that does it. Busy: three steps done; sparse: a brand-new workspace at the first sign-in.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: the third sign-in, half way; the text engine and approvals are optional</div>
+    <div class="app">
+      <nav class="rail"><b>CEP</b><a>Home</a><a>Campaigns</a><a>Journeys</a><a>Templates</a><a>Contact lists</a><a class="on" style="margin-top:14px">Settings</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Set up your workspace</h1><p>Northwind Apparel (NWA) · Growth · America/New_York. Work the steps in order; each one opens the page that does it.</p></div><span class="btn">Hide Until Later</span></div>
+        <div class="card">
+          <div class="head"><h2><span class="ico">✓</span>Set-Up</h2><div class="meterline" style="width:280px"><span>3 of 7 done</span><span class="meter"><i style="width:43%"></i></span></div></div>
+          <div class="step"><span class="mark ok">✓</span><div class="body"><b>Choose your password and sign in</b><small>Done 3 Oct 2026. Multi-factor authentication is optional in this workspace; you can turn it on under Account Security.</small></div><div class="act"><span class="tag ok">Done</span></div></div>
+          <div class="step"><span class="mark ok">✓</span><div class="body"><b>Invite your team and give them roles</b><small>5 users invited · 2 signed in · roles Workspace Admin, Campaign Manager, Analyst. Approvals will need a role with campaign.approve.</small></div><div class="act"><span class="tag ok">Done</span><span class="btn sm">Users</span></div></div>
+          <div class="step"><span class="mark ok">✓</span><div class="body"><b>Add an email engine</b><small>Postal · checked 2 Oct 2026 · callback address registered (first callback received 2 Oct).</small></div><div class="act"><span class="tag ok">Done</span><span class="btn sm">Sending Engines</span></div></div>
+          <div class="step"><span class="mark now">4</span><div class="body"><b>Add an email sender and verify it</b><small>One sender, Northwind Rewards &lt;rewards@northwindapparel.example&gt;, not verified. Test sends work from it; production does not.</small><span class="why">The domain must be one the engine may send for. Verify checks SPF and DKIM on the engine; it takes a minute once the DNS records are in.</span></div><div class="act"><span class="tag warn">Not verified</span><span class="btn sm primary">Verify Sender</span></div></div>
+          <div class="step"><span class="mark todo">5</span><div class="body"><b>Add a text engine and a sender number <span class="tag grey" style="margin-left:4px">Optional</span></b><small>Digivize, or Sandbox Texts to trial without an aggregator. Marketing texts need an opt-in and a STOP line.</small></div><div class="act"><span class="btn sm">Sending Engines</span></div></div>
+          <div class="step"><span class="mark todo">6</span><div class="body"><b>Import your do-not-contact list, then your first contact list</b><small>No suppressions imported · no list yet. Every upload asks where its people agreed (the consent step).</small></div><div class="act"><span class="btn sm">Suppressions</span><span class="btn sm">Upload a List</span></div></div>
+          <div class="step"><span class="mark todo">7</span><div class="body"><b>Decide who is told, and who approves <span class="tag grey" style="margin-left:4px">Optional</span></b><small>Notifications: nobody yet · Approvals: off · API keys: none (needed for e-receipts from the point of sale).</small></div><div class="act"><span class="btn sm">Notifications</span><span class="btn sm">Approvals</span></div></div>
+        </div>
+        <div class="callout info" style="margin-top:14px"><span>i</span><div><b>When steps 1 to 4 and 6 are done, the workspace is ready</b>Home offers Create Campaign, and the first campaign's Review step runs the same checks before it publishes.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse: the first sign-in of a brand-new workspace</div>
+    <div class="app">
+      <nav class="rail"><b>CEP</b><a>Home</a><a>Campaigns</a><a>Journeys</a><a>Templates</a><a>Contact lists</a><a class="on" style="margin-top:14px">Settings</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Welcome, Aby. Let's set up NWA.</h1><p>Northwind Apparel (NWA) · Growth · America/New_York. Seven steps, about an hour if the sending credentials are to hand. Nothing sends until step 4.</p></div></div>
+        <div class="card">
+          <div class="head"><h2><span class="ico">✓</span>Set-Up</h2><div class="meterline" style="width:280px"><span>1 of 7 done</span><span class="meter"><i style="width:14%"></i></span></div></div>
+          <div class="step"><span class="mark ok">✓</span><div class="body"><b>Choose your password and sign in</b><small>Done just now.</small></div><div class="act"><span class="tag ok">Done</span></div></div>
+          <div class="step"><span class="mark now">2</span><div class="body"><b>Invite your team and give them roles</b><small>You are the only user. Three roles are ready: Workspace Admin, Campaign Manager, Analyst.</small><span class="why">People are invited by email with a password link, as you were. Give a role to each; a role can be changed later.</span></div><div class="act"><span class="btn sm primary">Invite Users</span></div></div>
+          <div class="step"><span class="mark todo">3</span><div class="body"><b>Add an email engine</b><small>Postal, SendGrid or your own mail server. Check confirms the credential.</small></div><div class="act"><span class="btn sm">Sending Engines</span></div></div>
+          <div class="step"><span class="mark todo">4</span><div class="body"><b>Add an email sender and verify it</b><small>From name and address on the engine; Verify; tick Default.</small></div><div class="act"><span class="btn sm">Senders</span></div></div>
+          <div class="step"><span class="mark todo">5</span><div class="body"><b>Add a text engine and a sender number <span class="tag grey" style="margin-left:4px">Optional</span></b><small>Only if you send texts.</small></div><div class="act"><span class="btn sm">Sending Engines</span></div></div>
+          <div class="step"><span class="mark todo">6</span><div class="body"><b>Import your do-not-contact list, then your first contact list</b><small>Suppressions first, so nobody who opted out elsewhere is ever contacted.</small></div><div class="act"><span class="btn sm">Suppressions</span></div></div>
+          <div class="step"><span class="mark todo">7</span><div class="body"><b>Decide who is told, and who approves <span class="tag grey" style="margin-left:4px">Optional</span></b><small>Notifications, approvals, API keys.</small></div><div class="act"><span class="btn sm">Notifications</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Option 2 — the same steps as a wizard that does the work inline<span>One modal, Next / Back, each step embedding the real form (invite users, add an engine, add a sender, upload a list). Less clicking around, but every Settings form would have to run inside the wizard too, and the administrator cannot easily come back to one step later. Shown once, the Home card still leads to it.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Step 3 of 7 inside the wizard: the Add Engine form embedded</div>
+    <div class="page" style="padding:18px">
+      <div class="card" style="max-width:720px;margin:0 auto">
+        <div class="head"><h2>Set up your workspace</h2><span class="tag brand">Step 3 of 7</span></div>
+        <div style="padding:16px">
+          <div class="meterline" style="margin-bottom:14px"><span class="meter"><i style="width:43%"></i></span><span>Email engine</span></div>
+          <h3 style="font-size:15px;margin-bottom:4px">Add an email engine</h3><p style="font-size:13px;color:var(--ink-800);margin-bottom:12px">Postal, SendGrid or your own mail server. The credential is encrypted and never shown again.</p>
+          <div class="field"><label>Engine</label><div class="ctl">Postal ▾</div></div>
+          <div class="field"><label>Endpoint</label><div class="ctl">https://postal.northwindapparel.example</div></div>
+          <div class="field"><label>Server API key</label><div class="ctl"><span class="ph">••••••••••••</span></div></div>
+          <div class="callout info"><span>i</span><div>After Save, Check confirms the connection. The callback address appears on the engine's row for Postal's webhook settings.</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line)"><span class="btn">Back</span><span><span class="btn" style="margin-right:8px">Skip for now</span><span class="btn primary">Save and Continue</span></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">What both options share: the steps are read from the workspace, never ticked by hand</div>
+    <div class="page" style="padding:18px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;color:var(--ink-800);font-size:12px"><th style="padding:6px 8px;border-bottom:1px solid var(--line)">Step</th><th style="padding:6px 8px;border-bottom:1px solid var(--line)">Done when</th><th style="padding:6px 8px;border-bottom:1px solid var(--line)">Opens</th></tr>
+        <tr><td style="padding:8px">1 Password and sign-in</td><td style="padding:8px">the administrator has signed in (they are reading the page)</td><td style="padding:8px">—</td></tr>
+        <tr><td style="padding:8px">2 Team and roles</td><td style="padding:8px">at least one other active user with a role</td><td style="padding:8px">Settings → Users</td></tr>
+        <tr><td style="padding:8px">3 Email engine</td><td style="padding:8px">an active EMAIL engine whose last Check passed</td><td style="padding:8px">Settings → Sending Engines</td></tr>
+        <tr><td style="padding:8px">4 Email sender</td><td style="padding:8px">a VERIFIED email sender on that engine</td><td style="padding:8px">Sending Engines → Senders</td></tr>
+        <tr><td style="padding:8px">5 Text engine (optional)</td><td style="padding:8px">an active SMS engine with a verified sender number</td><td style="padding:8px">Settings → Sending Engines</td></tr>
+        <tr><td style="padding:8px">6 Suppressions and first list</td><td style="padding:8px">one production list with members (suppressions counted, not required)</td><td style="padding:8px">Settings → Suppressions · Contact Lists</td></tr>
+        <tr><td style="padding:8px">7 Notifications and approvals (optional)</td><td style="padding:8px">a notification recipient, or approvals on, or an API key</td><td style="padding:8px">Settings → Notifications · Approvals · API Keys</td></tr>
+      </table>
+      <p class="hint" style="margin-top:10px">Ready = steps 1, 2, 3, 4 and 6. The page is reachable at Settings → Set-Up for every administrator; it lands there on the first sign-in only while the workspace is not ready, and the Home card shows until ready or dismissed (dismissal is per workspace, kept in its settings).</p>
+    </div>
+  </div>
+</div>
+
+<div class="rules"><div class="frame">
+  <h3>What gets built, in words</h3>
+  <ul>
+    <li><strong>The facts:</strong> <code>GET /workspace/setup/</code> answers the seven steps with done / state / detail / link, computed from users and roles, delivery providers and their last check, sender profiles, suppressions, contact lists, notification settings, approvals and API keys; plus <code>ready</code> and <code>dismissed</code>. <code>PUT</code> dismisses the Home card (<code>tenant.settings.setup.dismissed_at</code>).</li>
+    <li><strong>The page</strong> (Option 1): <code>/settings/setup</code> in the Settings menu's Workspace group, administrators only; each step a row with its button to the page that does it. The first sign-in of an administrator lands there while <code>ready</code> is false (the login redirect reads the same endpoint).</li>
+    <li><strong>The Home card:</strong> under Needs Attention, for administrators, until ready or dismissed: "Set up your workspace · n of 7 done · Next: …".</li>
+    <li><strong>The wizard</strong> (Option 2) would wrap the existing forms (Users invite, Add Engine, Add Sender, the upload wizard) in one modal; the readiness logic is the same.</li>
+    <li><strong>Unchanged:</strong> the back-office hand-off email already lists the steps; the campaign Review step keeps its own checks before publishing.</li>
+  </ul>
+</div></div>
+
+</body>
+</html>

@@ -23,6 +23,9 @@ the last step. A waiting draft is announced at the top of the Tenants list (Cont
 `consent_policy` when step 4 was answered; `onboarded_at` now), `params.invalidate`, `services.onboard_tenant` (partitions,
 routing row, the three starting roles, platform tags, coupon tags, integration records), the `tenant_subscription` (TRIAL with
 `trial_ends_at` unless 0 trial days and a billing reference: ACTIVE), the users with no password and the Workspace Admin role.
+Once the administrator has chosen a password and signed in, the app takes over: the first sign-in lands on Settings → Set-Up, the
+seven steps read from the workspace (`docs/WORKSPACE_SETUP.md`).
+
 Then the mail: `password_link` with the hand-off checklist and the note (`templates/email/password_link.*`), one per user; a link that
 could not be emailed is shown as a warning message to copy by hand. Onboarding stays idempotent: Repair onboarding on the tenant's
 page runs the provisioning again.

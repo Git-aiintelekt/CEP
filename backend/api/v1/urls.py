@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from . import (auth_api, campaigns_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
                preferences_public,
-               home_api, recipients_api, reports_api, search_api, settings_api, suppressions_api, views, workspace_api)
+               home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
 router = DefaultRouter()
 router.register("me", views.MeViewSet, basename="me")
@@ -57,6 +57,7 @@ urlpatterns = [
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
     path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),
+    path("workspace/setup/", setup_api.WorkspaceSetupView.as_view(), name="workspace-setup"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),
     path("public/code/<str:token>.png", delivery_public.code_image_view, name="code-image"),
     path("codes/sample/", codes_api.CodeSampleView.as_view(), name="code-sample"),

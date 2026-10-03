@@ -20,7 +20,7 @@ import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPa
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
 import { UploadsPage } from '@/features/contact-lists/UploadsPage'
-import { LiveHome } from '@/features/home/LiveHome'
+import { LandingAfterSignIn } from '@/features/home/LandingAfterSignIn'
 import { JourneysPage } from '@/pages/ListPages'
 import { TemplatesPage } from '@/pages/TemplatesPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -40,6 +40,7 @@ import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
 import { TagsPage } from '@/pages/settings/TagsPage'
 import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
 import { ConsentPolicyPage } from '@/pages/settings/ConsentPolicyPage'
+import { WorkspaceSetupPage } from '@/pages/settings/WorkspaceSetupPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
 import { UsersPage } from '@/pages/settings/UsersPage'
 import { TemplateFormPage } from '@/pages/TemplateFormPage'
@@ -122,7 +123,7 @@ export default function App() {
               <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
               <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
               <Route element={<AppShell />}>
-                <Route index element={<LiveHome />} />
+                <Route index element={<LandingAfterSignIn />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
                 <Route path="campaigns/new" element={<CampaignListPage creating />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />
@@ -137,6 +138,7 @@ export default function App() {
                 <Route path="account/security" element={<AccountSecurityPage />} />
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="users" replace />} />
+                  <Route path="setup" element={<WorkspaceSetupPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="roles" element={<RolesPage />} />
                   <Route path="tags" element={<TagsPage />} />

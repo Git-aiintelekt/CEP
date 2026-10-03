@@ -697,6 +697,34 @@ export interface ListConsentDeclaration {
   policy: { without_consent: 'HOLD_BACK' | 'REFUSE'; texts_need_date: boolean; approval_before_send: boolean }
 }
 
+/** Settings → Set-Up, and the Home card: the seven steps of a new workspace, read from the workspace, never ticked by hand */
+export type SetupState = 'done' | 'todo' | 'warn'
+export interface SetupStep {
+  key: string
+  label: string
+  state: SetupState
+  /** the status tag beside the links: Done, Not verified, Not checked */
+  tag: string | null
+  text: string
+  /** the hint shown while this is the next step */
+  why: string | null
+  links: { label: string; to: string; primary: boolean }[]
+  optional: boolean
+}
+export interface WorkspaceSetup {
+  workspace: { name: string; code: string; plan: string | null; timezone: string }
+  viewer: { first_name: string }
+  steps: SetupStep[]
+  done: number
+  total: number
+  /** every required step done: the first sign-in lands on Home and the card goes */
+  ready: boolean
+  /** the first required step left, or null when ready */
+  next: string | null
+  /** the Home card hidden with Hide Until Later (tenant.settings.setup.dismissed_at) */
+  dismissed: boolean
+}
+
 /** Settings → Consent Policy */
 export interface ConsentPolicy {
   without_consent: 'HOLD_BACK' | 'REFUSE'

@@ -1,5 +1,5 @@
 /** The Settings menu: its groups and pages, who sees which, and the three things the panel remembers per viewer. */
-import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Key, Layers, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, UserX, Users, type LucideIcon } from 'lucide-react'
+import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, UserX, Users, type LucideIcon } from 'lucide-react'
 
 import type { Feature } from '@/lib/types'
 
@@ -19,6 +19,7 @@ export interface SettingsGroup {
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
   { key: 'workspace', label: 'Workspace', icon: Users, pages: [
+    { to: '/settings/setup', label: 'Set-Up', icon: ListChecks },
     { to: '/settings/users', label: 'Users', icon: Users },
     { to: '/settings/roles', label: 'Roles', icon: Layers },
     { to: '/settings/tags', label: 'Tags', icon: Braces },
