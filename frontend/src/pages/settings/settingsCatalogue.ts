@@ -90,5 +90,5 @@ export function rememberVisit(path: string): string[] {
 }
 export const readFolded = (): string[] => read<string[]>(FOLDED_KEY, [])
 export const writeFolded = (keys: string[]) => write(FOLDED_KEY, keys)
-export const readPanelFolded = (): boolean => read<boolean>(PANEL_KEY, false)
+export const readPanelFolded = (): boolean => read<boolean>(PANEL_KEY, true)                 // true: the compact row with sub menus (the default); false: Show All, the columns
 export const writePanelFolded = (folded: boolean) => write(PANEL_KEY, folded)
