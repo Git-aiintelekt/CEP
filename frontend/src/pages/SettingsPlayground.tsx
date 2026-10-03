@@ -3,12 +3,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Outlet, Route, Routes } from 'react-router-dom'
 
+import { WorkspaceFacts } from '@/pages/settings/SettingsLayout'
 import { SettingsMenuPanel } from '@/pages/settings/SettingsMenu'
 import { WorkspaceSetupPage } from '@/pages/settings/WorkspaceSetupPage'
 import { SETTINGS_GROUPS, pageAt } from '@/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
 import { SETUP_KEY } from '@/features/setup/setup'
+
+const SAMPLE_WORKSPACE = { name: 'Northwind Apparel', code: 'NWA', timezone: 'America/New_York', status: 'ACTIVE', subdomain: 'northwind', region: 'us-east-1', plan: 'Growth', max_users: 50, active_users: 6, roles: 3, active_api_keys: 3 }
 
 function StandIn({ path }: { path: string }) {
   const page = pageAt(path)
@@ -34,6 +37,7 @@ export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <div><h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1><p className="mt-1 text-sm text-ink-800">The menu on sample data: every feature on.</p></div>
+      <WorkspaceFacts workspace={SAMPLE_WORKSPACE} />
       <div className="flex min-w-0 items-start gap-5">
         <SettingsMenuPanel has={() => true} base="/dev/settings" />
         <section aria-label="Settings page" className="min-w-0 flex-1">

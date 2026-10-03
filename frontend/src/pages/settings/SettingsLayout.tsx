@@ -13,10 +13,23 @@ import { groupOf, pageAt } from './settingsCatalogue'
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0 rounded-lg border border-line bg-surface px-4 py-3">
       <dt className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-ink-900">{value}</dd>
+      <dd className="mt-1 font-display text-card-heading font-semibold break-words text-ink-900">{value}</dd>
     </div>
+  )
+}
+
+/** the workspace's facts as a row of cards under the heading: workspace, plan, users against the plan's limit, time zone, API keys */
+export function WorkspaceFacts({ workspace }: { workspace: Workspace }) {
+  return (
+    <dl aria-label="Workspace facts" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <Fact label="Workspace" value={`${workspace.name} (${workspace.code})`} />
+      <Fact label="Plan" value={workspace.plan ?? 'No plan'} />
+      <Fact label="Active Users" value={workspace.max_users ? `${formatNumber(workspace.active_users)} of ${formatNumber(workspace.max_users)}` : formatNumber(workspace.active_users)} />
+      <Fact label="Time Zone" value={workspace.timezone} />
+      <Fact label="Active API Keys" value={formatNumber(workspace.active_api_keys)} />
+    </dl>
   )
 }
 
@@ -34,7 +47,7 @@ function Trail({ path }: { path: string }) {
   )
 }
 
-/** Settings: the workspace's facts in a strip under the heading, then the menu panel on the left (the pages in their groups) and the page on the right. */
+/** Settings: the workspace's facts as cards under the heading, then the menu panel on the left (the pages in their groups) and the page on the right. */
 export function SettingsLayout() {
   const { can } = useAuth()
   const { pathname } = useLocation()
@@ -52,15 +65,7 @@ export function SettingsLayout() {
         <h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-800">Who can sign in to this workspace, what they may do, and which systems may call the API.</p>
       </div>
-      {data && (
-        <dl aria-label="Workspace facts" className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3 sm:grid-cols-5">
-          <Fact label="Workspace" value={`${data.name} (${data.code})`} />
-          <Fact label="Plan" value={data.plan ?? 'No plan'} />
-          <Fact label="Active Users" value={data.max_users ? `${formatNumber(data.active_users)} of ${formatNumber(data.max_users)}` : formatNumber(data.active_users)} />
-          <Fact label="Time Zone" value={data.timezone} />
-          <Fact label="Active API Keys" value={formatNumber(data.active_api_keys)} />
-        </dl>
-      )}
+      {data && <WorkspaceFacts workspace={data} />}
       <div className="flex min-w-0 items-start gap-5">
         <SettingsMenu />
         <section aria-label="Settings page" className="flex min-w-0 flex-1 flex-col gap-4">
