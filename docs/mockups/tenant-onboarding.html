@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenant onboarding: the guided set-up in the back-office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&display=swap">
+<style>
+  /* the back-office's own palette (django-unfold with CEP's primary blue, static/cep_admin/admin.css) */
+  :root {
+    --base-50:#f9fafb; --base-100:#f3f4f6; --base-200:#e5e7eb; --base-300:#d1d5db; --base-400:#9ca3af; --base-500:#6b7280; --base-600:#4b5563; --base-700:#374151; --base-900:#111827;
+    --p-50:#eef4ff; --p-100:#dbe6fe; --p-200:#bfd3fe; --p-500:#3b6cf6; --p-600:#2f5be0; --p-700:#2648b8;
+    --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2; --info:#1d4ed8; --info-soft:#dbeafe;
+    --shadow:0 1px 2px rgb(15 23 42 / .05), 0 1px 3px rgb(15 23 42 / .04);
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--base-700); font:400 14px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-weight:600; color:var(--base-900); letter-spacing:-0.01em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--base-600) } .note strong { color:var(--base-900) }
+  .label { max-width:1440px; margin:28px auto 8px; padding:0 16px; font:600 15px/1.3 Inter, sans-serif }
+  .label span { display:block; font:400 13px/1.4 Inter, sans-serif; color:var(--base-600); margin-top:2px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, 1fr); gap:16px } .row.one { grid-template-columns:1fr } .row.three { grid-template-columns:repeat(3, 1fr) }
+  .frame { background:var(--base-50); border:1px solid var(--base-300); border-radius:8px; overflow:hidden }
+  .frame .cap { font-size:12px; color:var(--base-600); padding:8px 16px; border-bottom:1px solid var(--base-200); background:#fff }
+  /* the admin chrome */
+  .admin { display:grid; grid-template-columns:200px 1fr; min-height:520px }
+  .nav { background:#fff; border-right:1px solid var(--base-200); padding:14px 12px; font-size:13px }
+  .nav .brand { font-weight:700; color:var(--base-900); margin:0 6px 14px } .nav .brand small { display:block; font-weight:400; color:var(--base-500) }
+  .nav .group { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--base-500); margin:12px 6px 4px }
+  .nav a { display:block; padding:6px 8px; border-radius:6px; color:var(--base-700); text-decoration:none } .nav a.on { background:var(--p-50); color:var(--p-700); font-weight:600 }
+  .main { padding:18px 22px }
+  .crumbs { font-size:12px; color:var(--base-500); margin-bottom:8px } .crumbs b { color:var(--base-700); font-weight:500 }
+  .pagehead { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:14px } .pagehead h1 { font-size:20px } .pagehead p { color:var(--base-600); font-size:13px }
+  .btn { height:36px; padding:0 14px; border-radius:6px; border:1px solid var(--base-300); background:#fff; font:500 13px Inter, sans-serif; display:inline-flex; align-items:center; gap:6px; color:var(--base-900); white-space:nowrap }
+  .btn.primary { background:var(--p-600); border-color:var(--p-600); color:#fff } .btn.sm { height:30px; padding:0 10px; font-size:12px } .btn.disabled { opacity:.45 } .btn.link { border:0; background:none; color:var(--p-600); padding:0 }
+  .card { background:#fff; border:1px solid var(--base-200); border-radius:8px; box-shadow:var(--shadow) }
+  .card .head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--base-200) } .card .head h2 { font-size:15px }
+  .card .body { padding:16px }
+  .steps { display:flex; gap:0; border-bottom:1px solid var(--base-200); background:#fff; border-radius:8px 8px 0 0 }
+  .steps div { flex:1; padding:10px 12px; font-size:12px; color:var(--base-500); border-bottom:2px solid transparent; display:flex; gap:8px; align-items:center }
+  .steps div i { width:20px; height:20px; border-radius:50%; border:1px solid var(--base-300); display:inline-flex; align-items:center; justify-content:center; font-style:normal; font-size:11px; font-weight:600 }
+  .steps div.done { color:var(--base-700) } .steps div.done i { background:var(--ok-soft); border-color:var(--ok-soft); color:var(--ok) }
+  .steps div.on { color:var(--p-700); font-weight:600; border-bottom-color:var(--p-600) } .steps div.on i { background:var(--p-600); border-color:var(--p-600); color:#fff }
+  .form { display:grid; grid-template-columns:1fr 1fr; gap:14px 20px } .form .full { grid-column:1 / -1 }
+  .field label { display:block; font-size:12px; font-weight:600; color:var(--base-700); margin-bottom:4px } .field label .req { color:var(--bad) }
+  .ctl { height:36px; border:1px solid var(--base-300); border-radius:6px; padding:0 10px; display:flex; align-items:center; justify-content:space-between; background:#fff; color:var(--base-900); font-size:13px }
+  .ctl .ph { color:var(--base-400) } .ctl.ro { background:var(--base-50); color:var(--base-600) }
+  .help { font-size:12px; color:var(--base-500); margin-top:4px }
+  .radios { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px }
+  .radio { border:1px solid var(--base-300); border-radius:8px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; font-size:13px }
+  .radio.on { border-color:var(--p-500); background:var(--p-50) } .radio i { flex:none; width:14px; height:14px; margin-top:3px; border-radius:50%; border:1px solid var(--base-400); background:#fff } .radio.on i { border:4px solid var(--p-600) }
+  .radio b { display:block; color:var(--base-900) } .radio small { display:block; color:var(--base-500); font-size:12px }
+  table { width:100%; border-collapse:collapse; font-size:13px } th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--base-200); vertical-align:top } th { font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--base-500); font-weight:600; background:var(--base-50) }
+  .pill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap }
+  .pill.ok { background:var(--ok-soft); color:var(--ok) } .pill.warn { background:var(--warn-soft); color:var(--warn) } .pill.bad { background:var(--bad-soft); color:var(--bad) } .pill.info { background:var(--info-soft); color:var(--info) } .pill.grey { background:var(--base-100); color:var(--base-600) }
+  .switch { width:34px; height:18px; border-radius:999px; background:var(--base-300); position:relative; display:inline-block; vertical-align:middle } .switch::after { content:""; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:#fff } .switch.on { background:var(--p-600) } .switch.on::after { left:18px }
+  .callout { display:flex; gap:10px; padding:10px 12px; border-radius:6px; font-size:13px } .callout.info { background:var(--info-soft); color:#1e3a8a } .callout.ok { background:var(--ok-soft); color:#14532d } .callout.warn { background:var(--warn-soft); color:#78350f } .callout b { display:block }
+  .foot { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-top:1px solid var(--base-200); background:#fff; border-radius:0 0 8px 8px }
+  .check { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--base-200) } .check:last-child { border-bottom:0 }
+  .check .mark { flex:none; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700 }
+  .check .mark.ok { background:var(--ok-soft); color:var(--ok) } .check .mark.todo { background:var(--base-100); color:var(--base-500); border:1px solid var(--base-300) } .check .mark.warn { background:var(--warn-soft); color:var(--warn) }
+  .check b { display:block; color:var(--base-900); font-size:13px } .check small { display:block; color:var(--base-500); font-size:12px } .check .act { margin-left:auto; flex:none }
+  .kv { display:grid; grid-template-columns:170px 1fr; gap:5px 14px; font-size:13px } .kv dt { color:var(--base-500) } .kv dd { margin:0; color:var(--base-900) }
+  .meter { height:6px; border-radius:999px; background:var(--base-200); overflow:hidden; margin-top:6px } .meter i { display:block; height:100%; background:var(--p-600) }
+  .rules { max-width:1440px; margin:28px auto 48px; padding:0 16px } .rules .frame { max-width:900px; padding:16px; background:#fff }
+  .rules h3 { font-size:14px; margin-bottom:8px } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--base-600) } .rules li { margin-bottom:4px }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--base-100); padding:2px 6px; border-radius:4px }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Tenant onboarding.</strong> Today a tenant is one admin form (Tenants → Add) that runs the provisioning on save, and the rest (plan, first administrator, policies) lives on other admin pages with the checklist spreadsheet as the guide. The pictures below put the whole set-up into one guided flow in the back-office, and give every tenant a readiness panel that shows where it stands. The workspace's own set-up (engines, senders, lists) stays with its administrator in Settings: the back-office hands it off, it does not do it.</p>
+
+<div class="label">Option 1 — a guided flow, Tenants → Onboard a Tenant, six steps<span>Every value the platform owns is asked once, in order, with what it means next to it. The last step runs the provisioning and shows what it did. Busy: a Retail workspace on Growth with everything filled in; sparse: the minimum (General business on Starter, defaults everywhere).</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Busy: step 2, Plan and features — the resolved view says where every switch comes from</div>
+    <div class="admin">
+      <nav class="nav"><div class="brand">CEP platform<small>back-office</small></div>
+        <div class="group">Tenants</div><a class="on">Tenants</a><a>Users</a><a>Roles</a><a>Subscription plans</a><a>Tenant operations</a>
+        <div class="group">Configuration</div><a>Industry profiles</a><a>Global parameters</a><a>Personalization tags</a><a>Mail server</a>
+        <div class="group">Operations</div><a>Jobs</a><a>Alerts</a><a>Integrations</a></nav>
+      <div class="main">
+        <p class="crumbs">Home › Tenants › <b>Onboard a tenant</b></p>
+        <div class="pagehead"><div><h1>Onboard a tenant</h1><p>Northwind Apparel · NWA. Nothing is created until the last step.</p></div><span class="btn">Save draft and leave</span></div>
+        <div class="card">
+          <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="on"><i>2</i>Plan and features</div><div><i>3</i>First administrator</div><div><i>4</i>Policies</div><div><i>5</i>Hand-off</div><div><i>6</i>Review and onboard</div></div>
+          <div class="body">
+            <div class="form">
+              <div class="field"><label>Subscription plan <span class="req">*</span></label>
+                <div class="radios" style="grid-template-columns:repeat(3,1fr)">
+                  <div class="radio"><i></i><div><b>Starter</b><small>250K contacts · 1M messages / month · 10 users · shared database</small></div></div>
+                  <div class="radio on"><i></i><div><b>Growth</b><small>2M contacts · 10M messages / month · 50 users · shared database · e-receipts, A/B, custom domain</small></div></div>
+                  <div class="radio"><i></i><div><b>Enterprise</b><small>No limits · dedicated database · everything</small></div></div>
+                </div>
+                <p class="help">Starts as a trial of 30 days unless a billing reference is entered. The plan always has the last word on features.</p></div>
+              <div class="field"><label>Industry profile <span class="req">*</span></label><div class="ctl">Retail — stores and e-commerce: e-receipts, loyalty, promotions ▾</div><p class="help">Sets the starting features and what the workspace calls things: location → store, transaction → purchase.</p>
+                <label style="margin-top:12px">Trial ends</label><div class="ctl">2 November 2026</div></div>
+              <div class="full">
+                <table><tr><th>Feature</th><th>Catalogue default</th><th>Retail profile</th><th>This workspace</th><th>Growth plan</th><th>Result</th></tr>
+                  <tr><td>Email campaigns</td><td>on</td><td>—</td><td><span class="switch on"></span> follow</td><td>—</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>SMS messages</td><td>on</td><td>—</td><td><span class="switch on"></span> follow</td><td>—</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>MMS picture messages</td><td>on</td><td>on</td><td><span class="switch on"></span> follow</td><td>—</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>E-receipts</td><td>off</td><td>on</td><td><span class="switch on"></span> follow</td><td>allowed</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>Journeys</td><td>on</td><td>—</td><td><span class="switch on"></span> follow</td><td>allowed</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>Subject-line A/B testing</td><td>on</td><td>—</td><td><span class="switch on"></span> follow</td><td>allowed</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>Loyalty tags and statements</td><td>off</td><td>on</td><td><span class="switch on"></span> follow</td><td>—</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>Barcodes and QR codes</td><td>off</td><td>—</td><td><span class="switch on"></span> <b>on</b> (override)</td><td>allowed</td><td><span class="pill ok">On</span></td></tr>
+                  <tr><td>Custom sending domain</td><td>off</td><td>—</td><td><span class="switch"></span> follow</td><td>allowed</td><td><span class="pill grey">Off</span></td></tr>
+                  <tr><td>AI scoring</td><td>off</td><td>—</td><td><span class="switch on"></span> <b>on</b> (override)</td><td><b>excluded</b></td><td><span class="pill warn">Off: not in the plan</span></td></tr>
+                </table>
+                <p class="help">“Follow” means the catalogue default, then the industry profile. An override is written to the tenant's settings; a plan can only take a feature away.</p>
+              </div>
+            </div>
+          </div>
+          <div class="foot"><span class="btn">Back</span><span><span class="btn" style="margin-right:8px">Skip for now</span><span class="btn primary">Continue</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:16px">
+  <div class="frame"><div class="cap">Busy: step 1, Workspace</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="on"><i>1</i>Workspace</div><div><i>2</i>Plan</div><div><i>3</i>Admin</div><div><i>4</i>Policies</div><div><i>5</i>Hand-off</div><div><i>6</i>Review</div></div>
+        <div class="body"><div class="form">
+          <div class="field"><label>Workspace name <span class="req">*</span></label><div class="ctl">Northwind Apparel</div></div>
+          <div class="field"><label>Code <span class="req">*</span></label><div class="ctl">NWA</div><p class="help">Short, upper case, fixed once created. The API's X-Tenant header, the callback addresses and the partition names carry it.</p></div>
+          <div class="field"><label>Subdomain</label><div class="ctl">nwa <span class="ph">.cep.aiintelekt.com</span></div></div>
+          <div class="field"><label>Custom app domain</label><div class="ctl"><span class="ph">app.northwindapparel.example</span></div><p class="help">Optional. Needs the DNS record and a certificate; the subdomain works meanwhile.</p></div>
+          <div class="field"><label>Time zone <span class="req">*</span></label><div class="ctl">America/New_York ▾</div><p class="help">Schedules, quiet hours for texts and the reports read in this zone.</p></div>
+          <div class="field"><label>Region · data residency</label><div class="ctl">us-east ▾ &nbsp; · &nbsp; US ▾</div></div>
+          <div class="field full"><label>Hosting</label>
+            <div class="radios" style="grid-template-columns:1fr 1fr"><div class="radio on"><i></i><div><b>Shared database</b><small>The pool database, its own partitions and row-level security. The usual choice; Enterprise can move later.</small></div></div>
+            <div class="radio"><i></i><div><b>Dedicated database</b><small>Its own database, provisioned by a tenant operation after this flow. Enterprise plans only.</small></div></div></div></div>
+        </div></div>
+        <div class="foot"><span></span><span class="btn primary">Continue</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Busy: step 3, First administrator — nobody types a password; the link goes by the platform mail server</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="done"><i>✓</i>Plan</div><div class="on"><i>3</i>Admin</div><div><i>4</i>Policies</div><div><i>5</i>Hand-off</div><div><i>6</i>Review</div></div>
+        <div class="body"><div class="form">
+          <div class="field"><label>Full name <span class="req">*</span></label><div class="ctl">Aby John</div></div>
+          <div class="field"><label>Email <span class="req">*</span></label><div class="ctl">aby.john@northwindapparel.example</div><p class="help">Their sign-in. Must not exist in another workspace.</p></div>
+          <div class="field"><label>Role</label><div class="ctl ro">Workspace Admin (every permission) ▾</div><p class="help">Created with the workspace, with Campaign Manager and Analyst. They can change the roles afterwards.</p></div>
+          <div class="field"><label>Sign-in</label><div class="ctl">Password, with a one-time link ▾</div><p class="help">Or single sign-on, when an identity provider is registered for the workspace.</p></div>
+          <div class="field full"><div class="callout info"><span>✉</span><div><b>A password link is emailed when the workspace is onboarded</b>Valid 72 hours (security.password_link_hours), from the platform mail server. The mail server is configured and tested on 25 Sep.</div></div></div>
+          <div class="field full"><label>Also invite</label><div class="ctl"><span class="ph">more administrators, one email per line (optional)</span></div></div>
+        </div></div>
+        <div class="foot"><span class="btn">Back</span><span class="btn primary">Continue</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:16px">
+  <div class="frame"><div class="cap">Busy: step 4, Policies — what the platform decides for the workspace before anyone works in it</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="done"><i>✓</i>Plan</div><div class="done"><i>✓</i>Admin</div><div class="on"><i>4</i>Policies</div><div><i>5</i>Hand-off</div><div><i>6</i>Review</div></div>
+        <div class="body">
+          <div class="check"><span class="mark ok">✓</span><div><b>Consent policy</b><small>People without consent: hold back · texts need a consent date: on · approval before first send: on · lifetime 2 years. The administrator can change it in Settings.</small></div><span class="act btn sm">Edit</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Quiet hours for marketing texts</b><small>21:00–08:00 in America/New_York (platform default messaging.sms_quiet_hours). Marketing texts due inside the window wait.</small></div><span class="act btn sm">Edit</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Integration policy</b><small>Growth plan: 600 calls per minute per engine, 3 retries, circuit breaker after 5 failures for 60 s, full logs kept 30 days.</small></div><span class="act btn sm">Edit</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Security</b><small>Idle timeout 120 min with a 60 s warning (platform defaults) · MFA not required for the workspace's users · support access notifies the user.</small></div><span class="act btn sm">Edit</span></div>
+          <div class="check"><span class="mark todo">5</span><div><b>Single sign-on</b><small>No identity provider. Users sign in with a password; an OIDC provider can be registered later under Tenant identity providers.</small></div><span class="act btn sm">Register later</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Personalization tags</b><small>The 49 active platform tags are copied into the workspace at onboarding; the three coupon tags are added for barcodes and QR codes.</small></div></div>
+        </div>
+        <div class="foot"><span class="btn">Back</span><span class="btn primary">Continue</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Busy: step 6, Review and onboard — then the result</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="done"><i>✓</i>Plan</div><div class="done"><i>✓</i>Admin</div><div class="done"><i>✓</i>Policies</div><div class="done"><i>✓</i>Hand-off</div><div class="on"><i>6</i>Review</div></div>
+        <div class="body">
+          <dl class="kv"><dt>Workspace</dt><dd>Northwind Apparel · NWA · nwa.cep.aiintelekt.com · America/New_York · us-east, US · shared database</dd>
+            <dt>Plan</dt><dd>Growth, trial until 2 Nov 2026 · Retail profile · 8 features on, Barcodes and QR codes by override</dd>
+            <dt>First administrator</dt><dd>Aby John, aby.john@northwindapparel.example · Workspace Admin · password link by email</dd>
+            <dt>Policies</dt><dd>Consent: hold back, texts need a date, approval before first send · quiet hours 21:00–08:00 · Growth integration policy</dd>
+            <dt>Hand-off</dt><dd>The set-up checklist goes to Aby with the password link; sending engines, senders and lists are theirs to enter</dd></dl>
+          <div style="height:14px"></div>
+          <div class="callout ok"><span>✓</span><div><b>Onboarded in 4.2 s</b>31 partition sets created · routing row: shared pool · roles Workspace Admin, Campaign Manager, Analyst · 49 platform tags and 3 coupon tags copied · integration records: POS receipts · password link sent to aby.john@northwindapparel.example (valid until 6 Oct, 11:02).</div></div>
+          <p class="help" style="margin-top:10px">Onboarding is idempotent: Repair onboarding on the tenant's page runs the same steps again without harm.</p>
+        </div>
+        <div class="foot"><span class="btn">Back</span><span><span class="btn" style="margin-right:8px">Open the tenant</span><span class="btn primary">Onboard NWA</span></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:16px">
+  <div class="frame"><div class="cap">Sparse: the minimum — General business on Starter, every default kept; steps 4 and 5 skipped</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="done"><i>✓</i>Plan</div><div class="done"><i>✓</i>Admin</div><div class="done" style="color:var(--base-400)"><i style="background:var(--base-100);color:var(--base-500);border-color:var(--base-300)">–</i>Policies</div><div class="done" style="color:var(--base-400)"><i style="background:var(--base-100);color:var(--base-500);border-color:var(--base-300)">–</i>Hand-off</div><div class="on"><i>6</i>Review</div></div>
+        <div class="body">
+          <dl class="kv"><dt>Workspace</dt><dd>Acme Pilot · ACME · acme.cep.aiintelekt.com · UTC · shared database</dd>
+            <dt>Plan</dt><dd>Starter, trial until 2 Nov 2026 · General business · catalogue defaults</dd>
+            <dt>First administrator</dt><dd>pilot@acme.example · Workspace Admin · password link by email</dd>
+            <dt>Policies</dt><dd>Platform defaults (skipped)</dd>
+            <dt>Hand-off</dt><dd>Checklist with the password link (skipped: default wording)</dd></dl>
+          <div style="height:14px"></div>
+          <div class="callout warn"><span>!</span><div><b>The platform mail server is not configured</b>The password link cannot be emailed. Onboard anyway and copy the link from the user's page, or configure Mail server first.</div></div>
+        </div>
+        <div class="foot"><span class="btn">Back</span><span class="btn primary">Onboard ACME</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Step 5, Hand-off — what the first administrator receives, and what stays with them</div>
+    <div class="main" style="padding:16px">
+      <div class="card">
+        <div class="steps"><div class="done"><i>✓</i>Workspace</div><div class="done"><i>✓</i>Plan</div><div class="done"><i>✓</i>Admin</div><div class="done"><i>✓</i>Policies</div><div class="on"><i>5</i>Hand-off</div><div><i>6</i>Review</div></div>
+        <div class="body">
+          <p style="font-size:13px;margin-bottom:10px">The email with the password link carries the workspace's set-up list. Everything on it is theirs: the back-office never holds a workspace's sending credentials.</p>
+          <div class="check"><span class="mark todo">1</span><div><b>Roles and users</b><small>Settings → Roles, Users. Invite the team; at least one role with campaign.approve if Approvals will be on.</small></div></div>
+          <div class="check"><span class="mark todo">2</span><div><b>Email engine, text engine, senders</b><small>Settings → Sending Engines. Postal, SendGrid or their mail server; Digivize or Sandbox texts; Verify each sender; register the callback address with the provider.</small></div></div>
+          <div class="check"><span class="mark todo">3</span><div><b>Suppressions and lists</b><small>Import any do-not-contact addresses first; then upload lists, each with its consent basis.</small></div></div>
+          <div class="check"><span class="mark todo">4</span><div><b>Notifications, approvals, API keys</b><small>Who is told about failed runs; a second person before a production publish; a receipts:send key for the POS.</small></div></div>
+          <div class="field" style="margin-top:12px"><label>A line from you (optional)</label><div class="ctl"><span class="ph">e.g. Call me when the engines are in and I will do the first test send with you.</span></div></div>
+        </div>
+        <div class="foot"><span class="btn">Back</span><span class="btn primary">Continue</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Option 2 — no flow: the tenant's page gains a Readiness panel, and the Tenants list a Readiness column<span>The same facts, but as a checklist on the tenant that already exists: Add creates the row as today, and the panel says what is still missing with a button per item. It also works for every tenant onboarded before this (NWA today), and it is what Option 1 lands on afterwards.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">The tenant's page, Readiness panel above the fieldsets: 5 of 8 done</div>
+    <div class="main" style="padding:16px">
+      <p class="crumbs">Home › Tenants › <b>NWA</b></p>
+      <div class="pagehead"><div><h1>NWA — Northwind Apparel</h1><p>Active · shared · us-east · partition 3 · 6 active users · onboarded 18 Sep 2026</p></div><span class="btn">Repair onboarding</span></div>
+      <div class="card">
+        <div class="head"><h2>Readiness</h2><span class="pill warn">5 of 8</span></div>
+        <div class="body" style="padding-top:4px">
+          <div class="check"><span class="mark ok">✓</span><div><b>Provisioned</b><small>31 partition sets, routing row shared pool, 3 roles · 18 Sep 2026</small></div></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Plan</b><small>Growth · active · billing reference missing (no invoice until it is entered)</small></div><span class="act btn sm">Open</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Industry and features</b><small>Retail · 8 on · Barcodes and QR codes by override</small></div><span class="act btn sm">Edit</span></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>First administrator</b><small>Aby John · Workspace Admin · signed in 2 Oct 2026</small></div></div>
+          <div class="check"><span class="mark ok">✓</span><div><b>Personalization tags</b><small>49 of 49 platform tags present</small></div><span class="act btn sm">Push again</span></div>
+          <div class="check"><span class="mark warn">!</span><div><b>Consent policy</b><small>Platform defaults: hold back, no text-date rule, no approval. Nothing chosen for this workspace yet.</small></div><span class="act btn sm">Set</span></div>
+          <div class="check"><span class="mark todo">7</span><div><b>Workspace sending</b><small>Email engine: Postal, sender verified · text engine: Digivize, no callback received yet · theirs, read-only here</small></div><span class="act btn sm">Open workspace as support</span></div>
+          <div class="check"><span class="mark todo">8</span><div><b>Single sign-on</b><small>No identity provider registered.</small></div><span class="act btn sm">Register</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">The Tenants list with the column</div>
+    <div class="main" style="padding:16px">
+      <div class="pagehead"><div><h1>Tenants</h1></div><span class="btn primary">+ Onboard a tenant</span></div>
+      <div class="card">
+        <table><tr><th>Code</th><th>Name</th><th>Status</th><th>Plan</th><th>Industry</th><th>Readiness</th><th>Users</th><th>Onboarded</th></tr>
+          <tr><td><b>NWA</b></td><td>Northwind Apparel</td><td><span class="pill ok">Active</span></td><td>Growth</td><td>Retail</td><td>5 of 8<div class="meter"><i style="width:62%"></i></div></td><td>6</td><td>18 Sep 2026</td></tr>
+          <tr><td><b>ACME</b></td><td>Acme Pilot</td><td><span class="pill ok">Active</span></td><td>Starter · trial</td><td>General</td><td>3 of 8<div class="meter"><i style="width:37%"></i></div></td><td>1</td><td>2 Oct 2026</td></tr>
+          <tr><td><b>HOTEL</b></td><td>Harbour Hotels</td><td><span class="pill grey">Draft</span></td><td>—</td><td>Hospitality</td><td><span class="pill warn">Not onboarded</span></td><td>0</td><td>—</td></tr>
+          <tr><td><b>OLDCO</b></td><td>Old Company</td><td><span class="pill bad">Suspended</span></td><td>Starter</td><td>General</td><td>8 of 8</td><td>0</td><td>3 Mar 2026</td></tr>
+        </table>
+      </div>
+      <p class="help" style="margin-top:10px">Draft: the flow was left before Review and onboard. Not onboarded: a row saved without provisioning (the old Add form).</p>
+    </div>
+  </div>
+</div>
+
+<div class="rules"><div class="frame">
+  <h3>What gets built, in words</h3>
+  <ul>
+    <li><strong>The flow</strong> (Option 1): a custom admin view at <code>/admin/tenants/tenant/onboard/</code> with the six steps kept in the session until Review; it writes <code>tenant</code>, <code>tenant_subscription</code> (TRIAL with <code>trial_ends_at</code>), the first <code>app_user</code> with its <code>user_role</code>, the workspace's <code>settings</code> (industry, feature overrides, consent_policy, quiet hours when changed) and then runs <code>services.onboard_tenant</code> and the password-link mail, in one transaction except the mail.</li>
+    <li><strong>Readiness</strong> (Option 2, and the landing of Option 1): eight checks computed from existing tables (partitions, routing row, roles, subscription, settings, users with user.admin, platform tags present, identity provider); a panel on the tenant's change page and a column on the list. "Workspace sending" reads the workspace's engines and senders read-only.</li>
+    <li><strong>Hand-off</strong>: the password-link mail template gains the set-up list and the optional line; Draft and Not onboarded appear as statuses the list can filter.</li>
+    <li><strong>Unchanged</strong>: Tenants → Add keeps working for a bare row; Repair onboarding stays; dedicated hosting stays a tenant operation after the flow.</li>
+  </ul>
+</div></div>
+
+</body>
+</html>

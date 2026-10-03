@@ -1,0 +1,25 @@
+{% if readiness %}
+<section class="cep-section" aria-labelledby="cep-readiness" style="margin-bottom:1.25rem">
+    <div class="cep-section-head">
+        <h2 id="cep-readiness">Readiness</h2>
+        <span class="cep-pill"{% if readiness.state == 'todo' %} data-kind="danger"{% elif readiness.state == 'warn' %} data-kind="warning"{% endif %}>{{ readiness.done }} of {{ readiness.total }}</span>
+        <span>what the platform set up, and what the workspace still has to do itself</span>
+    </div>
+    <div class="cep-card">
+        <div class="cep-list">
+            {% for item in readiness.items %}
+                <div class="cep-row" data-check="{{ item.key }}" data-state="{{ item.state }}">
+                    <span class="cep-icon" data-kind="{% if item.state == 'ok' %}ok{% elif item.state == 'warn' %}warn{% else %}info{% endif %}">
+                        <span class="material-symbols-outlined" aria-hidden="true">{% if item.state == 'ok' %}check{% elif item.state == 'warn' %}priority_high{% else %}{{ forloop.counter }}{% endif %}</span>
+                    </span>
+                    <div class="cep-row-main">
+                        <strong>{{ item.label }}{% if item.optional %} <small>optional</small>{% endif %}</strong>
+                        <p>{{ item.text }}</p>
+                    </div>
+                    {% if item.url %}<div class="cep-row-side"><a class="cep-link" href="{{ item.url }}">{{ item.action }} →</a></div>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}

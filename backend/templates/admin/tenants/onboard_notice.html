@@ -1,0 +1,12 @@
+{% if onboarding_draft %}
+<div class="cep-card" style="margin-bottom:1rem">
+    <div class="cep-row">
+        <span class="cep-icon" data-kind="info"><span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span></span>
+        <div class="cep-row-main">
+            <strong>An onboarding draft is waiting{% if onboarding_draft.data.workspace %}: {{ onboarding_draft.data.workspace.name }} ({{ onboarding_draft.data.workspace.code }}){% endif %}</strong>
+            <p>Nothing has been created yet. Continue where you left off, or discard it.</p>
+        </div>
+        <div class="cep-row-side"><a class="cep-link" href="{% url 'admin:tenants_tenant_onboard_flow' %}">Continue →</a></div>
+    </div>
+</div>
+{% endif %}

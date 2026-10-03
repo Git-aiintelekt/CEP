@@ -1,10 +1,7 @@
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
-from django.contrib.auth.tokens import default_token_generator
 from django.utils import timezone
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 from unfold.decorators import action, display
 from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget
 
@@ -112,8 +109,7 @@ class AppUserAdmin(BaseAdmin):
             messages.error(request, "Only active users who sign in with a password can get a link.")
         else:
             from apps.platform_ops import links, mail
-            link = (f"{settings.FRONTEND_URL.rstrip('/')}/set-password?tenant={user.tenant.code}"
-                    f"&uid={urlsafe_base64_encode(force_bytes(user.pk))}&token={default_token_generator.make_token(user)}")
+            link = links.password_link(user)
             hours = links.hours()
             sent = mail.is_configured(user.tenant_id) and mail.send("password_link", user.email, tenant_id=user.tenant_id, subject=f"Choose your password for {user.tenant.code}", context={
                 "name": user.display_name, "workspace": user.tenant.code, "link": link, "hours": hours, "invited": not user.password, "invited_by": "The platform team"})

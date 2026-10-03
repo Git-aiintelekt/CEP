@@ -6,12 +6,16 @@ from unfold.decorators import action, display
 from apps.adminutils import BaseAdmin, register_app_models
 from apps.identity.models import AppUser
 
-from apps.platform_ops import params
+from apps.platform_ops import links, params
 from apps.platform_ops.admin import FeatureChoicesMixin
 from apps.platform_ops.models import IndustryProfile, TenantOperation
 from unfold.widgets import UnfoldAdminSelectWidget
 
-from . import services
+from django.utils.html import format_html
+
+from django.shortcuts import redirect, render
+
+from . import onboarding, readiness, services
 from .models import Tenant
 
 
@@ -52,12 +56,15 @@ class TenantAdmin(BaseAdmin):
     """Register, onboard, suspend. Saving a NEW tenant also creates its partitions, its routing row and its starting
     roles, so the next step is simply adding its first administrator under Users."""
     form = TenantForm
-    list_display = ("code", "name", "show_status", "show_industry", "isolation_mode", "region", "partition_seq", "show_users", "onboarded_at")
+    list_display = ("code", "name", "show_status", "show_industry", "show_readiness", "isolation_mode", "region", "partition_seq", "show_users", "onboarded_at")
+    change_form_before_template = "admin/tenants/readiness.html"
     list_filter = ("status", "isolation_mode", "region")
     search_fields = ("code", "name", "subdomain", "custom_app_domain")
     ordering = ("code",)
     readonly_fields = ("id", "partition_seq", "created_at", "updated_at", "row_version")
     actions = ("suspend", "reactivate", "provision", "request_export")
+    actions_list = ("onboard_flow",)
+    list_before_template = "admin/tenants/onboard_notice.html"
     fieldsets = (
         ("Workspace", {"fields": ("name", "code", "status", "timezone")}),
         ("Access", {"fields": ("subdomain", "custom_app_domain"), "description": "Users reach the app at <subdomain>.your-domain; the API also accepts the code in the X-Tenant header."}),
@@ -80,6 +87,93 @@ class TenantAdmin(BaseAdmin):
     @display(description="Industry")
     def show_industry(self, obj):
         return (obj.settings or {}).get("industry") or "default"
+
+    @display(description="Readiness")
+    def show_readiness(self, obj):
+        """done of the eight checks, with a meter: the same facts as the panel on the tenant's page."""
+        state = readiness.readiness(obj)
+        if state["done"] == 0 and state["state"] == readiness.TODO:
+            return format_html('<span class="cep-pill" data-kind="danger">Not onboarded</span>')
+        meter = "blocked" if state["state"] == readiness.TODO else ("warning" if state["state"] == readiness.WARN else "")
+        return format_html('<span style="white-space:nowrap">{} of {}</span><div class="cep-meter" data-state="{}" style="max-width:6rem"><i style="width:{}%"></i></div>',
+                           state["done"], state["total"], meter, state["percent"])
+
+    def changelist_view(self, request, extra_context=None):
+        draft = onboarding.draft_of(request)
+        extra = {**(extra_context or {}), "onboarding_draft": draft if draft.get("data") else None}
+        return super().changelist_view(request, extra)
+
+    @action(description="Onboard a tenant", url_path="onboard", icon="rocket_launch")
+    def onboard_flow(self, request):
+        """The guided set-up: six steps kept as a draft in the session, written at Review (apps/tenants/onboarding.py)."""
+        draft = onboarding.draft_of(request)
+        step = request.POST.get("step") or request.GET.get("step") or "workspace"
+        if step not in onboarding.STEP_KEYS or not onboarding.reachable(draft, step):
+            step = next((key for key in onboarding.STEP_KEYS if not onboarding.reachable(draft, onboarding.next_step(key)) or key == "review"), "workspace")
+        if request.method == "POST":
+            if "discard" in request.POST:
+                onboarding.clear_draft(request)
+                messages.info(request, "The onboarding draft was discarded. Nothing was created.")
+                return redirect("admin:tenants_tenant_changelist")
+            if "back" in request.POST:
+                return redirect(f"{request.path}?step={onboarding.previous_step(step)}")
+            if "skip" in request.POST and step in onboarding.SKIPPABLE:
+                draft["data"].pop(step, None)
+                draft["skipped"] = sorted(set(draft.get("skipped", [])) | {step})
+                onboarding.save_draft(request, draft)
+                return redirect(f"{request.path}?step={onboarding.next_step(step)}")
+            if "finish" in request.POST and step == "review":
+                result = onboarding.finish(draft, staff_user_id=request.user.pk)
+                onboarding.clear_draft(request)
+                tenant = result["tenant"]
+                words = (f"{tenant.code} onboarded: {result['provisioned']['partition_sets']} partition sets, roles {', '.join(result['provisioned']['roles']) or 'already present'}, "
+                         f"{len(result['provisioned']['platform_tags'] or {})} platform tags, subscription {result['subscription']}, {len(result['users'])} user{'s' if len(result['users']) != 1 else ''}.")
+                if result["sent"]:
+                    words += f" Password links emailed to {', '.join(email for email, _ in result['sent'])}."
+                messages.success(request, words)
+                for email, link in result["links"]:
+                    messages.warning(request, f"Email is not configured or failed, so send this one-time link to {email} yourself: {link}")
+                return redirect("admin:tenants_tenant_change", tenant.pk)
+            if step != "review":
+                form = onboarding.FORMS[step](request.POST)
+                if form.is_valid():
+                    data = {key: value for key, value in form.cleaned_data.items() if not key.startswith("feature_")}
+                    if step == "plan":
+                        data["features"] = form.feature_overrides()
+                    if step == "policies":
+                        data = {"without_consent": data["without_consent"], "texts_need_date": data["texts_need_date"], "approval_before_send": data["approval_before_send"],
+                                "lifetime_months": int(data["lifetime_months"])}
+                    draft["data"][step] = data
+                    draft["skipped"] = [key for key in draft.get("skipped", []) if key != step]
+                    onboarding.save_draft(request, draft)
+                    return redirect(f"{request.path}?step={onboarding.next_step(step)}")
+            else:
+                form = None
+        else:
+            initial = dict(draft["data"].get(step) or {})
+            if step == "plan" and initial.get("features"):
+                initial.update({f"feature_{code}": "on" if on else "off" for code, on in initial.pop("features").items()})
+            if step == "policies" and initial:
+                initial["lifetime_months"] = str(initial["lifetime_months"])
+            if step == "admin" and isinstance(initial.get("also_invite"), list):
+                initial["also_invite"] = "\n".join(initial["also_invite"])
+            form = onboarding.FORMS[step](initial=initial) if step != "review" else None
+        plan_data = draft["data"].get("plan") or {}
+        if step == "plan" and form is not None and form.is_bound and form.is_valid():
+            plan_data = {"plan": form.cleaned_data["plan"], "industry": form.cleaned_data["industry"], "features": form.feature_overrides()}
+        context = {**self.admin_site.each_context(request), "title": "Onboard a tenant", "draft": draft, "step": step, "steps": onboarding.STEPS, "form": form,
+                   "skippable": onboarding.SKIPPABLE,
+                   "step_rows": [{"key": key, "label": label, "number": index + 1, "state": onboarding.step_state(draft, key, step), "reachable": onboarding.reachable(draft, key)}
+                                 for index, (key, label) in enumerate(onboarding.STEPS)],
+                   "feature_table": onboarding.feature_table(plan_data.get("plan"), plan_data.get("industry"), plan_data.get("features") or {}) if step == "plan" else None,
+                   "policies_summary": onboarding.policies_summary(draft["data"].get("policies")) if step == "policies" else None,
+                   "checklist": onboarding.HANDOFF_CHECKLIST, "review": onboarding.review_of(draft) if step == "review" else None, "hours": links.hours()}
+        return render(request, "admin/tenants/onboard.html", context)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        tenant = Tenant.objects.using(settings.PLATFORM_ALIAS).filter(pk=object_id).first()
+        extra = {**(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None}
+        return super().change_view(request, object_id, form_url, extra)
 
     @display(description="Active users")
     def show_users(self, obj):
