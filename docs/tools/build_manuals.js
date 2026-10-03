@@ -121,11 +121,11 @@ function chaptersOf(folder) {
 }
 
 function build(guide) {
-  const chapters = chaptersOf(guide.folder)
+  const chapters = guide.chapters ?? chaptersOf(guide.folder)
   const children = [
     new Paragraph({ children: [new TextRun({ text: guide.title, bold: true, size: 56, font: FONT })], spacing: { before: 2400, after: 200 } }),
     new Paragraph({ children: [new TextRun({ text: guide.subtitle, size: 28, font: FONT, color: '555B6E' })], spacing: { after: 200 } }),
-    new Paragraph({ children: [new TextRun({ text: `Built ${new Date().toISOString().slice(0, 10)} from docs/manuals/${guide.folder}`, size: 20, font: FONT, color: '555B6E' })] }),
+    new Paragraph({ children: [new TextRun({ text: `Built ${new Date().toISOString().slice(0, 10)} from ${guide.source ?? `docs/manuals/${guide.folder}`}`, size: 20, font: FONT, color: '555B6E' })] }),
     new Paragraph({ children: [new PageBreak()] }),
     new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'Contents', font: FONT })] }),
   ]
@@ -185,11 +185,14 @@ function build(guide) {
     .map((block) => `${block.level === 1 ? '- ' : '  - '}${block.text}`)).join('\n')
   const markdown = `# ${guide.title}\n\n${guide.subtitle}. Built from \`docs/manuals/${guide.folder}\`; edit the chapters there, not this file.\n\n## Contents\n\n${toc}\n\n---\n\n` +
     chapters.map((chapter) => chapter.source.trim()).join('\n\n---\n\n') + '\n'
-  fs.writeFileSync(path.join(ROOT, `${guide.out}.md`), markdown)
+  const outDir = guide.outDir ?? ROOT
+  if (guide.markdown !== false) fs.writeFileSync(path.join(outDir, `${guide.out}.md`), markdown)
   return Packer.toBuffer(document).then((buffer) => {
-    fs.writeFileSync(path.join(ROOT, `${guide.out}.docx`), buffer)
-    console.log(`${guide.out}: ${chapters.length} chapters -> ${guide.out}.md, ${guide.out}.docx (${Math.round(buffer.length / 1024)} KB)`)
+    fs.writeFileSync(path.join(outDir, `${guide.out}.docx`), buffer)
+    console.log(`${guide.out}: ${chapters.length} chapter${chapters.length === 1 ? '' : 's'} -> ${guide.markdown !== false ? `${guide.out}.md, ` : ''}${guide.out}.docx (${Math.round(buffer.length / 1024)} KB)`)
   })
 }
 
-Promise.all(GUIDES.map(build)).catch((error) => { console.error(error); process.exit(1) })
+module.exports = { build, parse }
+
+if (require.main === module) Promise.all(GUIDES.map(build)).catch((error) => { console.error(error); process.exit(1) })
