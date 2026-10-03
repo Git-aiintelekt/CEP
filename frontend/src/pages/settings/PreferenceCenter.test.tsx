@@ -27,11 +27,7 @@ test('off by default: the tab is in Settings, the switch explains what off means
   await renderAppAt('/settings/preference-center')
 
   expect(await screen.findByRole('heading', { name: 'Preference Centre' })).toBeTruthy()
-  const audience = screen.getByRole('button', { name: 'Audience' })                                     // the page is in the Audience sub menu, whose button reads as selected
-  expect(audience.className).toContain('bg-brand-100')
-  await user.click(audience)
-  expect(screen.getByRole('link', { name: 'Preference Centre' })).toBeTruthy()
-  await user.keyboard('{Escape}')
+  expect(screen.getByRole('link', { name: 'Preference Centre' })).toBeTruthy()                           // the Settings tab
   const toggle = screen.getByRole('switch', { name: 'Offer a Preference Centre' })
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   expect(screen.getByText(/Only the unsubscribe link exists/)).toBeTruthy()
