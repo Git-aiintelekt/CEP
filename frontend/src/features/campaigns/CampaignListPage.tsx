@@ -39,6 +39,8 @@ import { BULK_DONE, CONFIRM, useBulkAction, useCampaignAction, type BulkAction, 
 import { channelLabel, hasAction, typeShortLabel } from './vocabulary'
 import { timeInZone } from './zone'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 const PAGE_SIZES = [25, 50, 100]
 
 const COLUMNS: { key: string; label: string }[] = [
@@ -418,6 +420,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     <section>
       <PageHeader
         title="Campaigns"
+        help={<PageHelp chapter="campaigns" />}
         actions={canEdit && <button type="button" onClick={() => setCreateOpen(true)} className={buttonPrimary}><Plus size={16} strokeWidth={1.5} aria-hidden />Create Campaign</button>}
       />
 

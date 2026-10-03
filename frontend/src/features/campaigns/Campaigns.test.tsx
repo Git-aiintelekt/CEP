@@ -260,7 +260,7 @@ test('campaign page: actions by status: a scheduled send can be cancelled, a pau
   installMockApi({ campaigns: workspace() })
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c3')
-  const header = (await screen.findByRole('heading', { name: 'Winter Preview' })).parentElement as HTMLElement
+  const header = (await screen.findByRole('heading', { name: 'Winter Preview' })).closest('header') as HTMLElement
   expect(within(header).getByText('Scheduled')).toBeTruthy()
   expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull()
   await user.click(screen.getByRole('button', { name: 'Cancel Schedule' }))

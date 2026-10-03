@@ -35,6 +35,8 @@ import { buildPreview, type PreviewState } from './preview/previewState'
 import { insertIntoHeader, type HeaderField as HeaderFieldName } from './tags/insertIntoHeader'
 import { useRecentTags } from './tags/useRecentTags'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 export interface DesignerBackend {
   save: (input: DesignSaveInput) => Promise<Design>
   loadVersion: (version: number) => Promise<Design>
@@ -430,6 +432,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       <EditorFrame
       name={templateName}
       status={currentStatus}
+      help={<PageHelp chapter="email-designer" />}
       nav={
         showNav ?
           <NavBar

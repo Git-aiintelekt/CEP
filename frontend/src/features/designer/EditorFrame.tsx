@@ -42,6 +42,8 @@ interface EditorFrameProps<T extends string> {
   nav?: ReactNode
   topBarEnd?: ReactNode
   tabBarEnd?: ReactNode
+  /** the editor's help icon (PageHelp), beside the name */
+  help?: ReactNode
   /** a strip directly under the tab bar, above whichever pane is showing */
   notice?: ReactNode
   footer?: ReactNode
@@ -50,7 +52,7 @@ interface EditorFrameProps<T extends string> {
 }
 
 export function EditorFrame<T extends string>({
-  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, tabs, tab, onTabChange, nav, topBarEnd, tabBarEnd, notice, footer, wizard, panes,
+  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, tabs, tab, onTabChange, nav, topBarEnd, tabBarEnd, help, notice, footer, wizard, panes,
 }: EditorFrameProps<T>) {
   const baseId = useId()
   const tabRefs = useRef(new Map<T, HTMLButtonElement | null>())
@@ -119,6 +121,7 @@ export function EditorFrame<T extends string>({
         <div className="flex min-w-0 items-center gap-2.5">
           <h1 className="min-w-0 truncate font-sans text-sm font-semibold text-ink-900">{name}</h1>
           <StatusBadge status={status} />
+          {help}
         </div>
         <span className={`cep-num ml-auto shrink-0 text-helper ${saveNoteTone === 'warning' ? 'text-warning-text' : 'text-ink-800'}`}>{saveNote}</span>
         {topBarEnd && <div className="flex shrink-0 items-center gap-2">{topBarEnd}</div>}

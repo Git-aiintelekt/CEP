@@ -111,7 +111,7 @@ test('features switched off for the workspace disappear from navigation, setting
   installMockApi({ me: { industry: 'FINANCIAL_SERVICES', features: { journeys: false, mms: false, ereceipt: false, api_access: false } } })
   await renderAppAt('/templates/new')
 
-  const channel = (await screen.findByLabelText(/Channel/)) as HTMLSelectElement
+  const channel = (await screen.findByRole('combobox', { name: 'Channel' })) as HTMLSelectElement
   expect([...channel.options].map((option) => option.value)).toEqual(['EMAIL', 'SMS'])
   expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByText('Journeys')).toBeNull()
 

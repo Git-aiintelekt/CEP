@@ -112,7 +112,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
 
         {askTopic && (
           <Panel title="Topic" description="The preference-centre topic this campaign is filed under. People who unticked it on the preference page are left out of the audience.">
-            <Field label="Filed Under" required error={errors.topic?.message} hint="Needed to publish. Topics are managed under Settings, Preference Centre.">
+            <Field label="Filed Under" required error={errors.topic?.message} help="The preference-centre topic this campaign belongs to. People who unticked it on the preference page are left out of this campaign, counted as Topic Opted Out." hint="Needed to publish. Topics are managed under Settings, Preference Centre.">
               {(ids) => (
                 <Select {...ids} {...register('topic')}>
                   <option value="">Choose a Topic</option>
@@ -129,7 +129,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
               New Sender <ExternalLink size={14} strokeWidth={1.5} aria-hidden />
             </Link>
           )}>
-          <Field label="Send From" error={errors.sender_profile?.message}
+          <Field label="Send From" error={errors.sender_profile?.message} help="The name and address, or the number, the message comes from; the sender brings its engine. Only a verified sender can publish to production; test sends work from any."
             hint={senders.isPending ? 'Loading senders'
               : senderOptions.length === 0 ? `No ${channel} sender is set up yet. ${can('provider.edit') ? 'Add one with New Sender; it appears here when you come back.' : 'An administrator adds one under Settings, Sending Engines.'}`
               : can('provider.edit') ? 'Senders belong to the workspace: one added with New Sender can be used by every campaign.' : undefined}>

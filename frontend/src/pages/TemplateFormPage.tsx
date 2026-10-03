@@ -15,6 +15,8 @@ import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
 import type { Template } from '@/lib/types'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 const CHANNELS = [
   { value: 'EMAIL', label: 'Email', hint: 'Opens the drag-and-drop email designer.' },
   { value: 'E_RECEIPT', label: 'E-Receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
@@ -74,7 +76,7 @@ export function TemplateFormPage() {
   return (
     <section className="max-w-5xl">
       <Link to="/templates" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
-      <PageHeader title="New Template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." />
+      <PageHeader title="New Template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." help={<PageHelp chapter="templates" />} />
       {otherError !== null && (
         <div className="mb-4">
           <ErrorState title="Could not create the template" error={otherError} />
@@ -85,7 +87,7 @@ export function TemplateFormPage() {
           <Field label="Name" required error={errors.name} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
             {(ids) => <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} autoFocus onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
           </Field>
-          <Field label="Channel" required error={errors.channel} hint={CHANNELS.find((item) => item.value === channel)?.hint}>
+          <Field label="Channel" required error={errors.channel} help="Decides which editor opens and which campaigns can use the template: an email campaign needs an email template, a text campaign a text one. Fixed once created." hint={CHANNELS.find((item) => item.value === channel)?.hint}>
             {(ids) => (
               <Select {...ids} value={channel} onChange={(event) => { setChannel(event.target.value); setStarter('') }}>
                 {channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}

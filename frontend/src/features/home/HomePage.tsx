@@ -24,6 +24,8 @@ import { SetupCard } from './sections/SetupCard'
 import { TopCampaigns } from './sections/TopBottom'
 import { useHomeFilters } from './useHomeFilters'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 function availabilityOf<T>(result: SectionResult<T>, isEmpty: (data: T) => boolean = () => false): Availability {
   if (result.status === 'unavailable') return 'unavailable'
   return result.status === 'ready' && isEmpty(result.data) ? 'empty' : 'ready'
@@ -101,9 +103,9 @@ export function HomePage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div data-greeting-row className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1>
+          <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
           <p className="text-sm text-ink-800">Your marketing command centre: performance, risks and next actions in one place.</p>
         </div>
         {layout.createNew && <CreateNew tiles={tiles} />}

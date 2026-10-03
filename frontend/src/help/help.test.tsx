@@ -28,7 +28,7 @@ const SAMPLE = `# Sending Engines
 
 ## What this page is for
 
-Nothing leaves CEP without an engine. See [Contact Lists](/contact-lists) and \`provider.edit\`.
+Nothing leaves CEP without an engine, *checked* first. See [Contact Lists](/contact-lists) and \`provider.edit\`.
 
 | Control | What it is | What it changes |
 |---|---|---|
@@ -45,7 +45,7 @@ Nothing leaves CEP without an engine. See [Contact Lists](/contact-lists) and \`
 > a quote
 `
 
-test('the Markdown subset: headings, paragraphs, tables, lists, quotes; bold, code and links inline; the title is the first H1', () => {
+test('the Markdown subset: headings, paragraphs, tables, lists, quotes; bold, italics, code and links inline; the title is the first H1', () => {
   expect(titleOf(SAMPLE)).toBe('Sending Engines')
   expect(parse(SAMPLE).map((block) => block.kind)).toEqual(['heading', 'paragraph', 'heading', 'paragraph', 'table', 'list', 'list', 'quote'])
   render(<MemoryRouter><Markdown source={SAMPLE} skipTitle /></MemoryRouter>)
@@ -53,6 +53,7 @@ test('the Markdown subset: headings, paragraphs, tables, lists, quotes; bold, co
   expect(screen.getByRole('heading', { level: 3, name: 'What this page is for' })).toBeTruthy()
   expect(screen.getByText('Where:').tagName).toBe('STRONG')
   expect(screen.getByText('provider.edit').tagName).toBe('CODE')
+  expect(screen.getByText('checked').tagName).toBe('EM')
   expect(screen.getByRole('link', { name: 'Contact Lists' }).getAttribute('href')).toBe('/contact-lists')
   const table = screen.getByRole('table')
   expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Control', 'What it is', 'What it changes'])
@@ -95,4 +96,17 @@ test('a field note: the information icon beside the label opens the note on that
   expect(within(dialog).queryByRole('note')).toBeNull()
   expect(screen.getByRole('dialog', { name: 'Add a Sending Engine' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Help for this page' })).toBeTruthy()                     // the page's own help icon, beside Sending Engines
+})
+
+test('every page with a chapter opens it from the icon beside its title: Home, Campaigns, a campaign, Templates', async () => {
+  installMockApi()
+  const user = userEvent.setup()
+  for (const [path, title, wait] of [['/', 'Home', /^Good (morning|afternoon|evening), Aby$/], ['/campaigns', 'Campaigns', 'Campaigns'], ['/campaigns/c1', 'Campaigns', 'Fall Launch'], ['/templates', 'Templates and Content', 'Templates']] as const) {
+    await renderAppAt(path)
+    await screen.findByRole('heading', { level: 1, name: wait })
+    await user.click(screen.getByRole('button', { name: 'Help for this page' }))
+    const panel = await screen.findByRole('complementary', { name: title })
+    expect(await within(panel).findByRole('heading', { level: 3, name: 'What this page is for' })).toBeTruthy()
+    cleanup()
+  }
 })

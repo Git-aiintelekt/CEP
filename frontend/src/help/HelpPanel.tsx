@@ -16,6 +16,7 @@ import { Markdown } from './markdown'
 import { titleOf } from './markdownParse'
 
 const ICON = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900'
+const ICON_ON_BRAND = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-brand-100 transition-colors duration-fast ease-standard hover:bg-brand-800 hover:text-white'
 
 function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => void }) {
   const titleId = useId()
@@ -45,7 +46,7 @@ function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => 
   const title = (source && titleOf(source)) || entry.title
   return (
     <aside role="complementary" aria-labelledby={titleId} data-help-panel={chapter}
-      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-line bg-surface shadow-lg sm:w-[440px]">
+      className="fixed inset-y-0 right-0 z-[60] flex w-full flex-col border-l border-line bg-surface shadow-lg sm:w-[min(640px,80vw)]">
       <div className="flex items-start gap-3 border-b border-line px-5 py-4">
         <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md bg-brand-100 text-brand-800"><CircleHelp size={16} strokeWidth={1.5} /></span>
         <div className="min-w-0 flex-1">
@@ -64,8 +65,8 @@ function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => 
   )
 }
 
-/** the help icon beside a page's title; `initiallyOpen` is for the dev playground (?help=1), so a chapter can be reviewed in place */
-export function PageHelp({ chapter, initiallyOpen = false }: { chapter: HelpChapter; initiallyOpen?: boolean }) {
+/** the help icon beside a page's title (`onBrand` on a brand-blue band); `initiallyOpen` is for the dev playground (?help=1), so a chapter can be reviewed in place */
+export function PageHelp({ chapter, initiallyOpen = false, onBrand = false }: { chapter: HelpChapter; initiallyOpen?: boolean; onBrand?: boolean }) {
   const [open, setOpen] = useState(initiallyOpen)
   const button = useRef<HTMLButtonElement>(null)
   const close = () => {
@@ -74,7 +75,7 @@ export function PageHelp({ chapter, initiallyOpen = false }: { chapter: HelpChap
   }
   return (
     <>
-      <button ref={button} type="button" aria-label="Help for this page" aria-expanded={open} title="Help for this page" onClick={() => setOpen((was) => !was)} className={ICON}>
+      <button ref={button} type="button" aria-label="Help for this page" aria-expanded={open} title="Help for this page" onClick={() => setOpen((was) => !was)} className={onBrand ? ICON_ON_BRAND : ICON}>
         <CircleHelp size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && <HelpPanel chapter={chapter} onClose={close} />}
@@ -87,7 +88,7 @@ export function FieldNote({ label, text }: { label: string; text: string }) {
   const note = useSingleDropdown<'note'>()
   return (
     <span className="relative inline-flex align-middle">
-      <button type="button" {...note.triggerProps('note')} aria-label={`About ${label}`} className="flex h-5 w-5 items-center justify-center rounded-sm text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
+      <button type="button" {...note.triggerProps('note')} data-field-note aria-label={`About ${label}`} className="flex h-5 w-5 items-center justify-center rounded-sm text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
         <Info size={14} strokeWidth={1.5} aria-hidden />
       </button>
       {note.isOpen('note') && (
