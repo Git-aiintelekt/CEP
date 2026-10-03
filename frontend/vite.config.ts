@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { loadEnv } from 'vite'
+import { loadEnv, searchForWorkspaceRoot } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
@@ -27,6 +27,8 @@ export default defineConfig(({ mode }) => {
       // Behind a CDN the dev server's modules and stylesheet must never be cached: a browser that kept the old index.css for
       // four hours (Cloudflare's default browser TTL) showed the new markup with the old styles after a deploy.
       headers: { 'Cache-Control': 'no-store' },
+      // the User Guide's chapters (docs/manuals) are imported into the help panel from outside frontend/
+      fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL('../docs/manuals', import.meta.url))] },
       // Same-origin in development: the browser talks to Vite, Vite forwards Django's paths to Django (no CORS, no
       // mixed hosts). The same split Nginx does in production: /api, /admin and /healthz to the API, /static to its
       // collected files, /media to uploads.

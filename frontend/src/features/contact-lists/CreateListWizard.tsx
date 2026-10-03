@@ -431,7 +431,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
 
       {step === 'method' && (
         <div className="space-y-5">
-          <Field label="List Name" required limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+          <Field label="List Name" required limit={{ used: name.length, max: rule('name')?.max ?? 200 }} help="How the list is listed everywhere, including a campaign's Send To table and the Set-Up page. It can be changed later on the list's Edit Details.">
             {(ids) => (
               <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={rule('name')?.max ?? 200} autoFocus />
             )}
@@ -579,7 +579,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               </p>
             )}
           </div>
-          <Field label="Where the Consent Was Collected" hint="Optional. A form name, a store, a campaign: whatever lets you find the proof later." limit={{ used: collectedAt.length, max: 300 }}>
+          <Field label="Where the Consent Was Collected" hint="Optional. A form name, a store, a campaign: whatever lets you find the proof later." help="Kept as the evidence on every consent written from this file and shown on the list's compliance record, so the proof can be found if anyone asks." limit={{ used: collectedAt.length, max: 300 }}>
             {(ids) => <TextInput {...ids} value={collectedAt} onChange={(event) => setCollectedAt(event.target.value)} maxLength={300} placeholder="e.g. Fall 2026 sign-up form" />}
           </Field>
           <div className="rounded-lg border border-line bg-surface-subtle p-3">

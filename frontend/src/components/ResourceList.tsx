@@ -5,11 +5,11 @@ import { useCursorList } from '@/lib/useCursorList'
 import { DataTable, type Column } from './DataTable'
 import { EmptyState, ErrorState, Spinner } from './States'
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions, help }: { title: string; description?: string; actions?: ReactNode; /** the page's help icon (PageHelp) */ help?: ReactNode }) {
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="font-display text-page-title font-semibold text-ink-900">{title}</h1>
+        {help ? <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-ink-900">{title}</h1>{help}</span> : <h1 className="font-display text-page-title font-semibold text-ink-900">{title}</h1>}
         {description && <p className="mt-1 max-w-2xl text-sm text-ink-800">{description}</p>}
       </div>
       {actions}

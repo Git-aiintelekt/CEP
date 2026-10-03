@@ -1,7 +1,7 @@
 /** /dev/settings (dev builds only): the Settings menu panel beside a stand-in page, every feature on, nothing from the API; Set-Up is the real page on the sample workspace. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Outlet, Route, Routes } from 'react-router-dom'
+import { Outlet, Route, Routes, useSearchParams } from 'react-router-dom'
 
 import { WorkspaceFacts } from '@/pages/settings/SettingsLayout'
 import { SettingsMenuPanel } from '@/pages/settings/SettingsMenu'
@@ -10,14 +10,18 @@ import { SETTINGS_GROUPS, pageAt } from '@/pages/settings/settingsCatalogue'
 
 import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
 import { SETUP_KEY } from '@/features/setup/setup'
+import { PageHelp } from '@/help/HelpPanel'
+import { HELP_FOR_PAGE } from '@/help/chapters'
 
 const SAMPLE_WORKSPACE = { name: 'Northwind Apparel', code: 'NWA', timezone: 'America/New_York', status: 'ACTIVE', subdomain: 'northwind', region: 'us-east-1', plan: 'Growth', max_users: 50, active_users: 6, roles: 3, active_api_keys: 3 }
 
 function StandIn({ path }: { path: string }) {
   const page = pageAt(path)
+  const chapter = HELP_FOR_PAGE[path]
+  const [params] = useSearchParams()
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
-      <h2 className="font-display text-section-title font-semibold text-ink-900">{page?.label ?? 'Settings'}</h2>
+      <span className="flex items-center gap-1.5"><h2 className="font-display text-section-title font-semibold text-ink-900">{page?.label ?? 'Settings'}</h2>{chapter && <PageHelp chapter={chapter} initiallyOpen={params.get('help') === '1'} />}</span>
       <p className="mt-1 text-sm text-ink-800">The page itself is unchanged; this stand-in only shows where the menu puts it.</p>
     </div>
   )

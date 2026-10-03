@@ -15,6 +15,8 @@ import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
 import type { DeliveryProvider, DeliverySender, ProviderType } from '@/lib/types'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 const PROVIDERS = ['delivery', 'providers']
 const SENDERS = ['delivery', 'senders']
 
@@ -53,12 +55,12 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the provider" error={other} />}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Engine" required error={errors.provider_type} hint={spec?.description}>
+          <Field label="Engine" required error={errors.provider_type} hint={spec?.description} help="The type is fixed once saved. It decides the fields below, whether delivery results come back, and the channel of the engine's senders. Your own mail server is switched on from Settings → Email Server, not here.">
             {(ids) => <Select {...ids} value={type} disabled={Boolean(provider)} onChange={(event) => { setType(event.target.value); setConfig({}) }}>
               {(provider ? catalogue : creatable).map((item) => <option key={item.provider_type} value={item.provider_type}>{item.channel === 'SMS' ? 'Texts' : 'Email'} · {item.label}</option>)}
             </Select>}
           </Field>
-          <Field label="Name" required error={errors.name} hint="How it appears in this workspace, e.g. SendGrid (marketing) or Texts (short code 55123).">
+          <Field label="Name" required error={errors.name} hint="How it appears in this workspace, e.g. SendGrid (marketing) or Texts (short code 55123)." help="A label for this workspace only. It appears on every sender that sends through the engine and on the Set-Up page.">
             {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" />}
           </Field>
         </div>
@@ -83,7 +85,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
           )
         })}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Messages per Minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts.">
+          <Field label="Messages per Minute" error={errors.rate_limit_per_minute} hint="Optional pace limit. Leave empty to send as fast as the provider accepts." help="A pace for every run on this engine. A number spreads a run over time: for a provider's rate limit, or a gentle ramp on a new sending domain. It never changes which people are sent to.">
             {(ids) => <TextInput {...ids} type="number" min={1} value={rate} onChange={(event) => setRate(event.target.value)} />}
           </Field>
           <div className="space-y-2 self-end pb-1 text-sm text-ink-900">
@@ -126,7 +128,7 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
       </>}>
       <form id="sender-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
         {other !== null && <ErrorState title="Could not save the sender" error={other} />}
-        <Field label="Sends Through" required error={errors.delivery_provider}>
+        <Field label="Sends Through" required error={errors.delivery_provider} help="The engine decides the sender's channel (email or texts) and which account delivers its messages. A campaign picks the sender; the sender brings the engine.">
           {(ids) => <Select {...ids} value={provider} onChange={(event) => setProvider(event.target.value)}>
             {usable.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>}
@@ -135,14 +137,14 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
           {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} />}
         </Field>
         {texts ? (
-          <Field label="Sender Number" required error={errors.sender_id} hint="The number texts come from: a short code (55123), a long number with country code (+14045550100) or an alphanumeric sender (up to 11 characters). It must be registered with your aggregator.">
+          <Field label="Sender Number" required error={errors.sender_id} hint="The number texts come from: a short code (55123), a long number with country code (+14045550100) or an alphanumeric sender (up to 11 characters). It must be registered with your aggregator." help="The number every text comes from. Replies and STOP messages come back to it: a STOP opts the number out of every kind of campaign and blocks it until a START.">
             {(ids) => <TextInput {...ids} value={senderId} onChange={(event) => setSenderId(event.target.value)} autoComplete="off" />}
           </Field>
         ) : (<>
-          <Field label="From Address" required error={errors.from_address} hint="Must belong to a domain your provider is allowed to send for. Changing it needs a new verification.">
+          <Field label="From Address" required error={errors.from_address} hint="Must belong to a domain your provider is allowed to send for. Changing it needs a new verification." help="Must be on a domain the engine may send for; the engine's SPF and DKIM checks decide whether inboxes trust it. Changing the address resets the sender to Not Verified Yet, and only a verified sender can publish to production.">
             {(ids) => <TextInput {...ids} type="email" value={from} onChange={(event) => setFrom(event.target.value)} autoComplete="off" />}
           </Field>
-          <Field label="Reply-To Address" error={errors.reply_to_address}>
+          <Field label="Reply-To Address" error={errors.reply_to_address} help="Where replies go when it is not the From address. Empty: replies go to the From address. It needs no verification.">
             {(ids) => <TextInput {...ids} type="email" value={replyTo} onChange={(event) => setReplyTo(event.target.value)} autoComplete="off" />}
           </Field>
         </>)}
@@ -253,7 +255,7 @@ export function DeliveryPage() {
       <section aria-labelledby="providers-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2>
+            <span className="flex items-center gap-1.5"><h2 id="providers-heading" className="font-display text-section-title font-semibold text-ink-900">Sending Engines</h2><PageHelp chapter="settings-sending-engines" /></span>
             <p className="text-sm text-ink-800">The services that carry this workspace's email, e-receipts and text messages: Postal or SendGrid over their HTTP API, your own mail server, and a text aggregator for SMS and MMS. Many teams keep one engine for marketing and another for receipts. Register the callback address with the provider so deliveries, bounces, opens and clicks come back.</p>
           </div>
           <button type="button" className={buttonPrimary} disabled={!catalogue.data} onClick={() => setEditing('new')}>Add Engine</button>
