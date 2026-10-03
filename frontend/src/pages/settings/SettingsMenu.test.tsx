@@ -35,6 +35,12 @@ test('the menu: every group with its pages, the current page selected, the trail
   expect(current.className).toContain('bg-brand-100 text-brand-800')
   const trail = screen.getByRole('navigation', { name: 'Where you are' })
   expect(trail.textContent).toBe('SettingsSendingSending Engines')
+  // the menu sits across the top under the heading; the workspace facts in a column beside the page
+  const page = screen.getByRole('region', { name: 'Settings page' })
+  expect(menu().compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  const facts = await screen.findByRole('complementary', { name: 'Workspace facts' })
+  expect(facts.querySelector('dl')!.className).toContain('xl:grid-cols-1')
+  expect(page.compareDocumentPosition(facts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 })
 
 test('Find a Setting narrows the menu to the matching pages, by page or group; Escape and the clear button empty it', async () => {
@@ -76,7 +82,8 @@ test('Recent lists the pages visited here, newest first, three at most; a group 
   await user.click(within(menu()).getByRole('button', { name: 'Collapse the settings menu' }))
   expect(menu().getAttribute('data-settings-menu')).toBe('folded')
   expect(within(menu()).queryByRole('searchbox')).toBeNull()
-  expect(within(menu()).getByRole('link', { name: 'Suppressions' })).toBeTruthy()                        // folded: every page as an icon, groups never fold
+  expect(within(menu()).getByRole('link', { name: 'Suppressions' })).toBeTruthy()                        // folded: one row, every page as an icon, groups never fold
+  expect(within(menu()).queryByRole('button', { name: 'Audience' })).toBeNull()
   await user.click(within(menu()).getByRole('button', { name: 'Expand the settings menu' }))
   expect(within(menu()).getByRole('searchbox', { name: 'Find a setting' })).toBeTruthy()
 })

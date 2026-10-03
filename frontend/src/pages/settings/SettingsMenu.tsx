@@ -1,8 +1,9 @@
 /**
- * The Settings menu panel: Find a Setting, the pages visited most recently, then every group with its pages. A group folds and
- * stays folded; the panel folds to its icons. The current page reads as selected (Blue 100, Blue 800), as the rail does.
+ * The Settings menu, across the top of the page under its heading: Find a Setting, the pages visited most recently, then every
+ * group as a column with its pages. A group folds and stays folded; the whole panel folds to one row of icons. The current page
+ * reads as selected (Blue 100, Blue 800), as the rail does.
  */
-import { ChevronDown, ChevronsLeft, ChevronsRight, Clock, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Clock, Search, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
@@ -19,7 +20,7 @@ function PageLink({ page, folded, base }: { page: SettingsPage; folded: boolean;
   const Icon = page.icon
   return (
     <NavLink to={page.to.replace('/settings', base)} title={folded ? page.label : undefined} aria-label={folded ? page.label : undefined}
-      className={({ isActive }) => `${ITEM} ${isActive ? ITEM_STATE.current : ITEM_STATE.rest} ${folded ? 'justify-center px-0' : ''}`}>
+      className={({ isActive }) => `${ITEM} ${isActive ? ITEM_STATE.current : ITEM_STATE.rest} ${folded ? 'w-9 justify-center px-0' : ''}`}>
       {({ isActive }) => (
         <>
           <Icon size={16} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-brand-800' : 'text-ink-800'}`} />
@@ -69,59 +70,71 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
   const searching = needle.trim() !== ''
   const recentPages = recent.map(pageAt).filter((page): page is SettingsPage => Boolean(page) && groups.some((group) => group.pages.some((item) => item.to === page!.to))).slice(0, RECENT_SHOWN)
 
+  const toggle = (
+    <button type="button" aria-label={panelFolded ? 'Expand the settings menu' : 'Collapse the settings menu'} aria-expanded={!panelFolded} onClick={togglePanel}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
+      {panelFolded ? <ChevronsUpDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronsDownUp size={16} strokeWidth={1.5} aria-hidden />}
+    </button>
+  )
+
+  if (panelFolded) {
+    // one row: every page as its icon, the groups set apart by a hairline; the current page keeps its highlight
+    return (
+      <nav aria-label="Settings sections" data-settings-menu="folded" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-surface px-2 py-1.5">
+        {groups.map((group, index) => (
+          <section key={group.key} aria-label={group.label} className="flex items-center gap-0.5">
+            {index > 0 && <span aria-hidden className="mr-2.5 h-5 w-px bg-line-subtle" />}
+            {group.pages.map((page) => <PageLink key={page.to} page={page} folded base={base} />)}
+          </section>
+        ))}
+        <span className="ml-auto">{toggle}</span>
+      </nav>
+    )
+  }
+
   return (
-    <nav aria-label="Settings sections" data-settings-menu={panelFolded ? 'folded' : 'open'}
-      className={`flex shrink-0 flex-col self-start rounded-lg border border-line bg-surface ${panelFolded ? 'w-14 p-2' : 'w-60 p-3'}`}>
-      <div className={`flex items-center gap-2 ${panelFolded ? 'justify-center' : ''}`}>
-        {!panelFolded && (
-          <label className="relative block min-w-0 flex-1">
-            <span className="sr-only" id={searchId}>Find a setting</span>
-            <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
-            <input type="search" value={needle} onChange={(event) => setNeedle(event.target.value)} aria-labelledby={searchId} placeholder="Find a setting"
-              onKeyDown={(event) => { if (event.key === 'Escape') setNeedle('') }}
-              className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-8 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600" />
-            {searching && (
-              <button type="button" aria-label="Clear the search" onClick={() => setNeedle('')} className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-ink-800 hover:text-ink-900">
-                <X size={14} strokeWidth={1.5} aria-hidden />
-              </button>
-            )}
-          </label>
-        )}
-        <button type="button" aria-label={panelFolded ? 'Expand the settings menu' : 'Collapse the settings menu'} aria-expanded={!panelFolded} onClick={togglePanel}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
-          {panelFolded ? <ChevronsRight size={16} strokeWidth={1.5} aria-hidden /> : <ChevronsLeft size={16} strokeWidth={1.5} aria-hidden />}
-        </button>
+    <nav aria-label="Settings sections" data-settings-menu="open" className="flex min-w-0 flex-col gap-3 rounded-lg border border-line bg-surface p-3">
+      <div className="flex items-center gap-2">
+        <label className="relative block w-72 max-w-full">
+          <span className="sr-only" id={searchId}>Find a setting</span>
+          <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
+          <input type="search" value={needle} onChange={(event) => setNeedle(event.target.value)} aria-labelledby={searchId} placeholder="Find a setting"
+            onKeyDown={(event) => { if (event.key === 'Escape') setNeedle('') }}
+            className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-8 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600" />
+          {searching && (
+            <button type="button" aria-label="Clear the search" onClick={() => setNeedle('')} className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-ink-800 hover:text-ink-900">
+              <X size={14} strokeWidth={1.5} aria-hidden />
+            </button>
+          )}
+        </label>
+        <span className="ml-auto">{toggle}</span>
       </div>
 
-      {searching && !panelFolded ? (
-        <ul aria-label="Matching settings" className="mt-3 flex flex-col gap-0.5">
+      {searching ? (
+        <ul aria-label="Matching settings" className="flex flex-wrap gap-0.5">
           {found.length === 0 && <li className="px-2.5 py-2 text-helper text-ink-800">Nothing matches. Try a page name such as Users or Sending Engines.</li>}
           {found.map((page) => <li key={page.to}><PageLink page={page} folded={false} base={base} /></li>)}
         </ul>
       ) : (
-        <div className={`flex flex-col ${panelFolded ? 'mt-2 gap-1' : 'mt-3 gap-3'}`}>
-          {recentPages.length > 0 && !panelFolded && (
-            <section aria-labelledby={`${searchId}-recent`} className="flex flex-col gap-0.5">
+        <div className="grid gap-x-4 gap-y-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-[repeat(auto-fit,minmax(176px,1fr))]">
+          {recentPages.length > 0 && (
+            <section aria-labelledby={`${searchId}-recent`} className="flex min-w-0 flex-col gap-0.5">
               <h3 id={`${searchId}-recent`} className="flex h-9 items-center gap-2 px-2.5 text-xs font-semibold tracking-wide text-ink-800 uppercase"><Clock size={14} strokeWidth={1.5} aria-hidden />Recent</h3>
               {recentPages.map((page) => <PageLink key={page.to} page={page} folded={false} base={base} />)}
             </section>
           )}
           {groups.map((group) => {
             const GroupIcon = group.icon
-            const open = panelFolded || !folded.includes(group.key)
+            const open = !folded.includes(group.key)
             const bodyId = `${searchId}-${group.key}`
             return (
-              <section key={group.key} aria-label={group.label} className="flex flex-col gap-0.5">
-                {panelFolded
-                  ? <span aria-hidden className="mx-auto my-1 h-px w-6 bg-line-subtle" />
-                  : (
-                    <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => toggleGroup(group.key)} className={GROUP_HEAD}>
-                      <GroupIcon size={14} strokeWidth={1.5} aria-hidden />
-                      <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
-                      <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition-transform duration-fast ${open ? '' : '-rotate-90'}`} />
-                    </button>
-                  )}
-                {open && <div id={bodyId} className="flex flex-col gap-0.5">{group.pages.map((page) => <PageLink key={page.to} page={page} folded={panelFolded} base={base} />)}</div>}
+              <section key={group.key} aria-label={group.label} className="flex min-w-0 flex-col gap-0.5">
+                <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => toggleGroup(group.key)} className={GROUP_HEAD}>
+                  <GroupIcon size={14} strokeWidth={1.5} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
+                  <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition-transform duration-fast ${open ? '' : '-rotate-90'}`} />
+                </button>
+                {open && <div id={bodyId} className="flex flex-col gap-0.5">{group.pages.map((page) => <PageLink key={page.to} page={page} folded={false} base={base} />)}</div>}
               </section>
             )
           })}
