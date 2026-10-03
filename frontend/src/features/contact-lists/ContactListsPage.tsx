@@ -24,6 +24,8 @@ import { useCursorList } from '@/lib/useCursorList'
 import { CreateListWizard } from './CreateListWizard'
 import { problemText } from './problem'
 
+import { PageHelp } from '@/help/HelpPanel'
+
 export function TypeBadge({ environment }: { environment: string }) {
   return <StatusBadge status={environment} label={environment === 'TEST' ? 'Test' : 'Production'} />
 }
@@ -200,6 +202,7 @@ export function ContactListsPage() {
     <section>
       <PageHeader
         title="Contact Lists"
+        help={<PageHelp chapter="contact-lists" />}
         description="Reusable audiences. A campaign freezes its own copy at send time, so changing a list never changes a send that was already built."
         actions={
           <span className="flex flex-wrap gap-2">

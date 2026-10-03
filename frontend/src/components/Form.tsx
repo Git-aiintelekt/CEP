@@ -7,6 +7,8 @@ import { limitTone, type Limit } from '@/lib/fieldRules'
 
 import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
 
+import { FieldNote } from '@/help/HelpPanel'
+
 interface FieldProps {
   label: string
   /** 14px semibold Gray 900 label, and the error led by a 16px alert icon (the campaign setup pop-up) */
@@ -16,24 +18,27 @@ interface FieldProps {
   /** the length counter, from the field's rule: grey, amber in the last 10%, red at the limit */
   limit?: Limit
   hint?: string
+  /** a note on the field (what it is, what it changes) behind the information icon beside the label */
+  help?: string
   error?: string
   required?: boolean
   /** receives the ids to put on the control */
   children: (ids: { id: string; describedBy: string | undefined; invalid: boolean }) => ReactNode
 }
 
-export function Field({ label, hint, error, required, strong = false, labelEnd, limit, children }: FieldProps) {
+export function Field({ label, hint, help, error, required, strong = false, labelEnd, limit, children }: FieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined
 
-  const labelText = (
+  const labelOnly = (
     <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-sm font-medium text-ink-800'}>
       {label}
       {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
     </label>
   )
+  const labelText = help ? <span className="flex items-center gap-1">{labelOnly}<FieldNote label={label} text={help} /></span> : labelOnly
 
   const counter = limit && limit.max !== null ? <Counter {...limit} /> : null
   const end = labelEnd && counter ? <span className="flex items-baseline gap-3">{labelEnd}{counter}</span> : (labelEnd ?? counter)
