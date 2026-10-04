@@ -23,6 +23,7 @@ Each chapter follows a section of the back-office menu and has the same shape as
 | Moving, exporting and offboarding a tenant | Tenants → Move and offboard |
 | Routing, storage and retention | Operations → Database routing, Storage and CDN, Partition retention |
 | The read-only sections | Campaigns, Delivery, Customers and lists, Content, the audit trail |
+| Errors, uptime and tenant performance | Overview → Errors, Uptime, Tenant performance |
 
 ## Two ideas that run through everything
 

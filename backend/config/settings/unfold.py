@@ -22,12 +22,21 @@ def _versioned(path: str):
 
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
 GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
+PERFORMANCE = reverse_lazy("admin:tenants_tenant_performance")   # under the tenant admin's address
+
+
+def _is_performance(request):
+    return request.path.startswith(str(PERFORMANCE)) or (request.path.startswith(str(reverse_lazy("admin:tenants_tenant_changelist")))
+                                                         and request.path.endswith("/performance/"))
 
 
 def _under(link):
     """Highlight a menu entry on its own pages only. (Unfold's default also lights up every entry that shares a tab bar
-    with the current page: four entries at once on the tenant lists.)"""
-    return lambda request: request.path.startswith(str(link)) and (str(link) == str(USAGE) or not request.path.startswith(str(USAGE)))
+    with the current page: four entries at once on the tenant lists.) Usage and Tenant performance live under other
+    admins' addresses, so those admins' entries stay dark there."""
+    if link is PERFORMANCE:
+        return _is_performance
+    return lambda request: request.path.startswith(str(link)) and (str(link) == str(USAGE) or not request.path.startswith(str(USAGE)))         and not _is_performance(request)
 
 
 def _link(title, icon, name, **extra):
@@ -67,6 +76,9 @@ UNFOLD = {
                 {"title": "Home", "icon": "space_dashboard", "link": reverse_lazy("admin:index"), "active": lambda request: request.path == str(reverse_lazy("admin:index"))},
                 _link("Alerts", "notifications_active", "platform_ops_platformalert", badge="apps.platform_ops.admin_ui.open_alerts_badge", badge_variant="danger"),
                 {"title": "Usage against limits", "icon": "monitoring", "link": USAGE, "active": _under(USAGE)},
+                _link("Errors", "bug_report", "platform_ops_errorgroup", badge="apps.platform_ops.admin_ui.open_errors_badge", badge_variant="danger"),
+                _link("Uptime", "monitor_heart", "platform_ops_uptimetarget", badge="apps.platform_ops.admin_ui.down_targets_badge", badge_variant="danger"),
+                {"title": "Tenant performance", "icon": "speed", "link": PERFORMANCE, "active": _under(PERFORMANCE)},
                 {"title": "Platform Guide", "icon": "menu_book", "link": GUIDE, "active": _under(GUIDE)},
             ]},
             {"title": "Tenants", "separator": True, "items": [

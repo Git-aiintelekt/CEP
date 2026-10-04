@@ -314,3 +314,107 @@ class PlatformPersonalizationTag(models.Model):
 
     def __str__(self):
         return '{{' + self.tag_key + '}}'
+
+
+class ErrorGroup(models.Model):
+    """One distinct error (same source, kind and place): how often, since when, and whether someone dealt with it"""
+    class Source(models.TextChoices):
+        BACKEND = 'BACKEND', 'API'
+        BROWSER = 'BROWSER', 'Browser'
+        JOB = 'JOB', 'Job'
+
+    class Status(models.TextChoices):
+        OPEN = 'OPEN', 'Open'
+        RESOLVED = 'RESOLVED', 'Resolved'
+        IGNORED = 'IGNORED', 'Ignored'
+
+    id = models.BigAutoField(primary_key=True)
+    fingerprint = models.CharField(max_length=64, unique=True)
+    source = models.CharField(max_length=10, choices=Source.choices)
+    kind = models.CharField(max_length=200)
+    message = models.TextField()
+    culprit = models.CharField(max_length=300, null=True, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    occurrences = models.BigIntegerField(default=0)
+    first_seen = models.DateTimeField(db_default=Now())
+    last_seen = models.DateTimeField(db_default=Now())
+    regressed_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='resolved_by', related_name='+', null=True, blank=True)
+    note = models.TextField(null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'error_group'
+        verbose_name = 'error'
+        verbose_name_plural = 'errors'
+
+    def __str__(self):
+        return f"{self.kind}: {self.message[:80]}"
+
+
+class ErrorEvent(models.Model):
+    """One occurrence of an error group, sampled"""
+    id = models.BigAutoField(primary_key=True)
+    group = models.ForeignKey(ErrorGroup, on_delete=models.CASCADE, db_column='group_id', related_name='events')
+    occurred_at = models.DateTimeField(db_default=Now())
+    tenant_id = models.UUIDField(null=True, blank=True)
+    tenant_code = models.CharField(max_length=50, null=True, blank=True)
+    user_id = models.UUIDField(null=True, blank=True)
+    method = models.CharField(max_length=10, null=True, blank=True)
+    path = models.CharField(max_length=500, null=True, blank=True)
+    status_code = models.IntegerField(null=True, blank=True)
+    release = models.CharField(max_length=60, null=True, blank=True)
+    stack = models.TextField(null=True, blank=True)
+    context = models.JSONField(default=dict)
+
+    class Meta:
+        managed = False
+        db_table = 'error_event'
+
+
+class UptimeTarget(models.Model):
+    """An address the probe-uptime job calls every minute"""
+    class State(models.TextChoices):
+        UP = 'UP', 'Up'
+        DOWN = 'DOWN', 'Down'
+        UNKNOWN = 'UNKNOWN', 'Not checked yet'
+
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    url = models.URLField(max_length=500, verbose_name='address')
+    expect_status = models.IntegerField(default=200, verbose_name='expected status', help_text='The HTTP status a healthy answer has.')
+    expect_text = models.CharField(max_length=200, null=True, blank=True, verbose_name='expected text', help_text='Optional: the answer must contain this text.')
+    timeout_ms = models.IntegerField(default=5000, verbose_name='timeout (ms)', help_text='A slower answer counts as a failure.')
+    is_active = models.BooleanField(default=True, verbose_name='active')
+    state = models.CharField(max_length=10, choices=State.choices, default=State.UNKNOWN)
+    state_since = models.DateTimeField(db_default=Now())
+    consecutive_failures = models.IntegerField(default=0)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_ms = models.IntegerField(null=True, blank=True)
+    last_error = models.CharField(max_length=500, null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'uptime_target'
+        verbose_name = 'uptime target'
+
+    def __str__(self):
+        return self.name
+
+
+class UptimeCheck(models.Model):
+    """One probe of an uptime target"""
+    id = models.BigAutoField(primary_key=True)
+    target = models.ForeignKey(UptimeTarget, on_delete=models.CASCADE, db_column='target_id', related_name='checks')
+    checked_at = models.DateTimeField(db_default=Now())
+    ok = models.BooleanField()
+    status_code = models.IntegerField(null=True, blank=True)
+    duration_ms = models.IntegerField(null=True, blank=True)
+    error = models.CharField(max_length=500, null=True, blank=True)
+
+    class Meta:
+        managed = False
+        db_table = 'uptime_check'

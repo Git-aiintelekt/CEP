@@ -1,0 +1,84 @@
+{% extends "admin/base.html" %}
+{% load humanize %}
+{% block title %}{{ tenant.name }} performance | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p><a class="cep-link" href="{% url 'admin:tenants_tenant_performance' %}?window={{ window }}">← Tenant performance</a></p>
+            <h1>{{ tenant.name }} <small>{{ tenant.code }}</small></h1>
+            <p>{{ window_label }} · <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Open the tenant</a></p>
+        </div>
+        <nav class="cep-chips" aria-label="Period">
+            {% for key, label in windows %}<a href="?window={{ key }}"{% if key == window %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        </nav>
+    </div>
+
+    {% if row %}
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Requests</div><div class="cep-kpi-value">{{ row.requests|intcomma }}</div>
+            <div class="cep-kpi-caption">{{ row.client_errors|intcomma }} refused (4xx) · {{ row.server_errors|intcomma }} failed (5xx)</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Response time</div><div class="cep-kpi-value">{% if row.p95_ms %}{{ row.p95_ms|intcomma }} ms{% else %}—{% endif %}</div>
+            <div class="cep-kpi-caption">p95 · average {% if row.avg_ms is not None %}{{ row.avg_ms|intcomma }} ms{% else %}—{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Messages sent</div><div class="cep-kpi-value">{{ row.sent|intcomma }}</div>
+            <div class="cep-kpi-caption">{% if row.sent %}{{ row.delivery_rate }}% delivered · {{ row.bounce_rate }}% bounced · {{ row.complaint_rate }}% complaints{% else %}nothing sent{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Integrations</div><div class="cep-kpi-value">{{ row.integration_calls|intcomma }}</div>
+            <div class="cep-kpi-caption">{% if row.integration_calls %}{{ row.integration_failure_rate }}% failed or refused{% else %}no calls{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Errors</div><div class="cep-kpi-value">{{ row.error_events|intcomma }}</div>
+            <div class="cep-kpi-caption">{{ row.open_errors }} open error{{ row.open_errors|pluralize }} affecting this tenant</div></div>
+    </div>
+    {% endif %}
+
+    <section class="cep-section" aria-labelledby="cep-traffic">
+        <div class="cep-section-head"><h2 id="cep-traffic">Requests per {{ detail.slot }}</h2><span>bar height is the count; the red cap is the share that failed on the server</span></div>
+        <div class="cep-card cep-bars-card">
+            {% if detail.peak %}
+                <div class="cep-bars" role="img" aria-label="Requests per {{ detail.slot }}, peak {{ detail.peak }}">
+                    {% for h in detail.hourly %}<span title="{{ h.hour|date:'D j M H:i' }}: {{ h.requests|intcomma }} requests, {{ h.server_errors }} server errors{% if h.p95_ms %}, p95 {{ h.p95_ms }} ms{% endif %}" style="height: {{ h.height }}%">{% if h.error_share %}<i style="height: {{ h.error_share }}%"></i>{% endif %}</span>{% endfor %}
+                </div>
+                <div class="cep-bars-axis"><span>{{ detail.first|date:"D j M H:i" }}</span><span>peak {{ detail.peak|intcomma }} {{ detail.within }}</span><span>{{ detail.last|date:"D j M H:i" }}</span></div>
+            {% else %}
+                <p class="cep-muted">No requests from this tenant in the period.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="cep-section" aria-labelledby="cep-routes">
+        <div class="cep-section-head"><h2 id="cep-routes">Endpoints</h2><span>failing first, then slowest</span></div>
+        <div class="cep-card cep-table-wrap">
+            <table class="cep-table">
+                <thead><tr><th scope="col">Endpoint</th><th scope="col" class="num">Requests</th><th scope="col" class="num">4xx</th><th scope="col" class="num">5xx</th>
+                    <th scope="col" class="num">Average</th><th scope="col" class="num">p95</th></tr></thead>
+                <tbody>
+                {% for r in detail.routes %}
+                    <tr><th scope="row"><code>{{ r.method }} {{ r.route }}</code></th><td class="num">{{ r.requests|intcomma }}</td><td class="num">{{ r.client_errors|intcomma }}</td>
+                        <td class="num">{% if r.server_errors %}<span class="bad">{{ r.server_errors|intcomma }}</span>{% else %}0{% endif %}</td>
+                        <td class="num">{% if r.avg_ms is not None %}{{ r.avg_ms|intcomma }} ms{% else %}—{% endif %}</td>
+                        <td class="num">{% if r.p95_ms %}<span{% if r.p95_ms >= 2500 %} class="bad"{% elif r.p95_ms >= 1000 %} class="warn"{% endif %}>{{ r.p95_ms|intcomma }} ms</span>{% else %}—{% endif %}</td></tr>
+                {% empty %}
+                    <tr><td colspan="6" class="cep-muted">No requests in the period.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="cep-section" aria-labelledby="cep-errors">
+        <div class="cep-section-head"><h2 id="cep-errors">Errors</h2><span>seen for this tenant in the period</span></div>
+        <div class="cep-card"><div class="cep-list">
+            {% for e in detail.errors %}
+                <div class="cep-row">
+                    <span class="cep-icon" data-kind="{% if e.status == 'OPEN' %}fail{% else %}ok{% endif %}"><span class="material-symbols-outlined" aria-hidden="true">bug_report</span></span>
+                    <div class="cep-row-main"><a class="cep-link" href="{% url 'admin:platform_ops_errorgroup_change' e.id %}"><strong>{{ e.message|truncatechars:140 }}</strong></a>
+                        <p>{{ e.kind }}{% if e.culprit %} · {{ e.culprit }}{% endif %}</p></div>
+                    <div class="cep-row-side"><small>{{ e.count|intcomma }}× · last {{ e.last_seen|naturaltime }}</small>
+                        <span class="cep-pill"{% if e.status == 'OPEN' %} data-kind="danger"{% endif %}>{{ e.status|title }}</span></div>
+                </div>
+            {% empty %}
+                <div class="cep-clear"><span class="cep-icon" data-kind="ok"><span class="material-symbols-outlined" aria-hidden="true">check</span></span><div><strong>No errors</strong></div></div>
+            {% endfor %}
+        </div></div>
+    </section>
+</div>
+{% endblock %}

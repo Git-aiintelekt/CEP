@@ -21,7 +21,7 @@ Every staff account. Acknowledging an alert needs change rights on alerts.
 | Platform at a glance | Tenants, users, messages this month and the other headline numbers. | |
 | Newest tenants | The latest workspaces with their status dot. | The tenant. |
 | Latest changes | The newest entries of the change audit trail: who changed which definition. | The trail. |
-| System checks | Database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, background workers, configuration, email, secrets at rest, tenant operations, integrations; *n of 13 fine*. | |
+| System checks | Database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, background workers, configuration, email, secrets at rest, tenant operations, integrations, errors, uptime; *n of 15 fine*. | |
 | Scheduled jobs | Every job with its last run and whether it is on time; *n of 14 on time*. | Job runs. |
 
 ### Alerts

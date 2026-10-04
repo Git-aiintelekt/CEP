@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+{% load humanize %}
+{% block title %}Tenant performance | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Tenant performance</h1>
+            <p>{{ window_label }} · worst first · API speed from every request, sends from the execution tables, refreshed every minute</p>
+        </div>
+        <nav class="cep-chips" aria-label="Period">
+            {% for key, label in windows %}<a href="?window={{ key }}"{% if key == window %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        </nav>
+    </div>
+
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Requests</div><div class="cep-kpi-value">{{ totals.requests|intcomma }}</div>
+            <div class="cep-kpi-caption">{{ totals.server_errors|intcomma }} server error{{ totals.server_errors|pluralize }}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Messages sent</div><div class="cep-kpi-value">{{ totals.sent|intcomma }}</div>
+            <div class="cep-kpi-caption">email and text, all tenants</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Tenants in trouble</div><div class="cep-kpi-value">{{ totals.bad }}</div>
+            <div class="cep-kpi-caption">{{ totals.warn }} more to watch</div></div>
+    </div>
+
+    <section class="cep-card cep-table-wrap">
+        <table class="cep-table">
+            <thead><tr>
+                <th scope="col">Tenant</th><th scope="col">State</th>
+                <th scope="col" class="num">Requests</th><th scope="col" class="num">Server errors</th><th scope="col" class="num">p95</th>
+                <th scope="col" class="num">Sent</th><th scope="col" class="num">Delivered</th><th scope="col" class="num">Bounced</th><th scope="col" class="num">Complaints</th>
+                <th scope="col" class="num">Integrations failing</th><th scope="col" class="num">Errors</th>
+            </tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <th scope="row"><a class="cep-link" href="{% url 'admin:tenants_tenant_performance_detail' row.id %}?window={{ window }}"><strong>{{ row.name }}</strong></a>
+                        <small>{{ row.code }}{% if row.status != 'ACTIVE' %} · {{ row.status|title }}{% endif %}</small>
+                        {% if row.slowest %}<small class="cep-muted">Slowest: {{ row.slowest.0 }} · {{ row.slowest.1|intcomma }} ms</small>{% endif %}</th>
+                    <td>{% if row.grade == 'bad' %}<span class="cep-pill" data-kind="danger">Trouble</span>{% elif row.grade == 'warn' %}<span class="cep-pill" data-kind="warning">Watch</span>{% else %}<span class="cep-pill">Healthy</span>{% endif %}</td>
+                    <td class="num">{{ row.requests|intcomma }}</td>
+                    <td class="num">{% if row.error_rate is not None %}<span{% if row.error_rate >= 2 %} class="bad"{% elif row.error_rate >= 0.5 %} class="warn"{% endif %}>{{ row.error_rate }}%</span>{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.p95_ms %}<span{% if row.p95_ms >= 2500 %} class="bad"{% elif row.p95_ms >= 1000 %} class="warn"{% endif %}>{{ row.p95_ms|intcomma }} ms</span>{% else %}—{% endif %}</td>
+                    <td class="num">{{ row.sent|intcomma }}</td>
+                    <td class="num">{% if row.delivery_rate is not None %}{{ row.delivery_rate }}%{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.bounce_rate is not None %}<span{% if row.bounce_rate >= 5 %} class="bad"{% elif row.bounce_rate >= 2 %} class="warn"{% endif %}>{{ row.bounce_rate }}%</span>{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.complaint_rate is not None %}<span{% if row.complaint_rate >= 0.1 %} class="bad"{% elif row.complaint_rate >= 0.05 %} class="warn"{% endif %}>{{ row.complaint_rate }}%</span>{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.integration_failure_rate is not None %}<span{% if row.integration_failure_rate >= 10 %} class="bad"{% elif row.integration_failure_rate >= 2 %} class="warn"{% endif %}>{{ row.integration_failure_rate }}%</span> <small>of {{ row.integration_calls|intcomma }}</small>{% else %}—{% endif %}</td>
+                    <td class="num">{% if row.error_events %}{{ row.error_events|intcomma }}{% if row.open_errors %} <small>· {{ row.open_errors }} open</small>{% endif %}{% else %}—{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="11" class="cep-muted">No tenants yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    <p class="cep-muted cep-note">Trouble: server errors 2% or more, p95 2.5 s or more, bounces 5% or more, complaints 0.1% or more, or integrations failing 10% or more. Watch: a quarter of those, or any open error.
+        p95 is estimated from response-time buckets (50, 100, 250, 500 ms, 1, 2.5, 5, 10 s), interpolated inside the bucket.</p>
+</div>
+{% endblock %}

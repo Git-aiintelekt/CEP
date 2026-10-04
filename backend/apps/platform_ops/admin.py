@@ -639,4 +639,6 @@ class PlatformPersonalizationTagAdmin(BaseAdmin):
             messages.success(request, f"{{{{{tag.tag_key}}}}}: {inherit.summary(outcomes)}.")
 
 
+from . import admin_observe  # noqa: E402,F401  Errors, Uptime, Tenant performance
+
 register_app_models(__package__)

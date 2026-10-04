@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (auth_api, campaigns_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
+from . import (auth_api, campaigns_api, client_errors, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
@@ -54,6 +54,7 @@ urlpatterns = [
     path("campaigns/<uuid:pk>/suppressions/export.csv", recipients_api.CampaignSuppressionsExportView.as_view(), name="campaign-suppressions-export"),
     path("webhooks/delivery/<str:tenant_code>/<uuid:provider_id>/<str:token>/", delivery_public.delivery_webhook, name="delivery-webhook"),
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
+    path("client-errors/", client_errors.client_error_view, name="client-errors"),   # browser errors, no sign-in
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
     path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),

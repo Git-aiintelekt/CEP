@@ -24,6 +24,11 @@ Platform administrators.
 | alerts.recipients | list | empty | Who is emailed when a check fails or a job breaks. |
 | alerts.webhook_url | text | empty | A Slack-compatible webhook for the same. |
 | alerts.renotify_minutes | number | 240 | How often an open alert is notified again. |
+| errors.retention_days | number | 30 | Days error occurrences are kept; a resolved error not seen for this long is removed. |
+| errors.spike_per_15_minutes | number | 25 | Occurrences of one error within 15 minutes that make the Errors check fail and alert. |
+| metrics.retention_days | number | 30 | Days of per-minute request figures kept for Tenant performance. |
+| uptime.failures_before_alert | number | 2 | Failed probes in a row before an uptime target is down and an alert goes out. |
+| uptime.retention_days | number | 90 | Days of uptime probes kept. |
 | tenancy.default_industry | text | GENERIC | The profile a tenant without one follows. |
 | tenancy.offboarding_export_days | number | 30 | How long an offboarding export is kept. |
 | messaging.max_upload_mb | number | 5 | The largest image a designer may upload. |

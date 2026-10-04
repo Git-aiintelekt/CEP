@@ -1,0 +1,24 @@
+{% load humanize %}
+{% if original %}
+<section class="cep-section" aria-labelledby="cep-performance" style="margin-top:1.25rem">
+    <div class="cep-section-head">
+        <h2 id="cep-performance">Performance</h2>
+        {% if performance %}{% if performance.grade == 'bad' %}<span class="cep-pill" data-kind="danger">Trouble</span>{% elif performance.grade == 'warn' %}<span class="cep-pill" data-kind="warning">Watch</span>{% else %}<span class="cep-pill">Healthy</span>{% endif %}{% endif %}
+        <span>last 24 hours · <a class="cep-link" href="{% url 'admin:tenants_tenant_performance_detail' original.pk %}">Open performance →</a></span>
+    </div>
+    {% if performance %}
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Requests</div><div class="cep-kpi-value">{{ performance.requests|intcomma }}</div>
+            <div class="cep-kpi-caption">{% if performance.error_rate is not None %}{{ performance.error_rate }}% server errors{% else %}none{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">p95</div><div class="cep-kpi-value">{% if performance.p95_ms %}{{ performance.p95_ms|intcomma }} ms{% else %}—{% endif %}</div>
+            <div class="cep-kpi-caption">{% if performance.slowest %}slowest {{ performance.slowest.0 }}{% else %}response time{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Sent</div><div class="cep-kpi-value">{{ performance.sent|intcomma }}</div>
+            <div class="cep-kpi-caption">{% if performance.sent %}{{ performance.delivery_rate }}% delivered · {{ performance.bounce_rate }}% bounced{% else %}nothing sent{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Errors</div><div class="cep-kpi-value">{{ performance.error_events|intcomma }}</div>
+            <div class="cep-kpi-caption">{{ performance.open_errors }} open</div></div>
+    </div>
+    {% else %}
+    <div class="cep-card cep-clear"><div><strong>No figures</strong><span class="cep-muted">They appear once the tenant's first requests are counted.</span></div></div>
+    {% endif %}
+</section>
+{% endif %}

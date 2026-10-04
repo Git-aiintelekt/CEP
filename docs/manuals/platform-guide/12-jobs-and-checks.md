@@ -4,7 +4,7 @@
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: fourteen scheduled jobs with their runs, thirteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: sixteen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -28,6 +28,8 @@ Every staff account reads; acknowledging an alert needs change rights.
 | rollup-integration-metrics | Rolls the integration log up into per-minute figures and prunes both. | 20 min |
 | decide-ab-winners | Chooses the subject-line winner of runs whose decision time has come. | 10 min |
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
+| probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
+| prune-observability | Removes errors, request figures and uptime probes past their retention. | 49 h |
 
 The cadence is how late a job may be before it reads overdue; the scheduler runs most of them more often. Two chatty jobs (the outbox relay and the list imports) record only failures and one success a minute.
 
@@ -48,6 +50,8 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 | Secrets at rest | The encryption key is set, so credentials can be stored. |
 | Tenant operations | No operation stuck. |
 | Integrations | No circuit open for long. |
+| Errors | No error new or returning in the last hour, and no error repeating fast. See Errors, Uptime and Tenant Performance. |
+| Uptime | Every uptime target answers. |
 
 ## The fields and controls
 
@@ -55,7 +59,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 13 fine*, *n of 14 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 16 on time*. |
 
 ## How to
 

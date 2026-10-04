@@ -40,6 +40,9 @@ export const session = {
   get hasToken() {
     return memory.access !== null
   },
+  get accessToken() {
+    return memory.access
+  },
   setTenant(tenant: string) {
     memory = { ...memory, tenant }
     write(KEYS.tenant, tenant)
