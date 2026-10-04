@@ -215,7 +215,7 @@ def _history_partitions(source, target, tenant_id: str) -> int:
                 continue
             year, mon = (int(x) for x in month.split("_"))
             upper = f"{year + (mon == 12)}-{1 if mon == 12 else mon + 1:02d}-01"
-            cur.execute(f"CREATE TABLE \"{child}\" PARTITION OF \"{parent}\" FOR VALUES FROM ('{year}-{mon:02d}-01') TO ('{upper}')")
+            cur.execute(f"CREATE TABLE \"{child}\" PARTITION OF \"{parent}\" FOR VALUES FROM ('{year}-{mon:02d}-01 00:00:00+00') TO ('{upper} 00:00:00+00')")
             cur.execute(f'REVOKE ALL ON "{child}" FROM cep_app')
             created += 1
     return created

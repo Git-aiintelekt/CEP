@@ -897,6 +897,7 @@ Platform administrators. These are seldom touched by hand: onboarding writes the
 
 - A dropped partition is gone; detach keeps it as a plain table for an archive.
 - The Partitions check on the home page fails when a tenant lacks partitions for the months ahead; Repair onboarding on the tenant makes them.
+- A month's partition runs from 00:00 UTC on its first day. Partitions made before October 2026 may start a few hours off, in the time zone of the session that made them; each new month starts exactly where the previous one ends, so no row falls between two months or into two.
 
 ---
 

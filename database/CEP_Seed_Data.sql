@@ -31,7 +31,8 @@ BEGIN
             v_month := (date_trunc('month', TIMESTAMPTZ '2026-09-16') - (i * INTERVAL '1 month'))::date;
             v_child := format('%s_%s', v_part, to_char(v_month, 'YYYY_MM'));
             IF to_regclass(v_child) IS NULL THEN
-                EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)', v_child, v_part, v_month, (v_month + INTERVAL '1 month')::date);
+                EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)', v_child, v_part,
+                               v_month::timestamp AT TIME ZONE 'UTC', (v_month + INTERVAL '1 month')::timestamp AT TIME ZONE 'UTC');
             END IF;
         END LOOP;
     END LOOP;
