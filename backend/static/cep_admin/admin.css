@@ -179,3 +179,44 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
 .cep-guide-chapter td:first-child { font-weight: 500; width: 26%; }
 .cep-guide-chapter blockquote { margin: 0 0 0.75rem; padding-left: 0.75rem; border-left: 2px solid color-mix(in oklab, var(--color-base-500) 40%, transparent); }
 @media (max-width: 900px) { .cep-guide-layout { grid-template-columns: 1fr; } .cep-guide-chapters { position: static; } }
+
+/* ---- observability: Errors, Uptime, Tenant performance ------------------------------------------------------------ */
+div.cep-card.cep-kpi { padding: 1rem 1.125rem; display: flex; flex-direction: column; gap: 0.375rem; }
+.cep-chips { display: inline-flex; gap: 0.25rem; padding: 0.1875rem; border: 1px solid var(--cep-line); border-radius: var(--border-radius, 8px); background: var(--cep-surface); }
+.cep-chips a { padding: 0.3125rem 0.75rem; border-radius: calc(var(--border-radius, 8px) - 2px); font-size: 0.8125rem; color: var(--cep-text); text-decoration: none; }
+.cep-chips a:hover { color: var(--cep-text-strong); background: var(--cep-surface-soft); }
+.cep-chips a[aria-current="page"] { background: var(--cep-accent-soft); color: var(--cep-accent); font-weight: 600; }
+.cep-chips a:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 1px; }
+.cep-table-wrap { overflow-x: auto; }
+.cep-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+.cep-table th, .cep-table td { padding: 0.625rem 0.625rem; text-align: left; vertical-align: top; border-top: 1px solid var(--cep-line); }
+.cep-table thead th { border-top: 0; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cep-text-subtle); background: var(--cep-surface-soft); vertical-align: bottom; }
+.cep-table tbody th { font-weight: 400; color: var(--cep-text-strong); min-width: 11rem; max-width: 18rem; }
+.cep-table th:first-child, .cep-table td:first-child { padding-left: 1rem; }
+.cep-table tbody th small { overflow-wrap: anywhere; }
+.cep-table tbody th small { display: block; color: var(--cep-text-subtle); }
+.cep-table .num { text-align: right; white-space: nowrap; }
+.cep-table .bad { color: var(--cep-bad); font-weight: 600; }
+.cep-table .warn { color: var(--cep-warn); font-weight: 600; }
+.cep-table code, .cep-event code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; }
+.cep-note { font-size: 0.75rem; max-width: 60rem; margin: 0; }
+.cep-bars-card { padding: 1rem 1.125rem 0.75rem; }
+.cep-bars { display: flex; align-items: flex-end; gap: 2px; height: 7rem; }
+.cep-bars > span { flex: 1 1 0; min-width: 2px; display: flex; flex-direction: column; overflow: hidden; background: var(--color-primary-300); border-radius: 2px 2px 0 0; }
+.cep-bars > span > i { display: block; flex: none; background: var(--cep-bad); }
+.cep-bars > span[data-state="fail"] { background: var(--cep-bad); opacity: 0.75; }
+.cep-bars-axis { display: flex; justify-content: space-between; margin-top: 0.375rem; font-size: 0.6875rem; color: var(--cep-text-subtle); }
+.cep-actions { display: flex; gap: 0.5rem; }
+.cep-button-quiet { background: var(--cep-surface); color: var(--cep-text-strong); border: 1px solid var(--cep-line); }
+.cep-button-quiet:hover { background: var(--cep-surface-soft); }
+.cep-note-form { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.875rem 1.125rem; }
+.cep-note-form textarea { width: 100%; max-width: 48rem; padding: 0.5rem 0.625rem; border: 1px solid var(--cep-line); border-radius: var(--border-radius, 8px);
+    background: var(--cep-surface); color: var(--cep-text-strong); font: inherit; font-size: 0.8125rem; }
+.cep-event { display: block; }
+.cep-event summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; color: var(--cep-text); }
+.cep-event summary strong { color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+.cep-context { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 0.75rem; }
+.cep-context dt { color: var(--cep-text-subtle); }
+.cep-context dd { margin: 0; color: var(--cep-text-strong); word-break: break-word; }
+.cep-stack { margin: 0.75rem 0 0; padding: 0.75rem; max-height: 24rem; overflow: auto; border-radius: var(--border-radius, 8px); background: var(--cep-surface-soft);
+    border: 1px solid var(--cep-line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.5; white-space: pre; color: var(--cep-text-strong); }

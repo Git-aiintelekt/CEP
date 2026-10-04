@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.platform_ops.observe.RequestMetricsMiddleware",  # times every request per tenant and route (the back-office's Tenant performance)
     "django.middleware.security.SecurityMiddleware",
     "apps.integrations.bridge.correlation.CorrelationIdMiddleware",   # X-Correlation-Id in, the id used out; on every integration log row
     "apps.tenants.middleware.PlatformAdminMiddleware",    # /admin/ -> BYPASSRLS platform connection (before sessions/auth)
@@ -83,7 +84,8 @@ DATABASES["platform"] = env.db("PLATFORM_DATABASE_URL", default=env("DATABASE_UR
 PLATFORM_ALIAS = "platform"
 PLATFORM_PATH_PREFIXES = ("/admin/",)
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")      # where one-time password links point
-API_PUBLIC_URL = env("API_PUBLIC_URL", default="http://localhost:8000")   # the address an identity provider redirects back to
+API_PUBLIC_URL = env("API_PUBLIC_URL", default="http://localhost:8000")
+CEP_RELEASE = env("CEP_RELEASE", default="")                                 # shown on each recorded error; empty = the git commit at start-up   # the address an identity provider redirects back to
 PLATFORM_ADMIN_URL = env("PLATFORM_ADMIN_URL", default=API_PUBLIC_URL)    # linked from alert emails
 
 # ---------------------------------------------------------------- email sent BY the platform (password links, alerts, notices)
@@ -111,7 +113,8 @@ DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
                         "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "tenant_identity_provider",
-                        "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag"}
+                        "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
+                        "error_group", "error_event", "request_metric", "uptime_target", "uptime_check"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth
@@ -202,6 +205,8 @@ CELERY_BEAT_SCHEDULE = {
     "rollup-integration-metrics": {"task": "workers.platform.rollup_integration_metrics", "schedule": 300},  # per-minute integration figures from the log
     "decide-ab-winners": {"task": "workers.campaign.decide_ab_winners", "schedule": 60},                 # subject-line tests whose decision time has come
     "send-weekly-reports": {"task": "workers.reports.send_weekly_reports", "schedule": 900},              # the Monday report, in each workspace's own time
+    "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
+    "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 
@@ -242,8 +247,9 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"json": {"format": '{"ts":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}'}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json"}},
-    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "json"},
+                 "errors": {"class": "apps.platform_ops.observe.ErrorCaptureHandler", "level": "ERROR"}},   # the back-office's Errors
+    "root": {"handlers": ["console", "errors"], "level": env("LOG_LEVEL", default="INFO")},
 }
 
 # ---------------------------------------------------------------- platform back-office theme

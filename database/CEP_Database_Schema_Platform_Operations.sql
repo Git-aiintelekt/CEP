@@ -1211,6 +1211,109 @@ ALTER TABLE contact_list DROP CONSTRAINT IF EXISTS ck_contact_list_approval_stat
 ALTER TABLE contact_list ADD CONSTRAINT ck_contact_list_approval_status CHECK (approval_status IN ('NOT_REQUIRED', 'AWAITING', 'APPROVED', 'REFUSED'));
 COMMENT ON COLUMN contact_list.approval_status IS 'AWAITING or REFUSED: no campaign sends to this list (LIST_NOT_APPROVED in the audience build) until someone with consent.edit approves it';
 
+-- -------------------------------------------------------------------------------------
+-- 21. OBSERVABILITY: errors grouped by fingerprint, per-minute request figures per tenant, uptime probes
+--     Platform-only tables (staff read them in the back-office; no tenant ever does), written on the platform connection.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS error_group (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    fingerprint         VARCHAR(64) NOT NULL UNIQUE,                     -- sha256 of source, kind and the top in-app frames (or the message)
+    source              VARCHAR(10) NOT NULL,                            -- BACKEND | BROWSER | JOB
+    kind                VARCHAR(200) NOT NULL,                           -- the exception class, or the logger for an error without one
+    message             TEXT NOT NULL,
+    culprit             VARCHAR(300),                                    -- where: module.function, the route, or the page
+    status              VARCHAR(10) NOT NULL DEFAULT 'OPEN',             -- OPEN | RESOLVED | IGNORED
+    occurrences         BIGINT NOT NULL DEFAULT 0,
+    first_seen          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    regressed_at        TIMESTAMPTZ,                                     -- seen again after it was resolved
+    resolved_at         TIMESTAMPTZ,
+    resolved_by         UUID REFERENCES app_user(id),
+    note                TEXT,
+    CONSTRAINT ck_error_group_source CHECK (source IN ('BACKEND', 'BROWSER', 'JOB')),
+    CONSTRAINT ck_error_group_status CHECK (status IN ('OPEN', 'RESOLVED', 'IGNORED'))
+);
+CREATE INDEX IF NOT EXISTS ix_error_group_last_seen ON error_group(status, last_seen DESC);
+COMMENT ON TABLE error_group IS 'One row per distinct error (same source, kind and place): how often, since when, and whether someone dealt with it';
+
+CREATE TABLE IF NOT EXISTS error_event (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    group_id            BIGINT NOT NULL REFERENCES error_group(id) ON DELETE CASCADE,
+    occurred_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    tenant_id           UUID,                                            -- no foreign key: an error may concern a tenant being removed
+    tenant_code         VARCHAR(50),
+    user_id             UUID,
+    method              VARCHAR(10),
+    path                VARCHAR(500),
+    status_code         INTEGER,
+    release             VARCHAR(60),
+    stack               TEXT,                                            -- capped at 16 KB
+    context             JSONB NOT NULL DEFAULT '{}'                     -- browser, page, component stack, job name, correlation id
+);
+CREATE INDEX IF NOT EXISTS ix_error_event_group ON error_event(group_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS ix_error_event_tenant ON error_event(tenant_id, occurred_at DESC);
+COMMENT ON TABLE error_event IS 'Occurrences of an error group, sampled (at most a few per group per minute); pruned after errors.retention_days';
+
+CREATE TABLE IF NOT EXISTS request_metric (
+    tenant_id           UUID NOT NULL,                                   -- 00000000-0000-0000-0000-000000000000 for requests without a tenant (back-office, public pages)
+    bucket_start        TIMESTAMPTZ NOT NULL,                            -- the minute
+    method              VARCHAR(10) NOT NULL,
+    route               VARCHAR(300) NOT NULL,                           -- the URL pattern, never the concrete path
+    requests            INTEGER NOT NULL DEFAULT 0,
+    client_errors       INTEGER NOT NULL DEFAULT 0,                      -- 4xx
+    server_errors       INTEGER NOT NULL DEFAULT 0,                      -- 5xx
+    total_ms            BIGINT NOT NULL DEFAULT 0,
+    max_ms              INTEGER NOT NULL DEFAULT 0,
+    histogram           INTEGER[] NOT NULL DEFAULT '{0,0,0,0,0,0,0,0,0}', -- counts under 50, 100, 250, 500, 1000, 2500, 5000, 10000 ms, and above
+    PRIMARY KEY (tenant_id, bucket_start, method, route)
+);
+CREATE INDEX IF NOT EXISTS ix_request_metric_recent ON request_metric(bucket_start DESC);
+COMMENT ON TABLE request_metric IS 'Per-minute request figures per tenant and route, added up by every API process; the back-office''s tenant performance reads them';
+
+CREATE TABLE IF NOT EXISTS uptime_target (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name                VARCHAR(100) NOT NULL UNIQUE,
+    url                 VARCHAR(500) NOT NULL,
+    expect_status       INTEGER NOT NULL DEFAULT 200,
+    expect_text         VARCHAR(200),                                    -- optional: the body must contain it
+    timeout_ms          INTEGER NOT NULL DEFAULT 5000,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    state               VARCHAR(10) NOT NULL DEFAULT 'UNKNOWN',          -- UP | DOWN | UNKNOWN
+    state_since         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    last_checked_at     TIMESTAMPTZ,
+    last_ms             INTEGER,
+    last_error          VARCHAR(500),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_uptime_target_state CHECK (state IN ('UP', 'DOWN', 'UNKNOWN'))
+);
+COMMENT ON TABLE uptime_target IS 'Addresses the probe-uptime job calls every minute; DOWN after uptime.failures_before_alert failures in a row';
+
+CREATE TABLE IF NOT EXISTS uptime_check (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    target_id           BIGINT NOT NULL REFERENCES uptime_target(id) ON DELETE CASCADE,
+    checked_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ok                  BOOLEAN NOT NULL,
+    status_code         INTEGER,
+    duration_ms         INTEGER,
+    error               VARCHAR(500)
+);
+CREATE INDEX IF NOT EXISTS ix_uptime_check_target ON uptime_check(target_id, checked_at DESC);
+COMMENT ON TABLE uptime_check IS 'Every probe of an uptime target; availability and response time are read from here';
+
+GRANT SELECT, INSERT, UPDATE ON error_group, request_metric, uptime_target TO cep_app;
+GRANT SELECT, INSERT ON error_event, uptime_check TO cep_app;
+GRANT ALL ON error_group, error_event, request_metric, uptime_target, uptime_check TO cep_admin;
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('errors.retention_days', '30', 'INTEGER', 'Observability', 'Days error occurrences are kept; a resolved error not seen for this long is removed'),
+    ('errors.spike_per_15_minutes', '25', 'INTEGER', 'Observability', 'Occurrences of one error within 15 minutes that make the Errors check fail and alert'),
+    ('metrics.retention_days', '30', 'INTEGER', 'Observability', 'Days of per-minute request figures kept for tenant performance'),
+    ('uptime.failures_before_alert', '2', 'INTEGER', 'Observability', 'Failed probes in a row before an uptime target is down and an alert goes out'),
+    ('uptime.retention_days', '90', 'INTEGER', 'Observability', 'Days of uptime probes kept')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

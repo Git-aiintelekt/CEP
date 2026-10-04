@@ -35,6 +35,8 @@ JOBS = {
     "rollup-integration-metrics": ("Rolls the integration log up into per-minute figures and prunes both", 20 * 60),
     "decide-ab-winners": ("Chooses the subject-line winner of runs whose decision time has come", 10 * 60),
     "send-weekly-reports": ("Emails the weekly report to workspaces that asked for one", 3 * 3600),
+    "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),
+    "prune-observability": ("Removes errors, request figures and uptime probes past their retention", 49 * 3600),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}
@@ -65,12 +67,26 @@ def monitored(name: str):
                 result = fn(*args, **kwargs)
             except Exception as exc:
                 _finish(name, run_id, started, "FAILED", error=f"{exc.__class__.__name__}: {exc}\n{traceback.format_exc()[-1500:]}")
+                _record_failure(name, exc)
                 raise
             _finish(name, run_id, started, "SUCCEEDED", result=result)
             return result
         run.job_name = name
         return run
     return wrap
+
+
+def _record_failure(name, exc):
+    """The failure goes to the back-office's Errors as a job error; the worker's own log line of it is then not counted twice."""
+    try:
+        from apps.platform_ops import observe
+        frames = observe._frames(exc.__traceback__)
+        observe.record_error(source="JOB", kind=f"{type(exc).__module__}.{type(exc).__name__}".removeprefix("builtins."), message=str(exc) or type(exc).__name__,
+                             place=f"{name}:{'.'.join(frames[-1])}" if frames else name, culprit=f"Job {name}",
+                             stack="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)), context={"job": name})
+        exc._cep_recorded = True
+    except Exception:                                      # noqa: BLE001
+        pass
 
 
 def _finish(name, run_id, started, status, result=None, error=None):

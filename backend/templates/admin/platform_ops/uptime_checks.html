@@ -1,0 +1,27 @@
+{% load humanize %}
+{% if uptime %}
+<section class="cep-section" aria-labelledby="cep-uptime" style="margin-top:1.25rem">
+    <div class="cep-section-head"><h2 id="cep-uptime">Availability</h2><span>share of probes that succeeded · p95 of the successful ones</span></div>
+    <div class="cep-grid cep-grid-kpi">
+        {% for label, f in uptime.windows %}
+            <div class="cep-card cep-kpi"><div class="cep-kpi-top">{{ label }}</div><div class="cep-kpi-value">{% if f.percent is not None %}{{ f.percent }}%{% else %}—{% endif %}</div>
+                <div class="cep-kpi-caption">{{ f.checks|intcomma }} probes{% if f.p95_ms %} · p95 {{ f.p95_ms|intcomma }} ms{% endif %}</div></div>
+        {% endfor %}
+    </div>
+    <div class="cep-card cep-table-wrap">
+        <table class="cep-table">
+            <thead><tr><th scope="col">Probed</th><th scope="col">Result</th><th scope="col" class="num">Status</th><th scope="col" class="num">Time</th><th scope="col">Error</th></tr></thead>
+            <tbody>
+            {% for c in uptime.checks %}
+                <tr><th scope="row">{{ c.checked_at|date:"D j M H:i:s" }}</th>
+                    <td>{% if c.ok %}<span class="cep-pill">Up</span>{% else %}<span class="cep-pill" data-kind="danger">Failed</span>{% endif %}</td>
+                    <td class="num">{{ c.status_code|default:"—" }}</td><td class="num">{% if c.duration_ms is not None %}{{ c.duration_ms|intcomma }} ms{% else %}—{% endif %}</td>
+                    <td>{{ c.error|default:"" }}</td></tr>
+            {% empty %}
+                <tr><td colspan="5" class="cep-muted">Not probed yet. The probe-uptime job runs every minute.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}

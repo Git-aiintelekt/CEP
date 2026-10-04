@@ -58,6 +58,7 @@ class TenantAdmin(BaseAdmin):
     form = TenantForm
     list_display = ("code", "name", "show_status", "show_industry", "show_readiness", "isolation_mode", "region", "partition_seq", "show_users", "onboarded_at")
     change_form_before_template = "admin/tenants/readiness.html"
+    change_form_after_template = "admin/tenants/performance_panel.html"
     list_filter = ("status", "isolation_mode", "region")
     search_fields = ("code", "name", "subdomain", "custom_app_domain")
     ordering = ("code",)
@@ -172,8 +173,14 @@ class TenantAdmin(BaseAdmin):
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         tenant = Tenant.objects.using(settings.PLATFORM_ALIAS).filter(pk=object_id).first()
-        extra = {**(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None}
+        from apps.platform_ops.admin_observe import tenant_panel
+        extra = {**(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None,
+                 "performance": tenant_panel(tenant.pk) if tenant else None}
         return super().change_view(request, object_id, form_url, extra)
+
+    def get_urls(self):
+        from apps.platform_ops.admin_observe import performance_urls
+        return [*performance_urls(self.admin_site), *super().get_urls()]
 
     @display(description="Active users")
     def show_users(self, obj):

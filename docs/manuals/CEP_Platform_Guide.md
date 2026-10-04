@@ -114,6 +114,13 @@ For the platform team in the back-office. Built from `docs/manuals/platform-guid
   - What each section holds
   - How to
   - Things to know
+- Errors, Uptime and Tenant Performance
+  - What this is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
 
 ---
 
@@ -142,6 +149,7 @@ Each chapter follows a section of the back-office menu and has the same shape as
 | Moving, exporting and offboarding a tenant | Tenants → Move and offboard |
 | Routing, storage and retention | Operations → Database routing, Storage and CDN, Partition retention |
 | The read-only sections | Campaigns, Delivery, Customers and lists, Content, the audit trail |
+| Errors, uptime and tenant performance | Overview → Errors, Uptime, Tenant performance |
 
 ## Two ideas that run through everything
 
@@ -215,7 +223,7 @@ Every staff account. Acknowledging an alert needs change rights on alerts.
 | Platform at a glance | Tenants, users, messages this month and the other headline numbers. | |
 | Newest tenants | The latest workspaces with their status dot. | The tenant. |
 | Latest changes | The newest entries of the change audit trail: who changed which definition. | The trail. |
-| System checks | Database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, background workers, configuration, email, secrets at rest, tenant operations, integrations; *n of 13 fine*. | |
+| System checks | Database, tenant isolation, migrations, partitions, event outbox, failed messages, cache, background workers, configuration, email, secrets at rest, tenant operations, integrations, errors, uptime; *n of 15 fine*. | |
 | Scheduled jobs | Every job with its last run and whether it is on time; *n of 14 on time*. | Job runs. |
 
 ### Alerts
@@ -510,6 +518,11 @@ Platform administrators.
 | alerts.recipients | list | empty | Who is emailed when a check fails or a job breaks. |
 | alerts.webhook_url | text | empty | A Slack-compatible webhook for the same. |
 | alerts.renotify_minutes | number | 240 | How often an open alert is notified again. |
+| errors.retention_days | number | 30 | Days error occurrences are kept; a resolved error not seen for this long is removed. |
+| errors.spike_per_15_minutes | number | 25 | Occurrences of one error within 15 minutes that make the Errors check fail and alert. |
+| metrics.retention_days | number | 30 | Days of per-minute request figures kept for Tenant performance. |
+| uptime.failures_before_alert | number | 2 | Failed probes in a row before an uptime target is down and an alert goes out. |
+| uptime.retention_days | number | 90 | Days of uptime probes kept. |
 | tenancy.default_industry | text | GENERIC | The profile a tenant without one follows. |
 | tenancy.offboarding_export_days | number | 30 | How long an offboarding export is kept. |
 | messaging.max_upload_mb | number | 5 | The largest image a designer may upload. |
@@ -727,7 +740,7 @@ The feature **sso** must be on for the workspace; the sign-in page asks the API 
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: fourteen scheduled jobs with their runs, thirteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: sixteen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -751,6 +764,8 @@ Every staff account reads; acknowledging an alert needs change rights.
 | rollup-integration-metrics | Rolls the integration log up into per-minute figures and prunes both. | 20 min |
 | decide-ab-winners | Chooses the subject-line winner of runs whose decision time has come. | 10 min |
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
+| probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
+| prune-observability | Removes errors, request figures and uptime probes past their retention. | 49 h |
 
 The cadence is how late a job may be before it reads overdue; the scheduler runs most of them more often. Two chatty jobs (the outbox relay and the list imports) record only failures and one success a minute.
 
@@ -771,6 +786,8 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 | Secrets at rest | The encryption key is set, so credentials can be stored. |
 | Tenant operations | No operation stuck. |
 | Integrations | No circuit open for long. |
+| Errors | No error new or returning in the last hour, and no error repeating fast. See Errors, Uptime and Tenant Performance. |
+| Uptime | Every uptime target answers. |
 
 ## The fields and controls
 
@@ -778,7 +795,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 13 fine*, *n of 14 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 16 on time*. |
 
 ## How to
 
@@ -917,3 +934,86 @@ Every staff account reads.
 
 - Keys, passwords and card numbers are never shown in these sections; a credential reads as stored or not.
 - Editing a record here bypasses the app's rules; that is why the sections are read-only, except the integration policies, which belong to the platform.
+
+---
+
+# Errors, Uptime and Tenant Performance
+
+**Where:** Overview → Errors, Uptime, Tenant performance. A tenant's own figures are also on its page, under Tenants → the tenant → Performance.
+
+## What this is for
+
+Knowing that something broke before a customer says so, and seeing how each tenant is served. Errors collects every failure from three places: the API, the background jobs, and the browsers of the people using the app. Uptime calls the installation's public addresses every minute and alerts when one stops answering. Tenant performance shows each tenant's requests, response times, sends and failures side by side, worst first.
+
+## Who can use it
+
+Platform staff. Tenants never see these pages; their own workspace shows only its own sends and integrations.
+
+## The fields and controls
+
+### Errors
+
+| Field | What it is |
+|---|---|
+| Error | The message, and under it the kind (the exception) and where it happened: the endpoint, the job, or the page. |
+| Source | API, Job or Browser. |
+| Occurrences | How many times it happened since it was first seen. Every occurrence is counted; at most ten a minute are kept with their details. |
+| Tenants | How many tenants it touched. |
+| First seen, Last seen | When it started and when it last happened. |
+| State | Open, Regressed (resolved, then seen again), Resolved, Ignored. The list opens on Open; the filter shows the rest. |
+| Resolve, Ignore, Reopen | Actions on the list and buttons on the error's page. Resolve says it is fixed: if it happens again it reopens as Regressed. Ignore keeps counting but no longer counts as a problem. |
+| The error's page | The state, the count, the tenants it touched, the last 14 days as bars, a note for what was found or the ticket, and the recent occurrences with the request, the tenant, the release and the full stack. |
+
+### Uptime
+
+| Field | What it is |
+|---|---|
+| Name, Address | What is called. Three targets are made on the first run from the installation's addresses: the API's health address, the app's first page, and the back-office sign-in. Add more with Add uptime target. |
+| Expected status, Expected text | A healthy answer has this status (200 by default) and, when set, contains this text. The app target expects the page's root element, so a blank server error page counts as down. |
+| Timeout (ms) | A slower answer is a failure. 5,000 by default. |
+| Active | Off pauses the target without losing its history. |
+| State, Since | Up, Down or Not checked yet, and for how long. |
+| 24 h, 7 days, 30 days | The share of probes that succeeded. |
+| Probe now | Calls every active target at once, without waiting for the minute. |
+| The target's page | Availability and response time (p95) for each period, and the last 30 probes with their status, time and error. |
+
+### Tenant performance
+
+| Field | What it is |
+|---|---|
+| Period | Last hour, last 24 hours or last 7 days. |
+| State | Trouble, Watch or Healthy. Trouble: server errors 2% or more, p95 2.5 s or more, bounces 5% or more, complaints 0.1% or more, or integrations failing 10% or more. Watch: a quarter of those, or any open error. |
+| Requests, Server errors, p95 | The tenant's API calls, the share that failed on the server (5xx), and the time 95% of them finished within. The slowest endpoint is named under the tenant. |
+| Sent, Delivered, Bounced, Complaints | Email and text messages created in the period and what became of them. |
+| Integrations failing | Calls to and from its integrations that failed or were refused, of all calls. |
+| Errors | Error occurrences tied to the tenant, and how many distinct errors are still open. |
+| The tenant's page | The same figures as tiles, requests per hour as bars (a red bar had server errors), every endpoint it used with its counts and times, failing first, and the errors it hit. |
+
+## How to
+
+**Someone reports "the page crashed".** Errors → filter Source: Browser → find their page. The occurrence shows their workspace, the page, the browser and the component that failed. Fix it, then Resolve: if the fix did not hold, it comes back as Regressed.
+
+**Find out why one tenant is slow.** Tenant performance → the tenant → Endpoints. The slowest endpoints are near the top; compare with another tenant on the same route to tell the tenant's data apart from the code.
+
+**Watch another address.** Uptime → Add uptime target → the name, the address, and the text a healthy page contains. It is probed within the minute.
+
+**Silence a known error.** Errors → the error → Ignore. It keeps counting and you can reopen it.
+
+## What happens behind the scenes
+
+Every API request is timed and counted per tenant, per endpoint and per minute; each server process adds its figures to the database every 30 seconds, outside the request. Response times are kept as counts in time buckets (under 50, 100, 250, 500 ms, 1, 2.5, 5, 10 s, and above), so p95 is an estimate, interpolated inside the bucket it falls in.
+
+Any error the API or a job logs with an exception is recorded on a connection of its own, so it is kept even when the request that raised it is rolled back. A job that fails is recorded once, as a job error. The app reports errors from the browser through a public endpoint that takes at most 30 reports a minute from one address. Errors are grouped by their kind and where they happened, with ids and numbers taken out, so one crash on many campaigns is one error.
+
+The probe-uptime job runs every minute. A target is down after `uptime.failures_before_alert` failures in a row and up again on the first success; either change runs the alert evaluation at once, so the notice goes out within the minute rather than at the next 5-minute pass.
+
+Two health checks feed Home and the alerts. **Errors** asks for attention when an error is new or came back in the last hour, and fails when one error happens `errors.spike_per_15_minutes` times in 15 minutes. **Uptime** fails while any target is down. Both notify through `alerts.recipients` and `alerts.webhook_url` like every other check.
+
+The prune-observability job removes, once a day, error occurrences after `errors.retention_days`, resolved and ignored errors not seen for that long, request figures after `metrics.retention_days`, and probes after `uptime.retention_days`.
+
+## Things to know
+
+- Uptime probes come from the server itself. They prove the addresses answer through the public route the server can reach; an outage of the network in front of it is better caught by an outside monitor calling `/healthz` as well.
+- Figures from the last 30 seconds may not be written yet. The pages keep their figures for one minute.
+- A browser report has no sign-in requirement, so it can come from the sign-in page itself. It never carries form contents, only the page, the error and the browser.
+- Each occurrence records the release it happened on: the server's git commit, or `CEP_RELEASE` when set.

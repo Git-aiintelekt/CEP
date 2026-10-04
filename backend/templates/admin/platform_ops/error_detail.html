@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% load humanize %}
+{% block title %}{{ group.kind }} | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p><a class="cep-link" href="{{ list_url }}">← Errors</a></p>
+            <h1>{{ group.message|truncatechars:200 }}</h1>
+            <p>{{ group.kind }}{% if group.culprit %} · {{ group.culprit }}{% endif %} · {{ group.get_source_display }}</p>
+        </div>
+        <form method="post" class="cep-actions">{% csrf_token %}
+            {% if group.status != 'RESOLVED' %}<button type="submit" name="do" value="resolve" class="cep-button"><span class="material-symbols-outlined" aria-hidden="true">check</span>Resolve</button>{% endif %}
+            {% if group.status == 'OPEN' %}<button type="submit" name="do" value="ignore" class="cep-button cep-button-quiet">Ignore</button>{% endif %}
+            {% if group.status != 'OPEN' %}<button type="submit" name="do" value="reopen" class="cep-button cep-button-quiet">Reopen</button>{% endif %}
+        </form>
+    </div>
+
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">State</div><div class="cep-kpi-value">{% if group.status == 'OPEN' and group.regressed_at %}Regressed{% else %}{{ group.get_status_display }}{% endif %}</div>
+            <div class="cep-kpi-caption">{% if group.resolved_at %}{{ group.get_status_display }} {{ group.resolved_at|naturaltime }}{% if group.resolved_by %} by {{ group.resolved_by }}{% endif %}{% elif group.regressed_at %}came back {{ group.regressed_at|naturaltime }}{% else %}needs a look{% endif %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Occurrences</div><div class="cep-kpi-value">{{ group.occurrences|intcomma }}</div>
+            <div class="cep-kpi-caption">first {{ group.first_seen|naturaltime }} · last {{ group.last_seen|naturaltime }}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Tenants</div><div class="cep-kpi-value">{{ tenants|length }}</div>
+            <div class="cep-kpi-caption">{% for t in tenants|slice:":3" %}{{ t.code }}{% if not forloop.last %}, {% endif %}{% empty %}none: outside a workspace{% endfor %}</div></div>
+    </div>
+
+    {% if days %}
+    <section class="cep-section" aria-labelledby="cep-days">
+        <div class="cep-section-head"><h2 id="cep-days">Last 14 days</h2><span>occurrences stored per day (at most ten a minute are kept)</span></div>
+        <div class="cep-card cep-bars-card">
+            <div class="cep-bars cep-bars-wide" role="img" aria-label="Occurrences per day">
+                {% for d in days %}<span title="{{ d.day|date:'D j M' }}: {{ d.count }}" style="height: {{ d.height }}%" data-state="fail"></span>{% endfor %}
+            </div>
+            {% with end=days|last %}<div class="cep-bars-axis"><span>{{ days.0.day|date:"j M" }}</span><span>{{ end.day|date:"j M" }}</span></div>{% endwith %}
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="cep-section" aria-labelledby="cep-note">
+        <div class="cep-section-head"><h2 id="cep-note">Note</h2><span>what was found, the ticket, the fix</span></div>
+        <form method="post" class="cep-card cep-note-form">{% csrf_token %}
+            <textarea name="note" rows="3" aria-labelledby="cep-note">{{ group.note|default:"" }}</textarea>
+            <button type="submit" class="cep-button cep-button-quiet">Save Note</button>
+        </form>
+    </section>
+
+    <section class="cep-section" aria-labelledby="cep-events">
+        <div class="cep-section-head"><h2 id="cep-events">Recent occurrences</h2><span>newest first, the last 20 kept</span></div>
+        <div class="cep-card"><div class="cep-list">
+            {% for e in events %}
+                <details class="cep-row cep-event"{% if forloop.first %} open{% endif %}>
+                    <summary>
+                        <strong>{{ e.occurred_at|date:"D j M Y H:i:s" }}</strong>
+                        <span>{% if e.tenant_code %}{{ e.tenant_code }}{% else %}no workspace{% endif %}{% if e.method %} · {{ e.method }} {{ e.path }}{% elif e.path %} · {{ e.path }}{% endif %}{% if e.status_code %} · {{ e.status_code }}{% endif %}{% if e.release %} · release {{ e.release }}{% endif %}</span>
+                    </summary>
+                    {% if e.context %}<dl class="cep-context">{% for k, v in e.context.items %}<div><dt>{{ k }}</dt><dd>{{ v|truncatechars:400 }}</dd></div>{% endfor %}</dl>{% endif %}
+                    {% if e.stack %}<pre class="cep-stack">{{ e.stack }}</pre>{% endif %}
+                </details>
+            {% empty %}
+                <div class="cep-clear"><div><strong>No occurrence kept</strong><span class="cep-muted">Older ones are removed after errors.retention_days.</span></div></div>
+            {% endfor %}
+        </div></div>
+    </section>
+</div>
+{% endblock %}

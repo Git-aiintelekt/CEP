@@ -34,6 +34,28 @@ def open_alerts_badge(request):
     return count or None
 
 
+def _count_badge(key, sql):
+    count = cache.get(key)
+    if count is None:
+        try:
+            with connections[P].cursor() as cursor:
+                cursor.execute(sql)
+                count = cursor.fetchone()[0]
+        except Exception:
+            count = 0
+        cache.set(key, count, 30)
+    return count or None
+
+
+def open_errors_badge(request):
+    """The number on 'Errors': open errors new or returning in the last 24 hours."""
+    return _count_badge("cep:admin:open-errors", "SELECT count(*) FROM error_group WHERE status = 'OPEN' AND last_seen > now() - interval '24 hours'")
+
+
+def down_targets_badge(request):
+    return _count_badge("cep:admin:down-targets", "SELECT count(*) FROM uptime_target WHERE is_active AND state = 'DOWN'")
+
+
 def _url(name, *args):
     try:
         return reverse(name, args=args)
