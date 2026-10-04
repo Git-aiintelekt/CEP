@@ -165,7 +165,7 @@ completes the campaign.
   unsubscribed from the list.) Governance is always decided at send time either way.
 - `rate_limit_per_hour` is stored and shown but **not enforced yet**. (`timezone_optimization` is: §9.)
 - Every drip step uses the campaign's one template; per-step content belongs to journeys.
-- Conversions and revenue come from `campaign_actual`, which the attribution feed fills; until then they read 0.
+- Conversions and revenue come from `campaign_actual`, which the attribute-orders job fills from the orders the shop sends (Settings → Attribution); until attribution is on they read 0.
 - Carrier breakdown for texts arrives with the aggregator's delivery receipts.
 
 ## 8. Subject line tests (A/B, email only)

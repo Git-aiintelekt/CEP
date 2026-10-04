@@ -26,7 +26,7 @@ Keys for systems that call CEP's API: the point of sale sending receipts, a web 
 | Field | What it is | What it changes |
 |---|---|---|
 | Name | The system that will use it, for example *POS integration*. | |
-| Scopes | Give the key only what it needs: `receipts:send` (the point of sale and the web shop), `lists:write`, `events:ingest`, `scores:write`, `customers:read`, `consent:write`. | What the key may call. |
+| Scopes | Give the key only what it needs: `receipts:send` (the point of sale and the web shop), `orders:ingest` (the shop's orders, for attribution), `lists:write`, `events:ingest`, `scores:write`, `customers:read`, `consent:write`. | What the key may call. |
 | Allowed IP Addresses | Optional addresses or CIDR ranges. Empty means any address. | A call from elsewhere is refused. |
 | Expires | Optional, your local time. | The key stops at that moment. |
 

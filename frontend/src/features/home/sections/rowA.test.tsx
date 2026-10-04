@@ -99,7 +99,7 @@ test('no attribution: the message and the period’s cost; a button for admins, 
   expect(card.textContent).toContain('Revenue attribution is not set up yet.')
   expect(card.textContent).toContain('Campaign cost for this period: $111.3K.')
   const button = within(card).getByRole('link', { name: 'Set Up Attribution' })
-  expect(button.getAttribute('href')).toBe('/settings/integrations')
+  expect(button.getAttribute('href')).toBe('/settings/attribution')
   expect(button.className).toContain('bg-brand-600')
   expect(card.querySelector('[data-chart-plot]')).toBeNull()
   expect(within(card).queryByRole('radiogroup')).toBeNull()

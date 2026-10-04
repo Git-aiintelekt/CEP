@@ -39,6 +39,7 @@ import { SettingsLayout } from '@/pages/settings/SettingsLayout'
 import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
 import { TagsPage } from '@/pages/settings/TagsPage'
 import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
+import { AttributionPage } from '@/pages/settings/AttributionPage'
 import { ConsentPolicyPage } from '@/pages/settings/ConsentPolicyPage'
 import { WorkspaceSetupPage } from '@/pages/settings/WorkspaceSetupPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
@@ -152,6 +153,7 @@ export default function App() {
                   <Route path="preference-center" element={<PreferenceCenterPage />} />
                   <Route path="consent" element={<ConsentPolicyPage />} />
                   <Route path="pos" element={<PosReceiptsPage />} />
+                  <Route path="attribution" element={<AttributionPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                 </Route>

@@ -108,10 +108,10 @@ The help icon on any page and a field's note; the back-office's Platform Guide; 
 |---|---|
 | Which email providers? | Postal and SendGrid today, SMTP for small volumes; a new provider is one adapter module. |
 | Texts? | Digivize for sending; a sandbox for rehearsal; replies and STOP handled; quiet hours respected. |
-| Where does revenue come from? | From each campaign's actuals, filled by the attribution feed; until it runs, those figures read as not set up. |
+| Where does revenue come from? | From the orders the shop sends (and, if allowed, the point of sale's sales), each credited to the campaign named by a code or the person's last click, open or text in the window. |
 | Data isolation? | Partitioning by tenant, row-level security, an application role that cannot cross tenants, a dedicated database as an option. |
 | Scale? | Imports of 250,000 rows chunked in the background; sends in batches paced per engine; the integration bridge throttles and breaks circuits. |
-| What is not there yet? | The attribution feed, the campaign's own hourly limit, Excel uploads, journeys beyond the view, Digivize's production callbacks. |
+| What is not there yet? | Multi-touch attribution, the campaign's own hourly limit, Excel uploads, journeys beyond the view, Digivize's production callbacks. |
 
 ## The 20-minute cut
 

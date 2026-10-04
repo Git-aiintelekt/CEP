@@ -63,3 +63,4 @@ The document is checked against the TTDR schema; the merchant, store, register, 
 
 - A paused POS integration answers E503 to every register; nothing is queued.
 - A receipt to a blocked address is refused with its reason in the answer; the trail keeps it.
+- With Count Store Sales on under Settings → Attribution, each transaction also becomes an order credited to a campaign: the amount without tax, the customer, the store and its promotion codes. Off (the default), nothing about a transaction is kept but the trail.

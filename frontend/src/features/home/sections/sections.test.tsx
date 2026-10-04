@@ -131,7 +131,7 @@ test('no attribution: both revenue tiles Not Set Up Yet, a link for admins, a se
   renderHome({ state: 'noAttribution' })
   for (const label of ['Attributed Revenue', 'Campaign ROI']) {
     expect(tile(label).textContent).toContain('Not Set Up Yet')
-    expect(within(tile(label)).getByRole('link', { name: 'Set Up Attribution' }).getAttribute('href')).toBe('/settings/integrations')
+    expect(within(tile(label)).getByRole('link', { name: 'Set Up Attribution' }).getAttribute('href')).toBe('/settings/attribution')
   }
   cleanup()
   renderHome({ state: 'noAttribution', viewer: member(['user.admin']) })

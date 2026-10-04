@@ -7,7 +7,7 @@ import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
-import type { WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { AttributedOrder, AttributionSettings, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -89,6 +89,22 @@ export const consentDeclaration = (channel = 'EMAIL'): NonNullable<ListImport['c
   ],
   policy: { without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: false },
 })
+
+export const attributionSettings: AttributionSettings = {
+  enabled: false, enabled_at: null, click_days: 7, open_days: 1, text_days: 1, store_sales: false, email_cost_per_1000: null, text_cost_per_1000: null,
+  choices: { click_days: [1, 3, 7, 14, 30], open_days: [0, 1, 2, 3, 7], text_days: [0, 1, 2, 3, 7] }, currency: 'USD', endpoint: 'https://cep.example.com/api/v1/orders/',
+  scope: 'orders:ingest', keys_with_scope: 0, store_sales_available: true,
+  summary: { days: 30, orders: 4, revenue: 315.5, attributed_revenue: 245.5, attributed_orders: 3, attributed_share: 75, pending: 0, unattributed: 1, last_received_at: '2026-10-04T08:55:00Z',
+             by_touch: { CODE: { orders: 1, revenue: 50 }, CLICK: { orders: 2, revenue: 195.5 }, OPEN: { orders: 0, revenue: 0 }, TEXT: { orders: 0, revenue: 0 } },
+             top_campaigns: [{ id: 'cmp-1', name: 'Fall Launch', revenue: 195.5, orders: 2 }], store_orders: 0 },
+}
+
+export const attributedOrders: AttributedOrder[] = [
+  { id: 3, source: 'API', order_id: 'W-100236', kind: 'ORDER', amount: 70, currency: 'USD', ordered_at: '2026-10-04T08:40:00Z', channel: 'ONLINE', store_number: null, party_id: null, email: 'nobody@example.com', phone: null,
+    status: 'UNATTRIBUTED', campaign_id: null, campaign_name: null, touch_type: null, touch_at: null, note: 'No person: no customer id, and no email address or phone number CEP sent to.', received_at: '2026-10-04T08:41:00Z' },
+  { id: 2, source: 'API', order_id: 'W-100235', kind: 'ORDER', amount: 129.5, currency: 'USD', ordered_at: '2026-10-04T08:30:00Z', channel: 'ONLINE', store_number: null, party_id: 'C-88213', email: 'jane@example.com', phone: null,
+    status: 'ATTRIBUTED', campaign_id: 'cmp-1', campaign_name: 'Fall Launch', touch_type: 'CLICK', touch_at: '2026-10-03T19:12:00Z', note: null, received_at: '2026-10-04T08:31:00Z' },
+]
 
 export const consentPolicy = {
   without_consent: 'HOLD_BACK', texts_need_date: false, approval_before_send: false, lifetime_months: 24,
@@ -442,6 +458,7 @@ export function installMockApi(options: MockOptions = {}) {
   let templatesNow: Template[] = [...templates]
   let membersNow: ListMember[] = [...listMembers]
   const consentPolicyNow = { ...consentPolicy }
+  const attributionNow: AttributionSettings = JSON.parse(JSON.stringify(attributionSettings))
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
@@ -555,6 +572,21 @@ export function installMockApi(options: MockOptions = {}) {
       mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
       return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
     }
+    if (path.endsWith('/attribution/settings/')) {
+      if (method === 'PUT') {
+        if (body && 'click_days' in body && !attributionNow.choices.click_days.includes(Number(body.click_days))) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { click_days: 'Choose one of the offered windows.' } }, 400)
+        const next = { ...body } as Record<string, unknown>
+        for (const key of ['email_cost_per_1000', 'text_cost_per_1000']) if (key in next) next[key] = next[key] === null || next[key] === '' ? null : Number(next[key])
+        Object.assign(attributionNow, next)
+        if (next.enabled && !attributionNow.enabled_at) attributionNow.enabled_at = '2026-10-04T09:00:00Z'
+      }
+      return json(attributionNow)
+    }
+    if (path.endsWith('/attribution/orders/')) {
+      const status = new URL(url, 'http://test').searchParams.get('status')
+      return json({ results: attributedOrders.filter((row) => !status || row.status === status) })
+    }
+    if (path.endsWith('/attribution/recalculate/')) return json({ reset: 4, attributed: 3, unattributed: 1, waiting: 0, campaigns: 6, remaining: 0, full: true })
     if (path.endsWith('/workspace/consent-policy/')) {
       if (method === 'PUT') Object.assign(consentPolicyNow, body ?? {}, { attestation_preview: String((body?.attestation as string) ?? consentPolicyNow.attestation).replace('{workspace}', 'Northwind Apparel') })
       return json(consentPolicyNow)

@@ -3,6 +3,7 @@ settings and the trail of what was received (read from the integration log; the 
 import csv
 import io
 import json
+import logging
 import re
 from datetime import datetime, timedelta
 
@@ -24,10 +25,13 @@ from apps.integrations.models import IntegrationLog
 from apps.platform_ops import params
 from apps.pos import mapping, receipt_text, ttdr
 from apps.pos.models import Store
+from apps.reporting import attribution
 from apps.tenants import context
 from apps.tenants.models import Tenant
 
 from .delivery_api import CanSendReceipts
+
+log = logging.getLogger("cep.pos")
 
 ADMIN = [IsAuthenticated, SameTenant, HasPermissionCode.for_("user.admin")]
 VIEW = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.view")]
@@ -111,6 +115,11 @@ class PosTransactionView(InboundLogMixin, APIView):
         transaction = read["transaction"]
         recipient = read["recipient"]
         tenant = Tenant.objects.get(pk=context.require().tenant_id)
+        key = f"{transaction['merchant_number']}:{transaction['store_number']}:{transaction['register_number']}:{transaction['id']}:{transaction['date']}"
+        try:
+            attribution.record_pos(tenant, read, key=key)              # only when the workspace counts store sales for attribution
+        except Exception:                                              # noqa: BLE001  attribution must never cost a receipt
+            log.exception("POS transaction not recorded for attribution")
         entry = (transaction.get("entry_type") or "PRINT").upper()
         wants_email, wants_text = asks_for(entry)
         if not wants_email and not wants_text:
