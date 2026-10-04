@@ -123,6 +123,7 @@ class Integration(models.Model):
     """One record per external integration of a workspace: its throttle, retry, circuit-breaker and log policy, and its last call"""
     class Kind(models.TextChoices):
         POS_RECEIPTS = 'POS_RECEIPTS', 'POS receipts (inbound)'
+        ORDERS = 'ORDERS', 'Orders for attribution (inbound)'
         PROVIDER = 'PROVIDER', 'Sending engine (outbound)'
 
     class Status(models.TextChoices):

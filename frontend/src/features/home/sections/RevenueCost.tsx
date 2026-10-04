@@ -49,7 +49,7 @@ function NotSetUp({ cost, canSetUp }: { cost: number; canSetUp: boolean }) {
       <p className="text-card-title font-semibold text-ink-900">Revenue attribution is not set up yet.</p>
       <p className="text-helper text-ink-800">{cost > 0 ? `Campaign cost for this period: ${formatCompactMoney(cost)}.` : 'No campaign cost in this period.'}</p>
       {canSetUp
-        ? <Link to="/settings/integrations" className={`${buttonClass({ variant: 'primary', size: 'sm' })} mt-2`}>Set Up Attribution</Link>
+        ? <Link to="/settings/attribution" className={`${buttonClass({ variant: 'primary', size: 'sm' })} mt-2`}>Set Up Attribution</Link>
         : <p className="mt-2 text-helper text-ink-800">Ask an admin to set up attribution.</p>}
     </div>
   )

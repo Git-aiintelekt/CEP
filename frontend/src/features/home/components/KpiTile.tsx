@@ -35,7 +35,7 @@ interface KpiTileProps {
 const QUIET_VALUE = 'font-display text-xl leading-tight font-semibold whitespace-nowrap text-ink-800'
 
 /** One KPI as its own card: label, the figure, its change or benchmark chip, a supporting line, an optional bar, and the faint disc in the corner. */
-export function KpiTile({ label, note, value, state = 'ready', change, benchmark, benchmarkText, supporting, progress, notTrackedText = 'SMS does not report opens', canSetUp = false, setUpHref = '/settings/integrations' }: KpiTileProps) {
+export function KpiTile({ label, note, value, state = 'ready', change, benchmark, benchmarkText, supporting, progress, notTrackedText = 'SMS does not report opens', canSetUp = false, setUpHref = '/settings/attribution' }: KpiTileProps) {
   return (
     <div data-kpi={label} className="relative flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-line bg-surface p-4">
       <span aria-hidden data-kpi-disc className="pointer-events-none absolute -right-5 -bottom-7 h-24 w-24 rounded-full bg-surface-sunken/70" />

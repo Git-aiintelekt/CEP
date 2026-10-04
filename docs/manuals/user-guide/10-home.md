@@ -34,8 +34,8 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 | Delivered | Messages delivered in the period, with the change against the period before. | |
 | Open Rate | Opens over delivered, email only; the change in points. | |
 | Click Rate | Clicks over delivered; the change in points. | |
-| Conversions | Conversions attributed to the campaigns, with the share of clicks that converted. | Reads 0 until the attribution feed fills the campaigns' actuals. |
-| Attributed Revenue | Revenue attributed to the campaigns, against the sum of their revenue targets when they have one. | *Not set up* until attribution is in place; Set Up leads there for administrators. |
+| Conversions | Conversions attributed to the campaigns, with the share of clicks that converted. | Reads 0 until attribution is on (Settings → Attribution) and orders arrive. |
+| Attributed Revenue | Revenue attributed to the campaigns, against the sum of their revenue targets when they have one. | *Not set up* until attribution is on; Set Up Attribution opens Settings → Attribution for administrators. |
 | Campaign ROI | Attributed revenue over campaign cost, with a benchmark word. | *Unavailable* when no campaign in the period has a cost. |
 
 ### The cards
@@ -71,5 +71,5 @@ Home is the marketing command centre: how the workspace's campaigns are doing, w
 ## Things to know
 
 - Home is a reading, not a ledger: figures lag by up to 30 seconds and e-receipts are kept apart from marketing figures.
-- Revenue, conversions and ROI depend on the attribution feed that fills each campaign's actuals. Until it runs they read zero or *not set up*.
+- Revenue, conversions and ROI come from the orders the shop sends, credited to campaigns every five minutes (see Attribution). Until attribution is on they read zero or *not set up*.
 - The page keeps your filters only while you stay on it; the next visit starts at every campaign, all channels, the last 30 days.

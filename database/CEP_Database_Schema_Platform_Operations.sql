@@ -725,7 +725,7 @@ CREATE TABLE IF NOT EXISTS integration (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version         INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER')),
+    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS')),
     CONSTRAINT ck_integration_direction CHECK (direction IN ('IN', 'OUT')),
     CONSTRAINT ck_integration_status CHECK (status IN ('ACTIVE', 'PAUSED')),
     CONSTRAINT ck_integration_environment CHECK (environment IN ('SANDBOX', 'PRODUCTION')),
@@ -1313,6 +1313,66 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('uptime.failures_before_alert', '2', 'INTEGER', 'Observability', 'Failed probes in a row before an uptime target is down and an alert goes out'),
     ('uptime.retention_days', '90', 'INTEGER', 'Observability', 'Days of uptime probes kept')
 ON CONFLICT (key) DO NOTHING;
+
+-- -------------------------------------------------------------------------------------
+-- 22. ATTRIBUTION: orders from the shop (POST /orders/) and, when the workspace allows it, from the point of sale; each
+--     credited to the campaign that earned it (a campaign code, else the last click, open or text within the windows);
+--     the attribute-orders job rolls the credit up into campaign_actual, which Home, reports and campaign results read.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS attributed_order (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    source              VARCHAR(10) NOT NULL,                            -- API | POS
+    order_ref           VARCHAR(200) NOT NULL,                           -- unique per source: the shop's order id, or the point of sale's transaction key
+    match_ref           VARCHAR(120) NOT NULL,                           -- what a refund names as its original: the order id, the POS transaction id
+    kind                VARCHAR(10) NOT NULL DEFAULT 'ORDER',            -- ORDER | REFUND
+    original_ref        VARCHAR(120),                                    -- a refund's original order (match_ref)
+    party_id            VARCHAR(60),
+    email               CITEXT,
+    phone               VARCHAR(30),
+    amount              NUMERIC(14,2) NOT NULL,                          -- the revenue counted; negative for a refund
+    currency            CHAR(3) NOT NULL DEFAULT 'USD',
+    ordered_at          TIMESTAMPTZ NOT NULL,
+    channel             VARCHAR(10) NOT NULL DEFAULT 'ONLINE',           -- ONLINE | STORE | APP | PHONE | OTHER
+    store_number        VARCHAR(40),
+    campaign_code       VARCHAR(40),                                     -- named by the shop (a campaign's code or a coupon equal to it)
+    coupon_codes        TEXT[] NOT NULL DEFAULT '{}',
+    items               INTEGER,
+    status              VARCHAR(12) NOT NULL DEFAULT 'PENDING',          -- PENDING | ATTRIBUTED | UNATTRIBUTED
+    campaign_id         UUID REFERENCES campaign(id) ON DELETE SET NULL,
+    touch_type          VARCHAR(10),                                     -- CODE | CLICK | OPEN | TEXT | REFUND (a refund follows its original)
+    touch_at            TIMESTAMPTZ,
+    touch_party_id      VARCHAR(60),
+    note                VARCHAR(200),                                    -- why it was not attributed, in words
+    attributed_at       TIMESTAMPTZ,
+    received_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ux_attributed_order UNIQUE (tenant_id, source, order_ref),
+    CONSTRAINT ck_attributed_order_source CHECK (source IN ('API', 'POS')),
+    CONSTRAINT ck_attributed_order_kind CHECK (kind IN ('ORDER', 'REFUND')),
+    CONSTRAINT ck_attributed_order_status CHECK (status IN ('PENDING', 'ATTRIBUTED', 'UNATTRIBUTED')),
+    CONSTRAINT ck_attributed_order_touch CHECK (touch_type IS NULL OR touch_type IN ('CODE', 'CLICK', 'OPEN', 'TEXT', 'REFUND'))
+);
+CREATE INDEX IF NOT EXISTS ix_attributed_order_pending ON attributed_order(received_at) WHERE status = 'PENDING';
+CREATE INDEX IF NOT EXISTS ix_attributed_order_campaign ON attributed_order(tenant_id, campaign_id) WHERE campaign_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_attributed_order_recent ON attributed_order(tenant_id, ordered_at DESC);
+CREATE INDEX IF NOT EXISTS ix_attributed_order_match ON attributed_order(tenant_id, source, match_ref);
+COMMENT ON TABLE attributed_order IS 'Orders and refunds the workspace sent for attribution, and the campaign each was credited to; no card or item data';
+ALTER TABLE attributed_order ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attributed_order FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_attributed_order_tenant ON attributed_order;
+CREATE POLICY rls_attributed_order_tenant ON attributed_order
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE ON attributed_order TO cep_app;
+GRANT ALL ON attributed_order TO cep_admin;
+
+-- an order names a person by the address or number CEP sent to: find the person behind it
+CREATE INDEX IF NOT EXISTS ix_mailer_execution_email ON mailer_execution(tenant_id, email_address);
+CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, phone_number);
+
+-- the shop's order calls are logged like the point of sale's
+ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS'));
 
 -- =====================================================================================
 -- End of platform operations layer.

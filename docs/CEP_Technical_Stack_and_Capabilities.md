@@ -66,7 +66,7 @@ Two guides accompany the product: the **CEP User Guide** (24 chapters, shown ins
 |---|---|
 | Home | A command centre: alerts, the set-up card, key figures against the period before, revenue versus cost, the engagement funnel, channel snapshot, the next seven days, active journeys, recent campaigns, governance, e-receipts, with campaign, channel and period filters. |
 | Reports | Period presets, channel filter, figure tiles, sent and opened by day, best and worst, campaign comparison, CSV export, a weekly scheduled email. |
-| Attribution | Revenue, conversions and ROI read from each campaign's actuals once the attribution feed fills them. |
+| Attribution | Orders from the shop (`POST /orders/`) and, if allowed, the point of sale, credited last-touch to the campaign named by a code or the latest click, open or text in configurable windows; revenue, buyers, cost, ROI and contribution per campaign, refunds netted. |
 
 ### Multi-tenancy and administration
 
@@ -122,7 +122,7 @@ Two guides accompany the product: the **CEP User Guide** (24 chapters, shown ins
 
 ## What is still ahead
 
-- The attribution feed that fills campaigns' revenue and conversions; until it runs, Home's revenue figures read as not set up.
+- Multi-touch attribution (credit shared along a person's path); today the last touch takes it all.
 - Enforcement of a campaign's own hourly rate limit (the engine's per-minute pace is enforced today).
 - Delivery receipts from the Digivize sandbox, which has not posted callbacks to the per-request address; the production account is expected to.
 - Excel uploads (CSV today), per-list preferences, the consent-lifetime reminder.

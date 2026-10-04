@@ -37,6 +37,7 @@ JOBS = {
     "send-weekly-reports": ("Emails the weekly report to workspaces that asked for one", 3 * 3600),
     "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),
     "prune-observability": ("Removes errors, request figures and uptime probes past their retention", 49 * 3600),
+    "attribute-orders": ("Credits received orders to campaigns and writes each campaign's revenue and ROI", 30 * 60),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}

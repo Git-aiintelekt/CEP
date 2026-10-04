@@ -740,7 +740,7 @@ The feature **sso** must be on for the workspace; the sign-in page asks the API 
 
 ## What this is for
 
-Everything CEP does on a timer, and how you know it is working: sixteen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
+Everything CEP does on a timer, and how you know it is working: seventeen scheduled jobs with their runs, fifteen system checks, and the alerts raised when a check fails or a job breaks.
 
 ## Who can use it
 
@@ -766,6 +766,7 @@ Every staff account reads; acknowledging an alert needs change rights.
 | send-weekly-reports | Emails the weekly report to workspaces that asked for one. | 3 h |
 | probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
 | prune-observability | Removes errors, request figures and uptime probes past their retention. | 49 h |
+| attribute-orders | Credits the orders workspaces sent to campaigns and writes each campaign's revenue, cost and ROI (workspaces with attribution on). | 30 min (every 5 minutes on the scheduler) |
 
 The cadence is how late a job may be before it reads overdue; the scheduler runs most of them more often. Two chatty jobs (the outbox relay and the list imports) record only failures and one success a minute.
 
@@ -795,7 +796,7 @@ The cadence is how late a job may be before it reads overdue; the scheduler runs
 |---|---|
 | Job runs | Started, job, status (Succeeded, Failed, Running), duration, worker, the error's first line; filter by status and job. A run opens with its result or its full error. |
 | Alerts | Opened, check, severity, summary, notifications sent, state; Acknowledge. |
-| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 16 on time*. |
+| Home → System checks, Scheduled jobs | The live picture: *n of 15 fine*, *n of 17 on time*. |
 
 ## How to
 

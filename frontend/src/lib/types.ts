@@ -1196,7 +1196,7 @@ export type IntegrationOutcome = 'OK' | 'REJECTED' | 'RETRY' | 'ERROR' | 'THROTT
 /** GET /integrations/: one line per integration with the last day's figures */
 export interface Integration {
   id: string
-  kind: 'POS_RECEIPTS' | 'PROVIDER'
+  kind: 'POS_RECEIPTS' | 'PROVIDER' | 'ORDERS'
   name: string
   direction: 'IN' | 'OUT'
   system: string
@@ -1824,4 +1824,67 @@ export interface DeliverabilityTest {
 export interface DeliverabilityTestList {
   tests: DeliverabilityTest[]
   allowance: DeliverabilityAllowance
+}
+
+// ---- attribution (Settings → Attribution; GET /attribution/settings/, /attribution/orders/)
+export type TouchType = 'CODE' | 'CLICK' | 'OPEN' | 'TEXT' | 'REFUND'
+
+export interface AttributionSummary {
+  days: number
+  orders: number
+  revenue: number
+  attributed_revenue: number
+  attributed_orders: number
+  attributed_share: number | null
+  pending: number
+  unattributed: number
+  last_received_at: string | null
+  by_touch: Record<'CODE' | 'CLICK' | 'OPEN' | 'TEXT', { orders: number; revenue: number }>
+  top_campaigns: { id: string; name: string; revenue: number; orders: number }[]
+  store_orders: number
+}
+
+export interface AttributionSettings {
+  enabled: boolean
+  enabled_at: string | null
+  click_days: number
+  open_days: number
+  text_days: number
+  store_sales: boolean
+  email_cost_per_1000: number | null
+  text_cost_per_1000: number | null
+  choices: { click_days: number[]; open_days: number[]; text_days: number[] }
+  currency: string
+  endpoint: string
+  scope: string
+  keys_with_scope: number
+  store_sales_available: boolean
+  summary: AttributionSummary
+}
+
+export type AttributionSettingsInput = Partial<Pick<AttributionSettings, 'enabled' | 'click_days' | 'open_days' | 'text_days' | 'store_sales'>> & {
+  email_cost_per_1000?: number | string | null
+  text_cost_per_1000?: number | string | null
+}
+
+export interface AttributedOrder {
+  id: number
+  source: 'API' | 'POS'
+  order_id: string
+  kind: 'ORDER' | 'REFUND'
+  amount: number
+  currency: string
+  ordered_at: string
+  channel: string
+  store_number: string | null
+  party_id: string | null
+  email: string | null
+  phone: string | null
+  status: 'PENDING' | 'ATTRIBUTED' | 'UNATTRIBUTED'
+  campaign_id: string | null
+  campaign_name: string | null
+  touch_type: TouchType | null
+  touch_at: string | null
+  note: string | null
+  received_at: string
 }

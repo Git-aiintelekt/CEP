@@ -26,6 +26,7 @@ export const HELP_CHAPTERS = {
   'settings-integrations': { title: 'Integrations', load: () => import('../../../docs/manuals/user-guide/52-integrations.md?raw').then((module) => module.default) },
   'settings-api-keys': { title: 'API Keys', load: () => import('../../../docs/manuals/user-guide/53-api-keys.md?raw').then((module) => module.default) },
   'settings-pos': { title: 'POS Receipts', load: () => import('../../../docs/manuals/user-guide/54-pos-receipts.md?raw').then((module) => module.default) },
+  'settings-attribution': { title: 'Attribution', load: () => import('../../../docs/manuals/user-guide/56-attribution.md?raw').then((module) => module.default) },
   'account-security': { title: 'Account Security', load: () => import('../../../docs/manuals/user-guide/55-account-security.md?raw').then((module) => module.default) },
 } as const
 
@@ -55,5 +56,6 @@ export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/settings/integrations': 'settings-integrations',
   '/settings/api-keys': 'settings-api-keys',
   '/settings/pos': 'settings-pos',
+  '/settings/attribution': 'settings-attribution',
   '/account/security': 'account-security',
 }

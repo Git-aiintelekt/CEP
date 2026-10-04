@@ -53,6 +53,13 @@ def prune_observability() -> dict:
     return observe.prune()
 
 
+@shared_task(name="workers.platform.attribute_orders")
+@jobs.monitored("attribute-orders")
+def attribute_orders() -> dict:
+    from apps.reporting import attribution
+    return attribution.run()
+
+
 def _dispatch_campaign_runs() -> dict:
     from workers.campaign import dispatch_due_runs
     return dispatch_due_runs()
@@ -61,6 +68,7 @@ def _dispatch_campaign_runs() -> dict:
 RUNNABLE = {"rollup-usage": rollup_usage, "generate-invoices": generate_invoices, "evaluate-alerts": evaluate_alerts,
             "run-tenant-operations": run_tenant_operations, "dispatch-campaign-runs": _dispatch_campaign_runs,
             "rollup-integration-metrics": rollup_integration_metrics, "probe-uptime": probe_uptime, "prune-observability": prune_observability,
+            "attribute-orders": attribute_orders,
             "decide-ab-winners": lambda: __import__("workers.campaign", fromlist=["decide_ab_winners"]).decide_ab_winners(),
             "send-weekly-reports": lambda: __import__("workers.reports", fromlist=["send_weekly_reports"]).send_weekly_reports(),
             "refresh-audience-lists": lambda: __import__("workers.campaign", fromlist=["refresh_audience_lists"]).refresh_audience_lists()}
