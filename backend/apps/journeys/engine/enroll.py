@@ -3,10 +3,16 @@
 Every entry rule of the live version names candidates, each with the moment they qualified:
 
     CUSTOMER_LIST    {contact_list_id}                     members of the list (when they were added)
-    EVENT            {event_type}                          journey_event rows of that type since the version went live
+    EVENT            {event_type}                          journey_event rows of that type since the version went live (POST /events/,
+                                                           purchases from orders); EMAIL_ENGAGEMENT also reads CEP's own opens and clicks
+                                                           (tracking_event, scanners left out), SMS_RESPONSE the replies to its texts
     SEGMENT_CHANGE   {segment_id, change: JOINED | LEFT}   joined: customer_segment_membership.qualified_at since then;
                                                            joined or left: journey_event SEGMENT_CHANGE rows naming the segment
     DATE_TIME        not designed yet: no candidates
+
+Population mode: FIXED takes who qualifies on the first pass after go-live (for a segment, everyone in it then) and closes
+the version to newcomers (journey_version.population_frozen_at); CONTINUOUSLY_QUALIFYING and EVENT_TRIGGERED keep enrolling on
+every pass, newcomers and new events alike.
 
 A candidate enters unless the re-entry policy says no. Nobody is ever in a journey twice at once
 (ux_journey_enrollment_no_reentry); after that, NEVER keeps them out, AFTER_X_DAYS lets them back once that many days have
@@ -25,6 +31,17 @@ from . import tenants
 log = logging.getLogger("cep.journeys")
 PER_PASS = 5000                                           # per journey and pass; the rest enter on the next pass
 LOOKBACK_DAYS = 7                                         # how far back events and segment changes are read, at most
+
+FROM_TRACKING = {
+    "EMAIL_ENGAGEMENT": """
+        UNION ALL
+        SELECT party_id, occurred_at FROM tracking_event
+         WHERE tenant_id = %(tenant)s AND event_type IN ('OPEN', 'CLICK') AND NOT is_bot AND party_id IS NOT NULL AND occurred_at >= %(since)s""",
+    "SMS_RESPONSE": """
+        UNION ALL
+        SELECT party_id, responded_at FROM sms_execution
+         WHERE tenant_id = %(tenant)s AND responded_at IS NOT NULL AND responded_at >= %(since)s AND created_at >= %(since)s - interval '35 days'""",
+}
 
 CANDIDATES = {
     "CUSTOMER_LIST": """
@@ -86,6 +103,7 @@ def _sources(rule: JourneyEntryRule, args: dict) -> str | None:
         args["list"] = str(definition["contact_list_id"])
     elif rule.entry_type == "EVENT" and definition.get("event_type"):
         args["event_type"] = str(definition["event_type"]).upper()
+        return CANDIDATES["EVENT"] + FROM_TRACKING.get(args["event_type"], "")
     elif rule.entry_type == "SEGMENT_CHANGE" and definition.get("segment_id"):
         args["segment"] = str(definition["segment_id"])
         args["change"] = str(definition.get("change") or "JOINED").upper()
@@ -102,10 +120,14 @@ def enroll_journey(tenant_id: str, journey: Journey) -> int:
     start = JourneyNode.objects.filter(journey_version=version, node_family="ENTRY", deleted_at__isnull=True).order_by("created_at").first()
     if start is None:
         return 0
+    fixed = journey.population_mode == Journey.PopulationMode.FIXED
+    if fixed and version.population_frozen_at is not None:
+        return 0                                          # a Fixed population was taken at launch: nobody new
     since = max(version.published_at or version.updated_at, timezone.now() - timezone.timedelta(days=LOOKBACK_DAYS))
     entered = 0
     for rule in JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True):
-        args = {"tenant": str(tenant_id), "journey": str(journey.pk), "version": str(version.pk), "start": str(start.pk), "since": since,
+        segment_since = timezone.datetime(2000, 1, 1, tzinfo=timezone.get_current_timezone()) if fixed and rule.entry_type == "SEGMENT_CHANGE" else since
+        args = {"tenant": str(tenant_id), "journey": str(journey.pk), "version": str(version.pk), "start": str(start.pk), "since": segment_since,
                 "policy": journey.reentry_policy, "days": journey.reentry_after_days or 0, "is_list": rule.entry_type == "CUSTOMER_LIST",
                 "limit": PER_PASS, "entry": rule.entry_type}
         candidates = _sources(rule, args)
@@ -114,6 +136,9 @@ def enroll_journey(tenant_id: str, journey: Journey) -> int:
         with session.tx(), session.connection().cursor() as cursor:
             cursor.execute(ENROLL.format(candidates=candidates), args)
             entered += cursor.rowcount
+    if fixed:
+        with session.tx():
+            JourneyVersion.objects.filter(pk=version.pk, population_frozen_at__isnull=True).update(population_frozen_at=timezone.now())
     return entered
 
 

@@ -725,7 +725,7 @@ CREATE TABLE IF NOT EXISTS integration (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     row_version         INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS')),
+    CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS')),
     CONSTRAINT ck_integration_direction CHECK (direction IN ('IN', 'OUT')),
     CONSTRAINT ck_integration_status CHECK (status IN ('ACTIVE', 'PAUSED')),
     CONSTRAINT ck_integration_environment CHECK (environment IN ('SANDBOX', 'PRODUCTION')),
@@ -1372,7 +1372,7 @@ CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, ph
 
 -- the shop's order calls are logged like the point of sale's
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
-ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS'));
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
 
 -- -------------------------------------------------------------------------------------
 -- 23. COUPON / LOYALTY TIER (patch 0033): cached references for Journey's Issue Coupon and
@@ -1494,6 +1494,52 @@ ALTER TABLE journey ADD COLUMN IF NOT EXISTS source_starter_key VARCHAR(60);    
 ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_source_one;
 ALTER TABLE journey ADD CONSTRAINT ck_journey_source_one CHECK (source_template_id IS NULL OR source_starter_key IS NULL);
 CREATE INDEX IF NOT EXISTS ix_journey_source_template ON journey(source_template_id) WHERE source_template_id IS NOT NULL;
+
+-- -------------------------------------------------------------------------------------
+-- 23. JOURNEY EVENTS AND COMPLETION: events in from the shop and the loyalty system (POST /events/), one event once
+--     (external_id), coupon issue requests C360 fulfils, the Fixed population lock, and the EVENTS call-log kind.
+-- -------------------------------------------------------------------------------------
+ALTER TABLE journey_event ADD COLUMN IF NOT EXISTS external_id VARCHAR(120);   -- the sender's id for the event: sent twice, kept once
+CREATE UNIQUE INDEX IF NOT EXISTS ux_journey_event_external ON journey_event(tenant_id, event_source, external_id, occurred_at) WHERE external_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_journey_event_recent ON journey_event(tenant_id, ingested_at DESC);
+GRANT SELECT, INSERT ON journey_event TO cep_app;
+
+ALTER TABLE journey_version ADD COLUMN IF NOT EXISTS population_frozen_at TIMESTAMPTZ;   -- Fixed population: nobody new enters after this
+COMMENT ON COLUMN journey_version.population_frozen_at IS 'Fixed population: set by the first enrollment pass after go-live; nobody enters this version afterwards';
+
+CREATE TABLE IF NOT EXISTS coupon_issuance (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    coupon_id           UUID NOT NULL REFERENCES coupon(id),
+    party_id            VARCHAR(60) NOT NULL,
+    journey_id          UUID REFERENCES journey(id) ON DELETE SET NULL,
+    journey_node_key    VARCHAR(80),
+    journey_enrollment_id UUID,
+    status              VARCHAR(10) NOT NULL DEFAULT 'REQUESTED',        -- REQUESTED | ISSUED | FAILED
+    external_code       VARCHAR(120),                                    -- the customer's own code, when C360 sends one back
+    note                VARCHAR(300),
+    requested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved_at         TIMESTAMPTZ,
+    CONSTRAINT ck_coupon_issuance_status CHECK (status IN ('REQUESTED', 'ISSUED', 'FAILED'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_coupon_issuance_step ON coupon_issuance(tenant_id, journey_enrollment_id, journey_node_key) WHERE journey_enrollment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_coupon_issuance_open ON coupon_issuance(tenant_id, status, requested_at);
+COMMENT ON TABLE coupon_issuance IS 'A journey asked for a C360 coupon to be given to a customer; C360 collects the requests (GET /coupon-issuances/) and marks them issued';
+ALTER TABLE coupon_issuance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon_issuance FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_coupon_issuance_tenant ON coupon_issuance;
+CREATE POLICY rls_coupon_issuance_tenant ON coupon_issuance
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE ON coupon_issuance TO cep_app;
+GRANT ALL ON coupon_issuance TO cep_admin;
+
+ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
+ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS', 'EVENTS', 'COUPONS'));
+
+-- an approved journey waiting for its go-live time (Approve, Schedule for Later) is APPROVED: the core layer's list lacked it
+ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_status;
+ALTER TABLE journey ADD CONSTRAINT ck_journey_status CHECK (status IN ('DRAFT', 'TEST', 'APPROVED', 'ACTIVE', 'PAUSED', 'ARCHIVED'));
 
 -- =====================================================================================
 -- End of platform operations layer.

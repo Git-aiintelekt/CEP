@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom'
 
 import { buttonSecondary } from '@/components/Form'
 import { useToast } from '@/components/Toast'
+import { PageHelp } from '@/help/HelpPanel'
 import { api, ApiError } from '@/lib/api'
 import { titleize } from '@/lib/format'
 import type { Journey, JourneyGraphNode, JourneyReadiness, JourneyTestPopulation, JourneyTestResult, JourneyVersionDetail } from '@/lib/types'
@@ -115,7 +116,7 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
         <JourneyOutcome journeyId={journey.id} outcome={outcome} />
       ) : (
         <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-8">
-          <h1 className="font-display text-page-title font-semibold text-ink-900">Test Publish</h1>
+          <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-ink-900">Test Publish</h1><PageHelp chapter="journeys" /></span>
           <p className="mt-1 mb-6 text-sm text-ink-800">Run this Journey on a small population before approving it for live automation.</p>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="min-w-0 space-y-6">

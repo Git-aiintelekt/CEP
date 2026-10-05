@@ -35,7 +35,7 @@ from apps.tenants import context
 from apps.tenants.models import Tenant, TenantSubscription
 
 ADMIN = "user.admin"
-SERVICE_SCOPES = ["events:ingest", "receipts:send", "orders:ingest", "scores:write", "customers:read", "consent:write", "lists:write"]
+SERVICE_SCOPES = ["events:ingest", "receipts:send", "orders:ingest", "coupons:issue", "scores:write", "customers:read", "consent:write", "lists:write"]
 KEY_TYPES = {"INTEGRATION": "in", "SERVICE": "sv", "WEBHOOK_SOURCE": "wh"}
 
 

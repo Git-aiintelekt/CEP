@@ -28,7 +28,7 @@ test('the menu: every group with its pages, the current page selected, the trail
   await renderAppAt('/settings/delivery')
   await screen.findByRole('table', { name: 'Sending Engines' })
   for (const name of ['Workspace', 'Sending', 'Audience', 'Integrations']) expect(within(menu()).getByRole('button', { name })).toBeTruthy()
-  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts', 'Attribution'])
+  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts', 'Attribution', 'Events'])
   expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
   expect(current.getAttribute('aria-current')).toBe('page')
@@ -83,7 +83,7 @@ test('Recent lists the pages visited here, newest first, three at most; a group 
 
 test('pages the workspace has no feature for are left out, and an empty group with them', () => {
   const groups = visibleGroups((feature) => feature !== 'api_access' && feature !== 'ereceipt')
-  expect(groups.find((group) => group.key === 'integrations')!.pages.map((page) => page.label)).toEqual(['Integrations', 'Attribution'])
+  expect(groups.find((group) => group.key === 'integrations')!.pages.map((page) => page.label)).toEqual(['Integrations', 'Attribution', 'Events'])
   const none = visibleGroups(() => false)
   expect(none.map((group) => group.key)).toEqual(['workspace', 'sending', 'audience', 'integrations'])
   expect(findPages(groups, 'pos')).toEqual([])

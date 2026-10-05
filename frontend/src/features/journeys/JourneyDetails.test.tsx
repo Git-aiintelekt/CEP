@@ -104,3 +104,57 @@ test('Generated Campaigns empty state tells a Draft journey to publish first', a
   await screen.findByText('No campaigns generated yet')
   expect(screen.getByText('Publish the journey to start generating campaigns.')).toBeTruthy()
 })
+
+test('Versions lists every version newest first, the live one tagged Live', async () => {
+  installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'ACTIVE', current_version: 'jv2' }),
+    journeyVersions: [
+      makeJourneyVersion({ status: 'RETIRED', status_label: 'Retired', published_at: '2026-08-27T09:00:00Z' }),
+      makeJourneyVersion({ id: 'jv2', version_number: 2, status: 'ACTIVE', status_label: 'Active', published_at: '2026-09-20T09:00:00Z' }),
+    ],
+  })
+  await renderAppAt('/journeys/j1')
+
+  const table = await screen.findByRole('table', { name: 'Journey versions' })
+  const rows = within(table).getAllByRole('row').slice(1)
+  expect(rows[0].textContent).toContain('Version 2')
+  expect(within(rows[0]).getByText('Live')).toBeTruthy()
+  expect(rows[1].textContent).toContain('Version 1')
+  expect(within(rows[1]).queryByText('Live')).toBeNull()
+})
+
+test('Archive Journey asks first, then ends the journey and hides Edit Journey', async () => {
+  const calls = installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'ACTIVE' }),
+    journeyVersions: [makeJourneyVersion({ status: 'ACTIVE' })],
+    journeyMetrics: makeJourneyMetrics({ in_journey: 12 }),
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+
+  await user.click(await screen.findByRole('button', { name: 'Archive Journey' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Archive This Journey?' })
+  expect(dialog.textContent).toContain('the 12 customers in it leave')
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+  expect(calls.some((call) => call.url.endsWith('/archive/'))).toBe(false)
+
+  await user.click(screen.getByRole('button', { name: 'Archive Journey' }))
+  await user.click(within(await screen.findByRole('dialog', { name: 'Archive This Journey?' })).getByRole('button', { name: 'Archive Journey' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/archive/'))).toBe(true))
+  await screen.findByText(/is archived; 12 customers left it\./)
+  await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Archive Journey' })).toBeNull())
+  expect(screen.queryByRole('link', { name: 'Edit Journey' })).toBeNull()
+})
+
+test('a scheduled journey offers Cancel Schedule, which takes it back to Test Publish', async () => {
+  const calls = installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'APPROVED', scheduled_activate_at: '2026-10-09T09:00:00Z' }),
+    journeyVersions: [makeJourneyVersion({ status: 'TEST_PUBLISHED' })],
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+
+  await user.click(await screen.findByRole('button', { name: 'Cancel Schedule' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/cancel-schedule/'))).toBe(true))
+  await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel Schedule' })).toBeNull())
+})

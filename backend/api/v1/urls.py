@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (attribution_api, auth_api, campaigns_api, client_errors, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (attribution_api, auth_api, campaigns_api, client_errors, events_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
@@ -60,6 +60,11 @@ urlpatterns = [
     path("public/unsubscribe/", delivery_public.unsubscribe_view, name="unsubscribe"),
     path("client-errors/", client_errors.client_error_view, name="client-errors"),   # browser errors, no sign-in
     path("orders/", attribution_api.OrdersIngestView.as_view(), name="orders-ingest"),                 # the shop's orders, for attribution
+    path("events/", events_api.EventsIngestView.as_view(), name="events-ingest"),                       # what happened to customers, for journeys
+    path("workspace/events/", events_api.EventsSettingsView.as_view(), name="workspace-events"),
+    path("workspace/events/recent/", events_api.EventsRecentView.as_view(), name="workspace-events-recent"),
+    path("coupon-issuances/", events_api.CouponIssuanceListView.as_view(), name="coupon-issuances"),   # journeys' coupon requests, for C360
+    path("coupon-issuances/<int:pk>/", events_api.CouponIssuanceDetailView.as_view(), name="coupon-issuance"),
     path("attribution/settings/", attribution_api.AttributionSettingsView.as_view(), name="attribution-settings"),
     path("attribution/orders/", attribution_api.AttributionOrdersView.as_view(), name="attribution-orders"),
     path("attribution/recalculate/", attribution_api.AttributionRecalculateView.as_view(), name="attribution-recalculate"),

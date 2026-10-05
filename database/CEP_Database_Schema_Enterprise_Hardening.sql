@@ -426,7 +426,7 @@ ALTER TABLE campaign_run ADD CONSTRAINT ck_campaign_run_status CHECK (status IN 
 ALTER TABLE campaign_run_variant ADD CONSTRAINT ck_campaign_run_variant_winner_metric CHECK (winner_metric IN ('OPEN_RATE', 'CLICK_RATE', 'CONVERSION_RATE'));
 ALTER TABLE campaign_list ADD CONSTRAINT ck_campaign_list_status CHECK (status IN ('BUILDING', 'FROZEN', 'FAILED'));
 ALTER TABLE campaign_list_member ADD CONSTRAINT ck_campaign_list_member_status CHECK (status IN ('ELIGIBLE', 'SUPPRESSED', 'SENT'));
-ALTER TABLE journey ADD CONSTRAINT ck_journey_status CHECK (status IN ('DRAFT', 'TEST', 'ACTIVE', 'PAUSED', 'ARCHIVED'));
+ALTER TABLE journey ADD CONSTRAINT ck_journey_status CHECK (status IN ('DRAFT', 'TEST', 'APPROVED', 'ACTIVE', 'PAUSED', 'ARCHIVED'));
 ALTER TABLE journey ADD CONSTRAINT ck_journey_population_mode CHECK (population_mode IN ('FIXED', 'CONTINUOUSLY_QUALIFYING', 'EVENT_TRIGGERED'));
 ALTER TABLE journey ADD CONSTRAINT ck_journey_reentry_policy CHECK (reentry_policy IN ('NEVER', 'AFTER_X_DAYS', 'EVERY_QUALIFYING_EVENT'));
 ALTER TABLE journey_version ADD CONSTRAINT ck_journey_version_status CHECK (status IN ('DRAFT', 'TEST_PUBLISHED', 'ACTIVE', 'RETIRED'));

@@ -37,7 +37,7 @@ export function JourneyOutcome({ journeyId, outcome }: { journeyId: string; outc
         <p className="mt-2 max-w-md text-sm text-ink-800">
           {live
             ? 'This Journey is active and running automatically. New customers who qualify will start flowing in immediately — no further manual action is needed.'
-            : 'It will go live automatically at the time below. You can edit or cancel the schedule any time before then.'}
+            : 'It will go live automatically at the time below. Until then you can cancel the schedule on the journey’s page and approve it again for another time.'}
         </p>
 
         <dl className="mt-8 grid w-full gap-3 sm:grid-cols-2">

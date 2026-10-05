@@ -11,6 +11,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { FilterChip, SingleSelectMenu } from '@/components/FilterChip'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
+import { PageHelp } from '@/help/HelpPanel'
 import { DataTable, type Column } from '@/components/DataTable'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -164,6 +165,7 @@ export function JourneysPage() {
     <section>
       <PageHeader
         title="Journeys"
+        help={<PageHelp chapter="journeys" />}
         actions={canEdit && (
           <button type="button" className={buttonPrimary} onClick={() => openSetup()}>
             <Plus size={16} strokeWidth={2} aria-hidden /> Create Journey

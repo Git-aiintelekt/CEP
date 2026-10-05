@@ -199,6 +199,9 @@ def ingest(tenant_id, orders: list[dict], source: str = "API") -> list[dict]:
                             order["coupon_codes"], order["items"]])
             row = cursor.fetchone()
             out.append({"order_id": order["match_ref"], "status": "ACCEPTED" if row else "DUPLICATE"})
+            if row:                                         # journeys hear about the purchase (PURCHASE, FIRST_PURCHASE)
+                from apps.journeys import events
+                events.emit_purchase(cursor, tenant_id, order, source="POS" if source == "POS" else "COMMERCE", order_source=source)
     return out
 
 

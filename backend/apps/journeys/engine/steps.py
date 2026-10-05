@@ -16,7 +16,7 @@ Step configuration (journey_node.config), by node_type:
     SPLIT            {by: RANDOM | LOYALTY_TIER | CUSTOMER_TYPE, paths: [{branch_key, share} | {branch_key, values: [...]}], otherwise?}
                      The path chosen is kept in state_data["splits"] so a retry never rolls again.
     EMAIL, SMS, MMS  see messages.py
-    COUPON_ISSUE     {coupon_id}  ->  confirms an active apps.customers.Coupon reference, no issuance ledger
+    COUPON_ISSUE     {coupon_id}  ->  a coupon_issuance request C360 fulfils (GET /coupon-issuances/) and a COUPON_ISSUED event
     LOYALTY_CHANGE   {tier_id}    ->  confirms an apps.customers.LoyaltyTier reference, sets customer_master.custom_attributes.loyalty_tier
     SEGMENT_UPDATE   {segment_id, action: ADD | REMOVE}
     EXIT             -
@@ -163,14 +163,29 @@ def _segment(node, state, enrollment) -> Done:
 
 
 def _coupon(node, state, enrollment) -> Done:
-    """Issue Coupon: a cached C360 coupon reference (see apps.customers.Coupon). No issuance ledger here —
-    per the BRD, this invokes the existing coupon service rather than rebuilding one; CEP only confirms the
-    coupon is a real, active, tenant-owned reference and records which one was used."""
+    """Issue Coupon: CEP does not make coupons (C360 owns them, see apps.customers.Coupon). The step records a request,
+    once per customer and step (coupon_issuance), that C360 collects from GET /coupon-issuances/ and marks issued, with the
+    customer's own code when it has one; and it raises a COUPON_ISSUED event, which a Coupon Expiry Reminder journey enters on."""
+    from apps.journeys import events
     config = node.config or {}
     coupon = Coupon.objects.filter(tenant_id=enrollment.tenant_id, pk=config.get("coupon_id"), is_active=True).first() if config.get("coupon_id") else None
     if coupon is None:
         return Done("FAILED", {"reason": "The coupon does not exist (any more) or is inactive."})
-    return Done(result={"coupon": coupon.code, "name": coupon.name})
+    tenant = str(enrollment.tenant_id)
+    with session.connection().cursor() as cursor:
+        cursor.execute("""INSERT INTO coupon_issuance (tenant_id, coupon_id, party_id, journey_id, journey_node_key, journey_enrollment_id)
+                          VALUES (%s, %s, %s, %s, %s, %s)
+                          ON CONFLICT (tenant_id, journey_enrollment_id, journey_node_key) WHERE journey_enrollment_id IS NOT NULL DO NOTHING
+                          RETURNING id, requested_at""", [tenant, str(coupon.pk), enrollment.party_id, str(enrollment.journey_id), node.node_key, str(enrollment.pk)])
+        row = cursor.fetchone()
+        if row is None:
+            cursor.execute("SELECT id, requested_at FROM coupon_issuance WHERE tenant_id = %s AND journey_enrollment_id = %s AND journey_node_key = %s",
+                           [tenant, str(enrollment.pk), node.node_key])
+            row = cursor.fetchone()
+    issuance_id, requested_at = row
+    events.emit(tenant, enrollment.party_id, "COUPON_ISSUED", source="CEP", external_id=f"coupon-issuance:{issuance_id}", occurred_at=requested_at,
+                payload={"coupon_code": coupon.code, "coupon_name": coupon.name, "issuance_id": issuance_id, "journey_id": str(enrollment.journey_id)})
+    return Done(result={"coupon": coupon.code, "name": coupon.name, "issuance_id": issuance_id, "status": "REQUESTED"})
 
 
 def _loyalty(node, state, enrollment) -> Done:

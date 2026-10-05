@@ -92,13 +92,41 @@ def _message_templates(version: JourneyVersion) -> list[TemplateMaster]:
     return list(TemplateMaster.objects.filter(pk__in=ids))
 
 
+def _governance(journey: Journey, version: JourneyVersion) -> dict:
+    """What the send engine will apply to this journey's messages, in words: per channel the frequency caps (GLOBAL, or
+    CHANNEL for that channel, as apps.delivery.engine.audience judges them: any cap reached holds the customer back) and the
+    texts' quiet hours. It never blocks:
+    every cap allows at least one message (ck_governance_policy_limits), and a customer at a cap is held back at send time,
+    which the test's results count."""
+    from apps.platform_ops import params
+    channels = _channels_used(version)
+    if not channels:
+        return {"ok": True, "description": "This journey sends no messages, so no frequency cap or quiet hours apply."}
+    policies = list(CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True).order_by("priority"))
+    sentences = []
+    for channel in channels:
+        word = "Emails" if channel == "EMAIL" else "Texts"
+        caps = [p for p in policies if p.scope == "GLOBAL" or (p.scope == "CHANNEL" and (p.channel or channel) == channel)]
+        if caps:
+            limits = "; ".join(f"at most {p.max_messages} in {p.period_days} day{'s' if p.period_days != 1 else ''} ({p.name})" for p in caps[:3])
+            more = f" and {len(caps) - 3} more" if len(caps) > 3 else ""
+            sentences.append(f"{word}: {limits}{more}. A customer who has reached a cap is held back, not sent.")
+        else:
+            sentences.append(f"{word}: no frequency cap applies.")
+    if "SMS" in channels:
+        window = params.get("messaging.sms_quiet_hours", {}) or {}
+        if isinstance(window, dict) and window.get("start") and window.get("end") and window["start"] != window["end"]:
+            sentences.append(f"Texts wait out quiet hours, {window['start']} to {window['end']} in the workspace's time zone.")
+    return {"ok": True, "description": " ".join(sentences)}
+
+
 def readiness(journey: Journey, version: JourneyVersion) -> dict:
     """The 4 checks the Test Publish page shows; `ready` gates the Run Test Publish button."""
     nodes = list(JourneyNode.objects.filter(journey_version=version, deleted_at__isnull=True).exclude(node_family="ENTRY"))
     configured = sum(1 for node in nodes if _step_configured(node))
     templates = _message_templates(version)
     templates_ok = bool(templates) and all(template.status == "ACTIVE" for template in templates)
-    blocking_policies = CommunicationGovernancePolicy.objects.filter(tenant_id=journey.tenant_id, is_active=True, deleted_at__isnull=True, max_messages=0)
+    governance = _governance(journey, version)
     items = [
         {"key": "entry_rules", "label": "Entry rules configured", "description": _entry_summary(version),
          "ok": JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True).exists()},
@@ -107,8 +135,7 @@ def readiness(journey: Journey, version: JourneyVersion) -> dict:
          "ok": len(nodes) > 0 and configured == len(nodes)},
         {"key": "templates_ready", "label": "Templates ready",
          "description": "Email and SMS templates are published in Template Studio.", "ok": templates_ok},
-        {"key": "governance", "label": "Governance rules satisfied",
-         "description": "Frequency caps and quiet hours pass for this population.", "ok": not blocking_policies.exists()},
+        {"key": "governance", "label": "Governance rules satisfied", "description": governance["description"], "ok": governance["ok"]},
     ]
     return {"ready": all(item["ok"] for item in items), "items": items}
 
@@ -267,8 +294,28 @@ def _tally(tenant_id, enrollment_ids: list, started_at, population_size: int, ch
     totals = {"EMAIL": {"sent": mailer.count(), "delivered": email_delivered}, "SMS": {"sent": sms.count(), "delivered": sms_delivered}}
     by_channel = {channel: totals[channel] for channel in channels}
     flags = sorted({row["reason"] for row in executions.filter(execution_status="SKIPPED").values_list("result_data", flat=True) if isinstance(row, dict) and row.get("reason")})
+    flags = _held_back(tenant_id, run_ids, party_ids) + flags
     return {"population_size": population_size, "sent_to": len(enrollment_ids), "delivered": delivered, "opened": opened,
             "clicked": clicked, "bounced": bounced, "governance_flags": flags, "by_channel": by_channel}
+
+
+HELD_WORDS = {"FREQUENCY_CAP": "held back by a frequency cap", "NO_CONSENT": "held back: no marketing consent", "UNSUBSCRIBED": "held back: unsubscribed",
+              "SUPPRESSED": "held back: suppressed", "TOPIC_OPTED_OUT": "held back: opted out of this topic", "BLOCKED_ADDRESS": "held back: blocked address",
+              "INVALID_ADDRESS": "held back: invalid address", "NO_EMAIL": "held back: no email address", "NO_PHONE": "held back: no mobile number",
+              "DUPLICATE_ADDRESS": "held back: same address as another recipient", "UNKNOWN_PARTY": "held back: not in the customer records"}
+
+
+def _held_back(tenant_id, run_ids: list, party_ids: list) -> list[str]:
+    """Test recipients the send engine left out of the test's runs, counted by its reason ("2 held back by a frequency cap")."""
+    if not run_ids or not party_ids:
+        return []
+    with session.connection().cursor() as cursor:
+        cursor.execute("""SELECT m.suppression_reason, count(DISTINCT m.party_id) FROM campaign_list_member m
+                            JOIN campaign_list l ON l.id = m.campaign_list_id
+                           WHERE m.tenant_id = %s AND l.campaign_run_id::text = ANY(%s) AND m.party_id = ANY(%s) AND m.status = 'SUPPRESSED'
+                           GROUP BY 1 ORDER BY 2 DESC""", [str(tenant_id), [str(r) for r in run_ids], list(party_ids)])
+        rows = cursor.fetchall()
+    return [f"{count} {HELD_WORDS.get(reason, 'held back: ' + str(reason or 'no reason').replace('_', ' ').lower())}" for reason, count in rows]
 
 
 def _mark_tested(journey: Journey, version: JourneyVersion, result: dict) -> None:
@@ -286,6 +333,12 @@ def _mark_tested(journey: Journey, version: JourneyVersion, result: dict) -> Non
 
 # ---------------------------------------------------------------------------------------------------- approve / activate
 
+def _retire_others(journey: Journey, keep_version_id) -> None:
+    """One live version at a time: the one going live retires the one it replaces. Customers on the old version carry on
+    along its steps (the engine follows each enrollment's own version); only new entrants join the new one."""
+    JourneyVersion.objects.filter(journey=journey, status=JourneyVersion.Status.ACTIVE).exclude(pk=keep_version_id).update(status=JourneyVersion.Status.RETIRED)
+
+
 def approve(journey: Journey, version: JourneyVersion, when, user_id) -> Journey:
     """`when`: None (or already past) activates immediately; a future tz-aware datetime schedules it — the journey
     stays APPROVED until workers.journey.activate_scheduled (run_scheduler's activate-scheduled-journeys) flips it."""
@@ -302,6 +355,7 @@ def approve(journey: Journey, version: JourneyVersion, when, user_id) -> Journey
         if locked.deleted_at is not None or locked.status == Journey.Status.ARCHIVED:
             raise Conflict("An archived journey cannot be approved.")
         if when is None or when <= now:
+            _retire_others(locked, version.pk)
             JourneyVersion.objects.filter(pk=version.pk).update(status=JourneyVersion.Status.ACTIVE, published_at=now)
             locked.status, locked.current_version_id, locked.scheduled_activate_at = Journey.Status.ACTIVE, version.pk, None
         else:
@@ -324,6 +378,7 @@ def activate_due() -> dict:
                 for due_journey in due:
                     if due_journey.current_version_id is None:
                         continue
+                    _retire_others(due_journey, due_journey.current_version_id)
                     JourneyVersion.objects.filter(pk=due_journey.current_version_id).update(status=JourneyVersion.Status.ACTIVE, published_at=now)
                     Journey.objects.filter(pk=due_journey.pk).update(status=Journey.Status.ACTIVE, scheduled_activate_at=None)
                     activated += 1

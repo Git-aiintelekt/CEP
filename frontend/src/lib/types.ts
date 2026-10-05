@@ -1419,7 +1419,7 @@ export type IntegrationOutcome = 'OK' | 'REJECTED' | 'RETRY' | 'ERROR' | 'THROTT
 /** GET /integrations/: one line per integration with the last day's figures */
 export interface Integration {
   id: string
-  kind: 'POS_RECEIPTS' | 'PROVIDER' | 'ORDERS'
+  kind: 'POS_RECEIPTS' | 'PROVIDER' | 'ORDERS' | 'EVENTS' | 'COUPONS'
   name: string
   direction: 'IN' | 'OUT'
   system: string
@@ -2110,4 +2110,40 @@ export interface AttributedOrder {
   touch_at: string | null
   note: string | null
   received_at: string
+}
+
+// ---- journey events (Settings → Events; GET /workspace/events/, /workspace/events/recent/)
+export interface JourneyEventType {
+  event_type: string
+  label: string
+  from_tracking: boolean
+}
+
+export interface EventsSettings {
+  endpoint: string
+  scope: string
+  keys_with_scope: number
+  journeys_enabled: boolean
+  types: JourneyEventType[]
+  summary: {
+    days: number
+    total: number
+    by_type: { event_type: string; label: string; count: number; last_received_at: string }[]
+    last_received_at: string | null
+    unknown_customers: number
+  }
+  coupons: { endpoint: string; scope: string; keys_with_scope: number; requested: number; issued: number; failed: number }
+}
+
+export interface JourneyEventRow {
+  id: number
+  event_type: string
+  label: string
+  source: string
+  party_id: string
+  event_id: string | null
+  payload: Record<string, unknown>
+  occurred_at: string
+  received_at: string
+  customer_name: string | null
 }
