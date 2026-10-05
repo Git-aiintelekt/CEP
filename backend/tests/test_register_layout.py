@@ -16,7 +16,7 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_register_layout(check):
+def test_register_layout(check, admin_email):
     """The Store Register receipt layout: rendered from a parsed TTDR sale, and saved as a template's layout through the API. Rolled back."""
     sample = open("apps/pos/schemas/sample-transaction.xml", "rb").read()
     read = ttdr.parse(sample)
@@ -39,7 +39,7 @@ def test_register_layout(check):
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     API = Client(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}", HTTP_X_TENANT=tenant.code)

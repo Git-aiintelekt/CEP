@@ -22,10 +22,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_ux_backend(check):
+def test_ux_backend(check, admin_email):
     """The UX pass's backend: saved views and bulk pause / resume, a template's last use, a list's reach and consent filter, global search,"""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     devon = AppUser.objects.get(email="devon.okafor@northwindapparel.example")
     analyst = AppUser.objects.get(email="priya.natarajan@northwindapparel.example")
     context.reset_platform(tok)
@@ -182,7 +182,7 @@ def test_ux_backend(check):
             twice = api("post", f"/api/v1/integrations/log/{bad_row['id']}/retry/")
         state = sql("SELECT x.status, x.status_reason, r.status FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id WHERE x.tenant_id = %s AND x.id = %s", [TENANT, failed_id], True)[0]
         check("Retry Send: refused on a send that went through; a failed send's message (found by the key the log kept) goes back to QUEUED, its run reopens, the log says who; a second retry is refused",
-              failed_send.status_code >= 400 and early.status_code == 409 and retried.status_code == 200 and retried.json()["queued"] and state[0] == "QUEUED" and state[1].startswith("Retried by Aby John")
+              failed_send.status_code >= 400 and early.status_code == 409 and retried.status_code == 200 and retried.json()["queued"] and state[0] == "QUEUED" and state[1].startswith("Retried by ")
               and state[2] == "SENDING" and twice.status_code == 409
               and sql("SELECT count(*) FROM campaign_activity_log WHERE tenant_id = %s AND campaign_id = %s AND event_type = 'SEND_RETRIED'", [TENANT, receipts["id"]], True)[0][0] == 1,
               f"send {failed_send.status_code} {early.status_code} {retried.content[:160]} {state} {twice.status_code}")

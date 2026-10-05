@@ -17,10 +17,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_webhook_dedupe(check):
+def test_webhook_dedupe(check, admin_email):
     """A Postal callback delivered twice is kept as DUPLICATE and applied once (patch 0021). Real local DB, rolled back."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     c = Client()

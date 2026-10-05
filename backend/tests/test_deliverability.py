@@ -18,7 +18,7 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_deliverability(check):
+def test_deliverability(check, admin_email):
     """Deliverability tests: the Inspect account, the allowance, a preview test from a template, and the quota. Rolled back; Inspect faked."""
     schema = open("../database/CEP_Database_Schema_Platform_Operations.sql", encoding="utf-8").read()
     section = schema[schema.index("-- 18. DELIVERABILITY TESTS"):schema.index("-- End of platform operations layer.")]
@@ -68,7 +68,7 @@ def test_deliverability(check):
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     T = str(tenant.id)

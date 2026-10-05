@@ -19,10 +19,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_codes_receipt(check):
+def test_codes_receipt(check, admin_email):
     """Barcode and QR code blocks on an e-receipt: the receipt's own coupon fields fill the coupon tags, a RECEIPT tag works as a source,"""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     c = Client()

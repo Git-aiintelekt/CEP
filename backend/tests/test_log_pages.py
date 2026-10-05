@@ -14,11 +14,11 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_log_pages(check):
+def test_log_pages(check, admin_email):
     """The call log endpoint paged: count, page, page_size; sizes offered; filters still apply. Rolled back."""
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     T = str(tenant.id)

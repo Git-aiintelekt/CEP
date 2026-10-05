@@ -18,10 +18,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_scheduler(check):
+def test_scheduler(check, admin_email):
     """The no-broker scheduler and the run-activity fix, against the real local DB, rolled back."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT = str(admin.tenant_id)
 

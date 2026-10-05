@@ -18,14 +18,14 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_platform_mail(check):
+def test_platform_mail(check, admin_email):
     """The platform's mail server is never a tenant's: resolution, the workspace API and the SMTP provider. Rolled back."""
     class Roll(Exception):
         pass
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     tok = context.set_current(str(tenant.id), "default", str(user.pk))
     try:

@@ -142,7 +142,7 @@ test('Journey Runs off hides them in the week, the month and the day list, and i
   expect(within(grid).queryByRole('link', { name: /Welcome Series/ })).toBeNull()
   await user.click(screen.getByRole('switch', { name: 'Journey Runs' }))
   expect(search().get('journeys')).toBeNull()
-  const bar = await within(grid).findByRole('link', { name: /^Welcome Series: Active, journey run/ })
+  const [bar] = await within(grid).findAllByRole('link', { name: /^Welcome Series: Active, journey run/ })   // a run that crosses a week's end is drawn in both rows
   expect(bar.querySelector('[data-journey-mark]')).toBeTruthy()
   expect(document.querySelector('[data-legend="journey"]')).toBeTruthy()
 })

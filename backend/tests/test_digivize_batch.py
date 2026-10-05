@@ -24,7 +24,7 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_digivize_batch(check):
+def test_digivize_batch(check, admin_email):
     """Digivize batch adapter: the signature against Digivize's own script, the batch body, the replies, the engine, the receipts. Rolled back; Digivize faked."""
     REFERENCE = {"canonical": "auto_create_contacts=0&brand_id=3&callback_url=https%3A%2F%2Fexample.com%2Fwebhooks%2Fsms-batch&idempotency_key=1783523355120546028606188668268zbc0-2&key=sk_test_key&message=Hello+%7B%7BFIRST_NAME%7D%7D%2C+your+order+is+ready+for+pickup%21+It%27s+20%25+off+%26+more+%28%2A%29&message_type=marketing&recipients%5B0%5D%5Bto%5D=%2B15875764422&recipients%5B0%5D%5Bvariables%5D%5BFIRST_NAME%5D=Raymond+Rice&recipients%5B0%5D%5Bvariables%5D%5BFULL_NAME%5D=Raymond+Rice&recipients%5B0%5D%5Bvariables%5D%5BLAST_NAME%5D=Rice&recipients%5B0%5D%5Bvariables%5D%5BPARTY_ID%5D=20001964&recipients%5B0%5D%5Bexternal_ref%5D=cust_001&recipients%5B1%5D%5Bto%5D=%2B14045550100&recipients%5B1%5D%5Bexternal_ref%5D=cust_002&timestamp=1700000000&variable_normalization=gsm7_safe",
                  "signature": "efd8b9e1ae0212d7fef5a4e2ae17c40dd50742c5af0b512571f2d1237f1ab5dc"}
@@ -113,7 +113,7 @@ def test_digivize_batch(check):
             return cur.fetchall()
 
     tok = context.set_platform(True)
-    staff = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    staff = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     tenant = staff.tenant
     tid = str(tenant.id)

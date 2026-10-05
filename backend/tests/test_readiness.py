@@ -23,7 +23,8 @@ def test_readiness(check):
         print(f"  {item['state']:4} {item['label']}: {item['text'][:150]}" + (f"  -> {item['action']} {item['url']}" if item["url"] else ""))
     check("eight checks in order", [i["key"] for i in state["items"]] == ["provisioned", "plan", "features", "administrator", "tags", "consent", "sending", "sso"])
     check("every check has a state and a sentence", all(i["state"] in ("ok", "warn", "todo") and i["text"] for i in state["items"]))
-    check("NWA is provisioned and has its administrator", {i["key"]: i["state"] for i in state["items"]}["provisioned"] == "ok" and {i["key"]: i["state"] for i in state["items"]}["administrator"] == "ok")
+    states = {i["key"]: i["state"] for i in state["items"]}
+    check("NWA is provisioned and has its administrator (signed in or not yet)", states["provisioned"] == "ok" and states["administrator"] in ("ok", "warn"), str(states))
     check("the summary adds up", state["done"] == sum(1 for i in state["items"] if i["state"] == "ok") and state["total"] == 8 and 0 <= state["percent"] <= 100, json.dumps({k: v for k, v in state.items() if k != "items"}))
 
     staff = AppUser.objects.using(P).filter(is_staff=True, is_active=True).order_by("created_at").first()

@@ -49,3 +49,24 @@ connection, the request-figures thread does not start, and the cache and the wor
 
 Most files were the verification scripts written while each feature was built, converted as they were: one long scenario per
 feature, the checks named in plain words. New features add their own file; the journey engine should start with one.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request to main and every push to main.
+
+- **Backend.** A throwaway PostgreSQL 18 container gets a database built from nothing: `database/build_test_db.sh`
+  (the five layers and the sample workspace, in the order their headers give), `tests/prepare_django_tables.sh`
+  (Django's own tables; the app's migrations are marked as applied, since the SQL files are the schema) and
+  `tests/ci_fixtures.sql` (a test administrator for NWA, NWA set to Retail with barcodes). Then `manage.py check` and
+  the whole suite, the partition test included, since the container's owner login is set.
+- **Frontend.** Typecheck and lint, then the vitest suite split across three machines. A test that fails gets two more
+  tries, so a timeout under load does not fail the run; one that fails three times does.
+
+The same database build works on a computer with PostgreSQL 18 installed, against an empty database of your own:
+
+```
+PGHOST=localhost PGPORT=55432 PGUSER=postgres PGDATABASE=cep_ci CEP_APP_PASSWORD=ci-app CEP_PLATFORM_PASSWORD=ci-platform bash database/build_test_db.sh
+```
+
+The scenarios find the person they act as with the `admin_email` fixture: the first active back-office user who
+administers NWA. On a local copy that is the platform operator's own account; in CI, the one from `ci_fixtures.sql`.

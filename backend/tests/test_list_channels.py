@@ -20,7 +20,7 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_list_channels(check):
+def test_list_channels(check, admin_email):
     """List channels: the same file uploaded to an email list, a text list and a both list; who is held back, how a person is"""
     CSV = ("Email,First name,Mobile number,Email consent date,Text consent date\r\n"
            "ann@lists.test,Ann,+12125550141,2026-01-10,2026-02-01\r\n"
@@ -57,7 +57,7 @@ def test_list_channels(check):
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     T = str(tenant.id)

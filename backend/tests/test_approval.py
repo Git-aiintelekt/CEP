@@ -19,10 +19,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_approval(check):
+def test_approval(check, admin_email):
     """Approval before a production publish (patch 0022) and workspace notifications, end to end against the local database,"""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     devon = AppUser.objects.get(email="devon.okafor@northwindapparel.example")        # Campaign Manager: edit + publish, no approve, no user.admin
     maria = AppUser.objects.get(email="maria.chen@northwindapparel.example")          # Marketing Admin: approve
     context.reset_platform(tok)

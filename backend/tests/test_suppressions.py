@@ -14,10 +14,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_suppressions(check):
+def test_suppressions(check, admin_email):
     """Suppressions page API against the local database, rolled back: listing, filters, summary, export, unblock, block by hand and by file, permissions."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     analyst = AppUser.objects.get(email="priya.natarajan@northwindapparel.example")          # campaign.view only
     devon = AppUser.objects.get(email="devon.okafor@northwindapparel.example")               # Campaign Manager: no consent.edit
     context.reset_platform(tok)

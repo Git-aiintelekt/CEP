@@ -25,10 +25,10 @@ from rest_framework_simplejwt.tokens import AccessToken
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_integration_bridge(check):
+def test_integration_bridge(check, admin_email):
     """Integration bridge (patch 0019) against the real local DB, rolled back. The platform alias is pointed at the default"""
     tok = context.set_platform(True)
-    staff = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    staff = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     tenant = staff.tenant
     tid = str(tenant.id)

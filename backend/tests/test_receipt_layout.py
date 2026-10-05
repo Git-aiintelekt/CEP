@@ -16,10 +16,10 @@ from rest_framework_simplejwt.tokens import AccessToken
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_receipt_layout(check):
+def test_receipt_layout(check, admin_email):
     """Verifies the new receipt-layout backend (GET/POST /templates/{id}/receipt/, GET /templates/{id}/receipt/versions/)"""
     tok = context.set_platform(True)
-    staff = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    staff = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     c = Client()
     H = {"HTTP_X_TENANT": staff.tenant.code, "HTTP_AUTHORIZATION": "Bearer " + str(AccessToken.for_user(staff))}

@@ -130,6 +130,28 @@ def staff_sessions_on_platform(monkeypatch):
     monkeypatch.setattr(Client, "force_login", force_login)
 
 
+# ---------------------------------------------------------------------------------------------------- people
+NWA = "a0000000-0000-4000-8000-000000000001"
+
+
+@pytest.fixture
+def admin_email():
+    """The address of the person the scenarios act as: the first active back-office user who administers NWA. On a local
+    copy that is the platform operator's own account; a database built for tests gets one from tests/ci_fixtures.sql."""
+    from django.conf import settings
+    from django.db import connections
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute("""SELECT u.email FROM app_user u
+                           WHERE u.tenant_id = %s AND u.is_active AND u.is_staff AND u.deleted_at IS NULL
+                             AND EXISTS (SELECT 1 FROM user_role ur JOIN role_permission rp ON rp.role_id = ur.role_id JOIN permission p ON p.id = rp.permission_id
+                                          WHERE ur.user_id = u.id AND p.code = 'user.admin')
+                           ORDER BY u.created_at LIMIT 1""", [NWA])
+        row = cursor.fetchone()
+    if row is None:
+        pytest.fail("No back-office user administers NWA: load tests/ci_fixtures.sql into a database built for tests.", pytrace=False)
+    return row[0]
+
+
 # ---------------------------------------------------------------------------------------------------- check
 class Checks:
     def __init__(self):

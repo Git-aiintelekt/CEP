@@ -20,10 +20,10 @@ from rest_framework_simplejwt.tokens import AccessToken
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_transactional_key(check):
+def test_transactional_key(check, admin_email):
     """Two credentials on one sending engine (patch 0020), against the real local DB, rolled back."""
     tok = context.set_platform(True)
-    staff = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    staff = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     tenant = staff.tenant
     tid = str(tenant.id)
