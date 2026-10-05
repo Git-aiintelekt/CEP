@@ -1,0 +1,4 @@
+# Only for running the backend tests (`python -m pytest` in backend/); not installed on servers.
+-r requirements.txt
+pytest>=8,<10
+pytest-django>=4.9,<5

@@ -8,6 +8,7 @@ CEP: multi-tenant Customer Engagement Platform for email/SMS campaigns. React SP
 - `npm run typecheck`, `npm run lint`, `npm test` (run all before finishing)
 - Full app: `docker compose -f deploy/docker-compose.dev.yml up -d`; workspace `NWA`, ask for the password
 - No backend: `/dev/designer`, `/dev/message`
+- Backend tests (from `backend/`): `.venv/Scripts/python -m pytest` (local database only, every change rolled back; see `backend/tests/README.md`). Run them before finishing backend work.
 
 ## Debugging
 Reproduce first. Console, then Network: wrong request = front end, wrong response = API. 401 expired token, 403 missing permission, 409 stale version.
