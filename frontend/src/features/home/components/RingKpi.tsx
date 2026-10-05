@@ -1,7 +1,10 @@
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 import { SkeletonLine } from '@/components/States'
+
+import { CountUp } from '../intro'
+import { useIntroRef } from '../introClock'
 
 interface RingKpiProps {
   label: string
@@ -25,6 +28,17 @@ export function PlumChip({ children }: { children: ReactNode }) {
   return <span data-plum-chip className="inline-flex h-[22px] items-center rounded-sm bg-plum-100 px-[7px] text-xs font-semibold whitespace-nowrap text-plum-800">{children}</span>
 }
 
+/** the share as a blue-into-plum ring around the icon, filling as the page opens */
+function Ring({ fill, icon: Icon }: { fill: number; icon: LucideIcon }) {
+  const [ref, playing] = useIntroRef<HTMLSpanElement>(fill > 0)
+  return (
+    <span ref={ref} aria-hidden data-ring={Math.round(fill)} className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${playing ? 'cep-intro-ring' : ''}`}
+      style={{ '--intro-ring': `${fill}%`, background: 'conic-gradient(var(--color-brand-600) 0%, var(--color-plum-500) var(--intro-ring), var(--color-fill-subtle) var(--intro-ring) 100%)' } as CSSProperties}>
+      <span className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-surface text-plum-700"><Icon size={18} strokeWidth={1.5} /></span>
+    </span>
+  )
+}
+
 /** One KPI with its share drawn as a blue-into-plum ring around the icon. */
 export function RingKpi({ label, icon: Icon, note, value, quiet = false, supporting, chips, percent = null, loading = false }: RingKpiProps) {
   const fill = Math.min(100, Math.max(0, percent ?? 0))
@@ -40,16 +54,13 @@ export function RingKpi({ label, icon: Icon, note, value, quiet = false, support
           <div data-kpi-loading className="flex flex-col gap-1"><SkeletonLine width="60%" height={26} /><SkeletonLine width="80%" /></div>
         ) : (
           <>
-            <span className={`font-display font-semibold tracking-[-0.02em] cep-num ${quiet ? 'text-xl text-ink-800' : 'text-[26px] leading-[1.15] text-ink-900'}`}>{value ?? '—'}</span>
+            <span className={`font-display font-semibold tracking-[-0.02em] cep-num ${quiet ? 'text-xl text-ink-800' : 'text-[26px] leading-[1.15] text-ink-900'}`}>{quiet ? value : <CountUp value={value ?? '—'} />}</span>
             {supporting && <span className="truncate text-xs text-ink-800">{supporting}</span>}
             {chips && <span className="flex flex-wrap items-center gap-1.5">{chips}</span>}
           </>
         )}
       </div>
-      <span aria-hidden data-ring={Math.round(fill)} className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full"
-        style={{ background: `conic-gradient(var(--color-brand-600) 0%, var(--color-plum-500) ${fill}%, var(--color-fill-subtle) ${fill}% 100%)` }}>
-        <span className="flex h-[50px] w-[50px] items-center justify-center rounded-full bg-surface text-plum-700"><Icon size={18} strokeWidth={1.5} /></span>
-      </span>
+      <Ring key={loading ? 'loading' : 'ready'} fill={loading ? 0 : fill} icon={Icon} />
     </div>
   )
 }

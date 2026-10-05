@@ -73,7 +73,7 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
         <g key={item.key} data-series={item.key}>
           {item.values.map((value, index) => {
             const x = plot.x(index) - group / 2 + place * (width + BAR_GAP)
-            return <path key={index} d={barPath(x, plot.y(value), width, bottom)} fill={item.gradient ? `url(#${gradientId}-${place})` : item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
+            return <path key={index} data-bar-mark d={barPath(x, plot.y(value), width, bottom)} fill={item.gradient ? `url(#${gradientId}-${place})` : item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
               className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
           })}
         </g>

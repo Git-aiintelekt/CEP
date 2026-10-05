@@ -8,6 +8,7 @@ import { formatNumber, formatPercent } from '@/lib/format'
 import { HomeCard } from '../components/HomeCard'
 import { useHomeData } from '../data/homeDataContext'
 import { capCompliance } from '../capCompliance'
+import { CountUp, IntroBar } from '../intro'
 import type { Governance, HomeFilters } from '../data/types'
 
 /** neutral parts of one whole: Blue, Teal, Periwinkle (not green or amber, since no reason is good or bad) */
@@ -21,7 +22,7 @@ export function Figure({ value, label, muted = false, icon: Icon }: { value: str
   return (
     <div data-figure className="cep-home-tile flex min-w-0 items-center justify-between gap-2 rounded-lg border border-line-subtle px-3.5 py-3.5">
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className={`font-display leading-tight font-semibold cep-num ${muted ? 'text-xl text-ink-800' : 'text-2xl text-ink-900'}`}>{value}</span>
+        <span className={`font-display leading-tight font-semibold cep-num ${muted ? 'text-xl text-ink-800' : 'text-2xl text-ink-900'}`}>{muted ? value : <CountUp value={value} />}</span>
         <span className="text-helper text-ink-800">{label}</span>
       </span>
       {Icon && <span aria-hidden className="cep-home-badge-strong flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-plum-700"><Icon size={15} strokeWidth={1.5} /></span>}
@@ -43,10 +44,10 @@ function Body({ data }: { data: Governance }) {
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-3 text-helper font-semibold">
           <span className="text-ink-800">Frequency Cap Compliance</span>
-          <span data-compliance className="font-semibold text-ink-900 cep-num">{formatPercent(compliance, compliance === 100 ? 0 : 1)}</span>
+          <span data-compliance className="font-semibold text-ink-900 cep-num"><CountUp value={formatPercent(compliance, compliance === 100 ? 0 : 1)} /></span>
         </div>
         <div role="progressbar" aria-label="Frequency cap compliance" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(compliance)} className="h-2 w-full overflow-hidden rounded-pill bg-fill-subtle">
-          <div className="cep-home-blend h-full rounded-pill" style={{ width: `${compliance}%` }} />
+          <IntroBar as="div" className="cep-home-blend rounded-pill" percent={compliance} />
         </div>
       </div>
       {issues === 0 ? (

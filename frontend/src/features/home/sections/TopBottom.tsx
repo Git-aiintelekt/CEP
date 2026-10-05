@@ -8,6 +8,7 @@ import { formatCompactMoney, formatPercent, formatPercentChange, formatPointChan
 
 import { HomeCard } from '../components/HomeCard'
 import { useHomeData } from '../data/homeDataContext'
+import { CountUp, IntroBar } from '../intro'
 import type { HomeFilters, MessageChannel, TopBottom as TopBottomData, TopBottomRow } from '../data/types'
 
 const SHOWN = 3
@@ -36,10 +37,10 @@ function Row({ row, mode, rank, best }: { row: TopBottomRow; mode: TopBottomData
         <span className="flex items-baseline justify-between gap-3">
           <Link to={`/campaigns/${row.id}`} className="min-w-0 rounded-sm text-sm font-semibold text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
           <span data-figure className="shrink-0 text-sm font-semibold text-ink-900 cep-num">
-            {mode === 'target' ? formatCompactMoney(row.figure) : `${formatPercent(row.figure)} clicks`}
+            <CountUp value={mode === 'target' ? formatCompactMoney(row.figure) : `${formatPercent(row.figure)} clicks`} />
           </span>
         </span>
-        <span aria-hidden className="h-1.5 overflow-hidden rounded-pill bg-fill-subtle"><span className="cep-home-blend block h-full rounded-pill" style={{ width: `${share(row, mode, best)}%` }} /></span>
+        <span aria-hidden className="h-1.5 overflow-hidden rounded-pill bg-fill-subtle"><IntroBar className="cep-home-blend rounded-pill" percent={share(row, mode, best)} /></span>
         <span data-context className="truncate text-xs text-ink-800">{context(row, mode)}</span>
       </span>
     </li>

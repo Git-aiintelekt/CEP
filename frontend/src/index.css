@@ -314,6 +314,40 @@
   .cep-home-step-2 { background: linear-gradient(90deg, var(--color-brand-600) 0%, var(--color-callout-icon) 100%); }
   .cep-home-step-3 { background: linear-gradient(90deg, var(--color-callout-icon) 0%, var(--color-plum-500) 100%); }
   .cep-home-step-4 { background: linear-gradient(90deg, var(--color-plum-500) 0%, var(--color-plum-700) 100%); }
+
+  /*
+   * Home's opening (approved Home exception to the quick-motion rule): 1s, cubic ease-out to a stop, once. See
+   * features/home/intro.tsx: --intro-delay is negative for parts that arrive late, so they join the same clock.
+   * `backwards`, never `both`, so nothing is held after the animation ends.
+   */
+  .cep-intro-grow { animation: cep-intro-grow 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards; }
+  .cep-intro-ring { animation: cep-intro-ring 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards; }
+  .cep-intro-spark [data-spark-line] { animation: cep-intro-draw 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards; }
+  .cep-intro-spark [data-spark-area] { animation: cep-intro-fade 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards; }
+  .cep-intro-spark [data-spark-dot] { animation: cep-intro-dot 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards; }
+  .cep-intro-rise [data-bar-mark] {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: cep-intro-rise 1000ms cubic-bezier(0.33, 1, 0.68, 1) var(--intro-delay, 0ms) backwards;
+  }
+}
+
+/* the share a KPI ring fills, registered so it can animate */
+@property --intro-ring {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+@keyframes cep-intro-grow { from { width: 0; } }
+@keyframes cep-intro-ring { from { --intro-ring: 0%; } }
+@keyframes cep-intro-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes cep-intro-fade { from { opacity: 0; } }
+@keyframes cep-intro-dot { 0%, 80% { opacity: 0; scale: 0; } }
+@keyframes cep-intro-rise { from { scale: 1 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cep-intro-grow, .cep-intro-ring, .cep-intro-spark *, .cep-intro-rise [data-bar-mark] { animation: none; }
 }
 
 /*

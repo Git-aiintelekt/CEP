@@ -7,6 +7,7 @@ import { ErrorState, SkeletonLine } from '@/components/States'
 import { HomeCard } from '../components/HomeCard'
 import { PlumChip } from '../components/RingKpi'
 import { useHomeData } from '../data/homeDataContext'
+import { CountUp, IntroBar } from '../intro'
 import type { HomeFilters, MessageChannel } from '../data/types'
 import { funnelSteps, type FunnelStep } from '../funnelSteps'
 
@@ -25,10 +26,10 @@ function Step({ step, index, last }: { step: FunnelStep; index: number; last: bo
     <li data-step={step.key} className={`flex flex-col gap-2 rounded-lg border p-3 ${last ? 'cep-home-strip border-plum-200' : 'border-line-subtle bg-surface'}`}>
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><span aria-hidden className={`h-2 w-2 rounded-full ${look.dot}`} />{step.label}</span>
-        <span data-value className={`font-semibold cep-num ${step.value === null ? 'text-sm text-ink-800' : 'text-base text-ink-900'}`}>{step.valueText}</span>
+        <span data-value className={`font-semibold cep-num ${step.value === null ? 'text-sm text-ink-800' : 'text-base text-ink-900'}`}>{step.value === null ? step.valueText : <CountUp value={step.valueText} />}</span>
       </div>
       {step.value !== null && (
-        <div aria-hidden className="h-2 overflow-hidden rounded-pill bg-fill-subtle"><div className={`h-full rounded-pill ${look.bar}`} style={{ width: `${Math.min(100, step.share)}%` }} /></div>
+        <div aria-hidden className="h-2 overflow-hidden rounded-pill bg-fill-subtle"><IntroBar as="div" className={`rounded-pill ${look.bar}`} percent={Math.min(100, step.share)} /></div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-ink-800">{step.note}</span>

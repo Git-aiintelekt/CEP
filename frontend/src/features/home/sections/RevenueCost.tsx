@@ -12,6 +12,7 @@ import { formatAxisMoney, formatCompactMoney, formatPercent, formatShortDay } fr
 import { HomeCard } from '../components/HomeCard'
 import { HomeFilterBar } from '../components/HomeFilterBar'
 import { useHomeData } from '../data/homeDataContext'
+import { IntroScope } from '../intro'
 import type { HomeFilters, RevenueCostSeries } from '../data/types'
 import { revenueInsight, type RevenueInsight } from '../revenueInsight'
 
@@ -92,6 +93,7 @@ export function RevenueCost({ filters, onChange, onClear, singleCampaign }: Reve
           {view === 'total' ? (
             <>
               {data && <ChartLegend series={series} reference={reference} hidden={legend.hidden} onToggle={legend.toggle} />}
+              <IntroScope key={result.status} enabled={result.status === 'ready' && (data?.points.length ?? 0) > 0} className="cep-intro-rise">
               <Chart
                 title={`Attributed revenue and campaign cost per ${weekly ? 'week' : 'day'}, with target pace`}
                 categoryHeader={weekly ? 'Week' : 'Day'}
@@ -113,6 +115,7 @@ export function RevenueCost({ filters, onChange, onClear, singleCampaign }: Reve
                 onRetry={result.status === 'error' ? result.retry : undefined}
                 emptyText="Nothing was sent in this period."
               />
+              </IntroScope>
             </>
           ) : (
             <BarList

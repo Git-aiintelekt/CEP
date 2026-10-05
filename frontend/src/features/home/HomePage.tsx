@@ -10,6 +10,7 @@ import { greetingFor } from '@/lib/format'
 import { createNewTiles } from './createNewTiles'
 import { useHomeData } from './data/homeDataContext'
 import type { HomeFilters, SectionResult } from './data/types'
+import { HomeIntro } from './intro'
 import { homeLayout, type Availability, type CardKey, type LayoutRow } from './homeLayout'
 import { ChannelSnapshot } from './sections/ChannelSnapshot'
 import { CreateNew } from './sections/CreateNew'
@@ -104,16 +105,18 @@ export function HomePage() {
   const greeting = greetingFor(new Date(), viewer.timezone)
 
   return (
-    // the plum wash fills the sheet edge to edge, under the shell's own padding
-    <div data-home className="cep-home-wash @container -mx-4 -my-5 flex min-h-full min-w-0 flex-col gap-5 rounded-tl-xl px-4 pt-6 pb-12 md:-mx-8 md:-my-6 md:px-8 md:pt-7">
-      <div data-greeting-row className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
-        {layout.createNew && <CreateNew tiles={tiles} />}
+    <HomeIntro>
+      {/* the plum wash fills the sheet edge to edge, under the shell's own padding */}
+      <div data-home className="cep-home-wash @container -mx-4 -my-5 flex min-h-full min-w-0 flex-col gap-5 rounded-tl-xl px-4 pt-6 pb-12 md:-mx-8 md:-my-6 md:px-8 md:pt-7">
+        <div data-greeting-row className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
+          {layout.createNew && <CreateNew tiles={tiles} />}
+        </div>
+        {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}
+        <SetupCard result={setup} />
+        <KeyFigures filters={filters} revenueCost={revenueCost} />
+        {layout.rows.map((row) => <CardRow key={row.name} row={row} render={render} />)}
       </div>
-      {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}
-      <SetupCard result={setup} />
-      <KeyFigures filters={filters} revenueCost={revenueCost} />
-      {layout.rows.map((row) => <CardRow key={row.name} row={row} render={render} />)}
-    </div>
+    </HomeIntro>
   )
 }

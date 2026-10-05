@@ -4,6 +4,7 @@ import { ErrorState, SkeletonLine } from '@/components/States'
 
 import { HomeCard } from '../components/HomeCard'
 import { useHomeData } from '../data/homeDataContext'
+import { IntroBar } from '../intro'
 import { PERIOD_OPTIONS } from '../filterLabels'
 import type { HomeFilters } from '../data/types'
 import { snapshotRows, type SnapshotRow } from '../snapshotRows'
@@ -21,7 +22,7 @@ function Row({ row }: { row: SnapshotRow }) {
         <span className="flex items-center gap-2.5">
           <span className="min-w-0 flex-1 text-xs text-ink-800">{row.detail}</span>
           {row.share !== null && (
-            <span aria-hidden className="h-1.5 w-1/3 shrink-0 overflow-hidden rounded-pill bg-fill-subtle"><span className="cep-home-blend block h-full rounded-pill" style={{ width: `${Math.min(100, row.share)}%` }} /></span>
+            <span aria-hidden className="h-1.5 w-1/3 shrink-0 overflow-hidden rounded-pill bg-fill-subtle"><IntroBar className="cep-home-blend rounded-pill" percent={Math.min(100, row.share)} /></span>
           )}
         </span>
       </span>
