@@ -9,13 +9,14 @@
  * Cancel removes the draft and stops its job, so a half-finished upload never becomes a list.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Copy, Database, Download, FileSpreadsheet, Upload } from 'lucide-react'
+import { CheckCircle2, Copy, Database, Download, FileSpreadsheet, FlaskConical, Layers, Mail, MessageSquare, Upload, Users } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from 'react'
 
 import { Checkbox } from '@/components/Checkbox'
 import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
-import { Modal } from '@/components/Modal'
+import { SetupDialog } from '@/components/SetupDialog'
 import { Spinner } from '@/components/States'
+import { ChoiceCard as SetupCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
@@ -47,10 +48,16 @@ const TITLES: Record<Step, [string, string]> = {
   done: ['List Created', "Here's where to find it and what happens next."],
 }
 
+/** each step's name on the set-up frame's step line ("Step 3 of 6 · Match Columns") */
+const STEP_NAME: Record<Step, string> = {
+  method: 'List Details', file: 'Upload File', map: 'Match Columns', consent: 'Consent', review: 'Review', importing: 'Importing',
+  audience: 'Choose an Audience', clone: 'Choose a List to Copy', done: 'Done',
+}
+
 const SOURCES: { value: ListSource; title: string; text: string; icon: ReactNode; badge?: string }[] = [
-  { value: 'UPLOAD', title: 'Upload a File', text: 'Import a CSV, map the columns, review before adding.', icon: <Upload size={18} strokeWidth={1.5} aria-hidden />, badge: 'Most Common' },
-  { value: 'BI', title: 'BI or Extraction Tool', text: 'Choose an audience someone already defined.', icon: <Database size={18} strokeWidth={1.5} aria-hidden /> },
-  { value: 'CLONE', title: 'Clone a List', text: 'Copy a list you have and adjust from there.', icon: <Copy size={18} strokeWidth={1.5} aria-hidden /> },
+  { value: 'UPLOAD', title: 'Upload a File', text: 'Import a CSV, map the columns, review before adding.', icon: <Upload size={20} strokeWidth={1.5} />, badge: 'Most Common' },
+  { value: 'BI', title: 'BI or Extraction Tool', text: 'Choose an audience someone already defined.', icon: <Database size={20} strokeWidth={1.5} /> },
+  { value: 'CLONE', title: 'Clone a List', text: 'Copy a list you have and adjust from there.', icon: <Copy size={20} strokeWidth={1.5} /> },
 ]
 
 const BASIS_TEXT: Record<ConsentBasis, string> = {
@@ -61,14 +68,14 @@ const BASIS_TEXT: Record<ConsentBasis, string> = {
 }
 
 const TYPES = [
-  { value: 'PRODUCTION', title: 'Production', text: 'Available to Corporate Communication Governance sends.' },
-  { value: 'TEST', title: 'Test', text: 'Held out of governed sends until you promote it.' },
+  { value: 'PRODUCTION', title: 'Production', text: 'Available to Corporate Communication Governance sends.', icon: <Users size={20} strokeWidth={1.5} /> },
+  { value: 'TEST', title: 'Test', text: 'Held out of governed sends until you promote it.', icon: <FlaskConical size={20} strokeWidth={1.5} /> },
 ]
 
-const CHANNELS: { value: ListChannel; title: string; text: string }[] = [
-  { value: 'EMAIL', title: 'Email', text: 'An email address per row. For email campaigns.' },
-  { value: 'SMS', title: 'Texts', text: 'A mobile number per row; an address is optional. For SMS and MMS campaigns.' },
-  { value: 'BOTH', title: 'Email and Texts', text: 'An address and a number per row. One list for every channel.' },
+const CHANNELS: { value: ListChannel; title: string; text: string; icon: ReactNode }[] = [
+  { value: 'EMAIL', title: 'Email', text: 'An email address per row. For email campaigns.', icon: <Mail size={20} strokeWidth={1.5} /> },
+  { value: 'SMS', title: 'Texts', text: 'A mobile number per row; an address is optional. For SMS and MMS campaigns.', icon: <MessageSquare size={20} strokeWidth={1.5} /> },
+  { value: 'BOTH', title: 'Email and Texts', text: 'An address and a number per row. One list for every channel.', icon: <Layers size={20} strokeWidth={1.5} /> },
 ]
 
 /** Under the drop zone: the file format in one line, the columns the import knows, and the sample to download. */
@@ -109,7 +116,7 @@ function ChoiceCard({ selected, onSelect, title, text, icon, badge }: { selected
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex h-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface hover:bg-surface-subtle'}`}
+      className={`flex h-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:border-brand-600'}`}
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-ink-900">
         {icon && <span className={selected ? 'text-brand-600' : 'text-ink-800'}>{icon}</span>}
@@ -361,11 +368,11 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const textsNeedDate = Boolean(consent?.policy.texts_need_date) && channel !== 'EMAIL' && columnOf('sms_consent_date') === ''
 
   const primary: { label: string; action: () => void; disabled: boolean } | null =
-    step === 'method' ? { label: 'Continue', action: fromMethod, disabled: name.trim() === '' }
-    : step === 'file' ? { label: 'Continue', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
-    : step === 'map' ? { label: 'Continue', action: review, disabled: !emailMapped }
-    : step === 'consent' ? { label: 'Continue', action: declare, disabled: basis === '' || !basisAllowed || !attested }
-    : step === 'review' ? { label: 'Import Contacts', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
+    step === 'method' ? { label: 'Next', action: fromMethod, disabled: name.trim() === '' }
+    : step === 'file' ? { label: 'Next', action: () => setStep('map'), disabled: !upload || job?.status === 'FAILED' || job?.status === 'CANCELLED' }
+    : step === 'map' ? { label: 'Next', action: review, disabled: !emailMapped }
+    : step === 'consent' ? { label: 'Next', action: declare, disabled: basis === '' || !basisAllowed || !attested }
+    : step === 'review' ? { label: 'Create List', action: apply, disabled: !job?.review || job.working || job.review.ready === 0 }
     : step === 'audience' ? { label: 'Create List', action: fromAudience, disabled: audience === '' }
     : step === 'clone' ? { label: 'Create List', action: fromClone, disabled: parent === '' }
     : null
@@ -409,6 +416,10 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
   const failed = job?.status === 'FAILED'
 
   const close = step === 'done' ? onClose : step === 'importing' || (step === 'review' && job?.working) ? leaveRunning : abandon
+  const running = (step === 'importing' || (step === 'review' && Boolean(job?.working))) && job?.status !== 'FAILED'
+  const framePrimary = step === 'done' ? { label: 'Done', onClick: onClose }
+    : step === 'importing' ? { label: 'Continue in the Background', onClick: leaveRunning }
+    : primary ? { label: primary.label, onClick: primary.action, disabled: primary.disabled, busy } : { label: 'Next', disabled: true }
   // a function, not a component: a component made here would remount the fields on every keystroke
   const frame = (children: ReactNode) => embedded ? (
     <div data-embedded-wizard>
@@ -416,56 +427,57 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
       {children}
       <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-line-subtle pt-4">{footer}</div>
     </div>
-  ) : <Modal title={title} onClose={close} footer={footer} size="lg">{children}</Modal>
+  ) : (
+    <SetupDialog title="Create Contact List" steps={steps.map((item, at) => STEP_NAME[at === index ? step : item])} step={index + 1} onClose={close}
+      onBack={index > 0 && step !== 'importing' && step !== 'done' && !(step === 'review' && job?.working) ? back : undefined}
+      primary={framePrimary} hideCancel={step === 'done' || step === 'importing'} locked={busy}
+      extraActions={running && step !== 'importing' ? <button type="button" className={buttonSecondary} onClick={leaveRunning}>Continue in the Background</button> : undefined}
+      error={error ? { title: 'That Didn’t Work', message: error } : null}>
+      {children}
+    </SetupDialog>
+  )
 
   return frame(
     <>
-      <p className="mb-4 text-xs text-ink-800" aria-live="polite">
-        {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
-      </p>
-      {error && (
+      {embedded ? (
+        <p className="mb-4 text-xs text-ink-800" aria-live="polite">
+          {step === 'done' ? subtitle : `Step ${index + 1} of ${steps.length}${subtitle ? ` · ${subtitle}` : ''}`}
+        </p>
+      ) : subtitle && <p className="-mb-2 text-helper text-ink-800" aria-live="polite">{subtitle}</p>}
+      {error && embedded && (
         <p role="alert" className="mb-4 rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
           {error}
         </p>
       )}
 
       {step === 'method' && (
-        <div className="space-y-5">
-          <Field label="List Name" required limit={{ used: name.length, max: rule('name')?.max ?? 200 }} help="How the list is listed everywhere, including a campaign's Send To table and the Set-Up page. It can be changed later on the list's Edit Details.">
+        <div className="flex flex-col gap-6">
+          <Field label="List Name" required strong limit={{ used: name.length, max: rule('name')?.max ?? 200 }} help="How the list is listed everywhere, including a campaign's Send To table and the Set-Up page. It can be changed later on the list's Edit Details.">
             {(ids) => (
-              <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={rule('name')?.max ?? 200} autoFocus />
+              <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lapsed buyers — West Q3" maxLength={rule('name')?.max ?? 200} data-autofocus />
             )}
           </Field>
-          <Field label="Description" hint="Optional. Shown under the name in the table.">
+          <ChoiceGroup label="Where the Contacts Come From" required strong columns={`grid-cols-1 ${sources && sources.length < 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}
+            hint={draft ? 'The file upload has started for this list. Cancel to choose another source.' : undefined}>
+            {SOURCES.filter((item) => !sources || sources.includes(item.value)).map((item) => (
+              <SetupCard key={item.value} tile selected={source === item.value} disabled={Boolean(draft) && source !== item.value} onSelect={() => !draft && setSource(item.value)} title={item.title} text={item.text} icon={item.icon} badge={item.badge} />
+            ))}
+          </ChoiceGroup>
+          <ChoiceGroup label="What the List Is For" required strong columns="grid-cols-1 sm:grid-cols-3">
+            {CHANNELS.map((item) => (
+              <SetupCard key={item.value} tile selected={channel === item.value} disabled={Boolean(draft) && channel !== item.value} onSelect={() => !draft && setChannel(item.value)} title={item.title} text={item.text} icon={item.icon} />
+            ))}
+          </ChoiceGroup>
+          <ChoiceGroup label="List Type" required strong columns="grid-cols-1 sm:grid-cols-2">
+            {TYPES.map((item) => (
+              <SetupCard key={item.value} tile selected={environment === item.value} onSelect={() => setEnvironment(item.value)} title={item.title} text={item.text} icon={item.icon} />
+            ))}
+          </ChoiceGroup>
+          <Field label="Description (Optional)" strong hint="Shown under the name in the table.">
             {(ids) => (
-              <TextArea {...ids} value={description} onChange={(event) => setDescription(event.target.value)} rows={2} />
+              <TextArea {...ids} value={description} onChange={(event) => setDescription(event.target.value)} rows={3} placeholder="e.g. Gold and Platinum members who joined before October" />
             )}
           </Field>
-          <div>
-            <p id="cl-source" className="mb-2 text-sm font-semibold text-ink-900">Where the Contacts Come From</p>
-            <div role="radiogroup" aria-labelledby="cl-source" className={`grid gap-3 ${sources && sources.length < 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
-              {SOURCES.filter((item) => !sources || sources.includes(item.value)).map((item) => (
-                <ChoiceCard key={item.value} selected={source === item.value} onSelect={() => !draft && setSource(item.value)} {...item} />
-              ))}
-            </div>
-            {draft && <p className="mt-2 text-xs text-ink-800">The file upload has started for this list. Cancel to choose another source.</p>}
-          </div>
-          <div>
-            <p id="cl-channel" className="mb-2 text-sm font-semibold text-ink-900">What the List Is For</p>
-            <div role="radiogroup" aria-labelledby="cl-channel" className="grid gap-3 sm:grid-cols-3">
-              {CHANNELS.map((item) => (
-                <ChoiceCard key={item.value} selected={channel === item.value} onSelect={() => !draft && setChannel(item.value)} title={item.title} text={item.text} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <p id="cl-type" className="mb-2 text-sm font-semibold text-ink-900">List Type</p>
-            <div role="radiogroup" aria-labelledby="cl-type" className="grid gap-3 sm:grid-cols-2">
-              {TYPES.map((item) => (
-                <ChoiceCard key={item.value} selected={environment === item.value} onSelect={() => setEnvironment(item.value)} title={item.title} text={item.text} />
-              ))}
-            </div>
-          </div>
         </div>
       )}
 

@@ -51,7 +51,7 @@ export function buttonClass({
   return `${BASE} ${SIZE[size]} ${disabled ? DISABLED[variant] : `${ENABLED[variant]} ${NATIVE_DISABLED[variant]}`}`
 }
 
-export type IconButtonVariant = 'ghost' | 'outline' | 'onBrand'
+export type IconButtonVariant = 'ghost' | 'outline' | 'onBrand' | 'onNavy'
 /** md sits beside 40px buttons; sm is the 32px control; xs (24px) is only for a button nested inside another control or a dense row */
 export type IconButtonSize = 'md' | 'sm' | 'xs'
 
@@ -73,6 +73,12 @@ const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; 
     enabled: 'text-white hover:bg-brand-800 active:bg-brand-800',
     pressed: 'bg-brand-800 text-white',
     disabled: 'cursor-not-allowed text-brand-100',
+  },
+  /** on the navy top bar: the rail's icon colours */
+  onNavy: {
+    enabled: 'text-sidebar-icon hover:bg-sidebar-hover hover:text-white active:bg-sidebar-pressed',
+    pressed: 'bg-sidebar-selected text-white',
+    disabled: 'cursor-not-allowed text-sidebar-icon',
   },
 }
 

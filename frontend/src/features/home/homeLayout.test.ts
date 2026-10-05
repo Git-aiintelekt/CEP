@@ -13,14 +13,14 @@ const one = { ...DEFAULT_FILTERS, campaignIds: ['c06'] }
 test('everything there: the design, unchanged', () => {
   const layout = homeLayout({ filters: DEFAULT_FILTERS, availability: every('ready') })
   expect(layout.mode).toBe('design')
-  expect(shape(layout.rows)).toEqual(['2:1 revenueCost | funnel', 'thirds topBottom | schedule | snapshot', 'full recent', '1:1 governance | eReceipts'])
+  expect(shape(layout.rows)).toEqual(['2:1 revenueCost | funnel', '1:1 topBottom | schedule', 'thirds snapshot | governance | eReceipts', 'full recent'])
   expect(layout.rows.map((row) => row.name)).toEqual(['a', 'b', 'c', 'd'])
 })
 
 test('live today with e-receipts: Recent takes the odd row; the rest pair in page order', () => {
   const layout = homeLayout({ filters: DEFAULT_FILTERS, availability: onlyCards(['funnel', 'topBottom', 'schedule', 'snapshot', 'recent', 'eReceipts']) })
   expect(layout.mode).toBe('pack')
-  expect(shape(layout.rows)).toEqual(['1:1 funnel | topBottom', '1:1 schedule | snapshot', '1:1 recent | eReceipts'])
+  expect(shape(layout.rows)).toEqual(['1:1 funnel | topBottom', '1:1 schedule | snapshot', '1:1 eReceipts | recent'])
 })
 
 test('live today without e-receipts: Recent alone at the end', () => {

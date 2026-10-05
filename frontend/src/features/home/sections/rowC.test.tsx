@@ -37,10 +37,10 @@ test('a full-width table of the six most recent: campaign, status, channel, deli
   expect(rows()[0].className).toContain('h-16')
 
   const flash = rowOf('Weekend Flash Deal')
-  expect(cells(flash).slice(1)).toEqual(['Production Published', 'SMS', '96,200', 'Not Tracked', '$24.9K45% of target', 'Maya Patel'])
+  expect(cells(flash).slice(1)).toEqual(['Production Published', 'SMS', '96,200', 'Not Tracked', '$24.9K45% of target', 'MPMaya Patel'])
   expect(within(flash).getByText('Not Tracked').className).toContain('whitespace-nowrap')
   const boots = rowOf('Fall Boots Launch')
-  expect(cells(boots).slice(1)).toEqual(['Production Published', 'Email', '286,400', '36.8%', '$312.8K112% of target', 'Marketing'])
+  expect(cells(boots).slice(1)).toEqual(['Production Published', 'Email', '286,400', '36.8%', '$312.8K112% of target', 'MMarketing'])
   expect(cells(rowOf('Holiday Preview')).slice(3, 6)).toEqual(['—', '—', '—'])
   expect(within(boots).getByRole('link', { name: 'Fall Boots Launch' }).getAttribute('href')).toBe('/campaigns/c06')
   expect(within(boots).getByRole('link', { name: 'Fall Boots Launch' }).className).toContain('font-semibold')
@@ -48,7 +48,7 @@ test('a full-width table of the six most recent: campaign, status, channel, deli
 
 test('each context line says the type and what happened, scheduled sends with the zone', () => {
   renderHome()
-  const context = (name: string) => rowOf(name).querySelectorAll('td')[0].querySelectorAll('span[class*="text-helper"]')[0].textContent
+  const context = (name: string) => rowOf(name).querySelectorAll('td')[0].querySelectorAll('span[class*="text-xs"]')[0].textContent
   expect(context('October Newsletter')).toMatch(/^Regular · sends \d{1,2} [A-Z][a-z]{2} \d{4}, 08:00 E[DS]T$/)
   expect(context('Holiday Preview')).toMatch(/^Regular · edited \d{1,2} [A-Z][a-z]{2} \d{4}$/)
   expect(context('Gift Guide 2026')).toMatch(/^Regular · test sent \d{1,2} [A-Z][a-z]{2} \d{4}$/)
@@ -151,7 +151,7 @@ test('E-Receipts: four figures and the note; Not Set Up without attribution; the
   expect(receipts()!.textContent).toContain('Excluded from marketing metrics and frequency caps.')
   expect(within(receipts()!).getByRole('link', { name: 'View E-Receipts' }).getAttribute('href')).toBe('/campaigns?type=E_RECEIPT')
   expect(governance().closest('[data-row]')).toBe(receipts()!.closest('[data-row]'))
-  expect(governance().closest('[data-row]')!.getAttribute('data-layout')).toBe('1:1')
+  expect(governance().closest('[data-row]')!.getAttribute('data-layout')).toBe('thirds')
   cleanup()
   renderHome({ state: 'noAttribution' })
   expect(within(receipts()!).getByText('Not Set Up').className).toContain('text-xl text-ink-800')

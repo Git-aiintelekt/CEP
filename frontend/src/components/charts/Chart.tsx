@@ -20,6 +20,10 @@ export interface ChartSeries {
   color?: string
   /** draw this series as bars or a line whatever the chart's type: bars go under, lines over */
   mark?: 'bar' | 'line'
+  /** bars only, Home only (approved exception): filled top to bottom from the first colour into the second */
+  gradient?: [string, string]
+  /** a line with its 12% area under it, whatever the chart's type */
+  area?: boolean
 }
 
 /** a dashed Gray 400 line to read the series against (target pace): not a series, so it takes no colour, and it can't be hidden */
@@ -263,7 +267,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
               <line data-guide x1={guideX} x2={guideX} y1={PAD.top} y2={PAD.top + plotHeight} stroke="var(--color-ink-300)" strokeWidth={1} shapeRendering="crispEdges" />
             )}
             <BarSeries plot={plot} series={shown.filter((item) => markOf(item) === 'bar')} active={active} />
-            {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={plot} series={item} area={type === 'area' && !item.mark} active={active} />)}
+            {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={plot} series={item} area={item.area ?? (type === 'area' && !item.mark)} active={active} />)}
             {reference && <ReferenceLine plot={plot} keyName={reference.key} values={reference.values} color={REFERENCE_COLOR} />}
           </svg>
         </div>

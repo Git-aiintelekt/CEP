@@ -28,17 +28,17 @@ const rowOf = (name: string) => region(name)!.closest('[data-row]')
 
 const SECTIONS = [
   'Create New', 'Needs Attention', 'Key Figures', 'Marketing Performance', 'Engagement Funnel', 'Top Campaigns', 'Next 7 Days', 'Channel Snapshot',
-  'Recent Campaigns', 'Governance & Audience Health', 'E-Receipts',
+  'Governance & Audience Health', 'E-Receipts', 'Recent Campaigns',
 ]
 /** the sections on the page itself have hidden headings; the cards show theirs with the plum square */
 const CARDS = SECTIONS.slice(3)
 
 const order = () => screen.getAllByRole('heading').map((heading) => heading.textContent)
 
-test('busy: the greeting and its line, then every section in order, each a region named by its heading; each card heading with its plum square', () => {
+test('busy: the greeting with no line under it, then every section in order, each a region named by its heading; each card heading with its plum badge', () => {
   renderHome()
   expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Good (morning|afternoon|evening), Sarah$/)
-  expect(screen.getByText('Your marketing command centre: performance, risks and next actions in one place.')).toBeTruthy()
+  expect(screen.queryByText('Your marketing command centre: performance, risks and next actions in one place.')).toBeNull()
   expect(order().slice(1)).toEqual(SECTIONS)
   for (const name of SECTIONS) {
     const section = region(name)!
@@ -47,7 +47,8 @@ test('busy: the greeting and its line, then every section in order, each a regio
     expect(Boolean(section.querySelector('[data-plum-icon]'))).toBe(CARDS.includes(name))
   }
   expect(rowOf('Marketing Performance')!.getAttribute('data-layout')).toBe('2:1')
-  expect(rowOf('Top Campaigns')!.getAttribute('data-layout')).toBe('thirds')
+  expect(rowOf('Top Campaigns')!.getAttribute('data-layout')).toBe('1:1')
+  expect(rowOf('Channel Snapshot')!.getAttribute('data-layout')).toBe('thirds')
   expect(rowOf('Recent Campaigns')!.getAttribute('data-layout')).toBe('full')
   expect(rowOf('Governance & Audience Health')).toBe(rowOf('E-Receipts'))
   expect(within(region('Key Figures')!).getByText('Campaign ROI')).toBeTruthy()
@@ -59,7 +60,8 @@ test('no alerts: the key figures follow the greeting row (Create New sits inside
   const greetingRow = screen.getByRole('heading', { level: 1 }).closest('[data-greeting-row]') as HTMLElement
   expect(greetingRow.contains(region('Create New'))).toBe(true)
   expect(greetingRow.nextElementSibling).toBe(region('Key Figures'))
-  expect(greetingRow.parentElement!.className).toContain('gap-4')
+  expect(greetingRow.parentElement!.className).toContain('gap-5')
+  expect(greetingRow.parentElement!.className).toContain('cep-home-wash')
 })
 
 test('with no first name the greeting stands alone', () => {
@@ -117,7 +119,7 @@ test('live today: the cards re-pack two per row, and no small card stands alone 
   renderHome({ state: 'liveToday' })
   for (const name of ['Marketing Performance', 'Governance & Audience Health']) expect(region(name)).toBeNull()
   const rows = [...document.querySelectorAll('[data-row]')].map((row) => `${row.getAttribute('data-layout')} ${[...row.querySelectorAll('section[aria-labelledby]')].map((section) => document.getElementById(section.getAttribute('aria-labelledby')!)!.textContent).join(' | ')}`)
-  expect(rows).toEqual(['1:1 Engagement Funnel | Top Campaigns', '1:1 Next 7 Days | Channel Snapshot', '1:1 Recent Campaigns | E-Receipts'])
+  expect(rows).toEqual(['1:1 Engagement Funnel | Top Campaigns', '1:1 Next 7 Days | Channel Snapshot', '1:1 E-Receipts | Recent Campaigns'])
   cleanup()
   renderHome({ state: 'liveToday', viewer: { ...SAMPLE_VIEWER, has: (feature) => feature !== 'ereceipt' } })
   expect(rowOf('Recent Campaigns')!.getAttribute('data-layout')).toBe('full')
@@ -126,6 +128,6 @@ test('live today: the cards re-pack two per row, and no small card stands alone 
 
 test('busy: the design, untouched', () => {
   renderHome()
-  expect([...document.querySelectorAll('[data-row]')].map((row) => `${row.getAttribute('data-row')} ${row.getAttribute('data-layout')}`)).toEqual(['a 2:1', 'b thirds', 'c full', 'd 1:1'])
-  expect(document.querySelector('[data-row="b"]')!.className).toContain('min-[1200px]:grid-cols-3')
+  expect([...document.querySelectorAll('[data-row]')].map((row) => `${row.getAttribute('data-row')} ${row.getAttribute('data-layout')}`)).toEqual(['a 2:1', 'b 1:1', 'c thirds', 'd full'])
+  expect(document.querySelector('[data-row="c"]')!.className).toContain('@min-[1100px]:grid-cols-3')
 })

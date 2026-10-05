@@ -65,11 +65,11 @@ export function NeedsAttention({ result, funnel }: { result: SectionResult<Atten
       <h2 id={titleId} className="sr-only">Needs Attention</h2>
       {result.status === 'error' ? <ErrorState error={result.error} onRetry={result.retry} title="Alerts could not be loaded" />
         : result.status === 'loading' ? (
-          <div data-attention="loading" className="grid gap-4 min-[768px]:grid-cols-2 min-[1200px]:grid-cols-3">
+          <div data-attention="loading" className="grid grid-cols-1 gap-4 @min-[768px]:grid-cols-2 @min-[1100px]:grid-cols-3">
             {Array.from({ length: SHOWN }, (_, index) => <div key={index} aria-hidden className={`${CARD} animate-pulse`}><span className="h-8 w-8 rounded-control-md bg-surface-sunken" /><span className="h-4 flex-1 rounded-sm bg-surface-sunken" /></div>)}
           </div>
         ) : (
-          <ul id={gridId} className="grid gap-4 min-[768px]:grid-cols-2 min-[1200px]:grid-cols-3">
+          <ul id={gridId} className="grid grid-cols-1 gap-4 @min-[768px]:grid-cols-2 @min-[1100px]:grid-cols-3">
             {shown.map((group) => <AlertCard key={group.id} group={group} />)}
             {insight && <InsightCard insight={insight} />}
           </ul>

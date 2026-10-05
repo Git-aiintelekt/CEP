@@ -13,7 +13,7 @@ export interface CreateTile {
 export function createNewTiles(viewer: HomeViewer, capabilities: HomeCapabilities): CreateTile[] {
   const tiles: (CreateTile & { allowed: boolean })[] = [
     { key: 'campaign', label: 'Campaign', icon: Megaphone, to: '/campaigns/new', allowed: viewer.can('campaign.edit') },
-    { key: 'journey', label: 'Journey', icon: Route, to: '#', allowed: viewer.can('journey.edit') && viewer.has('journeys') && capabilities.journeyCreateFlow },
+    { key: 'journey', label: 'Journey', icon: Route, to: '/journeys', allowed: viewer.can('journey.edit') && viewer.has('journeys') && capabilities.journeyCreateFlow },
     { key: 'template', label: 'Template', icon: FileText, to: '/templates/new', allowed: viewer.can('template.edit') },
     { key: 'list', label: 'Contact List', icon: Users, to: '/contact-lists?new=1', allowed: viewer.can('list.edit') },
   ]

@@ -19,16 +19,20 @@ const funnelCard = () => screen.getByRole('region', { name: 'Engagement Funnel' 
 const plot = () => within(revenueCard()).getByRole('group', { name: /^Attributed revenue and campaign cost per/ })
 
 // ---------------------------------------------------------------- Marketing Performance
-test('Total: revenue bars, the cost line in Plum, the dashed target pace; the legend under the chart; the tooltip reads all three', async () => {
+test('Total: plum-into-blue revenue bars, the cost line in Plum over its area, the dashed target pace; the legend over the chart; the tooltip reads all three', async () => {
   const user = userEvent.setup()
   renderHome()
   const card = revenueCard()
   expect(card.querySelectorAll('[data-series="revenue"] path')).toHaveLength(30)
-  expect(card.querySelector('[data-series="cost"] path')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
+  expect(card.querySelector('[data-series="revenue"] path')!.getAttribute('fill')).toMatch(/^url\(#bar[\w-]+-0\)$/)
+  expect(card.querySelector('linearGradient stop')!.getAttribute('stop-color')).toBe('var(--color-plum-500)')
+  expect(card.querySelector('[data-series="cost"] path:not([stroke="none"])')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
+  expect(card.querySelector('[data-series="cost"] path[stroke="none"]')!.getAttribute('fill-opacity')).toBe('0.12')
+  expect(card.querySelector('[data-section-header="card"]')!.className).toContain('cep-home-strip')
   expect(card.querySelector('[data-reference="target"] path')!.getAttribute('stroke-dasharray')).toBe('4 4')
   const legend = within(card).getByRole('group', { name: 'Series' })
   expect(card.querySelector('[data-section-header="card"]')!.contains(legend)).toBe(false)
-  expect(plot().compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(plot().compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   expect(within(legend).getByRole('button', { name: 'Revenue' }).querySelector('[data-swatch="square"]')).toBeTruthy()
   expect(within(legend).getByRole('button', { name: 'Cost' }).querySelector('[data-swatch="line"]')).toBeTruthy()
   expect(legend.querySelector('[data-legend-reference] [data-swatch="dashed"]')).toBeTruthy()
@@ -47,6 +51,8 @@ test('the insight line: behind or ahead of the target pace with the figures, or 
   expect(insight.textContent).toContain('Revenue is behind target pace')
   expect(insight.textContent).toContain('Attributed revenue is $1.39M from $111.3K campaign cost (12.5× return), 95% of the $1.47M expected by now.')
   expect(insight.textContent).toContain('Review the campaigns furthest under target')
+  expect(insight.getAttribute('data-revenue-insight')).toBe('behind')
+  expect(insight.className).toContain('cep-home-insight')
 
   const series = (summary: Partial<RevenueCostSeries['summary']>, targetPace: number | null): RevenueCostSeries => ({
     granularity: 'day', byCampaign: { top: [], others: null },
@@ -56,10 +62,12 @@ test('the insight line: behind or ahead of the target pace with the figures, or 
   expect(revenueInsight(series({}, 3000))).toEqual({
     title: 'Revenue is ahead of target pace',
     detail: 'Attributed revenue is $4.3K from $127 campaign cost (33.9× return), 143% of the $3.0K expected by now. Consider scaling the best-performing audience before the next send window.',
+    behind: false,
   })
   expect(revenueInsight(series({}, null))).toEqual({
     title: 'Revenue is well ahead of cost',
     detail: 'Attributed revenue is $4.3K from $127 campaign cost (33.9× return). Set revenue targets on campaigns to track pace here.',
+    behind: false,
   })
   expect(revenueInsight(series({ revenue: null, roi: null }, null))).toBeNull()
   expect(revenueInsight({ ...series({}, null), points: [] })).toBeNull()
@@ -120,29 +128,31 @@ test('revenue unavailable: the card is gone and the funnel pairs with Top Campai
 
 // ---------------------------------------------------------------- Engagement Funnel
 const steps = () => within(within(funnelCard()).getByRole('list')).getAllByRole('listitem')
-const barWidth = (step: string) => (funnelCard().querySelector(`[data-bar-row="${step}"] [data-bar] > span`) as HTMLElement | null)?.style.width
-const rates = () => [...funnelCard().querySelectorAll('[data-funnel-rates] > div')].map((tile) => tile.textContent)
+const step = (key: string) => funnelCard().querySelector(`[data-step="${key}"]`) as HTMLElement
+const barWidth = (key: string) => (step(key).querySelector('[aria-hidden] > div') as HTMLElement | null)?.style.width
+const chips = () => [...funnelCard().querySelectorAll('[data-plum-chip]')].map((node) => node.textContent)
 
-test('email: the four steps against Delivered, the drop-off between each, and the two end-to-end rates with two decimals', () => {
+test('email: the four steps as cards against Delivered, each with its note, the drop-off to the next, and the end-to-end share last', () => {
   renderHome()
   expect(within(funnelCard()).getByRole('list', { name: 'Email engagement funnel' })).toBeTruthy()
-  expect(steps().map((step) => step.querySelector('[data-bar-row] > div, div')!.textContent)).toEqual(['Delivered 1,142,300', 'Opened 427,821', 'Clicked 49,447', 'Converted 11,130'])
+  expect(steps().map((item) => `${item.querySelector('span')!.textContent} ${item.querySelector('[data-value]')!.textContent}`)).toEqual(['Delivered 1,142,300', 'Opened 427,821', 'Clicked 49,447', 'Converted 11,130'])
   expect(barWidth('delivered')).toBe('100%')
   expect(Number.parseFloat(barWidth('opened')!)).toBeCloseTo(37.45, 1)
-  expect([...funnelCard().querySelectorAll('[data-drop-off]')].map((node) => node.textContent)).toEqual(['Drop-off 62.5%', 'Drop-off 88.4%', 'Drop-off 77.5%'])
-  expect(rates()).toEqual(['0.97%Delivered → Converted', '37.45%Delivered → Opened'])
+  expect(step('opened').textContent).toContain('37.5% open rate')
+  expect(step('converted').textContent).toContain('22.5% of clickers converted')
+  expect(chips()).toEqual(['Drop-off 62.5%', 'Drop-off 88.4%', 'Drop-off 77.5%', '1.0% of Delivered'])
+  expect(step('converted').className).toContain('cep-home-strip border-plum-200')
 })
 
-test('SMS: Opened is Not Tracked with no bar and no connector; the drop-off to Clicked is from Delivered; the second rate is to Clicked', async () => {
+test('SMS: Opened is Not Tracked with no bar and no chip; the drop-off from Delivered runs to Clicked', async () => {
   const user = userEvent.setup()
   renderHome()
   await user.click(within(within(funnelCard()).getByRole('radiogroup', { name: 'Funnel Channel' })).getByRole('radio', { name: 'SMS' }))
-  const opened = funnelCard().querySelector('[data-bar-row="opened"]')!
-  expect(opened.textContent).toContain('Not Tracked')
-  expect(opened.querySelector('[data-bar]')).toBeNull()
-  expect(funnelCard().querySelector('[data-bar-row="delivered"] [data-drop-off]')).toBeNull()               // nothing into Opened
-  expect(opened.querySelector('[data-drop-off]')!.textContent).toBe('Drop-off 97.4% from Delivered')
-  expect(rates()).toEqual(['0.68%Delivered → Converted', '2.62%Delivered → Clicked'])
+  expect(step('opened').textContent).toContain('Not Tracked')
+  expect(step('opened').textContent).toContain('SMS does not report opens')
+  expect(barWidth('opened')).toBeUndefined()
+  expect(step('opened').querySelector('[data-plum-chip]')).toBeNull()
+  expect(step('delivered').querySelector('[data-plum-chip]')!.textContent).toBe('Drop-off 97.4% to Clicked')
 })
 
 test('the channel toggle sits in the header, and hides when the page is filtered to a channel or only one channel has data', () => {
@@ -164,7 +174,7 @@ test('Row A: the two cards share the row 2:1 and stretch to the same height', ()
   expect(row.getAttribute('data-layout')).toBe('2:1')
   expect(row.contains(funnelCard())).toBe(true)
   expect(funnelCard().className).toContain('flex')
-  expect(funnelCard().querySelector('[data-funnel-rates]')!.parentElement!.className).toContain('mt-auto')
+  expect(funnelCard().querySelector('[data-funnel-body]')!.className).toContain('h-full')
 })
 
 test('the revenue axis reads whole ("$80K") while the tooltip keeps a decimal ("$64.0K"); both toggles are the outline kind', async () => {

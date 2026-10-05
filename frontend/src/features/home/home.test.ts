@@ -97,7 +97,7 @@ test('sample states: no alerts, a light account, and no attribution (revenue nul
 test('the live source wires every section; a journey cannot be created from the app yet', () => {
   expect(Object.keys(liveSource).sort()).toEqual(['capabilities', 'useAttention', 'useCampaignOptions', 'useEReceipts', 'useFunnel', 'useGovernance', 'useJourneys', 'useKpis', 'useRecentCampaigns',
                                                   'useRevenueCost', 'useSchedule', 'useSetup', 'useTopBottom'])
-  expect(liveSource.capabilities.journeyCreateFlow).toBe(false)
+  expect(liveSource.capabilities.journeyCreateFlow).toBe(true)
 })
 
 test('sample campaigns use the locked status vocabulary, and the six most recent match the mockup', () => {

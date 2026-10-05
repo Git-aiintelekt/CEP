@@ -241,7 +241,7 @@ export interface HomeViewer {
 
 /** One hook per section. Each takes the filters and answers with a SectionResult; the page never fetches directly. */
 export interface HomeCapabilities {
-  /** a journey can be created from the app (there is no create flow yet) */
+  /** a journey can be created from the app: Home's Journey button opens the journey Setup pop-up */
   journeyCreateFlow: boolean
 }
 

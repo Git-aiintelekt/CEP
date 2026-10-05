@@ -22,18 +22,19 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ban, Calendar, CalendarClock, ChevronDown, Lock, Repeat, RefreshCw, Tags, Users, Zap, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { InputGroup } from '@/components/InputGroup'
-import { Modal } from '@/components/Modal'
-import { Field, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { Field, TextArea, TextInput } from '@/components/Form'
 import { controlClass } from '@/components/controlStyles'
 import { Notice } from '@/components/Notice'
 import { Popover } from '@/components/Popover'
+import { SetupDialog } from '@/components/SetupDialog'
 import { Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
+import { ChoiceCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { api, ApiError } from '@/lib/api'
 import type { Audience, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
 
@@ -50,6 +51,7 @@ import type { SetupPrefill } from './templates/prefill'
 /** What Edit Setup saves (JourneyBuildPage's saveSetup). */
 export interface SetupValues {
   name: string
+  description: string
   populationMode: string
   reentryPolicy: string
   reentryAfterDays: number | null
@@ -68,6 +70,12 @@ export interface SetupEdit {
 type EntryType = 'CUSTOMER_LIST' | 'EVENT' | 'DATE_TIME' | 'SEGMENT_CHANGE'
 const ENTRY_TYPES: EntryType[] = ['CUSTOMER_LIST', 'EVENT', 'DATE_TIME', 'SEGMENT_CHANGE']
 const ENTRY_ICON: Record<EntryType, LucideIcon> = { CUSTOMER_LIST: Users, EVENT: Zap, DATE_TIME: Calendar, SEGMENT_CHANGE: Tags }
+const ENTRY_TEXT: Record<EntryType, string> = {
+  CUSTOMER_LIST: 'Everyone on a chosen list',
+  EVENT: 'Something the customer does',
+  DATE_TIME: 'On a schedule or a date field',
+  SEGMENT_CHANGE: 'Joins a segment or a field changes',
+}
 
 type PopulationMode = 'FIXED' | 'CONTINUOUSLY_QUALIFYING' | 'EVENT_TRIGGERED'
 const POPULATION_OPTIONS: { value: PopulationMode; icon: LucideIcon; title: string; text: string }[] = [
@@ -83,30 +91,6 @@ const REENTRY_OPTIONS: { value: ReentryPolicy; icon: LucideIcon; title: string; 
   { value: 'AFTER_X_DAYS', icon: CalendarClock, title: 'After X Days', text: 'Customer becomes eligible again after a cooldown period.' },
   { value: 'EVERY_QUALIFYING_EVENT', icon: Repeat, title: 'Every Qualifying Event', text: 'Customer enters again each time the trigger happens.' },
 ]
-
-/** A selectable card for Step 2: icon + title on one row, the explanation beneath; the radio itself is visually hidden. */
-function ChoiceCard({ name, option, checked, onPick, disabled = false, children }: { name: string; option: { value: string; icon: LucideIcon; title: string; text: string }; checked: boolean; onPick: () => void; disabled?: boolean; children?: ReactNode }) {
-  const look = checked ? 'border-brand-600 bg-callout-bg' : disabled ? 'border-line bg-fill-subtle' : 'border-line hover:border-line-control'
-  return (
-    <label className={`flex h-full flex-col rounded-lg border p-4 transition-colors duration-fast ease-standard focus-within:ring-2 focus-within:ring-brand-600 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${look}`}>
-      <input type="radio" name={name} className="sr-only" checked={checked} onChange={onPick} disabled={disabled} />
-      <span className="flex items-center gap-2">
-        <option.icon size={18} strokeWidth={1.5} aria-hidden className={`shrink-0 ${checked ? 'text-brand-600' : 'text-ink-800'}`} />
-        <span className="font-semibold text-ink-900">{option.title}</span>
-      </span>
-      <span className="mt-1 text-sm text-ink-800">{option.text}</span>
-      {children}
-    </label>
-  )
-}
-
-function StepProgress({ step }: { step: 1 | 2 }) {
-  return (
-    <div role="progressbar" aria-label="Setup Progress" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step} className="flex gap-1.5 px-4 py-2 sm:px-6">
-      {[1, 2].map((segment) => <span key={segment} aria-hidden className={`h-1 flex-1 rounded-full ${segment <= step ? 'bg-brand-600' : 'bg-fill-muted'}`} />)}
-    </div>
-  )
-}
 
 function DropdownOption({ label, selected, onPick }: { label: string; selected: boolean; onPick: () => void }) {
   return (
@@ -252,10 +236,10 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const [initial] = useState(() => {
     const trigger = triggerFromRule(edit?.rule)
     return edit
-      ? { name: edit.journey.name, entryType: trigger.entryType, triggerValue: trigger.value, triggerLabel: trigger.label, segment: trigger.segment,
+      ? { name: edit.journey.name, description: edit.journey.description ?? '', entryType: trigger.entryType, triggerValue: trigger.value, triggerLabel: trigger.label, segment: trigger.segment,
           populationMode: edit.journey.population_mode, reentryPolicy: edit.journey.reentry_policy,
           reentryAfterDays: edit.journey.reentry_after_days ? String(edit.journey.reentry_after_days) : '' }
-      : { name: prefill?.name ?? '', entryType: prefill?.entryType ?? '', triggerValue: prefill?.triggerValue ?? '', triggerLabel: prefill?.triggerLabel ?? null,
+      : { name: prefill?.name ?? '', description: '', entryType: prefill?.entryType ?? '', triggerValue: prefill?.triggerValue ?? '', triggerLabel: prefill?.triggerLabel ?? null,
           segment: triggerFromRule(prefill?.rule).segment, populationMode: prefill?.populationMode ?? '', reentryPolicy: prefill?.reentryPolicy ?? 'NEVER',
           reentryAfterDays: prefill?.reentryAfterDays ?? '' }
   })
@@ -263,6 +247,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
 
   const [step, setStep] = useState<1 | 2>(1)
   const [name, setName] = useState(initial.name)
+  const [description, setDescription] = useState(initial.description)
   const [entryType, setEntryType] = useState<EntryType | ''>(isEntryType(initial.entryType) ? initial.entryType : '')
   const [triggerValue, setTriggerValue] = useState(initial.triggerValue)
   const [triggerLabel, setTriggerLabel] = useState<string | null>(initial.triggerLabel)
@@ -313,6 +298,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
       if (edit) {
         await edit.onSave({
           name: name.trim(),
+          description: description.trim(),
           populationMode,
           reentryPolicy,
           reentryAfterDays: reentryPolicy === 'AFTER_X_DAYS' ? Number(reentryAfterDays) : null,
@@ -326,6 +312,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
       } else {
         journey = await api.post<Journey>('/journeys/', {
           name: name.trim(),
+          description: description.trim() || null,
           population_mode: populationMode,
           reentry_policy: reentryPolicy,
           reentry_after_days: reentryPolicy === 'AFTER_X_DAYS' ? Number(reentryAfterDays) : null,
@@ -356,7 +343,6 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
     ? create.error instanceof ApiError ? create.error.message : 'Something went wrong on our side. Your entries are kept, so try again.'
     : null
 
-  const close = () => { if (!busy) onClose() }
   // the mockup offers Never / After X Days; Every Qualifying Event shows only when a starter already uses it
   const reentryOptions = REENTRY_OPTIONS.filter((option) => option.value !== 'EVERY_QUALIFYING_EVENT' || initial.reentryPolicy === 'EVERY_QUALIFYING_EVENT')
   const setupNote = entrySetupNote(originalRule)
@@ -367,73 +353,51 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   }, [nameError])
 
   return (
-    <Modal
-      title={edit ? 'Edit Setup' : 'Create A Journey'}
-      badge={<p className="-mb-2 text-sm font-medium text-ink-800">Step {step} of 2</p>}
-      subtitle={step === 1 ? 'Name and entry' : 'Population and re-entry'}
-      onClose={close}
-      size="lg"
-      toolbar={<StepProgress step={step} />}
-      headerExtra={prefill && !edit && (
+    <SetupDialog
+      title={edit ? 'Edit Setup' : 'Create Journey'}
+      steps={['Name and Entry', 'Population and Re-Entry']}
+      step={step}
+      onClose={onClose}
+      locked={busy}
+      onBack={step === 2 ? () => setStep(1) : undefined}
+      primary={step === 1
+        ? { label: 'Next', disabled: !step1Ready, onClick: () => setStep(2) }
+        : { label: edit ? 'Save Setup' : 'Create Journey', disabled: !step2Ready, busy, busyLabel: edit ? 'Saving' : 'Creating', onClick: () => create.mutate() }}
+      error={genericError ? { title: edit ? 'Couldn’t Save Setup' : 'Journey Wasn’t Created', message: genericError, onRetry: () => create.mutate() } : null}
+      banner={(prefill && !edit) || locked ? (
         <>
-          <span className="inline-flex h-[22px] shrink-0 items-center rounded-sm bg-plum-100 px-2 text-xs font-semibold whitespace-nowrap text-plum-800">From Template</span>
-          <span className="text-helper text-ink-800">{prefill.sourceName} · Pre-filled. Change anything before you build.</span>
+          {prefill && !edit && (
+            <p data-from-template className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
+              <span className="inline-flex h-[22px] shrink-0 items-center rounded-sm bg-plum-100 px-2 text-xs font-semibold whitespace-nowrap text-plum-800">From Template</span>
+              {prefill.sourceName} · Pre-filled. Change anything before you build.
+            </p>
+          )}
+          {locked && (
+            <Notice tone="info" layout="banner">
+              <p>This journey is published, so saving starts a new draft version and customers already in it stay on theirs.</p>
+            </Notice>
+          )}
         </>
-      )}
-      footer={
-        step === 1 ? (
-          <>
-            <button type="button" className={buttonSecondary} onClick={close}>Cancel</button>
-            <button type="button" className={buttonPrimary} disabled={!step1Ready} onClick={() => setStep(2)}>Next →</button>
-          </>
-        ) : (
-          <>
-            <button type="button" className={buttonSecondary} onClick={() => setStep(1)} disabled={busy}>Back</button>
-            <button type="button" className={buttonPrimary} disabled={!step2Ready || busy} onClick={() => create.mutate()}>
-              {busy && <Spinner size="sm" tone="onBrand" />} {edit ? 'Save Setup' : 'Continue to Build'}
-            </button>
-          </>
-        )
-      }
+      ) : undefined}
     >
-      {genericError && (
-        <Notice tone="error" layout="banner" title={edit ? 'Couldn’t Save Setup' : 'Couldn’t Create This Journey'} action={<button type="button" className={buttonSecondary} onClick={() => create.mutate()}>Try Again</button>}>
-          <p>{genericError}</p>
-        </Notice>
-      )}
-
-      {locked && (
-        <Notice tone="info" layout="banner">
-          <p>This journey is published, so saving starts a new draft version and customers already in it stay on theirs.</p>
-        </Notice>
-      )}
-
       {step === 1 && (
-        <div className="space-y-5">
+        <>
           <Field label="Journey Name" required strong error={nameError}>
             {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Welcome Series — New Loyalty Members" data-autofocus />}
           </Field>
 
-          <div>
-            <p className="text-sm font-semibold text-ink-900">What Qualifies a Customer to Enter This Journey?</p>
-            <div role="radiogroup" aria-label="Entry Type" className="mt-1.5 flex flex-wrap gap-2">
-              {ENTRY_TYPES.map((type) => {
-                const TypeIcon = ENTRY_ICON[type]
-                const selected = entryType === type
-                return (
-                  <button key={type} type="button" role="radio" aria-checked={selected} onClick={() => chooseEntryType(type)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-fast ease-standard ${
-                      selected ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-subtle'}`}>
-                    <TypeIcon size={14} strokeWidth={1.5} aria-hidden />
-                    {ENTRY_LABEL[type]}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <ChoiceGroup label="What Qualifies a Customer to Enter This Journey?" required strong columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+            {ENTRY_TYPES.map((type) => {
+              const TypeIcon = ENTRY_ICON[type]
+              return (
+                <ChoiceCard key={type} tile selected={entryType === type} onSelect={() => chooseEntryType(type)} title={ENTRY_LABEL[type]} text={ENTRY_TEXT[type]}
+                  icon={<TypeIcon size={20} strokeWidth={1.5} />} badge={type === 'EVENT' ? 'Most Common' : undefined} />
+              )
+            })}
+          </ChoiceGroup>
 
           {entryType && (
-            <Field label="Specific Trigger" strong>
+            <Field label="Specific Trigger" required strong hint="The journey starts for a customer each time this happens.">
               {() => entryType === 'CUSTOMER_LIST'
                 ? <CustomerListDropdown value={triggerValue} label={triggerLabel} onPick={(value, label) => { setTriggerValue(value); setTriggerLabel(label) }} />
                 : <TriggerDropdown entryType={entryType} groups={groupsFor(entryType)} value={triggerValue} label={triggerLabel} onPick={chooseTrigger} />}
@@ -447,36 +411,40 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
               {() => <SegmentDropdown value={segment} onPick={setSegment} />}
             </Field>
           )}
-        </div>
+
+          <Field label="Description (Optional)" strong hint="What this journey is for. Shown on its details page.">
+            {(ids) => <TextArea {...ids} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Greets new loyalty members and walks them through their first rewards" />}
+          </Field>
+        </>
       )}
 
       {step === 2 && (
-        <div className="space-y-6">
+        <>
           {locked && <p className="text-sm text-ink-800">Population and re-entry can’t change on a published journey yet.</p>}
-          <div>
-            <p className="text-sm font-semibold text-ink-900">Should new customers keep flowing in over time?</p>
-            <div role="radiogroup" aria-label="Population Mode" className="mt-3 grid gap-3 sm:grid-cols-3">
-              {POPULATION_OPTIONS.map((option) => (
-                <ChoiceCard key={option.value} name="population-mode" option={option} checked={populationMode === option.value} disabled={locked} onPick={() => setPopulationMode(option.value)} />
-              ))}
-            </div>
-          </div>
+          <ChoiceGroup label="Population" required strong hint="Whether new customers can keep joining after launch." columns="grid-cols-1 sm:grid-cols-3">
+            {POPULATION_OPTIONS.map((option) => (
+              <ChoiceCard key={option.value} tile selected={populationMode === option.value} disabled={locked} onSelect={() => setPopulationMode(option.value)}
+                title={option.title} text={option.text} icon={<option.icon size={20} strokeWidth={1.5} />} />
+            ))}
+          </ChoiceGroup>
 
-          <div>
-            <p className="text-sm font-semibold text-ink-900">Can the same customer go through this journey again?</p>
-            <div role="radiogroup" aria-label="Re-Entry Policy" className={`mt-3 grid items-start gap-3 ${reentryOptions.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-              {reentryOptions.map((option) => (
-                <ChoiceCard key={option.value} name="reentry-policy" option={option} checked={reentryPolicy === option.value} disabled={locked} onPick={() => setReentryPolicy(option.value)}>
-                  {option.value === 'AFTER_X_DAYS' && reentryPolicy === 'AFTER_X_DAYS' && (
-                    <InputGroup type="number" min={1} controlSize="md" className="mt-3 w-full" placeholder="e.g. 90" suffix="days" aria-label="Cooldown Days" disabled={locked}
-                      value={reentryAfterDays} onChange={(event) => setReentryAfterDays(event.target.value)} />
-                  )}
-                </ChoiceCard>
-              ))}
-            </div>
-          </div>
-        </div>
+          <ChoiceGroup label="Re-Entry" required strong hint="Whether the same customer can go through this journey again." columns={`grid-cols-1 ${reentryOptions.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            {reentryOptions.map((option) => (
+              <ChoiceCard key={option.value} tile selected={reentryPolicy === option.value} disabled={locked} onSelect={() => setReentryPolicy(option.value)}
+                title={option.title} text={option.text} icon={<option.icon size={20} strokeWidth={1.5} />} />
+            ))}
+          </ChoiceGroup>
+
+          {reentryPolicy === 'AFTER_X_DAYS' && (
+            <Field label="Days Before Re-Entry" required strong hint="Counted from the day the customer finished or exited.">
+              {(ids) => (
+                <InputGroup {...ids} type="number" min={1} controlSize="md" className="w-40" placeholder="e.g. 90" suffix="days" aria-label="Cooldown Days" disabled={locked}
+                  value={reentryAfterDays} onChange={(event) => setReentryAfterDays(event.target.value)} />
+              )}
+            </Field>
+          )}
+        </>
       )}
-    </Modal>
+    </SetupDialog>
   )
 }

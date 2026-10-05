@@ -10,6 +10,7 @@ import { formatDateTime } from '@/lib/format'
 import type { SearchResults } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
+import { iconButtonClass } from './buttonStyles'
 import { MenuRow } from './MenuRow'
 import { Popover } from './Popover'
 import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
@@ -168,12 +169,12 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
     <form
       role="search"
       onSubmit={onSubmit}
-      className="relative w-full max-w-md"
+      className="group relative w-full max-w-md"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-800" />
+      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sidebar-icon group-focus-within:text-ink-800" />
       <input
         ref={inputRef}
         type="search"
@@ -188,7 +189,7 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
         onKeyDown={(event) => {
           if (event.key === 'Escape') { setOpen(false); (event.target as HTMLInputElement).blur() }
         }}
-        className="h-8 w-full rounded-control-md border border-transparent bg-surface-sunken pr-3 pl-8 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600"
+        className="h-8 w-full rounded-control-md border border-transparent bg-sidebar-hover pr-3 pl-8 text-sm text-white transition-colors placeholder:text-sidebar-text focus:bg-surface focus:text-ink-900 focus:placeholder:text-ink-300 focus-visible:border-brand-600"
       />
       {open && term && (
         <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-menu">
@@ -324,17 +325,18 @@ export function AppShell() {
         </>
       )}
 
-      <div className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
+      {/* navy behind the page, so the page reads as a sheet with its top-left corner rounded against the rail and the top bar */}
+      <div className={`flex min-h-screen min-w-0 flex-col bg-sidebar transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
         {/* stays put while the page scrolls under it, like the rail: search and the account are always one reach away */}
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-4 md:px-8">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 bg-sidebar px-4 md:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {!isMd && (
               <button
                 type="button"
                 onClick={() => setOpen(true)}
                 aria-label="Open navigation"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors hover:bg-fill-subtle"
+                className={iconButtonClass({ variant: 'onNavy' })}
               >
                 <Menu size={20} strokeWidth={1.5} aria-hidden />
               </button>
@@ -343,21 +345,22 @@ export function AppShell() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-sm whitespace-nowrap md:flex">
-              <span className="text-ink-800">Tenant</span>
-              <span className="font-semibold text-ink-900">{me?.tenant.code}</span>
-              <span className="hidden text-ink-800 xl:inline">{me?.tenant.timezone}</span>
+              <span className="text-sidebar-text">Tenant</span>
+              <span className="font-semibold text-white">{me?.tenant.code}</span>
+              <span className="hidden text-sidebar-text xl:inline">· {me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
-            <button type="button" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"
-              className="hidden h-8 w-8 items-center justify-center rounded-control-md text-ink-800 transition-colors hover:bg-fill-subtle md:flex">
-              <Keyboard size={20} strokeWidth={1.5} aria-hidden />
-            </button>
+            <span className="hidden md:flex">
+              <button type="button" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className={iconButtonClass({ variant: 'onNavy' })}>
+                <Keyboard size={20} strokeWidth={1.5} aria-hidden />
+              </button>
+            </span>
             <button
               type="button"
               disabled
               aria-label="Notifications"
               title="Notifications are not available yet"
-              className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-300"
+              className={iconButtonClass({ variant: 'onNavy', disabled: true })}
             >
               <Bell size={20} strokeWidth={1.5} aria-hidden />
             </button>
@@ -366,16 +369,16 @@ export function AppShell() {
                 type="button"
                 {...account.triggerProps('account')}
                 aria-label={`Account: ${name ?? ''}`}
-                className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-surface-subtle"
+                className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-sidebar-hover"
               >
-                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800">
+                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-700 text-xs font-semibold text-white">
                   {initials(me?.principal.display_name)}
                 </span>
                 <span className="hidden min-w-0 flex-col text-left leading-tight lg:flex">
-                  <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
-                  <span data-role className="truncate text-xs text-ink-800">{role}</span>
+                  <span className="truncate text-sm font-semibold text-white">{name}</span>
+                  <span data-role className="truncate text-xs text-sidebar-text">{role}</span>
                 </span>
-                <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-ink-800 lg:block" />
+                <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-sidebar-icon lg:block" />
               </button>
               {account.isOpen('account') && (
                 <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={240}>
@@ -391,9 +394,13 @@ export function AppShell() {
             </div>
           </div>
         </header>
+        {/* the sheet's rounded corner stays put under the top bar while the page scrolls beneath it */}
+        <div aria-hidden data-sheet-corner className="pointer-events-none sticky top-14 z-20 h-0">
+          <span className="cep-sheet-corner absolute top-0 left-0 h-3 w-3" />
+        </div>
 
         {/* same side padding as the header and no width cap, so content lines up with the search bar and Sign out */}
-        <main className="w-full min-w-0 flex-1 px-4 py-5 md:px-8 md:py-6">
+        <main className="w-full min-w-0 flex-1 rounded-tl-xl bg-canvas px-4 py-5 md:px-8 md:py-6">
           <Outlet />
         </main>
       </div>

@@ -5,19 +5,16 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, FileText, Image, Layers, Lock, Mail, Megaphone, MessageSquare, ReceiptText, Repeat, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Image, Layers, Lock, Mail, Megaphone, MessageSquare, ReceiptText, Repeat } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Controller, useForm, type FieldErrors, type FieldPath } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { useAuth } from '@/auth/AuthContext'
-import { IconButton } from '@/components/Button'
-import { FloatingDialog } from '@/components/FloatingDialog'
-import { Field, Select, TextArea, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { Field, Select, TextArea, TextInput, buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
-import { Spinner } from '@/components/States'
-import { buttonClass } from '@/components/buttonStyles'
+import { SetupDialog } from '@/components/SetupDialog'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { channelAllowed } from '@/lib/features'
@@ -35,9 +32,9 @@ type CampaignType = CampaignFormValues['campaign_type']
 type Channel = CampaignFormValues['channel']
 type Purpose = CampaignFormValues['solicitation_type']
 
-const ICON = { size: 24, strokeWidth: 1.5, 'aria-hidden': true } as const
-const TYPES: { value: CampaignType; title: string; text: string; icon: ReactNode }[] = [
-  { value: 'REGULAR_MARKETING', title: 'Regular Marketing', text: 'One-time or scheduled send', icon: <Megaphone {...ICON} /> },
+const ICON = { size: 20, strokeWidth: 1.5, 'aria-hidden': true } as const
+const TYPES: { value: CampaignType; title: string; text: string; icon: ReactNode; badge?: string }[] = [
+  { value: 'REGULAR_MARKETING', title: 'Regular Marketing', text: 'One-time or scheduled send', icon: <Megaphone {...ICON} />, badge: 'Most Common' },
   { value: 'DRIP', title: 'Drip', text: 'Multi-run scheduled pattern', icon: <Repeat {...ICON} /> },
   { value: 'E_RECEIPT', title: 'E-Receipt', text: 'Transactional receipt communication', icon: <ReceiptText {...ICON} /> },
   { value: 'OTHER', title: 'Other', text: 'Service or legal notices', icon: <FileText {...ICON} /> },
@@ -62,8 +59,8 @@ const setupSchema = z.object({
 type SetupValues = z.input<typeof setupSchema>
 
 /** the order the pop-up shows its fields in: the first one with a problem gets focus */
-const FIELD_ORDER = ['name', 'campaign_type', 'channel', 'solicitation_type', 'owner_user', 'code', 'description', 'tags'] as const
-const IN_MORE_DETAILS = new Set<string>(['code', 'description', 'tags'])
+const FIELD_ORDER = ['name', 'campaign_type', 'channel', 'solicitation_type', 'owner_user', 'description', 'code', 'tags'] as const
+const IN_MORE_OPTIONS = new Set<string>(['code', 'tags'])
 
 /** "CMP-2026-0012 is already used by Weekend Flash Sale", when the API names the campaign; otherwise "…by another campaign" */
 function codeTakenMessage(message: string, code: string): string {
@@ -139,12 +136,12 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   const locked = Boolean(campaign && !typeCanChange(campaign))
   const [purposeChosen, setPurposeChosen] = useState(locked)
   const [ownerChanged, setOwnerChanged] = useState(editing)
-  const hasDetails = Boolean(campaign && (campaign.code || campaign.description || campaign.tags.length))
+  const hasDetails = Boolean(campaign && (campaign.code || campaign.tags.length))
   const [moreOpen, setMoreOpen] = useState(hasDetails)
   const [failedAt, setFailedAt] = useState<string | null>(null)
 
-  // a problem inside "More details" opens it
-  const detailProblem = Boolean(errors.code || errors.description || errors.tags)
+  // a problem inside "More Options" opens it
+  const detailProblem = Boolean(errors.code || errors.tags)
   useEffect(() => {
     if (detailProblem) setMoreOpen(true)
   }, [detailProblem])
@@ -165,7 +162,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   function focusFirst(problems: FieldErrors<SetupValues>) {
     const first = FIELD_ORDER.find((field) => problems[field])
     if (!first) return
-    if (IN_MORE_DETAILS.has(first)) setMoreOpen(true)
+    if (IN_MORE_OPTIONS.has(first)) setMoreOpen(true)
     requestAnimationFrame(() => {
       const holder = body.current?.querySelector<HTMLElement>(`[data-field="${first}"]`)
       const target = holder?.querySelector<HTMLElement>('[role="radio"][tabindex="0"], input, select, textarea, button:not([data-field-note])')
@@ -230,12 +227,8 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   })
 
   const busy = save.isPending
-  // the dialog keeps the close handler it opened with, so it reads the pending state through a ref
-  const busyNow = useRef(false)
-  busyNow.current = busy
   const conflict = save.error instanceof ApiError && save.error.status === 409 ? save.error : null
   const submit = form.handleSubmit((values) => { if (!busy) save.mutate(values) }, focusFirst)
-  const close = () => { if (!busyNow.current) onClose() }
 
   function chooseType(next: CampaignType) {
     setValue('campaign_type', next, { shouldDirty: true, shouldValidate: Boolean(errors.campaign_type) })
@@ -244,44 +237,23 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
     else if (type === 'E_RECEIPT') setValue('channel', '', { shouldDirty: true })
   }
 
-  const header = (
-    <div className="flex items-center justify-between gap-4 border-b border-line-subtle px-4 py-4 sm:px-6 sm:py-5">
-      <h2 id={titleId} className="min-w-0 font-display text-section-title font-semibold text-ink-900 sm:text-page-title">{editing ? 'Edit Details' : 'Create Campaign'}</h2>
-      <IconButton label="Close" icon={X} onClick={close} disabled={busy} />
-    </div>
-  )
-  const footer = (
-    <div className="flex justify-end gap-3 border-t border-line-subtle px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-      <button type="button" className={`${buttonClass({ variant: 'ghost' })} max-sm:flex-1`} onClick={close} disabled={busy}>Cancel</button>
-      <button type="submit" form={`${titleId}-form`} className={`${buttonPrimary} max-sm:flex-1`} aria-disabled={busy || undefined}>
-        {busy && <Spinner size="sm" tone="onBrand" label={editing ? 'Saving' : 'Creating'} />}
-        {editing ? 'Save' : 'Create Campaign'}
-      </button>
-    </div>
-  )
-
   const typeChoice = TYPES.find((item) => item.value === type)
   const channelChoice = CHANNELS.find((item) => item.value === channel)
   const people = options.data?.owners ?? []
 
   return (
-    <FloatingDialog labelledBy={titleId} onClose={close} header={header} footer={footer} width={880} dim fullSheet maxHeight="calc(100dvh - 48px)">
+    <SetupDialog title={editing ? 'Edit Details' : 'Create Campaign'} onClose={onClose} locked={busy}
+      primary={{ label: editing ? 'Save' : 'Create Campaign', form: `${titleId}-form`, busy, busyLabel: editing ? 'Saving' : 'Creating' }}
+      error={failedAt ? { title: editing ? 'Changes Weren’t Saved' : 'Campaign Wasn’t Created', message: `Something went wrong on our side at ${failedAt}. Your entries are kept, so try again in a moment.`, onRetry: () => void submit() } : null}
+      banner={conflict && (
+        <Notice tone="warning" layout="banner" title={conflict.message}
+          action={onReload && <button type="button" className={buttonSecondary} onClick={() => { save.reset(); onReload() }}>Reload the Latest Version</button>}>
+          <p>Your changes here aren’t saved. Reloading shows what is stored now.</p>
+        </Notice>
+      )}>
       <form id={`${titleId}-form`} noValidate onSubmit={(event) => void submit(event)}>
         <fieldset disabled={busy} className="min-w-0">
-          <div ref={body} className="flex flex-col gap-6 px-4 py-5 sm:px-6 sm:py-6" aria-busy={busy || undefined}>
-            {failedAt && (
-              <Notice tone="error" layout="banner" title={editing ? 'Changes Weren’t Saved' : 'Campaign Wasn’t Created'}
-                action={<button type="button" className={buttonSecondary} onClick={() => void submit()}>Try Again</button>}>
-                <p>Something went wrong on our side at {failedAt}. Your entries are kept, so try again in a moment.</p>
-              </Notice>
-            )}
-            {conflict && (
-              <Notice tone="warning" layout="banner" title={conflict.message}
-                action={onReload && <button type="button" className={buttonSecondary} onClick={() => { save.reset(); onReload() }}>Reload the Latest Version</button>}>
-                <p>Your changes here aren’t saved. Reloading shows what is stored now.</p>
-              </Notice>
-            )}
-
+          <div ref={body} className="flex flex-col gap-6">
             <div data-field="name">
               <Field label="Campaign Name" required strong error={errors.name?.message} help="Unique among the workspace's live campaigns. It names the campaign in the list, the reports and Home; the code is the short handle for the API and the engine's logs." hint="Internal name, visible to your team only" limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
                 {(ids) => <TextInput {...ids} {...register('name')} maxLength={rule('name')?.max ?? 200} placeholder="e.g. Fall Promo Email" data-autofocus />}
@@ -292,7 +264,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               {locked ? <LockedChoice label="Campaign Type" choice={typeChoice} /> : (
                 <ChoiceGroup label="Campaign Type" required strong error={errors.campaign_type?.message} hint={receipt && !editing ? FIXED_NOTE : undefined} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
                   {TYPES.map((item) => (
-                    <ChoiceCard key={item.value} tile selected={type === item.value} onSelect={() => chooseType(item.value)} title={item.title} text={item.text} icon={item.icon} />
+                    <ChoiceCard key={item.value} tile selected={type === item.value} onSelect={() => chooseType(item.value)} title={item.title} text={item.text} icon={item.icon} badge={item.badge} />
                   ))}
                 </ChoiceGroup>
               )}
@@ -328,23 +300,23 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               <OwnerPicker value={field.value} onChange={(id) => { field.onChange(id); setOwnerChanged(true) }} people={people} meId={meId} autoAssigned={!ownerChanged} disabled={busy} />
             )} />
 
+              <div data-field="description">
+                <Field label="Description (Optional)" strong error={errors.description?.message}
+                  limit={{ used: description.length, max: rule('description')?.max ?? 2000 }}>
+                  {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={rule('description')?.max ?? 2000} placeholder="e.g. Fall loyalty push to Gold and Platinum members" />}
+                </Field>
+              </div>
             <div>
               <button type="button" aria-expanded={moreOpen} aria-controls={`${titleId}-more`} onClick={() => setMoreOpen(!moreOpen)}
-                className="flex items-center gap-2 rounded-control-sm text-sm font-semibold text-ink-900">
+                className="flex items-center gap-1.5 rounded-control-sm text-sm font-semibold text-brand-600 hover:underline">
                 {moreOpen ? <ChevronDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.5} aria-hidden />}
-                More Details <span className="font-normal text-ink-800">(Optional)</span>
+                More Options <span className="font-normal text-ink-800">· Code and tags</span>
               </button>
               {moreOpen && (
                 <div id={`${titleId}-more`} className="mt-4 flex flex-col gap-6">
                   <div data-field="code" className="sm:w-1/2 sm:pr-3">
                     <Field label="Code (Optional)" strong error={errors.code?.message} help="The short handle reports, the API and the engine's call log use for this campaign. Made for you when left blank; fixed once the campaign exists." hint="Leave blank to get one automatically · capitals, digits and hyphens" limit={{ used: code.length, max: rule('code')?.max ?? 40 }}>
                       {(ids) => <TextInput {...ids} {...register('code')} maxLength={rule('code')?.max ?? 40} placeholder="CMP-2026-0021" className="uppercase placeholder:normal-case" />}
-                    </Field>
-                  </div>
-                  <div data-field="description">
-                    <Field label="Description" strong error={errors.description?.message}
-                      limit={{ used: description.length, max: rule('description')?.max ?? 2000 }}>
-                      {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={rule('description')?.max ?? 2000} placeholder="What this campaign is for and who it's aimed at" />}
                     </Field>
                   </div>
                   <div data-field="tags">
@@ -359,6 +331,6 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
           </div>
         </fieldset>
       </form>
-    </FloatingDialog>
+    </SetupDialog>
   )
 }

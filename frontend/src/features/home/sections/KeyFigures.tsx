@@ -1,24 +1,26 @@
-import { useId } from 'react'
+import { CircleCheck, MailOpen, MousePointerClick, Send } from 'lucide-react'
+import { useId, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 
 import { ErrorState } from '@/components/States'
-import { formatCompactMoney, formatNumber, formatPercent } from '@/lib/format'
+import { formatCompactMoney, formatNumber, formatPercent, formatPercentChange, formatShortDay } from '@/lib/format'
 
 import { benchmarkFor } from '../benchmarks'
-import { KpiStrip, KpiTile } from '../components/KpiTile'
+import { ChangeChip } from '../components/ChangeChip'
+import { HeroCard } from '../components/HeroCard'
+import { PlumChip, RingKpi } from '../components/RingKpi'
+import { Sparkline } from '../components/Sparkline'
 import { useHomeData } from '../data/homeDataContext'
 import type { HomeFilters, Kpis, RevenueCostSeries, SectionResult } from '../data/types'
-
-const LABELS: [string, string?][] = [['Delivered'], ['Open Rate', 'Email Only'], ['Click Rate'], ['Conversions'], ['Attributed Revenue'], ['Campaign ROI']]
+import { PERIOD_OPTIONS } from '../filterLabels'
 
 /** counts and money change in %, rates and shares in points; no earlier figure, no change */
 const percentChange = (value: number | null, previous: number | null) => (value === null || previous === null || previous === 0 ? null : ((value - previous) / previous) * 100)
 const pointChange = (value: number | null, previous: number | null) => (value === null || previous === null ? null : value - previous)
 
 /** ROI reads as a multiple of cost: 5× and above is a high return, 2× fair, below that low */
-function roiBenchmark(roi: number): { benchmark: 'Good' | 'Fair' | 'Poor'; text: string } {
-  if (roi >= 5) return { benchmark: 'Good', text: 'High return' }
-  if (roi >= 2) return { benchmark: 'Fair', text: 'Fair return' }
-  return { benchmark: 'Poor', text: 'Low return' }
+function roiBenchmark(roi: number): string {
+  return roi >= 5 ? 'High Return' : roi >= 2 ? 'Fair Return' : 'Low Return'
 }
 
 /** click-to-conversion, read as a benchmark: a third of clicks or more is strong */
@@ -26,75 +28,141 @@ function conversionNote(percentOfClicks: number): 'Good' | 'Fair' | 'Poor' {
   return percentOfClicks >= 33 ? 'Good' : percentOfClicks >= 10 ? 'Fair' : 'Poor'
 }
 
-function Tiles({ kpis, revenueCost, filters, canSetUp }: { kpis: Kpis; revenueCost: SectionResult<RevenueCostSeries>; filters: HomeFilters; canSetUp: boolean }) {
-  const { delivered, openRate, clickRate, conversions, attributedRevenue } = kpis
-  const note = filters.channel === 'ALL' ? 'Email Only' : undefined
-  const revenue = attributedRevenue.value
+/** the running return, day by day: revenue so far over cost so far */
+function runningReturn(series: RevenueCostSeries): number[] {
+  let revenue = 0
+  let cost = 0
+  return series.points.map((point) => {
+    revenue += point.revenue ?? 0
+    cost += point.cost
+    return cost > 0 ? revenue / cost : 0
+  })
+}
+
+/** the admin's way to attribution, or a sentence for everyone else (Settings is admin-only) */
+function SetUp({ canSetUp }: { canSetUp: boolean }) {
+  return canSetUp
+    ? <Link to="/settings/attribution" className="self-start text-sm font-semibold text-white underline underline-offset-2 hover:no-underline">Set Up Attribution</Link>
+    : <p className="text-helper text-plum-100">Ask an admin to set up attribution.</p>
+}
+
+function Heroes({ kpis, revenueCost, period, canSetUp }: { kpis: Kpis; revenueCost: SectionResult<RevenueCostSeries>; period: string; canSetUp: boolean }) {
+  const revenue = kpis.attributedRevenue.value
   const target = kpis.revenueTarget
-  const summary = revenueCost.status === 'ready' ? revenueCost.data.summary : null
+  const series = revenueCost.status === 'ready' ? revenueCost.data : null
+  const summary = series?.summary ?? null
   const roi = summary?.roi ?? null
+  const points = series?.points ?? []
+  const revenues = points.map((point) => point.revenue ?? 0)
+  const peak = revenues.length ? revenues.indexOf(Math.max(...revenues)) : -1
+  const pace = points.filter((point) => point.targetPace !== null)
+  const change = percentChange(revenue, kpis.attributedRevenue.previous)
+
+  const revenueHero = !kpis.attributionSetUp || revenue === null
+    ? <HeroCard tone="navy" label="Attributed Revenue" chip={period} value="Not Set Up Yet" quiet><SetUp canSetUp={canSetUp} /></HeroCard>
+    : (
+      <HeroCard tone="navy" label="Attributed Revenue" chip={period} value={formatCompactMoney(revenue)}
+        sub={summary && summary.cost > 0 ? `from ${formatCompactMoney(summary.cost)} spent` : undefined}
+        spark={points.length > 1 ? <Sparkline values={revenues} mark="peak" level={pace.length ? pace.reduce((total, point) => total + point.targetPace!, 0) / pace.length : null} /> : undefined}
+        axis={points.length > 1 && revenues[peak] > 0 ? [formatShortDay(points[0].day), `Peak ${formatShortDay(points[peak].day)} · ${formatCompactMoney(revenues[peak])}`] : undefined}
+        footLeft={change === null ? 'Attributed to campaigns' : `${formatPercentChange(change)} on the previous period`}
+        footRight={target ? `${formatPercent((revenue / target) * 100, 0)} of ${formatCompactMoney(target)} goal` : undefined}
+        footWarning={Boolean(target && revenue < target)} />
+    )
+
+  const roiHero = !kpis.attributionSetUp
+    ? <HeroCard tone="plum" label="Campaign ROI" value="Not Set Up Yet" quiet><SetUp canSetUp={canSetUp} /></HeroCard>
+    : revenueCost.status === 'loading'
+      ? <HeroCard tone="plum" label="Campaign ROI" loading />
+      : roi === null || summary === null
+        ? <HeroCard tone="plum" label="Campaign ROI" value="—" sub={summary && summary.cost > 0 ? `${formatCompactMoney(summary.cost)} campaign cost` : 'No campaign cost in this period.'} />
+        : (
+          <HeroCard tone="plum" label="Campaign ROI" chip={roiBenchmark(roi)} value={`${roi.toFixed(1)}×`} sub={`from ${formatCompactMoney(summary.cost)} campaign cost`}
+            spark={points.length > 1 ? <Sparkline values={runningReturn(series!)} mark="last" /> : undefined}
+            axis={points.length > 1 ? [formatShortDay(points[0].day), `Now · ${roi.toFixed(1)}×`] : undefined}
+            footLeft="Revenue per $1 spent"
+            footRight={summary.revenuePer1000Delivered === null ? undefined : `${formatCompactMoney(summary.revenuePer1000Delivered)} per 1,000 delivered`} />
+        )
+  return <>{revenueHero}{roiHero}</>
+}
+
+function Rings({ kpis, filters }: { kpis: Kpis; filters: HomeFilters }) {
+  const { delivered, openRate, clickRate, conversions } = kpis
+  const note = filters.channel === 'ALL' ? 'Email Only' : undefined
+  const chips = (change: ReactNode, plum?: string) => <>{change}{plum && <PlumChip>{plum}</PlumChip>}</>
   return (
-    <KpiStrip label="Key Figures">
-      <KpiTile label="Delivered" value={formatNumber(delivered.value)} change={{ value: percentChange(delivered.value, delivered.previous), unit: '%' }}
-        supporting={`${formatNumber(kpis.perDayDelivered)} sends per day`} />
+    <>
+      <RingKpi label="Delivered" icon={Send} value={formatNumber(delivered.value)} percent={delivered.value > 0 ? 100 : 0}
+        supporting={`${formatNumber(kpis.perDayDelivered)} sends per day`}
+        chips={chips(<ChangeChip value={percentChange(delivered.value, delivered.previous)} unit="%" />)} />
       {openRate.value === 'not_tracked'
-        ? <KpiTile label="Open Rate" note={note} state="notTracked" notTrackedText={`${filters.channel === 'MMS' ? 'MMS' : 'SMS'} does not report opens`} />
+        ? <RingKpi label="Open Rate" icon={MailOpen} note={note} value="Not Tracked" quiet supporting={`${filters.channel === 'MMS' ? 'MMS' : 'SMS'} does not report opens`} />
         : openRate.value === null
-          ? <KpiTile label="Open Rate" note={note} value="—" />
-          : <KpiTile label="Open Rate" note={note} value={formatPercent(openRate.value)} change={{ value: pointChange(openRate.value, openRate.previous as number | null), unit: 'pt' }}
-            benchmark={benchmarkFor('open', openRate.value)} supporting={`${formatNumber(openRate.opened)} opened`} />}
+          ? <RingKpi label="Open Rate" icon={MailOpen} note={note} value="—" />
+          : <RingKpi label="Open Rate" icon={MailOpen} note={note} value={formatPercent(openRate.value)} percent={openRate.value}
+            supporting={`${formatNumber(openRate.opened)} opened`}
+            chips={chips(<ChangeChip value={pointChange(openRate.value, openRate.previous as number | null)} unit="pt" />, benchmarkFor('open', openRate.value))} />}
       {clickRate.value === null
-        ? <KpiTile label="Click Rate" value="—" />
-        : <KpiTile label="Click Rate" value={formatPercent(clickRate.value)} change={{ value: pointChange(clickRate.value, clickRate.previous), unit: 'pt' }}
-          benchmark={benchmarkFor('click', clickRate.value)} supporting={`${formatNumber(clickRate.clicked)} clicks`} />}
+        ? <RingKpi label="Click Rate" icon={MousePointerClick} value="—" />
+        : <RingKpi label="Click Rate" icon={MousePointerClick} value={formatPercent(clickRate.value)} percent={clickRate.value}
+          supporting={`${formatNumber(clickRate.clicked)} clicks`}
+          chips={chips(<ChangeChip value={pointChange(clickRate.value, clickRate.previous)} unit="pt" />, benchmarkFor('click', clickRate.value))} />}
       {conversions.percentOfClicks === null
-        ? <KpiTile label="Conversions" value={formatNumber(conversions.value)} change={{ value: percentChange(conversions.value, conversions.previous), unit: '%' }} />
-        : <KpiTile label="Conversions" value={formatNumber(conversions.value)} benchmark={conversionNote(conversions.percentOfClicks)} benchmarkText={`${formatPercent(conversions.percentOfClicks)} of clicks`}
-          supporting={conversionNote(conversions.percentOfClicks) === 'Good' ? 'Strong click-to-conversion' : conversionNote(conversions.percentOfClicks) === 'Fair' ? 'Steady click-to-conversion' : 'Weak click-to-conversion'} />}
-      {!kpis.attributionSetUp || revenue === null
-        ? <KpiTile label="Attributed Revenue" state="notSetUp" canSetUp={canSetUp} />
-        : <KpiTile label="Attributed Revenue" value={formatCompactMoney(revenue)} change={{ value: percentChange(revenue, attributedRevenue.previous), unit: '%' }}
-          supporting={target ? `${formatPercent((revenue / target) * 100, 0)} of ${formatCompactMoney(target)} target` : 'Attributed to campaigns'}
-          progress={target ? { value: (revenue / target) * 100, label: 'Attributed revenue against target' } : undefined} />}
-      {!kpis.attributionSetUp
-        ? <KpiTile label="Campaign ROI" state="notSetUp" canSetUp={canSetUp} />
-        : revenueCost.status === 'loading'
-          ? <KpiTile label="Campaign ROI" state="loading" />
-          : roi === null || summary === null
-            ? <KpiTile label="Campaign ROI" state="unavailable" supporting={summary && summary.cost > 0 ? `${formatCompactMoney(summary.cost)} campaign cost` : 'No campaign cost in this period.'} />
-            : <KpiTile label="Campaign ROI" value={`${roi.toFixed(1)}×`} benchmark={roiBenchmark(roi).benchmark} benchmarkText={roiBenchmark(roi).text}
-              supporting={`${formatCompactMoney(summary.cost)} campaign cost`} />}
-    </KpiStrip>
+        ? <RingKpi label="Conversions" icon={CircleCheck} value={formatNumber(conversions.value)}
+          chips={chips(<ChangeChip value={percentChange(conversions.value, conversions.previous)} unit="%" />)} />
+        : <RingKpi label="Conversions" icon={CircleCheck} value={formatNumber(conversions.value)} percent={conversions.percentOfClicks}
+          supporting={`${conversionNote(conversions.percentOfClicks) === 'Good' ? 'Strong' : conversionNote(conversions.percentOfClicks) === 'Fair' ? 'Steady' : 'Weak'} click-to-conversion`}
+          chips={chips(undefined, `${conversionNote(conversions.percentOfClicks)} · ${formatPercent(conversions.percentOfClicks)} of clicks`)} />}
+    </>
+  )
+}
+
+const RING_LABELS: [string, typeof Send][] = [['Delivered', Send], ['Open Rate', MailOpen], ['Click Rate', MousePointerClick], ['Conversions', CircleCheck]]
+
+/**
+ * The two heroes (Attributed Revenue, Campaign ROI) then the four ring KPIs: side by side in three columns on a wide
+ * page, the rings in a row of four under the heroes below that, stacked on a narrow one.
+ */
+function Layout({ children, rings }: { children: ReactNode; rings: ReactNode }) {
+  return (
+    <div role="group" aria-label="Key Figures" className="grid grid-cols-1 gap-4 @min-[840px]:grid-cols-2 @min-[1200px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1.4fr)]">
+      {children}
+      <div className="grid grid-cols-1 gap-4 @min-[480px]:grid-cols-2 @min-[840px]:col-span-2 @min-[1040px]:grid-cols-4 @min-[1200px]:col-span-1 @min-[1200px]:grid-cols-2">{rings}</div>
+    </div>
   )
 }
 
 interface KeyFiguresProps {
   filters: HomeFilters
-  /** the Marketing Performance card's revenue series: the ROI tile reads its summary */
+  /** the Marketing Performance card's revenue series: the heroes read its trend and summary */
   revenueCost: SectionResult<RevenueCostSeries>
 }
 
-/** The six KPI cards under the alerts. Without report.view the strip is one line. */
+/** The period's figures under the set-up card. Without report.view the section is one line. */
 export function KeyFigures({ filters, revenueCost }: KeyFiguresProps) {
   const { source, viewer } = useHomeData()
   const allowed = viewer.can('report.view')
   const result = source.useKpis(filters, { enabled: allowed })
   const titleId = useId()
+  const period = PERIOD_OPTIONS.find((option) => option.value === filters.period)!.label
   return (
     <section aria-labelledby={titleId} className="flex min-w-0 flex-col gap-4">
       <h2 id={titleId} className="sr-only">Key Figures</h2>
       {!allowed ? (
-        <p data-kpi-access className="rounded-lg border border-line px-4 py-3 text-helper text-ink-800">You don’t have access to performance reports.</p>
+        <p data-kpi-access className="rounded-lg border border-line bg-surface px-4 py-3 text-helper text-ink-800">You don’t have access to performance reports.</p>
       ) : result.status === 'error' ? (
         <ErrorState error={result.error} onRetry={result.retry} title="Performance figures could not be loaded" />
       ) : result.status === 'ready' ? (
-        <Tiles kpis={result.data} revenueCost={revenueCost} filters={filters} canSetUp={viewer.can('user.admin')} />
+        <Layout rings={<Rings kpis={result.data} filters={filters} />}>
+          <Heroes kpis={result.data} revenueCost={revenueCost} period={period} canSetUp={viewer.can('user.admin')} />
+        </Layout>
       ) : result.status === 'unavailable' ? (
-        <p className="rounded-lg border border-line px-4 py-3 text-helper text-ink-800">Performance figures aren’t available yet.</p>
+        <p className="rounded-lg border border-line bg-surface px-4 py-3 text-helper text-ink-800">Performance figures aren’t available yet.</p>
       ) : (
-        <KpiStrip label="Key Figures">
-          {LABELS.map(([label, note]) => <KpiTile key={label} label={label} note={label === 'Open Rate' && filters.channel !== 'ALL' ? undefined : note} state="loading" />)}
-        </KpiStrip>
+        <Layout rings={RING_LABELS.map(([label, icon]) => <RingKpi key={label} label={label} icon={icon} note={label === 'Open Rate' && filters.channel === 'ALL' ? 'Email Only' : undefined} loading />)}>
+          <HeroCard tone="navy" label="Attributed Revenue" loading />
+          <HeroCard tone="plum" label="Campaign ROI" loading />
+        </Layout>
       )}
     </section>
   )

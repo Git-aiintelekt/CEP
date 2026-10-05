@@ -1,17 +1,19 @@
-import { CalendarDays } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ErrorState, SkeletonLine } from '@/components/States'
+import { TruncatedText } from '@/components/Tooltip'
 import { buttonClass } from '@/components/buttonStyles'
 import { formatClock, formatShortDay } from '@/lib/format'
 
 import { HomeCard } from '../components/HomeCard'
 import { useHomeData } from '../data/homeDataContext'
-import type { HomeFilters, Schedule, ScheduleDay } from '../data/types'
+import type { HomeFilters, MessageChannel, Schedule, ScheduleDay } from '../data/types'
 import { scheduleHref } from '../scheduleHref'
 
-const NAMED = 3
+const NAMED = 4
+const CHANNEL_LABEL: Record<MessageChannel, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 const weekday = (day: string, style: 'short' | 'long') => new Intl.DateTimeFormat('en-US', { weekday: style, timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
 const longDate = (day: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
 const sends = (count: number) => `${count} send${count === 1 ? '' : 's'}`
@@ -42,9 +44,9 @@ function DayStrip({ days, picked, onPick, journeysShown }: { days: ScheduleDay[]
         return (
           <button key={day.day} ref={(node) => { tiles.current[index] = node }} type="button" role="radio" aria-checked={selected} tabIndex={selected ? 0 : -1}
             aria-label={dayLabel(day, index, journeysShown)} onClick={() => onPick(index)}
-            className={`flex min-h-[64px] flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-colors duration-fast ease-standard ${selected ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:bg-surface-subtle'}`}>
-            <span className={`text-xs font-semibold ${selected ? 'text-brand-800' : 'text-ink-900'}`}>{dayName(day, index, 'short')}</span>
-            <span className={`text-xs ${selected ? 'text-brand-800' : 'text-ink-800'}`}>{formatShortDay(day.day)}</span>
+            className={`flex min-h-[64px] flex-col items-center gap-1 rounded-control-md border px-1 py-2 text-center transition-colors duration-fast ease-standard ${selected ? 'cep-home-day border-plum-200' : 'border-line-subtle bg-surface hover:bg-surface-subtle'}`}>
+            <span className={`text-xs font-semibold ${selected ? 'text-plum-800' : 'text-ink-900'}`}>{dayName(day, index, 'short')}</span>
+            <span className={`text-xs ${selected ? 'text-plum-800' : 'text-ink-800'}`}>{formatShortDay(day.day)}</span>
             <span aria-hidden data-dots className="mt-1 flex h-1.5 items-center gap-1">
               {day.campaignRuns > 0 && <span data-dot="campaign" className="h-1.5 w-1.5 rounded-full bg-brand-600" />}
               {journeysShown && day.journeyRuns > 0 && <span data-dot="journey" className="h-1.5 w-1.5 rounded-full bg-plum-500" />}
@@ -56,33 +58,46 @@ function DayStrip({ days, picked, onPick, journeysShown }: { days: ScheduleDay[]
   )
 }
 
-/** "6 sends today: 08:00 October Newsletter Preview, 09:30 Welcome Series, Step 2, 11:30 Flash Sale Reminder and 3 more." */
-function daySummary(schedule: Schedule, index: number): string {
-  const day = schedule.days[index]
-  const runs = [...day.runs].sort((a, b) => a.at.localeCompare(b.at))
-  const when = index === 0 ? 'today' : `on ${weekday(day.day, 'long')}`
-  if (runs.length === 0) return `No sends are scheduled ${when}.`
-  const named = runs.slice(0, NAMED).map((run) => `${formatClock(run.at, schedule.timezone)} ${run.name}`)
-  const more = runs.length - named.length
-  return `${sends(runs.length)} ${when}: ${named.join(', ')}${more > 0 ? ` and ${more} more` : ''}.`
-}
-
-function WeekNote({ schedule, index, journeysShown }: { schedule: Schedule; index: number; journeysShown: boolean }) {
+function weekLine(schedule: Schedule, journeysShown: boolean): string {
   const campaigns = schedule.days.reduce((total, day) => total + day.campaignRuns, 0)
   const journeys = journeysShown ? schedule.days.reduce((total, day) => total + day.journeyRuns, 0) : 0
   const parts = [campaigns > 0 ? `${campaigns} campaign send${campaigns === 1 ? '' : 's'}` : null, journeys > 0 ? `${journeys} journey touchpoint${journeys === 1 ? '' : 's'}` : null].filter(Boolean)
+  return parts.length ? `${parts.join(' and ')} this week.` : 'Nothing is scheduled this week.'
+}
+
+/** The picked day's sends in time order, a coloured mark for campaign (blue into plum) or journey (plum), the first few named. */
+function DayRuns({ schedule, index, journeysShown }: { schedule: Schedule; index: number; journeysShown: boolean }) {
+  const day = schedule.days[index]
+  const runs = [...day.runs].filter((run) => journeysShown || run.source === 'campaign').sort((a, b) => a.at.localeCompare(b.at))
+  const when = index === 0 ? 'today' : `on ${weekday(day.day, 'long')}`
+  const more = runs.length - NAMED
   return (
-    <div data-week-note className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle px-4 py-3">
-      <CalendarDays size={16} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-brand-600" />
-      <p className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-sm font-semibold text-ink-900">{parts.length ? `${parts.join(' and ')} this week` : 'Nothing scheduled this week'}</span>
-        <span data-day-summary className="text-helper text-ink-800">{daySummary(schedule, index)}</span>
-      </p>
+    <div data-day-runs className="flex flex-col gap-2">
+      {runs.length === 0 ? (
+        <p data-day-summary className="rounded-control-md border border-line-subtle px-2.5 py-2 text-helper text-ink-800">No sends are scheduled {when}.</p>
+      ) : (
+        <ul aria-label={`Sends ${when}`} className="flex flex-col gap-2">
+          {runs.slice(0, NAMED).map((run) => {
+            const journey = run.source === 'journey'
+            return (
+              <li key={run.id} data-run={run.source} className="flex items-center gap-2.5 rounded-control-md border border-line-subtle px-2.5 py-2">
+                <span aria-hidden className={`w-[3px] self-stretch rounded-xs ${journey ? 'cep-home-journey-down' : 'cep-home-blend-down'}`} />
+                <span className="shrink-0 text-helper font-medium whitespace-nowrap text-ink-800 cep-num">{index === 0 ? 'Today' : weekday(day.day, 'short')} · {formatClock(run.at, schedule.timezone)}</span>
+                <TruncatedText text={run.name} className="min-w-0 flex-1 text-helper font-semibold text-ink-900" />
+                <span className={`inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-[11px] font-semibold ${journey ? 'bg-cat-journey-bg text-cat-journey-text' : 'bg-cat-campaign-bg text-cat-campaign-text'}`}>
+                  {journey ? 'Journey' : 'Campaign'} · {CHANNEL_LABEL[run.channel]}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <p data-week-note className="text-xs text-ink-800">{more > 0 ? `${more} more ${when}. ` : ''}{weekLine(schedule, journeysShown)}</p>
     </div>
   )
 }
 
-/** The week ahead: a tile per day with a dot per kind of run, and the picked day's sends in a sentence. */
+/** The week ahead: a tile per day with a dot per kind of run, and the picked day's sends listed. */
 export function NextSevenDays({ filters }: { filters: HomeFilters }) {
   const { source } = useHomeData()
   const result = source.useSchedule(filters)
@@ -91,19 +106,19 @@ export function NextSevenDays({ filters }: { filters: HomeFilters }) {
   const href = scheduleHref(filters)
   const journeysShown = filters.campaignIds.length === 0
   return (
-    <HomeCard title="Next 7 Days" icon={CalendarDays}
+    <HomeCard title="Next 7 Days" icon={Calendar}
       actions={<Link to={href} className={`${buttonClass({ variant: 'link', size: 'sm' })} -mr-3`}>Open Schedule</Link>}>
       {result.status === 'loading' ? (
         <div data-schedule="loading" className="flex flex-col gap-4">
-          <div className="grid grid-cols-7 gap-1.5">{Array.from({ length: 7 }, (_, index) => <div key={index} className="h-16 rounded-lg bg-surface-sunken" />)}</div>
+          <div className="grid grid-cols-7 gap-1.5">{Array.from({ length: 7 }, (_, index) => <div key={index} className="h-16 rounded-control-md bg-surface-sunken" />)}</div>
           <div className="flex flex-col gap-3">{[80, 65].map((width) => <SkeletonLine key={width} width={`${width}%`} />)}</div>
         </div>
       ) : result.status === 'error' ? (
         <ErrorState error={result.error} onRetry={result.retry} title="The schedule could not be loaded" />
       ) : (
-        <div className="flex h-full flex-col gap-4">
+        <div className="flex h-full flex-col gap-3.5">
           <DayStrip days={result.data.days} picked={picked} onPick={setPicked} journeysShown={journeysShown} />
-          <WeekNote schedule={result.data} index={picked} journeysShown={journeysShown} />
+          <DayRuns schedule={result.data} index={picked} journeysShown={journeysShown} />
         </div>
       )}
     </HomeCard>

@@ -283,7 +283,14 @@ The Home page (`frontend/src/features/home/`) is built from these parts; reuse t
 - **HomeCard** (`features/home/components/HomeCard.tsx`): a `<section>` named by its heading, white with a 1px hairline and 8px corners, no shadow; renders nothing when its data is unavailable.
 - **Diverging target bars** (`features/home/sections/TopBottom.tsx`): from a 1px 100% line, over target grows right in Blue 600, under grows left in the danger accent, each with its % beside it; bar length against the largest deviation shown.
 - **Freshness line** (`features/home/sections/NeedsAttention.tsx`): a 6px green dot and "Updated at 14:05 EDT", the load time in the workspace zone.
-- **Create New is a row of outline buttons beside the greeting** (2026-10-02), each with its plum icon, no card: the page's first block is what needs attention.
+- **Create New is a row of buttons beside the greeting** (2026-10-02; restyled 2026-10-05): Contact List, Template and Journey in Home's neutral outline (Gray control border, Gray 900 text), Create Campaign primary. Journey opens the journey Setup pop-up in place.
+- **Home is styled as "CEP Dashboard v2"** (approved 2026-10-05), the one signed-in page excepted from the flat rules. Every exception lives in the `cep-home-*` classes in `frontend/src/index.css`, built from tokens; never reuse them elsewhere:
+  - the page sits on a plum wash (Plum 50 into `home-canvas` #F4F5F9) instead of white;
+  - two hero cards open the figures: Attributed Revenue on navy into Plum 800, Campaign ROI on Plum 800 into Plum 500, with an uppercase label, a 40px figure, a sparkline and a footer (the goal in amber when behind);
+  - the four other KPIs are ring tiles: a blue-into-plum conic ring around the icon, plum benchmark chips;
+  - gradients on icon badges (Plum 50 into Plum 100), progress and ranking bars (Blue 600 into Plum 500), revenue bars (Plum 500 at the top into Blue 600, via the chart kit's `gradient`), funnel steps, the selected day, run marks and owner avatars;
+  - the behind-target insight in an amber gradient with an amber badge.
+- **App shell (all pages, 2026-10-05):** the top bar is Navy 900 like the rail, and the page is a sheet with a 12px top-left corner against them (the one radius over 8px in the shell). Top-bar icons use the `onNavy` icon-button variant.
 - **Needs Attention is one strip of alert cells** (2026-10-02), 64px tall: the severity icon on its tint, the count, the label with the category under it, and the action as a link after a hairline. A cell is as wide as its words and wraps whole to the next line of the strip; four show until View All.
 - **Needs Attention is hidden when there are no alert groups** (also when alerts are unavailable or forbidden); no collapsed row, no heading. Loading keeps its placeholder cards and an error keeps the section with Try Again. The page order is greeting, Create New, Needs Attention, Marketing Performance, then the card rows (`features/home/homeLayout.ts` decides what shows).
 
@@ -291,6 +298,16 @@ The Home page (`frontend/src/features/home/`) is built from these parts; reuse t
 Not applicable — this bundle has no application logic. Components built from it should follow the target codebase's existing state conventions. The only state the tokens care about is the visual state set above (rest / hover / press / focus / selected / disabled), which should map to whatever state model the target framework uses.
 
 ---
+
+## Create pop-ups (Setup Dialog)
+
+Every create pop-up (Campaign, Contact List, Journey, Template, and their Edit Details / Edit Setup) sits in one frame, `components/SetupDialog.tsx` (2026-10-05, the "Setup Dialog" design). Build a new create flow in it; never draw a pop-up of its own.
+- **Frame:** 768px, centred over the scrim, 8px corners; 1040px only where a gallery needs it (Template step 2). The body scrolls between a fixed header and footer; on phones it is a full-height sheet.
+- **Header:** the title "Create {Thing}" (18px display), the close button; for more than one step, "Step 2 of 3 · Step Name" over a bar of 4px segments, done and current in Blue 600, the rest Gray 100.
+- **Body:** 24px padding, 24px between fields; bold labels (`Field strong`); placeholders start "e.g."; Description (Optional) is the last field of step 1.
+- **Choices are cards:** `ChoiceCard tile` in a `ChoiceGroup` (features/campaigns/parts.tsx): a 20px icon with an optional plum tag ("Most Common") on one row, then the title and one line; selected is a Blue 600 border on Blue 100, hover a Blue 600 border. A card's accessible name is its title; the line describes it. Short value lists that change with another choice (Specific Trigger, Message Purpose) stay selects.
+- **Errors:** one banner at the top of the body with Try Again; field errors under their field.
+- **Footer:** Back (outlined) at the far left from step 2; Cancel, then the primary at the right. In-between steps say "Next"; the last says "Create {Thing}" (Edit pop-ups: "Save" / "Save Setup"). The primary stays disabled until the step is valid and shows a spinner while saving.
 
 ## Content & Copy Rules
 

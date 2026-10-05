@@ -20,7 +20,9 @@ const renderHome = ({ url = '/', state = 'busy', source, viewer = SAMPLE_VIEWER 
 const scheduleCard = () => screen.getByRole('region', { name: 'Next 7 Days' })
 const tiles = () => within(within(scheduleCard()).getByRole('radiogroup', { name: 'Pick a day' })).getAllByRole('radio')
 const note = () => scheduleCard().querySelector('[data-week-note]')!
-const summary = () => scheduleCard().querySelector('[data-day-summary]')!.textContent
+const summary = () => scheduleCard().querySelector('[data-day-summary]')?.textContent
+/** the picked day's sends as listed: name only */
+const runs = () => [...scheduleCard().querySelectorAll('[data-run]')].map((run) => run.querySelector('.flex-1')!.textContent)
 const dots = (tile: HTMLElement) => [...tile.querySelectorAll('[data-dot]')].map((dot) => dot.getAttribute('data-dot'))
 
 /** a schedule with `count` runs today, for the summary */
@@ -42,7 +44,7 @@ test('seven day tiles as one radio group: Today picked first, the arrow keys mov
   expect(tiles()[0].textContent).toMatch(/^Today\d{1,2} [A-Z][a-z]{2}$/)
   expect(tiles()[1].textContent).toMatch(/^[A-Z][a-z]{2}\d{1,2} [A-Z][a-z]{2}$/)
   expect(tiles().map((tile) => tile.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1', '-1', '-1', '-1'])
-  expect(tiles()[0].className).toContain('border-brand-600 bg-brand-100')
+  expect(tiles()[0].className).toContain('cep-home-day border-plum-200')
   tiles()[0].focus()
   await user.keyboard('{ArrowRight}')
   expect(tiles()[1].getAttribute('aria-checked')).toBe('true')
@@ -71,24 +73,30 @@ test('each day’s accessible name carries its campaign / journey split', () => 
   expect(tiles().some((tile) => /campaign$/.test(tile.getAttribute('aria-label')!))).toBe(true)
 })
 
-test('the note counts the week’s campaign sends and journey touchpoints, and tells the picked day’s sends in time order, three by name', async () => {
+test('the picked day’s sends listed in time order, four by name with their kind; the note counts the rest and the week', async () => {
   const user = userEvent.setup()
   renderHome()
-  expect(note().textContent).toContain('10 campaign sends and 5 journey touchpoints this week')
-  expect(summary()).toBe('6 sends today: 08:00 October Newsletter Preview, 09:30 Welcome Series, Step 2, 11:30 Flash Sale Reminder and 3 more.')
+  expect(note().textContent).toBe('2 more today. 10 campaign sends and 5 journey touchpoints this week.')
+  expect(runs()).toEqual(['October Newsletter Preview', 'Welcome Series, Step 2', 'Flash Sale Reminder', 'Fall Boots Launch'])
+  const first = scheduleCard().querySelector('[data-run]')!
+  expect(first.textContent).toContain('Today · 08:00')
+  expect(first.textContent).toContain('Campaign · Email')
+  expect(scheduleCard().querySelector('[data-run="journey"]')!.textContent).toContain('Journey ·')
   await user.click(tiles()[3])
-  expect(summary()).toMatch(/^4 sends on [A-Z][a-z]+day: 08:00 Win-Back 90 Days, Step 1, 10:00 Weekend Flash Deal, 14:00 Loyalty Points Statement and 1 more\.$/)
+  expect(runs().slice(0, 3)).toEqual(['Win-Back 90 Days, Step 1', 'Weekend Flash Deal', 'Loyalty Points Statement'])
+  expect(runs()).toHaveLength(4)
+  expect(note().textContent).not.toContain('more')
   await user.click(tiles()[2])
   expect(summary()).toMatch(/^No sends are scheduled on [A-Z][a-z]+day\.$/)
 })
 
 test('the note reads naturally at 1 and 0', () => {
   renderHome({ source: withSchedule(busyDay(1)) })
-  expect(note().textContent).toContain('1 campaign send this week')
-  expect(summary()).toBe('1 send today: 08:00 Run 1.')
+  expect(note().textContent).toBe('1 campaign send this week.')
+  expect(runs()).toEqual(['Run 1'])
   cleanup()
   renderHome({ source: withSchedule(busyDay(0)) })
-  expect(note().textContent).toContain('Nothing scheduled this week')
+  expect(note().textContent).toBe('Nothing is scheduled this week.')
   expect(summary()).toBe('No sends are scheduled today.')
 })
 
@@ -104,7 +112,7 @@ test('Open Schedule in the header goes to the Campaigns calendar, with the page�
 
 test('a campaign filter shows only its runs and hides journey runs and dots', () => {
   renderHome({ url: '/?campaigns=c06,c04' })
-  expect(summary()).toBe('2 sends today: 11:30 Flash Sale Reminder, 14:00 Fall Boots Launch.')
+  expect(runs()).toEqual(['Flash Sale Reminder', 'Fall Boots Launch'])
   expect(note().textContent).not.toContain('journey')
   expect(scheduleCard().querySelector('[data-dot="journey"]')).toBeNull()
 })
@@ -120,7 +128,7 @@ test('loading shows the seven placeholders; an error offers Try Again', () => {
 // ---------------------------------------------------------------- Channel Snapshot
 const snapshot = () => screen.getByRole('region', { name: 'Channel Snapshot' })
 const snapshotRows = () => [...snapshot().querySelectorAll('[data-snapshot]')].filter((row) => row.tagName === 'LI') as HTMLElement[]
-const rowText = (row: HTMLElement) => [row.getAttribute('data-snapshot'), row.querySelector('.text-sm.font-semibold')!.textContent, row.querySelector('.text-helper')!.textContent, row.querySelector('[data-value]')!.textContent]
+const rowText = (row: HTMLElement) => [row.getAttribute('data-snapshot'), row.querySelector('.text-sm.font-semibold')!.textContent, row.querySelector('.flex-1.text-xs')!.textContent, row.querySelector('[data-value]')!.textContent]
 
 test('one row per channel with its engagement and open rate (click rate where opens aren’t tracked), then e-receipts and the week’s journey touchpoints; the period at the right', () => {
   renderHome()
@@ -132,7 +140,7 @@ test('one row per channel with its engagement and open rate (click rate where op
     ['JOURNEY', 'Journey', '5 upcoming touchpoints', '5'],
   ])
   expect(snapshot().querySelector('[data-section-header="card"]')!.textContent).toContain('Last 30 Days')
-  expect(snapshotRows()[0].querySelector('[aria-hidden]')!.className).toContain('bg-brand-100 text-brand-800')
+  expect(snapshotRows()[0].querySelector('[aria-hidden]')!.className).toContain('cep-home-badge text-plum-700')
 })
 
 test('a channel with nothing delivered says so with a grey dash; the rows follow the workspace’s channels, the page’s channel, and the features', () => {
@@ -150,7 +158,7 @@ test('a channel with nothing delivered says so with a grey dash; the rows follow
   expect(snapshotRows().map((row) => row.getAttribute('data-snapshot'))).toEqual(['EMAIL', 'SMS', 'MMS', 'JOURNEY'])
 })
 
-test('no snapshot for one campaign, or when the funnel can’t be read; Row B holds the three cards in thirds', () => {
+test('no snapshot for one campaign, or when the funnel can’t be read; Row C holds it with Governance and E-Receipts in thirds', () => {
   renderHome({ url: '/?campaigns=c06' })
   expect(screen.queryByRole('region', { name: 'Channel Snapshot' })).toBeNull()
   cleanup()
@@ -160,8 +168,8 @@ test('no snapshot for one campaign, or when the funnel can’t be read; Row B ho
   renderHome()
   const row = snapshot().closest('[data-row]')!
   expect(row.getAttribute('data-layout')).toBe('thirds')
-  expect(row.contains(scheduleCard())).toBe(true)
-  expect(row.contains(screen.getByRole('region', { name: 'Top Campaigns' }))).toBe(true)
+  expect(row.contains(screen.getByRole('region', { name: 'Governance & Audience Health' }))).toBe(true)
+  expect(row.contains(screen.getByRole('region', { name: 'E-Receipts' }))).toBe(true)
 })
 
 test('one campaign: Next 7 Days beside Governance', () => {

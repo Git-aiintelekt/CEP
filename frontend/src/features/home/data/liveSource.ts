@@ -400,7 +400,7 @@ function useSetup(): SectionResult<WorkspaceSetup | null> {
 }
 
 export const liveSource: HomeDataSource = {
-  capabilities: { journeyCreateFlow: false },
+  capabilities: { journeyCreateFlow: true },
   useCampaignOptions, // GET /campaigns/?status=…&ordering=-updated_at&page_size=200 (one page; the menu says so when there are more)
   useAttention, // GET /home/overview/ attention (one campaign: plus its detail); bounce rate, frequency caps and journey alerts: no endpoint yet
   useKpis, // GET /reports/summary/ for this period and the one before

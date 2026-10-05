@@ -250,7 +250,7 @@ test('every field of the old seven steps is still reachable', async () => {
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?details=1')
   const details = await screen.findByRole('dialog', { name: 'Edit Details' })                           // old step 1
-  expect(within(details).getByRole('button', { name: /More Details/ }).getAttribute('aria-expanded')).toBe('true')   // it has a code
+  expect(within(details).getByRole('button', { name: /More Options/ }).getAttribute('aria-expanded')).toBe('true')   // it has a code
   for (const label of [/^Campaign Name/, /^Message Purpose/, /^Code/, /^Description/, /^Tags/]) expect(await within(details).findByLabelText(label)).toBeTruthy()
   expect(within(details).getByRole('button', { name: 'Change' })).toBeTruthy()                          // owner
   expect(details.querySelector('[data-locked="Campaign Type"]')).toBeTruthy()
