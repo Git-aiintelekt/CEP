@@ -127,3 +127,9 @@ test('every settings page opens its chapter from the icon in the trail; Account 
   await user.click(screen.getByRole('button', { name: 'Help for this page' }))
   expect(await screen.findByRole('complementary', { name: 'Account Security' })).toBeTruthy()
 })
+
+test('every User Guide chapter parses, and a line no block takes (an indented table row) cannot stall the parser', () => {
+  expect(parse('1. Step\n\n   | A | B |\n   |---|---|\n\nAfter').length).toBeGreaterThan(1)
+  const chapters = import.meta.glob('../../../docs/manuals/user-guide/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+  for (const [file, source] of Object.entries(chapters)) expect(parse(source).length, file).toBeGreaterThan(0)
+})
