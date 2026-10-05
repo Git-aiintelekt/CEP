@@ -153,3 +153,25 @@ test('"View This Journey" links to the real Journey Details page', async () => {
   await screen.findByRole('heading', { name: 'New Loyalty Member Welcome', level: 1 })
   expect(screen.getByRole('heading', { name: 'Performance' })).toBeTruthy()
 })
+
+test('a live journey with a new version opens on that version’s test; approving it now replaces the live version', async () => {
+  const calls = installMockApi({
+    journey: makeJourney({ status: 'ACTIVE', current_version: 'jv1' }),
+    journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', status_label: 'Active' }), makeJourneyVersion({ id: 'jv2', version_number: 2 })],
+    journeyGraph: GRAPH,
+    journeyTestResult: makeJourneyTestResult(),
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/test-publish')
+
+  expect(await screen.findByRole('heading', { name: 'Test Publish' })).toBeTruthy()
+  expect(screen.getByText(/You are testing version 2 of a live journey\. The live version keeps running meanwhile/)).toBeTruthy()
+  await user.click(await screen.findByRole('button', { name: 'Run Test Publish' }))
+  await user.click(within(await screen.findByRole('dialog', { name: 'Send This Test Now?' })).getByRole('button', { name: 'Send Test' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/versions/2/test-publish/'))).toBe(true))
+  await user.click(await screen.findByRole('button', { name: 'Approve & Activate →' }))
+  await user.click(within(await screen.findByRole('dialog', { name: 'Activate This Journey?' })).getByRole('button', { name: 'Activate Journey' }))
+
+  expect(await screen.findByRole('heading', { name: 'Version 2 Is Now Live' })).toBeTruthy()
+  expect(screen.getByText('New customers enter version 2 from now on. Customers already inside finish the version they started.')).toBeTruthy()
+})

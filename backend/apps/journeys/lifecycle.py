@@ -55,13 +55,19 @@ def archive(journey: Journey, user_id) -> dict:
 
 
 def cancel_schedule(journey: Journey, user_id) -> Journey:
-    """An approved journey waiting for its go-live time goes back to Test: approve it again (now or at another time) from Test Publish."""
+    """An approved journey waiting for its go-live time goes back to Test: approve it again (now or at another time) from Test Publish.
+    A live journey with a new version waiting keeps its live version; the waiting one stays tested, to approve again."""
     with transaction.atomic():
         locked = Journey.objects.select_for_update().get(pk=journey.pk)
-        if locked.status != Journey.Status.APPROVED or locked.scheduled_activate_at is None:
+        if locked.status not in LIVE or locked.scheduled_activate_at is None:
             raise Conflict("Only a journey scheduled to go live can have its schedule cancelled.")
-        locked.status, locked.scheduled_activate_at, locked.updated_by_id = Journey.Status.TEST, None, user_id
-        locked.save(update_fields=["status", "scheduled_activate_at", "updated_by"])
+        if locked.status == Journey.Status.APPROVED:
+            locked.status = Journey.Status.TEST
+        else:
+            running = JourneyVersion.objects.filter(journey=locked, status=JourneyVersion.Status.ACTIVE).order_by("-version_number").first()
+            locked.current_version_id = running.pk if running else locked.current_version_id
+        locked.scheduled_activate_at, locked.updated_by_id = None, user_id
+        locked.save(update_fields=["status", "current_version", "scheduled_activate_at", "updated_by"])
     return locked
 
 

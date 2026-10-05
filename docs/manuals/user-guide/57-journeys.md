@@ -42,9 +42,25 @@ The set-up asks, in two short steps:
 | Field | What it is | What it changes |
 |---|---|---|
 | Name | The journey's name, unique in the workspace. | |
-| Entry | How customers enter: a **contact list** (its members), an **event** (for example Purchase, Abandoned Cart, Birthday), or a **segment change** (joining or leaving a segment). | Who is enrolled. Date / Time can be chosen but enrols nobody yet. |
+| Entry | How customers enter: a **contact list** (its members), an **event** (for example Purchase, Abandoned Cart, Birthday, No Response), a **date or time** (a schedule, or a date on each customer's record), a **segment change** (joining or leaving a segment), or an **attribute change** (Loyalty Tier, Preference Update, Address Change). | Who is enrolled, and when. |
 | Population | **Fixed**: who qualifies on the first pass after go-live, then the journey closes to newcomers. **Continuously Qualifying** and **Event Triggered**: keep enrolling as new customers qualify or new events arrive. | Whether the journey keeps growing. |
 | Re-entry | **Never**, **After X Days** (since they last entered), or **Every Qualifying Event**. | Whether a customer can go through again. Nobody is ever in the same journey twice at once. |
+
+## Date / Time entries
+
+Choose **Date / Time**, then the Specific Trigger. The fields that follow depend on it, and a grey line under them reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter").
+
+| Specific Trigger | Asks for | Who enters, and when |
+|---|---|---|
+| Daily | At (a time); Who Enters (a customer list or a segment) | The members, every day at that time. |
+| Weekly | On (one or more weekdays); At; Who Enters | The members, on those days at that time. |
+| Monthly | Day of the Month (1 to 28, or Last Day); At; Who Enters | The members, once a month. |
+| On a Specific Date | Date; At; Who Enters | The members, once. |
+| On a Date Attribute | Date (a date on the customer's record, with how many customers have it); When (on the day, or 1 to 90 days before or after); At; Repeat (Every Year or Once); Only Customers In (optional) | Each customer on their own date. Every Year matches the day and month (birthdays, anniversaries; 29 February counts on 28 February in other years); Once matches the full date (a renewal date). |
+
+Times are the workspace's time zone. A moment fires once: if the journey goes live after this week's moment, it waits for the next one, and a moment missed while CEP was down is not replayed (the next one fires). Re-entry (step 2) decides whether the same customers go through again: a Weekly journey with After 7 Days lets them back each week. With a Fixed population, the first moment's customers enter and the journey then closes.
+
+The dates come from the customer records' custom attributes that hold a date (YYYY-MM-DD), as C360 sends them; CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 
 ## Build the steps
 
@@ -95,7 +111,10 @@ Someone with Activate approves the tested version: **go live now**, or **at a da
 
 **End a journey.** Archive Journey, then confirm. Nobody new enters, everyone still in it leaves their path (counted as exited), its live and tested versions are retired and any scheduled start is dropped. It can't be undone; **Duplicate** starts the same journey again as a draft. A live, paused or scheduled journey needs Activate to archive; a draft or tested one needs Create and Edit.
 
-**Change a live journey.** Edit Journey saves your changes as a new draft version; the live version keeps running untouched. Population and re-entry stay as they were, since they belong to the journey. Taking that new version through Test Publish and Approve is not offered on the screens yet.
+**Change a live journey.**
+1. Edit Journey. The builder says the version is live; Save Draft saves your changes as the next version, and the live version keeps running untouched. Population and re-entry stay as they were, since they belong to the journey.
+2. On the journey's page, **Test Publish Version N** opens the new version's test. Test customers who are inside the live version are skipped.
+3. Approve it. **Now**: new customers enter the new version at once, and customers already inside finish the version they started. **Later**: the live version keeps running until that time; the journey's page shows the date, and Cancel Schedule keeps the live version and leaves the new one tested, to approve again. Approving a paused journey's new version keeps the journey paused until you resume it.
 
 **Start a journey from what the shop sends.** Choose an event entry, for example Abandoned Cart, and make sure the shop sends that event (Settings → Events). Purchases and First Purchases arrive on their own once Attribution receives the shop's orders.
 
@@ -107,9 +126,10 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## Things to know
 
-- Date / Time entries, and attribute changes (Loyalty Tier, Preference Update, Address Change) as entries, can be chosen but enrol nobody yet.
+- Attribute changes enrol on events: **Loyalty Tier** on a Loyalty Tier Change (raised by the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on an Address Change event C360 sends. See Events.
+- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). CEP raises it at most once in 30 days per customer, while a live journey starts from it.
+- A customer from a Test Publish can still enter the journey for real later.
 - The Split step (more than two paths) is not offered; use Conditions.
-- A new version of a live journey can be drafted but not yet tested or approved from the screens.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
 - Events are explained in **Events** (Settings → Events).

@@ -6,7 +6,7 @@ import { Activity, Award, ShoppingBag, Users, type LucideIcon } from 'lucide-rea
 import { titleize } from '@/lib/format'
 import type { Journey, JourneyEntryRule, JourneyGraph, JourneyTemplateCategory } from '@/lib/types'
 
-import { referenceLabel } from '../entryTriggers'
+import { describeSchedule, referenceLabel } from '../entryTriggers'
 import { flatten, fromWireGraph, isNodeConfigured, type EditorNode } from '../graphModel'
 import { NODE_META, stepLabel, type AddableType } from '../nodeDefs'
 import { FAMILY_META } from '../triggerFamily'
@@ -39,6 +39,12 @@ const EVENT_SENTENCE: Record<string, string> = {
   NO_RESPONSE: 'When a customer stops opening or clicking',
 }
 
+const ATTRIBUTE_SENTENCE: Record<string, string> = {
+  LOYALTY_TIER: 'When a customer’s loyalty tier changes',
+  PREFERENCE_UPDATE: 'When a customer updates their preferences',
+  ADDRESS_CHANGE: 'When a customer’s address changes',
+}
+
 /** The sentence for what starts a journey: "When a shopper leaves items in their cart". */
 export function triggerSentence(rule: JourneyEntryRule | undefined): string {
   if (!rule) return 'No trigger chosen yet'
@@ -51,11 +57,15 @@ export function triggerSentence(rule: JourneyEntryRule | undefined): string {
     case 'SEGMENT_CHANGE':
       if (definition.change === 'JOINED') return `When a customer enters ${referenceLabel(rule) ?? 'a segment'}`
       if (definition.change === 'LEFT') return `When a customer leaves ${referenceLabel(rule) ?? 'a segment'}`
-      return definition.change_trigger ? `When a customer’s ${titleize(definition.change_trigger).toLowerCase()} changes` : 'When a customer changes'
+      if (definition.change_trigger) return ATTRIBUTE_SENTENCE[definition.change_trigger.toUpperCase()] ?? `When a customer’s ${titleize(definition.change_trigger).toLowerCase()} changes`
+      return 'When a customer changes'
     case 'CUSTOMER_LIST':
       return `When a customer is in ${referenceLabel(rule) ?? 'a contact list'}`
-    case 'DATE_TIME':
-      return definition.schedule ? `On a schedule: ${titleize(definition.schedule)}` : 'On a schedule'
+    case 'DATE_TIME': {
+      if (!definition.schedule) return 'On a schedule'
+      const { when, who } = describeSchedule(rule.rule_definition as Record<string, unknown>, referenceLabel(rule))
+      return `${when}, ${who}`
+    }
     default:
       return titleize(rule.entry_type)
   }

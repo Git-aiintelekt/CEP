@@ -755,6 +755,9 @@ export function installMockApi(options: MockOptions = {}) {
       mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
       return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
     }
+    if (path.endsWith('/journeys/date-attributes/')) {
+      return json([{ key: 'birth_date', label: 'Birth Date', customers: 18240 }, { key: 'membership_date', label: 'Membership Date', customers: 9120 }])
+    }
     if (path.endsWith('/workspace/events/recent/')) {
       const query = new URL(url, 'http://test.local').searchParams
       const type = query.get('type')
@@ -1020,9 +1023,14 @@ export function installMockApi(options: MockOptions = {}) {
     const journeyApproveMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/approve\/$/.exec(path)
     if (journeyApproveMatch && method === 'POST') {
       const scheduleAt = body?.schedule_at as string | null | undefined
-      journeyNow = scheduleAt
-        ? { ...journeyNow, status: 'APPROVED', scheduled_activate_at: scheduleAt }
-        : { ...journeyNow, status: 'ACTIVE', scheduled_activate_at: null }
+      // publish.approve: a live (Active / Paused) journey keeps its status; its new version replaces the live one now, or waits
+      const live = journeyNow.status === 'ACTIVE' || journeyNow.status === 'PAUSED'
+      const target = journeyVersionsNow.find((item) => item.version_number === Number(journeyApproveMatch[2]))
+      if (!scheduleAt && target) {
+        journeyVersionsNow = journeyVersionsNow.map((item) => (item.id === target.id ? { ...item, status: 'ACTIVE' } : item.status === 'ACTIVE' ? { ...item, status: 'RETIRED' } : item))
+      }
+      journeyNow = { ...journeyNow, status: live ? journeyNow.status : scheduleAt ? 'APPROVED' : 'ACTIVE', scheduled_activate_at: scheduleAt ?? null,
+                     current_version: target?.id ?? journeyNow.current_version }
       return json(journeyNow)
     }
     if (/\/journeys\/[^/]+\/performance\/$/.test(path) && method === 'GET') {
@@ -1046,7 +1054,9 @@ export function installMockApi(options: MockOptions = {}) {
       return json({ ...journeyNow, ended: 12 })
     }
     if (/\/journeys\/[^/]+\/cancel-schedule\/$/.test(path) && method === 'POST') {
-      journeyNow = { ...journeyNow, status: 'TEST', scheduled_activate_at: null }
+      const running = journeyVersionsNow.find((item) => item.status === 'ACTIVE')
+      journeyNow = journeyNow.status === 'APPROVED' ? { ...journeyNow, status: 'TEST', scheduled_activate_at: null }
+                                                    : { ...journeyNow, scheduled_activate_at: null, current_version: running?.id ?? journeyNow.current_version }
       return json(journeyNow)
     }
     if (/\/journeys\/[^/]+\/duplicate\/$/.test(path) && method === 'POST') {

@@ -87,6 +87,9 @@ function BuiltInCard() {
   const rows: [string, string][] = [
     ['Purchase, First Purchase', 'Every order the shop sends to Attribution, and every store sale when Attribution counts them. First Purchase is the customer’s first order.'],
     ['Coupon Issue', 'Every Issue Coupon step of a journey, when it asks C360 for the coupon.'],
+    ['Loyalty Tier Change', 'Every Update Loyalty Tier step of a journey that changes the customer’s tier. The loyalty system sends the tier changes it makes itself.'],
+    ['Preference Update', 'Every preference-centre save that changes a channel or a topic.'],
+    ['No Response', 'A customer sent at least 3 marketing emails in 30 days who opened, clicked and replied to none, at most once in 30 days. Raised while a live journey starts from it.'],
     ['Email Open/Click', 'Read from CEP’s own tracking of its emails; security scanners are left out. Nothing to send.'],
     ['SMS Response', 'Read from the replies to CEP’s texts. Nothing to send.'],
   ]

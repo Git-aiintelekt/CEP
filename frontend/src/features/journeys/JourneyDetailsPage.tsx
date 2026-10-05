@@ -175,7 +175,12 @@ export function JourneyDetailsPage() {
   })
   const cancelSchedule = useMutation({
     mutationFn: () => api.post<Journey>(`/journeys/${id}/cancel-schedule/`),
-    onSuccess: (updated) => { queryClient.setQueryData(['journeys', 'detail', id], updated); invalidate(); toast.success(`“${updated.name}” will not go live; approve it again from Test Publish.`) },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['journeys', 'detail', id], updated)
+      invalidate()
+      toast.success(updated.status === 'TEST' ? `“${updated.name}” will not go live; approve it again from Test Publish.`
+                                                : 'The new version will not go live; the live version carries on. Approve it again from Test Publish.')
+    },
     onError: setActionError,
   })
   const saveField = useMutation({
@@ -196,6 +201,9 @@ export function JourneyDetailsPage() {
   const live = journey.status === 'ACTIVE' || journey.status === 'PAUSED' || journey.status === 'APPROVED'
   const canArchive = journey.status !== 'ARCHIVED' && (live ? canActivate : editable)
   const versions = (versionsQuery.data ?? []).slice().sort((a, b) => b.version_number - a.version_number)
+  const running = journey.status === 'ACTIVE' || journey.status === 'PAUSED'
+  const nextVersion = running ? versions.find((row) => row.status === 'DRAFT' || row.status === 'TEST_PUBLISHED') : undefined
+  const nextScheduled = nextVersion !== undefined && journey.scheduled_activate_at !== null && journey.current_version === nextVersion.id
 
   const campaignColumns: Column<JourneyGeneratedCampaignRow>[] = [
     { key: 'campaign', header: 'Campaign', render: (row) => <Link to={`/campaigns/${row.campaign_id}`} className="font-medium text-brand-800 hover:underline">{row.campaign_name}</Link> },
@@ -234,7 +242,10 @@ export function JourneyDetailsPage() {
           {journey.status === 'PAUSED' && canActivate && (
             <Button variant="primary" disabled={busy} loading={resume.isPending} onClick={() => resume.mutate()}>{LIFECYCLE_LABEL.PAUSED}</Button>
           )}
-          {journey.status === 'APPROVED' && journey.scheduled_activate_at && canActivate && (
+          {nextVersion && !nextScheduled && editable && (
+            <Link to={`/journeys/${journey.id}/test-publish`} className={buttonSecondary}>Test Publish Version {nextVersion.version_number}</Link>
+          )}
+          {journey.status !== 'ARCHIVED' && journey.scheduled_activate_at && canActivate && (
             <Button iconStart={CalendarX} disabled={busy} loading={cancelSchedule.isPending} onClick={() => cancelSchedule.mutate()}>Cancel Schedule</Button>
           )}
           {canArchive && <Button iconStart={Archive} disabled={busy} onClick={() => setConfirmArchive(true)}>Archive Journey</Button>}
@@ -244,6 +255,15 @@ export function JourneyDetailsPage() {
 
       <div className="mt-5 flex flex-col gap-3 empty:hidden">
         <NoticeBanner journey={journey} metrics={metrics} />
+        {nextVersion && (
+          <Notice tone="info" layout="banner">
+            {nextScheduled && journey.scheduled_activate_at
+              ? `Version ${nextVersion.version_number} replaces the live version on ${formatDateTime(journey.scheduled_activate_at)}; the live version keeps running until then.`
+              : nextVersion.status === 'DRAFT'
+                ? `Version ${nextVersion.version_number} is a draft. The live version keeps running; test publish the new one, then approve it to replace the live version.`
+                : `Version ${nextVersion.version_number} is tested and waiting for approval. The live version keeps running until it is approved.`}
+          </Notice>
+        )}
         {actionError != null && <p role="alert" className="text-sm font-medium text-danger-text">{problemText(actionError)}</p>}
       </div>
 
@@ -305,7 +325,8 @@ export function JourneyDetailsPage() {
               { key: 'version', header: 'Version', render: (row) => (
                 <span className="flex items-center gap-2 font-medium text-ink-900">
                   Version {row.version_number}
-                  {row.id === journey.current_version && row.status === 'ACTIVE' && <Tag>Live</Tag>}
+                  {row.status === 'ACTIVE' && <Tag>Live</Tag>}
+                  {nextScheduled && row.id === nextVersion?.id && <Tag>Scheduled</Tag>}
                 </span>
               ) },
               { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },

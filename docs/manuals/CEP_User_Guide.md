@@ -188,6 +188,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Before the first journey
   - The statuses
   - Start a journey
+  - Date / Time entries
   - Build the steps
   - Test publish
   - Approve and go live
@@ -1935,9 +1936,25 @@ The set-up asks, in two short steps:
 | Field | What it is | What it changes |
 |---|---|---|
 | Name | The journey's name, unique in the workspace. | |
-| Entry | How customers enter: a **contact list** (its members), an **event** (for example Purchase, Abandoned Cart, Birthday), or a **segment change** (joining or leaving a segment). | Who is enrolled. Date / Time can be chosen but enrols nobody yet. |
+| Entry | How customers enter: a **contact list** (its members), an **event** (for example Purchase, Abandoned Cart, Birthday, No Response), a **date or time** (a schedule, or a date on each customer's record), a **segment change** (joining or leaving a segment), or an **attribute change** (Loyalty Tier, Preference Update, Address Change). | Who is enrolled, and when. |
 | Population | **Fixed**: who qualifies on the first pass after go-live, then the journey closes to newcomers. **Continuously Qualifying** and **Event Triggered**: keep enrolling as new customers qualify or new events arrive. | Whether the journey keeps growing. |
 | Re-entry | **Never**, **After X Days** (since they last entered), or **Every Qualifying Event**. | Whether a customer can go through again. Nobody is ever in the same journey twice at once. |
+
+## Date / Time entries
+
+Choose **Date / Time**, then the Specific Trigger. The fields that follow depend on it, and a grey line under them reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter").
+
+| Specific Trigger | Asks for | Who enters, and when |
+|---|---|---|
+| Daily | At (a time); Who Enters (a customer list or a segment) | The members, every day at that time. |
+| Weekly | On (one or more weekdays); At; Who Enters | The members, on those days at that time. |
+| Monthly | Day of the Month (1 to 28, or Last Day); At; Who Enters | The members, once a month. |
+| On a Specific Date | Date; At; Who Enters | The members, once. |
+| On a Date Attribute | Date (a date on the customer's record, with how many customers have it); When (on the day, or 1 to 90 days before or after); At; Repeat (Every Year or Once); Only Customers In (optional) | Each customer on their own date. Every Year matches the day and month (birthdays, anniversaries; 29 February counts on 28 February in other years); Once matches the full date (a renewal date). |
+
+Times are the workspace's time zone. A moment fires once: if the journey goes live after this week's moment, it waits for the next one, and a moment missed while CEP was down is not replayed (the next one fires). Re-entry (step 2) decides whether the same customers go through again: a Weekly journey with After 7 Days lets them back each week. With a Fixed population, the first moment's customers enter and the journey then closes.
+
+The dates come from the customer records' custom attributes that hold a date (YYYY-MM-DD), as C360 sends them; CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 
 ## Build the steps
 
@@ -1988,7 +2005,10 @@ Someone with Activate approves the tested version: **go live now**, or **at a da
 
 **End a journey.** Archive Journey, then confirm. Nobody new enters, everyone still in it leaves their path (counted as exited), its live and tested versions are retired and any scheduled start is dropped. It can't be undone; **Duplicate** starts the same journey again as a draft. A live, paused or scheduled journey needs Activate to archive; a draft or tested one needs Create and Edit.
 
-**Change a live journey.** Edit Journey saves your changes as a new draft version; the live version keeps running untouched. Population and re-entry stay as they were, since they belong to the journey. Taking that new version through Test Publish and Approve is not offered on the screens yet.
+**Change a live journey.**
+1. Edit Journey. The builder says the version is live; Save Draft saves your changes as the next version, and the live version keeps running untouched. Population and re-entry stay as they were, since they belong to the journey.
+2. On the journey's page, **Test Publish Version N** opens the new version's test. Test customers who are inside the live version are skipped.
+3. Approve it. **Now**: new customers enter the new version at once, and customers already inside finish the version they started. **Later**: the live version keeps running until that time; the journey's page shows the date, and Cancel Schedule keeps the live version and leaves the new one tested, to approve again. Approving a paused journey's new version keeps the journey paused until you resume it.
 
 **Start a journey from what the shop sends.** Choose an event entry, for example Abandoned Cart, and make sure the shop sends that event (Settings → Events). Purchases and First Purchases arrive on their own once Attribution receives the shop's orders.
 
@@ -2000,9 +2020,10 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## Things to know
 
-- Date / Time entries, and attribute changes (Loyalty Tier, Preference Update, Address Change) as entries, can be chosen but enrol nobody yet.
+- Attribute changes enrol on events: **Loyalty Tier** on a Loyalty Tier Change (raised by the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on an Address Change event C360 sends. See Events.
+- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). CEP raises it at most once in 30 days per customer, while a live journey starts from it.
+- A customer from a Test Publish can still enter the journey for real later.
 - The Split step (more than two paths) is not offered; use Conditions.
-- A new version of a live journey can be drafted but not yet tested or approved from the screens.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
 - Events are explained in **Events** (Settings → Events).
@@ -2028,14 +2049,18 @@ What happened to a customer: a purchase, an abandoned cart, a birthday, a tier c
 | Part | What it shows |
 |---|---|
 | Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer CEP does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
-| Raised by CEP Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Email Open/Click** and **SMS Response**, read from CEP's own tracking (security scanners left out). These need nothing sent. |
+| Raised by CEP Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from CEP's own tracking (security scanners left out). These need nothing sent. |
 | Send Events | The endpoint, the headers, the key's scope and how many keys have it, and one event as an example. |
 | Coupon Requests for C360 | How many requests are waiting, issued and failed, and how C360 reads and answers them. |
 | Latest Events | The newest 50 events, sent or raised by CEP: when it arrived, the event and its id, the customer, the source and when it happened. Filter by type; search by customer, event id or source. Opens, clicks and text replies are not listed here. |
 
 ## The event types
 
-Customer Creation (`CUSTOMER_CREATED`), Welcome (`WELCOME`), Birthday (`BIRTHDAY`), Anniversary (`ANNIVERSARY`), Purchase (`PURCHASE`), First Purchase (`FIRST_PURCHASE`), Category Purchase (`CATEGORY_PURCHASE`), Abandoned Cart (`CART_ABANDON`), Coupon Issue (`COUPON_ISSUED`), Coupon Redemption (`COUPON_REDEEMED`), Segment Inception (`SEGMENT_INCEPTION`), Segment Change (`SEGMENT_CHANGE`), Loyalty Tier Change (`LOYALTY_TIER_CHANGE`), Email Open/Click (`EMAIL_ENGAGEMENT`) and SMS Response (`SMS_RESPONSE`). Any other name in capitals and underscores (for example `STORE_VISIT`) is accepted too.
+Customer Creation (`CUSTOMER_CREATED`), Welcome (`WELCOME`), Birthday (`BIRTHDAY`), Anniversary (`ANNIVERSARY`), Purchase (`PURCHASE`), First Purchase (`FIRST_PURCHASE`), Category Purchase (`CATEGORY_PURCHASE`), Abandoned Cart (`CART_ABANDON`), Coupon Issue (`COUPON_ISSUED`), Coupon Redemption (`COUPON_REDEEMED`), Segment Inception (`SEGMENT_INCEPTION`), Segment Change (`SEGMENT_CHANGE`), Loyalty Tier Change (`LOYALTY_TIER_CHANGE`), Preference Update (`PREFERENCE_UPDATE`), Address Change (`ADDRESS_CHANGE`), No Response (`NO_RESPONSE`), Email Open/Click (`EMAIL_ENGAGEMENT`) and SMS Response (`SMS_RESPONSE`). Any other name in capitals and underscores (for example `STORE_VISIT`) is accepted too.
+
+A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. CEP does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
+
+**No Response** is raised by CEP for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
 
 ## How to
 
@@ -2061,5 +2086,4 @@ The enrol job reads events every minute. An event counts for a journey that was 
 ## Things to know
 
 - CEP keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
-- No Response events are not raised yet; use a Wait followed by a Condition (opened an email, clicked a link) instead.
 - CEP never makes coupon codes; C360 does.

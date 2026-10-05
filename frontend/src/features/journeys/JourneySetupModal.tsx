@@ -38,9 +38,11 @@ import { api, ApiError } from '@/lib/api'
 import type { Audience, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
 
 import {
-  DATE_TIME_TRIGGER_GROUPS, EVENT_TRIGGER_GROUPS, SEGMENT_CHANGE_TRIGGER_GROUPS, TRIGGER_PLACEHOLDER, entryRuleFor, needsSegment, triggerFromRule,
+  DATE_TIME_TRIGGER_GROUPS, EVENT_TRIGGER_GROUPS, SEGMENT_CHANGE_TRIGGER_GROUPS, TRIGGER_PLACEHOLDER, dateTimeDefinition, dateTimeFromRule, dateTimeProblem,
+  entryRuleFor, needsSegment, triggerFromRule, type DateTimeChoice,
   type Reference, type TriggerGroup,
 } from './entryTriggers'
+import { DateTimeFields } from './DateTimeFields'
 import { ENTRY_LABEL } from './SettingsSidebar'
 import { entrySetupNote } from './templates/templateMeta'
 import type { SetupPrefill } from './templates/prefill'
@@ -265,6 +267,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const [triggerValue, setTriggerValue] = useState(initial.triggerValue)
   const [triggerLabel, setTriggerLabel] = useState<string | null>(initial.triggerLabel)
   const [segment, setSegment] = useState<Reference | null>(initial.segment)
+  const [dateTime, setDateTime] = useState<DateTimeChoice>(() => dateTimeFromRule(originalRule))
   const [populationMode, setPopulationMode] = useState<PopulationMode | ''>(initial.populationMode as PopulationMode | '')
   const [reentryPolicy, setReentryPolicy] = useState<ReentryPolicy>(initial.reentryPolicy as ReentryPolicy)
   const [reentryAfterDays, setReentryAfterDays] = useState(initial.reentryAfterDays)
@@ -283,12 +286,15 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   }
 
   const segmentNeeded = needsSegment(entryType, triggerValue)
+  const timed = entryType === 'DATE_TIME' && triggerValue !== ''
   const step1Ready = name.trim() !== '' && entryType !== '' && triggerValue !== '' && (!segmentNeeded || segment !== null)
+    && (!timed || dateTimeProblem(triggerValue, dateTime) === null)
   const step2Ready = populationMode !== '' && (reentryPolicy !== 'AFTER_X_DAYS' || Number(reentryAfterDays) > 0)
 
   /** The entry rule to save. An unchanged trigger keeps everything its rule already carried; only the segment comes
    * from the picker (a starter's "choose your segment" note is then done with). */
   const chosenRule = (): JourneyEntryRule => {
+    if (entryType === 'DATE_TIME') return { entry_type: 'DATE_TIME', rule_definition: dateTimeDefinition(triggerValue, dateTime) }
     const original = triggerFromRule(originalRule)
     if (originalRule && entryType === original.entryType && triggerValue === original.value) {
       const definition: Record<string, unknown> = { ...originalRule.rule_definition }
@@ -433,6 +439,8 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
                 : <TriggerDropdown entryType={entryType} groups={groupsFor(entryType)} value={triggerValue} label={triggerLabel} onPick={chooseTrigger} />}
             </Field>
           )}
+
+          {timed && <DateTimeFields schedule={triggerValue} value={dateTime} onChange={setDateTime} />}
 
           {segmentNeeded && (
             <Field label="Segment" required strong hint={segment ? undefined : setupNote ?? 'Customers enter when they join or leave this segment.'}>

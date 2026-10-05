@@ -7,11 +7,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { buttonSecondary } from '@/components/Form'
+import { Notice } from '@/components/Notice'
 import { useToast } from '@/components/Toast'
 import { PageHelp } from '@/help/HelpPanel'
 import { api, ApiError } from '@/lib/api'
 import { titleize } from '@/lib/format'
-import type { Journey, JourneyGraphNode, JourneyReadiness, JourneyTestPopulation, JourneyTestResult, JourneyVersionDetail } from '@/lib/types'
+import type { Journey, JourneyGraphNode, JourneyReadiness, JourneyTestPopulation, JourneyTestResult, JourneyVersion, JourneyVersionDetail } from '@/lib/types'
 
 import { ApproveModal } from './ApproveModal'
 import { ContentPreviewCard } from './ContentPreviewCard'
@@ -36,11 +37,18 @@ interface WorkspaceProps {
 const CHANNEL_ORDER = ['EMAIL', 'SMS', 'MMS']
 const CHANNEL_LABEL: Record<string, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 
-function initialOutcome(journey: Journey): Outcome | null {
-  if (journey.status === 'ACTIVE') return { kind: 'ACTIVE' }
-  if (journey.status === 'APPROVED' && journey.scheduled_activate_at) {
-    return { kind: 'SCHEDULED', when: activationText(new Date(journey.scheduled_activate_at)) }
+function isLive(journey: Journey): boolean {
+  return journey.status === 'ACTIVE' || journey.status === 'PAUSED'
+}
+
+/** A live journey opens on its new version's test when it has one (a draft or a tested version), else on the outcome. */
+function initialOutcome(journey: Journey, version: JourneyVersion): Outcome | null {
+  const live = isLive(journey)
+  if (journey.scheduled_activate_at && (journey.status === 'APPROVED' || (live && journey.current_version === version.id))) {
+    return { kind: 'SCHEDULED', when: activationText(new Date(journey.scheduled_activate_at)), version: live ? version.version_number : undefined }
   }
+  const open = version.status === 'DRAFT' || version.status === 'TEST_PUBLISHED'
+  if (live && !open) return { kind: 'ACTIVE', paused: journey.status === 'PAUSED' }
   return null
 }
 
@@ -56,7 +64,7 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
   const [showRunModal, setShowRunModal] = useState(false)
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [result, setResult] = useState<{ data: JourneyTestResult; at: string } | null>(null)
-  const [outcome, setOutcome] = useState<Outcome | null>(() => initialOutcome(journey))
+  const [outcome, setOutcome] = useState<Outcome | null>(() => initialOutcome(journey, version))
   const testLists = useTestLists()
 
   const runTest = useMutation({
@@ -78,9 +86,11 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
     }),
     onSuccess: (updated, schedule) => {
       setShowApproveModal(false)
-      setOutcome(schedule ? { kind: 'SCHEDULED', when: activationText(schedule) } : { kind: 'ACTIVE' })
+      const newVersion = isLive(journey) ? version.version_number : undefined
+      setOutcome(schedule ? { kind: 'SCHEDULED', when: activationText(schedule), version: newVersion }
+                          : { kind: 'ACTIVE', version: newVersion, paused: updated.status === 'PAUSED' })
       onApproved()
-      toast.success(schedule ? 'Journey scheduled' : 'Journey activated', updated.name)
+      toast.success(newVersion ? (schedule ? `Version ${newVersion} scheduled` : `Version ${newVersion} approved`) : schedule ? 'Journey scheduled' : 'Journey activated', updated.name)
     },
     onError: (error) => {
       toast.error('Could not approve this journey', error instanceof ApiError ? error.message : undefined)
@@ -117,7 +127,15 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
       ) : (
         <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-8">
           <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-ink-900">Test Publish</h1><PageHelp chapter="journeys" /></span>
-          <p className="mt-1 mb-6 text-sm text-ink-800">Run this Journey on a small population before approving it for live automation.</p>
+          <p className={`mt-1 text-sm text-ink-800 ${isLive(journey) ? 'mb-4' : 'mb-6'}`}>Run this Journey on a small population before approving it for live automation.</p>
+          {isLive(journey) && (
+            <div className="mb-6">
+              <Notice tone="info" layout="banner">
+                You are testing version {version.version_number} of a {journey.status === 'PAUSED' ? 'paused' : 'live'} journey. The live version keeps running meanwhile;
+                once this one is approved, new customers enter it and customers already inside finish the version they started.
+              </Notice>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
             <div className="min-w-0 space-y-6">
               <TestPopulationCard value={population} onChange={setPopulation} />

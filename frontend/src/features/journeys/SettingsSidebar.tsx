@@ -7,7 +7,7 @@ import { buttonSecondary } from '@/components/Form'
 import { titleize } from '@/lib/format'
 import type { Journey, JourneyEntryRule } from '@/lib/types'
 
-import { referenceLabel } from './entryTriggers'
+import { describeSchedule, referenceLabel } from './entryTriggers'
 
 export const ENTRY_LABEL: Record<string, string> = {
   CUSTOMER_LIST: 'Customer List',
@@ -25,6 +25,7 @@ export function entrySummary(rule: JourneyEntryRule | undefined): string {
   const reference = referenceLabel(rule)
   let detail: string | null = null
   if (definition?.event_type) detail = titleize(definition.event_type)
+  else if (rule.entry_type === 'DATE_TIME') detail = `${describeSchedule(rule.rule_definition as Record<string, unknown>, reference).when}${reference ? ` · ${reference}` : ''}`
   else if (rule.entry_type === 'SEGMENT_CHANGE' && reference) detail = `${definition?.change === 'LEFT' ? 'Exits' : 'Enters'} ${reference}`
   else detail = reference
   return detail ? `${label} · ${detail}` : label

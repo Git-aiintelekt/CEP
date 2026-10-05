@@ -203,6 +203,14 @@ def save(version: JourneyVersion, user_id, graph, row_version) -> JourneyVersion
 REFERENCES = {"CUSTOMER_LIST": ("contact_list_id", "CONTACT_LIST"), "SEGMENT_CHANGE": ("segment_id", "SEGMENT")}
 
 
+def _reference(rule: dict) -> tuple:
+    """(key, kind) of what the rule names; a Date / Time rule names a contact list or a segment, whichever it has."""
+    if rule.get("entry_type") == "DATE_TIME":
+        definition = rule.get("rule_definition") or {}
+        return ("contact_list_id", "CONTACT_LIST") if definition.get("contact_list_id") else ("segment_id", "SEGMENT") if definition.get("segment_id") else (None, None)
+    return REFERENCES.get(rule.get("entry_type"), (None, None))
+
+
 def _uuid(value) -> str | None:
     try:
         return str(uuid.UUID(str(value)))
@@ -219,7 +227,7 @@ def name_references(rules: list[dict], tenant_id) -> list[dict]:
 
     wanted: dict[str, set[str]] = {"CONTACT_LIST": set(), "SEGMENT": set()}
     for rule in rules:
-        key, kind = REFERENCES.get(rule.get("entry_type"), (None, None))
+        key, kind = _reference(rule)
         target = _uuid((rule.get("rule_definition") or {}).get(key)) if key else None
         if target:
             wanted[kind].add(target)
@@ -231,7 +239,7 @@ def name_references(rules: list[dict], tenant_id) -> list[dict]:
         names["SEGMENT"] = {str(pk): name for pk, name in Segment.objects.filter(
             tenant_id=tenant_id, pk__in=wanted["SEGMENT"]).values_list("id", "name")}
     for rule in rules:
-        key, kind = REFERENCES.get(rule.get("entry_type"), (None, None))
+        key, kind = _reference(rule)
         if key and (rule.get("rule_definition") or {}).get(key):
             rule["reference_name"] = names[kind].get(_uuid(rule["rule_definition"][key]) or "")
     return rules

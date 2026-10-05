@@ -158,3 +158,37 @@ test('a scheduled journey offers Cancel Schedule, which takes it back to Test Pu
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/cancel-schedule/'))).toBe(true))
   await vi.waitFor(() => expect(screen.queryByRole('button', { name: 'Cancel Schedule' })).toBeNull())
 })
+
+test('a live journey’s new draft is announced, with Test Publish Version 2; the live version keeps its Live tag', async () => {
+  installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'ACTIVE', current_version: 'jv1' }),
+    journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', status_label: 'Active' }), makeJourneyVersion({ id: 'jv2', version_number: 2 })],
+  })
+  await renderAppAt('/journeys/j1')
+
+  await screen.findByText('Version 2 is a draft. The live version keeps running; test publish the new one, then approve it to replace the live version.')
+  expect(screen.getByRole('link', { name: 'Test Publish Version 2' }).getAttribute('href')).toBe('/journeys/j1/test-publish')
+  const rows = within(await screen.findByRole('table', { name: 'Journey versions' })).getAllByRole('row').slice(1)
+  expect(within(rows[1]).getByText('Live')).toBeTruthy()
+})
+
+test('a live journey’s scheduled new version: the date, a Scheduled tag, and Cancel Schedule keeps the journey Active', async () => {
+  const calls = installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'ACTIVE', current_version: 'jv2', scheduled_activate_at: '2026-10-09T09:00:00Z' }),
+    journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', status_label: 'Active' }),
+                      makeJourneyVersion({ id: 'jv2', version_number: 2, status: 'TEST_PUBLISHED', status_label: 'Test Published' })],
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+
+  await screen.findByText(/^Version 2 replaces the live version on .*; the live version keeps running until then\.$/)
+  const rows = within(await screen.findByRole('table', { name: 'Journey versions' })).getAllByRole('row').slice(1)
+  expect(within(rows[0]).getByText('Scheduled')).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Test Publish Version 2' })).toBeNull()
+
+  await user.click(screen.getByRole('button', { name: 'Cancel Schedule' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/cancel-schedule/'))).toBe(true))
+  await screen.findByText('Version 2 is tested and waiting for approval. The live version keeps running until it is approved.')
+  expect(screen.getByRole('link', { name: 'Test Publish Version 2' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Pause Journey' })).toBeTruthy()
+})

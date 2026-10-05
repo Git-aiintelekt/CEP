@@ -196,14 +196,22 @@ def _loyalty(node, state, enrollment) -> Done:
     tier = LoyaltyTier.objects.filter(tenant_id=enrollment.tenant_id, pk=config.get("tier_id")).first() if config.get("tier_id") else None
     if tier is None:
         return Done("FAILED", {"reason": "The loyalty tier does not exist (any more)."})
+    from apps.journeys import events
     with session.connection().cursor() as cursor:
+        cursor.execute("SELECT custom_attributes ->> 'loyalty_tier' FROM customer_master WHERE tenant_id = %s AND party_id = %s",
+                       [str(enrollment.tenant_id), enrollment.party_id])
+        row = cursor.fetchone()
         cursor.execute(
             "UPDATE customer_master SET custom_attributes = jsonb_set(custom_attributes, '{loyalty_tier}', %s::jsonb) "
             "WHERE tenant_id = %s AND party_id = %s",
             [f'"{tier.code}"', str(enrollment.tenant_id), enrollment.party_id],
         )
         changed = cursor.rowcount > 0
-    return Done(result={"tier": tier.code, "name": tier.name, "changed": changed})
+    previous = row[0] if row else None
+    if changed and previous != tier.code:
+        events.emit(enrollment.tenant_id, enrollment.party_id, "LOYALTY_TIER_CHANGE", source="CEP", external_id=f"loyalty-step:{enrollment.pk}:{node.node_key}",
+                    payload={"from": previous, "to": tier.code, "tier_name": tier.name, "journey_id": str(enrollment.journey_id)})
+    return Done(result={"tier": tier.code, "name": tier.name, "changed": changed, "from": previous})
 
 
 HANDLERS = {

@@ -71,6 +71,13 @@ def _page(prefs: dict, tenant, person: Person | None, shown: list, token: str, *
     })
 
 
+def _preference_event(tenant_id, party_id: str, payload: dict, changed: bool) -> None:
+    """A save that changed something is a Preference Update for journeys (apps.journeys.events)."""
+    if changed:
+        from apps.journeys import events
+        events.emit(tenant_id, party_id, "PREFERENCE_UPDATE", source="PREFERENCE_CENTER", payload=payload)
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def preferences_view(request, version=None):
@@ -106,26 +113,35 @@ def preferences_view(request, version=None):
     if action == "reopen":                                 # the person who unsubscribed from everything wants to choose again
         return HttpResponse(_page(prefs, tenant, person, shown, token, address=email))
     if action == "unsubscribe_all":
+        switched_off = []
         for channel in ("EMAIL", "SMS") if person.phone else ("EMAIL",):
             if not person.opted_out(channel):
                 unsubscribe.opt_out(**common, email=email, campaign_id=claims.get("c"), run_id=claims.get("r"), method="PREFERENCE_CENTER", evidence=evidence, channel=channel)
+                switched_off.append(channel)
+        _preference_event(tenant.pk, party, {"channels_off": switched_off, "unsubscribed_all": True}, bool(switched_off))
         return HttpResponse(_page(prefs, tenant, Person(tenant.pk, party, email), shown, token, address=email, unsubscribed_all=True))
 
     wanted = {"EMAIL": "email" in request.POST, "SMS": "sms" in request.POST}
     refused = None
+    switched_on, switched_off = [], []
     for channel in ("EMAIL", "SMS"):
         if channel == "SMS" and not person.phone:
             continue
         if person.opted_out(channel) and wanted[channel]:
             if prefs["allow_opt_in"]:
                 unsubscribe.opt_in(**common, channel=channel, source="PREFERENCE_CENTER", evidence=evidence)
+                switched_on.append(channel)
             else:
                 refused = channel
         elif not person.opted_out(channel) and not wanted[channel]:
             unsubscribe.opt_out(**common, email=email, campaign_id=claims.get("c"), run_id=claims.get("r"), method="PREFERENCE_CENTER", evidence=evidence, channel=channel)
+            switched_off.append(channel)
     chosen = set(request.POST.getlist("topic"))
     out_ids = {str(topic.pk) for topic in shown} - chosen
-    preferences.set_topics(tenant.pk, party, shown, out_ids, evidence)
+    topics_changed = preferences.set_topics(tenant.pk, party, shown, out_ids, evidence)
+    _preference_event(tenant.pk, party, {"channels_on": switched_on, "channels_off": switched_off, "topics_changed": topics_changed,
+                                         "topics_off": [topic.name for topic in shown if str(topic.pk) in out_ids]},
+                      bool(switched_on or switched_off or topics_changed))
 
     person = Person(tenant.pk, party, email)
     on_topics = [topic.name for topic in shown if str(topic.pk) not in out_ids]

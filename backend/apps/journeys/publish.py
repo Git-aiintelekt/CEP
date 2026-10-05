@@ -22,7 +22,7 @@ from apps.delivery.models import MailerExecution, SmsExecution
 from apps.governance.models import CommunicationGovernancePolicy
 from apps.templates.models import TemplateMaster
 
-from . import graph
+from . import graph, schedule
 from .engine import enroll as enroll_engine
 from .engine import steps as steps_engine
 from .engine.outcome import Done, Finish, Hold
@@ -56,12 +56,17 @@ def _entry_summary(version: JourneyVersion) -> str:
         elif rule["entry_type"] == "CUSTOMER_LIST":
             parts.append(f"the {rule['reference_name']} customer list" if rule.get("reference_name")
                          else "an unknown customer list" if "reference_name" in rule else "a customer list")
+        elif rule["entry_type"] == "SEGMENT_CHANGE" and definition.get("change_trigger"):
+            parts.append({"LOYALTY_TIER": "a loyalty tier change", "PREFERENCE_UPDATE": "a preference update",
+                          "ADDRESS_CHANGE": "an address change"}.get(str(definition["change_trigger"]).upper(), "an attribute change"))
         elif rule["entry_type"] == "SEGMENT_CHANGE":
             change = "leaving" if str(definition.get("change") or "").upper() == "LEFT" else "joining"
             if "reference_name" in rule:
                 parts.append(f"customers {change} {rule['reference_name'] or 'an unknown segment'}")
             else:
                 parts.append(f"a segment {str(definition.get('change') or 'change').lower()}")
+        elif rule["entry_type"] == "DATE_TIME":
+            parts.append(schedule.describe(definition, rule.get("reference_name")))
         else:
             parts.append("a date/time schedule")
     return (f"{', '.join(parts)} triggered, {journey.get_population_mode_display()} population, "
@@ -120,6 +125,11 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
     return {"ok": True, "description": " ".join(sentences)}
 
 
+def _entry_ok(version: JourneyVersion) -> bool:
+    rules = list(JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True))
+    return bool(rules) and all(schedule.problem(rule.rule_definition or {}) is None for rule in rules if rule.entry_type == "DATE_TIME")
+
+
 def readiness(journey: Journey, version: JourneyVersion) -> dict:
     """The 4 checks the Test Publish page shows; `ready` gates the Run Test Publish button."""
     nodes = list(JourneyNode.objects.filter(journey_version=version, deleted_at__isnull=True).exclude(node_family="ENTRY"))
@@ -129,7 +139,7 @@ def readiness(journey: Journey, version: JourneyVersion) -> dict:
     governance = _governance(journey, version)
     items = [
         {"key": "entry_rules", "label": "Entry rules configured", "description": _entry_summary(version),
-         "ok": JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True).exists()},
+         "ok": _entry_ok(version)},
         {"key": "steps_configured", "label": "All canvas steps configured",
          "description": f"{configured} of {len(nodes)} steps have complete settings.",
          "ok": len(nodes) > 0 and configured == len(nodes)},
@@ -264,6 +274,9 @@ def run_test(journey: Journey, version: JourneyVersion, population: dict, user_i
                 continue                                       # already actively enrolled for real (ux_journey_enrollment_no_reentry): skip, don't fail the test
         for enrollment_id in enrollment_ids:
             _drive_one(enrollment_id)
+        with session.tx():                                     # a test never leaves anyone for the live engine to carry on
+            JourneyEnrollment.objects.filter(pk__in=enrollment_ids, status="ACTIVE").update(status="EXITED", exited_at=timezone.now(),
+                                                                                           exit_reason="Test Publish ended.")
         result = _tally(tenant_id, enrollment_ids, started_at, len(party_ids), _channels_used(version))
         _mark_tested(journey, version, result)
         return result
@@ -341,7 +354,11 @@ def _retire_others(journey: Journey, keep_version_id) -> None:
 
 def approve(journey: Journey, version: JourneyVersion, when, user_id) -> Journey:
     """`when`: None (or already past) activates immediately; a future tz-aware datetime schedules it — the journey
-    stays APPROVED until workers.journey.activate_scheduled (run_scheduler's activate-scheduled-journeys) flips it."""
+    stays APPROVED until workers.journey.activate_scheduled (run_scheduler's activate-scheduled-journeys) flips it.
+
+    A new version of a live (Active or Paused) journey keeps the journey's status: now, it replaces the live version at
+    once (customers already inside finish the version they started); later, the live version carries on until the time
+    comes. current_version then names the waiting version; the engine keeps using the newest ACTIVE one until then."""
     check = readiness(journey, version)
     if not check["ready"]:
         raise Conflict("This journey has not passed every readiness check.")
@@ -354,12 +371,15 @@ def approve(journey: Journey, version: JourneyVersion, when, user_id) -> Journey
         locked = Journey.objects.select_for_update().get(pk=journey.pk)
         if locked.deleted_at is not None or locked.status == Journey.Status.ARCHIVED:
             raise Conflict("An archived journey cannot be approved.")
+        live = locked.status in (Journey.Status.ACTIVE, Journey.Status.PAUSED)
         if when is None or when <= now:
             _retire_others(locked, version.pk)
             JourneyVersion.objects.filter(pk=version.pk).update(status=JourneyVersion.Status.ACTIVE, published_at=now)
-            locked.status, locked.current_version_id, locked.scheduled_activate_at = Journey.Status.ACTIVE, version.pk, None
+            locked.status = locked.status if live else Journey.Status.ACTIVE
+            locked.current_version_id, locked.scheduled_activate_at = version.pk, None
         else:
-            locked.status, locked.current_version_id, locked.scheduled_activate_at = Journey.Status.APPROVED, version.pk, when
+            locked.status = locked.status if live else Journey.Status.APPROVED
+            locked.current_version_id, locked.scheduled_activate_at = version.pk, when
         locked.save(update_fields=["status", "current_version", "scheduled_activate_at"])
     return locked
 
@@ -369,10 +389,12 @@ def activate_due() -> dict:
     in apps.platform_ops.jobs.JOBS / workers.journey.activate_scheduled / run_scheduler._runnable()."""
     from . import engine
     activated, failed = 0, 0
-    for tenant_id in engine.tenants("SELECT DISTINCT tenant_id FROM journey WHERE status = 'APPROVED' AND scheduled_activate_at <= now() AND deleted_at IS NULL"):
+    waiting = (Journey.Status.APPROVED, Journey.Status.ACTIVE, Journey.Status.PAUSED)   # Active / Paused: a new version waiting for its time
+    for tenant_id in engine.tenants("SELECT DISTINCT tenant_id FROM journey WHERE status IN ('APPROVED', 'ACTIVE', 'PAUSED') "
+                                    "AND scheduled_activate_at <= now() AND deleted_at IS NULL"):
         try:
             with session.tenant_scope(tenant_id), session.tx():
-                due = list(Journey.objects.select_for_update().filter(tenant_id=tenant_id, status=Journey.Status.APPROVED,
+                due = list(Journey.objects.select_for_update().filter(tenant_id=tenant_id, status__in=waiting,
                                                                        scheduled_activate_at__lte=timezone.now(), deleted_at__isnull=True))
                 now = timezone.now()
                 for due_journey in due:
@@ -380,7 +402,8 @@ def activate_due() -> dict:
                         continue
                     _retire_others(due_journey, due_journey.current_version_id)
                     JourneyVersion.objects.filter(pk=due_journey.current_version_id).update(status=JourneyVersion.Status.ACTIVE, published_at=now)
-                    Journey.objects.filter(pk=due_journey.pk).update(status=Journey.Status.ACTIVE, scheduled_activate_at=None)
+                    status = Journey.Status.ACTIVE if due_journey.status == Journey.Status.APPROVED else due_journey.status
+                    Journey.objects.filter(pk=due_journey.pk).update(status=status, scheduled_activate_at=None)
                     activated += 1
         except Exception:                                      # noqa: BLE001  one tenant's trouble must not stop the others
             log.exception("activate-scheduled-journeys failed for tenant %s", tenant_id)

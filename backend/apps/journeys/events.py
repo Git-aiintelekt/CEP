@@ -1,7 +1,9 @@
 """Journey events: what happened to a customer, from the shop, the loyalty system or CEP itself.
 
     clean / ingest    POST /events/ (an API key with events:ingest): checked, the customer found, one event kept once
-    emit              CEP's own events (a purchase from the orders it receives, a coupon a journey asked for), same table
+    emit              CEP's own events (a purchase from the orders it receives, a coupon a journey asked for, a tier a journey
+                      set, a preference-centre save), same table
+    raise_no_response NO_RESPONSE for lapsed engagers, raised by the enrollment pass when a live journey starts from it
     summary / recent  what Settings → Events shows
 
 An event names its customer by party_id, or by an email address or phone number that is matched against customer_master.
@@ -27,7 +29,7 @@ KNOWN = {
     "PURCHASE": "Purchase", "FIRST_PURCHASE": "First Purchase", "CATEGORY_PURCHASE": "Category Purchase", "CART_ABANDON": "Abandoned Cart",
     "COUPON_ISSUED": "Coupon Issue", "COUPON_REDEEMED": "Coupon Redemption", "SEGMENT_INCEPTION": "Segment Inception",
     "SEGMENT_CHANGE": "Segment Change", "LOYALTY_TIER_CHANGE": "Loyalty Tier Change", "EMAIL_ENGAGEMENT": "Email Open/Click",
-    "SMS_RESPONSE": "SMS Response", "NO_RESPONSE": "No Response",
+    "SMS_RESPONSE": "SMS Response", "NO_RESPONSE": "No Response", "PREFERENCE_UPDATE": "Preference Update", "ADDRESS_CHANGE": "Address Change",
 }
 FROM_TRACKING = ("EMAIL_ENGAGEMENT", "SMS_RESPONSE")      # CEP sees these itself; a sender may still send them
 TYPE = re.compile(r"^[A-Z][A-Z0-9_]{1,59}$")
@@ -118,6 +120,29 @@ def find_party(cursor, tenant_id, *, party_id=None, email=None, phone=None) -> s
 
 
 # ---------------------------------------------------------------------------------------------------- saving
+# Setup's "Attribute Change" triggers (SEGMENT_CHANGE {change_trigger}) enter on these events. CEP raises the first two
+# itself (the Update Loyalty Tier step, the preference centre); C360 or the loyalty system sends the others to POST /events/.
+ATTRIBUTE_EVENTS = {"LOYALTY_TIER": "LOYALTY_TIER_CHANGE", "PREFERENCE_UPDATE": "PREFERENCE_UPDATE", "ADDRESS_CHANGE": "ADDRESS_CHANGE"}
+
+# No Response: at least NO_RESPONSE_SENDS marketing emails delivered in NO_RESPONSE_DAYS, and no open or click (scanners left
+# out) and no text reply in that time. One event per customer per NO_RESPONSE_DAYS.
+NO_RESPONSE_DAYS, NO_RESPONSE_SENDS, NO_RESPONSE_PER_PASS = 30, 3, 5000
+NO_RESPONSE_SQL = """
+SELECT s.party_id, s.sent FROM (
+    SELECT me.party_id, count(*) AS sent FROM mailer_execution me
+      JOIN campaign c ON c.id = me.campaign_id
+     WHERE me.tenant_id = %(tenant)s AND me.party_id IS NOT NULL AND me.status IN ('DELIVERED', 'OPENED', 'CLICKED')
+       AND COALESCE(me.delivered_at, me.submitted_at, me.created_at) >= %(since)s
+       AND c.solicitation_type = 'MARKETING' AND c.campaign_type <> 'E_RECEIPT'
+     GROUP BY me.party_id HAVING count(*) >= %(sends)s
+) s
+ WHERE NOT EXISTS (SELECT 1 FROM tracking_event t WHERE t.tenant_id = %(tenant)s AND t.party_id = s.party_id
+                      AND t.event_type IN ('OPEN', 'CLICK') AND NOT t.is_bot AND t.occurred_at >= %(since)s)
+   AND NOT EXISTS (SELECT 1 FROM sms_execution x WHERE x.tenant_id = %(tenant)s AND x.party_id = s.party_id AND x.responded_at >= %(since)s)
+   AND NOT EXISTS (SELECT 1 FROM journey_event e WHERE e.tenant_id = %(tenant)s AND e.party_id = s.party_id
+                      AND e.event_type = 'NO_RESPONSE' AND e.occurred_at >= %(since)s)
+ LIMIT %(limit)s"""
+
 INSERT = """INSERT INTO journey_event (tenant_id, party_id, event_type, event_source, event_payload, occurred_at, external_id)
             VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s)
             ON CONFLICT (tenant_id, event_source, external_id, occurred_at) WHERE external_id IS NOT NULL DO NOTHING
@@ -152,6 +177,21 @@ def ingest(tenant_id, events: list[dict]) -> list[dict]:
             else:
                 out.append({"event_id": event["event_id"], "status": status, "party_id": party})
     return out
+
+
+def raise_no_response(tenant_id) -> int:
+    """Must run inside session.tenant_scope(tenant_id) and a transaction. Returns how many NO_RESPONSE events it raised."""
+    now = timezone.now()
+    since = now - timedelta(days=NO_RESPONSE_DAYS)
+    raised = 0
+    with session.connection().cursor() as cursor:
+        cursor.execute(NO_RESPONSE_SQL, {"tenant": str(tenant_id), "since": since, "sends": NO_RESPONSE_SENDS, "limit": NO_RESPONSE_PER_PASS})
+        for party_id, sent in cursor.fetchall():
+            status = _insert(cursor, tenant_id, party_id, {"event_type": "NO_RESPONSE", "source": "CEP", "occurred_at": now,
+                                                           "payload": {"emails_without_response": sent, "days": NO_RESPONSE_DAYS},
+                                                           "event_id": f"no-response:{party_id}:{now:%Y-%m-%d}"})
+            raised += status == "ACCEPTED"
+    return raised
 
 
 def emit(tenant_id, party_id: str, event_type: str, *, source: str, payload: dict | None = None, occurred_at=None, external_id: str | None = None) -> bool:

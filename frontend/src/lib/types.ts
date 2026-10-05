@@ -2113,6 +2113,13 @@ export interface AttributedOrder {
 }
 
 // ---- journey events (Settings → Events; GET /workspace/events/, /workspace/events/recent/)
+/** GET /journeys/date-attributes/ : a date on customer records a Date / Time entry can follow */
+export interface JourneyDateAttribute {
+  key: string
+  label: string
+  customers: number
+}
+
 export interface JourneyEventType {
   event_type: string
   label: string

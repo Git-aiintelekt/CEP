@@ -39,12 +39,20 @@ export default function JourneyBuildPage() {
     staleTime: Infinity,
   })
 
+  /** A published version can't change: its edits are saved as a new draft version (graph.new_version), which the builder
+   * then moves onto. The live version keeps running until the new one is tested and approved. */
   const save = useMutation({
-    mutationFn: async ({ row_version, entryRules, root }: SavePayload) => {
+    mutationFn: async ({ row_version, entryRules, root }: SavePayload): Promise<JourneyVersionDetail> => {
       const graph = toWireGraph(root, entryRules)
-      const saved = await api.put<JourneyVersionDetail>(`/journeys/${id}/versions/${versionNumber}/graph/`, { row_version, graph })
-      queryClient.setQueryData(['journeys', 'version', id, versionNumber], saved)
+      const published = version.data !== undefined && version.data.status !== 'DRAFT'
+      const target = published
+        ? await api.post<JourneyVersionDetail>(`/journeys/${id}/versions/`, { from_version: versionNumber })
+        : { version_number: versionNumber, row_version }
+      const saved = await api.put<JourneyVersionDetail>(`/journeys/${id}/versions/${target.version_number}/graph/`, { row_version: target.row_version, graph })
+      queryClient.setQueryData(['journeys', 'version', id, saved.version_number], saved)
       void queryClient.invalidateQueries({ queryKey: ['journeys'], refetchType: 'none' })
+      if (published) void queryClient.invalidateQueries({ queryKey: ['journeys', 'versions', id] })
+      return saved
     },
   })
 

@@ -1506,6 +1506,8 @@ GRANT SELECT, INSERT ON journey_event TO cep_app;
 
 ALTER TABLE journey_version ADD COLUMN IF NOT EXISTS population_frozen_at TIMESTAMPTZ;   -- Fixed population: nobody new enters after this
 COMMENT ON COLUMN journey_version.population_frozen_at IS 'Fixed population: set by the first enrollment pass after go-live; nobody enters this version afterwards';
+ALTER TABLE journey_version ADD COLUMN IF NOT EXISTS last_fired_at TIMESTAMPTZ;          -- Date / Time entry: the schedule moment that last fired
+COMMENT ON COLUMN journey_version.last_fired_at IS 'Date / Time entry rules: the latest schedule moment whose customers entered (apps/journeys/schedule.py); a moment fires once';
 
 CREATE TABLE IF NOT EXISTS coupon_issuance (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -59,7 +59,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import details, graph, lifecycle, listing, publish, starters
+from apps.journeys import details, graph, lifecycle, listing, publish, schedule, starters
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -433,6 +433,13 @@ class JourneyViewSet(views.JourneyViewSet):
     def stats(self, request, version=None):
         """The List page's 4 stat cards (apps.journeys.listing.stats)."""
         return Response(JourneyStatsSerializer(listing.stats(context.require().tenant_id)).data)
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=False, methods=["get"], url_path="date-attributes")
+    def date_attributes(self, request, version=None):
+        """The dates on customer records a Date / Time entry can follow: custom attributes holding YYYY-MM-DD values, with how
+        many customers have each (apps.journeys.schedule)."""
+        return Response(schedule.date_attributes(context.require().tenant_id))
 
     # ------------------------------------------------------------ lifecycle (phase 6d, Journey Details)
     @extend_schema(request=None, responses=JourneySerializer)
