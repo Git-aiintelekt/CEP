@@ -1,5 +1,5 @@
 /** The Settings menu: its groups and pages, who sees which, and the three things the panel remembers per viewer. */
-import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Target, UserX, Users, type LucideIcon } from 'lucide-react'
+import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature } from '@/lib/types'
 
@@ -42,6 +42,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { to: '/settings/api-keys', label: 'API Keys', icon: Key, feature: 'api_access' },
     { to: '/settings/pos', label: 'POS Receipts', icon: Receipt, feature: 'ereceipt' },
     { to: '/settings/attribution', label: 'Attribution', icon: Target },
+    { to: '/settings/events', label: 'Events', icon: Zap, feature: 'journeys' },
   ] },
 ]
 

@@ -124,6 +124,8 @@ class Integration(models.Model):
     class Kind(models.TextChoices):
         POS_RECEIPTS = 'POS_RECEIPTS', 'POS receipts (inbound)'
         ORDERS = 'ORDERS', 'Orders for attribution (inbound)'
+        EVENTS = 'EVENTS', 'Journey events (inbound)'
+        COUPONS = 'COUPONS', 'Coupon requests (C360)'
         PROVIDER = 'PROVIDER', 'Sending engine (outbound)'
 
     class Status(models.TextChoices):

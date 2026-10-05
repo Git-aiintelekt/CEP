@@ -92,7 +92,8 @@ export function JourneyBuildWorkspace({
 }: {
   journey: Journey
   version: JourneyVersionDetail
-  onSave: (payload: SavePayload) => Promise<void>
+  /** resolves with the version saved onto (a new draft when this one is published) */
+  onSave: (payload: SavePayload) => Promise<JourneyVersionDetail>
   /** resolves with the version the setup was saved onto (a new draft when this one is published) */
   onSaveSetup: (payload: SetupSavePayload) => Promise<JourneyVersionDetail>
   saving: boolean
@@ -159,8 +160,9 @@ export function JourneyBuildWorkspace({
 
   const handleSaveDraft = async () => {
     try {
-      await onSave({ row_version: version.row_version, entryRules, root })
-      toast.success('Draft saved')
+      const saved = await onSave({ row_version: version.row_version, entryRules, root })
+      toast.success(saved.version_number === version.version_number ? 'Draft saved' : `Saved as version ${saved.version_number}`,
+                    saved.version_number === version.version_number ? undefined : `Version ${version.version_number} keeps running until you test publish and approve this one.`)
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         toast.error('Someone else saved this journey', error.message, { durationMs: 0 })
@@ -197,6 +199,16 @@ export function JourneyBuildWorkspace({
       <div className="flex min-h-0 flex-1">
         <SettingsSidebar journey={journey} entryRules={entryRules} onEditSetup={() => setSetupOpen(true)} />
         <main className="flex min-w-0 flex-1 flex-col">
+          {version.status !== 'DRAFT' && (
+            <div className="shrink-0 px-4 pt-3">
+              <Notice tone="info" layout="banner">
+                <p>
+                  <strong className="font-semibold">Version {version.version_number} is {version.status === 'ACTIVE' ? 'live' : 'published'}.</strong>{' '}
+                  Saving makes your changes a new version; this one keeps running until you test publish and approve it.
+                </p>
+              </Notice>
+            </div>
+          )}
           {showBanner && <TemplateSetupBanner sourceName={journey.source_name ?? ''} steps={needContent} onDismiss={dismissBanner} />}
           <div className="min-h-0 flex-1">
             <JourneyCanvas

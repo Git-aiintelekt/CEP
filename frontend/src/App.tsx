@@ -41,6 +41,7 @@ import { SuppressionsPage } from '@/pages/settings/SuppressionsPage'
 import { TagsPage } from '@/pages/settings/TagsPage'
 import { PosReceiptsPage } from '@/pages/settings/PosReceiptsPage'
 import { AttributionPage } from '@/pages/settings/AttributionPage'
+import { EventsPage } from '@/pages/settings/EventsPage'
 import { ConsentPolicyPage } from '@/pages/settings/ConsentPolicyPage'
 import { WorkspaceSetupPage } from '@/pages/settings/WorkspaceSetupPage'
 import { PreferenceCenterPage } from '@/pages/settings/PreferenceCenterPage'
@@ -61,6 +62,7 @@ const DevFields = import.meta.env.DEV ? lazy(() => import('@/pages/DevFields')) 
 const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/HomePlayground')) : null
 const SettingsPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/SettingsPlayground')) : null
 const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CalendarPlayground')) : null
+const JourneySetupPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/JourneySetupPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -120,6 +122,7 @@ export default function App() {
                 <Route path="/dev/home" element={<Suspense fallback={<FullPageSpinner label="Loading Home" />}><HomePlayground /></Suspense>} />
                 <Route path="/dev/settings/*" element={<Suspense fallback={<FullPageSpinner label="Loading Settings" />}>{SettingsPlayground && <SettingsPlayground />}</Suspense>} />
                 {CalendarPlayground && <Route path="/dev/calendar" element={<Suspense fallback={<FullPageSpinner label="Loading the calendar" />}><CalendarPlayground /></Suspense>} />}
+                {JourneySetupPlayground && <Route path="/dev/journey-setup" element={<Suspense fallback={<FullPageSpinner label="Loading the Set-Up" />}><JourneySetupPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>
@@ -161,6 +164,7 @@ export default function App() {
                   <Route path="consent" element={<ConsentPolicyPage />} />
                   <Route path="pos" element={<PosReceiptsPage />} />
                   <Route path="attribution" element={<AttributionPage />} />
+                  <Route path="events" element={<EventsPage />} />
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="approvals" element={<ApprovalsPage />} />
                 </Route>

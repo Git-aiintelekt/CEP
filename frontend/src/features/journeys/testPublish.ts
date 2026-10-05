@@ -22,7 +22,8 @@ export function populationText(value: JourneyTestPopulation, lists: ContactList[
   return `${formatNumber(total)} customers`
 }
 
-export type Outcome = { kind: 'ACTIVE' } | { kind: 'SCHEDULED'; when: string }
+/** version: set when a live journey's new version was approved (the journey itself was already running); paused: the journey is paused */
+export type Outcome = { kind: 'ACTIVE'; version?: number; paused?: boolean } | { kind: 'SCHEDULED'; when: string; version?: number }
 
 const dateText = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 const timeText = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })

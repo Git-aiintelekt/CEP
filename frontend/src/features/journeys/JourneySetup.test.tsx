@@ -160,3 +160,54 @@ test('Continue to Build creates the journey, saves its entry rule, and opens the
   const save = calls.find((call) => call.method === 'PUT' && /\/journeys\/.+\/versions\/1\/graph\/$/.test(call.url))
   expect(save?.body?.graph).toMatchObject({ entry_rules: [{ entry_type: 'EVENT', rule_definition: { event_type: 'WELCOME' } }] })
 })
+
+test('Date / Time Weekly: weekdays, a time and who enters; the summary reads it back and the rule is saved whole', async () => {
+  const calls = installMockApi()
+  const { user, dialog } = await openSetup()
+
+  await user.type(within(dialog).getByLabelText(/^Journey Name/), 'Monday VIP Picks')
+  await user.click(within(dialog).getByRole('radio', { name: 'Date / Time' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Select a Schedule' }))
+  await user.click(screen.getByRole('button', { name: 'Weekly' }))
+  const next = within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement
+  expect(next.disabled).toBe(true)                                      // no weekday and nobody to enter yet
+
+  await user.click(within(dialog).getByRole('button', { name: 'Monday' }))
+  await user.selectOptions(within(dialog).getByLabelText(/^At/), '09:30')
+  await user.click(within(dialog).getByRole('button', { name: 'Select a List or Segment' }))
+  await user.click(await screen.findByRole('button', { name: 'Fall Master Audience' }))
+  expect(dialog.textContent).toContain('Every Monday at 9:30 AM, the members of Fall Master Audience enter.')
+  expect(next.disabled).toBe(false)
+
+  await user.click(next)
+  await screen.findByText('Step 2 of 2')
+  await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
+  await user.click(within(dialog).getByRole('button', { name: 'Continue to Build' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/graph/'))).toBe(true))
+  const saved = calls.find((call) => call.method === 'PUT' && call.url.includes('/graph/'))?.body as { graph: { entry_rules: unknown[] } }
+  expect(saved.graph.entry_rules).toEqual([{ entry_type: 'DATE_TIME', rule_definition: { schedule: 'WEEKLY', time: '09:30', weekdays: ['MON'],
+                                                                                          contact_list_id: 'cl-master', contact_list_name: 'Fall Master Audience' } }])
+})
+
+test('Date / Time On a Date Attribute: the date, the offset, Every Year or Once, and an optional segment', async () => {
+  installMockApi()
+  const { user, dialog } = await openSetup()
+
+  await user.type(within(dialog).getByLabelText(/^Journey Name/), 'Birthday Week Reward')
+  await user.click(within(dialog).getByRole('radio', { name: 'Date / Time' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Select a Schedule' }))
+  await user.click(screen.getByRole('button', { name: 'On a Date Attribute' }))
+  const date = await within(dialog).findByRole('combobox', { name: /^Date/ })
+  await vi.waitFor(() => expect((date as HTMLSelectElement).disabled).toBe(false))
+  await user.selectOptions(date, 'birth_date')
+  expect(dialog.textContent).toContain('18,240 customers have it today.')
+  await user.selectOptions(within(dialog).getByRole('combobox', { name: /^When/ }), '-7')
+  await user.selectOptions(within(dialog).getByLabelText(/^At/), '10:00')
+  expect(dialog.textContent).toContain('Every year, 7 days before each customer’s Birth Date, at 10:00 AM, every customer with that date enters.')
+  expect((within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement).disabled).toBe(false)   // the segment is optional
+
+  await user.click(within(dialog).getByRole('radio', { name: 'Once' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Every Customer With This Date' }))
+  await user.click(await screen.findByRole('button', { name: 'Loyalty Gold & Platinum' }))
+  expect(dialog.textContent).toContain('7 days before each customer’s Birth Date, at 10:00 AM, customers in Loyalty Gold & Platinum enter.')
+})

@@ -1,4 +1,4 @@
-"""Journey Details' lifecycle actions (phase 6d): Pause / Resume / Duplicate.
+"""Journey Details' lifecycle actions: Pause / Resume / Duplicate / Archive / Cancel Schedule.
 
 Pause and Resume only flip `journey.status` — a paused journey's customers stay exactly where they are
 (`journey_customer_state.next_scheduled_at` keeps ticking, but `advance.py`'s DUE query only picks up
@@ -12,7 +12,7 @@ from django.utils import timezone
 from api.exceptions import Conflict
 
 from . import graph
-from .models import Journey, JourneyVersion
+from .models import Journey, JourneyEnrollment, JourneyVersion
 
 
 def pause(journey: Journey, user_id) -> Journey:
@@ -32,6 +32,42 @@ def resume(journey: Journey, user_id) -> Journey:
             raise Conflict("Only a paused journey can be resumed.")
         locked.status, locked.updated_by_id = Journey.Status.ACTIVE, user_id
         locked.save(update_fields=["status", "updated_by"])
+    return locked
+
+
+LIVE = (Journey.Status.ACTIVE, Journey.Status.PAUSED, Journey.Status.APPROVED)
+
+
+def archive(journey: Journey, user_id) -> dict:
+    """Ends the journey for good: nobody new enters, everyone still in it leaves (EXITED, "Journey archived"), its live and
+    tested versions are retired and any scheduled go-live is dropped. Drafts stay readable; Duplicate starts it again."""
+    with transaction.atomic():
+        locked = Journey.objects.select_for_update().get(pk=journey.pk)
+        if locked.status == Journey.Status.ARCHIVED:
+            raise Conflict("This journey is already archived.")
+        now = timezone.now()
+        ended = JourneyEnrollment.objects.filter(journey=locked, status="ACTIVE").update(status="EXITED", exited_at=now, exit_reason="Journey archived")
+        JourneyVersion.objects.filter(journey=locked, status__in=(JourneyVersion.Status.ACTIVE, JourneyVersion.Status.TEST_PUBLISHED)).update(
+            status=JourneyVersion.Status.RETIRED)
+        locked.status, locked.scheduled_activate_at, locked.updated_by_id = Journey.Status.ARCHIVED, None, user_id
+        locked.save(update_fields=["status", "scheduled_activate_at", "updated_by"])
+    return {"journey": locked, "ended": ended}
+
+
+def cancel_schedule(journey: Journey, user_id) -> Journey:
+    """An approved journey waiting for its go-live time goes back to Test: approve it again (now or at another time) from Test Publish.
+    A live journey with a new version waiting keeps its live version; the waiting one stays tested, to approve again."""
+    with transaction.atomic():
+        locked = Journey.objects.select_for_update().get(pk=journey.pk)
+        if locked.status not in LIVE or locked.scheduled_activate_at is None:
+            raise Conflict("Only a journey scheduled to go live can have its schedule cancelled.")
+        if locked.status == Journey.Status.APPROVED:
+            locked.status = Journey.Status.TEST
+        else:
+            running = JourneyVersion.objects.filter(journey=locked, status=JourneyVersion.Status.ACTIVE).order_by("-version_number").first()
+            locked.current_version_id = running.pk if running else locked.current_version_id
+        locked.scheduled_activate_at, locked.updated_by_id = None, user_id
+        locked.save(update_fields=["status", "current_version", "scheduled_activate_at", "updated_by"])
     return locked
 
 

@@ -7,7 +7,7 @@ import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
-import type { AttributedOrder, AttributionSettings, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import type { AttributedOrder, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -215,6 +215,25 @@ export const attributedOrders: AttributedOrder[] = [
     status: 'UNATTRIBUTED', campaign_id: null, campaign_name: null, touch_type: null, touch_at: null, note: 'No person: no customer id, and no email address or phone number CEP sent to.', received_at: '2026-10-04T08:41:00Z' },
   { id: 2, source: 'API', order_id: 'W-100235', kind: 'ORDER', amount: 129.5, currency: 'USD', ordered_at: '2026-10-04T08:30:00Z', channel: 'ONLINE', store_number: null, party_id: 'C-88213', email: 'jane@example.com', phone: null,
     status: 'ATTRIBUTED', campaign_id: 'cmp-1', campaign_name: 'Fall Launch', touch_type: 'CLICK', touch_at: '2026-10-03T19:12:00Z', note: null, received_at: '2026-10-04T08:31:00Z' },
+]
+
+export const eventsSettings: EventsSettings = {
+  endpoint: 'https://cep.example.com/api/v1/events/', scope: 'events:ingest', keys_with_scope: 1, journeys_enabled: true,
+  types: [
+    { event_type: 'PURCHASE', label: 'Purchase', from_tracking: false }, { event_type: 'CART_ABANDON', label: 'Abandoned Cart', from_tracking: false },
+    { event_type: 'EMAIL_ENGAGEMENT', label: 'Email Open/Click', from_tracking: true },
+  ],
+  summary: { days: 7, total: 3, last_received_at: '2026-10-05T08:40:00Z', unknown_customers: 1,
+             by_type: [{ event_type: 'CART_ABANDON', label: 'Abandoned Cart', count: 2, last_received_at: '2026-10-05T08:40:00Z' },
+                       { event_type: 'PURCHASE', label: 'Purchase', count: 1, last_received_at: '2026-10-05T07:10:00Z' }] },
+  coupons: { endpoint: 'https://cep.example.com/api/v1/coupon-issuances/', scope: 'coupons:issue', keys_with_scope: 0, requested: 2, issued: 5, failed: 1 },
+}
+
+export const journeyEvents: JourneyEventRow[] = [
+  { id: 3, event_type: 'CART_ABANDON', label: 'Abandoned Cart', source: 'API', party_id: 'C-88213', event_id: 'cart-77812', payload: { cart_value: 84.5 },
+    occurred_at: '2026-10-05T08:30:00Z', received_at: '2026-10-05T08:40:00Z', customer_name: 'Jane Doe' },
+  { id: 2, event_type: 'PURCHASE', label: 'Purchase', source: 'COMMERCE', party_id: 'C-90001', event_id: 'order:API:W-100240', payload: {},
+    occurred_at: '2026-10-05T07:00:00Z', received_at: '2026-10-05T07:10:00Z', customer_name: null },
 ]
 
 export const consentPolicy = {
@@ -736,6 +755,16 @@ export function installMockApi(options: MockOptions = {}) {
       mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
       return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
     }
+    if (path.endsWith('/journeys/date-attributes/')) {
+      return json([{ key: 'birth_date', label: 'Birth Date', customers: 18240 }, { key: 'membership_date', label: 'Membership Date', customers: 9120 }])
+    }
+    if (path.endsWith('/workspace/events/recent/')) {
+      const query = new URL(url, 'http://test.local').searchParams
+      const type = query.get('type')
+      const q = (query.get('q') ?? '').toLowerCase()
+      return json({ results: journeyEvents.filter((row) => (!type || row.event_type === type) && (!q || JSON.stringify(row).toLowerCase().includes(q))) })
+    }
+    if (path.endsWith('/workspace/events/')) return json(eventsSettings)
     if (path.endsWith('/attribution/settings/')) {
       if (method === 'PUT') {
         if (body && 'click_days' in body && !attributionNow.choices.click_days.includes(Number(body.click_days))) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { click_days: 'Choose one of the offered windows.' } }, 400)
@@ -994,9 +1023,14 @@ export function installMockApi(options: MockOptions = {}) {
     const journeyApproveMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/approve\/$/.exec(path)
     if (journeyApproveMatch && method === 'POST') {
       const scheduleAt = body?.schedule_at as string | null | undefined
-      journeyNow = scheduleAt
-        ? { ...journeyNow, status: 'APPROVED', scheduled_activate_at: scheduleAt }
-        : { ...journeyNow, status: 'ACTIVE', scheduled_activate_at: null }
+      // publish.approve: a live (Active / Paused) journey keeps its status; its new version replaces the live one now, or waits
+      const live = journeyNow.status === 'ACTIVE' || journeyNow.status === 'PAUSED'
+      const target = journeyVersionsNow.find((item) => item.version_number === Number(journeyApproveMatch[2]))
+      if (!scheduleAt && target) {
+        journeyVersionsNow = journeyVersionsNow.map((item) => (item.id === target.id ? { ...item, status: 'ACTIVE' } : item.status === 'ACTIVE' ? { ...item, status: 'RETIRED' } : item))
+      }
+      journeyNow = { ...journeyNow, status: live ? journeyNow.status : scheduleAt ? 'APPROVED' : 'ACTIVE', scheduled_activate_at: scheduleAt ?? null,
+                     current_version: target?.id ?? journeyNow.current_version }
       return json(journeyNow)
     }
     if (/\/journeys\/[^/]+\/performance\/$/.test(path) && method === 'GET') {
@@ -1012,6 +1046,17 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (/\/journeys\/[^/]+\/resume\/$/.test(path) && method === 'POST') {
       journeyNow = { ...journeyNow, status: 'ACTIVE' }
+      return json(journeyNow)
+    }
+    if (/\/journeys\/[^/]+\/archive\/$/.test(path) && method === 'POST') {
+      journeyVersionsNow = journeyVersionsNow.map((item) => (item.status === 'ACTIVE' || item.status === 'TEST_PUBLISHED' ? { ...item, status: 'RETIRED' } : item))
+      journeyNow = { ...journeyNow, status: 'ARCHIVED', scheduled_activate_at: null }
+      return json({ ...journeyNow, ended: 12 })
+    }
+    if (/\/journeys\/[^/]+\/cancel-schedule\/$/.test(path) && method === 'POST') {
+      const running = journeyVersionsNow.find((item) => item.status === 'ACTIVE')
+      journeyNow = journeyNow.status === 'APPROVED' ? { ...journeyNow, status: 'TEST', scheduled_activate_at: null }
+                                                    : { ...journeyNow, scheduled_activate_at: null, current_version: running?.id ?? journeyNow.current_version }
       return json(journeyNow)
     }
     if (/\/journeys\/[^/]+\/duplicate\/$/.test(path) && method === 'POST') {

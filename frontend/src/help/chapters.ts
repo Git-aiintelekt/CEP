@@ -10,6 +10,7 @@ export const HELP_CHAPTERS = {
   'campaign-setup': { title: 'Campaign Set-Up', load: () => import('../../../docs/manuals/user-guide/32-campaign-setup.md?raw').then((module) => module.default) },
   templates: { title: 'Templates and Content', load: () => import('../../../docs/manuals/user-guide/34-templates.md?raw').then((module) => module.default) },
   'email-designer': { title: 'The Email Designer', load: () => import('../../../docs/manuals/user-guide/36-email-designer.md?raw').then((module) => module.default) },
+  journeys: { title: 'Journeys', load: () => import('../../../docs/manuals/user-guide/57-journeys.md?raw').then((module) => module.default) },
   'settings-sending-engines': { title: 'Sending Engines and Senders', load: () => import('../../../docs/manuals/user-guide/40-settings-sending-engines.md?raw').then((module) => module.default) },
   'settings-setup': { title: 'Setting Up a New Workspace', load: () => import('../../../docs/manuals/user-guide/39-workspace-setup.md?raw').then((module) => module.default) },
   'settings-users': { title: 'Users', load: () => import('../../../docs/manuals/user-guide/41-users.md?raw').then((module) => module.default) },
@@ -27,6 +28,7 @@ export const HELP_CHAPTERS = {
   'settings-api-keys': { title: 'API Keys', load: () => import('../../../docs/manuals/user-guide/53-api-keys.md?raw').then((module) => module.default) },
   'settings-pos': { title: 'POS Receipts', load: () => import('../../../docs/manuals/user-guide/54-pos-receipts.md?raw').then((module) => module.default) },
   'settings-attribution': { title: 'Attribution', load: () => import('../../../docs/manuals/user-guide/56-attribution.md?raw').then((module) => module.default) },
+  'settings-events': { title: 'Events', load: () => import('../../../docs/manuals/user-guide/58-events.md?raw').then((module) => module.default) },
   'account-security': { title: 'Account Security', load: () => import('../../../docs/manuals/user-guide/55-account-security.md?raw').then((module) => module.default) },
 } as const
 
@@ -40,6 +42,7 @@ export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/templates': 'templates',
   '/templates/new': 'templates',
   '/contact-lists': 'contact-lists',
+  '/journeys': 'journeys',
   '/settings/delivery': 'settings-sending-engines',
   '/settings/setup': 'settings-setup',
   '/settings/users': 'settings-users',
@@ -57,5 +60,6 @@ export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/settings/api-keys': 'settings-api-keys',
   '/settings/pos': 'settings-pos',
   '/settings/attribution': 'settings-attribution',
+  '/settings/events': 'settings-events',
   '/account/security': 'account-security',
 }

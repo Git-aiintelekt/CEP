@@ -19,6 +19,19 @@ export function JourneyOutcome({ journeyId, outcome }: { journeyId: string; outc
     queryFn: ({ signal }) => api.get<JourneyAudience>(`/journeys/${journeyId}/audience/`, undefined, signal),
   })
   const live = outcome.kind === 'ACTIVE'
+  const paused = outcome.kind === 'ACTIVE' && outcome.paused
+  const title = outcome.kind === 'ACTIVE'
+    ? (outcome.version ? (paused ? `Version ${outcome.version} Is Ready` : `Version ${outcome.version} Is Now Live`) : paused ? 'This Journey Is Paused' : 'Journey Is Now Live')
+    : outcome.version ? `Version ${outcome.version} Is Scheduled` : 'Journey Is Scheduled to Activate'
+  const text = outcome.kind === 'ACTIVE'
+    ? (outcome.version
+        ? (paused ? `The journey is paused: version ${outcome.version} runs when you resume it on the journey’s page. Customers already inside finish the version they started.`
+                  : `New customers enter version ${outcome.version} from now on. Customers already inside finish the version they started.`)
+        : paused ? 'Resume it on the journey’s page. To change it, edit it: your changes become a new version to test here.'
+                 : 'This Journey is active and running automatically. New customers who qualify will start flowing in immediately — no further manual action is needed.')
+    : outcome.version
+      ? `It replaces the live version automatically at the time below; the live version keeps running until then. You can cancel the schedule on the journey’s page.`
+      : 'It will go live automatically at the time below. Until then you can cancel the schedule on the journey’s page and approve it again for another time.'
 
   const qualifying =
     audience.isPending ? <Spinner size="sm" label="Loading the qualifying count" />
@@ -28,23 +41,17 @@ export function JourneyOutcome({ journeyId, outcome }: { journeyId: string; outc
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-12 md:px-8">
       <div className="flex w-full max-w-xl flex-col items-center text-center">
-        <span className={`flex h-16 w-16 items-center justify-center rounded-full ${live ? 'bg-success text-white' : 'bg-warning-bg text-warning-text'}`}>
-          {live ? <Check size={32} strokeWidth={2.5} aria-hidden /> : <Clock size={32} strokeWidth={2} aria-hidden />}
+        <span className={`flex h-16 w-16 items-center justify-center rounded-full ${live && !paused ? 'bg-success text-white' : 'bg-warning-bg text-warning-text'}`}>
+          {live && !paused ? <Check size={32} strokeWidth={2.5} aria-hidden /> : <Clock size={32} strokeWidth={2} aria-hidden />}
         </span>
-        <h1 className="mt-6 font-display text-page-title font-semibold text-ink-900">
-          {live ? 'Journey Is Now Live' : 'Journey Is Scheduled to Activate'}
-        </h1>
-        <p className="mt-2 max-w-md text-sm text-ink-800">
-          {live
-            ? 'This Journey is active and running automatically. New customers who qualify will start flowing in immediately — no further manual action is needed.'
-            : 'It will go live automatically at the time below. You can edit or cancel the schedule any time before then.'}
-        </p>
+        <h1 className="mt-6 font-display text-page-title font-semibold text-ink-900">{title}</h1>
+        <p className="mt-2 max-w-md text-sm text-ink-800">{text}</p>
 
         <dl className="mt-8 grid w-full gap-3 sm:grid-cols-2">
           {live ? (
             <>
               <Stat label="Currently Qualifying" value={qualifying} />
-              <Stat label="First Run" value="Starting now" />
+              <Stat label="First Run" value={paused ? 'When resumed' : 'Starting now'} />
             </>
           ) : (
             <>

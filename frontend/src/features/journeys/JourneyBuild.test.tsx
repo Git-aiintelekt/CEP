@@ -7,7 +7,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeJourney, signIn } from '@/test/mockApi'
+import { installMockApi, makeJourney, makeJourneyVersion, signIn } from '@/test/mockApi'
 
 // jsdom has neither: @xyflow/react's pane reads the current zoom out of a DOMMatrixReadOnly on every pointer
 // event (even with panning turned off), and keeps a node hidden until its own ResizeObserver reports a size for
@@ -163,4 +163,17 @@ test('Save Draft on a stale version reports the conflict instead of overwriting 
   const toast = await screen.findByRole('alert')
   expect(within(toast).getByText('Someone else saved this journey')).toBeTruthy()
   expect(within(toast).getByText(/Reload to see their changes/)).toBeTruthy()
+})
+
+test('editing a live version: the builder says so, and Save Draft saves the changes as version 2', async () => {
+  const calls = installMockApi({ journey: makeJourney({ status: 'ACTIVE', current_version: 'jv1' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', status_label: 'Active' })] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  await screen.findByTestId('journey-canvas')
+  expect(screen.getByText(/Saving makes your changes a new version; this one keeps running until you test publish and approve it\./)).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls).map((call) => call.url)).toEqual([expect.stringMatching(/\/journeys\/j1\/versions\/2\/graph\/$/)]))
+  expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/versions/'))?.body).toEqual({ from_version: 1 })
+  expect(await screen.findByText('Saved as version 2')).toBeTruthy()
 })

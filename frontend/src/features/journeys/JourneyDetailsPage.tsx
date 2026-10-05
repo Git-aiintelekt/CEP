@@ -4,20 +4,22 @@
  * preview popover and its own "View Details" link, which this replaces (both used to open a not-built-yet dialog).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Copy, Lock, Pencil } from 'lucide-react'
+import { Archive, CalendarX, ChevronLeft, Copy, Lock, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/Button'
 import { DataTable, type Column } from '@/components/DataTable'
-import { TextArea, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { TextArea, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { Modal } from '@/components/Modal'
 import { Notice } from '@/components/Notice'
 import { EmptyState, ErrorState, SkeletonLine, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { CardLink, DetailCard, Fact, FACTS_GRID, Metric } from '@/features/campaigns/parts'
 import { problemText } from '@/features/contact-lists/problem'
+import { PageHelp } from '@/help/HelpPanel'
 import { api } from '@/lib/api'
 import { formatDate, formatDateTime, formatNumber, formatPercent, titleize } from '@/lib/format'
 import type {
@@ -101,6 +103,7 @@ export function JourneyDetailsPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState<unknown>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
 
   const journeyQuery = useQuery({ queryKey: ['journeys', 'detail', id], queryFn: ({ signal }) => api.get<Journey>(`/journeys/${id}/`, undefined, signal) })
   const versionsQuery = useQuery({
@@ -160,6 +163,26 @@ export function JourneyDetailsPage() {
     onSuccess: (copy) => { invalidate(); toast.success(`“${copy.name}” was created as a draft.`); navigate(`/journeys/${copy.id}/build`) },
     onError: setActionError,
   })
+  const archive = useMutation({
+    mutationFn: () => api.post<Journey & { ended: number }>(`/journeys/${id}/archive/`),
+    onSuccess: (updated) => {
+      setConfirmArchive(false)
+      queryClient.setQueryData(['journeys', 'detail', id], updated)
+      invalidate()
+      toast.success(updated.ended ? `“${updated.name}” is archived; ${formatNumber(updated.ended)} customer${updated.ended === 1 ? '' : 's'} left it.` : `“${updated.name}” is archived.`)
+    },
+    onError: (error) => { setConfirmArchive(false); setActionError(error) },
+  })
+  const cancelSchedule = useMutation({
+    mutationFn: () => api.post<Journey>(`/journeys/${id}/cancel-schedule/`),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['journeys', 'detail', id], updated)
+      invalidate()
+      toast.success(updated.status === 'TEST' ? `“${updated.name}” will not go live; approve it again from Test Publish.`
+                                                : 'The new version will not go live; the live version carries on. Approve it again from Test Publish.')
+    },
+    onError: setActionError,
+  })
   const saveField = useMutation({
     mutationFn: (body: Partial<Pick<Journey, 'goal_description' | 'exit_criteria_description'>>) => api.patch<Journey>(`/journeys/${id}/`, body),
     onSuccess: (updated) => queryClient.setQueryData(['journeys', 'detail', id], updated),
@@ -174,7 +197,13 @@ export function JourneyDetailsPage() {
   const editable = can('journey.edit')
   const canActivate = can('journey.activate')
   const trigger = entryRulesQuery.data?.graph.entry_rules[0]
-  const busy = pause.isPending || resume.isPending || duplicate.isPending
+  const busy = pause.isPending || resume.isPending || duplicate.isPending || archive.isPending || cancelSchedule.isPending
+  const live = journey.status === 'ACTIVE' || journey.status === 'PAUSED' || journey.status === 'APPROVED'
+  const canArchive = journey.status !== 'ARCHIVED' && (live ? canActivate : editable)
+  const versions = (versionsQuery.data ?? []).slice().sort((a, b) => b.version_number - a.version_number)
+  const running = journey.status === 'ACTIVE' || journey.status === 'PAUSED'
+  const nextVersion = running ? versions.find((row) => row.status === 'DRAFT' || row.status === 'TEST_PUBLISHED') : undefined
+  const nextScheduled = nextVersion !== undefined && journey.scheduled_activate_at !== null && journey.current_version === nextVersion.id
 
   const campaignColumns: Column<JourneyGeneratedCampaignRow>[] = [
     { key: 'campaign', header: 'Campaign', render: (row) => <Link to={`/campaigns/${row.campaign_id}`} className="font-medium text-brand-800 hover:underline">{row.campaign_name}</Link> },
@@ -192,7 +221,7 @@ export function JourneyDetailsPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
         <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3">
-          <h1 className="font-display text-page-title font-semibold break-words text-ink-900">{journey.name}</h1>
+          <span className="flex min-w-0 items-start gap-1.5"><h1 className="font-display text-page-title font-semibold break-words text-ink-900">{journey.name}</h1><PageHelp chapter="journeys" /></span>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={journey.status} />
             {family && <Tag icon={family.icon}>{family.label}</Tag>}
@@ -213,12 +242,28 @@ export function JourneyDetailsPage() {
           {journey.status === 'PAUSED' && canActivate && (
             <Button variant="primary" disabled={busy} loading={resume.isPending} onClick={() => resume.mutate()}>{LIFECYCLE_LABEL.PAUSED}</Button>
           )}
-          {editable && <Link to={`/journeys/${journey.id}/build`} className={buttonPrimary}>Edit Journey</Link>}
+          {nextVersion && !nextScheduled && editable && (
+            <Link to={`/journeys/${journey.id}/test-publish`} className={buttonSecondary}>Test Publish Version {nextVersion.version_number}</Link>
+          )}
+          {journey.status !== 'ARCHIVED' && journey.scheduled_activate_at && canActivate && (
+            <Button iconStart={CalendarX} disabled={busy} loading={cancelSchedule.isPending} onClick={() => cancelSchedule.mutate()}>Cancel Schedule</Button>
+          )}
+          {canArchive && <Button iconStart={Archive} disabled={busy} onClick={() => setConfirmArchive(true)}>Archive Journey</Button>}
+          {editable && journey.status !== 'ARCHIVED' && <Link to={`/journeys/${journey.id}/build`} className={buttonPrimary}>Edit Journey</Link>}
         </div>
       </header>
 
       <div className="mt-5 flex flex-col gap-3 empty:hidden">
         <NoticeBanner journey={journey} metrics={metrics} />
+        {nextVersion && (
+          <Notice tone="info" layout="banner">
+            {nextScheduled && journey.scheduled_activate_at
+              ? `Version ${nextVersion.version_number} replaces the live version on ${formatDateTime(journey.scheduled_activate_at)}; the live version keeps running until then.`
+              : nextVersion.status === 'DRAFT'
+                ? `Version ${nextVersion.version_number} is a draft. The live version keeps running; test publish the new one, then approve it to replace the live version.`
+                : `Version ${nextVersion.version_number} is tested and waiting for approval. The live version keeps running until it is approved.`}
+          </Notice>
+        )}
         {actionError != null && <p role="alert" className="text-sm font-medium text-danger-text">{problemText(actionError)}</p>}
       </div>
 
@@ -270,6 +315,27 @@ export function JourneyDetailsPage() {
           </DetailCard>
         )}
 
+        <DetailCard title="Versions" flush>
+          {versionsQuery.isPending ? (
+            <div className="p-6"><Spinner /></div>
+          ) : versionsQuery.isError ? (
+            <div className="p-6"><ErrorState error={versionsQuery.error} onRetry={() => void versionsQuery.refetch()} /></div>
+          ) : (
+            <DataTable rows={versions} rowKey={(row) => row.id} caption="Journey versions" inset="card" framed={false} columns={[
+              { key: 'version', header: 'Version', render: (row) => (
+                <span className="flex items-center gap-2 font-medium text-ink-900">
+                  Version {row.version_number}
+                  {row.status === 'ACTIVE' && <Tag>Live</Tag>}
+                  {nextScheduled && row.id === nextVersion?.id && <Tag>Scheduled</Tag>}
+                </span>
+              ) },
+              { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} /> },
+              { key: 'published', header: 'Went Live', render: (row) => (row.published_at ? formatDateTime(row.published_at) : <span className="text-ink-300">—</span>) },
+              { key: 'created', header: 'Created', render: (row) => formatDateTime(row.created_at) },
+            ]} />
+          )}
+        </DetailCard>
+
         <DetailCard title="Generated Campaigns" actions={<CardLink to="/campaigns">See All</CardLink>} flush>
           {campaignsQuery.isPending ? (
             <div className="p-6"><Spinner /></div>
@@ -311,6 +377,20 @@ export function JourneyDetailsPage() {
         </DetailCard>
       </section>
 
+      {confirmArchive && (
+        <Modal title="Archive This Journey?" onClose={() => setConfirmArchive(false)} footer={(
+          <>
+            <button type="button" className={buttonSecondary} onClick={() => setConfirmArchive(false)}>Cancel</button>
+            <button type="button" className={buttonDanger} disabled={archive.isPending} onClick={() => archive.mutate()}>Archive Journey</button>
+          </>
+        )}>
+          <p className="text-sm text-ink-900">
+            Nobody new enters, and {metrics?.in_journey ? `the ${formatNumber(metrics.in_journey)} customer${metrics.in_journey === 1 ? '' : 's'} in it leave` : 'anyone still in it leaves'} their path now.
+            Its live and tested versions are retired and any scheduled start is dropped.
+          </p>
+          <p className="mt-2 text-sm text-ink-800">This can’t be undone. Duplicate starts the same journey again as a draft.</p>
+        </Modal>
+      )}
     </section>
   )
 }

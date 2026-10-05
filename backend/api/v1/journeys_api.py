@@ -52,14 +52,14 @@ from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from rest_framework.pagination import CursorPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import details, graph, lifecycle, listing, publish, starters
+from apps.journeys import details, graph, lifecycle, listing, publish, schedule, starters
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -434,6 +434,13 @@ class JourneyViewSet(views.JourneyViewSet):
         """The List page's 4 stat cards (apps.journeys.listing.stats)."""
         return Response(JourneyStatsSerializer(listing.stats(context.require().tenant_id)).data)
 
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=False, methods=["get"], url_path="date-attributes")
+    def date_attributes(self, request, version=None):
+        """The dates on customer records a Date / Time entry can follow: custom attributes holding YYYY-MM-DD values, with how
+        many customers have each (apps.journeys.schedule)."""
+        return Response(schedule.date_attributes(context.require().tenant_id))
+
     # ------------------------------------------------------------ lifecycle (phase 6d, Journey Details)
     @extend_schema(request=None, responses=JourneySerializer)
     @action(detail=True, methods=["post"],
@@ -447,6 +454,23 @@ class JourneyViewSet(views.JourneyViewSet):
             permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.activate")])
     def resume(self, request, pk=None, version=None):
         updated = lifecycle.resume(self.get_object(), _user_id(request))
+        return Response(self.get_serializer(updated).data)
+
+    @extend_schema(request=None, responses=JourneySerializer)
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None, version=None):
+        """Ends the journey for good (apps.journeys.lifecycle.archive). A live, paused or scheduled journey also needs journey.activate."""
+        journey = self.get_object()
+        if journey.status in lifecycle.LIVE and not HasPermissionCode.for_("journey.activate")().has_permission(request, self):
+            raise PermissionDenied("Archiving a live, paused or scheduled journey needs the Journeys · Activate permission.")
+        outcome = lifecycle.archive(journey, _user_id(request))
+        return Response({**self.get_serializer(outcome["journey"]).data, "ended": outcome["ended"]})
+
+    @extend_schema(request=None, responses=JourneySerializer)
+    @action(detail=True, methods=["post"], url_path="cancel-schedule",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.activate")])
+    def cancel_schedule(self, request, pk=None, version=None):
+        updated = lifecycle.cancel_schedule(self.get_object(), _user_id(request))
         return Response(self.get_serializer(updated).data)
 
     @extend_schema(request=None, responses={201: JourneySerializer})

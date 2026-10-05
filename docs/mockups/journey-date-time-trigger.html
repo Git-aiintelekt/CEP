@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journey Date / Time trigger: the Set-Up fields</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --plum-100:#f3e8f8; --plum-800:#6b2a85;
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1520px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .label { max-width:1520px; margin:28px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.4 var(--font-sans); color:var(--ink-800); margin-top:2px; max-width:1000px }
+  .row { max-width:1520px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(560px, 1fr)); gap:16px; align-items:start }
+  .case { font:600 12px/1 var(--font-sans); text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-800); margin:0 0 8px 2px }
+  .modal { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden }
+  .mhead { padding:20px 24px 12px; border-bottom:1px solid var(--line-subtle) }
+  .mhead .step { font-size:14px; font-weight:500; color:var(--ink-800) }
+  .mhead h2 { font-size:20px; margin-top:4px } .mhead .sub { font-size:13px; color:var(--ink-800); margin-top:2px }
+  .progress { display:flex; gap:6px; margin-top:12px } .progress i { flex:1; height:3px; border-radius:2px; background:var(--line-subtle) } .progress i.on { background:var(--brand-600) }
+  .mbody { padding:20px 24px; display:flex; flex-direction:column; gap:20px }
+  .mfoot { padding:14px 24px; border-top:1px solid var(--line-subtle); display:flex; justify-content:flex-end; gap:10px }
+  .btn { height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 14px/1 var(--font-sans); display:inline-flex; align-items:center; color:var(--ink-900) }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff }
+  .field { display:flex; flex-direction:column; gap:6px }
+  .lbl { font-weight:600; color:var(--ink-900) } .lbl .req { color:#a92e26; margin-left:2px } .lbl .opt { font-weight:400; color:var(--ink-800) }
+  .ctl { height:40px; border:1px solid var(--line-control); border-radius:8px; padding:0 12px; display:flex; align-items:center; justify-content:space-between; gap:8px; background:#fff; color:var(--ink-900); white-space:nowrap; overflow:hidden }
+  .ctl .ph { color:var(--ink-300) } .ctl .chev { color:var(--ink-800); flex:none }
+  .hint { font-size:12px; color:var(--ink-800) }
+  .q { font-weight:600 }
+  .pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px }
+  .pill { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:14px; font-weight:500; background:#fff }
+  .pill.on { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px } .grid3 { display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:16px }
+  .days { display:flex; gap:6px; flex-wrap:wrap } .day { width:44px; height:36px; border:1px solid var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:500; background:#fff }
+  .day.on { border-color:var(--brand-600); background:var(--brand-100); color:var(--brand-800) }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:8px; overflow:hidden; height:40px } .seg span { padding:0 14px; display:flex; align-items:center; font-size:14px; border-right:1px solid var(--line-subtle) } .seg span:last-child { border-right:0 } .seg span.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  .summary { border:1px solid var(--line-subtle); background:var(--surface-subtle); border-radius:8px; padding:12px 14px; font-size:13px; color:var(--ink-800) } .summary strong { color:var(--ink-900) }
+  .sentence { font-size:15px; line-height:2.4; color:var(--ink-900) }
+  .chip { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px; border:1px solid var(--line-control); border-radius:8px; background:#fff; font-weight:500; vertical-align:middle; margin:0 2px }
+  .chip .chev { color:var(--ink-800) }
+  .chip.on { border-color:var(--brand-600); box-shadow:0 0 0 3px var(--brand-100) }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; background:var(--plum-100); color:var(--plum-800); font-size:12px; font-weight:600 }
+  .built { max-width:1520px; margin:32px auto 56px; padding:0 16px }
+  .built .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px 24px; max-width:1000px }
+  .built h3 { font-size:16px; margin-bottom:10px } .built h4 { font:600 13px/1.3 var(--font-sans); margin:16px 0 6px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-800) }
+  .built ul { margin:0; padding-left:18px } .built li { margin:4px 0 }
+  .built code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+  .built table { border-collapse:collapse; width:100%; font-size:13px; margin-top:6px } .built th, .built td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top } .built th { color:var(--ink-800); font-size:12px }
+  @media (max-width:640px) { .row { grid-template-columns:1fr } .grid2, .grid3 { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Journey Date / Time trigger — Set-Up step 1 (mockup, not the product).</strong> Today Date / Time saves only the word “Daily” or “Weekly”: no time, no day, no audience, so it enrols nobody. A time-based entry needs to know <em>when</em> (a time, plus a weekday, a day of the month or a date) and <em>who</em> (a customer list or a segment). The fifth choice, On a Date Attribute, works per customer from a date on their record (birthday, membership date) with an offset in days. Two ways to lay this out, each in a simple case and a busy case. The rest of the pop-up (name, step 2) is unchanged.</p>
+
+<!-- ============================================================== OPTION 1 -->
+<div class="label">Option 1 — stacked fields under Specific Trigger<span>Uses the Field primitives the pop-up already has. Fields appear for the schedule chosen; a grey summary line at the bottom reads the result back in words. Same pattern as the Segment picker that appears for Enters Segment today.</span></div>
+<div class="row">
+  <div>
+    <p class="case">Simple: weekly, to a list</p>
+    <div class="modal">
+      <div class="mhead"><p class="step">Step 1 of 2</p><h2>Create A Journey</h2><p class="sub">Name and entry</p><div class="progress"><i class="on"></i><i></i></div></div>
+      <div class="mbody">
+        <div class="field"><span class="lbl">Journey Name<span class="req">*</span></span><div class="ctl">Monday VIP Picks</div></div>
+        <div><p class="q">What Qualifies a Customer to Enter This Journey?</p>
+          <div class="pills"><span class="pill">Customer List</span><span class="pill">Event</span><span class="pill on">Date / Time</span><span class="pill">Segment or Customer Change</span></div></div>
+        <div class="field"><span class="lbl">Specific Trigger</span><div class="ctl">Weekly<span class="chev">▾</span></div></div>
+        <div class="field"><span class="lbl">On<span class="req">*</span></span>
+          <div class="days"><span class="day on">Mon</span><span class="day">Tue</span><span class="day">Wed</span><span class="day">Thu</span><span class="day">Fri</span><span class="day">Sat</span><span class="day">Sun</span></div></div>
+        <div class="grid2">
+          <div class="field"><span class="lbl">At<span class="req">*</span></span><div class="ctl">9:00 AM<span class="chev">▾</span></div><p class="hint">Workspace time zone (America/Chicago).</p></div>
+          <div class="field"><span class="lbl">Who Enters<span class="req">*</span></span><div class="ctl">VIP Customers · list<span class="chev">▾</span></div><p class="hint">A customer list or a segment.</p></div>
+        </div>
+        <p class="summary"><strong>Every Monday at 9:00 AM</strong>, the members of VIP Customers enter. Re-entry (step 2) decides whether they go through again next week.</p>
+      </div>
+      <div class="mfoot"><span class="btn">Cancel</span><span class="btn primary">Next →</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="case">Busy: a date on the customer’s record, with an offset</p>
+    <div class="modal">
+      <div class="mhead"><p class="step">Step 1 of 2</p><h2>Create A Journey</h2><p class="sub">Name and entry</p><div class="progress"><i class="on"></i><i></i></div></div>
+      <div class="mbody">
+        <div class="field"><span class="lbl">Journey Name<span class="req">*</span></span><div class="ctl">Birthday Week Reward — Gold and Platinum</div></div>
+        <div><p class="q">What Qualifies a Customer to Enter This Journey?</p>
+          <div class="pills"><span class="pill">Customer List</span><span class="pill">Event</span><span class="pill on">Date / Time</span><span class="pill">Segment or Customer Change</span></div></div>
+        <div class="field"><span class="lbl">Specific Trigger</span><div class="ctl">On a Date Attribute<span class="chev">▾</span></div></div>
+        <div class="grid3">
+          <div class="field"><span class="lbl">Date<span class="req">*</span></span><div class="ctl">Birthday · birth_date<span class="chev">▾</span></div></div>
+          <div class="field"><span class="lbl">When<span class="req">*</span></span><div class="ctl">7 days before<span class="chev">▾</span></div></div>
+          <div class="field"><span class="lbl">At<span class="req">*</span></span><div class="ctl">10:00 AM<span class="chev">▾</span></div></div>
+        </div>
+        <div class="field"><span class="lbl">Repeat</span><div class="seg"><span class="on">Every Year</span><span>Once</span></div><p class="hint">Every Year reads the day and month only (birthdays, anniversaries); Once reads the full date (a renewal date).</p></div>
+        <div class="field"><span class="lbl">Only Customers In <span class="opt">(optional)</span></span><div class="ctl">Gold and Platinum · segment<span class="chev">▾</span></div><p class="hint">Empty: every customer whose record has this date. 18,240 have it today.</p></div>
+        <p class="summary"><strong>Every year, 7 days before each customer’s Birthday, at 10:00 AM</strong>, customers in Gold and Platinum enter. Customers without a birthday on their record never do.</p>
+      </div>
+      <div class="mfoot"><span class="btn">Cancel</span><span class="btn primary">Next →</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== OPTION 2 -->
+<div class="label">Option 2 — one sentence with fill-in choices<span>The schedule reads as a sentence; each underlined part is a small drop-down. Compact and easy to read back, but long sentences wrap on a phone and each choice is a separate pop-over to reach by keyboard.</span></div>
+<div class="row">
+  <div>
+    <p class="case">Simple: weekly, to a list</p>
+    <div class="modal">
+      <div class="mhead"><p class="step">Step 1 of 2</p><h2>Create A Journey</h2><p class="sub">Name and entry</p><div class="progress"><i class="on"></i><i></i></div></div>
+      <div class="mbody">
+        <div class="field"><span class="lbl">Journey Name<span class="req">*</span></span><div class="ctl">Monday VIP Picks</div></div>
+        <div><p class="q">What Qualifies a Customer to Enter This Journey?</p>
+          <div class="pills"><span class="pill">Customer List</span><span class="pill">Event</span><span class="pill on">Date / Time</span><span class="pill">Segment or Customer Change</span></div></div>
+        <div class="field"><span class="lbl">Schedule</span>
+          <p class="sentence"><span class="chip">Every week<span class="chev">▾</span></span> on <span class="chip">Monday<span class="chev">▾</span></span> at <span class="chip">9:00 AM<span class="chev">▾</span></span>, enrol <span class="chip">VIP Customers<span class="chev">▾</span></span></p>
+          <p class="hint">Workspace time zone (America/Chicago).</p></div>
+      </div>
+      <div class="mfoot"><span class="btn">Cancel</span><span class="btn primary">Next →</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="case">Busy: a date on the customer’s record, with an offset</p>
+    <div class="modal">
+      <div class="mhead"><p class="step">Step 1 of 2</p><h2>Create A Journey</h2><p class="sub">Name and entry</p><div class="progress"><i class="on"></i><i></i></div></div>
+      <div class="mbody">
+        <div class="field"><span class="lbl">Journey Name<span class="req">*</span></span><div class="ctl">Birthday Week Reward — Gold and Platinum</div></div>
+        <div><p class="q">What Qualifies a Customer to Enter This Journey?</p>
+          <div class="pills"><span class="pill">Customer List</span><span class="pill">Event</span><span class="pill on">Date / Time</span><span class="pill">Segment or Customer Change</span></div></div>
+        <div class="field"><span class="lbl">Schedule</span>
+          <p class="sentence"><span class="chip">Every year<span class="chev">▾</span></span>, <span class="chip on">7 days before<span class="chev">▾</span></span> each customer’s <span class="chip">Birthday<span class="chev">▾</span></span> at <span class="chip">10:00 AM<span class="chev">▾</span></span>, enrol <span class="chip">customers in Gold and Platinum<span class="chev">▾</span></span></p>
+          <p class="hint">Customers without a birthday on their record never enter. 18,240 have it today.</p></div>
+      </div>
+      <div class="mfoot"><span class="btn">Cancel</span><span class="btn primary">Next →</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== WHAT GETS BUILT -->
+<div class="built"><div class="card">
+  <h3>What gets built, in words</h3>
+  <p>The same for both options; only the layout differs.</p>
+  <h4>The choices</h4>
+  <table>
+    <tr><th>Specific Trigger</th><th>Asks for</th><th>Who enters, and when</th></tr>
+    <tr><td>Daily</td><td>Time; who enters</td><td>The list or segment’s members, every day at that time.</td></tr>
+    <tr><td>Weekly</td><td>One or more weekdays; time; who enters</td><td>The members, on those days at that time.</td></tr>
+    <tr><td>Monthly</td><td>Day of the month (1–28, or Last Day); time; who enters</td><td>The members, once a month.</td></tr>
+    <tr><td>On a Specific Date</td><td>Date; time; who enters</td><td>The members, once, at that moment.</td></tr>
+    <tr><td>On a Date Attribute</td><td>Which date on the customer’s record; on the day, or 1–90 days before or after; time; Every Year or Once; optionally a list or segment</td><td>Each customer on their own date. Every Year matches day and month (29 Feb counts on 28 Feb).</td></tr>
+  </table>
+  <h4>Saved and run</h4>
+  <ul>
+    <li>The entry rule keeps <code>schedule</code> and adds <code>time</code>, <code>weekdays</code>, <code>day_of_month</code>, <code>date</code>, <code>attribute</code>, <code>offset_days</code>, <code>yearly</code> and the audience (<code>contact_list_id</code> or <code>segment_id</code>). No new table; one patch adds <code>journey_version.last_fired_at</code> so a moment fires once.</li>
+    <li>The enrolment job (every minute) fires a schedule when its moment has passed since <code>last_fired_at</code>: the audience enters with that moment as the time they qualified. Re-entry from step 2 applies as it does today, so Weekly with “After 7 days” lets the same people back each week.</li>
+    <li>Times are the workspace’s time zone. A later option can follow each customer’s own zone, as campaigns’ local-time sending does.</li>
+    <li>Date attributes come from the customer record’s custom attributes that hold dates (CEP has no birthday column). A small read endpoint lists those keys with how many customers have each, for the Date drop-down. Until C360 sends a birthday, On a Date Attribute offers only what is there (for example Last Purchase).</li>
+    <li>Test Publish’s random sample uses the same rule: who would enter at the next moment.</li>
+    <li>Population mode: Fixed fires once and closes; the other two keep firing.</li>
+  </ul>
+  <h4>Recommendation</h4>
+  <p><strong>Option 1.</strong> It reuses the pop-up’s own Field controls and the pattern already there for Enters Segment, works at phone width, and every choice is a labelled control for keyboard and screen readers. The summary line gives Option 2’s read-back without its pop-overs.</p>
+</div></div>
+
+</body>
+</html>

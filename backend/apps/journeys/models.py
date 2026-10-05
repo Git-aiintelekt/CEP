@@ -109,6 +109,8 @@ class JourneyVersion(models.Model):
     status = models.CharField(max_length=20, default='DRAFT', choices=Status.choices)  # DRAFT, TEST_PUBLISHED, ACTIVE, RETIRED
     definition_snapshot = models.JSONField(null=True, blank=True)  # full node/connection graph snapshot at publish time
     published_at = models.DateTimeField(null=True, blank=True)
+    population_frozen_at = models.DateTimeField(null=True, blank=True)  # Fixed population: nobody enters this version after it (patch 0038)
+    last_fired_at = models.DateTimeField(null=True, blank=True)  # Date / Time entry: the schedule moment that last fired (patch 0038)
     created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
