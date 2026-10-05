@@ -38,6 +38,10 @@ JOBS = {
     "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),
     "prune-observability": ("Removes errors, request figures and uptime probes past their retention", 49 * 3600),
     "attribute-orders": ("Credits received orders to campaigns and writes each campaign's revenue and ROI", 30 * 60),
+    "enroll-journey-customers": ("Enrolls customers who meet a live journey's entry rules", 10 * 60),
+    "advance-journey-customers": ("Moves journey customers whose next step is due", 10 * 60),
+    "rollup-journey-analytics": ("Rolls journey enrollments and steps up into the reporting tables", 49 * 3600),
+    "activate-scheduled-journeys": ("Goes live with journeys approved and scheduled once their time comes", 10 * 60),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}

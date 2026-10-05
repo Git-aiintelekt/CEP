@@ -31,6 +31,7 @@ from apps.templates.models import RenderedTemplateContent, TemplateDesignState
 from apps.campaigns.models import Campaign, CampaignRun
 from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
 from apps.contact_lists.models import ContactList
+from apps.customers.models import Coupon, LoyaltyTier
 from apps.identity.models import Role
 from apps.journeys.models import Journey
 from apps.templates.models import PersonalizationTag, TemplateMaster
@@ -447,6 +448,28 @@ class JourneyViewSet(BaseTenantViewSet):
     permission_classes = [*BaseTenantViewSet.permission_classes, params.RequiresFeature.for_("journeys")]
     filterset_fields = ["status", "population_mode"]
     search_fields = ["name", "code"]
+
+
+class CouponViewSet(viewsets.ReadOnlyModelViewSet):
+    """Cached C360 coupons, for the Journey canvas's Issue Coupon step (same shape as /contact-lists/audiences/ for Segment)."""
+    queryset = Coupon.objects.filter(is_active=True).order_by("name")
+    serializer_class = s.CouponSerializer
+    permission_classes = [IsAuthenticated, SameTenant]
+    pagination_class = None
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tenant_id=context.require().tenant_id)
+
+
+class LoyaltyTierViewSet(viewsets.ReadOnlyModelViewSet):
+    """Cached C360 loyalty tiers, for the Journey canvas's Update Loyalty Tier step."""
+    queryset = LoyaltyTier.objects.order_by("rank", "name")
+    serializer_class = s.LoyaltyTierSerializer
+    permission_classes = [IsAuthenticated, SameTenant]
+    pagination_class = None
+
+    def get_queryset(self):
+        return super().get_queryset().filter(tenant_id=context.require().tenant_id)
 
 
 class DashboardSummaryView(APIView):

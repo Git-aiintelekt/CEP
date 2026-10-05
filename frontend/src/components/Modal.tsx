@@ -20,6 +20,8 @@ interface ModalProps {
   size?: 'md' | 'picker' | 'lg' | 'xl' | 'screen'
   /** a tile before the title (the Templates create dialog's channel tile); the title steps up to 18px with it */
   leading?: ReactNode
+  /** an icon tile above the title, for a confirmation (Journey Test Publish's Send Test and Activate pop-ups) */
+  badge?: ReactNode
   /** a row under the title, such as tags */
   headerExtra?: ReactNode
   /** controls at the right of the header, level with that row: a preview's device switch */
@@ -28,6 +30,8 @@ interface ModalProps {
   toolbar?: ReactNode
   /** the dialog stays inside the window: the body scrolls between a fixed header and footer */
   scrollBody?: boolean
+  /** Escape closes an open dropdown in the body before it closes the dialog */
+  escapeClosesMenusFirst?: boolean
 }
 
 const WIDTH = { md: 'md:max-w-[480px]', picker: 'md:max-w-[640px]', lg: 'md:max-w-3xl', xl: 'md:max-w-[880px]', screen: 'md:max-w-[min(1120px,80vw)]' }
@@ -36,12 +40,12 @@ const WIDTH = { md: 'md:max-w-[480px]', picker: 'md:max-w-[640px]', lg: 'md:max-
  * Accessible dialog: labelled, Escape closes, Tab stays inside, focus moves in on open and returns to the opener on close.
  * Rendered into document.body, so no transformed ancestor can become its frame and pin it to the top of the page.
  */
-export function Modal({ title, subtitle, onClose, children, footer, size = 'md', leading, headerExtra, headerActions, toolbar, scrollBody = false }: ModalProps) {
+export function Modal({ title, subtitle, onClose, children, footer, size = 'md', leading, badge, headerExtra, headerActions, toolbar, scrollBody = false, escapeClosesMenusFirst = false }: ModalProps) {
   const titleId = useId()
   const subtitleId = `${titleId}-subtitle`
   const panel = useRef<HTMLDivElement>(null)
 
-  useDialogBehaviour(panel, onClose)
+  useDialogBehaviour(panel, onClose, { escapeClosesMenusFirst })
 
   return createPortal(
     <div className={`fixed inset-0 z-50 flex animate-fade-in justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 ${size === 'screen' ? 'items-center' : 'items-start md:p-10'}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -50,7 +54,8 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
           <div className="flex min-w-0 flex-1 items-center gap-3 py-1">
             {leading}
             <div className="min-w-0">
-              <h2 id={titleId} className={`font-display font-semibold text-ink-900 ${leading ? 'text-lg' : 'text-base'}`}>{title}</h2>
+              {badge && <div className="mb-3">{badge}</div>}
+              <h2 id={titleId} className={`font-display font-semibold text-ink-900 ${leading || badge ? 'text-lg' : 'text-base'}`}>{title}</h2>
               {subtitle && <p id={subtitleId} className="mt-0.5 text-helper text-ink-800">{subtitle}</p>}
               {headerExtra && <div className="mt-1.5 flex flex-wrap items-center gap-1.5">{headerExtra}</div>}
             </div>
