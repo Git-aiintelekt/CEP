@@ -6,6 +6,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.campaigns.models import Campaign, CampaignRun, ContactListCampaign
+from apps.customers.models import Coupon, LoyaltyTier
 from apps.delivery.models import SenderProfile
 from apps.media.models import MediaAsset
 from apps.contact_lists.models import ContactList
@@ -438,6 +439,20 @@ class PersonalizationTagSerializer(TenantModelSerializer):
         return attrs
 
 
+class CouponSerializer(serializers.ModelSerializer):
+    """Read-only: a cached C360 reference (see apps.customers.Coupon), not owned/edited by CEP."""
+    class Meta:
+        model = Coupon
+        fields = ("id", "code", "name", "description", "discount_definition", "is_active", "source_system", "synced_at")
+
+
+class LoyaltyTierSerializer(serializers.ModelSerializer):
+    """Read-only: a cached C360 reference (see apps.customers.LoyaltyTier), not owned/edited by CEP."""
+    class Meta:
+        model = LoyaltyTier
+        fields = ("id", "code", "name", "rank", "description", "source_system", "synced_at")
+
+
 class MePrincipalSerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=["user", "api_client"])
     id = serializers.CharField(required=False)
@@ -481,4 +496,4 @@ class JourneySerializer(TenantModelSerializer):
     class Meta(TenantModelSerializer.Meta):
         model = Journey
         fields = "__all__"
-        read_only_fields = AUDIT_FIELDS + ("status", "current_version")
+        read_only_fields = AUDIT_FIELDS + ("status", "current_version", "scheduled_activate_at")

@@ -1374,6 +1374,127 @@ CREATE INDEX IF NOT EXISTS ix_sms_execution_phone ON sms_execution(tenant_id, ph
 ALTER TABLE integration DROP CONSTRAINT IF EXISTS ck_integration_kind;
 ALTER TABLE integration ADD CONSTRAINT ck_integration_kind CHECK (kind IN ('POS_RECEIPTS', 'PROVIDER', 'ORDERS'));
 
+-- -------------------------------------------------------------------------------------
+-- 23. COUPON / LOYALTY TIER (patch 0033): cached references for Journey's Issue Coupon and
+--     Update Loyalty Tier action nodes. Per the BRD (do not rebuild loyalty/coupon as a new
+--     action engine; invoke existing C360 services), these are non-authoritative synced
+--     copies — same treatment as `segment` above, not a coupon or loyalty program engine.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coupon (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    source_system       VARCHAR(40) NOT NULL DEFAULT 'C360',
+    code                VARCHAR(100) NOT NULL,
+    name                VARCHAR(200) NOT NULL,
+    description         TEXT,
+    discount_definition JSONB,                          -- {type: PERCENT|AMOUNT, value}, if exposed
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    synced_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, source_system, code)
+);
+COMMENT ON TABLE coupon IS 'Cached reference to a C360 coupon definition; not owned/edited by CEP (do not rebuild coupon issuance)';
+ALTER TABLE coupon ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupon FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_coupon_tenant ON coupon;
+CREATE POLICY rls_coupon_tenant ON coupon
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON coupon TO cep_app;
+GRANT ALL ON coupon TO cep_admin;
+
+CREATE TABLE IF NOT EXISTS loyalty_tier (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    source_system       VARCHAR(40) NOT NULL DEFAULT 'C360',
+    code                VARCHAR(100) NOT NULL,
+    name                VARCHAR(200) NOT NULL,
+    rank                INTEGER NOT NULL DEFAULT 0,      -- ordering only, e.g. Silver < Gold < Platinum
+    description         TEXT,
+    synced_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, source_system, code)
+);
+COMMENT ON TABLE loyalty_tier IS 'Cached reference to a C360 loyalty tier; not owned/edited by CEP (do not rebuild the loyalty program)';
+ALTER TABLE loyalty_tier ENABLE ROW LEVEL SECURITY;
+ALTER TABLE loyalty_tier FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_loyalty_tier_tenant ON loyalty_tier;
+CREATE POLICY rls_loyalty_tier_tenant ON loyalty_tier
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON loyalty_tier TO cep_app;
+GRANT ALL ON loyalty_tier TO cep_admin;
+
+-- =====================================================================================
+-- 24. JOURNEY APPROVE / SCHEDULE (phase 6i, Test Publish + Approve)
+-- journey.status gains APPROVED (passed Test Publish, approved; live now or at scheduled_activate_at).
+-- journey_version.status keeps its existing values (DRAFT/TEST_PUBLISHED/ACTIVE/RETIRED); a scheduled approval
+-- leaves the version TEST_PUBLISHED and the journey APPROVED until the activate-scheduled-journeys job (run_scheduler
+-- / workers.journey) flips both to ACTIVE at scheduled_activate_at. Neither column needed a CHECK constraint change:
+-- both are plain VARCHAR, same as every other journey/journey_version status column.
+-- =====================================================================================
+ALTER TABLE journey ADD COLUMN IF NOT EXISTS scheduled_activate_at TIMESTAMPTZ;  -- set with status='APPROVED'; cleared once live
+CREATE INDEX IF NOT EXISTS ix_journey_scheduled_activate ON journey(scheduled_activate_at) WHERE status = 'APPROVED';
+
+-- =====================================================================================
+-- 25. JOURNEY GOAL / EXIT CRITERIA (patch 0037, phase 6d, Journey Details)
+-- Free text, not modeled logic: the engine has no notion of a "goal" or scored exit condition today (an enrollment
+-- only ever ends ACTIVE/EXITED/COMPLETED, by whatever step it fell off of). Journey Details shows these as plain
+-- read/write fields — a real content gap flagged rather than papered over, not a stand-in for the Setup modal (6e),
+-- which will own full editing once it exists.
+-- =====================================================================================
+ALTER TABLE journey ADD COLUMN IF NOT EXISTS goal_description TEXT;             -- e.g. "First purchase in 30 days"
+ALTER TABLE journey ADD COLUMN IF NOT EXISTS exit_criteria_description TEXT;    -- e.g. "Goal met · unsubscribe · 45 days"
+
+-- =====================================================================================
+-- 26. JOURNEY TEMPLATES (patch 0036): a workspace's own saved journey templates, and where a journey came from
+-- A template is a snapshot of one journey version's graph (graph.py's wire format, entry_rules included) plus that
+-- journey's setup (population, re-entry) and goal. Starting a journey from it copies the graph into the new journey's
+-- version 1; the template itself never changes. Deleting a template is a soft delete: journeys made from it keep
+-- working and keep pointing at it (journey.source_template_id). CEP's own starters live in code
+-- (apps/journeys/starters.py); a journey made from one records its key in journey.source_starter_key.
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS journey_template (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(200) NOT NULL,
+    description         TEXT,
+    category            VARCHAR(20) NOT NULL,                            -- LIFECYCLE, COMMERCE, LOYALTY, ENGAGEMENT
+    population_mode     VARCHAR(30) NOT NULL,                            -- as journey.population_mode
+    reentry_policy      VARCHAR(30) NOT NULL DEFAULT 'NEVER',            -- as journey.reentry_policy
+    reentry_after_days  INTEGER,
+    goal_description    TEXT,
+    graph               JSONB NOT NULL,                                  -- {entry_rules, nodes, connections}, apps/journeys/graph.py
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_journey_template_category CHECK (category IN ('LIFECYCLE', 'COMMERCE', 'LOYALTY', 'ENGAGEMENT')),
+    CONSTRAINT ck_journey_template_name CHECK (btrim(name) <> '')
+);
+COMMENT ON TABLE journey_template IS 'A workspace''s saved journey template: one journey version''s graph, setup and goal, copied into new journeys';
+CREATE UNIQUE INDEX IF NOT EXISTS ux_journey_template_name_live ON journey_template(tenant_id, lower(name)) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_journey_template_tenant_category ON journey_template(tenant_id, category) WHERE deleted_at IS NULL;
+
+DROP TRIGGER IF EXISTS trg_journey_template_touch ON journey_template;
+CREATE TRIGGER trg_journey_template_touch BEFORE UPDATE ON journey_template FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_journey_template_audit ON journey_template;
+CREATE TRIGGER trg_journey_template_audit AFTER INSERT OR UPDATE OR DELETE ON journey_template FOR EACH ROW EXECUTE FUNCTION fn_definition_audit();
+ALTER TABLE journey_template ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journey_template FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_journey_template_tenant ON journey_template;
+CREATE POLICY rls_journey_template_tenant ON journey_template
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON journey_template TO cep_app;
+GRANT ALL ON journey_template TO cep_admin;
+
+ALTER TABLE journey ADD COLUMN IF NOT EXISTS source_template_id UUID REFERENCES journey_template(id);  -- set when made from a saved template
+ALTER TABLE journey ADD COLUMN IF NOT EXISTS source_starter_key VARCHAR(60);                            -- set when made from a CEP starter
+ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_source_one;
+ALTER TABLE journey ADD CONSTRAINT ck_journey_source_one CHECK (source_template_id IS NULL OR source_starter_key IS NULL);
+CREATE INDEX IF NOT EXISTS ix_journey_source_template ON journey(source_template_id) WHERE source_template_id IS NOT NULL;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

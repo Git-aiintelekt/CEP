@@ -16,6 +16,7 @@ class Journey(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'DRAFT', 'Draft'
         TEST = 'TEST', 'Test'
+        APPROVED = 'APPROVED', 'Approved'          # passed Test Publish and approved; live now (scheduled_activate_at null) or at that time (6i)
         ACTIVE = 'ACTIVE', 'Active'
         PAUSED = 'PAUSED', 'Paused'
         ARCHIVED = 'ARCHIVED', 'Archived'
@@ -47,10 +48,48 @@ class Journey(models.Model):
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     row_version = models.IntegerField(default=1)
+    scheduled_activate_at = models.DateTimeField(null=True, blank=True)  # set with status=APPROVED: when run_scheduler's activate-scheduled-journeys job goes live
+    goal_description = models.TextField(null=True, blank=True)  # free text, e.g. "First purchase in 30 days" (phase 6d; patch 0037). Full editing arrives with the Setup modal (6e); for now set from Journey Details.
+    exit_criteria_description = models.TextField(null=True, blank=True)  # free text, e.g. "Goal met · unsubscribe · 45 days" (phase 6d; patch 0037)
+    source_template = models.ForeignKey('journeys.JourneyTemplate', on_delete=models.PROTECT, db_column='source_template_id', related_name='journeys_created', null=True, blank=True)  # the saved template it was made from (patch 0036)
+    source_starter_key = models.CharField(max_length=60, null=True, blank=True)  # the CEP starter it was made from (apps/journeys/starters.py; patch 0036)
 
     class Meta:
         managed = False
         db_table = 'journey'
+
+    def __str__(self):
+        return str(self.name)
+
+
+class JourneyTemplate(models.Model):
+    """A workspace's saved journey template: one version's graph, its journey's setup and goal (patch 0036)"""
+    class Category(models.TextChoices):
+        LIFECYCLE = 'LIFECYCLE', 'Lifecycle'
+        COMMERCE = 'COMMERCE', 'Commerce'
+        LOYALTY = 'LOYALTY', 'Loyalty'
+        ENGAGEMENT = 'ENGAGEMENT', 'Engagement'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    name = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
+    category = models.CharField(max_length=20, choices=Category.choices)
+    population_mode = models.CharField(max_length=30, choices=Journey.PopulationMode.choices)
+    reentry_policy = models.CharField(max_length=30, default='NEVER', choices=Journey.ReentryPolicy.choices)
+    reentry_after_days = models.IntegerField(null=True, blank=True)
+    goal_description = models.TextField(null=True, blank=True)
+    graph = models.JSONField()  # {entry_rules, nodes, connections}: apps/journeys/graph.py's wire format
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'journey_template'
 
     def __str__(self):
         return str(self.name)

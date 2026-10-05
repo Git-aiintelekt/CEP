@@ -32,7 +32,7 @@ def _runnable() -> dict:
     from apps.delivery import engine
     from apps.delivery.engine import runs
     from apps.platform_ops import jobs
-    from workers import lists, maintenance, outbox, platform
+    from workers import journey, lists, maintenance, outbox, platform
 
     @jobs.monitored("dispatch-campaign-runs")
     def dispatch_here() -> dict:
@@ -44,6 +44,8 @@ def _runnable() -> dict:
 
     return {**platform.RUNNABLE, "dispatch-campaign-runs": dispatch_here, "plan-recurring-runs": _plan_recurring, "decide-ab-winners": _decide_ab_winners,
             "send-weekly-reports": _send_weekly_reports,
+            "enroll-journey-customers": journey.enroll_customers, "advance-journey-customers": journey.advance_customers,
+            "rollup-journey-analytics": journey.rollup_analytics, "activate-scheduled-journeys": journey.activate_scheduled,
             "process-list-imports": lists.process_imports, "outbox-relay": outbox.relay_pending_events,
             "ensure-monthly-partitions": maintenance.ensure_monthly_partitions, "apply-partition-retention": maintenance.apply_partition_retention}
 

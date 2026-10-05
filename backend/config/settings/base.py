@@ -208,6 +208,10 @@ CELERY_BEAT_SCHEDULE = {
     "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
     "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention
     "attribute-orders": {"task": "workers.platform.attribute_orders", "schedule": 300},                    # orders -> campaigns -> campaign_actual
+    "enroll-journey-customers": {"task": "workers.journey.enroll_customers", "schedule": 60},            # entry rules of live journeys
+    "advance-journey-customers": {"task": "workers.journey.advance_customers", "schedule": 60},          # customers whose next step is due
+    "rollup-journey-analytics": {"task": "workers.journey.rollup_analytics", "schedule": 24 * 3600},     # the journey Performance figures, nightly
+    "activate-scheduled-journeys": {"task": "workers.journey.activate_scheduled", "schedule": 60},        # Approved · Scheduled journeys whose time has come
 }
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}}
 

@@ -21,7 +21,8 @@ import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetai
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
 import { UploadsPage } from '@/features/contact-lists/UploadsPage'
 import { LandingAfterSignIn } from '@/features/home/LandingAfterSignIn'
-import { JourneysPage } from '@/pages/ListPages'
+import { JourneyDetailsPage } from '@/features/journeys/JourneyDetailsPage'
+import { JourneysPage } from '@/features/journeys/JourneysPage'
 import { TemplatesPage } from '@/pages/TemplatesPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MessageEditorPage } from '@/pages/MessageEditorPage'
@@ -49,6 +50,9 @@ import { TokenLandingPage } from '@/pages/TokenLandingPage'
 
 // GrapesJS + the MJML compiler are ~1 MB: loaded only when someone opens the designer.
 const TemplateDesignerPage = lazy(() => import('@/pages/TemplateDesignerPage'))
+// @xyflow/react is loaded only when someone opens the journey canvas.
+const JourneyBuildPage = lazy(() => import('@/pages/JourneyBuildPage'))
+const JourneyTestPublishPage = lazy(() => import('@/pages/JourneyTestPublishPage'))
 const ReceiptEditorPage = lazy(() => import('@/pages/ReceiptEditorPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/DesignerPlayground')) : null
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/MessagePlayground')) : null
@@ -123,6 +127,8 @@ export default function App() {
               <Route path="templates/:id/message" element={<EditorScope><MessageEditorPage /></EditorScope>} />
               <Route path="templates/:id/design" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the designer" />}><TemplateDesignerPage /></Suspense></EditorScope>} />
               <Route path="templates/:id/receipt" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the editor" />}><ReceiptEditorPage /></Suspense></EditorScope>} />
+              <Route path="journeys/:id/build" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading the builder" />}><JourneyBuildPage /></Suspense></EditorScope>} />
+              <Route path="journeys/:id/test-publish" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading Test Publish" />}><JourneyTestPublishPage /></Suspense></EditorScope>} />
               <Route element={<AppShell />}>
                 <Route index element={<LandingAfterSignIn />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
@@ -136,6 +142,7 @@ export default function App() {
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />
+                <Route path="journeys/:id" element={<JourneyDetailsPage />} />
                 <Route path="account/security" element={<AccountSecurityPage />} />
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<Navigate to="users" replace />} />

@@ -7,7 +7,7 @@ import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
-import type { AttributedOrder, AttributionSettings, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults,
+import type { AttributedOrder, AttributionSettings, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -21,7 +21,8 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false, roles: ['Marketing Admin'],
-               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit'] },
+               permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit',
+                             'journey.view', 'journey.edit', 'journey.activate'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
@@ -50,6 +51,116 @@ export const contactLists: ContactList[] = [
 export const audiences: Audience[] = [
   { id: 'aud-gold', code: 'LOYALTY_GOLD_PLUS', name: 'Loyalty Gold & Platinum', description: null, source_system: 'C360', synced_at: '2026-09-20T05:00:00Z', member_count: 43, list_count: 1 },
   { id: 'aud-lapsed', code: 'LAPSED_90', name: 'No purchase in 90 days', description: 'Win-back base', source_system: 'C360', synced_at: '2026-09-20T05:00:00Z', member_count: 70, list_count: 0 },
+]
+export const makeJourney = (overrides: Partial<Journey> = {}): Journey => ({
+  ...audit, id: 'j1', code: 'JRN-2026-00001', name: 'New Loyalty Member Welcome', description: null, status: 'DRAFT',
+  population_mode: 'FIXED', reentry_policy: 'NEVER', reentry_after_days: null, current_version: null, scheduled_activate_at: null, latest_version: 1,
+  goal_description: null, exit_criteria_description: null,
+  owner_user: 'u1', owner_user_name: 'Aby John', channels: ['EMAIL'], trigger_family: 'SEGMENT_LOYALTY', trigger_family_label: 'Segment / Loyalty', needs_attention: false,
+  step_count: 3, step_types: ['WAIT', 'EMAIL', 'EXIT'], entry_rule: { entry_type: 'SEGMENT_CHANGE', rule_definition: { change: 'JOINED' } },
+  ...overrides,
+})
+export const journeyRows: Journey[] = [
+  makeJourney({ id: 'j1', name: 'New Loyalty Member Welcome', status: 'ACTIVE', trigger_family: 'SEGMENT_LOYALTY', trigger_family_label: 'Segment / Loyalty', channels: ['EMAIL'] }),
+  makeJourney({ id: 'j2', code: 'JRN-2026-00002', name: 'Abandoned Cart Recovery', status: 'ACTIVE', trigger_family: 'COMMERCE_OFFER', trigger_family_label: 'Commerce / Offer', channels: ['EMAIL', 'SMS'], needs_attention: true,
+    step_count: 6, step_types: ['WAIT', 'CONDITION', 'EMAIL', 'SMS', 'COUPON_ISSUE', 'EXIT'], entry_rule: { entry_type: 'EVENT', rule_definition: { event_type: 'CART_ABANDON' } },
+    source_starter_key: 'abandoned-cart-recovery', source_name: 'Abandoned Cart Recovery' }),
+  makeJourney({ id: 'j3', code: 'JRN-2026-00003', name: 'Welcome Series', status: 'DRAFT', trigger_family: 'CUSTOMER_LIFECYCLE', trigger_family_label: 'Customer / Lifecycle', channels: ['EMAIL'],
+    step_count: 2, step_types: ['EMAIL', 'EXIT'], entry_rule: { entry_type: 'EVENT', rule_definition: { event_type: 'WELCOME' } } }),
+  makeJourney({ id: 'j4', code: 'JRN-2026-00004', name: 'Win-Back Lapsed Customers', status: 'PAUSED', trigger_family: 'ENGAGEMENT', trigger_family_label: 'Engagement', channels: ['SMS'],
+    step_count: 1, step_types: ['SMS'], entry_rule: { entry_type: 'EVENT', rule_definition: { event_type: 'NO_RESPONSE' } } }),
+  makeJourney({ id: 'j5', code: 'JRN-2026-00005', name: 'VIP Milestone', status: 'ARCHIVED', trigger_family: 'SEGMENT_LOYALTY', trigger_family_label: 'Segment / Loyalty', channels: [],
+    step_count: 0, step_types: [] }),
+]
+export const makeJourneyReadiness = (overrides: Partial<JourneyReadiness> = {}): JourneyReadiness => ({
+  ready: true,
+  items: [
+    { key: 'entry_rules', label: 'Entry rules configured', description: 'Loyalty enrollment event, Event Triggered population, no re-entry.', ok: true },
+    { key: 'steps_configured', label: 'All canvas steps configured', description: '2 of 2 steps have complete settings.', ok: true },
+    { key: 'templates_ready', label: 'Templates ready', description: 'Email and SMS templates are published in Template Studio.', ok: true },
+    { key: 'governance', label: 'Governance rules satisfied', description: 'Frequency caps and quiet hours pass for this population.', ok: true },
+  ],
+  ...overrides,
+})
+export const makeJourneyTestResult = (overrides: Partial<JourneyTestResult> = {}): JourneyTestResult => {
+  const base = { population_size: 50, sent_to: 50, delivered: 49, opened: 20, clicked: 8, bounced: 1, governance_flags: [], ...overrides }
+  return { ...base, by_channel: overrides.by_channel ?? { SMS: { sent: base.sent_to, delivered: base.delivered } } }
+}
+export const makeJourneyMetrics = (overrides: Partial<JourneyMetrics> = {}): JourneyMetrics => ({
+  enrolled: 55, in_journey: 40, goal_converted: 12, goal_converted_pct: 21.8, exited_early: 3, exited_early_pct: 5.5, ...overrides,
+})
+export const makeJourneyAudience = (overrides: Partial<JourneyAudience> = {}): JourneyAudience => ({
+  source_lists: [{ id: 'l1', name: 'Loyalty Joiners' }], eligible_pool: 120, enrollment_rate_per_day: 3.2, ...overrides,
+})
+export const journeyTrendWeeks: JourneyTrendWeek[] = [
+  { week_start: '2026-08-31', enrolled: 0, goal_converted: 0, exited_early: 0 },
+  { week_start: '2026-09-07', enrolled: 4, goal_converted: 1, exited_early: 0 },
+  { week_start: '2026-09-14', enrolled: 8, goal_converted: 2, exited_early: 1 },
+  { week_start: '2026-09-21', enrolled: 10, goal_converted: 3, exited_early: 1 },
+  { week_start: '2026-09-28', enrolled: 15, goal_converted: 4, exited_early: 1 },
+  { week_start: '2026-10-05', enrolled: 18, goal_converted: 2, exited_early: 0 },
+]
+export const journeyGeneratedCampaignRows: JourneyGeneratedCampaignRow[] = [
+  { id: 'gc1', campaign_id: 'c1', campaign_name: '[Journey] New Loyalty Member Welcome — email_welcome', node_key: 'email_welcome', node_type: 'EMAIL',
+    generation_date: '2026-09-15', last_run_at: '2026-09-15T12:00:00Z', recipients: 6, status: 'COMPLETED' },
+]
+export const journeyActivityEntries: JourneyActivityEntry[] = [
+  { event_type: 'PUBLISHED', message: 'Version 1 activated.', actor_name: 'Devon Okafor', occurred_at: '2026-08-27T09:00:00Z', version_number: 1 },
+  { event_type: 'CREATED', message: 'Version 1 created.', actor_name: 'Devon Okafor', occurred_at: '2026-08-20T13:48:30Z', version_number: 1 },
+]
+const BLANK_GRAPH: JourneyGraph = { entry_rules: [], nodes: [{ key: 'start', type: 'START', config: {}, position: { x: 0, y: 0 } }], connections: [] }
+export const makeJourneyVersion = (overrides: Partial<JourneyVersion> = {}): JourneyVersion => ({
+  id: 'jv1', journey: 'j1', version_number: 1, status: 'DRAFT', status_label: 'Draft', published_at: null, created_by: 'u1',
+  created_at: '2026-10-01T10:00:00Z', updated_by: null, updated_at: '2026-10-01T10:00:00Z', row_version: 1, ...overrides,
+})
+/** a straight chain of steps after Start, in graph.py's wire format */
+function chainGraph(entry: JourneyGraph['entry_rules'][number], steps: { key: string; type: JourneyGraph['nodes'][number]['type']; config?: Record<string, unknown> }[]): JourneyGraph {
+  const nodes = [{ key: 'start', type: 'START' as const, config: {}, position: { x: 0, y: 0 } },
+    ...steps.map((step, index) => ({ key: step.key, type: step.type, config: step.config ?? {}, position: { x: 0, y: 150 * (index + 1) } }))]
+  const connections = nodes.slice(1).map((node, index) => ({ from: nodes[index].key, to: node.key, branch_key: null, label: null }))
+  return { entry_rules: [entry], nodes, connections }
+}
+/** Abandoned Cart Recovery as apps/journeys/starters.py builds it: a Condition whose YES and NO each end in an Exit */
+export const abandonedCartGraph: JourneyGraph = {
+  entry_rules: [{ entry_type: 'EVENT', rule_definition: { event_type: 'CART_ABANDON' } }],
+  nodes: [
+    { key: 'start', type: 'START', config: {}, position: { x: 0, y: 0 } },
+    { key: 'wait-1', type: 'WAIT', config: { duration: 1, unit: 'HOURS' }, position: { x: 0, y: 150 } },
+    { key: 'email-1', type: 'EMAIL', config: { label: 'Cart reminder' }, position: { x: 0, y: 300 } },
+    { key: 'wait-2', type: 'WAIT', config: { duration: 1, unit: 'DAYS' }, position: { x: 0, y: 450 } },
+    { key: 'condition-1', type: 'CONDITION', config: { check: 'PURCHASED' }, position: { x: 0, y: 600 } },
+    { key: 'exit-1', type: 'EXIT', config: {}, position: { x: -280, y: 750 } },
+    { key: 'coupon-issue-1', type: 'COUPON_ISSUE', config: {}, position: { x: 280, y: 750 } },
+    { key: 'sms-1', type: 'SMS', config: { label: 'SMS with code' }, position: { x: 280, y: 900 } },
+    { key: 'exit-2', type: 'EXIT', config: {}, position: { x: 280, y: 1050 } },
+  ],
+  connections: [
+    { from: 'start', to: 'wait-1', branch_key: null, label: null }, { from: 'wait-1', to: 'email-1', branch_key: null, label: null },
+    { from: 'email-1', to: 'wait-2', branch_key: null, label: null }, { from: 'wait-2', to: 'condition-1', branch_key: null, label: null },
+    { from: 'condition-1', to: 'exit-1', branch_key: 'YES', label: null }, { from: 'condition-1', to: 'coupon-issue-1', branch_key: 'NO', label: null },
+    { from: 'coupon-issue-1', to: 'sms-1', branch_key: null, label: null }, { from: 'sms-1', to: 'exit-2', branch_key: null, label: null },
+  ],
+}
+export const makeJourneyStarter = (overrides: Partial<JourneyStarter> = {}): JourneyStarter => ({
+  key: 'abandoned-cart-recovery', name: 'Abandoned Cart Recovery', category: 'COMMERCE',
+  description: 'Remind shoppers about their cart, then follow up with a coupon if they haven\'t bought.', goal: 'Order placed within 3 days',
+  population_mode: 'EVENT_TRIGGERED', reentry_policy: 'AFTER_X_DAYS', reentry_after_days: 7, graph: abandonedCartGraph, step_count: 8, channels: ['EMAIL', 'SMS'],
+  ...overrides,
+})
+const welcomeGraph = chainGraph({ entry_type: 'EVENT', rule_definition: { event_type: 'CUSTOMER_CREATED' } },
+  [{ key: 'email-1', type: 'EMAIL', config: { label: 'Welcome' } }, { key: 'wait-1', type: 'WAIT', config: { duration: 2, unit: 'DAYS' } }, { key: 'exit-1', type: 'EXIT' }])
+export const journeyStarters: JourneyStarter[] = [
+  makeJourneyStarter({ key: 'welcome-series', name: 'Welcome Series', category: 'LIFECYCLE', description: 'Greet new customers.', goal: 'First purchase within 30 days',
+    reentry_policy: 'NEVER', reentry_after_days: null, graph: welcomeGraph, step_count: 3, channels: ['EMAIL'] }),
+  makeJourneyStarter(),
+  makeJourneyStarter({ key: 'post-purchase-thank-you', name: 'Post-Purchase Thank You & Review', description: 'Thank customers after they buy.', goal: 'Review submitted',
+    reentry_after_days: 30, graph: chainGraph({ entry_type: 'EVENT', rule_definition: { event_type: 'PURCHASE' } }, [{ key: 'email-1', type: 'EMAIL', config: { label: 'Thank you' } }, { key: 'exit-1', type: 'EXIT' }]), step_count: 2, channels: ['EMAIL'] }),
+  makeJourneyStarter({ key: 'first-to-second-purchase', name: 'First to Second Purchase', category: 'LIFECYCLE', description: 'Turn first-time buyers into repeat customers.', goal: 'Second purchase within 30 days',
+    reentry_policy: 'NEVER', reentry_after_days: null, graph: chainGraph({ entry_type: 'EVENT', rule_definition: { event_type: 'FIRST_PURCHASE' } }, [{ key: 'coupon-1', type: 'COUPON_ISSUE' }, { key: 'exit-1', type: 'EXIT' }]), step_count: 2, channels: [] }),
+  makeJourneyStarter({ key: 'loyalty-tier-upgrade', name: 'Loyalty Tier Upgrade', category: 'LOYALTY', description: 'Welcome customers to their new tier.', goal: 'Tier perk used within 14 days',
+    reentry_policy: 'EVERY_QUALIFYING_EVENT', reentry_after_days: null, graph: chainGraph({ entry_type: 'EVENT', rule_definition: { event_type: 'LOYALTY_TIER_CHANGE' } }, [{ key: 'sms-1', type: 'SMS', config: { label: 'Your perks' } }, { key: 'exit-1', type: 'EXIT' }]), step_count: 2, channels: ['SMS'] }),
+  makeJourneyStarter({ key: 're-engagement-sunset', name: 'Re-Engagement / Sunset', category: 'ENGAGEMENT', description: 'Ask unresponsive customers if they still want to hear from you.', goal: 'Opens or clicks again',
+    reentry_after_days: 90, graph: chainGraph({ entry_type: 'EVENT', rule_definition: { event_type: 'NO_RESPONSE' } }, [{ key: 'email-1', type: 'EMAIL', config: { label: 'Still want to hear from us?' } }, { key: 'exit-1', type: 'EXIT' }]), step_count: 2, channels: ['EMAIL'] }),
 ]
 export const listMembers: ListMember[] = [
   { id: 11, party_id: 'P-1', email: 'd.alvarez@northwind.example', first_name: 'Dolores', last_name: 'Alvarez', mobile: null, added_at: '2026-08-27T10:00:00Z', source: 'UPLOAD', known: true, email_status: 'MARKETABLE', email_status_label: 'Can receive marketing email', sendable: true },
@@ -363,6 +474,34 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** the journey the Build page opens (GET /journeys/{id}/); default: a FIXED-population DRAFT journey, "j1" */
+  journey?: Partial<Journey>
+  /** that journey's versions (GET /journeys/{id}/versions/); default: one DRAFT, version 1 */
+  journeyVersions?: JourneyVersion[]
+  /** version 1's graph (GET /journeys/{id}/versions/1/); default: Start only */
+  journeyGraph?: JourneyGraph
+  /** PUT .../graph/ answers 409 ("someone else saved this") no matter the row_version sent */
+  journeySaveConflicts?: boolean
+  /** GET .../readiness/ ; default: all 4 checks pass */
+  journeyReadiness?: JourneyReadiness
+  /** POST .../test-publish/ ; default: 50 sent, 49 delivered, no governance flags */
+  journeyTestResult?: JourneyTestResult
+  /** the List page's rows (GET /journeys/); default: journeyRows, 5 journeys across every status/family/channel */
+  journeysList?: Journey[]
+  /** GET /journeys/{id}/performance/ summary, read by the List page's preview popover; default: 40 active, 12 completed, 3 exited */
+  journeyPerformance?: { active_enrollment_count: number; completed_count: number; exited_count: number } | null
+  /** GET /journeys/{id}/performance/ 's "metrics" key, read by Journey Details' 4 cards; default: makeJourneyMetrics() */
+  journeyMetrics?: JourneyMetrics
+  /** GET /journeys/{id}/audience/ ; default: makeJourneyAudience() */
+  journeyAudience?: JourneyAudience
+  /** GET /journeys/{id}/enrollment-trend/ ; default: journeyTrendWeeks, 6 weeks */
+  journeyTrend?: JourneyTrendWeek[]
+  /** GET /journeys/{id}/campaigns/ ; default: journeyGeneratedCampaignRows, one row */
+  journeyGeneratedCampaigns?: JourneyGeneratedCampaignRow[]
+  /** GET /journeys/{id}/activity/ ; default: journeyActivityEntries */
+  journeyActivity?: JourneyActivityEntry[]
+  /** GET /journey-starters/ ; default: journeyStarters, 6 starters across the 4 categories */
+  journeyStarters?: JourneyStarter[]
   /** Settings -> Delivery -> Deliverability Testing: the account as stored; default: none */
   deliverabilityService?: Partial<DeliverabilityService>
   /** the template's past tests, newest first */
@@ -462,6 +601,31 @@ export function installMockApi(options: MockOptions = {}) {
   let setupNow: WorkspaceSetup = { ...SAMPLE_SETUP_READY, ...options.setup }
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
+  let journeyNow: Journey = makeJourney(options.journey)
+  let journeyVersionsNow: JourneyVersion[] = options.journeyVersions ?? [makeJourneyVersion()]
+  const journeyGraphs = new Map<number, JourneyGraph>([[1, options.journeyGraph ?? BLANK_GRAPH]])
+  // apps/journeys/graph.py name_references: a rule naming a list or segment carries its current name (null when gone)
+  const namedGraph = (graph: JourneyGraph): JourneyGraph => ({
+    ...graph,
+    entry_rules: graph.entry_rules.map((rule) => {
+      const definition = rule.rule_definition as { contact_list_id?: string; segment_id?: string }
+      if (rule.entry_type === 'CUSTOMER_LIST' && definition.contact_list_id) return { ...rule, reference_name: listsNow.find((item) => item.id === definition.contact_list_id)?.name ?? null }
+      if (rule.entry_type === 'SEGMENT_CHANGE' && definition.segment_id) return { ...rule, reference_name: audiences.find((item) => item.id === definition.segment_id)?.name ?? null }
+      return rule
+    }),
+  })
+  const journeyReadinessNow: JourneyReadiness = options.journeyReadiness ?? makeJourneyReadiness()
+  const journeyTestResultNow: JourneyTestResult = options.journeyTestResult ?? makeJourneyTestResult()
+  const journeysListNow: Journey[] = options.journeysList ?? journeyRows
+  const journeyPerformanceNow = options.journeyPerformance === undefined
+    ? { active_enrollment_count: 40, completed_count: 12, exited_count: 3 }
+    : options.journeyPerformance
+  const journeyMetricsNow: JourneyMetrics = options.journeyMetrics ?? makeJourneyMetrics()
+  const journeyAudienceNow: JourneyAudience = options.journeyAudience ?? makeJourneyAudience()
+  const journeyTrendNow: JourneyTrendWeek[] = options.journeyTrend ?? journeyTrendWeeks
+  const journeyGeneratedCampaignsNow: JourneyGeneratedCampaignRow[] = options.journeyGeneratedCampaigns ?? journeyGeneratedCampaignRows
+  const journeyActivityNow: JourneyActivityEntry[] = options.journeyActivity ?? journeyActivityEntries
+  const journeyStartersNow: JourneyStarter[] = options.journeyStarters ?? journeyStarters
   let securityNow: SecuritySettings = { ...security }
   let mailNow: MailServerSettings = { server: null, in_use: 'console', sender_profile: null, ...options.mailServer }
   const toolsState = workspaceToolsState(options.workspaceTools)
@@ -792,6 +956,122 @@ export function installMockApi(options: MockOptions = {}) {
         && item.name.toLowerCase().includes(needle))
       return json({ next: null, previous: null, results: rows })
     }
+    // ---- journey templates: CEP's starters
+    if (path.endsWith('/journey-starters/')) return json(journeyStartersNow)
+    // ---- journeys: the Build canvas (journey, its versions, and each version's graph)
+    if (path.endsWith('/coupons/')) return json([{ id: 'cpn-1', code: 'WELCOME10', name: 'Welcome 10% Off', description: null, is_active: true }])
+    if (path.endsWith('/loyalty-tiers/')) return json([{ id: 'tier-gold', code: 'GOLD', name: 'Gold', rank: 2, description: null }])
+    const journeyGraphMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/graph\/$/.exec(path)
+    if (journeyGraphMatch && method === 'PUT') {
+      const number = Number(journeyGraphMatch[2])
+      const target = journeyVersionsNow.find((item) => item.version_number === number)
+      if (!target) return json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'This journey has no such version.' }, 404)
+      if (options.journeySaveConflicts || String(body?.row_version) !== String(target.row_version)) {
+        return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'Someone else saved this journey after you opened it. Reload to see their changes.' }, 409)
+      }
+      const sent = body?.graph as JourneyGraph
+      // the backend keeps only entry_type + rule_definition of each rule (graph.clean)
+      journeyGraphs.set(number, { ...sent, entry_rules: sent.entry_rules.map((rule) => ({ entry_type: rule.entry_type, rule_definition: rule.rule_definition })) })
+      const saved = { ...target, row_version: target.row_version + 1, updated_at: '2026-10-05T10:00:00Z' }
+      journeyVersionsNow = journeyVersionsNow.map((item) => (item.version_number === number ? saved : item))
+      return json({ ...saved, graph: namedGraph(journeyGraphs.get(number)!) })
+    }
+    const journeyVersionDetailMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/$/.exec(path)
+    if (journeyVersionDetailMatch && method === 'GET') {
+      const number = Number(journeyVersionDetailMatch[2])
+      const target = journeyVersionsNow.find((item) => item.version_number === number)
+      if (!target) return json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'This journey has no such version.' }, 404)
+      return json({ ...target, graph: namedGraph(journeyGraphs.get(number) ?? BLANK_GRAPH) } satisfies JourneyVersionDetail)
+    }
+    if (/\/journeys\/[^/]+\/versions\/\d+\/readiness\/$/.test(path) && method === 'GET') return json(journeyReadinessNow)
+    const journeyTestPublishMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/test-publish\/$/.exec(path)
+    if (journeyTestPublishMatch && method === 'POST') {
+      if (!journeyReadinessNow.ready) {
+        return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { readiness: 'Every readiness check must pass before running a test.' } }, 400)
+      }
+      return json(journeyTestResultNow)
+    }
+    const journeyApproveMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/approve\/$/.exec(path)
+    if (journeyApproveMatch && method === 'POST') {
+      const scheduleAt = body?.schedule_at as string | null | undefined
+      journeyNow = scheduleAt
+        ? { ...journeyNow, status: 'APPROVED', scheduled_activate_at: scheduleAt }
+        : { ...journeyNow, status: 'ACTIVE', scheduled_activate_at: null }
+      return json(journeyNow)
+    }
+    if (/\/journeys\/[^/]+\/performance\/$/.test(path) && method === 'GET') {
+      return json({ window: { date_from: '2026-09-05', date_to: '2026-10-05' }, summary: journeyPerformanceNow, customers: 0, steps: [], metrics: journeyMetricsNow })
+    }
+    if (/\/journeys\/[^/]+\/audience\/$/.test(path) && method === 'GET') return json(journeyAudienceNow)
+    if (/\/journeys\/[^/]+\/enrollment-trend\/$/.test(path) && method === 'GET') return json(journeyTrendNow)
+    if (/\/journeys\/[^/]+\/campaigns\/$/.test(path) && method === 'GET') return json(journeyGeneratedCampaignsNow)
+    if (/\/journeys\/[^/]+\/activity\/$/.test(path) && method === 'GET') return json(journeyActivityNow)
+    if (/\/journeys\/[^/]+\/pause\/$/.test(path) && method === 'POST') {
+      journeyNow = { ...journeyNow, status: 'PAUSED' }
+      return json(journeyNow)
+    }
+    if (/\/journeys\/[^/]+\/resume\/$/.test(path) && method === 'POST') {
+      journeyNow = { ...journeyNow, status: 'ACTIVE' }
+      return json(journeyNow)
+    }
+    if (/\/journeys\/[^/]+\/duplicate\/$/.test(path) && method === 'POST') {
+      return json({ ...journeyNow, id: 'j-copy', name: `${journeyNow.name} (Copy)`, status: 'DRAFT', code: 'JRN-2026-00099' }, 201)
+    }
+    if (path.endsWith('/journeys/') && method === 'POST') {
+      // JourneySetupModal (phase 6e): POST /journeys/ creates the journey + a blank version 1; the entry rule
+      // comes from a second call, PUT .../versions/1/graph/, handled generically below by version_number alone.
+      const name = String(body?.name ?? '').trim()
+      const clash = journeysListNow.some((row) => row.name.toLowerCase() === name.toLowerCase())
+      if (!name || clash) {
+        return json({ type: 'about:blank', title: 'Bad Request', status: 400,
+          errors: { name: [clash ? 'Another journey already has this name.' : 'This field is required.'] } }, 400)
+      }
+      // a starter: version 1 is a copy of its graph, and the journey says where it came from
+      const starter = body?.starter ? journeyStartersNow.find((item) => item.key === body.starter) : undefined
+      const created = makeJourney({
+        id: 'j-new', code: 'JRN-2026-00010', name,
+        population_mode: String(body?.population_mode ?? 'FIXED'),
+        reentry_policy: String(body?.reentry_policy ?? 'NEVER'),
+        reentry_after_days: (body?.reentry_after_days as number | null) ?? null,
+        status: 'DRAFT', latest_version: 1, channels: [], trigger_family: null, trigger_family_label: null, needs_attention: false,
+        source_starter_key: starter?.key ?? null, source_template: null, source_name: starter?.name ?? null,
+        step_count: starter?.step_count ?? 0, step_types: starter?.graph.nodes.filter((node) => node.type !== 'START').map((node) => node.type) ?? [],
+        entry_rule: starter?.graph.entry_rules[0] ?? null,
+      })
+      journeyNow = created
+      journeysListNow.unshift(created)
+      journeyVersionsNow = [makeJourneyVersion({ journey: created.id })]
+      journeyGraphs.set(1, structuredClone(starter?.graph ?? BLANK_GRAPH))
+      return json(created, 201)
+    }
+    if (path.endsWith('/journeys/') && method === 'GET') {
+      const query = new URL(url, 'http://x').searchParams
+      const needle = (query.get('search') ?? '').toLowerCase()
+      const rows = journeysListNow.filter((row) => (!query.get('status') || row.status === query.get('status'))
+        && (!query.get('channel') || row.channels.includes(query.get('channel') as string))
+        && (!query.get('trigger_family') || row.trigger_family === query.get('trigger_family'))
+        && (query.get('needs_attention') !== 'true' || row.needs_attention)
+        && row.name.toLowerCase().includes(needle))
+      return json({ next: null, previous: null, results: rows, total: journeysListNow.length })
+    }
+    if (/\/journeys\/[^/]+\/versions\/$/.test(path) && method === 'POST') {
+      // graph.new_version: the next version as a DRAFT copy of from_version (one draft at a time)
+      if (journeyVersionsNow.some((item) => item.status === 'DRAFT')) {
+        return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'This journey already has a draft version.' }, 409)
+      }
+      const from = Number(body?.from_version ?? Math.max(...journeyVersionsNow.map((item) => item.version_number)))
+      const number = Math.max(...journeyVersionsNow.map((item) => item.version_number)) + 1
+      const created = makeJourneyVersion({ id: `jv${number}`, journey: journeyNow.id, version_number: number })
+      journeyVersionsNow = [created, ...journeyVersionsNow]
+      journeyGraphs.set(number, structuredClone(journeyGraphs.get(from) ?? BLANK_GRAPH))
+      return json({ ...created, graph: namedGraph(journeyGraphs.get(number)!) }, 201)
+    }
+    if (/\/journeys\/[^/]+\/versions\/$/.test(path)) return json(journeyVersionsNow)
+    if (/\/journeys\/[^/]+\/$/.test(path) && method === 'PATCH') {
+      journeyNow = { ...journeyNow, ...body }
+      return json(journeyNow)
+    }
+    if (/\/journeys\/[^/]+\/$/.test(path)) return json(journeyNow)
     if (path.endsWith('/sender-profiles/')) return json(senders)
     // ---- contact lists: stateful, so what a test creates is there afterwards
     if (path.includes('/contact-lists/')) {

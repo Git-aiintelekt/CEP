@@ -2,11 +2,14 @@ import type { LucideIcon } from 'lucide-react'
 import { useRef, type KeyboardEvent } from 'react'
 
 import { tabId, tabPanelId } from './tabIds'
+import { Tooltip } from './Tooltip'
 
 export interface TabItem<T extends string> {
   id: T
   label: string
   icon?: LucideIcon
+  /** the tab can't be chosen; this sentence says why, in a tooltip */
+  disabledReason?: string
 }
 
 const SIZE = {
@@ -40,22 +43,41 @@ export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix,
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const index = tabs.findIndex((tab) => tab.id === value)
+    const open = tabs.filter((tab) => !tab.disabledReason)
+    const index = open.findIndex((tab) => tab.id === value)
     const next =
-      event.key === 'ArrowRight' ? (index + 1) % tabs.length
-      : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length
+      event.key === 'ArrowRight' ? (index + 1) % open.length
+      : event.key === 'ArrowLeft' ? (index - 1 + open.length) % open.length
       : event.key === 'Home' ? 0
-      : event.key === 'End' ? tabs.length - 1
+      : event.key === 'End' ? open.length - 1
       : -1
     if (next === -1) return
     event.preventDefault()
-    go(tabs[next].id)
+    go(open[next].id)
   }
 
   return (
     <div role="tablist" aria-label={label} className={`flex items-stretch self-stretch ${style.list}`}>
-      {tabs.map(({ id, label: text, icon: Icon }) => {
+      {tabs.map(({ id, label: text, icon: Icon, disabledReason }) => {
         const active = id === value
+        if (disabledReason) {
+          return (
+            <Tooltip key={id} content={disabledReason}>
+              <button
+                type="button"
+                role="tab"
+                id={tabId(idPrefix, id)}
+                aria-selected={false}
+                aria-disabled
+                tabIndex={-1}
+                className={`-mb-px inline-flex shrink-0 cursor-not-allowed items-center gap-2 border-b-2 border-transparent font-semibold whitespace-nowrap text-ink-300 ${style.tab}`}
+              >
+                {Icon && <Icon size={style.icon} strokeWidth={1.5} aria-hidden />}
+                {text}
+              </button>
+            </Tooltip>
+          )
+        }
         return (
           <button
             key={id}

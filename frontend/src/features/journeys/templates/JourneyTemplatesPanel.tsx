@@ -1,0 +1,46 @@
+/** The Journeys page's blue Journey Templates panel (an approved exception, like the Templates page's banner):
+ * Start from Scratch, then the first four CEP starters. At narrower widths the row scrolls rather than squashing. */
+import { ArrowRight } from 'lucide-react'
+
+import { Spinner } from '@/components/States'
+import type { JourneyStarter } from '@/lib/types'
+
+import { useStarters } from './templateApi'
+import { PanelStarterCard, ScratchCard } from './TemplateCards'
+
+const SHOWN = 4
+
+export function JourneyTemplatesPanel({ onScratch, onPreview, onViewMore }: {
+  /** absent without journey.edit: there is no blank journey to start */
+  onScratch?: () => void
+  onPreview: (starter: JourneyStarter) => void
+  onViewMore: () => void
+}) {
+  const starters = useStarters()
+  return (
+    <section aria-labelledby="journey-templates-title" className="rounded-lg bg-brand-600 px-[clamp(20px,2vw,32px)] pt-6 pb-7">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id="journey-templates-title" className="font-display text-section-title font-semibold text-white">Journey Templates</h2>
+          <p className="mt-1 text-sm leading-normal text-brand-100">Start a journey from a blank canvas or a CEP starter. A template is copied into a new draft; the original never changes.</p>
+        </div>
+        <button type="button" onClick={onViewMore}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control-md bg-surface px-3 text-sm font-semibold text-brand-600 transition-colors duration-fast ease-standard hover:bg-brand-100 hover:text-brand-800 active:bg-brand-100">
+          View More <ArrowRight size={14} strokeWidth={1.5} aria-hidden />
+        </button>
+      </div>
+      <ul aria-label="Start a Journey" className="mt-5 grid auto-cols-[minmax(192px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-1">
+        {onScratch && <li className="min-w-0"><ScratchCard onClick={onScratch} /></li>}
+        {starters.isPending && (
+          <li className="flex min-h-[176px] items-center justify-center gap-2 rounded-lg bg-surface text-sm text-ink-800"><Spinner size="sm" /> Loading the starters</li>
+        )}
+        {starters.isError && (
+          <li className="flex min-h-[176px] items-center justify-center rounded-lg bg-surface px-4 text-center text-sm text-ink-800">The starters could not be loaded.</li>
+        )}
+        {starters.data?.slice(0, SHOWN).map((starter) => (
+          <li key={starter.key} className="min-w-0"><PanelStarterCard starter={starter} onClick={() => onPreview(starter)} /></li>
+        ))}
+      </ul>
+    </section>
+  )
+}

@@ -55,6 +55,51 @@ class Segment(models.Model):
         return str(self.name)
 
 
+class Coupon(models.Model):
+    """Cached reference to a C360 coupon definition; not owned/edited by CEP (do not rebuild coupon issuance)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    source_system = models.CharField(max_length=40, default='C360')
+    code = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
+    discount_definition = models.JSONField(null=True, blank=True)  # {type: PERCENT|AMOUNT, value}, if exposed
+    is_active = models.BooleanField(default=True)
+    synced_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'coupon'
+        constraints = [
+            models.UniqueConstraint(fields=['tenant_id', 'source_system', 'code'], name='ux_coupon_tenant_id_source_system_code'),
+        ]
+
+    def __str__(self):
+        return str(self.name)
+
+
+class LoyaltyTier(models.Model):
+    """Cached reference to a C360 loyalty tier; not owned/edited by CEP (do not rebuild the loyalty program)"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    source_system = models.CharField(max_length=40, default='C360')
+    code = models.CharField(max_length=100)
+    name = models.CharField(max_length=200)
+    rank = models.IntegerField(default=0)  # ordering only, e.g. Silver < Gold < Platinum
+    description = models.TextField(null=True, blank=True)
+    synced_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'loyalty_tier'
+        constraints = [
+            models.UniqueConstraint(fields=['tenant_id', 'source_system', 'code'], name='ux_loyalty_tier_tenant_id_source_system_code'),
+        ]
+
+    def __str__(self):
+        return str(self.name)
+
+
 class CustomerSegmentMembership(models.Model):
     """Party membership in a synced segment"""
     pk = models.CompositePrimaryKey('segment_id', 'party_id')

@@ -10,8 +10,9 @@ export interface SegmentOption<V extends string> {
 /**
  * track: a Gray 100 track with a raised white segment (devices, preview width); the track is the 32px control.
  * outline: separate bordered 32px segments, the selected one in brand (alignment, units).
+ * solid: one bordered 40px bar, the selected half filled Blue 600 (the Journey step panel's channel switch).
  */
-export type SegmentedVariant = 'track' | 'outline'
+export type SegmentedVariant = 'track' | 'outline' | 'solid'
 
 interface SegmentedControlProps<V extends string> {
   /** the group's accessible name */
@@ -31,6 +32,7 @@ interface SegmentedControlProps<V extends string> {
 const GROUP: Record<SegmentedVariant, string> = {
   track: 'gap-0.5 rounded-control-md bg-fill-subtle p-0.5',
   outline: 'gap-1',
+  solid: 'h-10 overflow-hidden rounded-control-lg border border-line',
 }
 
 function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: boolean, iconOnly: boolean, stretch: boolean): string {
@@ -39,6 +41,11 @@ function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: bo
     const shape = `h-7 rounded-control-sm ${iconOnly ? 'w-8' : 'px-2.5'}`
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-line bg-surface text-ink-300' : 'border-transparent text-ink-300'}`
     return `${base} ${shape} ${selected ? 'border-line bg-surface text-ink-900' : 'border-transparent text-ink-800 hover:text-ink-900'}`
+  }
+  if (variant === 'solid') {
+    const shape = 'h-full border-0 px-3 text-sm'
+    if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'bg-fill-muted text-ink-800' : 'bg-fill-subtle text-ink-300'}`
+    return `${base} ${shape} ${selected ? 'bg-brand-600 text-white' : 'bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`
   }
   const shape = `h-8 rounded-control-md ${iconOnly ? 'w-8' : 'min-w-8 px-2'}`
   // disabled keeps the choice readable: the selected segment stays a step darker than the rest
