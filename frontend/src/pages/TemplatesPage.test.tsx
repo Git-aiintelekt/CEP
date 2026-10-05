@@ -206,34 +206,37 @@ test('a preset that cannot be copied says so in a toast', async () => {
   expect(window.location.pathname).toBe('/templates')
 })
 
-test('the create dialog needs a name, sends the description but not the tags, and opens the editor', async () => {
+test('a channel card opens the two-step create pop-up on that channel: a name, then Blank or a starter; it sends the description and opens the editor', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Create SMS template' }))
 
-  const dialog = await screen.findByRole('dialog', { name: 'New SMS Template' })
-  const submit = within(dialog).getByRole('button', { name: 'Continue to Editor' }) as HTMLButtonElement
-  expect(submit.disabled).toBe(true)
-
+  const dialog = await screen.findByRole('dialog', { name: 'Create a Template' })
+  expect(within(dialog).getByText(/^Step 1 of 2/)).toBeTruthy()
+  expect((within(dialog).getByRole('combobox', { name: /Channel/ }) as HTMLSelectElement).value).toBe('SMS')
+  const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
+  expect(next.disabled).toBe(true)
   await user.type(within(dialog).getByLabelText(/^Template Name/), 'Weekend flash')
   await user.type(within(dialog).getByLabelText(/^Description/), 'Saturday only')
-  await user.click(within(dialog).getByRole('button', { name: 'Loyalty' }))
-  expect(within(dialog).getByRole('button', { name: 'Loyalty' }).getAttribute('aria-pressed')).toBe('true')
-  expect(submit.disabled).toBe(false)
-  await user.click(submit)
+  await user.click(next)
+
+  expect(await within(dialog).findByText(/^Step 2 of 2/)).toBeTruthy()
+  expect((await within(dialog).findByRole('radio', { name: /Blank/ })).getAttribute('aria-checked')).toBe('true')
+  await user.click(within(dialog).getByRole('button', { name: 'Create and Write the Message' }))
 
   await waitFor(() => expect(window.location.pathname).toBe('/templates/tpl-new/message'))
   const body = calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body
   expect(body).toEqual({ name: 'Weekend flash', channel: 'SMS', description: 'Saturday only' })
 })
 
-test('the create dialog shows the server refusing the name under the field', async () => {
+test('the create pop-up takes the person back to step 1 to show the server refusing the name under the field', async () => {
   await openLanding({ onSaveTemplate: () => problem(400, { title: 'Invalid input', errors: { name: ['A template with this name already exists.'] } }) })
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Create Email template' }))
-  const dialog = await screen.findByRole('dialog', { name: 'New Email Template' })
+  const dialog = await screen.findByRole('dialog', { name: 'Create a Template' })
   await user.type(within(dialog).getByLabelText(/^Template Name/), 'Fall Email')
-  await user.click(within(dialog).getByRole('button', { name: 'Continue to Editor' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await user.click(await within(dialog).findByRole('button', { name: 'Create and Open the Designer' }))
 
   expect(await within(dialog).findByText('A template with this name already exists.')).toBeTruthy()
   expect(within(dialog).getByLabelText(/^Template Name/).getAttribute('aria-invalid')).toBe('true')

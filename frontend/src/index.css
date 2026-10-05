@@ -273,6 +273,50 @@
 }
 
 /*
+ * Home ("CEP Dashboard v2", approved 2026-10-05) is the one signed-in page allowed gradients, a tinted page and uppercase
+ * hero labels: the flat rules still hold everywhere else. Every Home gradient lives in these classes, built from tokens,
+ * so components never carry a raw colour. Do not reuse them on other pages.
+ */
+@theme {
+  --color-home-canvas: #f4f5f9; /* where the plum wash fades to */
+  --color-home-hero-rule: #4a5291; /* the footer rule on the navy hero */
+  --color-home-hero-plum-rule: #b9659f; /* the footer rule on the plum hero */
+}
+
+@layer components {
+  /* navy outside a 12px quarter circle: the shell's sheet corner, pinned under the top bar */
+  .cep-sheet-corner { background: radial-gradient(circle at 100% 100%, transparent 11.5px, var(--color-sidebar) 12px); }
+  .cep-home-wash { background: linear-gradient(180deg, var(--color-plum-50) 0px, var(--color-home-canvas) 360px); }
+  .cep-home-hero-navy { background: linear-gradient(140deg, var(--color-sidebar) 0%, var(--color-plum-800) 100%); }
+  .cep-home-hero-plum { background: linear-gradient(140deg, var(--color-plum-800) 0%, var(--color-plum-500) 100%); }
+  /* blue into plum: progress fills, the set-up badge, the funnel and ranking bars */
+  .cep-home-blend { background: linear-gradient(90deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
+  .cep-home-blend-diagonal { background: linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
+  /* the revenue bars and the recent-campaign mark: plum at the top into blue */
+  .cep-home-blend-down { background: linear-gradient(180deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
+  .cep-home-journey { background: linear-gradient(135deg, var(--color-plum-500) 0%, var(--color-plum-800) 100%); }
+  .cep-home-journey-down { background: linear-gradient(180deg, var(--color-plum-500) 0%, var(--color-plum-800) 100%); }
+  /* section and KPI icon badges, ranks */
+  .cep-home-badge { background: linear-gradient(135deg, var(--color-plum-50) 0%, var(--color-plum-100) 100%); }
+  .cep-home-badge-strong { background: linear-gradient(135deg, var(--color-plum-100) 0%, var(--color-plum-200) 100%); }
+  .cep-home-rank-1 { background: linear-gradient(135deg, var(--color-plum-700) 0%, var(--color-plum-500) 100%); }
+  .cep-home-rank-2 { background: var(--color-plum-500); }
+  .cep-home-rank-3 { background: linear-gradient(135deg, var(--color-plum-200) 0%, var(--color-plum-100) 100%); }
+  /* a plum header strip, a highlighted funnel step, a figure tile */
+  .cep-home-strip { background: linear-gradient(90deg, var(--color-plum-50) 0%, var(--color-surface) 100%); }
+  .cep-home-tile { background: linear-gradient(160deg, var(--color-plum-50) 0%, var(--color-surface) 100%); }
+  .cep-home-day { background: linear-gradient(180deg, var(--color-plum-50) 0%, var(--color-plum-100) 100%); }
+  /* the revenue insight: amber, the one warning on the page */
+  .cep-home-insight { background: linear-gradient(90deg, var(--color-warning-bg) 0%, var(--color-row-flagged) 100%); }
+  .cep-home-insight-badge { background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-high) 100%); }
+  /* the funnel's steps, blue through periwinkle into plum */
+  .cep-home-step-1 { background: linear-gradient(90deg, var(--color-brand-700) 0%, var(--color-brand-600) 100%); }
+  .cep-home-step-2 { background: linear-gradient(90deg, var(--color-brand-600) 0%, var(--color-callout-icon) 100%); }
+  .cep-home-step-3 { background: linear-gradient(90deg, var(--color-callout-icon) 0%, var(--color-plum-500) 100%); }
+  .cep-home-step-4 { background: linear-gradient(90deg, var(--color-plum-500) 0%, var(--color-plum-700) 100%); }
+}
+
+/*
  * The two unauthenticated screens (/login and /set-password) are a documented exception to the flat, motion-light rules
  * in designnew.md §4-§5: the signed-off design builds their brand panel and loading state from gradients and looping
  * motion. Everything is confined to these classes so no component carries a raw colour, and every loop stops under

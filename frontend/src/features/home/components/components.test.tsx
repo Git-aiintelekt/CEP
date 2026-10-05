@@ -1,12 +1,13 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { CalendarClock } from 'lucide-react'
+import { CalendarClock, MailOpen } from 'lucide-react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, test } from 'vitest'
 
 import { ChangeChip } from './ChangeChip'
 import { HomeCard } from './HomeCard'
 import { BenchmarkTag, SeverityTag } from './HomeTags'
-import { KpiStrip, KpiTile } from './KpiTile'
+import { HeroCard } from './HeroCard'
+import { PlumChip, RingKpi } from './RingKpi'
 import { SectionHeader } from './SectionHeader'
 
 afterEach(cleanup)
@@ -44,13 +45,13 @@ test('benchmark tags have no dot; severity tags carry their icon and colours', (
   expect(governance.querySelector('svg')!.getAttribute('class')).toContain('text-callout-icon')
 })
 
-test('section headers: page level at 19px, card level at 18px with a divider; one plum square; the title labels the section', () => {
+test('section headers: page level at 19px, card level at 16px with a divider; one plum badge; the title labels the section', () => {
   render(<SectionHeader level="page" title="Needs Attention" titleId="t1" icon={CalendarClock} count={6} helper="Showing 6 of 15" actions={<button type="button">View All</button>} />)
   const title = screen.getByRole('heading', { name: 'Needs Attention' })
   expect(title.id).toBe('t1')
   expect(title.className).toContain('text-section-title')
   expect(document.querySelectorAll('[data-plum-icon]')).toHaveLength(1)
-  expect(document.querySelector('[data-plum-icon]')!.className).toContain('h-7 w-7 shrink-0 items-center justify-center rounded-control-md bg-plum-100 text-plum-700')
+  expect(document.querySelector('[data-plum-icon]')!.className).toContain('cep-home-badge flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-plum-700')
   expect(screen.getByText('Showing 6 of 15').className).toContain('text-helper text-ink-800')
   cleanup()
 
@@ -59,7 +60,7 @@ test('section headers: page level at 19px, card level at 18px with a divider; on
   expect(card.className).toContain('rounded-lg border border-line bg-surface')
   expect(card.className).not.toContain('shadow')
   expect(screen.getByRole('heading', { name: 'Recent Campaigns' }).className).toContain('text-card-heading')
-  expect(card.querySelector('[data-section-header="card"]')!.className).toContain('border-b border-line')
+  expect(card.querySelector('[data-section-header="card"]')!.className).toContain('border-b border-line-subtle')
   expect(screen.getByRole('link', { name: 'View All Campaigns' }).parentElement!.className).toContain('border-t')
 })
 
@@ -72,43 +73,31 @@ test('a card whose section is unavailable renders nothing; loading and errors sh
   expect(screen.getByText('ready data')).toBeTruthy()
 })
 
-test('KPI tiles: the figure with its change and benchmark, the bar; Not Tracked and Not Set Up Yet never show $0', () => {
+test('ring KPIs: the figure, its supporting line and chips, the ring filled to its share; Not Tracked is quiet', () => {
   render(
-    <MemoryRouter>
-      <KpiStrip label="Key Figures">
-        <KpiTile label="Open Rate" note="Email Only" value="37.5%" change={{ value: 1.1, unit: 'pt' }} benchmark="Good" supporting="405,585 opened" />
-        <KpiTile label="Attributed Revenue" value="$1.39M" change={{ value: 9.7, unit: '%' }} progress={{ value: 95, label: 'Revenue against target' }} supporting="95% of $1.47M target" />
-        <KpiTile label="SMS Opens" state="notTracked" />
-        <KpiTile label="Store Revenue Share" state="notSetUp" canSetUp />
-        <KpiTile label="Campaign Contribution" state="notSetUp" />
-        <KpiTile label="Loading" state="loading" />
-      </KpiStrip>
-    </MemoryRouter>,
+    <>
+      <RingKpi label="Open Rate" icon={MailOpen} note="Email Only" value="37.5%" percent={37.5} supporting="405,585 opened" chips={<PlumChip>Good</PlumChip>} />
+      <RingKpi label="SMS Opens" icon={MailOpen} value="Not Tracked" quiet supporting="SMS does not report opens" />
+      <RingKpi label="Loading" icon={MailOpen} loading />
+    </>,
   )
-  const strip = screen.getByRole('group', { name: 'Key Figures' })
-  expect(strip.className).toContain('min-[1200px]:grid-cols-6')
-  expect(strip.className).toContain('min-[768px]:grid-cols-3')
   const open = document.querySelector('[data-kpi="Open Rate"]')!
-  expect(screen.getByText('37.5%').className).toContain('text-[28px]')
   expect(open.textContent).toContain('Email Only')
-  expect(screen.getByRole('img', { name: 'Up 1.1 pt on the previous period' })).toBeTruthy()
-  const bar = screen.getByRole('progressbar', { name: 'Revenue against target' })
-  expect(bar.getAttribute('aria-valuenow')).toBe('95')
-  expect(bar.className).toContain('mt-2 h-1')
-
-  // the revenue tile reads top to bottom: value, change, bar, target line
-  const revenue = document.querySelector('[data-kpi="Attributed Revenue"]')!
-  const order = [...revenue.querySelectorAll('[role="img"], [role="progressbar"], p')].map((node) => node.getAttribute('role') ?? node.textContent)
-  expect(order).toEqual(['$1.39M', 'img', 'progressbar', '95% of $1.47M target'])
-  const notTracked = document.querySelector('[data-kpi="SMS Opens"]')!
-  expect(notTracked.textContent).toContain('Not Tracked')
-  expect(notTracked.textContent).toContain('SMS does not report opens')
+  expect(open.textContent).toContain('405,585 opened')
+  expect(open.querySelector('[data-ring]')!.getAttribute('data-ring')).toBe('38')
+  expect(screen.getByText('Good').className).toContain('bg-plum-100')
+  expect(screen.getByText('37.5%').className).toContain('text-[26px]')
   expect(screen.getByText('Not Tracked').className).toContain('text-xl')
-  const notSetUp = document.querySelector('[data-kpi="Store Revenue Share"]')!
-  expect(notSetUp.textContent).toContain('Not Set Up Yet')
-  expect(screen.getByRole('link', { name: 'Set Up Attribution' })).toBeTruthy()
-  expect(screen.getAllByRole('link', { name: 'Set Up Attribution' })).toHaveLength(1)                   // only where the viewer may set it up
-  expect(document.querySelector('[data-kpi="Campaign Contribution"]')!.textContent).toContain('Ask an admin to set up attribution.')
-  expect(document.body.textContent).not.toContain('$0')
-  expect(document.querySelector('[data-kpi-loading]')).toBeTruthy()
+  expect(document.querySelector('[data-kpi="SMS Opens"] [data-ring]')!.getAttribute('data-ring')).toBe('0')
+  expect(document.querySelector('[data-kpi="Loading"] [data-kpi-loading]')).toBeTruthy()
+})
+
+test('hero cards: the label in capitals, the chip, the figure and its line, the goal in amber when behind', () => {
+  render(<HeroCard tone="navy" label="Attributed Revenue" chip="Last 30 Days" value="$4.3K" sub="from $127 spent" footLeft="Attributed to campaigns" footRight="35% of $12.5K goal" footWarning />)
+  const hero = document.querySelector('[data-kpi="Attributed Revenue"]')!
+  expect(hero.className).toContain('cep-home-hero-navy')
+  expect(screen.getByText('Attributed Revenue').className).toContain('uppercase')
+  expect(hero.textContent).toContain('Last 30 Days')
+  expect(screen.getByText('$4.3K').className).toContain('text-[40px]')
+  expect(hero.querySelector('[data-hero-goal]')!.className).toContain('text-warning')
 })

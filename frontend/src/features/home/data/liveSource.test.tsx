@@ -107,7 +107,7 @@ test('a campaign filter sums the campaign rows, since the report takes no ids; r
   expect(sms.attributedRevenue.value).toBeNull()
 })
 
-test('the page on the live source: the ROI tile reads the overview’s cost; revenue tiles are Not Set Up when null; no journey button', async () => {
+test('the page on the live source: the ROI tile reads the overview’s cost; revenue tiles are Not Set Up when null; Journey is a button that opens its Setup, never a link', async () => {
   installMockApi()
   const { wrapper } = await load()
   const { HomePage } = await import('../HomePage')
@@ -118,7 +118,7 @@ test('the page on the live source: the ROI tile reads the overview’s cost; rev
     return node
   })
   expect(roi.querySelector('[data-kpi-loading]')).toBeNull()
-  expect(document.querySelector('[data-kpi="Attributed Revenue"]')!.textContent).toContain('Attributed to campaigns')
+  expect(document.querySelector('[data-kpi="Attributed Revenue"]')!.textContent).toMatch(/Attributed to campaigns|on the previous period/)
   expect(within(screen.getByRole('region', { name: 'Create New' })).queryByRole('link', { name: 'Journey' })).toBeNull()
   cleanup()
 

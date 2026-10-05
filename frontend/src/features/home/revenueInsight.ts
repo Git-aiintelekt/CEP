@@ -5,6 +5,8 @@ import type { RevenueCostSeries } from './data/types'
 export interface RevenueInsight {
   title: string
   detail: string
+  /** behind target pace: the one warning, in amber */
+  behind: boolean
 }
 
 /**
@@ -20,12 +22,14 @@ export function revenueInsight(data: RevenueCostSeries): RevenueInsight | null {
     const ahead = revenue >= pace
     return {
       title: ahead ? 'Revenue is ahead of target pace' : 'Revenue is behind target pace',
+      behind: !ahead,
       detail: `Attributed revenue is ${formatCompactMoney(revenue)} ${spend}, ${formatPercent((revenue / pace) * 100, 0)} of the ${formatCompactMoney(pace)} expected by now. ${
         ahead ? 'Consider scaling the best-performing audience before the next send window.' : 'Review the campaigns furthest under target before the next send window.'}`,
     }
   }
   return {
     title: roi !== null && roi >= 2 ? 'Revenue is well ahead of cost' : 'Revenue against cost',
+    behind: false,
     detail: `Attributed revenue is ${formatCompactMoney(revenue)} ${spend}. Set revenue targets on campaigns to track pace here.`,
   }
 }

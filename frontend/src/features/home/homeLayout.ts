@@ -4,7 +4,7 @@ export type SectionKey =
   | 'attention' | 'performance' | 'createNew' | 'revenueCost' | 'funnel' | 'topBottom' | 'schedule' | 'snapshot' | 'recent' | 'governance' | 'eReceipts'
 
 /** the cards below the key figures, in page order */
-export type CardKey = 'revenueCost' | 'funnel' | 'topBottom' | 'schedule' | 'snapshot' | 'recent' | 'governance' | 'eReceipts'
+export type CardKey = 'revenueCost' | 'funnel' | 'topBottom' | 'schedule' | 'snapshot' | 'governance' | 'eReceipts' | 'recent'
 
 /** 'unavailable': the source can't feed it; 'empty': ready with nothing to show by the section's own rule (no e-receipts) */
 export type Availability = 'ready' | 'unavailable' | 'empty'
@@ -37,18 +37,19 @@ interface LayoutInput {
   eReceiptsOn?: boolean
 }
 
-const ORDER: CardKey[] = ['revenueCost', 'funnel', 'topBottom', 'schedule', 'snapshot', 'recent', 'governance', 'eReceipts']
+const ORDER: CardKey[] = ['revenueCost', 'funnel', 'topBottom', 'schedule', 'snapshot', 'governance', 'eReceipts', 'recent']
 const SIZE: Record<CardKey, 'wide' | 'half' | 'small'> = {
   revenueCost: 'wide', recent: 'wide', topBottom: 'half', schedule: 'half', governance: 'half', eReceipts: 'half', funnel: 'small', snapshot: 'small',
 }
 /** with an odd count, the first of these present goes full width; Governance and E-Receipts only when alone */
 const FULL_WIDTH_PREFERENCE: CardKey[] = ['recent', 'revenueCost', 'topBottom', 'schedule', 'funnel', 'snapshot']
 
+/** CEP Dashboard v2: the chart beside the funnel, two rows of the rest (E-Receipts beside Governance), then Recent Campaigns */
 const DESIGN: LayoutRow[] = [
   { name: 'a', layout: '2:1', cards: ['revenueCost', 'funnel'] },
-  { name: 'b', layout: 'thirds', cards: ['topBottom', 'schedule', 'snapshot'] },
-  { name: 'c', layout: 'full', cards: ['recent'] },
-  { name: 'd', layout: '1:1', cards: ['governance', 'eReceipts'] },
+  { name: 'b', layout: '1:1', cards: ['topBottom', 'schedule'] },
+  { name: 'c', layout: 'thirds', cards: ['snapshot', 'governance', 'eReceipts'] },
+  { name: 'd', layout: 'full', cards: ['recent'] },
 ]
 /** one campaign: no ranking, snapshot, recent list or e-receipts by design; Governance moves beside Next 7 Days */
 const SINGLE_CAMPAIGN_DESIGN: LayoutRow[] = [

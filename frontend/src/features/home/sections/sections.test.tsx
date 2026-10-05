@@ -5,7 +5,6 @@ import { afterEach, expect, test } from 'vitest'
 
 import { HomePage } from '../HomePage'
 import { HomeDataProvider } from '../data/HomeDataProvider'
-import { liveSource } from '../data/liveSource'
 import { createSampleSource, type SampleState } from '../data/sampleSource'
 import { SAMPLE_VIEWER } from '../data/sampleViewer'
 import type { AttentionGroup, HomeDataSource, HomeViewer, SectionResult, Attention } from '../data/types'
@@ -36,7 +35,7 @@ test('alert cards: red, then amber, then periwinkle, larger counts first; three 
   expect(first.textContent).toContain('crit-big label')
   expect(within(first).getByRole('link', { name: 'crit-big action' }).getAttribute('href')).toBe('/go/crit-big')
   expect(within(first).getAllByRole('link')).toHaveLength(1)
-  expect(first.closest('ul')!.className).toContain('min-[1200px]:grid-cols-3')                                  // three cards across on a wide page
+  expect(first.closest('ul')!.className).toContain('@min-[1100px]:grid-cols-3')                                 // three cards across on a wide page
   expect(within(attention()).getByText('Updated today at 6:00 AM')).toBeTruthy()
 
   const toggle = within(attention()).getByRole('button', { name: 'View All (5)' })
@@ -86,13 +85,13 @@ test('alerts loading show three placeholder cards; an error keeps the section an
 })
 
 // ---------------------------------------------------------------- Key Figures
-test('busy: the six tiles in order with the mockup’s figures, % for counts and money, pt for rates and shares', () => {
+test('busy: the two heroes then the four ring KPIs with the mockup’s figures, % for counts and money, pt for rates and shares', () => {
   renderHome()
   const strip = screen.getByRole('group', { name: 'Key Figures' })
   expect([...strip.querySelectorAll('[data-kpi]')].map((node) => node.getAttribute('data-kpi')))
-    .toEqual(['Delivered', 'Open Rate', 'Click Rate', 'Conversions', 'Attributed Revenue', 'Campaign ROI'])
+    .toEqual(['Attributed Revenue', 'Campaign ROI', 'Delivered', 'Open Rate', 'Click Rate', 'Conversions'])
   expect(tile('Delivered').className).toContain('rounded-lg border border-line bg-surface')                   // each figure its own card
-  expect(tile('Delivered').querySelector('[data-kpi-disc]')).toBeTruthy()
+  expect(tile('Delivered').querySelector('[data-ring]')).toBeTruthy()
   expect(tile('Delivered').textContent).toContain('1,584,560')
   expect(tile('Delivered').textContent).toContain('52,819 sends per day')
   expect(within(tile('Delivered')).getByRole('img').getAttribute('aria-label')).toBe('Up 6.2% on the previous period')
@@ -109,11 +108,13 @@ test('busy: the six tiles in order with the mockup’s figures, % for counts and
   expect(tile('Conversions').textContent).toContain('25.9% of clicks')
   expect(tile('Conversions').textContent).toContain('Steady click-to-conversion')
   expect(tile('Attributed Revenue').textContent).toContain('$1.39M')
-  expect(tile('Attributed Revenue').textContent).toContain('95% of $1.47M target')
-  expect(within(tile('Attributed Revenue')).getByRole('progressbar')).toBeTruthy()
+  expect(tile('Attributed Revenue').textContent).toContain('95% of $1.47M goal')
+  expect(tile('Attributed Revenue').querySelector('[data-hero-goal]')!.className).toContain('text-warning')         // under the goal
+  expect(tile('Attributed Revenue').textContent).toContain('+9.7% on the previous period')
+  expect(tile('Attributed Revenue').querySelector('[data-sparkline]')).toBeTruthy()
   expect(strip.textContent).not.toMatch(/Lowest|Furthest Behind/)
   expect(tile('Campaign ROI').textContent).toContain('12.5×')
-  expect(within(tile('Campaign ROI')).getByText('High return')).toBeTruthy()
+  expect(within(tile('Campaign ROI')).getByText('High Return')).toBeTruthy()
   expect(tile('Campaign ROI').textContent).toContain('$111.3K campaign cost')
 })
 
@@ -159,21 +160,22 @@ test('without report.view the strip is one line; the filters stay', () => {
 })
 
 // ---------------------------------------------------------------- Create New
-test('Create New: Contact List and Template outlined, Create Campaign filled, each a link by permission; no Journey button', () => {
+test('Create New: Contact List, Template and Journey outlined, Create Campaign filled, each by permission; each a button for its pop-up, never a link', () => {
   renderHome()
-  const tiles = () => within(screen.getByRole('region', { name: 'Create New' })).getAllByRole('link')
-  expect(tiles().map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-    ['Contact List', '/contact-lists?new=1'], ['Template', '/templates/new'], ['Create Campaign', '/campaigns/new'],
-  ])
-  expect(tiles()[2].className).toContain('bg-brand-600')
+  const tiles = () => within(screen.getByRole('region', { name: 'Create New' })).getAllByRole('button')
+  expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Template', 'Journey', 'Create Campaign'])
+  expect(within(screen.getByRole('region', { name: 'Create New' })).queryAllByRole('link')).toHaveLength(0)
+  expect(tiles().every((button) => button.getAttribute('aria-haspopup') === 'dialog')).toBe(true)
+  expect(tiles()[3].className).toContain('bg-brand-600')
   expect(tiles()[0].className).not.toContain('bg-brand-600')
+  expect(tiles()[0].className).toContain('border-line-control')                                                // Home's neutral outline
   expect(tiles()[0].querySelector('svg')).toBeTruthy()
   cleanup()
   renderHome({ viewer: member(['template.edit', 'journey.edit']) })
-  expect(tiles().map((link) => link.textContent)).toEqual(['Contact List', 'Create Campaign'])
+  expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Create Campaign'])
   cleanup()
-  renderHome({ source: { ...createSampleSource('busy'), capabilities: liveSource.capabilities } })
-  expect(tiles().map((link) => link.textContent)).toEqual(['Contact List', 'Template', 'Create Campaign'])
+  renderHome({ viewer: { ...SAMPLE_VIEWER, has: (feature) => feature !== 'journeys' } })
+  expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Template', 'Create Campaign'])
 })
 
 test('a viewer with no create permission gets no Create New section at all', () => {

@@ -1,6 +1,7 @@
 /**
- * Home, the marketing command centre: the greeting with the Create New buttons beside it, the alert cards, the six key
- * figures, then the cards: the designed rows when all are there, otherwise two per row (see homeLayout).
+ * Home, the marketing command centre (CEP Dashboard v2): the greeting with the Create New buttons beside it, the alert
+ * cards, the set-up card, the two heroes and four ring KPIs, then the cards: the designed rows when all are there,
+ * otherwise two per row (see homeLayout).
  */
 import { Fragment, type ReactNode } from 'react'
 
@@ -52,14 +53,15 @@ function Card({ card, filters, onChange, onClear, singleCampaign }: CardProps) {
   }
 }
 
+/** by the page's own width (the rail takes some of the window), as the design measures it */
 const COLUMNS: Record<Exclude<LayoutRow['layout'], 'full'>, string> = {
-  '2:1': 'min-[1200px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
-  '1:2': 'min-[1200px]:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]',
-  '1:1': 'min-[1200px]:grid-cols-2',
-  thirds: 'min-[768px]:grid-cols-2 min-[1200px]:grid-cols-3',
+  '2:1': '@min-[1100px]:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]',
+  '1:2': '@min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)]',
+  '1:1': '@min-[840px]:grid-cols-2',
+  thirds: '@min-[840px]:grid-cols-2 @min-[1100px]:grid-cols-3',
 }
 
-/** one row: a card on its own, or two or three side by side from 1200px (stacked below) */
+/** one row: a card on its own, or two or three side by side on a wide page (stacked below) */
 function CardRow({ row, render }: { row: LayoutRow; render: (card: CardKey) => ReactNode }) {
   return (
     <div data-row={row.name} data-layout={row.layout} className={`grid gap-4 ${row.layout === 'full' ? '' : COLUMNS[row.layout]}`}>
@@ -102,12 +104,10 @@ export function HomePage() {
   const greeting = greetingFor(new Date(), viewer.timezone)
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    // the plum wash fills the sheet edge to edge, under the shell's own padding
+    <div data-home className="cep-home-wash @container -mx-4 -my-5 flex min-h-full min-w-0 flex-col gap-5 rounded-tl-xl px-4 pt-6 pb-12 md:-mx-8 md:-my-6 md:px-8 md:pt-7">
       <div data-greeting-row className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
-          <p className="text-sm text-ink-800">Your marketing command centre: performance, risks and next actions in one place.</p>
-        </div>
+        <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
         {layout.createNew && <CreateNew tiles={tiles} />}
       </div>
       {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}

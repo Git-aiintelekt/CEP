@@ -24,8 +24,9 @@ function chartParts(data: RevenueCostSeries | null): { series: ChartSeries[]; re
   const points = data?.points ?? []
   return {
     series: [
-      { key: 'revenue', label: 'Revenue', mark: 'bar', values: points.map((point) => point.revenue ?? 0) },
-      { key: 'cost', label: 'Cost', mark: 'line', values: points.map((point) => point.cost) },
+      // Home's approved gradient: plum at the top of each bar into blue
+      { key: 'revenue', label: 'Revenue', mark: 'bar', values: points.map((point) => point.revenue ?? 0), gradient: ['var(--color-plum-500)', 'var(--color-brand-600)'] },
+      { key: 'cost', label: 'Cost', mark: 'line', area: true, values: points.map((point) => point.cost) },
     ],
     reference: points.some((point) => point.targetPace !== null) ? { key: 'target', label: 'Target Pace', values: points.map((point) => point.targetPace ?? 0) } : undefined,
   }
@@ -33,11 +34,13 @@ function chartParts(data: RevenueCostSeries | null): { series: ChartSeries[]; re
 
 function Insight({ insight }: { insight: RevenueInsight }) {
   return (
-    <div data-revenue-insight className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle px-4 py-3">
-      <Lightbulb size={16} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0 text-warning" />
-      <p className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-sm font-semibold text-ink-900">{insight.title}</span>
-        <span className="text-helper text-ink-800">{insight.detail}</span>
+    <div data-revenue-insight={insight.behind ? 'behind' : 'on-track'}
+      className={`flex items-start gap-3 rounded-lg border px-3.5 py-3 ${insight.behind ? 'cep-home-insight border-high-bg' : 'cep-home-strip border-line-subtle'}`}>
+      <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md ${insight.behind ? 'cep-home-insight-badge text-white' : 'cep-home-badge text-plum-700'}`}>
+        <Lightbulb size={15} strokeWidth={1.5} />
+      </span>
+      <p className={`min-w-0 text-helper ${insight.behind ? 'text-warning-text' : 'text-ink-800'}`}>
+        <span className="font-semibold">{insight.title}.</span> {insight.detail}
       </p>
     </div>
   )
@@ -82,12 +85,13 @@ export function RevenueCost({ filters, onChange, onClear, singleCampaign }: Reve
   const insight = data && attributed ? revenueInsight(data) : null
 
   return (
-    <HomeCard title="Marketing Performance" icon={ChartColumn} actions={<HomeFilterBar filters={filters} onChange={onChange} onClear={onClear} />}>
+    <HomeCard title="Marketing Performance" icon={ChartColumn} strip actions={<HomeFilterBar filters={filters} onChange={onChange} onClear={onClear} />}>
       {!attributed && data ? <NotSetUp cost={data.summary.cost} canSetUp={viewer.can('user.admin')} /> : (
         <div className="flex h-full flex-col gap-4">
           {!singleCampaign && <div className="self-start"><SegmentedControl label="Revenue View" variant="outline" options={VIEWS} value={view} onChange={setPicked} /></div>}
           {view === 'total' ? (
             <>
+              {data && <ChartLegend series={series} reference={reference} hidden={legend.hidden} onToggle={legend.toggle} />}
               <Chart
                 title={`Attributed revenue and campaign cost per ${weekly ? 'week' : 'day'}, with target pace`}
                 categoryHeader={weekly ? 'Week' : 'Day'}
@@ -109,7 +113,6 @@ export function RevenueCost({ filters, onChange, onClear, singleCampaign }: Reve
                 onRetry={result.status === 'error' ? result.retry : undefined}
                 emptyText="Nothing was sent in this period."
               />
-              {data && <ChartLegend series={series} reference={reference} hidden={legend.hidden} onToggle={legend.toggle} />}
             </>
           ) : (
             <BarList

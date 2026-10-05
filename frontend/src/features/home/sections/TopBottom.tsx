@@ -1,4 +1,4 @@
-import { ArrowUpDown } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { ErrorState, SkeletonLine } from '@/components/States'
@@ -20,15 +20,27 @@ function context(row: TopBottomRow, mode: TopBottomData['mode']): string {
   return [CHANNEL_LABEL[row.channel], figure, change].filter(Boolean).join(' · ')
 }
 
-function Row({ row, mode }: { row: TopBottomRow; mode: TopBottomData['mode'] }) {
+const RANK = ['cep-home-rank-1 text-white', 'cep-home-rank-2 text-white', 'cep-home-rank-3 text-plum-800']
+
+/** the bar: how much of its target a campaign reached (capped at the full bar), or its click rate against the best shown */
+function share(row: TopBottomRow, mode: TopBottomData['mode'], best: number): number {
+  if (mode === 'target') return Math.min(100, Math.max(0, row.value))
+  return best > 0 ? (row.figure / best) * 100 : 0
+}
+
+function Row({ row, mode, rank, best }: { row: TopBottomRow; mode: TopBottomData['mode']; rank: number; best: number }) {
   return (
-    <li data-campaign={row.id} className="flex items-center justify-between gap-4 py-3">
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <Link to={`/campaigns/${row.id}`} className="min-w-0 rounded-sm text-sm font-semibold text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
-        <span data-context className="truncate text-helper text-ink-800">{context(row, mode)}</span>
-      </span>
-      <span data-figure className="shrink-0 font-display text-base font-semibold text-brand-800 cep-num">
-        {mode === 'target' ? formatCompactMoney(row.figure) : `${formatPercent(row.figure)} clicks`}
+    <li data-campaign={row.id} className="flex items-center gap-3">
+      <span aria-label={`Rank ${rank + 1}`} className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-helper font-semibold ${RANK[rank]}`}>{rank + 1}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex items-baseline justify-between gap-3">
+          <Link to={`/campaigns/${row.id}`} className="min-w-0 rounded-sm text-sm font-semibold text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
+          <span data-figure className="shrink-0 text-sm font-semibold text-ink-900 cep-num">
+            {mode === 'target' ? formatCompactMoney(row.figure) : `${formatPercent(row.figure)} clicks`}
+          </span>
+        </span>
+        <span aria-hidden className="h-1.5 overflow-hidden rounded-pill bg-fill-subtle"><span className="cep-home-blend block h-full rounded-pill" style={{ width: `${share(row, mode, best)}%` }} /></span>
+        <span data-context className="truncate text-xs text-ink-800">{context(row, mode)}</span>
       </span>
     </li>
   )
@@ -41,7 +53,7 @@ export function TopCampaigns({ filters }: { filters: HomeFilters }) {
   if (result.status === 'unavailable') return null
   const rows = result.status === 'ready' ? result.data.top.slice(0, SHOWN) : []
   return (
-    <HomeCard title="Top Campaigns" icon={ArrowUpDown}
+    <HomeCard title="Top Campaigns" icon={Trophy}
       actions={<Link to="/campaigns" className={`${buttonClass({ variant: 'link', size: 'sm' })} -mr-3`}>View All</Link>}>
       {result.status === 'loading' ? (
         <div data-top-campaigns="loading" className="flex flex-col">
@@ -54,9 +66,9 @@ export function TopCampaigns({ filters }: { filters: HomeFilters }) {
           {result.data.mode === 'target' ? 'No campaigns with a revenue target have results in this period.' : 'No campaign reached 50 people in this period, so there is nothing to rank yet.'}
         </p>
       ) : (
-        <ul aria-label={result.data.mode === 'target' ? 'Top campaigns by revenue against target' : 'Top campaigns by click rate'} className="-my-3 divide-y divide-line-subtle">
-          {rows.map((row) => <Row key={row.id} row={row} mode={result.data.mode} />)}
-        </ul>
+        <ol aria-label={result.data.mode === 'target' ? 'Top campaigns by revenue against target' : 'Top campaigns by click rate'} className="flex flex-col gap-4">
+          {rows.map((row, index) => <Row key={row.id} row={row} mode={result.data.mode} rank={index} best={Math.max(...rows.map((item) => item.figure))} />)}
+        </ol>
       )}
     </HomeCard>
   )

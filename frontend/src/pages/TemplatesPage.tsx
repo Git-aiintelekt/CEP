@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 import { useAuth } from '@/auth/AuthContext'
 import { TEMPLATE_CHANNELS, type TemplateChannel } from '@/features/templates/channels'
-import { NewTemplateModal } from '@/features/templates/NewTemplateModal'
+import { CreateTemplateModal } from '@/features/templates/CreateTemplateModal'
 import { QuickCreateCards } from '@/features/templates/QuickCreateCards'
 import { TemplateLibrary } from '@/features/templates/TemplateLibrary'
 import { channelAllowed } from '@/lib/features'
@@ -27,7 +27,7 @@ export function TemplatesPage() {
 
       <TemplateLibrary channels={channels} canEdit={canEdit} />
 
-      {creating && <NewTemplateModal channel={creating} onClose={() => setCreating(null)} />}
+      {creating && <CreateTemplateModal channel={creating} onClose={() => setCreating(null)} />}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 /** What the chart frame draws its series with: lines (optionally with an area under them) and grouped bars. */
+import { useId } from 'react'
 
 export interface Plot {
   left: number
@@ -16,6 +17,7 @@ export interface DrawnSeries {
   key: string
   color: string
   values: number[]
+  gradient?: [string, string]
 }
 
 /** a 6px dot with a 2px white ring: the only point a line ever shows */
@@ -51,17 +53,27 @@ function barPath(x: number, y: number, width: number, bottom: number): string {
 
 /** each category's bars side by side, 4px apart, the group taking about 70% of its band; while a category is active the others fade to 40% */
 export function BarSeries({ plot, series, active = null }: { plot: Plot; series: DrawnSeries[]; active?: number | null }) {
+  // useId's colons don't survive inside url(#…)
+  const gradientId = `bar${useId().replace(/[^\w-]/g, '')}`
   if (series.length === 0) return null
   const group = Math.max(series.length * 2, plot.band * 0.7)
   const width = Math.max(2, (group - BAR_GAP * (series.length - 1)) / series.length)
   const bottom = plot.top + plot.height
   return (
     <g>
+      {series.map((item, place) => item.gradient && (
+        <defs key={item.key}>
+          <linearGradient id={`${gradientId}-${place}`} x1={0} y1={0} x2={0} y2={1}>
+            <stop offset={0} stopColor={item.gradient[0]} />
+            <stop offset={1} stopColor={item.gradient[1]} />
+          </linearGradient>
+        </defs>
+      ))}
       {series.map((item, place) => (
         <g key={item.key} data-series={item.key}>
           {item.values.map((value, index) => {
             const x = plot.x(index) - group / 2 + place * (width + BAR_GAP)
-            return <path key={index} d={barPath(x, plot.y(value), width, bottom)} fill={item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
+            return <path key={index} d={barPath(x, plot.y(value), width, bottom)} fill={item.gradient ? `url(#${gradientId}-${place})` : item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
               className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
           })}
         </g>

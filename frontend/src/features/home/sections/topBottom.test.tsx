@@ -26,7 +26,7 @@ test('the three campaigns furthest over target: name, channel, the share of targ
   expect(rows().map((row) => row.querySelector('[data-context]')!.textContent)).toEqual(['Email · 118% of target · +22.0%', 'Email · 112% of target · +9.8%', 'Email · 109% of target · +4.6%'])
   expect(rows().map((row) => row.querySelector('[data-figure]')!.textContent)).toEqual(['$41.2K', '$312.8K', '$98.4K'])
   expect(within(rows()[0]).getByRole('link', { name: 'Store Opening, Austin Domain Northside' }).getAttribute('href')).toBe('/campaigns/c10')
-  expect(rows()[0].querySelector('[data-figure]')!.className).toContain('text-brand-800')
+  expect(rows()[0].querySelector('[data-figure]')!.className).toContain('text-ink-900')
   expect(card().textContent).not.toMatch(/Under Target|Bottom/)
 })
 

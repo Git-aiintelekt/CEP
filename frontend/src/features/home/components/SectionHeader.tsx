@@ -16,7 +16,7 @@ interface SectionHeaderProps {
   title: string
   /** the heading's id, for the section's aria-labelledby */
   titleId: string
-  /** a 16px Lucide icon on a 28px plum square before the title; the header's only plum */
+  /** a 16px Lucide icon on a 32px plum badge before the title */
   icon?: LucideIcon
   count?: number
   /** the count badge's tint; neutral grey by default */
@@ -25,6 +25,8 @@ interface SectionHeaderProps {
   helper?: string
   /** right-hand slot: links, chips, legends */
   actions?: ReactNode
+  /** a card header on the plum strip (Marketing Performance) */
+  strip?: boolean
 }
 
 const TITLE: Record<SectionLevel, string> = {
@@ -33,12 +35,12 @@ const TITLE: Record<SectionLevel, string> = {
 }
 
 /** A section's title row. "page" sits on the page with no card; "card" is a card's header with a divider under it. */
-export function SectionHeader({ level, title, titleId, icon: Icon, count, countTone = 'neutral', helper, actions }: SectionHeaderProps) {
+export function SectionHeader({ level, title, titleId, icon: Icon, count, countTone = 'neutral', helper, actions, strip = false }: SectionHeaderProps) {
   return (
-    <div data-section-header={level} className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-3 ${level === 'card' ? 'border-b border-line px-4 py-3' : ''}`}>
-      <div className="flex min-w-0 items-center gap-2">
+    <div data-section-header={level} className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-3 ${level === 'card' ? `rounded-t-lg border-b border-line-subtle px-4 py-3 ${strip ? 'cep-home-strip' : ''}` : ''}`}>
+      <div className="flex min-w-0 items-center gap-3">
         {Icon && (
-          <span aria-hidden data-plum-icon className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md bg-plum-100 text-plum-700">
+          <span aria-hidden data-plum-icon className="cep-home-badge flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-plum-700">
             <Icon size={16} strokeWidth={1.5} />
           </span>
         )}
