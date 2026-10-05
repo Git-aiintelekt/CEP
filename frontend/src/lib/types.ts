@@ -20,6 +20,8 @@ export interface Page<T> {
   next: string | null
   previous: string | null
   results: T[]
+  /** GET /journeys/ only: every live journey in the workspace, ignoring the filters */
+  total?: number
 }
 
 export interface Me {
@@ -1091,14 +1093,234 @@ export interface MediaAsset {
   created_at: string
 }
 
+/** apps/journeys/listing.py's 4 trigger groups: which family a journey's entry rule falls under (the List page's
+ * "Triggered by" filter and column — the Setup modal, 6e, isn't built yet, so there's no stored family). */
+export type JourneyTriggerFamily = 'CUSTOMER_LIFECYCLE' | 'SEGMENT_LOYALTY' | 'COMMERCE_OFFER' | 'ENGAGEMENT'
+
 export interface Journey extends Audited {
   code: string | null
   name: string
   description: string | null
   status: string
-  population_mode: string
-  reentry_policy: string
+  population_mode: 'FIXED' | 'CONTINUOUSLY_QUALIFYING' | 'EVENT_TRIGGERED' | string
+  reentry_policy: 'NEVER' | 'AFTER_X_DAYS' | 'EVERY_QUALIFYING_EVENT' | string
+  reentry_after_days: number | null
   current_version: string | null
+  /** set with status 'APPROVED': when the Approve · Schedule for later action goes live (apps/journeys/publish.py) */
+  scheduled_activate_at: string | null
+  /** free text, e.g. "First purchase in 30 days"; not modeled logic (apps/journeys/models.py's Journey docstring) */
+  goal_description: string | null
+  /** free text, e.g. "Goal met · unsubscribe · 45 days" */
+  exit_criteria_description: string | null
+  /** annotated on GET /journeys/{id}/ : the newest version number */
+  latest_version: number | null
+  owner_user: string | null
+  /** owner_user's display name, falling back to email; null when there's no owner */
+  owner_user_name: string | null
+  /** computed, apps/journeys/listing.py: EMAIL/SMS/MMS node types on the journey's newest version */
+  channels: ('EMAIL' | 'SMS' | 'MMS' | string)[]
+  trigger_family: JourneyTriggerFamily | null
+  trigger_family_label: string | null
+  /** computed: most recent generated campaign run FAILED in the last 7 days */
+  needs_attention: boolean
+  /** computed, apps/journeys/listing.py: every step after the entry trigger on the newest version */
+  step_count: number
+  /** computed: those steps' node types in canvas order (trunk, a Condition's YES branch, then its NO branch) */
+  step_types: (JourneyNodeType | string)[]
+  /** computed: the newest version's first entry rule, for the Your Journeys cards' trigger line; null when none */
+  entry_rule: JourneyEntryRule | null
+  /** the saved template this journey was made from (journey_template id), if any. Save as Template left the UI on
+   * 2026-10-05; the API still returns it for journeys made from one before then */
+  source_template?: string | null
+  /** the CEP starter this journey was made from (apps/journeys/starters.py key), if any */
+  source_starter_key?: string | null
+  /** the template's or starter's name, for "From {name}" on the canvas */
+  source_name?: string | null
+}
+
+export type JourneyTemplateCategory = 'LIFECYCLE' | 'COMMERCE' | 'LOYALTY' | 'ENGAGEMENT'
+
+/** GET /journey-starters/ : one of CEP's ten ready-made journeys (apps/journeys/starters.py) */
+export interface JourneyStarter {
+  key: string
+  name: string
+  category: JourneyTemplateCategory
+  description: string
+  goal: string
+  population_mode: Journey['population_mode']
+  reentry_policy: Journey['reentry_policy']
+  reentry_after_days: number | null
+  graph: JourneyGraph
+  /** every step after the entry trigger */
+  step_count: number
+  channels: string[]
+}
+
+/** GET /journeys/stats/ : the List page's former 4 stat cards (the page no longer calls it, 2026-10-05) */
+export interface JourneyStats {
+  active_journeys: number
+  total_journeys: number
+  currently_enrolled: number
+  /** week-over-week change; null when nobody was enrolled a week ago */
+  currently_enrolled_change_pct: number | null
+  completed_30d: number
+  campaign_runs_today: number
+  campaign_runs_today_by_channel: Record<string, number>
+}
+
+/** journey_node.node_type (apps/journeys/engine/steps.py documents each config shape) */
+export type JourneyNodeType =
+  | 'START' | 'WAIT' | 'CONDITION' | 'SPLIT' | 'EMAIL' | 'SMS' | 'MMS'
+  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'EXIT'
+
+/** GET /journeys/{id}/versions/ : one row, no graph */
+export interface JourneyVersion {
+  id: string
+  journey: string
+  version_number: number
+  status: 'DRAFT' | 'TEST_PUBLISHED' | 'ACTIVE' | 'RETIRED' | string
+  status_label: string
+  published_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_by: string | null
+  updated_at: string
+  row_version: number
+}
+
+export interface JourneyGraphNode {
+  /** stable within the version's graph; the canvas assigns one when a step is added */
+  key: string
+  type: JourneyNodeType
+  config: Record<string, unknown>
+  position: { x: number; y: number } | null
+}
+
+export interface JourneyGraphConnection {
+  from: string
+  to: string
+  /** 'YES' | 'NO' out of a Condition; null otherwise */
+  branch_key: string | null
+  label: string | null
+}
+
+export interface JourneyEntryRule {
+  id?: string
+  entry_type: 'CUSTOMER_LIST' | 'EVENT' | 'DATE_TIME' | 'SEGMENT_CHANGE' | string
+  rule_definition: Record<string, unknown>
+  /** read-only (apps/journeys/graph.py name_references): present when the rule names a contact list or segment —
+   * its current name, or null when that list or segment is deleted or unknown */
+  reference_name?: string | null
+}
+
+/** the whole document PUT to /journeys/{id}/versions/{n}/graph/ and read back from GET .../{n}/ */
+export interface JourneyGraph {
+  entry_rules: JourneyEntryRule[]
+  nodes: JourneyGraphNode[]
+  connections: JourneyGraphConnection[]
+}
+
+/** GET /journeys/{id}/versions/{n}/ : a version with its graph */
+export interface JourneyVersionDetail extends JourneyVersion {
+  graph: JourneyGraph
+}
+
+/** GET /journeys/{id}/versions/{n}/readiness/ : the Test Publish page's 4 checks */
+export interface JourneyReadinessItem {
+  key: 'entry_rules' | 'steps_configured' | 'templates_ready' | 'governance' | string
+  label: string
+  description: string
+  ok: boolean
+}
+
+export interface JourneyReadiness {
+  ready: boolean
+  items: JourneyReadinessItem[]
+}
+
+/** the test population POST /journeys/{id}/versions/{n}/test-publish/ sends */
+export interface JourneyTestPopulation {
+  mode: 'RANDOM' | 'LIST'
+  sample_size?: number
+  contact_list_ids?: string[]
+}
+
+/** POST /journeys/{id}/versions/{n}/test-publish/ response: real counts from the test send */
+export interface JourneyTestResult {
+  population_size: number
+  sent_to: number
+  delivered: number
+  opened: number
+  clicked: number
+  bounced: number
+  governance_flags: string[]
+  /** only the channels the version's message steps use; MMS counts as SMS */
+  by_channel: Partial<Record<'EMAIL' | 'SMS', { sent: number; delivered: number }>>
+}
+
+/** GET /journeys/{id}/performance/ 's "metrics" key : Journey Details' 4 metric cards (apps/journeys/details.py); null for a Draft journey */
+export interface JourneyMetrics {
+  enrolled: number | null
+  in_journey: number | null
+  goal_converted: number | null
+  goal_converted_pct: number | null
+  exited_early: number | null
+  exited_early_pct: number | null
+}
+
+/** GET /journeys/{id}/audience/ : Journey Details' Setup card, Audience & enrollment */
+export interface JourneyAudience {
+  source_lists: { id: string; name: string }[]
+  eligible_pool: number | null
+  enrollment_rate_per_day: number | null
+}
+
+/** GET /journeys/{id}/enrollment-trend/ : one bucket of the 6-week chart */
+export interface JourneyTrendWeek {
+  week_start: string
+  enrolled: number
+  goal_converted: number
+  exited_early: number
+}
+
+/** GET /journeys/{id}/campaigns/ : one row of the Generated Campaigns table */
+export interface JourneyGeneratedCampaignRow {
+  id: string
+  campaign_id: string
+  campaign_name: string
+  node_key: string
+  node_type: JourneyNodeType | string
+  generation_date: string
+  last_run_at: string | null
+  recipients: number
+  status: string | null
+}
+
+/** GET /journeys/{id}/activity/ : one entry of the derived Activity log, newest first */
+export interface JourneyActivityEntry {
+  event_type: 'CREATED' | 'PUBLISHED' | 'PAUSED' | string
+  message: string
+  actor_name: string | null
+  occurred_at: string
+  version_number: number | null
+}
+
+/** Cached C360 reference, same shape as Segment (customers.Coupon) — see GET /coupons/ note in JourneyBuildPage */
+export interface Coupon {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  is_active: boolean
+}
+
+/** Cached C360 reference, same shape as Segment (customers.LoyaltyTier) — see GET /loyalty-tiers/ note in JourneyBuildPage */
+export interface LoyaltyTier {
+  id: string
+  code: string
+  name: string
+  rank: number
+  description: string | null
 }
 
 /** GET /users/ (tenant settings; requires user.admin) */
@@ -1186,6 +1408,7 @@ export type PermissionCode =
   | 'list.edit'
   | 'template.edit'
   | 'journey.edit'
+  | 'journey.activate'
   | 'user.admin'
   | (string & {})
 
