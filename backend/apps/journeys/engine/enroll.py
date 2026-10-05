@@ -1,0 +1,148 @@
+"""Enrollment: who enters a live journey on this pass.
+
+Every entry rule of the live version names candidates, each with the moment they qualified:
+
+    CUSTOMER_LIST    {contact_list_id}                     members of the list (when they were added)
+    EVENT            {event_type}                          journey_event rows of that type since the version went live
+    SEGMENT_CHANGE   {segment_id, change: JOINED | LEFT}   joined: customer_segment_membership.qualified_at since then;
+                                                           joined or left: journey_event SEGMENT_CHANGE rows naming the segment
+    DATE_TIME        not designed yet: no candidates
+
+A candidate enters unless the re-entry policy says no. Nobody is ever in a journey twice at once
+(ux_journey_enrollment_no_reentry); after that, NEVER keeps them out, AFTER_X_DAYS lets them back once that many days have
+passed since they last entered, and EVERY_QUALIFYING_EVENT lets them back each time they qualify again. Only customers in
+customer_master enter: a message to someone unknown could never go out.
+"""
+import logging
+
+from django.utils import timezone
+
+from apps.delivery.engine import session
+
+from ..models import Journey, JourneyEntryRule, JourneyNode, JourneyVersion
+from . import tenants
+
+log = logging.getLogger("cep.journeys")
+PER_PASS = 5000                                           # per journey and pass; the rest enter on the next pass
+LOOKBACK_DAYS = 7                                         # how far back events and segment changes are read, at most
+
+CANDIDATES = {
+    "CUSTOMER_LIST": """
+        SELECT m.party_id, m.added_at AS qualified_at FROM contact_list_member m
+          JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
+         WHERE m.tenant_id = %(tenant)s AND m.contact_list_id::text = %(list)s AND l.deleted_at IS NULL AND l.status = 'ACTIVE'
+           AND l.approval_status NOT IN ('AWAITING', 'REFUSED')""",
+    "EVENT": """
+        SELECT party_id, ingested_at AS qualified_at FROM journey_event
+         WHERE tenant_id = %(tenant)s AND event_type = %(event_type)s AND occurred_at >= %(since)s AND ingested_at >= %(since)s""",
+    "SEGMENT_CHANGE": """
+        SELECT party_id, qualified_at FROM customer_segment_membership
+         WHERE tenant_id = %(tenant)s AND segment_id::text = %(segment)s AND qualified_at >= %(since)s AND %(change)s = 'JOINED'
+        UNION ALL
+        SELECT party_id, ingested_at FROM journey_event
+         WHERE tenant_id = %(tenant)s AND event_type = 'SEGMENT_CHANGE' AND occurred_at >= %(since)s AND ingested_at >= %(since)s
+           AND event_payload ->> 'segment_id' = %(segment)s AND upper(COALESCE(event_payload ->> 'change', 'JOINED')) = %(change)s""",
+}
+
+ENROLL = """
+WITH candidates AS ({candidates}),
+best AS (
+    SELECT c.party_id, max(c.qualified_at) AS qualified_at FROM candidates c
+      JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id
+     GROUP BY c.party_id
+), previous AS (
+    SELECT party_id, max(enrolled_at) AS last_at, bool_or(status = 'ACTIVE') AS inside FROM journey_enrollment
+     WHERE tenant_id = %(tenant)s AND journey_id = %(journey)s GROUP BY party_id
+), eligible AS (
+    SELECT b.party_id FROM best b LEFT JOIN previous p ON p.party_id = b.party_id
+     WHERE p.party_id IS NULL
+        OR (NOT p.inside AND ((%(policy)s = 'AFTER_X_DAYS' AND p.last_at <= now() - make_interval(days => %(days)s) AND (%(is_list)s OR b.qualified_at > p.last_at))
+                              OR (%(policy)s = 'EVERY_QUALIFYING_EVENT' AND b.qualified_at > p.last_at)))
+     ORDER BY b.qualified_at LIMIT %(limit)s
+), entered AS (
+    INSERT INTO journey_enrollment (journey_id, journey_version_id, tenant_id, party_id, status)
+    SELECT %(journey)s, %(version)s, %(tenant)s, party_id, 'ACTIVE' FROM eligible
+    ON CONFLICT DO NOTHING
+    RETURNING id
+)
+INSERT INTO journey_customer_state (journey_enrollment_id, current_node_id, entered_node_at, next_scheduled_at, state_data)
+SELECT id, %(start)s, now(), now(), jsonb_build_object('entry', %(entry)s) FROM entered
+"""
+
+
+def live_version(journey: Journey) -> JourneyVersion | None:
+    """The version new entrants join: the journey's current version when it is ACTIVE, else its newest ACTIVE one."""
+    versions = JourneyVersion.objects.filter(journey=journey, status=JourneyVersion.Status.ACTIVE)
+    if journey.current_version_id:
+        current = versions.filter(pk=journey.current_version_id).first()
+        if current is not None:
+            return current
+    return versions.order_by("-version_number").first()
+
+
+def _sources(rule: JourneyEntryRule, args: dict) -> str | None:
+    definition = rule.rule_definition or {}
+    if rule.entry_type == "CUSTOMER_LIST" and definition.get("contact_list_id"):
+        args["list"] = str(definition["contact_list_id"])
+    elif rule.entry_type == "EVENT" and definition.get("event_type"):
+        args["event_type"] = str(definition["event_type"]).upper()
+    elif rule.entry_type == "SEGMENT_CHANGE" and definition.get("segment_id"):
+        args["segment"] = str(definition["segment_id"])
+        args["change"] = str(definition.get("change") or "JOINED").upper()
+    else:
+        return None                                       # DATE_TIME, or a rule missing what it needs: nobody
+    return CANDIDATES[rule.entry_type]
+
+
+def enroll_journey(tenant_id: str, journey: Journey) -> int:
+    """Must run inside session.tenant_scope(tenant_id). One transaction per rule, so one bad rule does not hold the others back."""
+    version = live_version(journey)
+    if version is None:
+        return 0
+    start = JourneyNode.objects.filter(journey_version=version, node_family="ENTRY", deleted_at__isnull=True).order_by("created_at").first()
+    if start is None:
+        return 0
+    since = max(version.published_at or version.updated_at, timezone.now() - timezone.timedelta(days=LOOKBACK_DAYS))
+    entered = 0
+    for rule in JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True):
+        args = {"tenant": str(tenant_id), "journey": str(journey.pk), "version": str(version.pk), "start": str(start.pk), "since": since,
+                "policy": journey.reentry_policy, "days": journey.reentry_after_days or 0, "is_list": rule.entry_type == "CUSTOMER_LIST",
+                "limit": PER_PASS, "entry": rule.entry_type}
+        candidates = _sources(rule, args)
+        if candidates is None:
+            continue
+        with session.tx(), session.connection().cursor() as cursor:
+            cursor.execute(ENROLL.format(candidates=candidates), args)
+            entered += cursor.rowcount
+    return entered
+
+
+def enroll_tenant(tenant_id: str) -> dict:
+    entered, failed = 0, 0
+    with session.tenant_scope(tenant_id):
+        with session.tx():
+            live = list(Journey.objects.filter(tenant_id=tenant_id, status=Journey.Status.ACTIVE, deleted_at__isnull=True))
+        for journey in live:
+            try:
+                entered += enroll_journey(tenant_id, journey)
+            except Exception:                              # noqa: BLE001  one journey's trouble must not stop the others
+                log.exception("enrollment failed for journey %s", journey.pk)
+                failed += 1
+    return {"entered": entered, "failed": failed}
+
+
+def run() -> dict:
+    totals = {"tenants": 0, "entered": 0, "failed": 0}
+    for tenant_id in tenants("""SELECT DISTINCT j.tenant_id FROM journey j JOIN tenant t ON t.id = j.tenant_id
+                                  JOIN journey_version v ON v.journey_id = j.id AND v.status = 'ACTIVE'
+                                 WHERE t.status = 'ACTIVE' AND j.status = 'ACTIVE' AND j.deleted_at IS NULL"""):
+        try:
+            result = enroll_tenant(tenant_id)
+        except Exception:                                  # noqa: BLE001
+            log.exception("enrollment failed for tenant %s", tenant_id)
+            totals["failed"] += 1
+            continue
+        totals["tenants"] += 1
+        totals["entered"] += result["entered"]
+        totals["failed"] += result["failed"]
+    return totals

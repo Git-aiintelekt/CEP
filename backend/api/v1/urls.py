@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (attribution_api, auth_api, campaigns_api, client_errors, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, pos_api, preferences_api,
+from . import (attribution_api, auth_api, campaigns_api, client_errors, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
@@ -18,7 +18,11 @@ router.register("template-starters", views.TemplateStarterViewSet, basename="tem
 router.register("media-assets", views.MediaAssetViewSet, basename="media-asset")
 router.register("templates", views.TemplateViewSet, basename="template")
 router.register("personalization-tags", views.PersonalizationTagViewSet, basename="personalization-tag")
-router.register("journeys", views.JourneyViewSet, basename="journey")
+router.register("journeys", journeys_api.JourneyViewSet, basename="journey")
+router.register("journey-starters", journeys_api.JourneyStarterViewSet, basename="journey-starter")
+router.register("journey-templates", journeys_api.JourneyTemplateViewSet, basename="journey-template")
+router.register("coupons", views.CouponViewSet, basename="coupon")
+router.register("loyalty-tiers", views.LoyaltyTierViewSet, basename="loyalty-tier")
 router.register("subscription-topics", preferences_api.SubscriptionTopicViewSet, basename="subscription-topic")
 router.register("stores", pos_api.StoreViewSet, basename="store")
 # tenant self-administration (permission user.admin)
