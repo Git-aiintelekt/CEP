@@ -176,24 +176,18 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What happens behind the scenes
   - Things to know
 - Attribution
-  - What this page is for
+  - What is attribution
   - Who can use it
-  - The fields and controls
-  - How to
+  - How to configure attribution
+  - How to use it in real time
   - What happens behind the scenes
   - Things to know
 - Journeys
-  - What this page is for
-  - Who can use it
-  - Before the first journey
-  - The statuses
-  - Start a journey
-  - Date / Time entries
-  - Build the steps
-  - Test publish
-  - Approve and go live
+  - What is a journey
+  - How to set up journeys
+  - How to build a new journey
+  - How to edit a journey
   - The journey's page
-  - How to
   - What happens behind the scenes
   - Things to know
 - Events
@@ -1838,9 +1832,20 @@ The code is time-based (TOTP); the secret is stored encrypted. A recovery code w
 
 **Where:** Settings → Integrations → Attribution.
 
-## What this page is for
+## What is attribution
 
-Which campaign earned an order. The shop sends its orders to CEP, and the point of sale's sales can count too. Each order is credited to one campaign: the one named by a campaign code, else the person's last click, open or text before the order. Home's Attributed Revenue, Campaign ROI, Revenue vs. Cost and Top Campaigns, the Reports revenue column, each campaign's revenue progress and the e-receipts' Revenue from Receipt Offers all read the figures this fills. Until attribution is on they read *Not Set Up*.
+Attribution answers one question: **which campaign earned this order?** The shop sends CEP its orders (and the point of sale its store sales, if you choose). CEP matches each order to the customer, looks back at what it sent that customer, and credits the order to one campaign. Adding those orders up gives each campaign its **revenue**, and with its cost, its **ROI**.
+
+CEP credits an order to the first of these that applies:
+
+1. **A campaign code.** The order carries the campaign's code (for example CMP-2026-0042), as `campaign_code` or as one of its coupon codes. That campaign gets it, whatever else happened.
+2. **The latest click** on a campaign's link by that customer within the **Click Window** (7 days by default).
+3. **The latest open** of a marketing email within the **Open Window** (1 day by default).
+4. **The latest text** delivered to that customer within the **Text Window** (1 day by default). Text links are not tracked yet, so delivery stands in for a click.
+
+One campaign gets the whole amount (this is called *last touch*). An order that matches none of these is **Not Credited**, and the page says why. A refund follows its original order and takes the money back from the same campaign.
+
+Until attribution is on, every revenue figure in CEP reads *Not Set Up*: Home's Attributed Revenue, Campaign ROI, Marketing Performance and Top Campaigns, each campaign's revenue against its target, the Reports revenue column, and the e-receipts' Revenue from Receipt Offers.
 
 ## Who can use it
 
@@ -1848,101 +1853,167 @@ Which campaign earned an order. The shop sends its orders to CEP, and the point 
 |---|---|
 | Permission | Read with `report.view`; changed with `user.admin`. The shop sends orders with an API key that has the scope `orders:ingest`. |
 
-## The fields and controls
+## How to configure attribution
 
-| Field | What it is | What it changes |
+**1. Make a key for the shop.** Settings → API Keys → New Key, with the scope `orders:ingest`. Copy it: it is shown once.
+
+**2. Switch it on.** Settings → Attribution → **Attribution** on. From now on the shop's orders are accepted (while it is off they are refused with 409), and every campaign that has ever sent gets figures within five minutes, 0 until its first order.
+
+**3. Choose the windows.** Each saves as you change it.
+
+| Setting | Choices | Means |
 |---|---|---|
-| Attribution | On or off. | Off: the shop's orders are refused (409) and revenue reads *Not Set Up*. On: every campaign that ever sent gets figures within five minutes, 0 until its first order. |
-| Click Window | 1, 3, 7 (the default), 14 or 30 days. | A click on a campaign's link takes the credit for an order the same person places within this time. |
-| Open Window | Not counted, or 1 (the default), 2, 3 or 7 days. | With no click, an open of a marketing email takes the credit. Opens by security scanners and of e-receipts never count. |
-| Text Window | Not counted, or 1 (the default), 2, 3 or 7 days. | With no click or open, a marketing text delivered to the person takes the credit. Text links are not tracked yet, so delivery stands in for a click. |
-| Count Store Sales | Shown when the workspace has POS Receipts. | Every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. A return becomes a refund of its sale. Employee sales are left out. Off, nothing about a transaction is kept. |
-| Send Costs | What 1,000 delivered emails and 1,000 delivered texts cost. | A campaign's cost becomes its delivered messages at these rates plus its offer cost; ROI, contribution and cost per conversion follow. Left empty, ROI uses each campaign's planned cost. |
-| Last 30 Days | Orders, revenue net of refunds, the revenue credited and the share of orders credited, orders not credited and waiting, credit by campaign code, click, open and text, and the top five campaigns. | |
-| Recalculate | Judges the last 400 days of orders again under the current windows and rewrites every campaign's figures. | Use it after changing a window. |
-| Send Orders from the Shop | The endpoint, the headers, the key's scope and one order as an example. | |
-| Latest Orders | The newest 50 orders: when, the order, the amount, and the campaign credited with how (or why none). Filter by Credited, Not Credited or Waiting; search by order, email or campaign. | |
+| Click Window | 1, 3, 7, 14 or 30 days | How long after a click the click still earns an order. |
+| Open Window | Opens Do Not Count, 1, 2, 3 or 7 days | How long an open of a marketing email earns an order when there was no click. Scanner opens and receipts never count. |
+| Text Window | Texts Do Not Count, 1, 2, 3 or 7 days | How long a delivered marketing text earns an order when there was no click or open. |
 
-## How to
+**4. Count store sales** (shown when the workspace has POS Receipts). Switch **Count Store Sales** on and every transaction the point of sale posts also becomes an order: the amount without tax and shipping, the customer, the store and its promotion codes. Returns become refunds; employee sales are left out.
 
-**Turn attribution on.**
-1. Settings → API Keys → New Key, with the scope `orders:ingest`. Copy the key; it is shown once.
-2. Settings → Attribution → switch Attribution on.
-3. Give the shop's developer the endpoint, the key and the example from Send Orders from the Shop. Each order needs `order_id` and `amount` and names the person by `party_id`, `email` or `phone`.
-4. The first orders appear in Latest Orders within a minute; Home shows revenue within five.
+**5. Enter the send costs.** **Send Costs**: what 1,000 delivered emails and 1,000 delivered texts cost you, then **Save Costs**. A campaign's cost is then its delivered messages at these rates plus its offer cost, and ROI, contribution and cost per conversion follow. Left empty, ROI uses each campaign's planned cost.
 
-**Credit a promotion outright.** Give the campaign's code (on the campaign's page, for example CMP-2026-0042) to the shop as the coupon, or have the shop send it as `campaign_code`. An order carrying it is credited to that campaign whatever the person clicked.
+**6. Connect the shop.** Give the shop's developer the endpoint, the headers and the example under **Send Orders from the Shop**:
 
-**Find out why an order earned nothing.** Latest Orders → State: Not Credited. The reason is under each order: no person CEP knows, no click, open or text in the windows, or a refund whose order was not credited.
+```
+POST /api/v1/orders/
+Authorization: Bearer <the API key>
+X-Tenant: <the workspace code>
+
+{"order_id": "W-100235", "amount": 129.50, "currency": "USD",
+ "email": "jane@example.com", "ordered_at": "2026-10-04T14:30:00Z",
+ "coupon_codes": ["FALL20"], "channel": "ONLINE"}
+```
+
+Each order needs `order_id` and `amount` (revenue to count, 0 or more) and names the customer by `party_id`, `email` or `phone`. Optional: `ordered_at` (defaults to now), `currency`, `channel` (ONLINE, STORE, APP, PHONE or OTHER), `campaign_code`, `coupon_codes`, `store_number`, `items`. A refund is `"type": "REFUND"` with the positive amount and `original_order_id`. Up to 500 at once as `{"orders": [...]}`.
+
+## How to use it in real time
+
+### What happens to an order, minute by minute
+
+| When | What you see |
+|---|---|
+| The shop posts the order | The answer says Accepted, Duplicate (the same order was already received; it counts once) or Rejected with the field at fault. Every call is in Settings → Integrations' call log. |
+| Within a minute | The order is in **Latest Orders** as **Waiting**. It also raises a Purchase event (and First Purchase for a customer's first order), so a journey that starts on a purchase enrols the customer within a minute. |
+| One to five minutes later | The attribute-orders job credits it: **Credited** with the campaign and how (Campaign Code, Click, Open, Text), or **Not Credited** with the reason. It waits a minute after an order arrives so a click still on its way from the sending engine is counted. |
+| Within five minutes | The campaign's figures are rewritten: revenue net of refunds, orders, buyers, cost, contribution, ROI. Home, the campaign's page and Reports show them on their next refresh. |
+
+### Check that it works: one test order
+
+1. Pick a customer you emailed recently who clicked the email (your own test address is best).
+2. Post one order for them with the shop's key, using their email address and a small amount, for example with Postman or curl.
+3. Within a minute it is in **Latest Orders** as Waiting; within five it reads **Credited** with that campaign and **Click**.
+4. Open the campaign: its revenue now includes the amount. Home's Attributed Revenue includes it too.
+5. Post the same order again: the answer says Duplicate, and nothing is counted twice. To remove the test amount, post a refund for it (`"type": "REFUND"`, `original_order_id`).
+
+### Watch the orders as they come in
+
+**Latest Orders** shows the newest 50: when, the order, the amount, and the campaign credited with how, or why none. Filter **State** by **Credited**, **Not Credited** or **Waiting**; **Search** by order, email or campaign.
+
+**Last 30 Days** sums them up: orders, revenue net of refunds, the revenue credited and the share of orders credited, orders not credited and waiting, credit by Campaign Code, Click, Open and Text, and the **Top Campaigns**.
+
+### Read the results
+
+| Where | What it shows |
+|---|---|
+| Home | Attributed Revenue, Campaign ROI (revenue per $1 spent), Marketing Performance (attributed revenue and campaign cost per day or week, with the target pace), Top Campaigns. |
+| A campaign's page | Its Revenue and Conversions, against the targets set in its setup. |
+| Reports | The revenue column per campaign. |
+| E-Receipts on Home | Revenue from Receipt Offers (store sales credited to e-receipt campaigns). |
+| Journeys | Purchase and First Purchase events start journeys and answer a Condition's "Made a Purchase". |
+
+### Day-to-day tasks
+
+**Credit a promotion outright.** Give the campaign's code (on the campaign's page) to the shop as the coupon, or have the shop send it as `campaign_code`. An order carrying it is credited to that campaign whatever the customer clicked.
+
+**Find out why an order earned nothing.** Latest Orders → State: **Not Credited**. The reason is under each order: no customer CEP knows, no click, open or text within the windows, or a refund whose order was not credited.
+
+**Change a window.** It applies to new orders. **Recalculate** (in Last 30 Days) judges the last 400 days of orders again under the current windows and rewrites every campaign's figures.
+
+**Stop counting.** Switch Attribution off. New orders are refused (409) and revenue reads *Not Set Up* again; orders already received are kept.
 
 ## What happens behind the scenes
 
-The shop posts orders to `POST /api/v1/orders/`, one at a time or up to 500 as `{"orders": [...]}`. An order sent twice counts once. Every call is in Settings → Integrations' call log.
-
-The attribute-orders job runs every five minutes. It waits a minute after an order arrives, so a click still on its way from the sending engine is counted. It then finds the person: the customer id, or whoever CEP emailed at the address or texted at the number in the last 120 days. Credit goes, in this order, to a campaign named by code, the latest click within the click window, the latest open within the open window, then the latest text within the text window. One campaign gets the whole amount (last touch). A refund follows its original order and reduces that campaign's revenue.
-
-The job then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
+The attribute-orders job runs every five minutes. It finds the customer: the customer id, or whoever CEP emailed at the address or texted at the number in the last 120 days. It credits the order as above, then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
 
 ## Things to know
 
-- Last touch is easy to explain and to check against the shop, but it gives no credit to the campaigns earlier in a person's path.
+- Last touch is easy to explain and to check against the shop, but it gives no credit to the campaigns earlier in a customer's path.
 - Revenue counts on the campaign whenever the order happens, so a campaign's figures grow for as long as its clicks are in the window.
-- CEP keeps the amount, the person, the store and the codes of an order, not its items or payment.
-- Changing a window applies to new orders. Recalculate applies it to the past.
+- CEP keeps the amount, the customer, the store and the codes of an order, not its items or payment.
+- An order for a customer CEP never emailed or texted, and with no customer id it knows, is Not Credited: there is nobody to match.
 
 ---
 
 # Journeys
 
-**Where:** Journeys, in the main menu. A journey's own page opens from the list.
+**Where:** Journeys, in the main menu; a new one also from the **+ Journey** button on Home. A journey's own page opens from the list.
 
-## What this page is for
+## What is a journey
 
-A journey follows each customer through a path you draw once: who enters, how long to wait, what to send, which way to go next. A welcome series, an abandoned-cart reminder, a birthday reward or a win-back all run as journeys. Unlike a campaign, which sends once to a list, a journey keeps working: every minute CEP enrols the customers who qualify and moves along those whose next step is due.
+A journey is an automated path that each customer walks on their own. You draw it once: **who enters**, then the **steps** they go through (wait, check something, send an email or a text, issue a coupon, change their tier or segment) and where the path **ends**. From then on CEP runs it for every customer who qualifies, one at a time, at their own pace.
 
-## Who can use it
+A campaign sends one message to a list at one moment. A journey keeps working: a customer who abandons a cart this afternoon gets the reminder an hour later, a customer whose birthday is next week gets the reward seven days before it, and a new loyalty member gets the welcome series over their first two weeks, without anyone pressing Send.
 
-| | |
+Typical retail journeys: Welcome Series, Abandoned Cart Recovery, Post-Purchase Thank You & Review, First to Second Purchase, Win-Back Lapsed Customers, Birthday Reward, Loyalty Tier Upgrade, Coupon Expiry Reminder, Membership Anniversary and Re-Engagement / Sunset. Each is offered as a starter you can copy.
+
+### The parts of a journey
+
+| Part | What it is |
 |---|---|
-| Journeys · View (`journey.view`) | See journeys, their steps and their results. Analysts have it. |
-| Journeys · Create and Edit (`journey.edit`) | Create, build, test publish, duplicate, and archive a journey that is not live. |
-| Journeys · Activate (`journey.activate`) | Approve a journey to go live now or later, cancel that schedule, pause, resume, and archive a live journey. |
-| | Workspace Admin has all three. Campaign Manager has none by default: add them in Settings → Roles if the campaign team builds journeys. The workspace needs the Journeys feature (on for every plan unless the platform team turned it off). |
+| Entry | What makes a customer enter: membership of a **customer list**, an **event** (a purchase, an abandoned cart, No Response …), a **date or time** (a schedule, or a date on the customer's record such as a birthday), joining or leaving a **segment**, or an **attribute change** (loyalty tier, preferences, address). |
+| Population | **Fixed** (who qualifies at launch, then closed), **Continuously Qualifying** or **Event Triggered** (keeps letting newcomers in). |
+| Re-entry | Whether the same customer can go through again: **Never**, **After X Days**, or **Every Qualifying Event**. Nobody is ever in the same journey twice at once. |
+| Steps | Wait, Condition (Yes / No), Email, SMS / MMS, Issue Coupon, Update Loyalty Tier, Update Segment, Exit Journey. |
+| Goal | A customer who reaches an **Exit Journey** step counts as **Goal Converted**. |
+| Version | Every change to a published journey is a new version; one version is live at a time. |
 
-## Before the first journey
-
-1. An email engine with a verified default sender (Settings → Sending Engines), and a texting engine if the journey sends texts.
-2. A **published** template for every message the journey sends. A draft template fails the readiness check.
-3. A contact list marked as a test list, for the test run.
-4. For event journeys, the events arriving: purchases come from Attribution; everything else from the shop or the loyalty system (Settings → Events).
-
-## The statuses
+### The statuses
 
 | Status | Means |
 |---|---|
 | Draft | Being built. Nobody enters. |
 | Test | The test run went out; waiting for approval. |
-| Approved | Approved to go live at a set time; until then you can cancel the schedule. |
+| Approved | Approved to go live at a set time; until then the schedule can be cancelled. |
 | Active | Live: customers enter and move along. |
-| Paused | Nobody new enters and nobody moves; everyone stays where they are until it resumes. |
+| Paused | Nobody new enters and nobody moves; everyone waits where they are until it resumes. |
 | Archived | Ended for good. Its figures and history stay readable. |
 
-## Start a journey
+## How to set up journeys
 
-On the Journeys page, choose **Create Journey** (or Start from Scratch), or pick one of the ten retail starters: Welcome Series, Abandoned Cart Recovery, Post-Purchase Thank You & Review, First to Second Purchase, Win-Back Lapsed Customers, Birthday Reward, Loyalty Tier Upgrade, Coupon Expiry Reminder, Membership Anniversary and Re-Engagement / Sunset. Clicking a starter shows a read-only preview; **Copy This Template** makes it your own draft. The starter itself never changes.
+Do this once for the workspace, before the first journey.
 
-The set-up asks, in two short steps:
+| Permission | Allows |
+|---|---|
+| Journeys · View (`journey.view`) | See journeys, their steps and results. |
+| Journeys · Create and Edit (`journey.edit`) | Create, build, test publish, duplicate, and archive a journey that is not live. |
+| Journeys · Activate (`journey.activate`) | Approve (now or later), cancel a schedule, pause, resume, and archive a live journey. |
 
-| Field | What it is | What it changes |
-|---|---|---|
-| Name | The journey's name, unique in the workspace. | |
-| Entry | How customers enter: a **contact list** (its members), an **event** (for example Purchase, Abandoned Cart, Birthday, No Response), a **date or time** (a schedule, or a date on each customer's record), a **segment change** (joining or leaving a segment), or an **attribute change** (Loyalty Tier, Preference Update, Address Change). | Who is enrolled, and when. |
-| Population | **Fixed**: who qualifies on the first pass after go-live, then the journey closes to newcomers. **Continuously Qualifying** and **Event Triggered**: keep enrolling as new customers qualify or new events arrive. | Whether the journey keeps growing. |
-| Re-entry | **Never**, **After X Days** (since they last entered), or **Every Qualifying Event**. | Whether a customer can go through again. Nobody is ever in the same journey twice at once. |
+1. **Give people the rights** above in Settings → Roles. Workspace Admin has all three and Analyst has View. Campaign Manager has none by default: add them if your campaign team builds journeys. The workspace needs the Journeys feature (the Journeys menu item shows only when it is on); the platform team switches it on or off on the workspace's page in the back-office.
+2. **Sending.** An email engine with a verified default sender (Settings → Sending Engines), and a texting engine if journeys send texts.
+3. **Templates.** A **published** template for every message a journey sends. A draft template fails the readiness check.
+4. **A test list.** A contact list marked as a test list, holding your own team, for the test run.
+5. **What journeys react to.**
+   - **Purchases:** switch on Attribution and have the shop send its orders (see Attribution). Every order then raises a Purchase event, and a customer's first one also a First Purchase.
+   - **Other events** (abandoned cart, birthday, tier change, address change …): the shop, the loyalty system and C360 send them to CEP with an API key that has the scope `events:ingest` (Settings → API Keys, then Settings → Events for the address and an example).
+   - **Coupons:** the Issue Coupon step asks C360 for the coupon. C360 needs an API key with the scope `coupons:issue` to collect and answer those requests.
+   - **Dates on customer records** (for Date / Time entries): C360 sends them as custom attributes, for example `birth_date`.
+   - Email opens and clicks, text replies, No Response, preference-centre saves and tier changes made by a journey need nothing: CEP raises them itself.
 
-## Date / Time entries
+## How to build a new journey
 
-Choose **Date / Time**, then the Specific Trigger. The fields that follow depend on it, and a grey line under them reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter").
+### 1. Start
+
+On the Journeys page, choose **Create Journey**, or **Start from Scratch** in the blue Journey Templates panel, or pick a starter there (**View More** shows all ten). Clicking a starter shows a read-only preview of its steps; **Copy This Template** opens the set-up already filled in. The starter itself never changes.
+
+### 2. Set up: name and entry (step 1 of 2)
+
+| Field | What to choose |
+|---|---|
+| Journey Name | A name unique in the workspace, for example *Welcome Series — New Loyalty Members*. |
+| What Qualifies a Customer to Enter This Journey? | **Customer List**, **Event**, **Date / Time** or **Segment or Customer Change**. |
+| Specific Trigger | The list, the event (Purchase, Abandoned Cart, Birthday, No Response …), the schedule, or the change (Enters Segment, Exits Segment, Loyalty Tier, Preference Update, Address Change). Enters / Exits Segment also asks which **Segment**. |
+| Description (Optional) | What the journey is for; shown on its page. |
+
+**Date / Time entries** add their own fields under Specific Trigger, and a grey line reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter"):
 
 | Specific Trigger | Asks for | Who enters, and when |
 |---|---|---|
@@ -1952,81 +2023,101 @@ Choose **Date / Time**, then the Specific Trigger. The fields that follow depend
 | On a Specific Date | Date; At; Who Enters | The members, once. |
 | On a Date Attribute | Date (a date on the customer's record, with how many customers have it); When (on the day, or 1 to 90 days before or after); At; Repeat (Every Year or Once); Only Customers In (optional) | Each customer on their own date. Every Year matches the day and month (birthdays, anniversaries; 29 February counts on 28 February in other years); Once matches the full date (a renewal date). |
 
-Times are the workspace's time zone. A moment fires once: if the journey goes live after this week's moment, it waits for the next one, and a moment missed while CEP was down is not replayed (the next one fires). Re-entry (step 2) decides whether the same customers go through again: a Weekly journey with After 7 Days lets them back each week. With a Fixed population, the first moment's customers enter and the journey then closes.
+Times are the workspace's time zone. Each moment fires once: a journey that goes live after this week's moment waits for the next one.
 
-The dates come from the customer records' custom attributes that hold a date (YYYY-MM-DD), as C360 sends them; CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
+Choose **Next**.
 
-## Build the steps
+### 3. Set up: population and re-entry (step 2 of 2)
 
-Add steps with the **+** buttons on the canvas. Each step needs its settings before you can test publish; **Save Draft** keeps your work (nothing saves on its own).
+| Field | What to choose |
+|---|---|
+| Population | **Fixed**: who qualifies on the first pass after go-live, then nobody new. **Continuously Qualifying**: new matches keep joining. **Event Triggered**: customers enter the moment the event arrives. |
+| Re-Entry | **Never**: once through, never again. **After X Days**: eligible again after the number of days you enter in **Days Before Re-Entry**, counted from when they finished or exited. **Every Qualifying Event** (offered when a starter uses it): again each time the trigger happens. |
+
+Choose **Create Journey**. The journey is created as a Draft and the builder opens.
+
+### 4. Build the steps
+
+The canvas shows the Entry at the top. Use the **+** between steps to add one; click a step to set it up in the panel on the right, then **Save Step**. A step still to set up is marked **Needs Setup**. The step's **⋮** menu duplicates or deletes it. **Journey Settings** on the left shows the entry, population and re-entry; **Edit Setup** there reopens the set-up.
 
 | Step | What it does |
 |---|---|
 | Wait | Pauses for minutes, hours, days or weeks. |
 | Condition | Splits into Yes and No: made a purchase, opened an email, clicked a link, redeemed a coupon, a specific event happened (optionally within a number of days), or is in a segment. |
 | Email, SMS / MMS | Sends a published template. |
-| Issue Coupon | Asks C360 for a coupon for the customer (see below). |
-| Update Loyalty Tier, Update Segment | Changes the customer's tier, or adds them to or removes them from a segment. |
-| Exit Journey | Ends the path. A customer who reaches an Exit counts as **Goal Converted**; end every path with one. |
+| Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
+| Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
+| Update Segment | Adds the customer to a segment, or removes them. |
+| Exit Journey | Ends the path; the customer counts as Goal Converted. End every path with one. |
 
-**Issue Coupon.** CEP does not make coupon codes. The step leaves a request for C360, which reads the open requests, issues the coupon and marks the request done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event, so another journey can start from it. A customer passing the same step again in the same enrolment asks only once.
+**Save Draft** (top right) keeps your work; nothing saves on its own. When every step is set up, choose **Continue to Test Publish**.
 
-## Test publish
+### 5. Test publish
 
-**Test Publish** runs the journey on a small population first: a random sample of up to 200 qualifying customers, or a test list. Four checks must pass:
+Choose the **Test Population**: a **Random Sample of Live Audience** (up to 200 customers who would enter now) or a **Specific Test List**. Four **Readiness Checks** must pass:
 
 | Check | Passes when |
 |---|---|
-| Entry rules configured | The journey has an entry. |
+| Entry rules configured | The journey has a complete entry. |
 | All canvas steps configured | Every step has its settings and every path ends. |
 | Templates ready | Every message step's template is published. |
-| Governance rules satisfied | Always passes; it tells you which frequency caps apply to the journey's messages ("Emails: at most 3 in 7 days") and that texts wait out quiet hours, 21:00 to 08:00 in the workspace's time zone. A customer over a cap is held back, not sent. |
+| Governance rules satisfied | Always passes; it lists the frequency caps that apply ("Emails: at most 3 in 7 days") and that texts wait out quiet hours. A customer over a cap is held back, not sent. |
 
-The test **sends real messages** to that population, so use the test list. The result shows who got what, and how many were held back and why (unsubscribed, over a frequency cap, no consent, and so on).
+**Run Test Publish**, then **Send Test**. The test **sends real messages** to that population (Waits are skipped), so use the test list. The results show who got what, and how many were held back and why. Test customers leave the journey when the test ends and can still enter it for real later.
 
-## Approve and go live
+### 6. Approve and go live
 
-Someone with Activate approves the tested version: **go live now**, or **at a date and time**. A scheduled journey reads *Approved* until its time; **Cancel Schedule** on the journey's page takes it back to Test, and you can approve it again for another time. Going live retires any older live version, so only one version runs at a time.
+**Approve & Activate →** (needs Activate). Choose **Activate Immediately** or **Schedule for Later** (a date and a time), then **Activate Journey** or **Schedule Journey**. A scheduled journey reads *Approved* until its time; **Cancel Schedule** on its page takes it back to Test.
+
+From then on CEP enrols qualifying customers every minute. Watch them arrive on the journey's page.
+
+## How to edit a journey
+
+**A draft or tested journey.** **Edit Journey** on its page opens the builder on the same version. Change steps, **Save Draft**, and run Test Publish again before approving.
+
+**The entry, population or re-entry.** In the builder, **Edit Setup** (or **Back to Setup**). On a draft everything can change. On a live journey the entry can change (as part of a new version); population and re-entry stay as they are, because they belong to the journey.
+
+**A live journey (a new version).**
+1. **Edit Journey.** The builder says the version is live. Make your changes and **Save Draft**: they are saved as the next version, and the live version keeps running untouched.
+2. On the journey's page a notice says the new version is a draft; **Test Publish Version N** opens its test. Test customers already inside the live version are skipped.
+3. Approve it. **Now**: new customers enter the new version at once; customers already inside finish the version they started. **Later**: the live version keeps running until that time, the page shows the date, and **Cancel Schedule** keeps the live version and leaves the new one tested, to approve again. A paused journey's new version keeps the journey paused until you resume it.
+
+The **Versions** card lists every version with its status; the running one is tagged **Live**, a waiting one **Scheduled**.
+
+**Goal and Exit Criteria.** On the journey's page, in Setup, the pencil beside each note edits it in place; **Save** keeps it.
+
+**Pause, resume, end or copy.**
+- **Pause Journey**: nobody new enters and nobody moves; **Resume Journey** carries on where everyone was.
+- **Archive Journey**, then confirm: nobody new enters, everyone still inside leaves (counted as exited), its versions are retired and any scheduled start is dropped. It can't be undone. Archiving a live, paused or scheduled journey needs Activate.
+- **Duplicate**: a new draft copy of the journey, to start again or try a variant.
 
 ## The journey's page
 
 | Part | What it shows |
 |---|---|
-| Header | Status, the trigger, the channels, and the actions your rights allow: Pause Journey / Resume Journey, Cancel Schedule, Archive Journey, Duplicate, Edit Journey. |
+| Header | Status, trigger, channels, and the actions your rights allow. |
+| Notices | Draft, paused, scheduled, or a new version waiting for its test or approval. |
 | Performance | Enrolled, In Journey, Goal Converted and Exited Early, with the weekly Enrollment Over Time. A Draft shows dashes. |
-| Setup | The trigger, the Goal and the Exit Criteria (notes you can edit in place), re-entry, and the audience: source lists, the eligible pool and the enrolment rate. |
-| Versions | Every version, newest first: its status, when it went live and when it was made. The running one is tagged **Live**. |
+| Setup | The trigger, Goal, Exit Criteria, re-entry, and the audience: source lists, eligible pool, enrolment rate. |
+| Versions | Every version, newest first, with its status and when it went live. |
 | Generated Campaigns | Each message step sends through a campaign, one per step per day. Open one to see its recipients and results. |
 | Activity | Who created, tested, approved, paused or archived it, and when. |
 
-## How to
-
-**Pause a journey for a while.** Pause Journey. New customers stop entering and nobody moves; Resume Journey picks up where everyone was.
-
-**End a journey.** Archive Journey, then confirm. Nobody new enters, everyone still in it leaves their path (counted as exited), its live and tested versions are retired and any scheduled start is dropped. It can't be undone; **Duplicate** starts the same journey again as a draft. A live, paused or scheduled journey needs Activate to archive; a draft or tested one needs Create and Edit.
-
-**Change a live journey.**
-1. Edit Journey. The builder says the version is live; Save Draft saves your changes as the next version, and the live version keeps running untouched. Population and re-entry stay as they were, since they belong to the journey.
-2. On the journey's page, **Test Publish Version N** opens the new version's test. Test customers who are inside the live version are skipped.
-3. Approve it. **Now**: new customers enter the new version at once, and customers already inside finish the version they started. **Later**: the live version keeps running until that time; the journey's page shows the date, and Cancel Schedule keeps the live version and leaves the new one tested, to approve again. Approving a paused journey's new version keeps the journey paused until you resume it.
-
-**Start a journey from what the shop sends.** Choose an event entry, for example Abandoned Cart, and make sure the shop sends that event (Settings → Events). Purchases and First Purchases arrive on their own once Attribution receives the shop's orders.
-
 ## What happens behind the scenes
 
-Four jobs run journeys. Every minute: **enroll-journey-customers** enters the customers who meet a live journey's entry (events of the last seven days at most, up to 5,000 per journey per pass); **advance-journey-customers** moves those whose next step is due; **activate-scheduled-journeys** takes approved journeys live when their time comes. Nightly, **rollup-journey-analytics** writes the Performance figures.
+Four jobs run journeys. Every minute: **enroll-journey-customers** enters the customers who meet a live journey's entry (events of the last seven days at most, up to 5,000 per journey per pass; Date / Time schedules whose moment has come); **advance-journey-customers** moves those whose next step is due; **activate-scheduled-journeys** takes approved journeys live when their time comes. Nightly, **rollup-journey-analytics** writes the Performance figures.
 
 Only customers in the customer records enter, since a message to someone unknown could never go out. Message steps send through the normal send engine, so consent, suppressions, the preference centre, frequency caps and quiet hours all apply as they do to campaigns.
 
 ## Things to know
 
-- Attribute changes enrol on events: **Loyalty Tier** on a Loyalty Tier Change (raised by the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on an Address Change event C360 sends. See Events.
 - **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). CEP raises it at most once in 30 days per customer, while a live journey starts from it.
-- A customer from a Test Publish can still enter the journey for real later.
-- The Split step (more than two paths) is not offered; use Conditions.
+- Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
+- The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- The Split step (more than two paths) is not offered; use Conditions.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
-- Events are explained in **Events** (Settings → Events).
+- Events are explained in **Events** (Settings → Events), purchases in **Attribution**.
 
 ---
 

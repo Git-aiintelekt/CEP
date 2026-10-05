@@ -73,6 +73,7 @@ function parse(source) {
       text.push(lines[i].trim())
       i += 1
     }
+    if (text.length === 0) { text.push(lines[i].trim()); i += 1 }   // a line no block takes (an indented table row): keep it as text, never stall
     blocks.push({ kind: 'paragraph', text: text.join(' ') })
   }
   return blocks
