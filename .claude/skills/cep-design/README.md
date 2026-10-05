@@ -299,6 +299,16 @@ Not applicable — this bundle has no application logic. Components built from i
 
 ---
 
+## Create pop-ups (Setup Dialog)
+
+Every create pop-up (Campaign, Contact List, Journey, Template, and their Edit Details / Edit Setup) sits in one frame, `components/SetupDialog.tsx` (2026-10-05, the "Setup Dialog" design). Build a new create flow in it; never draw a pop-up of its own.
+- **Frame:** 768px, centred over the scrim, 8px corners; 1040px only where a gallery needs it (Template step 2). The body scrolls between a fixed header and footer; on phones it is a full-height sheet.
+- **Header:** the title "Create {Thing}" (18px display), the close button; for more than one step, "Step 2 of 3 · Step Name" over a bar of 4px segments, done and current in Blue 600, the rest Gray 100.
+- **Body:** 24px padding, 24px between fields; bold labels (`Field strong`); placeholders start "e.g."; Description (Optional) is the last field of step 1.
+- **Choices are cards:** `ChoiceCard tile` in a `ChoiceGroup` (features/campaigns/parts.tsx): a 20px icon with an optional plum tag ("Most Common") on one row, then the title and one line; selected is a Blue 600 border on Blue 100, hover a Blue 600 border. A card's accessible name is its title; the line describes it. Short value lists that change with another choice (Specific Trigger, Message Purpose) stay selects.
+- **Errors:** one banner at the top of the body with Try Again; field errors under their field.
+- **Footer:** Back (outlined) at the far left from step 2; Cancel, then the primary at the right. In-between steps say "Next"; the last says "Create {Thing}" (Edit pop-ups: "Save" / "Save Setup"). The primary stays disabled until the step is valid and shows a spinner while saving.
+
 ## Content & Copy Rules
 
 These matter as much as the visuals; CEP writes like a competent colleague leaving a handover note — short, factual, numeric, never chirpy.

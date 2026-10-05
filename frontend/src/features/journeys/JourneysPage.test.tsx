@@ -171,6 +171,6 @@ test('Create Journey opens the real Setup modal', async () => {
   await screen.findByRole('table', { name: 'Journeys' })
 
   await user.click(screen.getByRole('button', { name: /Create Journey/ }))
-  const dialog = await screen.findByRole('dialog', { name: /Create A Journey/ })
-  expect(within(dialog).getByText('Step 1 of 2')).toBeTruthy()
+  const dialog = await screen.findByRole('dialog', { name: /^Create Journey$/ })
+  expect(within(dialog).getByText(/^Step 1 of 2/)).toBeTruthy()
 })

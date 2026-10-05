@@ -12,34 +12,39 @@ import { formatMoney, formatNumber } from '@/lib/format'
 export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disabled = false, tile = false }: {
   selected: boolean; onSelect: () => void; title: string; text: string; icon?: ReactNode; badge?: string; disabled?: boolean; tile?: boolean
 }) {
-  const state = selected ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:bg-surface-subtle'
+  const state = selected ? 'border-brand-600 bg-brand-100' : tile ? 'border-line bg-surface hover:border-brand-600' : 'border-line bg-surface hover:bg-surface-subtle'
   const titleTone = selected ? 'text-brand-800' : 'text-ink-900'
+  const id = useId()
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-text`}
       disabled={disabled}
       onClick={onSelect}
       className={`flex h-full rounded-lg border text-left transition-colors duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300 ${state} ${
-        tile ? 'items-start gap-3 p-4 sm:flex-col sm:gap-2' : 'flex-col items-start gap-1 p-3'
+        tile ? 'min-w-0 flex-col items-start gap-1.5 p-3.5' : 'flex-col items-start gap-1 p-3'
       }`}
     >
       {tile ? (
+        // the set-up pop-ups' card (the "Setup Dialog" design): the icon with any tag on one row, then the title and its line
         <>
-          {icon && <span aria-hidden className={`shrink-0 ${selected ? 'text-brand-800' : 'text-ink-800'}`}>{icon}</span>}
-          <span className="flex min-w-0 flex-col gap-1">
-            <span className={`text-sm font-semibold ${titleTone}`}>{title}</span>
-            <span className="text-helper text-ink-800">{text}</span>
+          <span className="flex w-full items-center justify-between gap-2">
+            {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${selected ? 'text-brand-600' : 'text-ink-800'}`}>{icon}</span> : <span />}
+            {badge && <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-plum-100 px-1.5 text-[11px] font-semibold whitespace-nowrap text-plum-800">{badge}</span>}
           </span>
+          <span id={`${id}-title`} className="text-sm font-semibold text-ink-900">{title}</span>
+          <span id={`${id}-text`} className="text-helper text-ink-800">{text}</span>
         </>
       ) : (
         <>
           <span className={`flex items-center gap-2 text-sm font-semibold ${titleTone}`}>
             {icon && <span className={selected ? 'text-brand-800' : 'text-ink-800'}>{icon}</span>}
-            {title}
+            <span id={`${id}-title`}>{title}</span>
           </span>
-          <span className="text-xs text-ink-800">{text}</span>
+          <span id={`${id}-text`} className="text-xs text-ink-800">{text}</span>
           {badge && <span className="mt-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-800">{badge}</span>}
         </>
       )}

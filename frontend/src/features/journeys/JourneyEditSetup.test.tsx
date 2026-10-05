@@ -81,11 +81,11 @@ test('Edit Setup opens the Setup pop-up pre-filled from the journey', async () =
   expect(within(dialog).getByRole('button', { name: 'Fall Master Audience' })).toBeTruthy()
 
   await user.click(within(dialog).getByRole('button', { name: /Next/ }))
-  expect((within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }) as HTMLInputElement).checked).toBe(true)
-  expect((within(dialog).getByRole('radio', { name: /^After X Days/ }) as HTMLInputElement).checked).toBe(true)
+  expect(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }).getAttribute('aria-checked')).toBe('true')
+  expect(within(dialog).getByRole('radio', { name: /^After X Days/ }).getAttribute('aria-checked')).toBe('true')
   expect((within(dialog).getByLabelText('Cooldown Days') as HTMLInputElement).value).toBe('30')
   expect(within(dialog).getByRole('button', { name: 'Save Setup' })).toBeTruthy()
-  expect(within(dialog).queryByRole('button', { name: 'Continue to Build' })).toBeNull()
+  expect(within(dialog).queryByRole('button', { name: 'Create Journey' })).toBeNull()
 })
 
 test('Back to Setup opens the same pop-up', async () => {
@@ -113,7 +113,7 @@ test('saving a draft PATCHes the journey and PUTs only the entry rule, keeping t
 
   await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: /Edit Setup/ })).toBeNull())
   const patch = calls.find((call) => call.method === 'PATCH' && call.url.endsWith('/journeys/j1/'))
-  expect(patch?.body).toEqual({ name: 'Gold Welcome', population_mode: 'EVENT_TRIGGERED', reentry_policy: 'NEVER', reentry_after_days: null })
+  expect(patch?.body).toEqual({ name: 'Gold Welcome', description: null, population_mode: 'EVENT_TRIGGERED', reentry_policy: 'NEVER', reentry_after_days: null })
   const put = calls.find((call) => call.method === 'PUT' && call.url.endsWith('/journeys/j1/versions/1/graph/'))
   const graph = put?.body?.graph as JourneyGraph
   expect(put?.body?.row_version).toBe(1)
@@ -173,7 +173,7 @@ test('editing a published journey says so and saves onto a new draft version', a
 
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.endsWith('/journeys/j1/versions/2/graph/'))).toBe(true))
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/versions/'))?.body).toEqual({ from_version: 1 })
-  expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ name: 'New Loyalty Member Welcome' })
+  expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ name: 'New Loyalty Member Welcome', description: null })
   const graph = calls.find((call) => call.method === 'PUT')?.body?.graph as JourneyGraph
   expect(graph.entry_rules).toEqual([{ entry_type: 'EVENT', rule_definition: { event_type: 'WELCOME' } }])
   expect(graph.nodes.map((node) => node.key)).toEqual(['start', 'wait-1', 'email-1', 'exit-1'])
@@ -186,13 +186,13 @@ test('Enters Segment needs a Segment, saved into the rule', async () => {
   await renderAppAt('/journeys')
   await screen.findByRole('table', { name: 'Journeys' })
   await user.click(screen.getByRole('button', { name: /Create Journey/ }))
-  const dialog = await screen.findByRole('dialog', { name: /Create A Journey/ })
+  const dialog = await screen.findByRole('dialog', { name: /^Create Journey$/ })
 
   await user.type(within(dialog).getByLabelText(/^Journey Name/), 'Lapsed Win-Back')
   await user.click(within(dialog).getByRole('radio', { name: 'Segment or Customer Change' }))
   await user.click(within(dialog).getByRole('button', { name: 'Select a Change Trigger' }))
   await user.click(screen.getByRole('button', { name: 'Enters Segment' }))
-  const next = within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement
+  const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
   expect(next.disabled).toBe(true)
 
   await user.click(within(dialog).getByRole('button', { name: 'Select a Segment' }))
@@ -212,7 +212,7 @@ test('Enters Segment needs a Segment, saved into the rule', async () => {
   await user.click(await screen.findByRole('button', { name: 'No purchase in 90 days' }))
   await user.click(next)
   await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Continue to Build' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Journey' }))
 
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/graph/'))).toBe(true))
   const graph = calls.find((call) => call.method === 'PUT')?.body?.graph as JourneyGraph
@@ -234,7 +234,7 @@ test('the Win-Back starter pre-fills Setup with its segment still to choose', as
   expect((await within(preview).findAllByText('Choose your Lapsed segment')).length).toBeGreaterThan(0)
   await user.click(within(preview).getByRole('button', { name: 'Use This Template' }))
 
-  const setup = await screen.findByRole('dialog', { name: /Create A Journey/ })
+  const setup = await screen.findByRole('dialog', { name: /^Create Journey$/ })
   expect(within(setup).getByRole('button', { name: 'Enters Segment' })).toBeTruthy()
   expect(within(setup).getByRole('button', { name: 'Select a Segment' })).toBeTruthy()
   expect(within(setup).getByText('Choose your Lapsed segment')).toBeTruthy()
@@ -245,7 +245,7 @@ test('the Win-Back starter pre-fills Setup with its segment still to choose', as
   await user.click(await screen.findByRole('button', { name: 'No purchase in 90 days' }))
   expect(next.disabled).toBe(false)
   await user.click(next)
-  await user.click(within(setup).getByRole('button', { name: /Continue to Build/ }))
+  await user.click(within(setup).getByRole('button', { name: 'Create Journey' }))
 
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/graph/'))).toBe(true))
   const graph = calls.find((call) => call.method === 'PUT')?.body?.graph as JourneyGraph

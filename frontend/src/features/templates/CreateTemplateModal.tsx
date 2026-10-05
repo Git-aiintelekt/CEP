@@ -1,22 +1,22 @@
 /**
- * Create Template as a pop-up, in two steps: 1 the name, channel and description; 2 where it starts, blank or from one of
- * CEP's starters (the same picker as /templates/new). Creating opens the template in its editor.
+ * Create Template, in the shared set-up frame: 1 the name, channel and description; 2 where it starts, Blank (picked
+ * for you) or one of CEP's starters (the same picker as /templates/new). Creating opens the template in its editor.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft } from 'lucide-react'
 import { useId, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
-import { buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
-import { Modal } from '@/components/Modal'
-import { Spinner } from '@/components/States'
+import { Field, TextArea, TextInput } from '@/components/Form'
+import { SetupDialog } from '@/components/SetupDialog'
+import { ChoiceCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { api, ApiError } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
 import { useFieldRules } from '@/lib/fieldRules'
 import type { Template } from '@/lib/types'
 
+import { lookOf } from './channels'
 import { StarterGallery } from './StarterGallery'
 
 const CHANNELS = [
@@ -25,13 +25,6 @@ const CHANNELS = [
   { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
   { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
 ]
-
-/** What the create button promises, by the editor the new template opens in. */
-const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
-  design: 'Create and Open the Designer',
-  receipt: 'Create and Open the Receipt Editor',
-  message: 'Create and Write the Message',
-}
 
 /** the fields step 1 owns: an API error on one of them sends the person back there */
 const STEP_ONE_FIELDS = ['name', 'channel', 'description']
@@ -74,55 +67,44 @@ export function CreateTemplateModal({ channel: initialChannel, onClose }: { chan
     setStep(2)
   }
 
-  const look = CHANNELS.find((item) => item.value === channel)
   return (
-    <Modal
-      title="Create a Template"
-      subtitle={step === 1 ? 'Step 1 of 2 · Name, channel and description' : `Step 2 of 2 · Start blank or from a starter · ${look?.label ?? ''}`}
+    <SetupDialog
+      title="Create Template"
+      steps={['Name, Channel and Description', 'Start From']}
+      step={step}
       onClose={onClose}
-      size={step === 1 ? 'md' : 'screen'}
-      scrollBody
-      footer={step === 1 ? (
-        <>
-          <button type="button" onClick={onClose} className={buttonSecondary}>Cancel</button>
-          <button type="submit" form={formId} disabled={name.trim() === ''} className={buttonPrimary}>Next</button>
-        </>
-      ) : (
-        <>
-          <button type="button" onClick={() => setStep(1)} className={`${buttonSecondary} mr-auto`}><ArrowLeft size={16} strokeWidth={1.5} aria-hidden />Back</button>
-          <button type="button" onClick={onClose} className={buttonSecondary}>Cancel</button>
-          <button type="button" disabled={create.isPending} onClick={() => create.mutate()} className={buttonPrimary}>
-            {create.isPending && <Spinner size="sm" tone="onBrand" />}
-            {CREATE_LABEL[editorRouteFor(channel)]}
-          </button>
-        </>
-      )}
+      locked={create.isPending}
+      wide={step === 2}
+      onBack={step === 2 ? () => setStep(1) : undefined}
+      primary={step === 1
+        ? { label: 'Next', disabled: name.trim() === '', form: formId }
+        : { label: 'Create Template', busy: create.isPending, busyLabel: 'Creating', onClick: () => create.mutate() }}
+      error={errors.form ? { title: 'Template Wasn’t Created', message: errors.form, onRetry: () => create.mutate() } : null}
     >
       {step === 1 ? (
-        <form id={formId} onSubmit={next} noValidate className="space-y-4">
-          <Field label="Template Name" required error={errors.name} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
-            {(ids) => <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} autoFocus placeholder="Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
+        <form id={formId} onSubmit={next} noValidate className="flex flex-col gap-6">
+          <Field label="Template Name" required strong error={errors.name} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+            {(ids) => <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} data-autofocus placeholder="e.g. Fall Sale Announcement" onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
           </Field>
-          <Field label="Channel" required error={errors.channel} help="Decides which editor opens and which campaigns can use the template. Fixed once created." hint={look?.hint}>
-            {(ids) => (
-              <Select {...ids} value={channel} onChange={(event) => { setChannel(event.target.value); setStarter('') }}>
-                {channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </Select>
-            )}
-          </Field>
-          <Field label="Description (Optional)" error={errors.description} hint="What this template is for. Shown in the template list.">
-            {(ids) => <TextArea {...ids} rows={3} value={description} placeholder="What this template is for, and when to use it" onChange={(event) => setDescription(event.target.value)} />}
+          <ChoiceGroup label="Channel" required strong error={errors.channel} hint="Decides which editor opens and which campaigns can use the template. Fixed once created." columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+            {channels.map((item) => {
+              const Icon = lookOf(item.value).icon
+              return <ChoiceCard key={item.value} tile selected={channel === item.value} onSelect={() => { setChannel(item.value); setStarter('') }} title={item.label} text={item.hint} icon={<Icon size={20} strokeWidth={1.5} />} />
+            })}
+          </ChoiceGroup>
+          <Field label="Description (Optional)" strong error={errors.description} hint="What this template is for. Shown in the template list.">
+            {(ids) => <TextArea {...ids} rows={3} value={description} placeholder="e.g. Seasonal promo with a hero and three product blocks" onChange={(event) => setDescription(event.target.value)} />}
           </Field>
         </form>
       ) : (
-        <div className="flex flex-col gap-3">
-          <StarterGallery channel={channel} value={starter} onChange={(key, chosen) => {
+        <>
+          <StarterGallery bare channel={channel} value={starter} onChange={(key, chosen) => {
             setStarter(key)
             if (chosen && !description.trim()) setDescription(chosen.description)
           }} />
-          {(errors.starter || errors.form) && <p role="alert" className="text-sm font-medium text-danger-text">{errors.starter ?? errors.form}</p>}
-        </div>
+          {errors.starter && <p role="alert" className="text-sm font-medium text-danger-text">{errors.starter}</p>}
+        </>
       )}
-    </Modal>
+    </SetupDialog>
   )
 }

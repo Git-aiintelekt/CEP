@@ -40,8 +40,8 @@ afterEach(() => {
 test('opens from the header button with focus in the name; Cancel closes it without asking and focus goes back', async () => {
   const { user, opener } = await openCreate()
   const box = dialog()
-  expect(within(box).getByRole('heading', { name: 'Create Campaign' }).className).toContain('text-page-title')
-  expect(within(box).getByRole('heading', { name: 'Create Campaign' }).className).toContain('text-section-title')    // smaller on phones
+  expect(within(box).getByRole('heading', { name: 'Create Campaign' }).className).toContain('text-lg')               // the shared set-up frame's title
+  expect(box.hasAttribute('data-setup-dialog')).toBe(true)
   expect(within(box).queryByText(/^Name it and pick/)).toBeNull()                                   // no subtitle under the title
   expect(within(box).getByRole('radiogroup', { name: /^Channel/ }).getAttribute('aria-describedby')).toBeTruthy()
   expect(within(box).getByText('The type and channel are fixed once you choose the content.')).toBeTruthy() // the note now sits under Channel
@@ -71,7 +71,7 @@ test('four type cards and four channel cards; MMS reads "Text with an image"; ar
   const { user } = await openCreate()
   const types = within(dialog()).getByRole('radiogroup', { name: 'Campaign Type' })
   expect(within(types).getAllByRole('radio').map((item) => item.textContent)).toEqual([
-    'Regular MarketingOne-time or scheduled send', 'DripMulti-run scheduled pattern', 'E-ReceiptTransactional receipt communication', 'OtherService or legal notices'])
+    'Most CommonRegular MarketingOne-time or scheduled send', 'DripMulti-run scheduled pattern', 'E-ReceiptTransactional receipt communication', 'OtherService or legal notices'])
   const channels = within(dialog()).getByRole('radiogroup', { name: 'Channel' })
   expect(within(channels).getByRole('radio', { name: /^MMS/ }).textContent).toBe('MMSText with an image')
   expect(within(channels).getByRole('radio', { name: /Multiple Channels/ })).toBeTruthy()
@@ -114,7 +114,7 @@ test('E-Receipt offers Email or SMS as its channel (email by default), fills in 
 test('Create Campaign: the draft is created as the old first step did, then Audience opens', async () => {
   const { user, calls } = await openCreate()
   await fillValid(user)
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   await user.type(within(dialog()).getByLabelText(/^Tags/), 'Holiday{Enter}vip,')
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await screen.findByRole('heading', { level: 2, name: 'Send To' })).toBeTruthy()                   // the Audience step
@@ -160,13 +160,13 @@ test('validation: every problem shows on its field, focus goes to the first, and
 
   await fillValid(user)
   expect(within(dialog()).queryByLabelText(/^Code/)).toBeNull()                                      // More details starts closed
-  expect(within(dialog()).getByRole('button', { name: /More Details/ }).getAttribute('aria-expanded')).toBe('false')
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  expect(within(dialog()).getByRole('button', { name: /More Options/ }).getAttribute('aria-expanded')).toBe('false')
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   await user.type(within(dialog()).getByLabelText(/^Code/), 'x')
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))                   // closed again, with a bad code inside
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))                   // closed again, with a bad code inside
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await within(dialog()).findByText(/3 to 40 characters/)).toBeTruthy()
-  expect(within(dialog()).getByRole('button', { name: /More Details/ }).getAttribute('aria-expanded')).toBe('true')
+  expect(within(dialog()).getByRole('button', { name: /More Options/ }).getAttribute('aria-expanded')).toBe('true')
   await vi.waitFor(() => expect(document.activeElement).toBe(within(dialog()).getByLabelText(/^Code/)))
 })
 
@@ -200,7 +200,7 @@ test('the owner: you to begin with; Change opens a searchable list that works wi
 
 test('tags: the workspace’s tags are suggested as you type; 20 at most', async () => {
   const { user } = await openCreate({ campaignTags: ['Fall', 'Fall clearance', 'VIP'] })
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   const input = within(dialog()).getByLabelText(/^Tags/)
   await user.type(input, 'fa')
   const suggestions = within(dialog()).getByRole('listbox', { name: 'Tags in this workspace' })
@@ -218,17 +218,17 @@ test('tags: the workspace’s tags are suggested as you type; 20 at most', async
 test('a code in use: the server’s message on the field, naming the campaign when the server does', async () => {
   const { user } = await openCreate({ onSave: () => problem(400, { title: 'Invalid input', errors: { code: ['Another campaign already uses this code.'] } }) })
   await fillValid(user)
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   await user.type(within(dialog()).getByLabelText(/^Code/), 'cmp-2026-0012')
-  await user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  await user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await within(dialog()).findByText('CMP-2026-0012 is already used by another campaign')).toBeTruthy()
-  expect(within(dialog()).getByRole('button', { name: /More Details/ }).getAttribute('aria-expanded')).toBe('true')
+  expect(within(dialog()).getByRole('button', { name: /More Options/ }).getAttribute('aria-expanded')).toBe('true')
 
   cleanup()
   const named = await openCreate({ onSave: () => problem(400, { title: 'Invalid input', errors: { code: ['Already used by Weekend Flash Sale.'] } }) })
   await fillValid(named.user)
-  await named.user.click(within(dialog()).getByRole('button', { name: /More Details/ }))
+  await named.user.click(within(dialog()).getByRole('button', { name: /More Options/ }))
   await named.user.type(within(dialog()).getByLabelText(/^Code/), 'CMP-2026-0012')
   await named.user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await within(dialog()).findByText('CMP-2026-0012 is already used by Weekend Flash Sale')).toBeTruthy()
@@ -278,7 +278,7 @@ test('Edit details: filled in, type and channel fixed, More details open when it
   expect(box.querySelector('[data-locked="Campaign Type"]')?.textContent).toContain('Regular Marketing')
   expect(box.querySelector('[data-locked="Channel"]')?.textContent).toContain('Email')
   expect(within(box).getAllByText('Fixed Once Content Is Chosen')).toHaveLength(2)
-  expect(within(box).getByRole('button', { name: /More Details/ }).getAttribute('aria-expanded')).toBe('true')
+  expect(within(box).getByRole('button', { name: /More Options/ }).getAttribute('aria-expanded')).toBe('true')
   expect(within(box).getByRole('button', { name: 'Remove the tag Fall' })).toBeTruthy()
   await user.clear(within(box).getByLabelText(/^Campaign Name/))
   await user.type(within(box).getByLabelText(/^Campaign Name/), 'Fall Launch 2026')
@@ -353,7 +353,7 @@ test('the create flow speaks in title case for labels, and in sentences for help
   const { user } = await openCreate()
   for (const label of [/^Campaign Name/, /^Message Purpose/]) expect(within(dialog()).getByLabelText(label)).toBeTruthy()
   for (const group of ['Campaign Type', 'Channel']) expect(within(dialog()).getByRole('radiogroup', { name: group })).toBeTruthy()
-  expect(within(dialog()).getByRole('button', { name: /More Details \(Optional\)/ })).toBeTruthy()
+  expect(within(dialog()).getByRole('button', { name: /More Options · Code and tags/ })).toBeTruthy()
   expect(within(dialog()).getByText('Internal name, visible to your team only')).toBeTruthy()
   expect(within(dialog()).getByText('Owner · Auto-Assigned to You')).toBeTruthy()
   await fillValid(user)

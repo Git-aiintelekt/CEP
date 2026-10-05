@@ -25,7 +25,7 @@ test('every Create button on Home opens its pop-up on Home, never another page',
   const user = userEvent.setup()
   await renderAppAt('/')
   const create = await screen.findByRole('region', { name: 'Create New' })
-  const dialogs: [string, RegExp][] = [['Create Campaign', /Create Campaign/], ['Contact List', /New Contact List/], ['Template', /Create a Template/]]
+  const dialogs: [string, RegExp][] = [['Create Campaign', /Create Campaign/], ['Contact List', /Create Contact List/], ['Template', /Create Template/]]
   for (const [button, title] of dialogs) {
     await user.click(within(create).getByRole('button', { name: button }))
     const dialog = await screen.findByRole('dialog')
@@ -43,7 +43,7 @@ test('the Template pop-up: step 1 the name, channel and description; step 2 blan
   await user.click(within(await screen.findByRole('region', { name: 'Create New' })).getByRole('button', { name: 'Template' }))
   const dialog = await screen.findByRole('dialog')
   expect(within(dialog).getByText(/^Step 1 of 2/)).toBeTruthy()
-  expect(within(dialog).getByRole('combobox', { name: /Channel/ })).toBeTruthy()
+  expect(within(dialog).getByRole('radiogroup', { name: /Channel/ })).toBeTruthy()
   expect(within(dialog).getByRole('textbox', { name: /Description/ })).toBeTruthy()
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
 

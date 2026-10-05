@@ -211,9 +211,9 @@ test('a channel card opens the two-step create pop-up on that channel: a name, t
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Create SMS template' }))
 
-  const dialog = await screen.findByRole('dialog', { name: 'Create a Template' })
+  const dialog = await screen.findByRole('dialog', { name: 'Create Template' })
   expect(within(dialog).getByText(/^Step 1 of 2/)).toBeTruthy()
-  expect((within(dialog).getByRole('combobox', { name: /Channel/ }) as HTMLSelectElement).value).toBe('SMS')
+  expect(within(dialog).getByRole('radio', { name: 'SMS' }).getAttribute('aria-checked')).toBe('true')
   const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
   expect(next.disabled).toBe(true)
   await user.type(within(dialog).getByLabelText(/^Template Name/), 'Weekend flash')
@@ -222,7 +222,7 @@ test('a channel card opens the two-step create pop-up on that channel: a name, t
 
   expect(await within(dialog).findByText(/^Step 2 of 2/)).toBeTruthy()
   expect((await within(dialog).findByRole('radio', { name: /Blank/ })).getAttribute('aria-checked')).toBe('true')
-  await user.click(within(dialog).getByRole('button', { name: 'Create and Write the Message' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Template' }))
 
   await waitFor(() => expect(window.location.pathname).toBe('/templates/tpl-new/message'))
   const body = calls.find((call) => call.method === 'POST' && call.url.endsWith('/templates/'))?.body
@@ -233,10 +233,10 @@ test('the create pop-up takes the person back to step 1 to show the server refus
   await openLanding({ onSaveTemplate: () => problem(400, { title: 'Invalid input', errors: { name: ['A template with this name already exists.'] } }) })
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Create Email template' }))
-  const dialog = await screen.findByRole('dialog', { name: 'Create a Template' })
+  const dialog = await screen.findByRole('dialog', { name: 'Create Template' })
   await user.type(within(dialog).getByLabelText(/^Template Name/), 'Fall Email')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
-  await user.click(await within(dialog).findByRole('button', { name: 'Create and Open the Designer' }))
+  await user.click(await within(dialog).findByRole('button', { name: 'Create Template' }))
 
   expect(await within(dialog).findByText('A template with this name already exists.')).toBeTruthy()
   expect(within(dialog).getByLabelText(/^Template Name/).getAttribute('aria-invalid')).toBe('true')

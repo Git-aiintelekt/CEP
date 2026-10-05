@@ -22,7 +22,7 @@ async function openSetup() {
   await renderAppAt('/journeys')
   await screen.findByRole('table', { name: 'Journeys' })
   await user.click(screen.getByRole('button', { name: /Create Journey/ }))
-  return { user, dialog: await screen.findByRole('dialog', { name: /Create A Journey/ }) }
+  return { user, dialog: await screen.findByRole('dialog', { name: /^Create Journey$/ }) }
 }
 
 // jsdom has neither, and "Continue to Build" navigates into the Build canvas (@xyflow/react) — same stubs as
@@ -67,7 +67,7 @@ test('Next stays disabled until a name and a trigger are both chosen', async () 
   installMockApi()
   const { user, dialog } = await openSetup()
 
-  const next = within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement
+  const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
   expect(next.disabled).toBe(true)
 
   await user.type(within(dialog).getByLabelText(/^Journey Name/), 'Welcome Series')
@@ -114,7 +114,7 @@ test('each entry pill opens its own grouped trigger dropdown', async () => {
   expect(within(dialog).getByRole('button', { name: 'Georgia only' })).toBeTruthy()
 })
 
-test('Continue to Build stays disabled until population and re-entry are chosen', async () => {
+test('Create Journey stays disabled until population and re-entry are chosen', async () => {
   installMockApi()
   const { user, dialog } = await openSetup()
 
@@ -122,10 +122,10 @@ test('Continue to Build stays disabled until population and re-entry are chosen'
   await user.click(within(dialog).getByRole('radio', { name: 'Event' }))
   await user.click(within(dialog).getByRole('button', { name: 'Select an Event Trigger' }))
   await user.click(screen.getByRole('button', { name: 'Welcome' }))
-  await user.click(within(dialog).getByRole('button', { name: 'Next →' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
-  await screen.findByText('Step 2 of 2')
-  const build = within(dialog).getByRole('button', { name: 'Continue to Build' }) as HTMLButtonElement
+  await screen.findByText(/^Step 2 of 2/)
+  const build = within(dialog).getByRole('button', { name: 'Create Journey' }) as HTMLButtonElement
   expect(build.disabled).toBe(true)                                     // re-entry defaults to Never, but population is unset
 
   await user.click(within(dialog).getByRole('radio', { name: /^Fixed/ }))
@@ -138,7 +138,7 @@ test('Continue to Build stays disabled until population and re-entry are chosen'
   expect(build.disabled).toBe(false)
 })
 
-test('Continue to Build creates the journey, saves its entry rule, and opens the Build canvas', async () => {
+test('Create Journey creates the journey, saves its entry rule, and opens the Build canvas', async () => {
   const calls = installMockApi()
   const { user, dialog } = await openSetup()
 
@@ -146,11 +146,11 @@ test('Continue to Build creates the journey, saves its entry rule, and opens the
   await user.click(within(dialog).getByRole('radio', { name: 'Event' }))
   await user.click(within(dialog).getByRole('button', { name: 'Select an Event Trigger' }))
   await user.click(screen.getByRole('button', { name: 'Welcome' }))
-  await user.click(within(dialog).getByRole('button', { name: 'Next →' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
-  await screen.findByText('Step 2 of 2')
+  await screen.findByText(/^Step 2 of 2/)
   await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Continue to Build' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Journey' }))
 
   await screen.findByRole('heading', { name: 'Journey Settings' })
 

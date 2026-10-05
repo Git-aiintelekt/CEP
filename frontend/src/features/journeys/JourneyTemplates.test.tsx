@@ -62,7 +62,7 @@ test('the Journey Templates panel offers Start from Scratch and the first four s
   expect(within(row).queryByRole('button', { name: /Loyalty Tier Upgrade/ })).toBeNull()        // the fifth starter waits for View More
 
   await user.click(within(row).getByRole('button', { name: /Start from Scratch/ }))
-  const setup = await screen.findByRole('dialog', { name: /Create A Journey/ })
+  const setup = await screen.findByRole('dialog', { name: /^Create Journey$/ })
   expect((within(setup).getByLabelText(/Journey Name/) as HTMLInputElement).value).toBe('')
   expect(within(setup).queryByText('From Template')).toBeNull()
 })
@@ -128,17 +128,17 @@ test('Use This Template pre-fills Setup, creates from the starter, keeps its ste
   await user.click(await screen.findByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' }))
   await user.click(within(await screen.findByRole('dialog', { name: 'Abandoned Cart Recovery' })).getByRole('button', { name: 'Use This Template' }))
 
-  const setup = await screen.findByRole('dialog', { name: /Create A Journey/ })
+  const setup = await screen.findByRole('dialog', { name: /^Create Journey$/ })
   expect(within(setup).getByText('From Template')).toBeTruthy()
   expect(within(setup).getByText('Abandoned Cart Recovery · Pre-filled. Change anything before you build.')).toBeTruthy()
   expect((within(setup).getByLabelText(/Journey Name/) as HTMLInputElement).value).toBe('Abandoned Cart Recovery (copy)')
   expect(within(setup).getByRole('radio', { name: 'Event' }).getAttribute('aria-checked')).toBe('true')
   expect(within(setup).getByText('Abandoned Cart')).toBeTruthy()
   await user.click(within(setup).getByRole('button', { name: /Next/ }))
-  expect((within(setup).getByRole('radio', { name: /Event Triggered/ }) as HTMLInputElement).checked).toBe(true)
-  expect((within(setup).getByRole('radio', { name: /After X Days/ }) as HTMLInputElement).checked).toBe(true)
+  expect(within(setup).getByRole('radio', { name: /Event Triggered/ }).getAttribute('aria-checked')).toBe('true')
+  expect(within(setup).getByRole('radio', { name: /After X Days/ }).getAttribute('aria-checked')).toBe('true')
   expect((within(setup).getByLabelText('Cooldown Days') as HTMLInputElement).value).toBe('7')
-  await user.click(within(setup).getByRole('button', { name: /Continue to Build/ }))
+  await user.click(within(setup).getByRole('button', { name: 'Create Journey' }))
 
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/journeys/j-new/versions/1/graph/'))).toBe(true))
   const post = calls.find((call) => call.method === 'POST' && call.url.endsWith('/journeys/'))

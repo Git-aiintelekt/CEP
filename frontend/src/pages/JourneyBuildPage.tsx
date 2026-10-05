@@ -56,8 +56,8 @@ export default function JourneyBuildPage() {
   const saveSetup = async ({ values, version: current, root, dirty }: SetupSavePayload): Promise<JourneyVersionDetail> => {
     const published = current.status !== 'DRAFT'
     const changes = published
-      ? { name: values.name }
-      : { name: values.name, population_mode: values.populationMode, reentry_policy: values.reentryPolicy, reentry_after_days: values.reentryAfterDays }
+      ? { name: values.name, description: values.description || null }
+      : { name: values.name, description: values.description || null, population_mode: values.populationMode, reentry_policy: values.reentryPolicy, reentry_after_days: values.reentryAfterDays }
     const updated = await api.patch<Journey>(`/journeys/${id}/`, changes)
     queryClient.setQueryData(['journeys', 'detail', id], updated)
 
