@@ -20,7 +20,7 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_contact_compliance(check):
+def test_contact_compliance(check, admin_email):
     """Contact compliance: the declaration before apply, the policy (hold back / refuse, texts need a date), approval before the first send"""
     CSV = ("Email,First name,Mobile number,Email consent date,Text consent date\r\n"
            "ann@compliance.test,Ann,+12125550161,2026-01-10,2026-02-01\r\n"
@@ -50,7 +50,7 @@ def test_contact_compliance(check):
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     T = str(tenant.id)

@@ -16,7 +16,7 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_tags(check):
+def test_tags(check, admin_email):
     """Tags: ${STORE_NAME} renders as {{store_name}}; the workspace API lists data points, makes and checks a tag, refuses to change an inherited one. Rolled back."""
     check("${STORE_NAME} and ${Trans_Id} read as {{store_name}} and {{trans_id}}; {{first_name}} is untouched",
           render.modern_tags("Hi {{first_name}}, ${STORE_NAME} ${ Trans_Id }") == "Hi {{first_name}}, {{store_name}} {{trans_id}}", render.modern_tags("Hi {{first_name}}, ${STORE_NAME} ${ Trans_Id }"))
@@ -25,7 +25,7 @@ def test_tags(check):
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     API = Client(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}", HTTP_X_TENANT=tenant.code)

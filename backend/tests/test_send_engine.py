@@ -22,7 +22,7 @@ from apps.campaigns.models import Campaign  # noqa: E402
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_send_engine(check):
+def test_send_engine(check, admin_email):
     """The send engine end to end against the real database, inside one outer transaction that is rolled back."""
     class Handler(socketserver.StreamRequestHandler):
         inbox = []
@@ -59,7 +59,7 @@ def test_send_engine(check):
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     c = Client()

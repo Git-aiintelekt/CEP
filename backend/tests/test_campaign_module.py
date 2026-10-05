@@ -21,10 +21,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_campaign_module(check):
+def test_campaign_module(check, admin_email):
     """Campaign module (BRD v0.9 6.3, 7, 15) end to end against the real (local) database, inside one rolled-back transaction."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     analyst = AppUser.objects.get(email="priya.natarajan@northwindapparel.example")
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
@@ -336,13 +336,18 @@ def test_campaign_module(check):
         base = "/api/v1/campaigns/?search=ZC&page_size=200"
         names = lambda url: [x["name"] for x in api("get", url).json()["results"]]          # noqa: E731
         page = api("get", "/api/v1/campaigns/?search=ZC&page_size=3&page=2").json()
-        check("list: search, filters (type, channel, status, tag, triggered by, date range), any column sorts, pages of the asked size, archived hidden",
-              names(base + "&ordering=name") == sorted(names(base), key=str.lower) and names(base + "&ordering=-name") == sorted(names(base), key=str.lower, reverse=True)
-              and names(base + "&type=DRIP") == ["ZC welcome series"] and names(base + "&channel=EMAIL") == [] and "ZC Fall texts" in names(base + "&tag=vip")
-              and names(base + "&status=PAUSED") == [] and set(names(base + "&status=COMPLETED")) >= {"ZC Fall texts", "ZC pause me"} and names(base + "&triggered_by=journey") == []
-              and names(base + f"&date_from={timezone.now().date().isoformat()}") == names(base) and names(base + "&date_to=2020-01-01") == []
-              and page["count"] == len(names(base)) and len(page["results"]) == 3 and page["previous"] and api("get", base + "&status=NOPE").status_code == 400
-              and api("get", base + "&date_from=yesterday").status_code == 400, f"{len(names(base))} campaigns")
+        found = names(base)
+        check("list: sorted by name either way", names(base + "&ordering=name") == sorted(found, key=str.lower) and names(base + "&ordering=-name") == sorted(found, key=str.lower, reverse=True),
+              str(names(base + "&ordering=name")))
+        check("list: filtered by type and channel", names(base + "&type=DRIP") == ["ZC welcome series"] and names(base + "&channel=EMAIL") == [],
+              f"{names(base + '&type=DRIP')} {names(base + '&channel=EMAIL')}")
+        check("list: filtered by tag, status and trigger", "ZC Fall texts" in names(base + "&tag=vip") and names(base + "&status=PAUSED") == []
+              and set(names(base + "&status=COMPLETED")) >= {"ZC Fall texts", "ZC pause me"} and names(base + "&triggered_by=journey") == [],
+              f"{names(base + '&tag=vip')} {names(base + '&status=PAUSED')} {names(base + '&status=COMPLETED')} {names(base + '&triggered_by=journey')}")
+        check("list: filtered by date range", names(base + f"&date_from={timezone.now().date().isoformat()}") == found and names(base + "&date_to=2020-01-01") == [],
+              f"{len(names(base + f'&date_from={timezone.now().date().isoformat()}'))} of {len(found)}; before 2020: {names(base + '&date_to=2020-01-01')}")
+        check("list: pages of the asked size, archived hidden, bad filters refused", page["count"] == len(found) and len(page["results"]) == 3 and page["previous"]
+              and api("get", base + "&status=NOPE").status_code == 400 and api("get", base + "&date_from=yesterday").status_code == 400, f"{page['count']} vs {len(found)}")
         opts = api("get", "/api/v1/campaigns/form-options/").json()
         check("form options: owners, the tags in use, time zones", any(x["id"] == str(admin.pk) for x in opts["owners"]) and {"Fall", "vip"} <= set(opts["tags"]) and "America/New_York" in opts["timezones"])
 

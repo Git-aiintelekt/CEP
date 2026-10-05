@@ -20,15 +20,15 @@ SET app.current_tenant = 'a0000000-0000-4000-8000-000000000001';
 INSERT INTO tenant (id, name, code, timezone, status, subdomain, isolation_mode, region, data_residency, onboarded_at, settings) VALUES
     ('a0000000-0000-4000-8000-000000000001', 'Northwind Apparel', 'NWA', 'America/New_York', 'ACTIVE', 'northwind', 'SHARED', 'us-east-1', 'US', TIMESTAMPTZ '2026-08-02 09:00:00+00', '{"locale": "en-US", "currency": "USD", "week_start": "MON"}'::jsonb);
 
--- Physical partitions for the tenant in this database: current + 3 months ahead, plus 3 months back for the seeded history
+-- Physical partitions for the tenant in this database: current + 3 months ahead, plus every month back to the seeded history
 SELECT fn_provision_tenant('a0000000-0000-4000-8000-000000000001', 3);
 DO $$
 DECLARE r RECORD; v_part TEXT; v_child TEXT; v_month DATE;
 BEGIN
     FOR r IN SELECT table_name FROM partition_retention_policy WHERE is_active AND tenant_partitioned AND sub_method = 'RANGE_MONTHLY' LOOP
         v_part := fn_tenant_partition_name(r.table_name, 'a0000000-0000-4000-8000-000000000001');
-        FOR i IN 1 .. 3 LOOP
-            v_month := (date_trunc('month', TIMESTAMPTZ '2026-09-16') - (i * INTERVAL '1 month'))::date;
+        -- every month from the oldest sample row (June 2026) up to this month: the seed must load whenever it is run
+        FOR v_month IN SELECT generate_series(DATE '2026-06-01', date_trunc('month', now() AT TIME ZONE 'UTC')::date, INTERVAL '1 month')::date LOOP
             v_child := format('%s_%s', v_part, to_char(v_month, 'YYYY_MM'));
             IF to_regclass(v_child) IS NULL THEN
                 EXECUTE format('CREATE TABLE %I PARTITION OF %I FOR VALUES FROM (%L) TO (%L)', v_child, v_part,

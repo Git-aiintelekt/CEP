@@ -20,10 +20,10 @@ from workers import reports as weekly
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_reports(check):
+def test_reports(check, admin_email):
     """Reports API and the weekly report against the local database, rolled back. Sends go through the sandbox text engine."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     analyst = AppUser.objects.get(email="priya.natarajan@northwindapparel.example")          # report.view, not user.admin
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
@@ -120,10 +120,10 @@ def test_reports(check):
         defaults = api("get", "/api/v1/reports/schedule/").json()
         no_recipients = api("put", "/api/v1/reports/schedule/", {"enabled": True})
         bad_day = api("put", "/api/v1/reports/schedule/", {"weekday": 9})
-        saved = api("put", "/api/v1/reports/schedule/", {"enabled": True, "weekday": 0, "hour": 8, "recipients": ["Ops@nwa.example", "aby.john@aiintelekt.com"]}).json()
+        saved = api("put", "/api/v1/reports/schedule/", {"enabled": True, "weekday": 0, "hour": 8, "recipients": ["Ops@nwa.example", admin_email]}).json()
         check("the schedule: off by default, Monday 08:00; switching on needs recipients; the weekday is checked; saved lower-cased",
               defaults == {"enabled": False, "weekday": 0, "hour": 8, "recipients": [], "last_sent_on": None} and no_recipients.status_code == 400 and bad_day.status_code == 400
-              and saved["enabled"] is True and saved["recipients"] == ["ops@nwa.example", "aby.john@aiintelekt.com"], f"{defaults} {no_recipients.content[:120]}")
+              and saved["enabled"] is True and saved["recipients"] == ["ops@nwa.example", admin_email], f"{defaults} {no_recipients.content[:120]}")
         check("an analyst reads the schedule and the reports but cannot change the schedule",
               api("get", "/api/v1/reports/schedule/", h=HA).status_code == 200 and api("get", "/api/v1/reports/summary/", h=HA).status_code == 200
               and api("put", "/api/v1/reports/schedule/", {"enabled": False}, h=HA).status_code == 403)
@@ -132,7 +132,7 @@ def test_reports(check):
             outcome = weekly.send_for(TENANT, saved)
         marked = api("get", "/api/v1/reports/schedule/").json()["last_sent_on"]
         check("the weekly email goes to the chosen addresses with last week's figures in words, and the day is remembered so it is not sent twice",
-              outcome["email"] == 2 and sent_mail and sent_mail[0]["to"] == ["aby.john@aiintelekt.com", "ops@nwa.example"] and "last week in numbers" in sent_mail[0]["subject"]
+              outcome["email"] == 2 and sent_mail and sent_mail[0]["to"] == [admin_email, "ops@nwa.example"] and "last week in numbers" in sent_mail[0]["subject"]
               and sent_mail[0]["lines"] and marked == today.isoformat(), f"{outcome} {sent_mail}")
         lines = reports.weekly_lines(report)
         check("the email's lines read as sentences", lines[0].endswith("campaigns.") or lines[0].endswith("campaign.") and "Delivered" in lines[1], str(lines))

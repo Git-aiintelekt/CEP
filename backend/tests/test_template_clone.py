@@ -15,10 +15,10 @@ from rest_framework_simplejwt.tokens import AccessToken
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_template_clone(check):
+def test_template_clone(check, admin_email):
     """POST /templates/{id}/clone/ and DELETE /templates/{id}/ against the real local DB, rolled back. Also checks mrml"""
     tok = context.set_platform(True)
-    staff = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    staff = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     c = Client()
     H = {"HTTP_X_TENANT": staff.tenant.code, "HTTP_AUTHORIZATION": "Bearer " + str(AccessToken.for_user(staff))}

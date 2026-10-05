@@ -20,14 +20,14 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_preference_center(check):
+def test_preference_center(check, admin_email):
     """The preference centre, end to end on the local database, rolled back: settings, topics, the public page, the tag, the audience rule,"""
     class Roll(Exception):
         pass
 
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     tok = context.set_current(str(tenant.id), "default", str(user.pk))
 
@@ -131,6 +131,10 @@ def test_preference_center(check):
 
             # ---- the campaign's topic, the audience estimate and the publish check
             campaign = Campaign.objects.filter(tenant_id=tenant.id, deleted_at__isnull=True, status="DRAFT", channel="EMAIL", campaign_type="REGULAR_MARKETING", solicitation_type="MARKETING").order_by("created_at").first()
+            if campaign is None:                                       # a database built from the seed has no draft yet: make one
+                made = API.post("/api/v1/campaigns/", {"name": "ZP topic test", "campaign_type": "REGULAR_MARKETING", "channel": "EMAIL"}, content_type="application/json")
+                check("a draft marketing email to file under a topic", made.status_code == 201, f"{made.status_code} {made.content[:200]}")
+                campaign = Campaign.objects.get(pk=made.json()["id"])
             answer = API.patch(f"/api/v1/campaigns/{campaign.pk}/", {"topic": str(uuid.uuid4())}, content_type="application/json")
             check("a topic that is not the workspace's is refused", answer.status_code == 400 and "topic" in str(answer.json()), str(answer.json())[:100])
             answer = API.patch(f"/api/v1/campaigns/{campaign.pk}/", {"topic": arrivals}, content_type="application/json")

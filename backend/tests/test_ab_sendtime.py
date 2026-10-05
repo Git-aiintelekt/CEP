@@ -20,10 +20,10 @@ from apps.tenants import context
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_ab_sendtime(check):
+def test_ab_sendtime(check, admin_email):
     """A/B subject lines and send-time optimisation (patch 0023) against the local database, rolled back. Postal is mocked at the HTTP layer,"""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     c = Client()

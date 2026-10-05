@@ -18,11 +18,11 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_home(check):
+def test_home(check, admin_email):
     """Home overview: alerts, revenue vs. cost, governance, journeys; the rewritten report summary against the tables. Rolled back."""
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     tok = context.set_current(str(tenant.id), "default", str(user.pk))
     API = Client(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(user)}", HTTP_X_TENANT=tenant.code)

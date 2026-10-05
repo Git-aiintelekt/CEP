@@ -20,10 +20,10 @@ from apps.integrations.bridge import logbook
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_receipts(check):
+def test_receipts(check, admin_email):
     """E-receipts through the Postal HTTP API (mocked at the HTTP layer), against the real database; rolled back."""
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     c = Client()

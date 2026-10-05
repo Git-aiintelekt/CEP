@@ -25,7 +25,7 @@ import io  # noqa: E402
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_codes(check, tmp_path):
+def test_codes(check, tmp_path, admin_email):
     """Barcode and QR code blocks: settings, value rules, signed addresses, drawing, the renderer swap, the sample and image"""
     OUT = tmp_path / "codes_out"
     OUT.mkdir(exist_ok=True)
@@ -96,7 +96,7 @@ def test_codes(check, tmp_path):
 
     # ---- the renderer --------------------------------------------------------------------------------------------
     tok = context.set_platform(True)
-    admin = AppUser.objects.select_related("tenant").get(email="aby.john@aiintelekt.com")
+    admin = AppUser.objects.select_related("tenant").get(email=admin_email)
     context.reset_platform(tok)
     TENANT, CODE = str(admin.tenant_id), admin.tenant.code
     campaign = SimpleNamespace(tenant_id=TENANT, name="Coupon drop")

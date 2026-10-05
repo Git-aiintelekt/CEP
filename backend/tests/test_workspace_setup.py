@@ -15,11 +15,11 @@ from apps.tenants.models import Tenant
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"]), pytest.mark.slow]
 
 
-def test_workspace_setup(check):
+def test_workspace_setup(check, admin_email):
     """Set Up Your Workspace: the seven steps read from the workspace, ready and next, the Home-card dismissal. Rolled back."""
     ptok = context.set_platform(True)
     tenant = Tenant.objects.using("platform").get(code="NWA")
-    user = AppUser.objects.using("platform").get(email="aby.john@aiintelekt.com")
+    user = AppUser.objects.using("platform").get(email=admin_email)
     context.reset_platform(ptok)
     context.set_current(str(tenant.id), "default", str(user.pk))
     T = str(tenant.id)
@@ -33,7 +33,7 @@ def test_workspace_setup(check):
             r = API.get("/api/v1/workspace/setup/")
             body = r.json() if r.status_code == 200 else {}
             check("the overview answers 200 with the workspace, the viewer and seven steps", r.status_code == 200 and body.get("total") == 7 and len(body.get("steps", [])) == 7
-                  and body["workspace"]["code"] == "NWA" and body["viewer"]["first_name"] == "Aby", f"{r.status_code} {str(r.content)[:200]}")
+                  and body["workspace"]["code"] == "NWA" and bool(body["viewer"]["first_name"]), f"{r.status_code} {str(r.content)[:200]}")
             keys = [s["key"] for s in body["steps"]]
             check("the steps in order, the optional ones marked", keys == ["signin", "team", "email_engine", "email_sender", "text", "lists", "tell"]
                   and [s["optional"] for s in body["steps"]] == [False, False, False, False, True, False, True], str(keys))
