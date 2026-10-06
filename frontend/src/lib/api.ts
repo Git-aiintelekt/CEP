@@ -116,8 +116,14 @@ async function parseProblem(response: Response): Promise<Problem> {
     const data = (await response.json()) as Problem
     return { status: response.status, ...data }
   } catch {
-    return { type: 'about:blank', title: response.statusText || 'Request failed', status: response.status }
+    // not problem+json (a proxy's page, an HTML error): never show its words
+    return { type: 'about:blank', title: response.status >= 500 ? 'CEP had a problem' : 'The request was refused', status: response.status }
   }
+}
+
+/** No answer at all (offline, the server unreachable): status 0, in CEP's words rather than the browser's. */
+function unreachable(): ApiError {
+  return new ApiError(0, { type: 'about:blank', title: 'CEP could not be reached', status: 0, detail: 'CEP could not be reached. Check your connection and try again.' })
 }
 
 let refreshing: Promise<boolean> | null = null
@@ -156,6 +162,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       headers,
       body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
       signal,
+    }).catch((error: unknown) => {
+      if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error
+      throw unreachable()
     })
   }
 

@@ -55,13 +55,13 @@ export function LoginPage() {
   const hostTenant = tenantFromHost()
   const [step, setStep] = useState<Step>('signin')
   // read once and cleared: a refresh of this same page must not keep repeating a notice about a sign-out that already happened
-  const [idleNotice] = useState(() => {
+  const [signedOutReason] = useState(() => {
     try {
       const reason = window.sessionStorage.getItem(SIGNED_OUT_REASON_KEY)
       if (reason) window.sessionStorage.removeItem(SIGNED_OUT_REASON_KEY)
-      return reason === 'idle'
+      return reason
     } catch {
-      return false
+      return null
     }
   })
   const [tenant, setTenant] = useState(hostTenant ?? rememberedTenant)
@@ -181,7 +181,10 @@ export function LoginPage() {
       {step === 'signin' && (
         <AuthStep>
           <AuthHeading title="Log In to CEP">Enter your email and password to continue.</AuthHeading>
-          {idleNotice && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
+          {signedOutReason === 'idle' && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
+          {signedOutReason === 'expired' && !error && (
+            <AuthNotice>Your session ended. Sign in again to carry on. Changes on the page you were on that were not saved are not kept.</AuthNotice>
+          )}
           {error && <AuthAlert>{error}</AuthAlert>}
 
           <form onSubmit={onPassword} className="flex flex-col gap-5">

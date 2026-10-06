@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom'
 import { Notice } from '@/components/Notice'
 import { ProgressBar } from '@/components/ProgressBar'
 import { ErrorState, Spinner } from '@/components/States'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import type { SetupStep, WorkspaceSetup } from '@/lib/types'
@@ -57,10 +58,15 @@ function StepRow({ step, number, current }: { step: SetupStep; number: number; c
 
 export function WorkspaceSetupPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const setup = useQuery({ queryKey: SETUP_KEY, queryFn: ({ signal }) => fetchSetup(signal) })
   const hide = useMutation({
     mutationFn: (dismissed: boolean) => api.put<WorkspaceSetup>('/workspace/setup/', { dismissed }),
-    onSuccess: (next) => queryClient.setQueryData(SETUP_KEY, next),
+    onSuccess: (next, dismissed) => {
+      if (dismissed) toast.success('Set-up card hidden', 'The steps stay here under Settings until you show the card again.')
+      else toast.success('Set-up card shown', 'Home shows the steps again.')
+      queryClient.setQueryData(SETUP_KEY, next)
+    },
   })
 
   if (setup.isError) return <ErrorState title="The set-up steps could not be loaded" error={setup.error} onRetry={() => void setup.refetch()} />
@@ -110,7 +116,7 @@ export function WorkspaceSetupPage() {
           Home offers Create Campaign, and the first campaign's Review step runs the same checks before it publishes.
         </Notice>
       )}
-      {hide.isError && <ErrorState title="The card was not changed" error={hide.error} />}
+      {hide.isError && <ErrorState title={hide.variables ? 'The card was not hidden' : 'The card was not shown again'} error={hide.error} />}
     </div>
   )
 }

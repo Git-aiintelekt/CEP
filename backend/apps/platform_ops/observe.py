@@ -133,7 +133,7 @@ class ErrorCaptureHandler(logging.Handler):
             job = getattr(record, "job", None) or (record.name == "cep.scheduler" and record.args and str(record.args[0])) or None
             source = "JOB" if job or record.name in ("cep.scheduler", "cep.jobs") else "BACKEND"
             route = route_of(getattr(request, "resolver_match", None)) if request is not None else None
-            record_error(source=source, kind=f"{exc_type.__module__}.{exc_type.__name__}".removeprefix("builtins."), message=str(exc) or exc_type.__name__,
+            group_id = record_error(source=source, kind=f"{exc_type.__module__}.{exc_type.__name__}".removeprefix("builtins."), message=str(exc) or exc_type.__name__,
                          place=place, culprit=f"{request.method} {route}" if route else place,
                          stack="".join(traceback.format_exception(exc_type, exc, tb)),
                          tenant_id=(tenant or {}).get("id") if isinstance(tenant, dict) else None, tenant_code=(tenant or {}).get("code") if isinstance(tenant, dict) else None,
@@ -142,6 +142,7 @@ class ErrorCaptureHandler(logging.Handler):
                          release=release(),
                          context={k: v for k, v in {"logger": record.name, "job": job, "correlation_id": getattr(request, "correlation_id", None) if request is not None else None}.items() if v})
             exc._cep_recorded = True
+            exc._cep_group_id = group_id                            # the reference the API's 500 answer gives (api/exceptions.py: ER-<group>)
         except Exception:                                           # noqa: BLE001
             pass
 

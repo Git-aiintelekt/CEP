@@ -7,16 +7,21 @@ import { Field, Select, TextInput, buttonPrimary, buttonSecondary } from '@/comp
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { DeliverabilityService, InspectClient } from '@/lib/types'
 
 const SERVICE_KEY = ['deliverability', 'service'] as const
 const CLIENTS_KEY = ['deliverability', 'clients'] as const
 const CATEGORY_LABEL: Record<string, string> = { Web: 'Webmail', Application: 'Desktop Apps', Mobile: 'Phones and Tablets' }
+const SERVICE_FIELDS = ['username', 'api_key']
+const SAVE_FAILED = 'The account was not saved'
 
 export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: { ok: boolean; text: string }) => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const service = useQuery({ queryKey: SERVICE_KEY, queryFn: ({ signal }) => api.get<DeliverabilityService>('/deliverability/service/', undefined, signal) })
   const [editing, setEditing] = useState(false)
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['deliverability'] })
@@ -24,7 +29,7 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
     mutationFn: () => api.post<{ ok: boolean; detail: string | null }>('/deliverability/service/check/'),
     onSuccess: (result) => { onNotice({ ok: result.ok, text: result.ok ? 'Mailgun Inspect: the account works.' : `Mailgun Inspect: ${result.detail ?? 'the check failed.'}` }); void refresh() },
   })
-  const remove = useMutation({ mutationFn: () => api.delete('/deliverability/service/'), onSuccess: () => void refresh() })
+  const remove = useMutation({ mutationFn: () => api.delete('/deliverability/service/'), onSuccess: () => { toast.success('Mailgun Inspect account removed'); void refresh() } })
 
   return (
     <section aria-labelledby="deliverability-heading">
@@ -56,6 +61,8 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
             </div>
           </div>
         )}
+      {check.isError && <div className="mt-3"><ErrorState title="The connection was not checked" error={check.error} onRetry={() => check.mutate()} /></div>}
+      {remove.isError && <div className="mt-3"><ErrorState title="The account was not removed" error={remove.error} /></div>}
       {editing && service.data && <ServiceForm service={service.data} onClose={() => setEditing(false)} />}
     </section>
   )
@@ -70,6 +77,7 @@ function ServiceState({ service }: { service: DeliverabilityService }) {
 
 function ServiceForm({ service, onClose }: { service: DeliverabilityService; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [region, setRegion] = useState<'US' | 'EU'>(service.region)
   const [username, setUsername] = useState(service.username)
   const [apiKey, setApiKey] = useState('')
@@ -80,8 +88,11 @@ function ServiceForm({ service, onClose }: { service: DeliverabilityService; onC
 
   const save = useMutation({
     mutationFn: () => api.put<DeliverabilityService>('/deliverability/service/', { region, username: username.trim(), ...(apiKey ? { api_key: apiKey } : {}), image_blocking: imageBlocking, default_clients: chosen, is_active: true }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['deliverability'] }); onClose() },
-    onError: (error) => { if (error instanceof ApiError && error.status === 400) setErrors(error.fieldErrors) },
+    onSuccess: () => {
+      toast.success('Mailgun Inspect account saved', 'Check Connection confirms that the account works.')
+      void queryClient.invalidateQueries({ queryKey: ['deliverability'] }); onClose()
+    },
+    onError: (error) => { if (error instanceof ApiError && error.status === 400) setErrors(saveFailure(error, SAVE_FAILED, SERVICE_FIELDS).fields) },
   })
   const onSubmit = (event: FormEvent) => {
     event.preventDefault()
@@ -91,13 +102,12 @@ function ServiceForm({ service, onClose }: { service: DeliverabilityService; onC
   }
   const toggle = (id: string) => setChosen((now) => (now.includes(id) ? now.filter((item) => item !== id) : [...now, id]))
   const groups = ['Web', 'Application', 'Mobile'].map((category) => ({ category, rows: (clients.data?.clients ?? []).filter((c) => c.category === category) })).filter((g) => g.rows.length)
-  const otherError = save.isError && !(save.error instanceof ApiError && save.error.status === 400) ? save.error : null
 
   return (
     <Modal title={service.configured ? 'Mailgun Inspect Account' : 'Set Up Mailgun Inspect'} subtitle="Mailgun → Inspect → Settings → API: the account username and an API key." onClose={onClose} size="lg" scrollBody
       footer={<><button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button><button type="submit" form="deliverability-service-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending ? 'Saving' : 'Save'}</button></>}>
       <form id="deliverability-service-form" onSubmit={onSubmit} noValidate className="space-y-4">
-        {otherError && <ErrorState title="Could not save" error={otherError} />}
+        {save.isError && <ErrorState title={SAVE_FAILED} error={save.error} shownFields={SERVICE_FIELDS} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Region" required hint="Where your Mailgun account lives.">
             {(ids) => <Select {...ids} value={region} onChange={(event) => setRegion(event.target.value as 'US' | 'EU')}><option value="US">US (api.mailgun.net)</option><option value="EU">EU (api.eu.mailgun.net)</option></Select>}

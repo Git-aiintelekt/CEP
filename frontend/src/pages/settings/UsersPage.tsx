@@ -6,15 +6,20 @@ import { buttonPrimary, buttonSecondary, Field, TextInput } from '@/components/F
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { PasswordLink, Role, SettingsUser } from '@/lib/types'
 
 type Editing = { mode: 'create' } | { mode: 'edit'; user: SettingsUser } | null
+const USER_FIELDS = ['email', 'display_name', 'roles']
+const USER_FAILED = 'The user was not saved'
 
 function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; roles: Role[]; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const user = editing.mode === 'edit' ? editing.user : null
   const [email, setEmail] = useState(user?.email ?? '')
   const [name, setName] = useState(user?.display_name ?? '')
@@ -24,12 +29,14 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
   const save = useMutation({
     mutationFn: () => (user ? api.patch<SettingsUser>(`/users/${user.id}/`, { display_name: name.trim(), roles: chosen })
                             : api.post<SettingsUser>('/users/', { email: email.trim(), display_name: name.trim(), roles: chosen })),
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
+      if (user) toast.success('User saved')
+      else toast.success('User added', `Create a password link so ${saved.email} can choose a password.`)
       await queryClient.invalidateQueries({ queryKey: ['settings'] })
       void queryClient.invalidateQueries({ queryKey: ['workspace'] })
       onClose()
     },
-    onError: (error) => error instanceof ApiError && error.status === 400 && setErrors(error.fieldErrors),
+    onError: (error) => error instanceof ApiError && error.status === 400 && setErrors(saveFailure(error, USER_FAILED, USER_FIELDS).fields),
   })
 
   function onSubmit(event: FormEvent) {
@@ -41,7 +48,6 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
     if (Object.keys(found).length === 0) save.mutate()
   }
 
-  const other = save.isError && !(save.error instanceof ApiError && save.error.status === 400) ? save.error : null
   return (
     <Modal title={user ? `Edit ${user.display_name}` : 'Add a User'} onClose={onClose}
       footer={<>
@@ -51,7 +57,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
         </button>
       </>}>
       <form id="user-form" onSubmit={onSubmit} noValidate className="space-y-4">
-        {other !== null && <ErrorState title="Could not save the user" error={other} />}
+        {save.isError && <ErrorState title={USER_FAILED} error={save.error} shownFields={USER_FIELDS} />}
         <Field label="Email" required error={errors.email} help="The sign-in name, and where the password link goes. It cannot be changed once the user exists; deactivate and add a new user for a new address." hint={user ? 'The email address is the sign-in name and cannot be changed.' : 'They sign in with this address.'}>
           {(ids) => <TextInput {...ids} type="email" value={email} disabled={Boolean(user)} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />}
         </Field>
@@ -122,6 +128,7 @@ function PasswordLinkDialog({ user, onClose }: { user: SettingsUser; onClose: ()
 
 export function UsersPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [editing, setEditing] = useState<Editing>(null)
   const [linkFor, setLinkFor] = useState<SettingsUser | null>(null)
   const users = useQuery({ queryKey: ['settings', 'users'], queryFn: ({ signal }) => api.get<SettingsUser[]>('/users/', undefined, signal) })
@@ -129,7 +136,11 @@ export function UsersPage() {
 
   const toggle = useMutation({
     mutationFn: (user: SettingsUser) => api.patch<SettingsUser>(`/users/${user.id}/`, { is_active: !user.is_active }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] }) },
+    onSuccess: (_next, user) => {
+      if (user.is_active) toast.success('User deactivated', `${user.display_name} can no longer sign in.`)
+      else toast.success('User activated', `${user.display_name} can sign in again.`)
+      void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    },
   })
 
   const columns: Column<SettingsUser>[] = [
@@ -155,7 +166,7 @@ export function UsersPage() {
         <p className="text-sm text-ink-800">Users are deactivated, never deleted, so everything they created keeps its author.</p>
         <button type="button" className={buttonPrimary} onClick={() => setEditing({ mode: 'create' })}>Add User</button>
       </div>
-      {toggle.isError && <div className="mb-4"><ErrorState title="Could not change the user" error={toggle.error} /></div>}
+      {toggle.isError && <div className="mb-4"><ErrorState title={toggle.variables?.is_active ? 'The user was not deactivated' : 'The user was not activated'} error={toggle.error} /></div>}
       {users.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading users</p>
         : users.data.length === 0 ? <EmptyState title="No users yet" />
         : <DataTable columns={columns} rows={users.data} rowKey={(user) => user.id} caption="Users" />}

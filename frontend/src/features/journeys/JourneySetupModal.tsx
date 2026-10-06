@@ -36,6 +36,7 @@ import { useToast } from '@/components/Toast'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { ChoiceCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { api, ApiError } from '@/lib/api'
+import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 import type { Audience, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
 
 import {
@@ -339,9 +340,10 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const nameErrorRaw = problemErrors?.name
   const nameError = nameErrorRaw ? String(Array.isArray(nameErrorRaw) ? nameErrorRaw[0] : nameErrorRaw) : undefined
   const conflict = create.error instanceof ApiError && create.error.status === 409
-  const genericError = create.error && !nameError && !conflict
-    ? create.error instanceof ApiError ? create.error.message : 'Something went wrong on our side. Your entries are kept, so try again.'
-    : null
+  // what the name field does not say, in CEP's words
+  const failure = create.error && !conflict ? saveFailure(create.error, edit ? 'The setup was not saved' : 'The journey was not created', ['name']) : null
+  const genericError = failure && !(failure.title === FIELDS_TITLE && failure.general.length === 0) ? failure : null
+  const refused = create.error instanceof ApiError && create.error.status === 400
 
   // the mockup offers Never / After X Days; Every Qualifying Event shows only when a starter already uses it
   const reentryOptions = REENTRY_OPTIONS.filter((option) => option.value !== 'EVERY_QUALIFYING_EVENT' || initial.reentryPolicy === 'EVERY_QUALIFYING_EVENT')
@@ -363,7 +365,11 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
       primary={step === 1
         ? { label: 'Next', disabled: !step1Ready, onClick: () => setStep(2) }
         : { label: edit ? 'Save Setup' : 'Create Journey', disabled: !step2Ready, busy, busyLabel: edit ? 'Saving' : 'Creating', onClick: () => create.mutate() }}
-      error={genericError ? { title: edit ? 'Couldn’t Save Setup' : 'Journey Wasn’t Created', message: genericError, onRetry: () => create.mutate() } : null}
+      error={genericError ? {
+        title: genericError.title,
+        message: [genericError.detail, ...(genericError.title === FIELDS_TITLE ? genericError.general : [])].join(' '),
+        onRetry: refused ? undefined : () => create.mutate(),
+      } : null}
       banner={(prefill && !edit) || locked ? (
         <>
           {prefill && !edit && (

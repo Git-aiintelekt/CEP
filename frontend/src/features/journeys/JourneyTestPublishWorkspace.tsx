@@ -10,7 +10,7 @@ import { buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
 import { useToast } from '@/components/Toast'
 import { PageHelp } from '@/help/HelpPanel'
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 import { titleize } from '@/lib/format'
 import type { Journey, JourneyGraphNode, JourneyReadiness, JourneyTestPopulation, JourneyTestResult, JourneyVersion, JourneyVersionDetail } from '@/lib/types'
 
@@ -76,7 +76,7 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
     },
     onError: (error) => {
       setShowRunModal(false)
-      toast.error('The test could not be sent', error instanceof ApiError ? error.message : undefined)
+      toast.failure(error, 'The test was not sent')
     },
   })
 
@@ -93,7 +93,7 @@ export function JourneyTestPublishWorkspace({ journey, version, readiness, readi
       toast.success(newVersion ? (schedule ? `Version ${newVersion} scheduled` : `Version ${newVersion} approved`) : schedule ? 'Journey scheduled' : 'Journey activated', updated.name)
     },
     onError: (error) => {
-      toast.error('Could not approve this journey', error instanceof ApiError ? error.message : undefined)
+      toast.failure(error, 'The journey was not approved')
     },
   })
 

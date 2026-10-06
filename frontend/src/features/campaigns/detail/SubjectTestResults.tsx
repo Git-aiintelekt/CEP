@@ -11,6 +11,7 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { api } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { CampaignRun, CampaignRunDetail, CampaignRunVariant } from '@/lib/types'
@@ -23,6 +24,7 @@ const rate = (value: number | undefined) => (value === undefined ? '—' : `${va
 export function SubjectTestResults({ campaignId, run, zone }: { campaignId: string; run: CampaignRun; zone: string }) {
   const { can } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [choosing, setChoosing] = useState<CampaignRunVariant | null>(null)
   const detail = useQuery({
     queryKey: ['campaigns', 'run', campaignId, run.id],
@@ -30,7 +32,9 @@ export function SubjectTestResults({ campaignId, run, zone }: { campaignId: stri
   })
   const choose = useMutation({
     mutationFn: (variant: 'A' | 'B') => api.post(`/campaigns/${campaignId}/runs/${run.id}/choose-winner/`, { variant }),
-    onSuccess: async () => {
+    onSuccess: async (_done, variant) => {
+      const waiting = detail.data?.variants[0]?.waiting_for_winner ?? 0
+      toast.success(`Subject ${variant} chosen`, `${formatNumber(waiting)} people get subject ${variant}.`)
       setChoosing(null)
       await queryClient.invalidateQueries({ queryKey: ['campaigns'] })
     },

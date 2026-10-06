@@ -8,6 +8,7 @@ import { buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } fr
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 
 import { DeliverabilityServiceSection } from './DeliverabilityServiceSection'
 import { buttonClass } from '@/components/buttonStyles'
@@ -23,6 +24,7 @@ const SENDERS = ['delivery', 'senders']
 // ---------------------------------------------------------------------------------------------------- provider form
 function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderType[]; provider: DeliveryProvider | null; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const creatable = catalogue.filter((item) => item.manageable)
   const [type, setType] = useState(provider?.provider_type ?? creatable[0]?.provider_type ?? '')
   const [name, setName] = useState(provider?.name ?? '')
@@ -41,7 +43,11 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
         ...(transactionalSecret ? { transactional_secret: transactionalSecret } : {}), ...(dropTransactional && !transactionalSecret ? { drop_transactional_secret: true } : {}) }
       return provider ? api.patch<DeliveryProvider>(`/delivery-providers/${provider.id}/`, body) : api.post<DeliveryProvider>('/delivery-providers/', { ...body, provider_type: type })
     },
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['delivery'] }); onClose() },
+    onSuccess: async (saved) => {
+      if (provider) toast.success('Engine saved')
+      else toast.success('Engine added', `Senders can now send through “${saved.name}”.`)
+      await queryClient.invalidateQueries({ queryKey: ['delivery'] }); onClose()
+    },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
@@ -53,7 +59,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
         <button type="submit" form="provider-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}{provider ? 'Save Changes' : 'Add Engine'}</button>
       </>}>
       <form id="provider-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
-        {other !== null && <ErrorState title="Could not save the provider" error={other} />}
+        {other !== null && <ErrorState title="The engine was not saved" error={other} />}
         <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Engine" required error={errors.provider_type} hint={spec?.description} help="The type is fixed once saved. It decides the fields below, whether delivery results come back, and the channel of the engine's senders. Your own mail server is switched on from Settings → Email Server, not here.">
             {(ids) => <Select {...ids} value={type} disabled={Boolean(provider)} onChange={(event) => { setType(event.target.value); setConfig({}) }}>
@@ -102,6 +108,7 @@ function ProviderForm({ catalogue, provider, onClose }: { catalogue: ProviderTyp
 /** `channel`: a new sender for that channel (from a campaign's New Sender link) starts on an engine of it */
 function SenderForm({ providers, sender, channel, onClose }: { providers: DeliveryProvider[]; sender: DeliverySender | null; channel?: string | null; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const usable = providers.filter((item) => item.manageable !== false)
   const [provider, setProvider] = useState(sender?.delivery_provider ?? (usable.find((item) => item.channel === channel) ?? usable[0])?.id ?? '')
   const [name, setName] = useState(sender?.display_name ?? '')
@@ -116,7 +123,11 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
         : { delivery_provider: provider, display_name: name.trim(), from_address: from.trim(), reply_to_address: replyTo.trim() || null, is_default: isDefault }
       return sender ? api.patch<DeliverySender>(`/delivery-senders/${sender.id}/`, body) : api.post<DeliverySender>('/delivery-senders/', body)
     },
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['delivery'] }); onClose() },
+    onSuccess: async (saved) => {
+      const address = saved.from_address ?? saved.sender_id
+      toast.success('Sender saved', saved.verification_status === 'VERIFIED' || !address ? undefined : `${address} sends once it is verified.`)
+      await queryClient.invalidateQueries({ queryKey: ['delivery'] }); onClose()
+    },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
@@ -127,7 +138,7 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
         <button type="submit" form="sender-form" className={buttonPrimary} disabled={save.isPending}>{sender ? 'Save Changes' : 'Add Sender'}</button>
       </>}>
       <form id="sender-form" noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
-        {other !== null && <ErrorState title="Could not save the sender" error={other} />}
+        {other !== null && <ErrorState title="The sender was not saved" error={other} />}
         <Field label="Sends Through" required error={errors.delivery_provider} help="The engine decides the sender's channel (email or texts) and which account delivers its messages. A campaign picks the sender; the sender brings the engine.">
           {(ids) => <Select {...ids} value={provider} onChange={(event) => setProvider(event.target.value)}>
             {usable.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -158,6 +169,7 @@ function SenderForm({ providers, sender, channel, onClose }: { providers: Delive
 export function DeliveryPage() {
   const { can, me } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const allowed = can('provider.edit')
   const catalogue = useQuery({ queryKey: [...PROVIDERS, 'catalogue'], queryFn: ({ signal }) => api.get<ProviderType[]>('/delivery-providers/catalogue/', undefined, signal), enabled: allowed, staleTime: Infinity })
   const providers = useQuery({ queryKey: PROVIDERS, queryFn: ({ signal }) => api.get<DeliveryProvider[]>('/delivery-providers/', undefined, signal), enabled: allowed })
@@ -182,7 +194,10 @@ export function DeliveryPage() {
     mutationFn: (provider: DeliveryProvider) => api.post<DeliveryProvider>(`/delivery-providers/${provider.id}/rotate-webhook/`),
     onSuccess: (next) => { setNotice({ ok: true, text: `${next.name}: the callback address was rotated. The old one no longer works — register the new one with the engine.` }); void refresh() },
   })
-  const removeProvider = useMutation({ mutationFn: (provider: DeliveryProvider) => api.delete(`/delivery-providers/${provider.id}/`), onSuccess: refresh })
+  const removeProvider = useMutation({
+    mutationFn: (provider: DeliveryProvider) => api.delete(`/delivery-providers/${provider.id}/`),
+    onSuccess: (_done, provider) => { toast.success('Engine removed', `“${provider.name}” and its senders were removed.`); void refresh() },
+  })
   const verify = useMutation({
     mutationFn: ({ sender, to }: { sender: DeliverySender; to: string }) => api.post<{ ok: boolean; detail: string | null; to: string }>(`/delivery-senders/${sender.id}/verify/`, { to }),
     onSuccess: (result, { sender }) => {
@@ -191,9 +206,12 @@ export function DeliveryPage() {
       void refresh()
     },
   })
-  const removeSender = useMutation({ mutationFn: (sender: DeliverySender) => api.delete(`/delivery-senders/${sender.id}/`), onSuccess: refresh })
+  const removeSender = useMutation({
+    mutationFn: (sender: DeliverySender) => api.delete(`/delivery-senders/${sender.id}/`),
+    onSuccess: (_done, sender) => { toast.success('Sender removed', `“${sender.display_name}” was removed.`); void refresh() },
+  })
 
-  if (!allowed) return <ErrorState title="Delivery settings need the provider.edit permission" error={new Error('Ask a workspace administrator to add it to your role.')} />
+  if (!allowed) return <ErrorState title="Delivery settings need the provider.edit permission" detail="Ask a workspace administrator to add it to your role." />
   if (providers.isError) return <ErrorState error={providers.error} onRetry={() => void providers.refetch()} />
   const labels = Object.fromEntries((catalogue.data ?? []).map((item) => [item.provider_type, item]))
   const rows = (providers.data ?? []).map((item) => ({ ...item, manageable: labels[item.provider_type]?.manageable ?? true }))
@@ -202,7 +220,13 @@ export function DeliveryPage() {
     const to = window.prompt('Send the verification text to which mobile number? Include the country code, e.g. +14045550100')
     if (to?.trim()) verify.mutate({ sender, to: to.trim() })
   }
-  const failure = check.error ?? removeProvider.error ?? verify.error ?? removeSender.error
+  const failure = [
+    { error: check.error, title: 'The connection was not checked' },
+    { error: rotate.error, title: 'The callback address was not rotated' },
+    { error: removeProvider.error, title: 'The engine was not removed' },
+    { error: verify.error, title: 'The verification message was not sent' },
+    { error: removeSender.error, title: 'The sender was not removed' },
+  ].find((item) => item.error != null)
 
   const providerColumns: Column<DeliveryProvider>[] = [
     { key: 'name', header: 'Provider', render: (row) => (
@@ -250,7 +274,7 @@ export function DeliveryPage() {
   return (
     <div className="space-y-8">
       {notice && <p role="status" className={`rounded-lg border px-4 py-3 text-sm ${notice.ok ? 'border-success bg-surface-subtle text-success-text' : 'border-danger bg-danger-bg text-danger-text'}`}>{notice.text}</p>}
-      {failure != null && <ErrorState title="That did not work" error={failure} />}
+      {failure && <ErrorState title={failure.title} error={failure.error} />}
 
       <section aria-labelledby="providers-heading">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">

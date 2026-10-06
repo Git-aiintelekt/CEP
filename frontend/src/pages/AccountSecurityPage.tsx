@@ -5,8 +5,10 @@ import { useAuth } from '@/auth/AuthContext'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, TextInput } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
+import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/format'
+import { failureText, saveFailure } from '@/lib/saveFeedback'
 import type { MfaSetup, MfaStatus, TokenPair } from '@/lib/types'
 
 import { PageHelp } from '@/help/HelpPanel'
@@ -52,6 +54,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
 export function AccountSecurityPage() {
   const { me, adopt } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const status = useQuery({ queryKey: ['mfa'], queryFn: ({ signal }) => api.get<MfaStatus>('/auth/mfa/', undefined, signal) })
   const [setup, setSetup] = useState<MfaSetup | null>(null)
   const [code, setCode] = useState('')
@@ -70,7 +73,10 @@ export function AccountSecurityPage() {
   })
   const disable = useMutation({
     mutationFn: () => api.post('/auth/mfa/', { action: 'disable', code: code.trim() }),
-    onSuccess: () => { setTurningOff(false); setCode(''); void queryClient.invalidateQueries({ queryKey: ['mfa'] }) },
+    onSuccess: () => {
+      toast.success('Multi-factor authentication turned off', 'Your password alone now signs you in.')
+      setTurningOff(false); setCode(''); void queryClient.invalidateQueries({ queryKey: ['mfa'] })
+    },
   })
 
   function finish() {
@@ -79,7 +85,7 @@ export function AccountSecurityPage() {
     else void queryClient.invalidateQueries({ queryKey: ['mfa'] })
   }
 
-  const codeError = (error: unknown) => (error instanceof ApiError && error.status === 400 ? error.fieldErrors.code ?? error.fieldErrors.action ?? error.message : undefined)
+  const codeError = (error: unknown) => (error instanceof ApiError && error.status === 400 ? saveFailure(error, '', ['code']).fields.code ?? failureText(error) : undefined)
   const forced = Boolean(me?.mfa_setup_required)
 
   return (
@@ -116,6 +122,7 @@ export function AccountSecurityPage() {
                 <button type="button" className={buttonSecondary} onClick={() => setTurningOff(false)}>Cancel</button>
               </form>
             )}
+            {turningOff && disable.isError && !codeError(disable.error) && <div className="mt-4"><ErrorState title="Multi-factor authentication was not turned off" error={disable.error} /></div>}
           </div>
         ) : setup ? (
           <form className="rounded-lg border border-line bg-surface p-5" onSubmit={(event: FormEvent) => { event.preventDefault(); confirm.mutate() }}>
@@ -138,7 +145,7 @@ export function AccountSecurityPage() {
                 </Field></div>
               </li>
             </ol>
-            {confirm.isError && !codeError(confirm.error) && <div className="mt-4"><ErrorState title="Could not turn it on" error={confirm.error} /></div>}
+            {confirm.isError && !codeError(confirm.error) && <div className="mt-4"><ErrorState title="Multi-factor authentication was not turned on" error={confirm.error} /></div>}
             <div className="mt-5 flex gap-2">
               <button type="submit" className={buttonPrimary} disabled={confirm.isPending || code.trim().length < 6}>Turn On</button>
               {!forced && <button type="button" className={buttonSecondary} onClick={() => setSetup(null)}>Cancel</button>}
@@ -148,7 +155,7 @@ export function AccountSecurityPage() {
           <div className="rounded-lg border border-line bg-surface p-5">
             <h2 className="text-card-title font-semibold text-ink-900">Multi-factor authentication is off</h2>
             <p className="mt-1 text-sm text-ink-800">With it on, a stolen password is not enough to get into your account.</p>
-            {begin.isError && <div className="mt-3"><ErrorState title="Could not start the set-up" error={begin.error} /></div>}
+            {begin.isError && <div className="mt-3"><ErrorState title="The set-up was not started" error={begin.error} /></div>}
             <button type="button" className={`mt-4 ${buttonPrimary}`} disabled={begin.isPending} onClick={() => begin.mutate()}>Set Up</button>
           </div>
         )}

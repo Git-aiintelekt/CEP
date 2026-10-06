@@ -5,13 +5,17 @@ import { DataTable, type Column } from '@/components/DataTable'
 import { buttonPrimary, buttonSecondary, Field, TextArea, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
+import { useToast } from '@/components/Toast'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, fromLocalInput } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { ApiKey, ApiKeyCreated } from '@/lib/types'
 
 const STATUS_TONE: Record<string, string> = { ACTIVE: 'ACTIVE', EXPIRED: 'PAUSED', REVOKED: 'CANCELLED' }
+const KEY_FIELDS = ['name', 'scopes', 'allowed_ip_cidrs', 'expires_at']
+const CREATE_FAILED = 'The key was not created'
 
 function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: () => void; onCreated: (key: ApiKeyCreated) => void }) {
   const queryClient = useQueryClient()
@@ -27,7 +31,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
       allowed_ip_cidrs: cidrs.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean),
     }),
     onSuccess: async (created) => { await queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] }); onCreated(created) },
-    onError: (error) => error instanceof ApiError && error.status === 400 && setErrors(error.fieldErrors),
+    onError: (error) => error instanceof ApiError && error.status === 400 && setErrors(saveFailure(error, CREATE_FAILED, KEY_FIELDS).fields),
   })
 
   function onSubmit(event: FormEvent) {
@@ -38,7 +42,6 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
     setErrors(found)
     if (Object.keys(found).length === 0) create.mutate()
   }
-  const other = create.isError && !(create.error instanceof ApiError && create.error.status === 400) ? create.error : null
 
   return (
     <Modal size="lg" title="New API Key" onClose={onClose}
@@ -49,7 +52,7 @@ function CreateKey({ scopes, onClose, onCreated }: { scopes: string[]; onClose: 
         </button>
       </>}>
       <form id="key-form" onSubmit={onSubmit} noValidate className="space-y-4">
-        {other !== null && <ErrorState title="Could not create the key" error={other} />}
+        {create.isError && <ErrorState title={CREATE_FAILED} error={create.error} shownFields={KEY_FIELDS} />}
         <Field label="Name" required error={errors.name} hint="The system that will use it, for example: POS integration.">
           {(ids) => <TextInput {...ids} value={name} maxLength={100} onChange={(event) => setName(event.target.value)} />}
         </Field>
@@ -95,11 +98,18 @@ function KeyReveal({ created, onClose }: { created: ApiKeyCreated; onClose: () =
 
 export function ApiKeysPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<ApiKeyCreated | null>(null)
   const keys = useQuery({ queryKey: ['settings', 'api-keys'], queryFn: ({ signal }) => api.get<ApiKey[]>('/api-clients/', undefined, signal) })
   const scopes = useQuery({ queryKey: ['settings', 'scopes'], queryFn: ({ signal }) => api.get<{ scopes: string[] }>('/api-clients/scopes/', undefined, signal), staleTime: 10 * 60_000 })
-  const revoke = useMutation({ mutationFn: (key: ApiKey) => api.post<ApiKey>(`/api-clients/${key.id}/revoke/`), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] }) } })
+  const revoke = useMutation({
+    mutationFn: (key: ApiKey) => api.post<ApiKey>(`/api-clients/${key.id}/revoke/`),
+    onSuccess: (_revoked, key) => {
+      toast.success('Key revoked', `“${key.name}” can no longer call CEP.`)
+      void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] })
+    },
+  })
 
   const columns: Column<ApiKey>[] = [
     { key: 'name', header: 'Key', render: (key) => <div><p className="font-medium text-ink-900">{key.name}</p><p className="cep-num text-xs text-ink-800">{key.key_prefix}…</p></div> },
@@ -120,7 +130,7 @@ export function ApiKeysPage() {
         <p className="text-sm text-ink-800">Keys let other systems call the API for this workspace. A key can never manage users, roles or other keys.</p>
         <button type="button" className={buttonPrimary} onClick={() => setCreating(true)}>New API Key</button>
       </div>
-      {revoke.isError && <div className="mb-4"><ErrorState title="Could not revoke the key" error={revoke.error} /></div>}
+      {revoke.isError && <div className="mb-4"><ErrorState title="The key was not revoked" error={revoke.error} /></div>}
       {keys.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading keys</p>
         : keys.data.length === 0 ? <EmptyState title="No API keys yet" hint="Create one when a system such as the POS or the data warehouse needs to call the API." />
         : <DataTable columns={columns} rows={keys.data} rowKey={(key) => key.id} caption="API Keys" />}

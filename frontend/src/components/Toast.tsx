@@ -1,11 +1,15 @@
 import { X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
+import { saveFailure } from '@/lib/saveFeedback'
+
 type Tone = 'success' | 'error'
 
 interface ToastOptions {
   /** ms until the toast removes itself; 0 or Infinity keeps it until dismissed */
   durationMs?: number
+  /** CEP's own problem: ER-<error group>, shown as a chip the reader can quote */
+  reference?: string | null
 }
 
 interface Toast {
@@ -14,11 +18,14 @@ interface Toast {
   title: string
   detail?: string
   durationMs: number
+  reference?: string | null
 }
 
 interface ToastApi {
   success: (title: string, detail?: string, options?: ToastOptions) => string
   error: (title: string, detail?: string, options?: ToastOptions) => string
+  /** a failed save, in CEP's words (lib/saveFeedback): `toast.failure(error, 'The template was not duplicated')` */
+  failure: (error: unknown, failedTitle: string) => string
   dismiss: (id: string) => void
 }
 
@@ -55,7 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
     const id = `toast-${++seq.current}`
     const durationMs = options?.durationMs ?? (tone === 'success' ? SUCCESS_MS : 0)
-    setToasts((current) => [...current, { id, tone, title, detail, durationMs }].slice(-MAX_VISIBLE))
+    setToasts((current) => [...current, { id, tone, title, detail, durationMs, reference: options?.reference ?? null }].slice(-MAX_VISIBLE))
     return id
   }, [])
 
@@ -63,6 +70,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       success: (title, detail, options) => push('success', title, detail, options),
       error: (title, detail, options) => push('error', title, detail, options),
+      failure: (error, failedTitle) => {
+        // a toast has no fields to highlight: every message of a refusal is its detail, under what failed
+        const failed = saveFailure(error, failedTitle, [])
+        return push('error', failed.title, failed.short || undefined, { reference: failed.reference })
+      },
       dismiss,
     }),
     [push, dismiss],
@@ -136,8 +148,11 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       {toast.detail && (
         <>
           <span aria-hidden className="h-4 w-px shrink-0 bg-white/[0.22]" />
-          <p className="cep-num truncate text-helper text-white/[0.72]">{toast.detail}</p>
+          <p className="cep-num truncate text-helper text-white/[0.72]" title={toast.detail}>{toast.detail}</p>
         </>
+      )}
+      {toast.reference && (
+        <span className="shrink-0 rounded-sm bg-white/[0.18] px-1.5 py-0.5 font-mono text-xs font-semibold text-white" aria-label={`Reference ${toast.reference}`}>{toast.reference}</span>
       )}
       <button
         type="button"

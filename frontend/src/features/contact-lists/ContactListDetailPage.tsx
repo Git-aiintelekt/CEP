@@ -9,8 +9,10 @@ import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, 
 import { Modal } from '@/components/Modal'
 import { ErrorState, FullPageSpinner, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
-import { api } from '@/lib/api'
+import { useToast } from '@/components/Toast'
+import { api, ApiError } from '@/lib/api'
 import { formatDate, formatDateTime, formatNumber, titleize } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { ComplianceRecord, ContactList, ListGovernance, ListMembersPage, ListUsage, ManualAddResult } from '@/lib/types'
 
 import { CloneDialog, TypeBadge } from './ContactListsPage'
@@ -19,6 +21,8 @@ import { GovernanceLines } from './UploadReport'
 
 const PAGE_SIZE = 50
 const MEMBER_SOURCE: Record<string, string> = { UPLOAD: 'Upload', MANUAL: 'Manual', SEGMENT: 'Audience', CLONE: 'Cloned', RULE: 'Rule' }
+const DETAILS_FIELDS = ['name', 'description']
+const DETAILS_FAILED = 'The details were not saved'
 
 function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(list.name)
@@ -29,7 +33,7 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
     mutationFn: () => api.patch<ContactList>(`/contact-lists/${list.id}/`, { name, description, list_environment: environment, channel }),
     onSuccess: onSaved,
   })
-  const errors = save.isError ? problemText(save.error) : undefined
+  const errors = save.error instanceof ApiError && save.error.status === 400 ? saveFailure(save.error, DETAILS_FAILED, DETAILS_FIELDS).fields : {}
   return (
     <Modal
       title="Edit Details"
@@ -42,12 +46,13 @@ function EditDetails({ list, onClose, onSaved }: { list: ContactList; onClose: (
       }
     >
       <div className="space-y-4">
-        <Field label="List Name" required error={errors}>
+        {save.isError && <ErrorState title={DETAILS_FAILED} error={save.error} shownFields={DETAILS_FIELDS} />}
+        <Field label="List Name" required error={errors.name}>
           {(ids) => (
             <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={200} autoFocus />
           )}
         </Field>
-        <Field label="Description">
+        <Field label="Description" error={errors.description}>
           {(ids) => (
             <TextArea {...ids} value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
           )}
@@ -225,6 +230,7 @@ export function ContactListDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const { can } = useAuth()
   const editable = can('list.edit')
   const [search, setSearch] = useState('')
@@ -232,7 +238,11 @@ export function ContactListDetailPage() {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<number[]>([])
   const [dialog, setDialog] = useState<'edit' | 'add' | 'clone' | 'remove' | null>(null)
-  const [notice, setNotice] = useState('')
+  const [notice, setNoticeOnly] = useState('')
+  // a failed action: what failed and why, drawn as an error rather than beside the notices
+  const [problem, setProblemOnly] = useState<{ title: string; error: unknown } | null>(null)
+  const setNotice = (text: string) => { setNoticeOnly(text); setProblemOnly(null) }
+  const setProblem = (title: string, error: unknown) => { setProblemOnly({ title, error }); setNoticeOnly('') }
 
   const list = useQuery({ queryKey: ['contact-lists', id], queryFn: ({ signal }) => api.get<ContactList>(`/contact-lists/${id}/`, undefined, signal) })
   const usage = useQuery({ queryKey: ['contact-lists', id, 'usage'], queryFn: ({ signal }) => api.get<ListUsage>(`/contact-lists/${id}/usage/`, undefined, signal) })
@@ -240,7 +250,9 @@ export function ContactListDetailPage() {
   const compliance = useQuery({ queryKey: ['contact-lists', id, 'compliance'], queryFn: ({ signal }) => api.get<ComplianceRecord>(`/contact-lists/${id}/compliance/`, undefined, signal) })
   const decide = useMutation({
     mutationFn: ({ approved, note }: { approved: boolean; note: string }) => api.post<ContactList>(`/contact-lists/${id}/${approved ? 'approve' : 'refuse'}/`, { note }),
-    onSuccess: (next) => {
+    onSuccess: (next, { approved }) => {
+      if (approved) toast.success('List approved', `Campaigns can send to “${next.name}” now.`)
+      else toast.success('List refused', `No campaign sends to “${next.name}”.`)
       queryClient.setQueryData(['contact-lists', id], next)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists', id, 'compliance'] })
       void queryClient.invalidateQueries({ queryKey: ['contact-lists'] })
@@ -270,7 +282,7 @@ export function ContactListDetailPage() {
       setNotice(`In line with its audience: ${formatNumber(result.added)} added, ${formatNumber(result.removed)} removed.`)
       refreshAll()
     },
-    onError: (error) => setNotice(problemText(error)),
+    onError: (error) => setProblem('The list was not brought up to date', error),
   })
   const exportSelected = async () => {
     try {
@@ -282,7 +294,7 @@ export function ContactListDetailPage() {
       link.click()
       URL.revokeObjectURL(url)
     } catch (error) {
-      setNotice(problemText(error))
+      setProblem('The contacts were not exported', error)
     }
   }
 
@@ -390,6 +402,7 @@ export function ContactListDetailPage() {
       )}
 
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
+      {problem && <div className="mb-4"><ErrorState title={problem.title} error={problem.error} /></div>}
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Search contacts" aria-label="Search contacts"

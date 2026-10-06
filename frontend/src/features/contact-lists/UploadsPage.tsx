@@ -14,7 +14,6 @@ import { formatNumber } from '@/lib/format'
 import type { ListImport } from '@/lib/types'
 
 import { CreateListWizard } from './CreateListWizard'
-import { problemText } from './problem'
 import { jobSummary, resumeLink, uploadedWhen, useImportJobs } from './uploadJobs'
 import { UploadReport } from './UploadReport'
 import { ProgressBar } from './UploadsIndicator'
@@ -38,7 +37,7 @@ export function UploadsPage() {
       setNotice(`The upload of “${job.file_name}” was cancelled.`)
       void queryClient.invalidateQueries({ queryKey: ['contact-lists'] })
     },
-    onError: (error) => setNotice(problemText(error)),
+    onError: () => setNotice(''),
   })
 
   const rows = jobs.data ?? []
@@ -52,6 +51,7 @@ export function UploadsPage() {
         description="Files are read, checked and imported in the background, a few at a time and one per workspace, so a large list never slows CEP down. You can leave this page: you get an alert when an upload is done."
       />
       {notice && <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>}
+      {cancel.isError && <div className="mb-4"><ErrorState title="The upload was not cancelled" error={cancel.error} /></div>}
 
       {jobs.isError ? (
         <ErrorState error={jobs.error} onRetry={() => void jobs.refetch()} />

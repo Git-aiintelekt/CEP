@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Inbox, type LucideIcon } from 'lucide-react'
 
 import { ApiError } from '@/lib/api'
+import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 
 type SpinnerSize = 'sm' | 'md' | 'lg'
 type SpinnerTone = 'default' | 'onBrand'
@@ -74,18 +75,26 @@ export function EmptyState({ title, hint, action, icon: Icon = Inbox, variant = 
   )
 }
 
-export function ErrorState({ error, onRetry, title }: { error: unknown; onRetry?: () => void; title?: string }) {
+/**
+ * A failed load or save, in CEP's words (lib/saveFeedback): what failed, why, what to do, and CEP's reference when it had a problem.
+ * A form passes `shownFields`, the fields that show their own message: those stay on the field, the rest show here, and with only
+ * field problems nothing shows here at all. A page that knows the reason itself (a missing permission, the wrong kind of template)
+ * passes it as `detail` instead of an error.
+ */
+export function ErrorState({ error, detail, onRetry, title, shownFields }: { error?: unknown; detail?: string; onRetry?: () => void; title?: string; shownFields?: string[] }) {
   const forbidden = error instanceof ApiError && error.status === 403
-  const fieldErrors = error instanceof ApiError ? Object.entries(error.fieldErrors) : []
-  const message = fieldErrors.length > 0 ? 'Fix the following first:' : error instanceof Error ? error.message : 'The request did not complete. Try again in a moment.'
+  const failed = saveFailure(error, title ?? (forbidden ? 'You do not have permission to do this' : 'Could not load this data'), shownFields ?? [])
+  const failure = detail === undefined ? failed : { ...failed, detail, general: [], tone: 'error' as const, reference: null }
+  if (failure.title === FIELDS_TITLE && failure.general.length === 0) return null
+  const warning = failure.tone === 'warning'
   return (
-    <div role="alert" className="rounded-lg border border-danger bg-danger-bg px-5 py-4 text-sm text-danger-text">
-      <p className="font-medium">{title ?? (forbidden ? 'You do not have permission to do this' : 'Could not load this data')}</p>
-      <p className="mt-1 text-danger-text">{message}</p>
-      {fieldErrors.length > 0 && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-danger-text">
-          {fieldErrors.map(([field, text]) => (
-            <li key={field}>{text}</li>
+    <div role="alert" className={`rounded-lg border px-5 py-4 text-sm ${warning ? 'border-warning bg-warning-bg text-warning-text' : 'border-danger bg-danger-bg text-danger-text'}`}>
+      <p className="font-medium">{failure.title}</p>
+      {failure.detail && <p className="mt-1">{failure.detail}</p>}
+      {failure.general.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5">
+          {failure.general.map((text) => (
+            <li key={text}>{text}</li>
           ))}
         </ul>
       )}

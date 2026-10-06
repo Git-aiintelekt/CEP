@@ -14,6 +14,7 @@ import { api, ApiError } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
 import { useFieldRules } from '@/lib/fieldRules'
+import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 import type { Template } from '@/lib/types'
 
 import { lookOf } from './channels'
@@ -28,6 +29,7 @@ const CHANNELS = [
 
 /** the fields step 1 owns: an API error on one of them sends the person back there */
 const STEP_ONE_FIELDS = ['name', 'channel', 'description']
+const CREATE_FAILED = 'The template was not created'
 
 /** `channel`: picked already (the Templates page's channel cards); Home leaves it to the person */
 export function CreateTemplateModal({ channel: initialChannel, onClose }: { channel?: string; onClose: () => void }) {
@@ -43,6 +45,7 @@ export function CreateTemplateModal({ channel: initialChannel, onClose }: { chan
   const [description, setDescription] = useState('')
   const [starter, setStarter] = useState('')
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
+  const [failed, setFailed] = useState<unknown>(null)
 
   const create = useMutation({
     mutationFn: () => api.post<Template>('/templates/', { name: name.trim(), channel, description: description.trim() || null, ...(starter ? { starter } : {}) }),
@@ -50,12 +53,18 @@ export function CreateTemplateModal({ channel: initialChannel, onClose }: { chan
       await queryClient.invalidateQueries({ queryKey: ['templates'] })
       navigate(`/templates/${template.id}/${editorRouteFor(template.channel)}`)
     },
+    onMutate: () => setFailed(null),
     onError: (error) => {
-      const fields = error instanceof ApiError && error.status === 400 ? error.fieldErrors : {}
-      if (Object.keys(fields).some((key) => STEP_ONE_FIELDS.includes(key))) setStep(1)
-      setErrors(Object.keys(fields).length ? fields : { form: error.message })
+      const fields = saveFailure(error, CREATE_FAILED, STEP_ONE_FIELDS).fields
+      if (Object.keys(fields).length) setStep(1)
+      setErrors(fields)
+      setFailed(error)
     },
   })
+  // what the fields do not say: CEP's problem, no connection, a refusal that is not about a field on step 1
+  const failure = failed ? saveFailure(failed, CREATE_FAILED, STEP_ONE_FIELDS) : null
+  const banner = failure && !(failure.title === FIELDS_TITLE && failure.general.length === 0) ? failure : null
+  const refused = failed instanceof ApiError && failed.status === 400
 
   function next(event: FormEvent) {
     event.preventDefault()
@@ -79,7 +88,11 @@ export function CreateTemplateModal({ channel: initialChannel, onClose }: { chan
       primary={step === 1
         ? { label: 'Next', disabled: name.trim() === '', form: formId }
         : { label: 'Create Template', busy: create.isPending, busyLabel: 'Creating', onClick: () => create.mutate() }}
-      error={errors.form ? { title: 'Template Wasn’t Created', message: errors.form, onRetry: () => create.mutate() } : null}
+      error={banner ? {
+        title: banner.title,
+        message: [banner.detail, ...(banner.title === FIELDS_TITLE ? banner.general : [])].join(' '),
+        onRetry: refused ? undefined : () => create.mutate(),
+      } : null}
     >
       {step === 1 ? (
         <form id={formId} onSubmit={next} noValidate className="flex flex-col gap-6">

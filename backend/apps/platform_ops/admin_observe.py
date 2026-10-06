@@ -1,4 +1,5 @@
 """Back-office pages for observability: Errors, Uptime, and Tenant performance (the views live on the tenant admin)."""
+import re
 from datetime import timedelta
 
 from django.conf import settings
@@ -56,6 +57,13 @@ class ErrorGroupAdmin(BaseAdmin):
     ordering = ("-last_seen",)
     actions = ("resolve", "ignore", "reopen")
     list_per_page = 50
+
+    def get_search_results(self, request, queryset, search_term):
+        """A reference a user was given ("ER-123", api/exceptions.py) finds its error group."""
+        match = re.fullmatch(r"\s*ER-(\d+)\s*", search_term or "", flags=re.IGNORECASE)
+        if match:
+            return queryset.filter(pk=int(match.group(1))), False
+        return super().get_search_results(request, queryset, search_term)
 
     def has_add_permission(self, request):
         return False

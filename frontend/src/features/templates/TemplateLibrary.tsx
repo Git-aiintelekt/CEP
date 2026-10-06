@@ -12,9 +12,10 @@ import { Popover } from '@/components/Popover'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { editorPathFor, editorRouteFor } from '@/lib/editorRoute'
 import { formatRelative, titleize } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { Preset, Template } from '@/lib/types'
 import { useCursorList } from '@/lib/useCursorList'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
@@ -35,7 +36,7 @@ const VIEW_KEY = 'cep.templates.view'
 
 const openLabel = (template: Template) => (editorRouteFor(template.channel) === 'design' ? 'Open Designer' : 'Open Editor')
 const editorName = (template: Template) => (editorRouteFor(template.channel) === 'design' ? 'designer' : 'editor')
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : 'The server did not answer.')
+const RENAME_FAILED = 'The template was not renamed'
 
 function readView(): View {
   try {
@@ -98,7 +99,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
       toast.success('Template duplicated', `“${copy.name}” is a draft. Opening it in the ${editorName(copy)}.`)
       navigate(editorPathFor(copy))
     },
-    onError: (error) => toast.error('Could not duplicate the template', messageOf(error)),
+    onError: (error) => toast.failure(error, 'The template was not duplicated'),
   })
   const remove = useMutation({
     mutationFn: (template: Template) => api.delete(`/templates/${template.id}/`),
@@ -202,7 +203,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
         <RenameTemplateModal
           template={renaming}
           pending={rename.isPending}
-          error={rename.isError ? messageOf(rename.error) : null}
+          error={rename.isError ? rename.error : null}
           onClose={() => setRenaming(null)}
           onSave={(name) => rename.mutate({ template: renaming, name })}
         />
@@ -219,7 +220,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
           }
         >
           <p className="text-sm text-ink-800">“{deleting.name}” and its saved versions leave the library. A template that a campaign uses cannot be deleted: archive it instead.</p>
-          {remove.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-plain">{messageOf(remove.error)}</p>}
+          {remove.isError && <div className="mt-3"><ErrorState title="The template was not deleted" error={remove.error} /></div>}
         </Modal>
       )}
     </section>
@@ -252,11 +253,13 @@ const NAME_MIN = 3
 function RenameTemplateModal({ template, pending, error, onClose, onSave }: {
   template: Template
   pending: boolean
-  error: string | null
+  error: unknown
   onClose: () => void
   onSave: (name: string) => void
 }) {
   const [name, setName] = useState(template.name)
+  // a taken name is the name field's own message; anything else shows above it
+  const nameError = error instanceof ApiError && error.status === 400 ? saveFailure(error, RENAME_FAILED, ['name']).fields.name : undefined
   const trimmed = name.trim()
   const ready = trimmed.length >= NAME_MIN && trimmed !== template.name
   const submit = (event: FormEvent) => {
@@ -274,8 +277,9 @@ function RenameTemplateModal({ template, pending, error, onClose, onSave }: {
         </>
       }
     >
-      <form id={RENAME_FORM_ID} onSubmit={submit} noValidate>
-        <Field label="Template Name" required error={error ?? undefined} hint="Shown in the template list and when picking a template in a campaign">
+      <form id={RENAME_FORM_ID} onSubmit={submit} noValidate className="space-y-4">
+        {error != null && <ErrorState title={RENAME_FAILED} error={error} shownFields={['name']} />}
+        <Field label="Template Name" required error={nameError} hint="Shown in the template list and when picking a template in a campaign">
           {(ids) => <TextInput {...ids} value={name} maxLength={200} autoFocus onChange={(event) => setName(event.target.value)} />}
         </Field>
       </form>

@@ -11,15 +11,19 @@ import { Modal } from '@/components/Modal'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { Page, PersonalizationTag, TagDataPoints } from '@/lib/types'
 
 const CHANNELS = [{ value: 'EMAIL', label: 'Email' }, { value: 'E_RECEIPT', label: 'E-Receipt' }, { value: 'SMS', label: 'SMS' }, { value: 'MMS', label: 'MMS' }]
 const CHANNEL_FILTER = [{ value: 'ALL', label: 'All' }, ...CHANNELS]
 const DATA_TYPES = [{ value: 'STRING', label: 'Text' }, { value: 'NUMBER', label: 'Number' }, { value: 'DATE', label: 'Date' }, { value: 'BOOLEAN', label: 'Yes / No' }]
 const STATIC = 'STATIC'
+const TAG_FIELDS = ['tag_key', 'label', 'static_value', 'source_path', 'applies_to_channels']
+const TAG_FAILED = 'The tag was not saved'
 
 interface Draft {
   tag_key: string
@@ -62,6 +66,7 @@ function bodyOf(draft: Draft) {
 
 function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; points: TagDataPoints | undefined; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [draft, setDraft] = useState<Draft>(() => (tag ? draftOf(tag, points) : EMPTY))
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }))
@@ -71,8 +76,15 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
 
   const save = useMutation({
     mutationFn: () => (tag ? api.patch<PersonalizationTag>(`/personalization-tags/${tag.id}/`, bodyOf(draft)) : api.post<PersonalizationTag>('/personalization-tags/', bodyOf(draft))),
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['personalization-tags'] }); onClose() },
-    onError: (error) => error instanceof ApiError && error.status === 400 && setErrors(error.fieldErrors),
+    onSuccess: async (saved) => {
+      toast.success('Tag saved', `Templates can use {{${saved.tag_key}}}.`)
+      await queryClient.invalidateQueries({ queryKey: ['personalization-tags'] }); onClose()
+    },
+    onError: (error) => {
+      if (!(error instanceof ApiError && error.status === 400)) return
+      const { applies_to_channels: channels, ...fields } = saveFailure(error, TAG_FAILED, TAG_FIELDS).fields
+      setErrors({ ...fields, channels })
+    },
   })
 
   function onSubmit(event: FormEvent) {
@@ -88,7 +100,6 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
     setErrors(found)
     if (Object.keys(found).length === 0) save.mutate()
   }
-  const other = save.isError && !(save.error instanceof ApiError && save.error.status === 400) ? save.error : null
 
   return (
     <Modal size="lg" title={tag ? `Edit {{${tag.tag_key}}}` : 'New Tag'} onClose={onClose}
@@ -97,7 +108,7 @@ function TagForm({ tag, points, onClose }: { tag: PersonalizationTag | null; poi
         <button type="submit" form="tag-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}{tag ? 'Save Tag' : 'Add Tag'}</button>
       </>}>
       <form id="tag-form" onSubmit={onSubmit} noValidate className="space-y-4">
-        {other !== null && <ErrorState title="Could not save the tag" error={other} />}
+        {save.isError && <ErrorState title={TAG_FAILED} error={save.error} shownFields={TAG_FIELDS} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Tag Key" required error={errors.tag_key} help="The word typed inside the braces in a template. Fixed once created: templates keep the token, so a renamed key would leave them pointing at nothing." hint="The word inside {{ }}: lower-case letters, digits and underscores." limit={{ used: draft.tag_key.length, max: rule('tag_key')?.max ?? 100 }}>
             {(ids) => <TextInput {...ids} value={draft.tag_key} maxLength={rule('tag_key')?.max ?? 100} disabled={Boolean(tag)} onChange={(event) => set({ tag_key: event.target.value })} />}
@@ -176,11 +187,15 @@ const SOURCE_WORD: Record<string, string> = {
 
 export function TagsPage() {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [channel, setChannel] = useState('ALL')
   const [editing, setEditing] = useState<PersonalizationTag | null | 'new'>(null)
   const list = useQuery({ queryKey: ['personalization-tags', 'all'], queryFn: ({ signal }) => api.get<Page<PersonalizationTag>>('/personalization-tags/', { page_size: 200 }, signal) })
   const points = useQuery({ queryKey: ['personalization-tags', 'data-points'], queryFn: ({ signal }) => api.get<TagDataPoints>('/personalization-tags/data-points/', undefined, signal), staleTime: 10 * 60_000 })
-  const remove = useMutation({ mutationFn: (tag: PersonalizationTag) => api.delete(`/personalization-tags/${tag.id}/`), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['personalization-tags'] }) })
+  const remove = useMutation({
+    mutationFn: (tag: PersonalizationTag) => api.delete(`/personalization-tags/${tag.id}/`),
+    onSuccess: () => { toast.success('Tag removed'); void queryClient.invalidateQueries({ queryKey: ['personalization-tags'] }) },
+  })
 
   const rows = (list.data?.results ?? []).filter((tag) => channel === 'ALL' || tag.applies_to_channels.length === 0 || tag.applies_to_channels.includes(channel))
     .sort((a, b) => a.tag_key.localeCompare(b.tag_key))
@@ -210,7 +225,7 @@ export function TagsPage() {
         <button type="button" className={buttonPrimary} onClick={() => setEditing('new')}>Add Tag</button>
       </div>
       <SegmentedControl label="Offered In" variant="outline" options={CHANNEL_FILTER} value={channel} onChange={setChannel} />
-      {remove.isError && <ErrorState title="Could not remove the tag" error={remove.error} />}
+      {remove.isError && <ErrorState title="The tag was not removed" error={remove.error} />}
       {list.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading tags</p>
         : rows.length === 0 ? <EmptyState title="No tags here yet" hint="Add one, or choose another channel." />
         : <DataTable columns={columns} rows={rows} rowKey={(tag) => tag.id} caption="Personalization tags" />}

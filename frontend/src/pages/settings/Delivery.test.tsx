@@ -235,14 +235,14 @@ test('Deliverability Testing: no account shows the set-up call, the form wants t
   await user.type(within(dialog).getByLabelText(/^API Key/), 'inspect-key-1')
   await user.click(within(dialog).getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(screen.getByText('Mailgun Inspect account saved')).toBeTruthy()                                 // the toast: the dialog closed on a save
   const put = calls.filter((call) => call.url.endsWith('/deliverability/service/') && call.method === 'PUT').at(-1)
   expect(put?.body).toMatchObject({ region: 'EU', username: 'northline-inspect', api_key: 'inspect-key-1', default_clients: [], image_blocking: false, is_active: true })
 
   expect(await within(section).findByText(/EU region · northline-inspect · API key stored/)).toBeTruthy()
   expect(within(section).getByText('Not Checked Yet')).toBeTruthy()
   await user.click(within(section).getByRole('button', { name: 'Check Connection' }))
-  expect(await screen.findByRole('status')).toBeTruthy()
-  expect(screen.getByRole('status').textContent).toContain('the account works')
+  expect(await screen.findByText('Mailgun Inspect: the account works.')).toBeTruthy()
 
   await user.click(within(section).getByRole('button', { name: 'Edit' }))
   const edit = await screen.findByRole('dialog', { name: 'Mailgun Inspect Account' })

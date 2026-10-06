@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Save feedback: what CEP says when a save works or fails</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --sidebar:#20265d;
+    --success:#5ec16a; --success-bg:#e3f4e5; --success-text:#0e6027;
+    --warning:#e8a13b; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --danger:#dd514c; --danger-bg:#fae2e2; --danger-text:#a92e26;
+    --callout-bg:#eef2fe; --callout-icon:#7570d4; --callout-text:#312e7c;
+    --shadow-toast:0 8px 24px rgb(20 23 31 / 0.16);
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .label { max-width:1440px; margin:30px auto 10px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.45 var(--font-sans); color:var(--ink-800); margin-top:2px; max-width:1040px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:16px; align-items:start }
+  .case { font:600 12px/1 var(--font-sans); text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-800); margin:0 0 8px 2px }
+  .stage { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px; position:relative }
+  .stage.page { min-height:150px }
+  /* toast, as components/Toast.tsx draws it */
+  .toasts { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
+  .toast { display:flex; align-items:center; gap:10px; height:44px; max-width:100%; border-radius:4px; padding:0 6px 0 14px; box-shadow:var(--shadow-toast); color:#fff }
+  .toast.ok { background:var(--sidebar) } .toast.bad { background:var(--danger) }
+  .toast .dot { width:8px; height:8px; border-radius:50%; flex:none } .toast.ok .dot { background:var(--success) } .toast.bad .dot { background:#fff }
+  .toast b { font-size:14px; font-weight:600; white-space:nowrap }
+  .toast .sep { width:1px; height:16px; background:rgb(255 255 255 / .22); flex:none }
+  .toast .det { font-size:12px; color:rgb(255 255 255 / .72); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .toast .x { width:30px; height:30px; display:flex; align-items:center; justify-content:center; color:rgb(255 255 255 / .8); flex:none; font-size:16px }
+  .toast .ref { font:600 11px/1 ui-monospace,Consolas,monospace; background:rgb(255 255 255 / .18); padding:3px 6px; border-radius:4px; color:#fff; flex:none }
+  /* settings card with switches */
+  .card { border:1px solid var(--line); border-radius:8px; padding:18px 20px; background:#fff }
+  .card h3 { font-size:16px; margin-bottom:12px }
+  .setting { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-top:1px solid var(--line-subtle) }
+  .setting:first-of-type { border-top:0 }
+  .setting .t { font-weight:600 } .setting .h { font-size:12px; color:var(--ink-800) }
+  .ctl-wrap { display:flex; align-items:center; gap:10px; flex:none }
+  .switch { width:36px; height:20px; border-radius:999px; background:var(--brand-600); position:relative } .switch::after { content:""; position:absolute; top:2px; right:2px; width:16px; height:16px; border-radius:50%; background:#fff }
+  .switch.off { background:var(--line-control) } .switch.off::after { right:auto; left:2px }
+  .select { height:36px; border:1px solid var(--line-control); border-radius:8px; padding:0 10px; display:flex; align-items:center; gap:24px; background:#fff; font-size:14px }
+  .tick { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color:var(--success-text) }
+  .tick.fading { opacity:.45 }
+  .tick.err { color:var(--danger-text) }
+  /* dialog */
+  .dialog { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; box-shadow:0 12px 32px rgb(20 23 31 / .12) }
+  .dhead { padding:16px 20px 10px; border-bottom:1px solid var(--line-subtle) } .dhead h2 { font-size:18px } .dhead p { font-size:12px; color:var(--ink-800); margin-top:2px }
+  .dbody { padding:16px 20px; display:flex; flex-direction:column; gap:14px }
+  .dfoot { padding:12px 20px; border-top:1px solid var(--line-subtle); display:flex; justify-content:flex-end; gap:8px }
+  .btn { height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 14px/1 var(--font-sans); display:inline-flex; align-items:center; color:var(--ink-900) }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:30px; font-size:13px }
+  .banner { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--danger); background:var(--danger-bg); border-radius:8px; padding:12px 14px; color:var(--danger-text) }
+  .banner.warn { border-color:var(--warning); background:var(--warning-bg); color:var(--warning-text) }
+  .banner.info { border-color:var(--line); background:var(--callout-bg); color:var(--callout-text) }
+  .banner .ic { flex:none; margin-top:1px } .banner .body { flex:1; font-size:13px } .banner .body b { display:block; font-size:14px; margin-bottom:2px; color:inherit }
+  .banner .act { flex:none }
+  .banner ul { margin:4px 0 0; padding-left:18px }
+  .ref { font:600 12px/1 ui-monospace,Consolas,monospace; background:rgb(169 46 38 / .1); padding:2px 6px; border-radius:4px }
+  .field { display:flex; flex-direction:column; gap:6px } .lbl { font-weight:600; display:flex; justify-content:space-between } .lbl .count { font-weight:500; font-size:12px; color:var(--ink-300) } .req { color:var(--danger-text) }
+  .ctl { height:40px; border:1px solid var(--line-control); border-radius:8px; padding:0 12px; display:flex; align-items:center; background:#fff }
+  .ctl.invalid { border-color:var(--danger); box-shadow:0 0 0 3px var(--danger-bg) }
+  .err { font-size:12px; font-weight:500; color:var(--danger-text) }
+  .hint { font-size:12px; color:var(--ink-800) }
+  /* login */
+  .login { max-width:400px; margin:0 auto; display:flex; flex-direction:column; gap:14px }
+  .login h2 { font-size:22px; text-align:center }
+  .built { max-width:1440px; margin:34px auto 56px; padding:0 16px }
+  .built .card { max-width:1060px; padding:20px 24px }
+  .built h3 { font-size:16px } .built h4 { font:600 13px/1.3 var(--font-sans); margin:16px 0 6px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-800) }
+  .built ul { margin:0; padding-left:18px } .built li { margin:4px 0 }
+  .built table { border-collapse:collapse; width:100%; font-size:13px; margin-top:6px } .built th, .built td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top } .built th { color:var(--ink-800); font-size:12px }
+  .built code { font:500 12px/1 ui-monospace,Consolas,monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+  @media (max-width:640px) { .row { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Save feedback — mockup, not the product.</strong> One rule for the whole app: every save says that it worked or why it did not, in a sentence that names the thing, and never shows a database's or a browser's own words. Toasts, banners and fields are the components CEP already has (Toast, Notice, Field); only the wording and where they are used change. Two real choices are shown as options: how an instant switch confirms (A or B) and whether a server error shows a reference code (1 or 2).</p>
+
+<!-- ================================================================ SUCCESS -->
+<div class="label">1 · A save worked: the toast<span>For every save whose result is not otherwise on screen: a dialog that closes, a delete, an archive, a rename, a Settings form. Navy, top right, gone after 4.5 s; the title says what happened, the detail what it means. A save that shows its own result (import counts, a test's outcome, the "Saved" beside Mail Server) keeps it.</span></div>
+<div class="row">
+  <div><p class="case">Busy: a title and a detail</p>
+    <div class="stage page"><div class="toasts">
+      <div class="toast ok"><span class="dot"></span><b>Sender saved</b><span class="sep"></span><span class="det">noreply@northwind.com sends once it is verified.</span><span class="x">×</span></div>
+      <div class="toast ok"><span class="dot"></span><b>Role saved</b><span class="sep"></span><span class="det">Campaign Manager now has 14 permissions.</span><span class="x">×</span></div>
+      <div class="toast ok"><span class="dot"></span><b>Key revoked</b><span class="sep"></span><span class="det">“Shop orders” can no longer call CEP.</span><span class="x">×</span></div>
+    </div></div>
+  </div>
+  <div><p class="case">Sparse: the title alone</p>
+    <div class="stage page"><div class="toasts">
+      <div class="toast ok"><span class="dot"></span><b>Tag removed</b><span class="x">×</span></div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ================================================================ SWITCHES -->
+<div class="label">2 · Instant settings (a switch or a select that saves as it changes)<span>Attribution windows, Consent Policy, Approvals, POS Receipts, Preference Centre, Require Two-Step Sign-In. Today they save silently.</span></div>
+<div class="row">
+  <div><p class="case">Option A — a “Saved” tick beside the control, fading after 2 s</p>
+    <div class="card">
+      <h3>Attribution Rules</h3>
+      <div class="setting"><div><p class="t">Attribution</p><p class="h">Credit orders to the campaign that earned them.</p></div><div class="ctl-wrap"><span class="tick">✓ Saved</span><span class="switch"></span></div></div>
+      <div class="setting"><div><p class="t">Click Window</p><p class="h">How long a click earns an order.</p></div><div class="ctl-wrap"><span class="tick fading">✓ Saved</span><span class="select">14 days <span>▾</span></span></div></div>
+      <div class="setting"><div><p class="t">Open Window</p><p class="h">When there was no click.</p></div><div class="ctl-wrap"><span class="tick err">Not saved · Try again</span><span class="select">1 day <span>▾</span></span></div></div>
+    </div>
+    <p class="hint" style="margin-top:8px">When it fails the control goes back to what is stored and the line says so, with Try Again; the reason shows under the card as today.</p>
+  </div>
+  <div><p class="case">Option B — the toast, as for every other save</p>
+    <div class="card" style="position:relative">
+      <h3>Attribution Rules</h3>
+      <div class="setting"><div><p class="t">Attribution</p><p class="h">Credit orders to the campaign that earned them.</p></div><div class="ctl-wrap"><span class="switch"></span></div></div>
+      <div class="setting"><div><p class="t">Click Window</p><p class="h">How long a click earns an order.</p></div><div class="ctl-wrap"><span class="select">14 days <span>▾</span></span></div></div>
+      <div class="setting"><div><p class="t">Open Window</p><p class="h">When there was no click.</p></div><div class="ctl-wrap"><span class="select">1 day <span>▾</span></span></div></div>
+    </div>
+    <div class="toasts" style="margin-top:10px"><div class="toast ok"><span class="dot"></span><b>Click Window saved</b><span class="sep"></span><span class="det">A click now earns orders for 14 days.</span><span class="x">×</span></div></div>
+    <p class="hint" style="margin-top:8px">Clear, but three quick changes stack three toasts.</p>
+  </div>
+</div>
+
+<!-- ================================================================ SERVER ERROR -->
+<div class="label">3 · A save failed on CEP's side (server error)<span>Today: “Internal Server Error”. The dialog's banner (or, for an action from a list, a red toast that stays until closed) names the thing, the time, that the entries are kept, and what to do.</span></div>
+<div class="row">
+  <div><p class="case">Option 1 — with a reference code (matches the back-office Errors page)</p>
+    <div class="dialog">
+      <div class="dhead"><h2>New Sender</h2><p>Who the email comes from</p></div>
+      <div class="dbody">
+        <div class="banner"><span class="ic">⚠</span><div class="body"><b>The sender was not saved</b>CEP had a problem at 14:32. Your entries are still here; try again. If it happens again, give your administrator the reference <span class="ref">ER-7F3A</span>.</div><span class="act"><span class="btn sm">Try Again</span></span></div>
+        <div class="field"><span class="lbl"><span>From Address<span class="req">*</span></span></span><div class="ctl">noreply@northwind.com</div></div>
+      </div>
+      <div class="dfoot"><span class="btn">Cancel</span><span class="btn primary">Save Sender</span></div>
+    </div>
+    <div class="toasts" style="margin-top:12px"><div class="toast bad"><span class="dot"></span><b>The template was not duplicated</b><span class="sep"></span><span class="det">CEP had a problem at 14:32. Try again.</span><span class="ref">ER-7F3A</span><span class="x">×</span></div></div>
+  </div>
+  <div><p class="case">Option 2 — without a reference code</p>
+    <div class="dialog">
+      <div class="dhead"><h2>New Sender</h2><p>Who the email comes from</p></div>
+      <div class="dbody">
+        <div class="banner"><span class="ic">⚠</span><div class="body"><b>The sender was not saved</b>CEP had a problem at 14:32. Your entries are still here; try again in a moment.</div><span class="act"><span class="btn sm">Try Again</span></span></div>
+        <div class="field"><span class="lbl"><span>From Address<span class="req">*</span></span></span><div class="ctl">noreply@northwind.com</div></div>
+      </div>
+      <div class="dfoot"><span class="btn">Cancel</span><span class="btn primary">Save Sender</span></div>
+    </div>
+    <div class="toasts" style="margin-top:12px"><div class="toast bad"><span class="dot"></span><b>The template was not duplicated</b><span class="sep"></span><span class="det">CEP had a problem at 14:32. Try again.</span><span class="x">×</span></div></div>
+  </div>
+</div>
+
+<!-- ================================================================ FIELD ERRORS -->
+<div class="label">4 · A save refused because of what was entered<span>Today a taken template name reads “Invalid input”, and a problem that is not about one field is dropped. Now: each field shows its own message, and the banner says what to fix, including anything that is not about a single field.</span></div>
+<div class="row">
+  <div><p class="case">Busy: two fields and one general problem</p>
+    <div class="dialog">
+      <div class="dhead"><h2>Rename Template</h2></div>
+      <div class="dbody">
+        <div class="banner"><span class="ic">⚠</span><div class="body"><b>Check the highlighted fields</b>The template was not renamed.<ul><li>An active template cannot be renamed while 2 campaigns are publishing with it.</li></ul></div></div>
+        <div class="field"><span class="lbl"><span>Template Name<span class="req">*</span></span><span class="count">14 / 200</span></span><div class="ctl invalid">Fall Promo Email</div><p class="err">Another template is already called “Fall Promo Email”.</p></div>
+        <div class="field"><span class="lbl"><span>Code</span><span class="count">9 / 40</span></span><div class="ctl invalid">FALL 2026</div><p class="err">Letters, digits and dashes only.</p></div>
+      </div>
+      <div class="dfoot"><span class="btn">Cancel</span><span class="btn primary">Rename</span></div>
+    </div>
+  </div>
+  <div><p class="case">Sparse: one field</p>
+    <div class="dialog">
+      <div class="dhead"><h2>New Tag</h2></div>
+      <div class="dbody">
+        <div class="field"><span class="lbl"><span>Tag Key<span class="req">*</span></span><span class="count">10 / 100</span></span><div class="ctl invalid">first_name</div><p class="err">A tag with this key already exists.</p></div>
+      </div>
+      <div class="dfoot"><span class="btn">Cancel</span><span class="btn primary">Save Tag</span></div>
+    </div>
+    <p class="hint" style="margin-top:8px">With only field problems there is no banner: the field says it.</p>
+  </div>
+</div>
+
+<!-- ================================================================ CONNECTION / PERMISSION / DB DOWN -->
+<div class="label">5 · No connection, no permission, database not answering<span>Today: the browser's own words (“Failed to fetch”), Django's sentence, or “Internal Server Error”.</span></div>
+<div class="row">
+  <div><p class="case">The connection dropped</p>
+    <div class="banner warn"><span class="ic">⚠</span><div class="body"><b>CEP could not be reached</b>The campaign was not saved. Your changes are still here; check your connection and try again.</div><span class="act"><span class="btn sm">Try Again</span></span></div>
+  </div>
+  <div><p class="case">Not allowed</p>
+    <div class="banner"><span class="ic">⚠</span><div class="body"><b>The role was not saved</b>You do not have permission to change roles. Ask a workspace administrator.</div></div>
+  </div>
+  <div><p class="case">The database is not answering (503)</p>
+    <div class="banner warn"><span class="ic">⚠</span><div class="body"><b>The provider was not saved</b>CEP's database is not answering at 14:32. Your entries are still here; try again in a minute.</div><span class="act"><span class="btn sm">Try Again</span></span></div>
+  </div>
+</div>
+
+<!-- ================================================================ SIGNED OUT -->
+<div class="label">6 · Signed out while working<span>Today the login page appears with no word of why, and the page's unsaved changes are gone.</span></div>
+<div class="row">
+  <div><p class="case">The login page after the session ended</p>
+    <div class="stage">
+      <div class="login">
+        <h2>Sign In to CEP</h2>
+        <div class="banner info"><span class="ic">ⓘ</span><div class="body"><b>Your session ended</b>Sign in again to carry on. Changes on the page you were on that were not saved are not kept.</div></div>
+        <div class="field"><span class="lbl">Workspace</span><div class="ctl">NWA</div></div>
+        <div class="field"><span class="lbl">Email</span><div class="ctl">jane@northwind.com</div></div>
+        <span class="btn primary" style="justify-content:center">Sign In</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ WHAT GETS BUILT -->
+<div class="built"><div class="card">
+  <h3>What gets built, in words</h3>
+  <h4>In the browser</h4>
+  <ul>
+    <li>One helper, <code>saveFailure(error, "the sender")</code>, turns any failed save into a title, a sentence, a tone and (option 1) a reference: field errors, a general problem, conflict (409, the server's own sentence, as today), no permission (403), signed out (401), database not answering (503), CEP's problem (500), no connection. Every form, toast and banner uses it; “Invalid input”, “Internal Server Error”, “Request failed” and the browser's “Failed to fetch” never reach the screen.</li>
+    <li>Success: a toast for the 51 saves that show nothing today (dialogs that close, deletes, archives, Settings saves); the chosen option (A or B) for the instant switches.</li>
+    <li>The 6 silent failures get their message (rotate webhook, Mailgun Inspect check and remove, turning off two-step sign-in, ending a support session, the campaign's tested mark). Problems not about a shown field appear in the banner. Four errors drawn as grey status lines become error banners. The Mail Server test's wrong title and the two “we” / “our side” sentences are reworded.</li>
+    <li>Signed out: the login page shows “Your session ended”.</li>
+  </ul>
+  <h4>On the server</h4>
+  <ul>
+    <li>Every error answers in the same JSON shape (problem+json), never Django's HTML page or a traceback, and never database wording.</li>
+    <li>A duplicate (unique violation) becomes 400 on its field: “… already exists”. A broken database rule (check violation) becomes 400 with a plain sentence for the rules CEP has (e.g. re-entry days, governance limits). Row-level security becomes 403. Database not answering becomes 503. Anything else becomes 500 with the time and a reference that matches its entry on the back-office Errors page.</li>
+    <li>A 400's title becomes “Check the highlighted fields” instead of “Invalid input”.</li>
+  </ul>
+  <h4>Written down and tested</h4>
+  <ul>
+    <li>A “Save feedback” section in docs: which component when (toast, the field, the banner, the tick), and the sentences.</li>
+    <li>Tests: the helper for every case, the server's handler for each database error, and the silent ones now speaking.</li>
+  </ul>
+  <h4>Recommendation</h4>
+  <p><strong>Option A</strong> for instant settings: a toast on every switch gets noisy, and the tick sits where the eye already is. <strong>Option 1</strong> for server errors: the reference costs one short code and lets support find the cause on the Errors page in seconds.</p>
+</div></div>
+
+</body>
+</html>

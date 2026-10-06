@@ -21,6 +21,7 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import type { Campaign, CampaignFormOptions, ContactList } from '@/lib/types'
@@ -56,6 +57,7 @@ export function CampaignWizardPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const { me, can } = useAuth()
   const [params, setParams] = useSearchParams()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -224,15 +226,20 @@ export function CampaignWizardPage() {
 
   /** a test went out: the Test step counts as passed (an e-receipt's setup is then done, having no schedule to save) */
   async function markTested() {
-    const fresh = await queryClient.fetchQuery({ queryKey: ['campaigns', 'detail', id], queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${id}/`, undefined, signal), staleTime: 0 })
-    const tested = progressAfter('test', fresh.campaign_type)
-    if (fresh.setup_step >= tested) return
-    const done = await api.patch<Campaign>(`/campaigns/${id}/`, { setup_step: tested, row_version: fresh.row_version })
-    queryClient.setQueryData(['campaigns', 'detail', id], done)
+    try {
+      const fresh = await queryClient.fetchQuery({ queryKey: ['campaigns', 'detail', id], queryFn: ({ signal }) => api.get<Campaign>(`/campaigns/${id}/`, undefined, signal), staleTime: 0 })
+      const tested = progressAfter('test', fresh.campaign_type)
+      if (fresh.setup_step >= tested) return
+      const done = await api.patch<Campaign>(`/campaigns/${id}/`, { setup_step: tested, row_version: fresh.row_version })
+      queryClient.setQueryData(['campaigns', 'detail', id], done)
+    } catch (error) {
+      // the test itself went out; only the step's tick is missing
+      toast.failure(error, 'The test mark was not saved')
+    }
   }
 
   // ---- guards
-  if (!can('campaign.edit')) return <ErrorState title="You cannot edit campaigns" error={new Error('Ask a Marketing Admin for the campaign.edit permission.')} />
+  if (!can('campaign.edit')) return <ErrorState title="You cannot edit campaigns" detail="Ask a Marketing Admin for the campaign.edit permission." />
   if (existing.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading campaign</p>
   if (existing.isError) return <ErrorState error={existing.error} onRetry={() => void existing.refetch()} />
   if (!loaded) return null

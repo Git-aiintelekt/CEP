@@ -9,9 +9,11 @@ import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
+import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
 import { api, ApiError, session } from '@/lib/api'
 import { formatDateTime, formatMoney, formatNumber, formatPercent, formatRelative } from '@/lib/format'
@@ -26,14 +28,15 @@ const STATUS_LABEL: Record<AttributedOrder['status'], string> = { ATTRIBUTED: 'C
 
 const days = (n: number) => (n === 1 ? '1 day' : `${n} days`)
 
-function Setting({ id, title, text, children }: { id: string; title: string; text: ReactNode; children: ReactNode }) {
+/** tick: the "Saved" confirmation, just before the control */
+function Setting({ id, title, text, tick, children }: { id: string; title: string; text: ReactNode; tick?: ReactNode; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 border-b border-line-subtle py-4 last:border-b-0">
       <div className="min-w-0 max-w-xl">
         <p id={`${id}-title`} className="text-sm font-semibold text-ink-900">{title}</p>
         <p id={`${id}-help`} className="text-sm text-ink-800">{text}</p>
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="flex shrink-0 items-center gap-3">{tick}{children}</div>
     </div>
   )
 }
@@ -68,35 +71,35 @@ export function AttributionPage({ canEdit }: { canEdit?: boolean } = {}) {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0 space-y-5">
           <section aria-label="Attribution Rules" className="rounded-lg border border-line bg-surface px-5">
-            <Setting id="enabled" title="Attribution" text={data.enabled
+            <Setting id="enabled" title="Attribution" tick={<SaveTick mutation={save} field="enabled" />} text={data.enabled
               ? `On since ${formatDateTime(data.enabled_at)}. Orders sent from the shop are credited every five minutes.`
               : 'Off: orders are refused and revenue reads Not Set Up. Turn it on, then send orders from the shop.'}>
               <Switch checked={data.enabled} disabled={locked} onChange={(next) => save.mutate({ enabled: next })} labelledBy="enabled-title" describedBy="enabled-help" />
             </Setting>
-            <Setting id="click" title="Click Window" text="A click on a campaign's link takes the credit for an order the same person places within this time.">
+            <Setting id="click" title="Click Window" tick={<SaveTick mutation={save} field="click_days" />} text="A click on a campaign's link takes the credit for an order the same person places within this time.">
               <div className="w-44"><Select aria-labelledby="click-title" aria-describedby="click-help" value={String(data.click_days)} disabled={locked} invalid={Boolean(errors.click_days)}
                 onChange={(event) => save.mutate({ click_days: Number(event.target.value) })}>
                 {data.choices.click_days.map((n) => <option key={n} value={n}>{days(n)}</option>)}
               </Select></div>
             </Setting>
-            <Setting id="open" title="Open Window" text="With no click, an open of a marketing email takes the credit within this time. E-receipts never earn credit for being read.">
+            <Setting id="open" title="Open Window" tick={<SaveTick mutation={save} field="open_days" />} text="With no click, an open of a marketing email takes the credit within this time. E-receipts never earn credit for being read.">
               <div className="w-44"><Select aria-labelledby="open-title" aria-describedby="open-help" value={String(data.open_days)} disabled={locked}
                 onChange={(event) => save.mutate({ open_days: Number(event.target.value) })}>
                 {data.choices.open_days.map((n) => <option key={n} value={n}>{n === 0 ? 'Opens Do Not Count' : days(n)}</option>)}
               </Select></div>
             </Setting>
-            <Setting id="text" title="Text Window" text="With no click or open, a marketing text delivered to the person takes the credit within this time. Text links are not tracked yet, so delivery stands in for a click.">
+            <Setting id="text" title="Text Window" tick={<SaveTick mutation={save} field="text_days" />} text="With no click or open, a marketing text delivered to the person takes the credit within this time. Text links are not tracked yet, so delivery stands in for a click.">
               <div className="w-44"><Select aria-labelledby="text-title" aria-describedby="text-help" value={String(data.text_days)} disabled={locked}
                 onChange={(event) => save.mutate({ text_days: Number(event.target.value) })}>
                 {data.choices.text_days.map((n) => <option key={n} value={n}>{n === 0 ? 'Texts Do Not Count' : days(n)}</option>)}
               </Select></div>
             </Setting>
             {data.store_sales_available && (
-              <Setting id="store" title="Count Store Sales" text={<>Every transaction the point of sale posts under <Link to="/settings/pos" className="font-semibold text-brand-800 hover:underline">POS Receipts</Link> also becomes an order: the amount without tax, the customer, the store and its promotion codes. Off, nothing about a transaction is kept.</>}>
+              <Setting id="store" title="Count Store Sales" tick={<SaveTick mutation={save} field="store_sales" />} text={<>Every transaction the point of sale posts under <Link to="/settings/pos" className="font-semibold text-brand-800 hover:underline">POS Receipts</Link> also becomes an order: the amount without tax, the customer, the store and its promotion codes. Off, nothing about a transaction is kept.</>}>
                 <Switch checked={data.store_sales} disabled={locked || !data.enabled} onChange={(next) => save.mutate({ store_sales: next })} labelledBy="store-title" describedBy="store-help" />
               </Setting>
             )}
-            {save.isError && Object.keys(errors).length === 0 && <div className="py-4"><ErrorState title="The setting was not changed" error={save.error} /></div>}
+            {save.isError && <div className="py-4"><ErrorState title="The setting was not changed" error={save.error} /></div>}
           </section>
 
           <CostsCard data={data} disabled={!isAdmin} onSaved={(next) => queryClient.setQueryData(ATTRIBUTION_KEY, next)} />
@@ -117,9 +120,14 @@ export function AttributionPage({ canEdit }: { canEdit?: boolean } = {}) {
 function CostsCard({ data, disabled, onSaved }: { data: AttributionSettings; disabled: boolean; onSaved: (next: AttributionSettings) => void }) {
   const [email, setEmail] = useState(data.email_cost_per_1000 === null ? '' : String(data.email_cost_per_1000))
   const [text, setText] = useState(data.text_cost_per_1000 === null ? '' : String(data.text_cost_per_1000))
+  const toast = useToast()
   const save = useMutation({
     mutationFn: () => api.put<AttributionSettings>('/attribution/settings/', { email_cost_per_1000: email.trim() || null, text_cost_per_1000: text.trim() || null }),
-    onSuccess: onSaved,
+    onSuccess: (next) => {
+      const anyRate = next.email_cost_per_1000 !== null || next.text_cost_per_1000 !== null
+      toast.success('Send costs saved', anyRate ? 'ROI now uses these rates.' : "ROI uses each campaign's planned cost.")
+      onSaved(next)
+    },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
   const changed = email !== (data.email_cost_per_1000 === null ? '' : String(data.email_cost_per_1000)) || text !== (data.text_cost_per_1000 === null ? '' : String(data.text_cost_per_1000))
@@ -136,7 +144,7 @@ function CostsCard({ data, disabled, onSaved }: { data: AttributionSettings; dis
           {(ids) => <TextInput {...ids} inputMode="decimal" value={text} disabled={disabled || save.isPending} onChange={(event) => setText(event.target.value)} placeholder="7.50" />}
         </Field>
       </div>
-      {save.isError && Object.keys(errors).length === 0 && <div className="mt-3"><ErrorState title="The costs were not saved" error={save.error} /></div>}
+      {save.isError && <div className="mt-3 empty:hidden"><ErrorState title="The costs were not saved" error={save.error} shownFields={['email_cost_per_1000', 'text_cost_per_1000']} /></div>}
       <div className="mt-4 flex justify-end">
         <button type="submit" className={buttonPrimary} disabled={disabled || save.isPending || !changed}>Save Costs</button>
       </div>

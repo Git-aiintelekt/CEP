@@ -12,12 +12,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { useAuth } from './AuthContext'
+import { SIGNED_OUT_REASON_KEY } from './signedOut'
 import { IdleWarningModal } from './IdleWarningModal'
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const
 const ACTIVITY_KEY = 'cep.lastActivity'
 /** read once by the login page, then cleared, so a refresh there does not keep repeating the notice */
-export const SIGNED_OUT_REASON_KEY = 'cep.signedOutReason'
+export { SIGNED_OUT_REASON_KEY } from './signedOut'
 const CHECK_MS = 1_000
 /** activity is written to storage at most this often: frequent events (scroll, wheel) must not thrash localStorage */
 const WRITE_THROTTLE_MS = 5_000

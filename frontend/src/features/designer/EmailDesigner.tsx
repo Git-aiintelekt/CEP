@@ -18,6 +18,7 @@ import './designer.css'
 import type { CodeSample, CodeSampleRequest, PersonalizationTag } from '@/lib/types'
 import { EDITOR_BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
+import { saveFailure } from '@/lib/saveFeedback'
 
 import { BlockPalette } from './BlockPalette'
 import { paintGroupColumns } from './canvas/groupPreview'
@@ -930,7 +931,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
         })
         .catch((error: unknown) => {
           applyNextUpload.current = false
-          latest.current.onError(error instanceof Error ? error.message : 'Upload failed')
+          const failed = saveFailure(error, 'The image was not uploaded', [])
+          latest.current.onError(failed.title, failed.short || undefined)
         })
         .finally(() => setUploading((names) => removeFirst(names, file.name)))
     }

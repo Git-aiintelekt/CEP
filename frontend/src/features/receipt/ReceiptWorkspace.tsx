@@ -217,7 +217,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       if (layoutResult.status === 'rejected') failed(layoutResult.reason, LAYOUT_NAME, setLayoutConflict)
       refreshFooter()
     } catch (error) {
-      toast.error('Could not save the receipt', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'The receipt was not saved')
     } finally {
       setBusy(null)
     }
@@ -230,7 +230,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
     } else if (error instanceof ApiError && error.status === 400) {
       toast.error(`The ${name.toLowerCase()} cannot be saved yet`, saveErrorDetail(error.fieldErrors))
     } else {
-      toast.error(`Could not save the ${name.toLowerCase()}`, error instanceof Error ? error.message : undefined)
+      toast.failure(error, `The ${name.toLowerCase()} was not saved`)
     }
   }
 
@@ -243,7 +243,8 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       toast.success('Template activated', 'Campaigns can now be published with it.')
     } catch (error) {
       const items = Object.values(error instanceof ApiError ? error.fieldErrors : {})
-      toast.error(items.length ? 'Not ready to activate' : 'Could not activate', items.length ? items.join(' ') : error instanceof Error ? error.message : undefined)
+      if (items.length) toast.error('Not ready to activate', items.join(' '))
+      else toast.failure(error, 'The template was not activated')
     } finally {
       setBusy(null)
     }
@@ -296,7 +297,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
         setDesignConflict(false)
       }
     } catch (error) {
-      toast.error('Could not load that version', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'That version was not loaded')
     } finally {
       setBusy(null)
     }
@@ -314,7 +315,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       setSavedAt(clockOf(older.saved_at))
       if (isLatest) setLayoutConflict(false)
     } catch (error) {
-      toast.error('Could not load that version', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'That version was not loaded')
     } finally {
       setBusy(null)
     }
@@ -325,7 +326,7 @@ export function ReceiptWorkspace({ templateName, status, design, receiptLayout, 
       const newest = Math.max(...(await list()).map((item) => item.version_number))
       if (Number.isFinite(newest)) load(newest)
     } catch (error) {
-      toast.error('Could not load the latest version', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'The latest version was not loaded')
     }
   }
 

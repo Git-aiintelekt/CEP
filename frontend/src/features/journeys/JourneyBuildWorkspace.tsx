@@ -167,7 +167,7 @@ export function JourneyBuildWorkspace({
       if (error instanceof ApiError && error.status === 409) {
         toast.error('Someone else saved this journey', error.message, { durationMs: 0 })
       } else {
-        toast.error('Could not save the draft', error instanceof Error ? error.message : undefined)
+        toast.failure(error, 'The draft was not saved')
       }
     }
   }

@@ -5,6 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
+import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Switch } from '@/components/Switch'
 import { api } from '@/lib/api'
@@ -37,13 +38,16 @@ export function ApprovalsPage() {
       </div>
 
       <section className="rounded-lg border border-line bg-surface p-5">
-        <Switch
-          checked={data.require_approval}
-          disabled={change.isPending || (noApprover && !data.require_approval)}
-          onChange={(next) => change.mutate(next)}
-          label="Require Approval Before a Production Publish"
-          describedBy="approval-help"
-        />
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={data.require_approval}
+            disabled={change.isPending || (noApprover && !data.require_approval)}
+            onChange={(next) => change.mutate(next)}
+            label="Require Approval Before a Production Publish"
+            describedBy="approval-help"
+          />
+          <SaveTick mutation={change} />
+        </div>
         <p id="approval-help" className="mt-2 text-sm text-ink-800">
           The author asks for approval on the Review & Publish step, everyone who can approve is emailed, and the campaign cannot be published until one of them approves.
           Any change to the campaign, its lists or its targets withdraws the request. Nobody approves their own campaign.

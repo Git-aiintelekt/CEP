@@ -11,17 +11,22 @@ import { Link } from 'react-router-dom'
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextArea, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
+import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 import { api, ApiError, request } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { PosReceivedPage, PosSettings, Store, StoreInput } from '@/lib/types'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 
 const KEY = ['workspace', 'pos']
 const STORES = ['stores']
 const RECEIVED = ['workspace', 'pos', 'received']
+const POS_FIELDS = ['campaign', 'return_campaign', 'text_campaign', 'default_country']
+const POS_FAILED = 'The setting was not saved'
 const CODE_TONE: Record<string, TagTone> = { S100: 'success', S101: 'warning', S102: 'neutral', S103: 'success', S104: 'neutral', S105: 'warning' }
 const EMPTY_STORE: StoreInput = { store_number: '', name: '', brand: '', address1: '', address2: '', city: '', state: '', postal_code: '', country: '', district: '', phone: '', email: '', manager: '',
                                   return_policy: '', url1: '', url2: '', url3: '', url4: '', image_url: '', is_active: true }
@@ -39,7 +44,7 @@ export function PosReceiptsPage() {
   if (settings.isError) return <ErrorState title="The POS settings could not be loaded" error={settings.error} onRetry={() => void settings.refetch()} />
   if (settings.isPending) return <p className="flex items-center gap-2 text-sm text-ink-500"><Spinner size="sm" /> Loading</p>
   const data = settings.data
-  const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
+  const errors = save.error instanceof ApiError && save.error.status === 400 ? saveFailure(save.error, POS_FAILED, POS_FIELDS).fields : {}
   const emailCampaigns = data.campaigns.filter((c) => c.channel !== 'SMS' && c.channel !== 'MMS')
   const textCampaigns = data.campaigns.filter((c) => c.channel === 'SMS' || c.channel === 'MMS')
 
@@ -56,32 +61,32 @@ export function PosReceiptsPage() {
             <h3 className="font-display text-card-heading font-semibold text-ink-900">E-Receipt Campaign</h3>
             <p className="mt-1 text-sm text-ink-500">Transactions go out on this campaign's template and sender. It must be published to production with a verified sender.</p>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <Field label="Email Receipt" required error={errors.campaign} hint="Sent when the transaction's EntryType asks for EMAIL (or BOTH, ALL, EMAIL_SMS…).">
+              <Field label="Email Receipt" required error={errors.campaign} labelEnd={<SaveTick mutation={save} field="campaign" />} hint="Sent when the transaction's EntryType asks for EMAIL (or BOTH, ALL, EMAIL_SMS…).">
                 {(ids) => <Select {...ids} value={data.campaign ?? ''} onChange={(event) => save.mutate({ campaign: event.target.value || null })}>
                   <option value="">{emailCampaigns.filter((c) => c.ready).length === 1 ? 'The one published campaign' : 'Choose a Campaign'}</option>
                   {emailCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Returns and Exchanges" error={errors.return_campaign} hint="Leave empty to use the same campaign. A return renders as a refund: negative amounts, the tender as Refund to….">
+              <Field label="Returns and Exchanges" error={errors.return_campaign} labelEnd={<SaveTick mutation={save} field="return_campaign" />} hint="Leave empty to use the same campaign. A return renders as a refund: negative amounts, the tender as Refund to….">
                 {(ids) => <Select {...ids} value={data.return_campaign ?? ''} onChange={(event) => save.mutate({ return_campaign: event.target.value || null })}>
                   <option value="">Same Campaign</option>
                   {emailCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Text Receipt" error={errors.text_campaign} hint="An e-receipt campaign on the SMS channel, sent when EntryType asks for SMS (SMS, EMAIL_SMS, SMS_LINK…). Empty: texts are accepted and answered S105.">
+              <Field label="Text Receipt" error={errors.text_campaign} labelEnd={<SaveTick mutation={save} field="text_campaign" />} hint="An e-receipt campaign on the SMS channel, sent when EntryType asks for SMS (SMS, EMAIL_SMS, SMS_LINK…). Empty: texts are accepted and answered S105.">
                 {(ids) => <Select {...ids} value={data.text_campaign ?? ''} onChange={(event) => save.mutate({ text_campaign: event.target.value || null })}>
                   <option value="">{textCampaigns.filter((c) => c.ready).length === 1 ? 'The one published text campaign' : textCampaigns.length ? 'Choose a Campaign' : 'No text e-receipt campaign yet'}</option>
                   {textCampaigns.map((item) => <option key={item.id} value={item.id}>{item.name}{item.ready ? '' : ' (not published)'}</option>)}
                 </Select>}
               </Field>
-              <Field label="Phone Numbers Are From" error={errors.default_country} help="How a ten-digit number from a register is read: with +1 for US or CA. A number sent with its country code is used as sent. It decides whether a text receipt can be sent at all." hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
+              <Field label="Phone Numbers Are From" error={errors.default_country} labelEnd={<SaveTick mutation={save} field="default_country" />} help="How a ten-digit number from a register is read: with +1 for US or CA. A number sent with its country code is used as sent. It decides whether a text receipt can be sent at all." hint="Ten-digit numbers from a US or CA register are read as +1…; numbers sent with a country code are used as they are.">
                 {(ids) => <Select {...ids} value={data.default_country} onChange={(event) => save.mutate({ default_country: event.target.value })}>
                   <option value="US">United States (+1)</option><option value="CA">Canada (+1)</option><option value="GB">United Kingdom (+44)</option><option value="IN">India (+91)</option><option value="AU">Australia (+61)</option>
                 </Select>}
               </Field>
             </div>
             {data.campaigns.length === 0 && <p className="mt-3 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">No e-receipt campaign exists yet. Create one under Campaigns (type E-Receipt), attach the receipt template and publish it.</p>}
-            {save.isError && Object.keys(errors).length === 0 && <div className="mt-3"><ErrorState title="The setting was not saved" error={save.error} /></div>}
+            {save.isError && <div className="mt-3 empty:hidden"><ErrorState title={POS_FAILED} error={save.error} shownFields={POS_FIELDS} /></div>}
           </section>
 
           <StoresCard />
@@ -169,13 +174,20 @@ function StoresCard() {
 
 function StoreForm({ store, onClose }: { store: Store | null; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [form, setForm] = useState<StoreInput>(store ? { ...EMPTY_STORE, ...Object.fromEntries(Object.entries(store).map(([k, v]) => [k, v ?? ''])) as StoreInput, is_active: store.is_active } : EMPTY_STORE)
   const done = () => { void queryClient.invalidateQueries({ queryKey: STORES }); void queryClient.invalidateQueries({ queryKey: KEY }); onClose() }
   const body = () => Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === 'string' ? v.trim() || null : v]))
-  const save = useMutation({ mutationFn: () => store ? api.patch<Store>(`/stores/${store.id}/`, body()) : api.post<Store>('/stores/', body()), onSuccess: done })
-  const remove = useMutation({ mutationFn: () => api.delete(`/stores/${store?.id}/`), onSuccess: done })
+  const save = useMutation({
+    mutationFn: () => store ? api.patch<Store>(`/stores/${store.id}/`, body()) : api.post<Store>('/stores/', body()),
+    onSuccess: (saved) => { toast.success('Store saved', `Receipts from store ${saved.store_number} carry these details.`); done() },
+  })
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/stores/${store?.id}/`),
+    onSuccess: () => { toast.success('Store removed', `Receipts from store ${store?.store_number} carry only the number.`); done() },
+  })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : null
+  const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
   const set = <K extends keyof StoreInput>(key: K, value: StoreInput[K]) => setForm((current) => ({ ...current, [key]: value }))
   const text = (key: Exclude<keyof StoreInput, 'is_active'>, label: string, extra?: { required?: boolean; hint?: string }) => (
     <Field key={key} label={label} required={extra?.required} error={errors[key]} hint={extra?.hint}>
@@ -214,6 +226,7 @@ function StoreForm({ store, onClose }: { store: Store | null; onClose: () => voi
         </div>
         <div className="lg:col-span-2"><Switch checked={form.is_active} onChange={(is_active) => set('is_active', is_active)} label="In Use" /></div>
         {other !== null && <div className="lg:col-span-2"><ErrorState title="The store was not saved" error={other} /></div>}
+        {remove.isError && <div className="lg:col-span-2"><ErrorState title="The store was not removed" error={remove.error} /></div>}
       </form>
     </Modal>
   )

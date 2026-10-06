@@ -9,9 +9,11 @@ import { Checkbox } from '@/components/Checkbox'
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, TextArea, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
+import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { PreferenceCenterSettings, SubscriptionTopic, SubscriptionTopicInput, SubscriptionTopicList } from '@/lib/types'
@@ -43,7 +45,10 @@ export function PreferenceCenterPage() {
       </div>
 
       <section className="max-w-3xl rounded-lg border border-line bg-surface p-5">
-        <Switch checked={data.enabled} disabled={toggle.isPending} onChange={(next) => toggle.mutate(next)} label="Offer a Preference Centre" describedBy="pc-help" />
+        <div className="flex items-center gap-3">
+          <Switch checked={data.enabled} disabled={toggle.isPending} onChange={(next) => toggle.mutate(next)} label="Offer a Preference Centre" describedBy="pc-help" />
+          <SaveTick mutation={toggle} />
+        </div>
         <p id="pc-help" className="mt-2 text-sm text-ink-800">
           {data.enabled
             ? 'On. {{preference_url}} in a template opens the page, the unsubscribe confirmation offers it, and a marketing campaign is filed under a topic so people who unticked that topic are left out.'
@@ -120,15 +125,26 @@ function TopicsCard({ enabled, topics }: { enabled: boolean; topics: ReturnType<
 
 function TopicForm({ topic, onClose }: { topic: SubscriptionTopic | null; onClose: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [form, setForm] = useState<SubscriptionTopicInput>({ name: topic?.name ?? '', description: topic?.description ?? '', channels: topic?.channels ?? ['EMAIL', 'SMS'], is_shown: topic?.is_shown ?? true })
   const done = () => { void queryClient.invalidateQueries({ queryKey: TOPICS }); void queryClient.invalidateQueries({ queryKey: KEY }); onClose() }
   const save = useMutation({
     mutationFn: () => topic ? api.patch<SubscriptionTopic>(`/subscription-topics/${topic.id}/`, form) : api.post<SubscriptionTopic>('/subscription-topics/', form),
-    onSuccess: done,
+    onSuccess: (saved) => {
+      toast.success('Topic saved', saved.is_shown ? `“${saved.name}” is offered on the preference page.` : `“${saved.name}” is hidden from customers.`)
+      done()
+    },
   })
-  const remove = useMutation({ mutationFn: () => api.delete(`/subscription-topics/${topic?.id}/`), onSuccess: done })
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/subscription-topics/${topic?.id}/`),
+    onSuccess: () => {
+      const filed = topic?.campaigns ?? 0
+      toast.success('Topic removed', filed ? `${formatNumber(filed)} campaign${filed === 1 ? ' needs' : 's need'} another topic before publishing.` : undefined)
+      done()
+    },
+  })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : null
+  const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
   const setChannel = (code: 'EMAIL' | 'SMS', on: boolean) => setForm((current) => ({ ...current, channels: on ? [...current.channels.filter((c) => c !== code), code] : current.channels.filter((c) => c !== code) }))
 
   return (
@@ -151,6 +167,7 @@ function TopicForm({ topic, onClose }: { topic: SubscriptionTopic | null; onClos
         <Switch checked={form.is_shown} onChange={(is_shown) => setForm({ ...form, is_shown })} label="Shown to Customers" describedBy="topic-shown-help" />
         <p id="topic-shown-help" className="-mt-2 text-xs text-ink-800">Hidden keeps the topic for campaigns without offering it on the page.</p>
         {other !== null && <ErrorState title="The topic was not saved" error={other} />}
+        {remove.isError && <ErrorState title="The topic was not removed" error={remove.error} />}
       </form>
     </Modal>
   )

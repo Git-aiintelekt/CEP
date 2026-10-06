@@ -57,7 +57,17 @@ function EditableFact({ label, value, placeholder, onSave, editable }: { label: 
         <dt className="text-helper font-semibold text-ink-800">{label}</dt>
         <TextArea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} className="mt-1 w-full" autoFocus />
         <div className="mt-1.5 flex gap-2">
-          <Button size="sm" variant="primary" loading={saving} onClick={async () => { setSaving(true); await onSave(draft); setSaving(false); setEditing(false) }}>Save</Button>
+          <Button size="sm" variant="primary" loading={saving} onClick={async () => {
+            setSaving(true)
+            try {
+              await onSave(draft)
+              setEditing(false)
+            } catch {
+              // the draft stays open; the page says why it was not saved
+            } finally {
+              setSaving(false)
+            }
+          }}>Save</Button>
           <Button size="sm" onClick={() => { setDraft(value ?? ''); setEditing(false) }}>Cancel</Button>
         </div>
       </div>
@@ -185,7 +195,11 @@ export function JourneyDetailsPage() {
   })
   const saveField = useMutation({
     mutationFn: (body: Partial<Pick<Journey, 'goal_description' | 'exit_criteria_description'>>) => api.patch<Journey>(`/journeys/${id}/`, body),
-    onSuccess: (updated) => queryClient.setQueryData(['journeys', 'detail', id], updated),
+    onSuccess: (updated, body) => {
+      toast.success('goal_description' in body ? 'Goal saved' : 'Exit criteria saved')
+      queryClient.setQueryData(['journeys', 'detail', id], updated)
+    },
+    onError: (error, body) => toast.failure(error, 'goal_description' in body ? 'The goal was not saved' : 'The exit criteria were not saved'),
   })
 
   if (journeyQuery.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading journey</p>
