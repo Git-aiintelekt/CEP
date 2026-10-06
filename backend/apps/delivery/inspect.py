@@ -2,13 +2,16 @@
 
 Base:     https://api.mailgun.net (US) or https://api.eu.mailgun.net (EU), HTTP basic auth with the account's username and API key.
 Clients:  GET  /v1/preview/tests/clients                       -> {"clients": {"<id>": {id, client, os, category, browser?, default, image_blocking}}}
-Create:   POST /v2/preview/tests  {subject, html, clients[], image_blocking, reference_id, content_checking{all false}}  -> {"id": ...}
+Create:   POST /v2/preview/tests  {subject, html (base64), transfer_encoding base64, charset, clients[], image_blocking, reference_id,
+                                   content_checking{all false}}  -> {"id": ...}
 Progress: GET  /v1/preview/tests/<id>                            -> {completed[], processing[], bounced[]}
 Results:  GET  /v1/preview/tests/<id>/results                    -> {"<client id>": {display_name, client, os, category, browser, screenshots{default,...},
                                                                      thumbnail, full_thumbnail, status Complete|Processing|Bounced|Pending}}
 Every call goes through the integration bridge's logged session, like a sending engine's.
 """
 from __future__ import annotations
+
+import base64
 
 import requests
 
@@ -90,7 +93,10 @@ class InspectClient:
         return sorted(rows, key=lambda row: (row["category"], row["client"], row["os"], row["browser"]))
 
     def create_preview(self, *, subject: str, html: str, clients: list[str], image_blocking: bool = False, reference_id: str = "") -> str:
-        body = {"subject": subject or "(no subject)", "html": html, "charset": "utf-8", "transfer_encoding": "quoted-printable", "image_blocking": bool(image_blocking),
+        # transfer_encoding says how `html` is encoded, not how to mail it: raw HTML labelled quoted-printable made Inspect
+        # decode every "=" of the markup and answer 400 "error while getting html from source". Base64 carries any character.
+        encoded = base64.b64encode(html.encode("utf-8")).decode("ascii")
+        body = {"subject": subject or "(no subject)", "html": encoded, "charset": "utf-8", "transfer_encoding": "base64", "image_blocking": bool(image_blocking),
                 "content_checking": {"link_validation": False, "image_validation": False, "accessibility": False, "code_analysis": False}}
         if clients:
             body["clients"] = list(clients)

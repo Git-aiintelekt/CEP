@@ -1,6 +1,7 @@
 """Deliverability tests: the Inspect account, the allowance, a preview test from a template, and the quota. Rolled back; Inspect faked.
 
 Converted from the verification script of the same name; every change is rolled back (tests/conftest.py)."""
+import base64
 import pytest
 import json
 import re
@@ -132,13 +133,17 @@ def test_deliverability(check, admin_email):
                   started.status_code == 201 and test["status"] == "PENDING" and test["kind"] == "PREVIEW" and test["clients"] == ["gmail_chr_win", "outlook16", "iphone15"]
                   and test["spam"] is None and test["placement"] is None and test["template_version"] >= 1, f"{started.status_code} {str(started.content)[:200]}")
             sent = fake["created"][-1]
+            html = base64.b64decode(sent["html"]).decode("utf-8") if sent.get("transfer_encoding") == "base64" else ""
+            check("the HTML travels base64-encoded and says so (raw HTML labelled quoted-printable was refused with a 400)",
+                  sent.get("transfer_encoding") == "base64" and sent.get("charset") == "utf-8" and "<html" in html.lower() and "=" in html,
+                  json.dumps({k: sent.get(k) for k in ("transfer_encoding", "charset")}))
             check("Inspect received the subject, the HTML with the tags filled from samples, the clients and no content checking",
-                  sent["subject"] and "{{" not in sent["subject"] and "<html" in sent["html"].lower() and sent["clients"] == ["gmail_chr_win", "outlook16", "iphone15"]
+                  sent["subject"] and "{{" not in sent["subject"] and "<html" in html.lower() and sent["clients"] == ["gmail_chr_win", "outlook16", "iphone15"]
                   and sent["content_checking"] == {"link_validation": False, "image_validation": False, "accessibility": False, "code_analysis": False}
                   and sent["reference_id"].startswith("cep:"), json.dumps({k: (v[:60] if isinstance(v, str) else v) for k, v in sent.items()})[:300])
             content = RenderedTemplateContent.objects.filter(template_id=template.pk).order_by("-version_number").first()
             if content.preheader:
-                check("the preheader travels hidden at the top of the body", content.preheader.split("{{")[0][:12] in sent["html"])
+                check("the preheader travels hidden at the top of the body", content.preheader.split("{{")[0][:12] in html)
 
             read = API.get(f"/api/v1/deliverability-tests/{test['id']}/").json()
             check("reading a running test polls Inspect: PROCESSING with three previews pending", read["status"] == "PROCESSING" and read["summary"]["processing"] == 3 and len(read["previews"]) == 3, json.dumps(read["summary"]))
