@@ -154,11 +154,12 @@ test('plan and usage: meters with their state, the channel breakdown and issued 
 
   expect(await screen.findByRole('heading', { name: 'Growth Plan' })).toBeTruthy()
   const meters = within(screen.getByRole('list', { name: 'Usage' })).getAllByRole('listitem')
-  expect(meters.length).toBe(4)
+  expect(meters.length).toBe(5)
   expect(within(meters[0]).getByText('Close to the limit')).toBeTruthy()
   expect(within(meters[0]).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('85')
   expect(within(meters[3]).getByText('No limit on this plan')).toBeTruthy()
   expect(within(meters[3]).queryByRole('progressbar')).toBeNull()
+  expect(within(meters[4]).getByText('50 a month on the Growth plan + 70 added for September. Added tests end on Sep 30.')).toBeTruthy()
   const row = within(await screen.findByRole('table', { name: 'Invoices' })).getByText('INV-NWA-202608').closest('tr') as HTMLElement
   expect(row.textContent).toContain('$501.70')
   expect(row.textContent).toContain('$2.70 overage')

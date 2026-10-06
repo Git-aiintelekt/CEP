@@ -21,7 +21,7 @@ What the workspace's plan allows and how much of it this month has used: message
 | Contacts | People in the workspace against the limit. | |
 | Active users | Against the plan's limit; Users refuses a new one past it. | |
 | Storage | Media and files, in GB. | |
-| Deliverability tests this month | Inbox previews run against the allowance. | A spent allowance refuses the next test until next month. |
+| Deliverability tests this month | Inbox previews run against the total, with where it comes from under the meter: the plan's number plus any tests the platform team added for the month. Through your own Mailgun account, not limited. | A spent total refuses the next test until next month, or until the platform team adds tests. |
 | Messages by Channel | Email, SMS, MMS this month. | |
 | Invoices | Number, period, plan, amounts, status, issued and due dates. An invoice appears shortly after the end of each month. | |
 

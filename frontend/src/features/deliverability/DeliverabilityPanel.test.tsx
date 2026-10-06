@@ -79,9 +79,10 @@ test('the button is held back with the reason: no account, nothing saved, allowa
   const sample = sampleDeliverability()
   const finished = await sample.read('sample-1')
   const cases: [Partial<DeliverabilityAllowance>, Partial<{ savedVersion: number; readOnly: boolean }>, RegExp][] = [
-    [{ configured: false }, {}, /No inbox-preview account is set up yet\./],
+    [{ configured: false }, {}, /No inbox-preview account is available\./],
     [{}, { savedVersion: 0 }, /Save the design once before testing/],
-    [{ used: 20, left: 0 }, {}, /used its 20 tests for the month/],
+    [{ used: 20, left: 0 }, {}, /No inbox previews left this month: all 20 for October are used\. More become available on Nov 1/],
+    [{ used: 25, limit: 25, left: 0, plan_limit: 20, added: 5 }, {}, /all 25 for October are used \(20 on the Growth plan \+ 5 added\)/],
     [{ enabled: false }, {}, /not included in this workspace’s plan/],
     [{}, { readOnly: true }, /read-only here/],
   ]
@@ -92,7 +93,17 @@ test('the button is held back with the reason: no account, nothing saved, allowa
     view.unmount()
   }
   mount(backendWith([finished], { configured: false }))
-  expect(await screen.findByRole('link', { name: /Settings → Delivery/ })).toBeTruthy()
+  expect(await screen.findByRole('link', { name: /add your own Mailgun Inspect account/ })).toBeTruthy()
+})
+
+test('the allowance line: the plan’s number through CEP’s account, no limit through the workspace’s own', async () => {
+  const sample = sampleDeliverability()
+  const finished = await sample.read('sample-1')
+  const shared = mount(backendWith([finished], { account: 'PLATFORM' }))
+  expect(await screen.findByText(/3 of 20 tests used this month/)).toBeTruthy()
+  shared.unmount()
+  mount(backendWith([finished], { account: 'OWN', limit: null, left: null }))
+  expect(await screen.findByText(/3 tests this month · your own Mailgun account/)).toBeTruthy()
 })
 
 test('with no tests yet the panel says so; an inactive tab fetches nothing', async () => {

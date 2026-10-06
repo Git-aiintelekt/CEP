@@ -98,6 +98,8 @@ export interface UsageMeter {
   unit: string
   overage: boolean
   overage_price_per_1k: number | null
+  /** where the limit comes from, in words (deliverability tests: the plan + the tests added for the month) */
+  note?: string | null
 }
 
 export interface Usage {
@@ -1987,6 +1989,10 @@ export interface DeliverabilityService {
   last_checked_at: string | null
   last_check_ok: boolean | null
   last_check_error: string | null
+  /** which account the workspace's tests run through: its own, the platform's (back-office), or none */
+  uses?: 'OWN' | 'PLATFORM' | null
+  /** the platform's account is set up and switched on */
+  platform_available?: boolean
 }
 
 /** one inbox client the service can render in (GET /deliverability/clients/) */
@@ -2010,6 +2016,12 @@ export interface DeliverabilityAllowance {
   month: string
   plan: string | null
   configured: boolean
+  /** the plan's monthly number (null: unlimited) and the tests added for this month */
+  plan_limit?: number | null
+  added?: number
+  account?: 'OWN' | 'PLATFORM' | null
+  /** where the number comes from, in words */
+  note?: string
 }
 
 export interface DeliverabilityPreview {

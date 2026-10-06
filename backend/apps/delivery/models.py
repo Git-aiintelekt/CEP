@@ -282,9 +282,11 @@ class DeadLetterMessage(models.Model):
 
 
 class DeliverabilityService(models.Model):
-    """The workspace's account with an inbox-preview service (Mailgun Inspect): one row per tenant, the key encrypted."""
+    """An account with an inbox-preview service (Mailgun Inspect), the key encrypted: a workspace's own (one per tenant), or the
+    platform's (tenant NULL, back-office -> Configuration -> Mailgun Inspect) that every workspace without its own uses (patch 0039).
+    A workspace's row may hold only its choice of clients, without credentials, while it uses the platform's account."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    tenant = models.OneToOneField('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+', null=True, blank=True)
     provider = models.CharField(max_length=30, default='MAILGUN_INSPECT')
     region = models.CharField(max_length=10, default='US')  # US, EU
     username = models.CharField(max_length=200, null=True, blank=True)
@@ -326,6 +328,7 @@ class DeliverabilityTest(models.Model):
     campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.SET_NULL, db_column='campaign_id', related_name='+', null=True, blank=True)
     kind = models.CharField(max_length=20, default='PREVIEW', choices=Kind.choices)
     provider = models.CharField(max_length=30)
+    account = models.CharField(max_length=10, default='OWN')  # OWN (the workspace's account) | PLATFORM (counted against the plan); patch 0039
     provider_test_id = models.CharField(max_length=100, null=True, blank=True)
     status = models.CharField(max_length=20, default='PENDING', choices=Status.choices)
     subject = models.CharField(max_length=300, null=True, blank=True)

@@ -35,6 +35,7 @@ function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
         </div>
       )}
       <p className={`mt-2 text-xs ${meter.state === 'blocked' ? 'font-medium text-danger-text' : meter.state === 'ok' ? 'text-ink-800' : 'text-warning-text'}`}>{note}</p>
+      {meter.note && <p className="mt-1 text-xs text-ink-800">{meter.note}</p>}
     </li>
   )
 }

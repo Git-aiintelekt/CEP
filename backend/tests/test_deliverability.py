@@ -80,6 +80,9 @@ def test_deliverability(check, admin_email):
                 cursor.execute("SELECT set_config('app.current_tenant', %s, false)", [T])
                 for ddl in tables:
                     cursor.execute(ddl)
+                # patch 0039's additions to the copies: which account ran a test, and the platform's row without a tenant
+                cursor.execute("ALTER TABLE deliverability_test ADD COLUMN IF NOT EXISTS account VARCHAR(10) NOT NULL DEFAULT 'OWN'")
+                cursor.execute("ALTER TABLE deliverability_service ALTER COLUMN tenant_id DROP NOT NULL")
             from apps.platform_ops import billing, params
             params.invalidate(T)
             with connections["platform"].cursor() as c:                                     # the live plan row has no allowance column until patch 0030 runs
@@ -88,9 +91,10 @@ def test_deliverability(check, admin_email):
             real_plan = {"code": found[0], "name": found[1], "monthly_price": 0, "currency": "USD", "subscription_status": "ACTIVE"}
             stack = mock.patch.object(billing, "plan_for", lambda tenant_id: {**real_plan, "max_deliverability_tests": LIMIT["value"]})
             stack.start()
-            def count_here(tenant_id):
+            def count_here(tenant_id, account=None):
                 with connections["default"].cursor() as c:
-                    c.execute("SELECT count(*) FROM deliverability_test WHERE tenant_id = %s AND requested_at >= %s", [str(tenant_id), billing.month_start()])
+                    c.execute("SELECT count(*) FROM deliverability_test WHERE tenant_id = %s AND requested_at >= %s AND (%s::text IS NULL OR account = %s)",
+                              [str(tenant_id), billing.month_start(), account, account])
                     return c.fetchone()[0]
             mock.patch.object(billing, "tests_this_month", count_here).start()
 
@@ -166,20 +170,20 @@ def test_deliverability(check, admin_email):
 
             LIMIT["value"] = 1
             allowance = API.get("/api/v1/deliverability/allowance/").json()
-            check("the allowance: 1 used of 1, none left", allowance["used"] == 1 and allowance["limit"] == 1 and allowance["left"] == 0, json.dumps(allowance)[:120])
-            blocked = API.post(f"/api/v1/templates/{template.pk}/deliverability-tests/", {}, content_type="application/json")
-            check("the next test is refused with 409 and the plan's limit named", blocked.status_code == 409 and "1 deliverability tests" in blocked.json().get("detail", ""), f"{blocked.status_code} {str(blocked.content)[:160]}")
-            check("Inspect was not called for the refused test", len(fake["created"]) == 1)
+            check("on its own Mailgun account the workspace is not limited by the plan: its count is shown, no limit",
+                  allowance["account"] == "OWN" and allowance["used"] == 1 and allowance["limit"] is None and allowance["left"] is None
+                  and "own Mailgun account" in allowance["note"], json.dumps(allowance)[:200])
             quota = billing.quota(T)
             meter = next((m for m in quota["meters"] if m["label"].startswith("Deliverability")), None)
-            check("Plan and usage shows the meter", meter and meter["used"] == 1 and meter["limit"] == 1 and meter["state"] in ("over", "blocked", "warning"), json.dumps(meter))
+            check("Plan and usage shows the count without a limit", meter and meter["used"] == 1 and meter["limit"] is None, json.dumps(meter))
+            # (the plan's limit on the platform's account: tests/test_deliverability_platform.py)
 
             with mock.patch.object(params, "enabled", return_value=False):
                 off = API.post(f"/api/v1/templates/{template.pk}/deliverability-tests/", {}, content_type="application/json")
             check("a plan without the feature answers 403", off.status_code == 403, str(off.status_code))
 
             gone = API.delete(f"/api/v1/deliverability-tests/{test['id']}/")
-            check("a test can be deleted", gone.status_code == 204 and API.get(f"/api/v1/templates/{template.pk}/deliverability-tests/").json()["tests"] == [])
+            check("a test can be deleted", gone.status_code == 204 and test["id"] not in [t["id"] for t in API.get(f"/api/v1/templates/{template.pk}/deliverability-tests/").json()["tests"]])
             anon = Client(HTTP_X_TENANT=tenant.code).get("/api/v1/deliverability/allowance/")
             check("everything needs a login", anon.status_code == 401)
             raise RuntimeError("roll back")

@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% load unfold humanize %}
+{% block title %}Mailgun Inspect | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Mailgun Inspect</h1>
+            <p>The platform's account for inbox previews. Workspaces without an account of their own run their tests through it, up to their plan's number plus the tests added for the month.</p>
+        </div>
+        <div>
+            {% if service and service.api_key_enc %}
+                {% if service.last_check_ok %}<span class="cep-pill" data-kind="success">Connected · checked {{ service.last_checked_at|date:"M j, H:i" }}</span>
+                {% elif service.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Check failed</span>
+                {% else %}<span class="cep-pill" data-kind="warning">Not checked yet</span>{% endif %}
+                {% if not service.is_active %}<span class="cep-pill" data-kind="warning">Switched off</span>{% endif %}
+            {% else %}<span class="cep-pill">Not set up</span>{% endif %}
+        </div>
+    </div>
+
+    {% if service and service.last_check_ok is False and service.last_check_error %}
+        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;color:var(--cep-bad);font-size:0.8125rem">{{ service.last_check_error }}</div>
+    {% elif not service %}
+        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;font-size:0.8125rem">Until this is set up, only workspaces with their own Mailgun account can run inbox previews.</div>
+    {% endif %}
+
+    <section class="cep-card" style="padding:1.125rem">
+        <form method="post">{% csrf_token %}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem 1.25rem">
+                {% for field in form %}
+                    <div{% if field.name == "default_clients" %} style="grid-column:1 / -1"{% endif %}>
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label style="display:flex;gap:0.5rem;align-items:center;font-size:0.875rem;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+                        {% else %}
+                            <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span style="color:var(--cep-bad)">*</span>{% endif %}</label>
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+                {% if service and service.api_key_enc %}
+                    <button type="submit" name="action" value="remove" class="cep-button" style="background:var(--cep-surface);color:var(--cep-bad);border:1px solid var(--cep-line)" formnovalidate>Remove</button>
+                    <button type="submit" name="action" value="check" class="cep-button" style="background:var(--cep-surface);color:var(--cep-text);border:1px solid var(--cep-line)" formnovalidate>Check Connection</button>
+                {% endif %}
+                <button type="submit" name="action" value="save" class="cep-button">Save</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="cep-card" style="padding:0;margin-top:1rem">
+        <table style="width:100%;border-collapse:collapse;font-size:0.8125rem">
+            <caption class="cep-muted" style="text-align:left;padding:0.875rem 1.125rem 0.5rem">{{ month|date:"F Y" }} through this account, by workspace</caption>
+            <thead><tr style="text-align:left;color:var(--cep-text-subtle);font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.04em">
+                <th style="padding:0.5rem 1.125rem">Workspace</th><th style="padding:0.5rem">Plan</th><th style="padding:0.5rem;text-align:right">Used</th><th style="padding:0.5rem;text-align:right">Of</th><th style="padding:0.5rem"></th></tr></thead>
+            <tbody>
+            {% for row in use %}
+                <tr style="border-top:1px solid var(--cep-line)">
+                    <td style="padding:0.5rem 1.125rem"><a class="cep-link" href="{% url 'admin:tenants_tenant_change' row.tenant.pk %}">{{ row.tenant.name }}</a> <small class="cep-muted">{{ row.tenant.code }}</small></td>
+                    <td style="padding:0.5rem">{{ row.plan }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ row.used|intcomma }}</td>
+                    <td style="padding:0.5rem;text-align:right">{% if row.limit is None %}Unlimited{% else %}{{ row.limit|intcomma }}{% if row.added %} <small class="cep-muted">(+{{ row.added }})</small>{% endif %}{% endif %}</td>
+                    <td style="padding:0.5rem"><a class="cep-link" href="{% url 'admin:tenants_tenant_deliverability_tests' row.tenant.pk %}">Add Tests</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="cep-muted" style="padding:0.75rem 1.125rem">No tests through this account this month.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

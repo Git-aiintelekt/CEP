@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% load unfold humanize %}
+{% block title %}Deliverability tests | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Deliverability tests · {{ tenant.name }}</h1>
+            <p>{{ month|date:"F Y" }} · <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Back to {{ tenant.code }}</a></p>
+        </div>
+    </div>
+
+    <section class="cep-card" style="padding:1.125rem">
+        <p style="margin:0;font-size:1.75rem;font-weight:600;color:var(--cep-text-strong)">{{ summary.used|intcomma }}
+            <small style="font-size:0.875rem;font-weight:500;color:var(--cep-text-subtle)">{% if summary.limit is not None %}of {{ summary.limit|intcomma }} used this month{% else %}used this month · not limited{% endif %}</small></p>
+        {% if summary.limit %}<div class="cep-meter" data-state="{% if summary.left == 0 %}blocked{% elif summary.percent >= 90 %}warning{% else %}ok{% endif %}" role="img" aria-label="{{ summary.percent }}% used" style="margin-top:0.5rem"><i style="width:{{ summary.percent }}%"></i></div>{% endif %}
+        <p class="cep-muted" style="margin:0.5rem 0 0;font-size:0.8125rem">{{ summary.note }}{% if summary.left is not None %} · {{ summary.left|intcomma }} left{% endif %}</p>
+        {% if summary.account == "OWN" %}<p class="cep-muted" style="margin:0.5rem 0 0;font-size:0.8125rem">This workspace runs its tests through its own Mailgun account, so additions change nothing until it goes back to the platform's.</p>{% endif %}
+    </section>
+
+    <section class="cep-card" style="padding:1.125rem;margin-top:1rem">
+        <h2 style="font-size:1rem;margin:0 0 0.75rem">Add Tests This Month</h2>
+        <form method="post">{% csrf_token %}
+            {% if form.non_field_errors %}<div style="margin-bottom:1rem;color:var(--cep-bad);font-size:0.8125rem">{{ form.non_field_errors }}</div>{% endif %}
+            <div style="display:grid;grid-template-columns:10rem 1fr auto;gap:0.875rem 1.25rem;align-items:start">
+                {% for field in form %}
+                    <div>
+                        <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span style="color:var(--cep-bad)">*</span>{% endif %}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <div style="padding-top:1.75rem"><button type="submit" class="cep-button">Add Tests</button></div>
+            </div>
+            <p class="cep-muted" style="margin:0.75rem 0 0;font-size:0.8125rem">Added tests count only in {{ month|date:"F" }} and end with the month.</p>
+        </form>
+    </section>
+
+    <section class="cep-card" style="padding:0;margin-top:1rem">
+        <table style="width:100%;border-collapse:collapse;font-size:0.8125rem">
+            <caption class="cep-muted" style="text-align:left;padding:0.875rem 1.125rem 0.5rem">Tests added to {{ tenant.name }}</caption>
+            <thead><tr style="text-align:left;color:var(--cep-text-subtle);font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.04em">
+                <th style="padding:0.5rem 1.125rem">When</th><th style="padding:0.5rem">Month</th><th style="padding:0.5rem;text-align:right">Tests</th><th style="padding:0.5rem">Note</th><th style="padding:0.5rem">By</th><th style="padding:0.5rem"></th></tr></thead>
+            <tbody>
+            {% for grant in summary.grants %}
+                <tr style="border-top:1px solid var(--cep-line){% if grant.removed_at or grant.period_month != month %};color:var(--cep-text-subtle){% endif %}">
+                    <td style="padding:0.5rem 1.125rem">{{ grant.granted_at|date:"M j, H:i" }}</td>
+                    <td style="padding:0.5rem">{{ grant.period_month|date:"F Y" }}</td>
+                    <td style="padding:0.5rem;text-align:right">+{{ grant.amount|intcomma }}</td>
+                    <td style="padding:0.5rem">{{ grant.note|default:"—" }}</td>
+                    <td style="padding:0.5rem">{{ grant.granted_by.display_name|default:grant.granted_by.email|default:"—" }}</td>
+                    <td style="padding:0.5rem">
+                        {% if grant.removed_at %}<span class="cep-pill">Removed</span>
+                        {% elif grant.period_month != month %}<span class="cep-pill">Ended</span>
+                        {% else %}<form method="post" style="margin:0">{% csrf_token %}<button type="submit" name="remove" value="{{ grant.pk }}" class="cep-link" style="background:none;border:0;cursor:pointer">Remove</button></form>{% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="cep-muted" style="padding:0.75rem 1.125rem">No tests added yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

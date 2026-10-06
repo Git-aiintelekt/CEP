@@ -13,7 +13,7 @@ This chapter is the long form. The Templates and Content chapter covers the libr
 | | |
 |---|---|
 | Permission | `template.edit` to edit, save and activate. Without it a template opens read-only: the canvas can be browsed and the Preview used, nothing can be changed. |
-| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account under Settings. |
+| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: CEP's, or your own under Settings. |
 
 ## The workspace, piece by piece
 
@@ -69,7 +69,7 @@ Settings every block shares, in Layout: **Margin** (space outside the block), **
 
 ## Deliverability mode
 
-Run Inbox Previews renders the last saved version in real email clients through the workspace's Mailgun Inspect account, chosen under Settings → Sending → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Tests count against the plan's monthly allowance, which Settings → Plan & Usage shows. Unsaved changes are not in a test: save first.
+Run Inbox Previews renders the last saved version in real email clients through CEP's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through CEP's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
 
 ## Saving, versions and activating
 

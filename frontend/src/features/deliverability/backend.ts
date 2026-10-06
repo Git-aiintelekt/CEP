@@ -41,7 +41,8 @@ function placeholder(label: string, wide: boolean): string {
 
 /** The playground's backend: one test already finished, a new one that completes after a moment, and an allowance of 20. */
 export function sampleDeliverability(): DeliverabilityBackend {
-  const allowance = (): DeliverabilityAllowance => ({ enabled: true, used: tests.length, limit: 20, left: Math.max(0, 20 - tests.length), month: '2026-10-01', plan: 'Growth', configured: true })
+  const allowance = (): DeliverabilityAllowance => ({ enabled: true, used: tests.length, limit: 20, left: Math.max(0, 20 - tests.length), month: '2026-10-01', plan: 'Growth', configured: true,
+                                                      plan_limit: 20, added: 0, account: 'PLATFORM', note: '20 a month on the Growth plan.' })
   const previews = (failOne: boolean): DeliverabilityPreview[] =>
     SAMPLE_CLIENTS.map((client, index) => ({
       ...client,

@@ -256,4 +256,39 @@ test('Deliverability Testing: no account shows the set-up call, the form wants t
   expect(again?.body).toMatchObject({ default_clients: ['gmail_android'], image_blocking: true })
   expect(again?.body).not.toHaveProperty('api_key')
   expect(await within(section).findByText(/1 default clients · images blocked/)).toBeTruthy()
+  expect(within(section).getByText(/Your own account: CEP does not limit your tests/)).toBeTruthy()
+})
+
+test('Deliverability Testing through CEP’s account: the tests this month, Edit Clients saves only the clients, own account takes over and Stop Using goes back', async () => {
+  const calls = installMockApi({ platformInspect: true, deliverabilityLimit: 50 })
+  const user = userEvent.setup()
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  await renderAppAt('/settings/delivery')
+
+  const section = (await screen.findByRole('heading', { name: 'Deliverability Testing' })).closest('section') as HTMLElement
+  expect(await within(section).findByText('Provided by CEP')).toBeTruthy()
+  expect(await within(section).findByText('0 of 50 tests this month')).toBeTruthy()
+  expect(within(section).getByText('50 a month on the Growth plan.')).toBeTruthy()
+  expect(within(section).queryByText('No inbox-preview account yet')).toBeNull()
+
+  await user.click(within(section).getByRole('button', { name: 'Edit Clients' }))
+  const clients = await screen.findByRole('dialog', { name: 'Default Clients' })
+  expect(within(clients).queryByLabelText(/^API Key/)).toBeNull()
+  await user.click(await within(clients).findByLabelText(/Gmail app/))
+  await user.click(within(clients).getByRole('button', { name: 'Save' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  const put = calls.filter((call) => call.url.endsWith('/deliverability/service/') && call.method === 'PUT').at(-1)
+  expect(put?.body).toEqual({ image_blocking: false, default_clients: ['gmail_android'] })
+  expect(await within(section).findByText(/Default clients: 1/)).toBeTruthy()
+
+  await user.click(within(section).getByRole('button', { name: 'Use Your Own Mailgun Account' }))
+  const own = await screen.findByRole('dialog', { name: 'Use Your Own Mailgun Account' })
+  await user.type(within(own).getByLabelText(/^Username/), 'northline-inspect')
+  await user.type(within(own).getByLabelText(/^API Key/), 'inspect-key-1')
+  await user.click(within(own).getByRole('button', { name: 'Save' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  expect(await within(section).findByText(/Your own account: CEP does not limit your tests/)).toBeTruthy()
+
+  await user.click(within(section).getByRole('button', { name: 'Stop Using My Own Account' }))
+  expect(await within(section).findByText('Provided by CEP')).toBeTruthy()
 })
