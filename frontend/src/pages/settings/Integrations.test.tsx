@@ -37,7 +37,7 @@ test('integrations show a status card per system with the day’s figures, and p
   expect(within(postal).getByText(/Circuit open for 42 s more after 5 failures in a row/)).toBeTruthy()
 
   await user.click(within(pos).getByRole('button', { name: 'Pause' }))
-  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('answered 503'))
+  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('are refused until it is resumed'))
   await vi.waitFor(() => expect(calls.some((call) => call.url.endsWith('/integrations/int-pos/pause/') && call.method === 'POST')).toBe(true))
 })
 

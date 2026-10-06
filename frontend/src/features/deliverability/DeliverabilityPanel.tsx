@@ -13,8 +13,8 @@ import { Modal } from '@/components/Modal'
 import { Notice } from '@/components/Notice'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
-import { ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
+import { failureText } from '@/lib/saveFeedback'
 import type { DeliverabilityAllowance, DeliverabilityPreview, DeliverabilityTest } from '@/lib/types'
 
 import type { DeliverabilityBackend } from './backend'
@@ -66,7 +66,7 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
   const { allowance, tests } = list.data
   const blocker = blockerFor({ allowance, savedVersion, readOnly })
   const current = detail.data ?? tests.find((t) => t.id === currentId) ?? null
-  const startError = start.error instanceof ApiError ? start.error.problem.detail ?? start.error.message : start.error ? String(start.error) : null
+  const startError = start.isError ? failureText(start.error, 'The test was not started') : null
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 p-6">

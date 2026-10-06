@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom'
 
 import { DataTable, type Column } from '@/components/DataTable'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
+import { SaveTick } from '@/components/SaveTick'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
@@ -32,12 +34,13 @@ function MfaRule({ settings }: { settings: SecuritySettings }) {
   return (
     <section aria-labelledby="mfa-rule" className="rounded-lg border border-line bg-surface p-5">
       <h2 id="mfa-rule" className="text-card-title font-semibold text-ink-900">Multi-Factor Authentication</h2>
-      <div className="mt-3">
+      <div className="mt-3 flex items-start justify-between gap-3">
         <Toggle label="Require for Everyone" checked={settings.require_mfa} disabled={save.isPending} onChange={(next) => save.mutate(next)}
           hint="Everyone in this workspace signs in with it. People who have not set it up are asked to do so the next time they sign in, before anything else. Single sign-on users are covered by your identity provider." />
+        <SaveTick mutation={save} />
       </div>
       {refused && <p role="alert" className="mt-3 rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning-text">{refused} <Link to="/account/security" className="font-medium underline">Set It Up Now</Link></p>}
-      {save.isError && !refused && <div className="mt-3"><ErrorState title="Could not save" error={save.error} /></div>}
+      {save.isError && !refused && <div className="mt-3"><ErrorState title="The setting was not changed" error={save.error} /></div>}
     </section>
   )
 }
@@ -47,6 +50,7 @@ const EMPTY: IdentityProvider = { display_name: '', issuer: '', client_id: '', h
 
 function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[] }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const existing = settings.identity_provider
   const [form, setForm] = useState<IdentityProvider>(existing ?? EMPTY)
   const [secret, setSecret] = useState('')
@@ -63,10 +67,13 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
   })
   const remove = useMutation({
     mutationFn: () => api.put<SecuritySettings>('/workspace/security/', { identity_provider: null }),
-    onSuccess: (data) => { queryClient.setQueryData(KEY, data); setForm(EMPTY); setDomains(''); setSecret('') },
+    onSuccess: (data) => {
+      toast.success('Single sign-on removed', existing?.display_name ? `“${existing.display_name}” no longer appears on the sign-in page.` : undefined)
+      queryClient.setQueryData(KEY, data); setForm(EMPTY); setDomains(''); setSecret('')
+    },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : null
+  const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
 
   return (
     <form className="mt-4 space-y-4" noValidate onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
@@ -107,7 +114,8 @@ function SsoForm({ settings, roles }: { settings: SecuritySettings; roles: Role[
           hint="Passwords stop working for everyone except administrators, who keep theirs for the day the identity provider is unreachable." />
         {errors.enforce_sso && <p className="text-xs font-medium text-danger-text">{errors.enforce_sso}</p>}
       </div>
-      {other !== null && <ErrorState title="Could not save single sign-on" error={other} />}
+      {other !== null && <ErrorState title="Single sign-on was not saved" error={other} />}
+      {remove.isError && <ErrorState title="Single sign-on was not removed" error={remove.error} />}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save Single Sign-On</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}

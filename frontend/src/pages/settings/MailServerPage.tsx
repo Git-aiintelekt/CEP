@@ -5,11 +5,15 @@ import { useAuth } from '@/auth/AuthContext'
 import { buttonDanger, buttonPrimary, buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { MailServer, MailServerSettings } from '@/lib/types'
 
 const KEY = ['workspace', 'mail-server']
+const SERVER_FIELDS = ['host', 'port', 'security', 'username', 'password', 'from_email', 'from_name', 'reply_to']
+const SAVE_FAILED = 'The mail server was not saved'
 
 const EMPTY: MailServer = { host: '', port: 587, security: 'STARTTLS', username: '', has_password: false, from_email: '', from_name: '', reply_to: '',
                             campaign_sender: false, is_active: true, last_tested_at: null, last_test_ok: null, last_test_error: null }
@@ -33,6 +37,7 @@ export function MailServerPage() {
 }
 
 function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; myEmail: string; onSaved: (next: MailServerSettings) => void }) {
+  const toast = useToast()
   const existing = data.server
   const [form, setForm] = useState<MailServer>(existing ?? EMPTY)
   const [password, setPassword] = useState('')
@@ -54,10 +59,12 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
   })
   const remove = useMutation({
     mutationFn: () => api.delete('/workspace/mail-server/'),
-    onSuccess: () => { onSaved({ ...data, server: null, sender_profile: null, in_use: data.in_use === 'tenant' ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('') },
+    onSuccess: () => {
+      toast.success('Mail server removed', "Platform messages fall back to the platform's server.")
+      onSaved({ ...data, server: null, sender_profile: null, in_use: data.in_use === 'tenant' ? 'platform' : data.in_use }); setForm(EMPTY); setPassword('')
+    },
   })
-  const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && Object.keys(errors).length === 0 ? save.error : remove.isError ? remove.error : test.isError ? test.error : null
+  const errors = save.error instanceof ApiError && save.error.status === 400 ? saveFailure(save.error, SAVE_FAILED, SERVER_FIELDS).fields : {}
   const server = data.server
 
   return (
@@ -134,7 +141,8 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
         )}
       </section>
 
-      {other !== null && <ErrorState title="Could not save the mail server" error={other} />}
+      {save.isError && <ErrorState title={SAVE_FAILED} error={save.error} shownFields={SERVER_FIELDS} />}
+      {remove.isError && <ErrorState title="The mail server was not removed" error={remove.error} />}
       <div className="flex flex-wrap items-center gap-2">
         <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save</button>
         {existing && <button type="button" className={buttonDanger} disabled={remove.isPending}
@@ -157,6 +165,7 @@ function MailServerForm({ data, myEmail, onSaved }: { data: MailServerSettings; 
               </span>
             )}
           </div>
+          {test.isError && <div className="mt-3"><ErrorState title="The test email was not sent" error={test.error} /></div>}
           {server.last_test_ok === false && server.last_test_error && <p role="alert" className="mt-3 rounded-lg bg-danger-bg px-3 py-2 cep-num text-xs text-danger-text">{server.last_test_error}</p>}
         </section>
       )}

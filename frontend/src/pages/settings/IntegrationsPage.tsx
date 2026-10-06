@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseMutationResult } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -7,7 +7,9 @@ import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { StatusBadge, Tag } from '@/components/StatusBadge'
+import { SaveTick } from '@/components/SaveTick'
 import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber, formatRelative } from '@/lib/format'
@@ -127,7 +129,9 @@ function Figure({ label, value, tone = 'default' }: { label: string; value: stri
   )
 }
 
-function IntegrationCard({ item, onToggle, onShowLog, onAlerts, busy }: { item: Integration; onToggle: () => void; onShowLog: () => void; onAlerts: (enabled: boolean) => void; busy: boolean }) {
+type AlertsSave = UseMutationResult<unknown, unknown, { item: Integration; enabled: boolean }>
+
+function IntegrationCard({ item, onToggle, onShowLog, onAlerts, alertsSave, busy }: { item: Integration; onToggle: () => void; onShowLog: () => void; onAlerts: (enabled: boolean) => void; alertsSave: AlertsSave; busy: boolean }) {
   const health = HEALTH[item.health] ?? HEALTH.idle
   const limit = item.direction === 'IN' ? item.effective_limit_per_minute ?? item.throttle_per_minute : item.throttle_per_minute
   const lastCall = item.last_call_at
@@ -159,6 +163,7 @@ function IntegrationCard({ item, onToggle, onShowLog, onAlerts, busy }: { item: 
         <span className="flex items-center gap-2 text-xs text-ink-800" title="A circuit opening on this integration notifies the workspace by the channels set under Settings → Notifications">
           <Switch checked={item.alerts_enabled !== false} onChange={onAlerts} ariaLabel={`Email Alerts for ${item.name}`} disabled={busy} />
           Email Alerts
+          <SaveTick mutation={alertsSave} of={alertsSave.variables?.item.id === item.id} />
         </span>
         <span className="flex gap-1">
         <button type="button" className={buttonClass({ variant: 'link', size: 'sm' })} onClick={onShowLog}>View Log</button>
@@ -256,6 +261,7 @@ interface Filters { integration: string; direction: string; failed: boolean; q: 
 export function IntegrationsPage() {
   const { can } = useAuth()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const allowed = can('provider.edit')
   const [filters, setFiltersOnly] = useState<Filters>({ integration: '', direction: '', failed: false, q: '' })
   const [search, setSearch] = useState('')
@@ -280,14 +286,18 @@ export function IntegrationsPage() {
   })
   const toggle = useMutation({
     mutationFn: (item: Integration) => api.post<Integration>(`/integrations/${item.id}/${item.status === 'PAUSED' ? 'resume' : 'pause'}/`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: INTEGRATIONS }),
+    onSuccess: (_next, item) => {
+      if (item.status === 'PAUSED') toast.success('Integration resumed', `“${item.name}” is running again.`)
+      else toast.success('Integration paused', item.direction === 'IN' ? `Calls from “${item.name}” are refused until it is resumed.` : `Sends through “${item.name}” wait until it is resumed.`)
+      return queryClient.invalidateQueries({ queryKey: INTEGRATIONS })
+    },
   })
   const alerts = useMutation({
     mutationFn: ({ item, enabled }: { item: Integration; enabled: boolean }) => api.post<{ id: string; alerts_enabled: boolean }>(`/integrations/${item.id}/alerts/`, { enabled }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: INTEGRATIONS }),
   })
 
-  if (!allowed) return <ErrorState title="Integration settings need the provider.edit permission" error={new Error('Ask a workspace administrator to add it to your role.')} />
+  if (!allowed) return <ErrorState title="Integration settings need the provider.edit permission" detail="Ask a workspace administrator to add it to your role." />
   if (integrations.isError) return <ErrorState error={integrations.error} onRetry={() => void integrations.refetch()} />
 
   const items = integrations.data ?? []
@@ -306,13 +316,13 @@ export function IntegrationsPage() {
 
   function toggleWithConfirm(item: Integration) {
     if (item.status === 'PAUSED' || window.confirm(item.direction === 'IN'
-      ? `Pause ${item.name}? Calls from the outside system are answered 503 until it is resumed.`
+      ? `Pause ${item.name}? Calls from the outside system are refused until it is resumed.`
       : `Pause ${item.name}? Sends through it wait until it is resumed.`)) toggle.mutate(item)
   }
 
   return (
     <div className="space-y-8">
-      {toggle.isError && <ErrorState title="That did not work" error={toggle.error} />}
+      {toggle.isError && <ErrorState title={toggle.variables?.status === 'PAUSED' ? 'The integration was not resumed' : 'The integration was not paused'} error={toggle.error} />}
       {alerts.isError && <ErrorState title="The alert switch was not saved" error={alerts.error} />}
 
       <section aria-labelledby="integrations-heading">
@@ -324,7 +334,7 @@ export function IntegrationsPage() {
           : items.length === 0 ? <EmptyState title="No Integration Yet" hint="Add a sending engine under Sending engines, or send the first receipt from the point of sale, and it appears here." />
           : <ul aria-label="Integrations" className="grid gap-4 lg:grid-cols-2">
               {items.map((item) => <IntegrationCard key={item.id} item={item} busy={toggle.isPending || alerts.isPending} onToggle={() => toggleWithConfirm(item)}
-                onAlerts={(enabled) => alerts.mutate({ item, enabled })} onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
+                onAlerts={(enabled) => alerts.mutate({ item, enabled })} alertsSave={alerts} onShowLog={() => setFilters({ integration: item.id, direction: '', failed: false, q: '' })} />)}
             </ul>}
       </section>
 

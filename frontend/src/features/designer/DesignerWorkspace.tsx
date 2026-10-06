@@ -181,7 +181,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       } else if (error instanceof ApiError && error.status === 400) {
         toast.error('This design cannot be saved yet', saveErrorDetail(error.fieldErrors))
       } else {
-        toast.error('Could not save the design', error instanceof Error ? error.message : undefined)
+        toast.failure(error, 'The design was not saved')
       }
     } finally {
       setBusy(null)
@@ -214,7 +214,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
         setBlockers(fieldErrors)
         toast.error('Not ready to activate', `${items.length} ${items.length === 1 ? 'thing' : 'things'} to fix. See the Errors list.`)
       } else {
-        toast.error('Could not activate', error instanceof Error ? error.message : undefined)
+        toast.failure(error, 'The template was not activated')
       }
     } finally {
       setBusy(null)
@@ -238,7 +238,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       const newest = Math.max(...list.map((item) => item.version_number))
       if (Number.isFinite(newest)) loadVersion(newest)
     } catch (error) {
-      toast.error('Could not load the latest version', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'The latest version was not loaded')
     }
   }
 
@@ -266,7 +266,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       }
       refreshLinks()
     } catch (error) {
-      toast.error('Could not load that version', error instanceof Error ? error.message : undefined)
+      toast.failure(error, 'That version was not loaded')
     } finally {
       setBusy(null)
     }

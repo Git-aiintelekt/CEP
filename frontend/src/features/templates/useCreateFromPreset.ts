@@ -55,17 +55,17 @@ export function useCreateFromPreset() {
       created = await createCopy(preset)
     } catch (error) {
       loadingOverlay.hide()
-      const detail = nameClash(error) ? `Every name from "${preset.name}" to "${preset.name} ${MAX_TRIES}" is taken. Rename one of them and try again.` : error instanceof Error ? error.message : undefined
-      toast.error(`Could not create a template from ${preset.name}`, detail)
+      if (nameClash(error)) toast.error('The template was not created', `Every name from “${preset.name}” to “${preset.name} ${MAX_TRIES}” is taken. Rename one of them and try again.`)
+      else toast.failure(error, 'The template was not created')
       return
     }
 
     if (preset.content) {
       try {
         await fill(created, preset.key, preset.content)
-      } catch (error) {
+      } catch {
         // the Draft exists and stays: the editor opens on it empty, nothing is archived or deleted
-        toast.error(`We couldn't add the ${preset.name} content. Your draft ${created.name} is empty.`, error instanceof Error ? error.message : undefined)
+        toast.error(`The ${preset.name} content was not added`, `Your draft “${created.name}” is empty; add content in the editor.`)
       }
     }
 

@@ -13,6 +13,7 @@ import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { editorRouteFor } from '@/lib/editorRoute'
 import { channelAllowed } from '@/lib/features'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { Template } from '@/lib/types'
 
 import { PageHelp } from '@/help/HelpPanel'
@@ -30,6 +31,9 @@ const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
   receipt: 'Create and Open the Receipt Editor',
   message: 'Create and Write the Message',
 }
+
+const TEMPLATE_FIELDS = ['name', 'channel', 'description', 'starter']
+const CREATE_FAILED = 'The template was not created'
 
 export function TemplateFormPage() {
   const { can, has } = useAuth()
@@ -52,7 +56,7 @@ export function TemplateFormPage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 400) {
-        setErrors(error.fieldErrors)
+        setErrors(saveFailure(error, CREATE_FAILED, TEMPLATE_FIELDS).fields)
         requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
       }
     },
@@ -69,17 +73,16 @@ export function TemplateFormPage() {
   }
 
   if (!can('template.edit')) {
-    return <ErrorState title="You cannot create templates" error={new Error('Ask a Marketing Admin for the template.edit permission.')} />
+    return <ErrorState title="You cannot create templates" detail="Ask a Marketing Admin for the template.edit permission." />
   }
-  const otherError = create.isError && !(create.error instanceof ApiError && create.error.status === 400) ? create.error : null
 
   return (
     <section className="max-w-5xl">
       <Link to="/templates" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
       <PageHeader title="New Template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." help={<PageHelp chapter="templates" />} />
-      {otherError !== null && (
-        <div className="mb-4">
-          <ErrorState title="Could not create the template" error={otherError} />
+      {create.isError && (
+        <div className="mb-4 empty:hidden">
+          <ErrorState title={CREATE_FAILED} error={create.error} shownFields={TEMPLATE_FIELDS} />
         </div>
       )}
       <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">

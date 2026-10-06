@@ -18,6 +18,8 @@ def admin_health_json(request):
     return JsonResponse(report, status=503 if report["status"] == "fail" else 200)
 
 
+handler500 = "api.exceptions.server_error"          # API paths answer problem+json even for an error outside a view
+
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/v1/docs/", permanent=False)),   # no product UI here: that is the React app
     path("healthz", healthz),

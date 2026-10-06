@@ -6,6 +6,7 @@ import { Field, Select, TextArea, buttonPrimary, buttonSecondary } from '@/compo
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import { Switch } from '@/components/Switch'
+import { useToast } from '@/components/Toast'
 import { addressesOf } from '@/lib/addresses'
 import { ApiError, api } from '@/lib/api'
 import type { ReportSchedule } from '@/lib/types'
@@ -28,6 +29,7 @@ export function ScheduleModal({ zone, onClose }: { zone: string; onClose: () => 
 
 function ScheduleForm({ initial, zone, onDone }: { initial: ReportSchedule; zone: string; onDone: () => void }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [enabled, setEnabled] = useState(initial.enabled)
   const [weekday, setWeekday] = useState(initial.weekday)
   const [hour, setHour] = useState(initial.hour)
@@ -35,12 +37,13 @@ function ScheduleForm({ initial, zone, onDone }: { initial: ReportSchedule; zone
   const save = useMutation({
     mutationFn: () => api.put<ReportSchedule>('/reports/schedule/', { enabled, weekday, hour, recipients: addressesOf(recipients) }),
     onSuccess: (next) => {
+      if (next.enabled) toast.success('Schedule saved', `The report goes out every ${WEEKDAYS[next.weekday]} at ${String(next.hour).padStart(2, '0')}:00 ${zone}.`)
+      else toast.success('Weekly report turned off')
       queryClient.setQueryData(KEY, next)
       onDone()
     },
   })
   const errors = save.error instanceof ApiError && save.error.status === 400 ? save.error.fieldErrors : {}
-  const other = save.isError && Object.keys(errors).length === 0 ? save.error : null
 
   return (
     <form noValidate className="space-y-4" onSubmit={(event: FormEvent) => { event.preventDefault(); save.mutate() }}>
@@ -61,7 +64,7 @@ function ScheduleForm({ initial, zone, onDone }: { initial: ReportSchedule; zone
         {(ids) => <TextArea {...ids} rows={3} value={recipients} disabled={!enabled} onChange={(event) => setRecipients(event.target.value)} placeholder="marketing-ops@example.com" />}
       </Field>
       <p className="text-helper text-ink-800">{initial.last_sent_on ? `Last sent on ${formatDay(initial.last_sent_on)}.` : 'Not sent yet.'}</p>
-      {other && <ErrorState title="The schedule was not saved" error={other} />}
+      {save.isError && <ErrorState title="The schedule was not saved" error={save.error} shownFields={['weekday', 'hour', 'recipients']} />}
       <div className="flex justify-end gap-2">
         <button type="button" className={buttonSecondary} onClick={onDone}>Cancel</button>
         <button type="submit" className={buttonPrimary} disabled={save.isPending}>{save.isPending && <Spinner size="sm" tone="onBrand" />}Save Schedule</button>

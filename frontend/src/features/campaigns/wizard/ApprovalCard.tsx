@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { Field, TextArea, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { Campaign } from '@/lib/types'
@@ -25,15 +26,21 @@ const STATE: Record<string, { label: string; tone: TagTone }> = {
 }
 
 type Decision = 'request-approval' | 'approve' | 'send-back'
+const FAILED: Record<Decision, string> = {
+  'request-approval': 'Approval was not requested', approve: 'The campaign was not approved', 'send-back': 'The campaign was not sent back',
+}
 
 export function ApprovalCard({ campaign }: { campaign: Campaign }) {
   const queryClient = useQueryClient()
+  const toast = useToast()
   const [note, setNote] = useState('')
   const NOTE_MAX = 500                                                                            // travels in the action's body, not a column
   const [asked, setAsked] = useState<Decision | null>(null)
   const act = useMutation({
     mutationFn: (decision: Decision) => api.post<Campaign>(`/campaigns/${campaign.id}/${decision}/`, { note: note.trim() }),
-    onSuccess: async () => {
+    onSuccess: async (_saved, decision) => {
+      if (decision === 'approve') toast.success('Campaign approved', `“${campaign.name}” can be published to production now.`)
+      if (decision === 'send-back') toast.success('Campaign sent back', 'Your note is shown on the campaign.')
       setNote('')
       await queryClient.invalidateQueries({ queryKey: ['campaigns'] })
     },
@@ -105,7 +112,7 @@ export function ApprovalCard({ campaign }: { campaign: Campaign }) {
           {status === 'REQUESTED' && !deciding && (
             <p className="text-ink-800">Waiting for someone who can approve. Nobody approves their own campaign.</p>
           )}
-          {act.isError && <ErrorState title="That did not go through" error={act.error} />}
+          {act.isError && <ErrorState title={FAILED[act.variables]} error={act.error} />}
         </div>
       </Panel>
     </div>

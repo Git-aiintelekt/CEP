@@ -20,8 +20,9 @@ import { useToast } from '@/components/Toast'
 import { CardLink, DetailCard, Fact, FACTS_GRID, Metric } from '@/features/campaigns/parts'
 import { problemText } from '@/features/contact-lists/problem'
 import { PageHelp } from '@/help/HelpPanel'
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 import { useFieldRules } from '@/lib/fieldRules'
+import { failureText } from '@/lib/saveFeedback'
 import { formatDate, formatDateTime, formatNumber, formatPercent, titleize } from '@/lib/format'
 import type {
   Journey, JourneyAudience, JourneyEntryRule, JourneyGeneratedCampaignRow, JourneyMetrics, JourneyTrendWeek,
@@ -63,9 +64,8 @@ function EditableFact({ label, value, placeholder, onSave, editable, max }: {
       await onSave(draft)
       setEditing(false)
     } catch (problem) {
-      const fields = problem instanceof ApiError ? problem.problem.errors : undefined
-      const first = fields ? Object.values(fields)[0] : undefined
-      setError(first ? String(Array.isArray(first) ? first[0] : first) : problem instanceof Error ? problem.message : 'The change was not saved.')
+      // beside the text being edited, in CEP's words (lib/saveFeedback): the field's own message, or why it failed and what to do
+      setError(failureText(problem, `The ${label.toLowerCase()} was not saved`))
     } finally {
       setSaving(false)
     }
@@ -210,7 +210,10 @@ export function JourneyDetailsPage() {
   })
   const saveField = useMutation({
     mutationFn: (body: Partial<Pick<Journey, 'goal_description' | 'exit_criteria_description'>>) => api.patch<Journey>(`/journeys/${id}/`, body),
-    onSuccess: (updated) => queryClient.setQueryData(['journeys', 'detail', id], updated),
+    onSuccess: (updated, body) => {
+      toast.success('goal_description' in body ? 'Goal saved' : 'Exit criteria saved')
+      queryClient.setQueryData(['journeys', 'detail', id], updated)
+    },
   })
 
   if (journeyQuery.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading journey</p>

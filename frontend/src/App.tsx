@@ -70,7 +70,7 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       // Client errors (401 / 403 / 404 / validation) will not fix themselves; only retry transport and 5xx failures.
-      retry: (failures, error) => !(error instanceof ApiError && error.status < 500) && failures < 2,
+      retry: (failures, error) => !(error instanceof ApiError && error.status > 0 && error.status < 500) && failures < 2,
     },
   },
 })

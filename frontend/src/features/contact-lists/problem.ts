@@ -1,10 +1,6 @@
-import { ApiError } from '@/lib/api'
+import { failureText } from '@/lib/saveFeedback'
 
-/** What to tell the operator: the API's field messages when it sent any, otherwise its summary. */
+/** What to tell the operator, in CEP's words (lib/saveFeedback): the API's field messages when it sent any, otherwise why it failed and what to do. */
 export function problemText(error: unknown): string {
-  if (error instanceof ApiError) {
-    const fields = Object.values(error.fieldErrors)
-    return fields.length > 0 ? fields.join(' ') : error.message
-  }
-  return error instanceof Error ? error.message : 'The request did not complete. Check the connection and try again.'
+  return failureText(error)
 }

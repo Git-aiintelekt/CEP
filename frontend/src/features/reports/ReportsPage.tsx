@@ -58,7 +58,7 @@ export function ReportsPage() {
   })
 
   if (!can('report.view')) {
-    return <ErrorState title="Reports need the report.view permission" error={new Error('Ask a workspace administrator to give your role report.view.')} />
+    return <ErrorState title="Reports need the report.view permission" detail="Ask a workspace administrator to give your role report.view." />
   }
 
   async function exportCsv() {

@@ -5,7 +5,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { SearchResults } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
@@ -15,6 +15,7 @@ import { MenuRow } from './MenuRow'
 import { Popover } from './Popover'
 import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
 import { RailGroup, RailMark } from './Rail'
+import { useToast } from './Toast'
 
 const SECURITY = '/account/security'
 
@@ -55,7 +56,13 @@ function writeCollapsed(value: boolean): void {
 
 /** Shown for as long as platform support is acting as this user: never subtle, and always one click from ending. */
 function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'READ' | 'WRITE'; expiresAt: string; onEnded: () => void }) {
-  const end = useMutation({ mutationFn: () => api.post('/auth/support-session/end/'), onSettled: onEnded })
+  const toast = useToast()
+  const end = useMutation({
+    mutationFn: () => api.post('/auth/support-session/end/'),
+    onSuccess: onEnded,
+    // a session that already ended (401) is over either way; any other failure leaves it running, and says so
+    onError: (error) => (error instanceof ApiError && error.status === 401 ? onEnded() : toast.failure(error, 'The support session was not ended')),
+  })
   return (
     <div role="status" className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2 text-sm font-medium text-ink-900 md:px-8">
       <p>

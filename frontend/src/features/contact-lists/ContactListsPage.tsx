@@ -16,8 +16,9 @@ import { CHANNEL_LABEL } from './uploadTemplate'
 import { iconButtonClass } from '@/components/buttonStyles'
 import { MenuRow } from '@/components/MenuRow'
 import { useFieldRules } from '@/lib/fieldRules'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
+import { saveFailure } from '@/lib/saveFeedback'
 import type { ContactList, ListReach, ListStats } from '@/lib/types'
 import { useCursorList } from '@/lib/useCursorList'
 
@@ -83,6 +84,7 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
     mutationFn: () => api.post<ContactList>(`/contact-lists/${source.id}/clone/`, { name, list_environment: source.list_environment }),
     onSuccess: onCloned,
   })
+  const nameError = clone.error instanceof ApiError && clone.error.status === 400 ? saveFailure(clone.error, 'The copy was not created', ['name']).fields.name : undefined
   return (
     <Modal
       title="Clone This List"
@@ -97,7 +99,8 @@ export function CloneDialog({ source, onClose, onCloned }: { source: ContactList
       <p className="mb-4 text-sm text-ink-800">
         The copy starts with the {formatNumber(source.member_count)} contacts that are in “{source.name}” now. It is a snapshot: the two lists are independent from here on.
       </p>
-      <Field label="Name of the Copy" required error={clone.isError ? problemText(clone.error) : undefined} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+      {clone.isError && <div className="mb-4 empty:hidden"><ErrorState title="The copy was not created" error={clone.error} shownFields={['name']} /></div>}
+      <Field label="Name of the Copy" required error={nameError} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
         {(ids) => (
           <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} maxLength={rule('name')?.max ?? 200} autoFocus />
         )}
@@ -138,7 +141,10 @@ export function ContactListsPage() {
   const [wizard, setWizard] = useState(() => params.get('new') === '1')
   const [cloning, setCloning] = useState<ContactList | null>(null)
   const [deleting, setDeleting] = useState<ContactList | null>(null)
-  const [notice, setNotice] = useState('')
+  const [notice, setNoticeOnly] = useState('')
+  // a failed archive or restore: drawn as an error rather than beside the notices
+  const [problem, setProblemOnly] = useState<{ title: string; error: unknown } | null>(null)
+  const setNotice = (text: string) => { setNoticeOnly(text); setProblemOnly(null) }
 
   const stats = useQuery({ queryKey: ['contact-lists', 'stats'], queryFn: ({ signal }) => api.get<ListStats>('/contact-lists/stats/', undefined, signal) })
   const list = useCursorList<ContactList>('contact-lists', { search: search.trim() || undefined, list_environment: type || undefined, source: source || undefined, ordering: '-updated_at' })
@@ -151,7 +157,10 @@ export function ContactListsPage() {
       setNotice(saved.status === 'ARCHIVED' ? `“${saved.name}” is archived. Campaigns can no longer pick it.` : `“${saved.name}” is active again.`)
       refresh()
     },
-    onError: (error) => setNotice(problemText(error)),
+    onError: (error, { status }) => {
+      setNoticeOnly('')
+      setProblemOnly({ title: status === 'ARCHIVED' ? 'The list was not archived' : 'The list was not restored', error })
+    },
   })
   const remove = useMutation({
     mutationFn: (target: ContactList) => api.delete(`/contact-lists/${target.id}/`),
@@ -248,6 +257,7 @@ export function ContactListsPage() {
       {notice && (
         <p role="status" className="mb-4 rounded-sm border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">{notice}</p>
       )}
+      {problem && <div className="mb-4"><ErrorState title={problem.title} error={problem.error} /></div>}
 
       {list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />

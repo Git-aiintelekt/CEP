@@ -9,6 +9,10 @@ export interface Problem {
   status?: number
   detail?: string
   errors?: Record<string, unknown>
+  /** CEP's own problem (500): ER-<error group>, which the back-office Errors page finds */
+  reference?: string
+  /** when the server had it */
+  at?: string
 }
 
 export interface TokenPair {

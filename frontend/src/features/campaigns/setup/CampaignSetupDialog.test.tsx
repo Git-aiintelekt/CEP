@@ -257,8 +257,9 @@ test('a server failure: the banner with the time, the entries kept, and Try agai
   await fillValid(user)
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   const banner = await within(dialog()).findByRole('alert')
-  expect(within(banner).getByText('Campaign Wasn’t Created')).toBeTruthy()
-  expect(banner.textContent).toMatch(/Something went wrong on our side at \d{1,2}:\d{2}.* E[SD]T\. Your entries are kept, so try again in a moment\./)
+  expect(within(banner).getByText('The campaign was not created')).toBeTruthy()
+  expect(banner.textContent).toMatch(/CEP had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\./)
+  expect(banner.textContent).not.toMatch(/Server error|on our side/)
   expect((within(dialog()).getByLabelText(/^Campaign Name/) as HTMLInputElement).value).toBe('Holiday Preview')
   fail = false
   await user.click(within(banner).getByRole('button', { name: 'Try Again' }))

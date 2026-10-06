@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { api, session, UNAUTHORIZED_EVENT } from '@/lib/api'
+
+import { SIGNED_OUT_REASON_KEY } from './signedOut'
 import type { Feature, Me, PermissionCode } from '@/lib/types'
 
 interface AuthValue {
@@ -40,10 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
-  // The API client raises this when a refresh fails: drop to the login screen from anywhere.
+  // The API client raises this when a refresh fails: drop to the login screen from anywhere, and let it say why
   useEffect(() => {
-    window.addEventListener(UNAUTHORIZED_EVENT, logout)
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout)
+    const ended = () => {
+      try {
+        if (!window.sessionStorage.getItem(SIGNED_OUT_REASON_KEY)) window.sessionStorage.setItem(SIGNED_OUT_REASON_KEY, 'expired')
+      } catch {
+        // storage blocked: the login screen simply has no notice
+      }
+      logout()
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, ended)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, ended)
   }, [logout])
 
   const signedIn = useCallback(() => {

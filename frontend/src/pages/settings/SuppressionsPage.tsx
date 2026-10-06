@@ -14,6 +14,7 @@ import { Modal } from '@/components/Modal'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag, type TagTone } from '@/components/StatusBadge'
+import { useToast } from '@/components/Toast'
 import { buttonClass } from '@/components/buttonStyles'
 import { ApiError, api, request } from '@/lib/api'
 import { formatDate, formatNumber } from '@/lib/format'
@@ -187,7 +188,11 @@ export function SuppressionsPage() {
 }
 
 function UnblockModal({ row, onClose, onDone }: { row: SuppressionRow; onClose: () => void; onDone: () => void }) {
-  const unblock = useMutation({ mutationFn: () => api.post(`/suppressions/${row.kind}/${row.id}/unblock/`), onSuccess: onDone })
+  const toast = useToast()
+  const unblock = useMutation({
+    mutationFn: () => api.post(`/suppressions/${row.kind}/${row.id}/unblock/`),
+    onSuccess: () => { toast.success('Contact unblocked', `${row.contact} can be sent to again from the next send.`); onDone() },
+  })
   return (
     <Modal
       title="Unblock this contact?"
@@ -202,7 +207,7 @@ function UnblockModal({ row, onClose, onDone }: { row: SuppressionRow; onClose: 
       <div className="space-y-2 text-sm text-ink-800">
         <p><strong className="cep-num text-ink-900">{row.contact}</strong> is held back: {row.reason_label.toLowerCase()}{row.detail ? ` (${row.detail})` : ''}, since {formatDate(row.since)}.</p>
         <p>Once unblocked it can be sent to again, from the next send that includes it. The history of the block is kept.</p>
-        {unblock.isError && <ErrorState title="It was not unblocked" error={unblock.error} />}
+        {unblock.isError && <ErrorState title="The contact was not unblocked" error={unblock.error} />}
       </div>
     </Modal>
   )

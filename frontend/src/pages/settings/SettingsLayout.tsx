@@ -33,7 +33,7 @@ export function SettingsLayout() {
   const allowed = can('user.admin')
 
   if (!allowed) {
-    return <ErrorState title="Settings are for workspace administrators" error={new Error('Ask someone with the user.admin permission to make this change, or to give you an administrator role.')} />
+    return <ErrorState title="Settings are for workspace administrators" detail="Ask someone with the user.admin permission to make this change, or to give you an administrator role." />
   }
 
   return (

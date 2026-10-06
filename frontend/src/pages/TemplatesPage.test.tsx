@@ -182,8 +182,8 @@ test('when the fill fails, the empty draft still opens and a toast says so', asy
 
   expect(await screen.findByText('designer opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/design')
-  expect(await screen.findByText("We couldn't add the Announce a sale content. Your draft Announce a sale is empty.")).toBeTruthy()
-  expect(screen.getByText('The design service is down.')).toBeTruthy()
+  expect(await screen.findByText('The Announce a sale content was not added')).toBeTruthy()
+  expect(screen.getByText('Your draft “Announce a sale” is empty; add content in the editor.')).toBeTruthy()
 })
 
 test('a preset whose name is taken is copied as "{name} 2"', async () => {
@@ -202,7 +202,8 @@ test('a preset that cannot be copied says so in a toast', async () => {
   await openLanding({ onSaveTemplate: () => problem(500, { title: 'Server error', detail: 'The template service is down.' }) })
   const user = userEvent.setup()
   await copyPreset(user, 'Announce a sale')
-  expect(await screen.findByText('Could not create a template from Announce a sale')).toBeTruthy()
+  expect(await screen.findByText('The template was not created')).toBeTruthy()
+  expect(screen.getByText(/^CEP had a problem at \d{1,2}:\d{2}/)).toBeTruthy()
   expect(window.location.pathname).toBe('/templates')
 })
 
@@ -346,6 +347,8 @@ test('Rename in the menu asks for the new name and writes it, a duplicate\'s "(c
   await user.type(input, 'fall email')                                                                // another template's name, case aside
   await user.click(within(dialog).getByRole('button', { name: 'Save Name' }))
   expect(await within(dialog).findByText('Another template already has this name.')).toBeTruthy()
+  expect(within(dialog).queryByRole('alert')).toBeNull()                                             // the field says it: no banner repeating it
+  expect(dialog.textContent).not.toMatch(/Invalid input|Bad Request/)
 
   await user.clear(input)
   await user.type(input, 'Fall SMS, October{Enter}')
@@ -407,6 +410,6 @@ test('when the receipt layout fails to save, the draft still opens, with the sam
 
   expect(await screen.findByText('receipt editor opened')).toBeTruthy()
   expect(window.location.pathname).toBe('/templates/tpl-new/receipt')
-  expect(await screen.findByText("We couldn't add the Online order content. Your draft Online order is empty.")).toBeTruthy()
-  expect(screen.getByText('The receipt service is down.')).toBeTruthy()
+  expect(await screen.findByText('The Online order content was not added')).toBeTruthy()
+  expect(screen.getByText('Your draft “Online order” is empty; add content in the editor.')).toBeTruthy()
 })

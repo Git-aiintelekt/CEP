@@ -15,16 +15,17 @@ import { useAuth } from '@/auth/AuthContext'
 import { Field, Select, TextArea, TextInput, buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
 import { SetupDialog } from '@/components/SetupDialog'
+import { useToast } from '@/components/Toast'
 import { useFieldRules } from '@/lib/fieldRules'
 import { api, ApiError } from '@/lib/api'
 import { channelAllowed } from '@/lib/features'
+import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
 import { ChoiceCard, ChoiceGroup } from '../parts'
 import { campaignSchema, emptyValues, fromCampaign, toInput, type CampaignFormValues } from '../schema'
 import { PROGRESS, setupHref, stepsFor, typeCanChange } from '../setupFlow'
 import { SOLICITATION } from '../vocabulary'
-import { timeInZone } from '../zone'
 import { OwnerPicker } from './OwnerPicker'
 import { TagInput } from './TagInput'
 
@@ -106,6 +107,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   const { me, has } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const toast = useToast()
   const titleId = useId()
   const body = useRef<HTMLDivElement>(null)
   const zone = me?.tenant.timezone || 'UTC'
@@ -138,7 +140,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   const [ownerChanged, setOwnerChanged] = useState(editing)
   const hasDetails = Boolean(campaign && (campaign.code || campaign.tags.length))
   const [moreOpen, setMoreOpen] = useState(hasDetails)
-  const [failedAt, setFailedAt] = useState<string | null>(null)
+  const [failed, setFailed] = useState<unknown>(null)
 
   // a problem inside "More Options" opens it
   const detailProblem = Boolean(errors.code || errors.tags)
@@ -200,11 +202,12 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
       }
       return api.post<Campaign>('/campaigns/', { ...toInput(created), setup_step: PROGRESS.created })
     },
-    onMutate: () => setFailedAt(null),
+    onMutate: () => setFailed(null),
     onSuccess: (saved) => {
       queryClient.setQueryData(['campaigns', 'detail', saved.id], saved)
       void queryClient.invalidateQueries({ queryKey: ['campaigns'], refetchType: 'none' })
       if (campaign) {
+        toast.success('Details saved')
         onSaved?.(saved)
         onClose()
       } else navigate(setupHref(saved.id, { step: stepsFor(saved.campaign_type)[0].key }))
@@ -220,14 +223,17 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
           problems[field as keyof SetupValues] = { type: 'server', message: text }
         })
         focusFirst(problems)
-      } else if (!(error instanceof ApiError && error.status === 409)) {
-        setFailedAt(timeInZone(new Date().toISOString(), zone))
       }
+      if (!(error instanceof ApiError && error.status === 409)) setFailed(error)
     },
   })
 
   const busy = save.isPending
   const conflict = save.error instanceof ApiError && save.error.status === 409 ? save.error : null
+  // what the fields do not say: CEP's problem, no connection, a refusal that is not about one field
+  const failure = failed ? saveFailure(failed, editing ? 'The details were not saved' : 'The campaign was not created', [...FIELD_ORDER]) : null
+  const fieldsOnly = failure?.title === FIELDS_TITLE && failure.general.length === 0
+  const refused = failed instanceof ApiError && failed.status === 400
   const submit = form.handleSubmit((values) => { if (!busy) save.mutate(values) }, focusFirst)
 
   function chooseType(next: CampaignType) {
@@ -244,7 +250,11 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   return (
     <SetupDialog title={editing ? 'Edit Details' : 'Create Campaign'} onClose={onClose} locked={busy}
       primary={{ label: editing ? 'Save' : 'Create Campaign', form: `${titleId}-form`, busy, busyLabel: editing ? 'Saving' : 'Creating' }}
-      error={failedAt ? { title: editing ? 'Changes Weren’t Saved' : 'Campaign Wasn’t Created', message: `Something went wrong on our side at ${failedAt}. Your entries are kept, so try again in a moment.`, onRetry: () => void submit() } : null}
+      error={failure && !fieldsOnly ? {
+        title: failure.title,
+        message: [failure.detail, ...(failure.title === FIELDS_TITLE ? failure.general : [])].join(' '),
+        onRetry: refused ? undefined : () => void submit(),
+      } : null}
       banner={conflict && (
         <Notice tone="warning" layout="banner" title={conflict.message}
           action={onReload && <button type="button" className={buttonSecondary} onClick={() => { save.reset(); onReload() }}>Reload the Latest Version</button>}>
