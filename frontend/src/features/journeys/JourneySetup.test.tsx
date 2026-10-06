@@ -169,7 +169,7 @@ test('Date / Time Weekly: weekdays, a time and who enters; the summary reads it 
   await user.click(within(dialog).getByRole('radio', { name: 'Date / Time' }))
   await user.click(within(dialog).getByRole('button', { name: 'Select a Schedule' }))
   await user.click(screen.getByRole('button', { name: 'Weekly' }))
-  const next = within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement
+  const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
   expect(next.disabled).toBe(true)                                      // no weekday and nobody to enter yet
 
   await user.click(within(dialog).getByRole('button', { name: 'Monday' }))
@@ -180,9 +180,9 @@ test('Date / Time Weekly: weekdays, a time and who enters; the summary reads it 
   expect(next.disabled).toBe(false)
 
   await user.click(next)
-  await screen.findByText('Step 2 of 2')
+  await screen.findByText(/^Step 2 of 2/)
   await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
-  await user.click(within(dialog).getByRole('button', { name: 'Continue to Build' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Journey' }))
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/graph/'))).toBe(true))
   const saved = calls.find((call) => call.method === 'PUT' && call.url.includes('/graph/'))?.body as { graph: { entry_rules: unknown[] } }
   expect(saved.graph.entry_rules).toEqual([{ entry_type: 'DATE_TIME', rule_definition: { schedule: 'WEEKLY', time: '09:30', weekdays: ['MON'],
@@ -204,10 +204,39 @@ test('Date / Time On a Date Attribute: the date, the offset, Every Year or Once,
   await user.selectOptions(within(dialog).getByRole('combobox', { name: /^When/ }), '-7')
   await user.selectOptions(within(dialog).getByLabelText(/^At/), '10:00')
   expect(dialog.textContent).toContain('Every year, 7 days before each customer’s Birth Date, at 10:00 AM, every customer with that date enters.')
-  expect((within(dialog).getByRole('button', { name: 'Next →' }) as HTMLButtonElement).disabled).toBe(false)   // the segment is optional
+  expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false)   // the segment is optional
 
   await user.click(within(dialog).getByRole('radio', { name: 'Once' }))
   await user.click(within(dialog).getByRole('button', { name: 'Every Customer With This Date' }))
   await user.click(await screen.findByRole('button', { name: 'Loyalty Gold & Platinum' }))
   expect(dialog.textContent).toContain('7 days before each customer’s Birth Date, at 10:00 AM, customers in Loyalty Gold & Platinum enter.')
+})
+
+test('the name and description count against their published limits, and re-entry days must be 1 to 3,650', async () => {
+  installMockApi()
+  const { user, dialog } = await openSetup()
+
+  const name = within(dialog).getByLabelText(/^Journey Name/) as HTMLInputElement
+  await vi.waitFor(() => expect(within(dialog).getByLabelText('0 of 200 characters')).toBeTruthy())
+  expect(name.maxLength).toBe(200)
+  await user.type(name, 'Welcome Series')
+  expect(within(dialog).getByLabelText('14 of 200 characters')).toBeTruthy()
+  expect((within(dialog).getByLabelText(/^Description/) as HTMLTextAreaElement).maxLength).toBe(2000)
+  expect(within(dialog).getByLabelText('0 of 2,000 characters')).toBeTruthy()
+
+  await user.click(within(dialog).getByRole('radio', { name: 'Event' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Select an Event Trigger' }))
+  await user.click(screen.getByRole('button', { name: 'Welcome' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Next' }))
+  await screen.findByText(/^Step 2 of 2/)
+  await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
+  await user.click(within(dialog).getByRole('radio', { name: /^After X Days/ }))
+  const days = within(dialog).getByLabelText('Cooldown Days')
+  await user.type(days, '4000')
+  expect(within(dialog).getByText('A whole number from 1 to 3,650.')).toBeTruthy()
+  expect((within(dialog).getByRole('button', { name: 'Create Journey' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.clear(days)
+  await user.type(days, '90')
+  expect(within(dialog).queryByText('A whole number from 1 to 3,650.')).toBeNull()
+  expect((within(dialog).getByRole('button', { name: 'Create Journey' }) as HTMLButtonElement).disabled).toBe(false)
 })

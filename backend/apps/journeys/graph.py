@@ -11,6 +11,7 @@ Only a DRAFT version can be changed; a published version is read-only and editin
 Saving checks structure only (keys, types, edges). Whether the journey is complete enough to run is the publish check.
 """
 import json
+import re
 import uuid
 
 from django.db import transaction
@@ -39,6 +40,15 @@ NODE_FAMILY = {
 ENTRY_TYPES = set(JourneyEntryRule.EntryType.values)
 MAX_NODES, MAX_CONNECTIONS, MAX_ENTRY_RULES = 200, 400, 10
 MAX_CONFIG_BYTES = 64 * 1024
+EVENT_TYPE = re.compile(r"^[A-Z][A-Z0-9_]{1,59}$")
+# the step settings the canvas edits, checked on every save and published as GET /field-rules/ "journey_step"
+STEP_LIMITS = {
+    "label": {"max_length": 120},
+    "duration": {"min_value": 0, "max_value": 999},
+    "days": {"min_value": 0, "max_value": 365},
+    "event_type": {"max_length": 60},
+    "message_step": {"max_length": 100},
+}
 
 BLANK = {"entry_rules": [], "nodes": [{"key": "start", "type": "START", "config": {}, "position": {"x": 0, "y": 0}}], "connections": []}
 
@@ -52,6 +62,22 @@ def _text(value, limit: int, required: bool = False) -> str | None:
     if len(value) > limit:
         raise ValueError
     return value or ("" if required else None)
+
+
+def _step_problem(config: dict) -> str | None:
+    """The first setting of a step that breaks STEP_LIMITS, in words; blanks are left to readiness."""
+    for name, limits in STEP_LIMITS.items():
+        value = config.get(name)
+        if value is None or value == "":
+            continue
+        if "max_length" in limits:
+            if not isinstance(value, str) or len(value.strip()) > limits["max_length"]:
+                return f"{name} is text of at most {limits['max_length']} characters."
+            if name == "event_type" and not EVENT_TYPE.match(value.strip()):
+                return "event_type is capital letters, digits and underscores, starting with a letter (e.g. CATEGORY_PURCHASE)."
+        elif isinstance(value, bool) or not isinstance(value, int) or not limits["min_value"] <= value <= limits["max_value"]:
+            return f"{name} is a whole number from {limits['min_value']} to {limits['max_value']}."
+    return None
 
 
 def clean(graph) -> dict:
@@ -103,6 +129,10 @@ def clean(graph) -> dict:
         config = node.get("config") or {}
         if not isinstance(config, dict) or len(json.dumps(config).encode()) > MAX_CONFIG_BYTES:
             problem("nodes", index, "config must be an object of at most 64 KB.")
+            continue
+        step_problem = _step_problem(config)
+        if step_problem:
+            problem("nodes", index, f"{key}: {step_problem}")
             continue
         position = node.get("position")
         if position is not None and not (isinstance(position, dict) and all(isinstance(position.get(axis), (int, float)) for axis in ("x", "y"))):

@@ -290,6 +290,10 @@ export const fieldRules: FieldRules = {
     personalization_tag: { tag_key: text(100, true), label: text(150, true), static_value: text(null) },
     contact_list: { name: text(200, true), description: text(null) },
     new_contact_list: { name: text(200, true), description: text(null) },
+    journey: { name: text(200, true), description: text(2000), goal_description: text(500), exit_criteria_description: text(500),
+               reentry_after_days: { type: 'integer', required: false, min_value: 1, max_value: 3650 } },
+    journey_step: { label: text(120), duration: { type: 'integer', required: false, min_value: 0, max_value: 999 },
+                    days: { type: 'integer', required: false, min_value: 0, max_value: 365 }, event_type: text(60), message_step: text(100) },
   },
 }
 

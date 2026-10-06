@@ -13,14 +13,26 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.journeys.graph import STEP_LIMITS
+
 from . import contact_lists_api, delivery_api, pos_api, preferences_api, settings_api, workspace_api
 from . import serializers as s
+
+class JourneyStepRulesSerializer(serializers.Serializer):
+    """The canvas's step settings (apps.journeys.graph.STEP_LIMITS): published so the step panel counts against the same limits."""
+    label = serializers.CharField(required=False, label="Step Name", **STEP_LIMITS["label"])
+    duration = serializers.IntegerField(required=False, label="Duration", **STEP_LIMITS["duration"])
+    days = serializers.IntegerField(required=False, label="Within How Many Days", **STEP_LIMITS["days"])
+    event_type = serializers.RegexField(r"^[A-Z][A-Z0-9_]{1,59}$", required=False, label="Event Type", **STEP_LIMITS["event_type"])
+    message_step = serializers.CharField(required=False, label="Which Message", **STEP_LIMITS["message_step"])
+
 
 RESOURCES = {
     "campaign": s.CampaignSerializer,
     "template": s.TemplateSerializer,
     "personalization_tag": s.PersonalizationTagSerializer,
     "journey": s.JourneySerializer,
+    "journey_step": JourneyStepRulesSerializer,
     "contact_list": contact_lists_api.ContactListSerializer,
     "new_contact_list": contact_lists_api.NewListSerializer,
     "sender_profile": delivery_api.SenderProfileWriteSerializer,
