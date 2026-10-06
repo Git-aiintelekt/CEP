@@ -18,7 +18,7 @@ Platform administrators. The workspace's administrator sees the result under Set
 |---|---|---|
 | Code, Name | STARTER, GROWTH, ENTERPRISE as seeded; any code. | |
 | Default hosting | Shared or dedicated for tenants on the plan. | The suggestion when onboarding. |
-| Max contacts, Max messages per month, Max users, Max storage (GB), Max deliverability tests per month | The limits; empty means unlimited. | Usage against limits and the workspace's Plan & Usage read against them. Users refuses a new user past the limit; a deliverability test past the allowance is refused. |
+| Max contacts, Max messages per month, Max users, Max storage (GB), Max deliverability tests per month | The limits; empty means unlimited. | Usage against limits and the workspace's Plan & Usage read against them. Users refuses a new user past the limit; a deliverability test through the platform's Mailgun Inspect account past the plan's number plus the month's additions is refused. |
 | Overage per 1,000 messages, per 1,000 contacts | The price of going over; empty means a hard limit: sending stops at the message limit. | Whether a tenant at its limit is billed or stopped. |
 | Monthly price, Currency | | The invoice's base amount. |
 | Features | The features the plan allows, as switches; a feature switched off here is off for every tenant on the plan, whatever the tenant's own switch. | |

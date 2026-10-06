@@ -33,6 +33,7 @@ Staff read; platform administrators change. Suspend, Reactivate, Request a data 
 | Hosting | Hosting (fixed), Region, Data residency, Onboarded at. | Shared tenants live in the pool database in their own partitions. Moving to dedicated is a migration (Move and offboard), not a field change. |
 | Industry and features | Industry profile, and one switch per feature: Default (follows the profile), On, Off. | What the workspace offers. The plan always has the last word: a feature the plan excludes stays off. |
 | Settings | The workspace's settings as stored: consent policy, notifications, approvals, the preference centre, the set-up card. | Normally changed by the workspace's administrator in the app; here for support. |
+| Deliverability Tests | This month's inbox previews against the workspace's total, and where the total comes from; Add Tests opens the additions page (Mailgun Inspect chapter). | |
 | Readiness | Eight checks over what exists, each with a sentence and the page that fixes it: provisioned, plan, industry and features, first administrator, personalization tags, consent policy, workspace sending (optional), single sign-on (optional). | |
 | System | id, partition sequence, timestamps, row version. | |
 

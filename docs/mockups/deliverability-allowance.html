@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deliverability tests: the platform account, plans and top-ups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=Plus+Jakarta+Sans:wght@600;700&display=swap">
+<style>
+  /* the back-office's own palette (django-unfold with CEP's primary blue, static/cep_admin/admin.css) */
+  :root {
+    --base-50:#f9fafb; --base-100:#f3f4f6; --base-200:#e5e7eb; --base-300:#d1d5db; --base-400:#9ca3af; --base-500:#6b7280; --base-600:#4b5563; --base-700:#374151; --base-900:#111827;
+    --p-50:#eef4ff; --p-100:#dbe6fe; --p-500:#3b6cf6; --p-600:#2f5be0; --p-700:#2648b8;
+    --ok:#15803d; --ok-soft:#dcfce7; --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2; --info:#1d4ed8; --info-soft:#dbeafe;
+    --shadow:0 1px 2px rgb(15 23 42 / .05), 0 1px 3px rgb(15 23 42 / .04);
+    /* the app's tokens, for part 3 */
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad; --line:#cfd2dc; --line-subtle:#e2e4eb; --brand-600:#3863db; --brand-100:#dee9fc; --danger:#dd514c; --danger-bg:#fae2e2; --danger-text:#a92e26; --surface-sunken:#eeeff5;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--base-700); font:400 14px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3 { margin:0; font-weight:600; color:var(--base-900); letter-spacing:-0.01em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--base-600) } .note strong { color:var(--base-900) }
+  .part { max-width:1440px; margin:32px auto 0; padding:0 16px; font:700 18px/1.3 'Plus Jakarta Sans', Inter, sans-serif; color:var(--base-900) }
+  .label { max-width:1440px; margin:14px auto 8px; padding:0 16px; font:600 15px/1.3 Inter, sans-serif; color:var(--base-900) }
+  .label span { display:block; font:400 13px/1.45 Inter, sans-serif; color:var(--base-600); margin-top:2px; max-width:1040px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(560px, 1fr)); gap:16px; align-items:start }
+  .case { font:600 12px/1 Inter, sans-serif; text-transform:uppercase; letter-spacing:.04em; color:var(--base-600); margin:0 0 8px 2px }
+  .frame { background:var(--base-50); border:1px solid var(--base-300); border-radius:8px; overflow:hidden }
+  .frame .cap { font-size:12px; color:var(--base-600); padding:8px 16px; border-bottom:1px solid var(--base-200); background:#fff }
+  .main { padding:16px 18px }
+  .crumbs { font-size:12px; color:var(--base-500); margin-bottom:8px } .crumbs b { color:var(--base-700); font-weight:500 }
+  .card { background:#fff; border:1px solid var(--base-200); border-radius:8px; box-shadow:var(--shadow) }
+  .card .head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--base-200) } .card .head h2 { font-size:15px }
+  .card .body { padding:16px }
+  .btn { height:34px; padding:0 12px; border-radius:6px; border:1px solid var(--base-300); background:#fff; font:500 13px Inter, sans-serif; display:inline-flex; align-items:center; gap:6px; color:var(--base-900); white-space:nowrap }
+  .btn.primary { background:var(--p-600); border-color:var(--p-600); color:#fff } .btn.sm { height:28px; padding:0 10px; font-size:12px }
+  .field label { display:block; font-size:12px; font-weight:600; color:var(--base-700); margin-bottom:4px }
+  .ctl { height:34px; border:1px solid var(--base-300); border-radius:6px; padding:0 10px; display:flex; align-items:center; justify-content:space-between; background:#fff; color:var(--base-900); font-size:13px }
+  .ctl .ph { color:var(--base-400) } .help { font-size:12px; color:var(--base-500); margin-top:4px }
+  .meter { display:flex; flex-direction:column; gap:6px } .meter .big { font:600 26px/1.1 'Plus Jakarta Sans', Inter, sans-serif; color:var(--base-900); font-variant-numeric:tabular-nums } .meter .big small { font:500 14px Inter, sans-serif; color:var(--base-500) }
+  .bar { height:8px; border-radius:4px; background:var(--base-100); overflow:hidden; display:flex } .bar i { display:block; height:100%; background:var(--p-500) } .bar i.warn { background:var(--warn) }
+  .parts { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:var(--base-600) } .parts b { color:var(--base-900); font-weight:600 }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px } .grid3 { display:grid; grid-template-columns:110px 1fr auto; gap:10px; align-items:end }
+  .sep { border:0; border-top:1px solid var(--base-200); margin:16px 0 }
+  table { width:100%; border-collapse:collapse; font-size:13px } th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--base-200); vertical-align:middle; white-space:nowrap } th { font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--base-500); font-weight:600; background:var(--base-50) }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums }
+  .pill { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap }
+  .pill.ok { background:var(--ok-soft); color:var(--ok) } .pill.warn { background:var(--warn-soft); color:var(--warn) } .pill.bad { background:var(--bad-soft); color:var(--bad) } .pill.info { background:var(--info-soft); color:var(--info) } .pill.grey { background:var(--base-100); color:var(--base-600) }
+  .callout { padding:10px 12px; border-radius:6px; font-size:13px } .callout.info { background:var(--info-soft); color:#1e3a8a }
+  .modal { width:440px; max-width:100%; background:#fff; border:1px solid var(--base-200); border-radius:10px; box-shadow:0 12px 32px rgb(15 23 42 / .18); margin:18px auto }
+  .modal .head { padding:14px 16px; border-bottom:1px solid var(--base-200) } .modal .head h2 { font-size:16px } .modal .body { padding:16px; display:flex; flex-direction:column; gap:12px } .modal .foot { padding:12px 16px; border-top:1px solid var(--base-200); display:flex; justify-content:flex-end; gap:8px }
+  /* part 3: the app */
+  .app { background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px; font-family:Inter, sans-serif; color:var(--ink-900) }
+  .app h3 { font-family:'Plus Jakarta Sans', Inter, sans-serif; font-size:16px; color:var(--ink-900) } .app .muted { color:var(--ink-800); font-size:13px }
+  .usage { display:grid; grid-template-columns:1fr auto; gap:6px 12px; align-items:baseline; padding:12px 0; border-bottom:1px solid var(--line-subtle) } .usage:last-child { border-bottom:0 }
+  .usage b { font-weight:600 } .usage .v { font-variant-numeric:tabular-nums; font-weight:600 } .usage .track { grid-column:1 / -1; height:6px; border-radius:3px; background:var(--surface-sunken); overflow:hidden } .usage .track i { display:block; height:100%; background:var(--brand-600) }
+  .usage .sub { grid-column:1 / -1; font-size:12px; color:var(--ink-800) }
+  .run { display:flex; flex-direction:column; align-items:flex-end; gap:4px } .run .b { height:40px; padding:0 16px; border-radius:8px; background:var(--brand-600); color:#fff; font-weight:600; display:inline-flex; align-items:center } .run .b.off { opacity:.45 } .run small { font-size:12px; color:var(--ink-800) }
+  .alert { border:1px solid var(--danger); background:var(--danger-bg); color:var(--danger-text); border-radius:8px; padding:12px 14px; font-size:13px } .alert b { display:block; margin-bottom:2px }
+  .built { max-width:1440px; margin:36px auto 56px; padding:0 16px } .built .card { max-width:1080px; padding:22px 26px }
+  .built h3 { font-size:16px } .built h4 { font:600 12px/1.3 Inter, sans-serif; margin:16px 0 6px; text-transform:uppercase; letter-spacing:.05em; color:var(--base-500) }
+  .built ul { margin:0; padding-left:18px } .built li { margin:4px 0 } .built code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--base-100); padding:2px 6px; border-radius:4px }
+  @media (max-width:640px) { .row { grid-template-columns:1fr } .grid2 { grid-template-columns:1fr } }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Deliverability tests — one Mailgun account for the platform, tests by plan, top-ups by workspace. Mockup, not the product.</strong> The platform team enters one Mailgun Inspect account in the back-office; every workspace runs its inbox previews through it, up to its plan's number each month (Starter 10, Growth 50, Enterprise unlimited). For a busy month the platform team adds tests to one workspace (“NWA: +70 for October”); added tests end with the month. A workspace may still connect its own Mailgun account instead. Parts 1 and 2 are the back-office (its own palette); part 3 is what a workspace sees in the app.</p>
+
+<!-- ============================================================ PART 1 -->
+<p class="part">1 · The platform's Mailgun account (back-office → Configuration → Mailgun Inspect)</p>
+<div class="label">Next to Configuration → Mail server, and built the same way<span>One account for the platform. The key is stored encrypted and never shown again; Check Connection proves it. The default clients are what a workspace's test renders in unless the workspace picks its own.</span></div>
+<div class="row">
+  <div><p class="case">Busy: connected, in use by six workspaces</p>
+    <div class="frame"><div class="cap">Back-office · Configuration · Mailgun Inspect</div><div class="main">
+      <div class="card">
+        <div class="head"><h2>Mailgun Inspect</h2><span class="pill ok">Connected · checked Oct 6, 09:12</span></div>
+        <div class="body">
+          <div class="grid2">
+            <div class="field"><label>Region</label><div class="ctl">US <span>▾</span></div></div>
+            <div class="field"><label>Account Username</label><div class="ctl">cep-platform</div></div>
+            <div class="field"><label>API Key</label><div class="ctl"><span class="ph">•••••••• saved — enter a new key to replace it</span></div><p class="help">From Mailgun → Inspect → Settings → API.</p></div>
+            <div class="field"><label>Default Clients</label><div class="ctl">12 clients: Gmail, Outlook 365, Apple Mail, iPhone 15 … <span>▾</span></div></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><span class="btn">Check Connection</span><span class="btn primary">Save</span></div>
+          <hr class="sep">
+          <p style="font-weight:600;color:var(--base-900);margin-bottom:8px">October through this account</p>
+          <div class="parts"><span><b>214</b> tests by <b>6</b> workspaces</span><span>Mailgun Basic includes 1,000 previews a month</span></div>
+          <table style="margin-top:10px">
+            <tr><th>Workspace</th><th>Plan</th><th class="num">Used</th><th class="num">Of</th></tr>
+            <tr><td>Northwind Apparel</td><td>Growth</td><td class="num">98</td><td class="num">120 <span class="pill grey">+70</span></td></tr>
+            <tr><td>Peak Pharmacy</td><td>Enterprise</td><td class="num">71</td><td class="num">Unlimited</td></tr>
+            <tr><td>Harbor Home</td><td>Growth</td><td class="num">31</td><td class="num">50</td></tr>
+            <tr><td style="color:var(--base-500)" colspan="4">… 3 more</td></tr>
+          </table>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div><p class="case">Simple: not set up yet</p>
+    <div class="frame"><div class="cap">Back-office · Configuration · Mailgun Inspect</div><div class="main">
+      <div class="card">
+        <div class="head"><h2>Mailgun Inspect</h2><span class="pill grey">Not set up</span></div>
+        <div class="body">
+          <div class="callout info">Until this is set up, only workspaces with their own Mailgun account can run inbox previews.</div>
+          <div class="grid2" style="margin-top:12px">
+            <div class="field"><label>Region</label><div class="ctl">US <span>▾</span></div></div>
+            <div class="field"><label>Account Username</label><div class="ctl"><span class="ph">From Mailgun → Inspect → Settings → API</span></div></div>
+            <div class="field"><label>API Key</label><div class="ctl"><span class="ph">Paste the key</span></div></div>
+            <div class="field"><label>Default Clients</label><div class="ctl"><span class="ph">Mailgun's default set</span><span>▾</span></div></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><span class="btn primary">Save</span></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============================================================ PART 2 -->
+<p class="part">2 · Adding tests for one workspace (back-office)</p>
+<div class="label">Option 1 — a “Deliverability Tests” card on the workspace's page<span>The plan's number, this month's use, and Add Tests with its history. No separate monthly number: a bigger regular need is a bigger plan.</span></div>
+<div class="row">
+  <div><p class="case">Busy: NWA with two additions this month</p>
+    <div class="frame"><div class="cap">Back-office · Tenants · Northwind Apparel (NWA)</div><div class="main">
+      <div class="card">
+        <div class="head"><h2>Deliverability Tests</h2><span class="pill info">October 2026 · platform account</span></div>
+        <div class="body">
+          <div class="meter">
+            <span class="big">98 <small>of 120 used this month</small></span>
+            <div class="bar"><i style="width:82%"></i></div>
+            <div class="parts"><span><b>50</b> from the Growth plan</span><span><b>+70</b> added for October</span><span><b>22</b> left · added tests end Oct 31</span></div>
+          </div>
+          <hr class="sep">
+          <p style="font-weight:600;color:var(--base-900);margin-bottom:8px">Add Tests This Month</p>
+          <div class="grid3"><div class="field"><label>Tests</label><div class="ctl">20</div></div><div class="field"><label>Note</label><div class="ctl"><span class="ph">e.g. Black Friday campaign checks</span></div></div><span class="btn primary">Add Tests</span></div>
+          <table style="margin-top:12px">
+            <tr><th>When</th><th class="num">Tests</th><th>Note</th><th>By</th><th></th></tr>
+            <tr><td>Oct 6, 09:40</td><td class="num">+50</td><td>Black Friday campaign checks</td><td>Aby John</td><td><span class="btn sm">Remove</span></td></tr>
+            <tr><td>Oct 2, 16:12</td><td class="num">+20</td><td>New template set review</td><td>Priya N.</td><td><span class="btn sm">Remove</span></td></tr>
+            <tr><td style="color:var(--base-500)">Sep 18</td><td class="num" style="color:var(--base-500)">+15</td><td style="color:var(--base-500)">Autumn launch</td><td style="color:var(--base-500)">Aby John</td><td><span class="pill grey">Ended</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div><p class="case">Simple: the plan's number only</p>
+    <div class="frame"><div class="cap">Back-office · Tenants · Lakeside Outfitters (LKO)</div><div class="main">
+      <div class="card">
+        <div class="head"><h2>Deliverability Tests</h2><span class="pill info">October 2026 · platform account</span></div>
+        <div class="body">
+          <div class="meter"><span class="big">4 <small>of 10 used this month</small></span><div class="bar"><i style="width:40%"></i></div><div class="parts"><span><b>10</b> from the Starter plan</span><span><b>6</b> left · resets Nov 1</span></div></div>
+          <hr class="sep">
+          <p style="font-weight:600;color:var(--base-900);margin-bottom:8px">Add Tests This Month</p>
+          <div class="grid3"><div class="field"><label>Tests</label><div class="ctl"><span class="ph">10</span></div></div><div class="field"><label>Note</label><div class="ctl"><span class="ph">e.g. Black Friday campaign checks</span></div></div><span class="btn primary">Add Tests</span></div>
+          <p class="help" style="margin-top:12px">No tests added yet. Added tests end with the month.</p>
+        </div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<div class="label">Option 2 — the same, from one list of every workspace<span>Part 1's table grows into Billing → Deliverability Tests: every workspace, near-limit ones flagged, Add Tests opens a small pop-up. Worth it when “who is near their limit” becomes a daily question.</span></div>
+<div class="row">
+  <div><p class="case">The list</p>
+    <div class="frame"><div class="cap">Back-office · Billing · Deliverability Tests · October 2026</div><div class="main">
+      <div class="card"><div class="body" style="padding:0">
+        <table>
+          <tr><th>Workspace</th><th>Plan</th><th>Account</th><th class="num">Plan</th><th class="num">Added</th><th class="num">Used</th><th>Left</th><th></th></tr>
+          <tr><td><b>Northwind Apparel</b></td><td>Growth</td><td>Platform</td><td class="num">50</td><td class="num">+70</td><td class="num">98</td><td><span class="pill ok">22</span></td><td><span class="btn sm">Add Tests</span></td></tr>
+          <tr><td><b>Harbor Home</b></td><td>Growth</td><td>Platform</td><td class="num">50</td><td class="num">—</td><td class="num">47</td><td><span class="pill warn">3</span></td><td><span class="btn sm">Add Tests</span></td></tr>
+          <tr><td><b>Lakeside Outfitters</b></td><td>Starter</td><td>Platform</td><td class="num">10</td><td class="num">—</td><td class="num">10</td><td><span class="pill bad">0</span></td><td><span class="btn sm">Add Tests</span></td></tr>
+          <tr><td><b>Peak Pharmacy</b></td><td>Enterprise</td><td>Their own</td><td class="num">Unlimited</td><td class="num">—</td><td class="num">71</td><td><span class="pill grey">—</span></td><td></td></tr>
+        </table>
+      </div></div>
+    </div></div>
+  </div>
+  <div><p class="case">The pop-up</p>
+    <div class="frame"><div class="cap">Add Tests — Lakeside Outfitters</div><div class="main">
+      <div class="modal">
+        <div class="head"><h2>Add Tests for October</h2></div>
+        <div class="body">
+          <p style="font-size:13px">Lakeside Outfitters has used <b>10 of 10</b> this month (Starter plan).</p>
+          <div class="field"><label>Tests to Add</label><div class="ctl">15</div></div>
+          <div class="field"><label>Note</label><div class="ctl">Holiday template refresh</div></div>
+          <div class="callout info">They can run 15 more tests until Oct 31. Added tests end with the month.</div>
+        </div>
+        <div class="foot"><span class="btn">Cancel</span><span class="btn primary">Add 15 Tests</span></div>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============================================================ PART 3 -->
+<p class="part">3 · What the workspace sees (Settings → Sending Engines → Deliverability Testing)</p>
+<div class="label">Provided by CEP, with the option of their own account<span>The workspace never sees the platform's key. It chooses its default clients and sees its allowance; Use Your Own Mailgun Account switches to today's form.</span></div>
+<div class="row">
+  <div><p class="case">Busy: on the platform's account, with additions</p>
+    <div class="app" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h3>Deliverability Testing</h3><p class="muted">Inbox previews through CEP's Mailgun Inspect account.</p></div><span class="pill ok">Provided by CEP</span></div>
+      <div class="usage" style="border:0;padding:0"><b>This Month</b><span class="v">98 of 120 tests</span><div class="track"><i style="width:82%"></i></div><span class="sub">50 a month on your Growth plan + 70 added for October. Added tests end on Oct 31.</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line-subtle);padding-top:12px"><span class="muted">Default clients: 12 (Gmail, Outlook 365, Apple Mail, iPhone 15 …)</span><span style="display:flex;gap:8px"><span class="btn sm">Edit Clients</span><span class="btn sm">Use Your Own Mailgun Account</span></span></div>
+    </div>
+  </div>
+  <div><p class="case">At the limit, and the template's tab</p>
+    <div class="app" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start"><div><h3>Deliverability</h3><p class="muted">How the saved design renders in real inbox clients.</p></div><div class="run"><span class="b off">Run Inbox Previews</span><small>120 of 120 tests used this month</small></div></div>
+      <div class="alert"><b>No inbox previews left this month</b>This workspace has used all 120 for October (50 on the Growth plan + 70 added). More become available on Nov 1, or ask your platform team to add tests for this month.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ WHAT GETS BUILT -->
+<div class="built"><div class="card">
+  <h3>What gets built, in words</h3>
+  <h4>The platform's account</h4>
+  <ul>
+    <li>The account table gains the platform's own row (tenant empty), as the mail server already does: back-office → Configuration → Mailgun Inspect (region, username, encrypted key, default clients, Check Connection), platform staff only.</li>
+    <li>A workspace's test uses its own account when it has one, otherwise the platform's. The workspace keeps its own choice of clients. Each test sent through the shared account carries the workspace's code in its Mailgun reference, so the platform team can tell them apart in Mailgun too.</li>
+  </ul>
+  <h4>The number of tests</h4>
+  <ul>
+    <li>This month's allowance = the plan's number + the workspace's additions for this month (unlimited stays unlimited). Additions end with the month. Table <code>tenant_quota_grant</code> (workspace, metric, month, tests, note, who, when, removed); every change in the workspace's audit trail.</li>
+    <li>The limit, Plan and Usage, the template tab and the message at the limit all read that one number.</li>
+  </ul>
+  <h4>One decision left</h4>
+  <p>A workspace on <b>its own</b> Mailgun account pays Mailgun itself. Should its tests still count against the plan? Recommended: <strong>no</strong> — the plan's number protects the platform's account; a workspace using its own is limited only by its Mailgun subscription (its count still shows on Plan and Usage).</p>
+  <h4>Recommendation</h4>
+  <p><strong>Part 1 as drawn, Option 1 for adding tests</strong> (on the workspace's page, where plan and features already are), and the workspace view in part 3. Option 2's list can follow on the same data.</p>
+</div></div>
+
+</body>
+</html>

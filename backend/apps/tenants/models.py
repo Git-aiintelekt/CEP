@@ -251,3 +251,23 @@ class PartitionRetentionPolicy(models.Model):
 
     def __str__(self):
         return str(self.table_name)
+
+
+class TenantQuotaGrant(models.Model):
+    """Units the platform team added to one tenant for one month, on top of its plan (deliverability tests); they end with
+    the month. Removing one keeps the row (removed_at). Patch 0039."""
+    id = models.BigAutoField(primary_key=True)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    metric = models.CharField(max_length=40, default='DELIVERABILITY_TESTS')
+    period_month = models.DateField()
+    amount = models.IntegerField()
+    note = models.CharField(max_length=300, null=True, blank=True)
+    granted_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='granted_by', related_name='+', null=True, blank=True)
+    granted_at = models.DateTimeField(db_default=Now())
+    removed_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='removed_by', related_name='+', null=True, blank=True)
+    removed_at = models.DateTimeField(null=True, blank=True)
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'tenant_quota_grant'

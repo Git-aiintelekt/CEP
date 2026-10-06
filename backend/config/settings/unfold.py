@@ -20,6 +20,7 @@ def _versioned(path: str):
     return lambda request: f"{static(path)}?v={digest}"
 
 
+INSPECT = reverse_lazy("admin:platform_ops_inspect")       # the platform's Mailgun Inspect account, under the mail server admin's address
 USAGE = reverse_lazy("admin:platform_ops_usage")          # lives under the invoice admin's address
 GUIDE = reverse_lazy("admin:platform_ops_guide")          # the Platform Guide, under the global parameters admin's address
 PERFORMANCE = reverse_lazy("admin:tenants_tenant_performance")   # under the tenant admin's address
@@ -98,6 +99,7 @@ UNFOLD = {
             {"title": "Configuration", "separator": True, "items": [
                 _link("Global parameters", "tune", "platform_ops_platformsetting"),
                 _link("Mail server", "outgoing_mail", "platform_ops_mailserver"),
+                {"title": "Mailgun Inspect", "icon": "inbox", "link": INSPECT, "active": _under(INSPECT)},
                 _link("Industry profiles", "category", "platform_ops_industryprofile"),
                 _link("Personalization tags", "sell", "platform_ops_platformpersonalizationtag"),
                 _link("Permission catalogue", "key", "identity_permission"),

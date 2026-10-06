@@ -369,6 +369,8 @@ export const usage: Usage = {
     { label: 'Contacts', used: 120_000, limit: 2_000_000, percent: 6, state: 'ok', unit: '', overage: true, overage_price_per_1k: 4 },
     { label: 'Active users', used: 2, limit: 50, percent: 4, state: 'ok', unit: '', overage: false, overage_price_per_1k: null },
     { label: 'Storage', used: 1.5, limit: null, percent: null, state: 'ok', unit: 'GB', overage: false, overage_price_per_1k: null },
+    { label: 'Deliverability tests', used: 98, limit: 120, percent: 82, state: 'ok', unit: '', overage: false, overage_price_per_1k: null,
+      note: '50 a month on the Growth plan + 70 added for September. Added tests end on Sep 30.' },
   ],
 }
 export const invoices: Invoice[] = [
@@ -531,6 +533,8 @@ interface MockOptions {
   deliverabilityTests?: DeliverabilityTest[]
   /** the plan's monthly allowance; null = unlimited */
   deliverabilityLimit?: number | null
+  /** the platform's Mailgun Inspect account is set up (back-office), so a workspace without its own uses it; default: false */
+  platformInspect?: boolean
   campaign?: Campaign
   /** the workspace's campaigns (GET /campaigns/); default: the one campaign above */
   campaigns?: Campaign[]
@@ -656,10 +660,18 @@ export function installMockApi(options: MockOptions = {}) {
   let deliverabilityServiceNow: DeliverabilityService = { configured: false, provider: 'MAILGUN_INSPECT', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
                                                            is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, ...options.deliverabilityService }
   if (options.deliverabilityService?.has_api_key) deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: true, is_active: true }
+  const platformInspect = Boolean(options.platformInspect)
+  const withUse = (service: DeliverabilityService): DeliverabilityService =>
+    ({ ...service, platform_available: platformInspect, uses: service.configured ? 'OWN' : platformInspect ? 'PLATFORM' : null })
+  deliverabilityServiceNow = withUse(deliverabilityServiceNow)
   const deliverabilityTests: DeliverabilityTest[] = [...(options.deliverabilityTests ?? [])]
   const deliverabilityAllowance = () => {
-    const limit = options.deliverabilityLimit === undefined ? 20 : options.deliverabilityLimit
-    return { enabled: true, used: deliverabilityTests.length, limit, left: limit === null ? null : Math.max(0, limit - deliverabilityTests.length), month: '2026-10-01', plan: 'Growth', configured: deliverabilityServiceNow.configured }
+    const account = deliverabilityServiceNow.uses ?? null
+    const planLimit = options.deliverabilityLimit === undefined ? 20 : options.deliverabilityLimit
+    const limit = account === 'OWN' ? null : planLimit
+    const note = account === 'OWN' ? 'Through your own Mailgun account: CEP does not limit them.' : planLimit === null ? 'Unlimited on the Growth plan.' : `${planLimit} a month on the Growth plan.`
+    return { enabled: true, used: deliverabilityTests.length, limit, left: limit === null ? null : Math.max(0, limit - deliverabilityTests.length), month: '2026-10-01', plan: 'Growth',
+             configured: account !== null, plan_limit: planLimit, added: 0, account, note }
   }
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -807,18 +819,23 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/deliverability/service/')) {
       if (method === 'PUT') {
         const input = (body ?? {}) as Record<string, unknown>
+        const credentials = Boolean(input.username || input.api_key || deliverabilityServiceNow.has_api_key)
+        if (!credentials && platformInspect) {
+          deliverabilityServiceNow = { ...deliverabilityServiceNow, default_clients: (input.default_clients as string[]) ?? [], image_blocking: Boolean(input.image_blocking) }
+          return json(deliverabilityServiceNow)
+        }
         if (!deliverabilityServiceNow.has_api_key && !input.api_key) return json({ type: 'about:blank', title: 'Validation', status: 400, errors: { api_key: ['Enter the Mailgun Inspect API key.'] } }, 400)
-        deliverabilityServiceNow = { ...deliverabilityServiceNow, region: (input.region as 'US' | 'EU') ?? 'US', username: String(input.username ?? ''), default_clients: (input.default_clients as string[]) ?? [],
-                                     image_blocking: Boolean(input.image_blocking), is_active: input.is_active !== false, has_api_key: true, configured: true }
+        deliverabilityServiceNow = withUse({ ...deliverabilityServiceNow, region: (input.region as 'US' | 'EU') ?? 'US', username: String(input.username ?? ''), default_clients: (input.default_clients as string[]) ?? [],
+                                     image_blocking: Boolean(input.image_blocking), is_active: input.is_active !== false, has_api_key: true, configured: true })
         return json(deliverabilityServiceNow)
       }
       if (method === 'DELETE') {
-        deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: false, has_api_key: false, is_active: false, username: '', default_clients: [] }
+        deliverabilityServiceNow = withUse({ ...deliverabilityServiceNow, configured: false, has_api_key: false, is_active: false, username: '', default_clients: [] })
         return json(null, 204)
       }
       return json(deliverabilityServiceNow)
     }
-    if (path.endsWith('/deliverability/clients/')) return json(deliverabilityServiceNow.has_api_key ? { clients: inspectClients, detail: null } : { clients: [], detail: 'No inbox-preview account is set up.' })
+    if (path.endsWith('/deliverability/clients/')) return json(deliverabilityServiceNow.uses ? { clients: inspectClients, detail: null } : { clients: [], detail: 'No inbox-preview account is set up.' })
     if (path.endsWith('/deliverability/allowance/')) return json(deliverabilityAllowance())
     if (path.includes('/templates/') && path.endsWith('/deliverability-tests/')) {
       if (method === 'POST') {

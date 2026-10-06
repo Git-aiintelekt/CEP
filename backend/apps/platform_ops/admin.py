@@ -500,6 +500,10 @@ class MailServerAdmin(BaseAdmin):
             form.base_fields.pop("password", None)
         return form
 
+    def get_urls(self):
+        from .admin_deliverability import inspect_urls
+        return [*inspect_urls(self.admin_site), *super().get_urls()]
+
     @display(description="Owner")
     def owner(self, obj):
         return obj.tenant.code if obj.tenant_id else "Platform"

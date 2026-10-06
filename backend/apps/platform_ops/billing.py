@@ -105,9 +105,30 @@ def _meter(label, used, limit, overage_price, unit=""):
             "overage": overage_price is not None, "overage_price_per_1k": float(overage_price) if overage_price is not None else None}
 
 
-def tests_this_month(tenant_id) -> int:
-    """Counted live (not from the hourly rollup), because the allowance is checked before every test."""
+def tests_this_month(tenant_id, account: str | None = None) -> int:
+    """Counted live (not from the hourly rollup), because the allowance is checked before every test. account PLATFORM: only
+    the tests run through the platform's Mailgun account, the ones the plan limits."""
+    if account:
+        return _rows("SELECT count(*) FROM deliverability_test WHERE tenant_id = %s AND requested_at >= %s AND account = %s",
+                     [str(tenant_id), month_start(), account])[0][0]
     return _rows("SELECT count(*) FROM deliverability_test WHERE tenant_id = %s AND requested_at >= %s", [str(tenant_id), month_start()])[0][0]
+
+
+def added_tests(tenant_id, month: date | None = None) -> int:
+    """Deliverability tests the platform team added to the workspace for the month (tenant_quota_grant); they end with it."""
+    return int(_rows("""SELECT COALESCE(sum(amount), 0) FROM tenant_quota_grant
+                         WHERE tenant_id = %s AND metric = 'DELIVERABILITY_TESTS' AND period_month = %s AND removed_at IS NULL""",
+                     [str(tenant_id), month_start(month)])[0][0])
+
+
+def _tests_meter(tenant_id) -> dict:
+    """Deliverability tests: the platform's account counts against the plan + the month's added tests; a workspace on its own
+    account shows its count without a limit. The note says where the number comes from."""
+    from apps.delivery import deliverability
+    state = deliverability.allowance(tenant_id)
+    meter = _meter("Deliverability tests this month", state["used"], state["limit"], None)
+    meter["note"] = state["note"]
+    return meter
 
 
 def quota(tenant_id) -> dict:
@@ -123,7 +144,7 @@ def quota(tenant_id) -> dict:
         _meter("Contacts", used.get("CONTACTS", 0), limits.get("max_contacts"), limits.get("overage_contacts")),
         _meter("Active users", users, limits.get("max_users"), None),
         _meter("Storage", storage_gb, limits.get("max_storage_gb"), None, "GB"),
-        _meter("Deliverability tests this month", tests_this_month(tenant_id), limits.get("max_deliverability_tests"), None),
+        _tests_meter(tenant_id),
     ]
     return {"month": month_start().isoformat(),
             "plan": {"code": plan["code"], "name": plan["name"], "monthly_price": float(plan["monthly_price"] or 0), "currency": plan["currency"],

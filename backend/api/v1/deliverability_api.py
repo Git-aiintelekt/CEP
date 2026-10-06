@@ -47,7 +47,7 @@ class ServiceView(APIView):
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
-        return Response(deliverability.service_payload(deliverability.service_for(_tenant_id())))
+        return Response(deliverability.service_payload(deliverability.service_for(_tenant_id()), _tenant_id()))
 
     @extend_schema(request=ServiceSerializer, responses={200: None})
     def put(self, request, version=None):
@@ -55,7 +55,9 @@ class ServiceView(APIView):
         form.is_valid(raise_exception=True)
         data = form.validated_data
         service = deliverability.service_for(_tenant_id()) or DeliverabilityService(tenant_id=_tenant_id(), provider=PROVIDER_TYPE, created_by_id=request.user.pk)
-        if not service.api_key_enc and not data.get("api_key"):
+        # only the clients (no username, no key): the workspace keeps using the platform's account with its own choice of clients
+        credentials = bool(data.get("username") or data.get("api_key") or service.api_key_enc)
+        if credentials and not service.api_key_enc and not data.get("api_key"):
             raise ValidationError({"api_key": ["Enter the Mailgun Inspect API key."]})
         service.region = data["region"]
         service.username = data.get("username") or None
@@ -67,7 +69,7 @@ class ServiceView(APIView):
             service.api_key_enc = crypto.encrypt(data["api_key"])
             service.last_checked_at, service.last_check_ok, service.last_check_error = None, None, None
         service.save()
-        return Response(deliverability.service_payload(service))
+        return Response(deliverability.service_payload(service, _tenant_id()))
 
     @extend_schema(responses={204: None})
     def delete(self, request, version=None):
@@ -101,20 +103,21 @@ class ClientsView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
         tenant_id = _tenant_id()
-        service = deliverability.service_for(tenant_id)
-        if service is None or not service.api_key_enc:
-            return Response({"clients": [], "detail": "No inbox-preview account is set up."})
-        cached = cache.get(_clients_key(tenant_id))
+        service, account = deliverability.account_for(tenant_id)
+        if service is None:
+            return Response({"clients": [], "detail": "No inbox-preview account is available."})
+        key = _clients_key("platform" if account == deliverability.PLATFORM else tenant_id)
+        cached = cache.get(key)
         if cached is not None and not request.query_params.get("refresh"):
             return Response({"clients": cached, "detail": None})
-        client = deliverability.client_for(service)
+        client = deliverability.client_for(service, tenant_id)
         try:
             rows = client.clients()
         except ProviderError as exc:
             return Response({"clients": [], "detail": str(exc)})
         finally:
             client.close()
-        cache.set(_clients_key(tenant_id), rows, 24 * 3600)
+        cache.set(key, rows, 24 * 3600)
         return Response({"clients": rows, "detail": None})
 
 

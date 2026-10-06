@@ -1544,5 +1544,51 @@ ALTER TABLE journey DROP CONSTRAINT IF EXISTS ck_journey_status;
 ALTER TABLE journey ADD CONSTRAINT ck_journey_status CHECK (status IN ('DRAFT', 'TEST', 'APPROVED', 'ACTIVE', 'PAUSED', 'ARCHIVED'));
 
 -- =====================================================================================
+-- 24. DELIVERABILITY TESTS: THE PLATFORM'S MAILGUN INSPECT ACCOUNT, TESTS BY PLAN, ADDED TESTS (patch 0039)
+--     The platform's own account is the deliverability_service row without a tenant (back-office -> Configuration ->
+--     Mailgun Inspect), like mail_server's platform row. A workspace without an account of its own runs its tests through
+--     it, up to its plan's number plus the tests added for the month (tenant_quota_grant); a test remembers which account
+--     ran it (deliverability_test.account) so its results are read from the same one and only the platform's count.
+-- =====================================================================================
+ALTER TABLE deliverability_service ALTER COLUMN tenant_id DROP NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_deliverability_service_platform ON deliverability_service((tenant_id IS NULL)) WHERE tenant_id IS NULL;
+COMMENT ON TABLE deliverability_service IS 'Accounts with an inbox-preview service (Mailgun Inspect): one per tenant that brings its own, plus the platform''s (tenant_id NULL) that the others use';
+
+ALTER TABLE deliverability_test ADD COLUMN IF NOT EXISTS account VARCHAR(10) NOT NULL DEFAULT 'OWN';
+ALTER TABLE deliverability_test DROP CONSTRAINT IF EXISTS ck_deliverability_test_account;
+ALTER TABLE deliverability_test ADD CONSTRAINT ck_deliverability_test_account CHECK (account IN ('OWN', 'PLATFORM'));
+COMMENT ON COLUMN deliverability_test.account IS 'Whose Mailgun account ran the test: OWN (the workspace''s) or PLATFORM (counted against the plan)';
+-- the touch trigger (fn_touch_row) stamps updated_by, which this table never had: every update of a test (its progress, its results)
+-- failed with "record new has no field updated_by", so a started test could never show its previews
+ALTER TABLE deliverability_test ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES app_user(id);
+
+CREATE TABLE IF NOT EXISTS tenant_quota_grant (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    metric              VARCHAR(40) NOT NULL DEFAULT 'DELIVERABILITY_TESTS',
+    period_month        DATE NOT NULL,                                      -- the month the added units count in; they end with it
+    amount              INTEGER NOT NULL,
+    note                VARCHAR(300),
+    granted_by          UUID REFERENCES app_user(id),
+    granted_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    removed_by          UUID REFERENCES app_user(id),
+    removed_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_tenant_quota_grant_metric CHECK (metric IN ('DELIVERABILITY_TESTS')),
+    CONSTRAINT ck_tenant_quota_grant_amount CHECK (amount BETWEEN 1 AND 100000),
+    CONSTRAINT ck_tenant_quota_grant_month CHECK (period_month = date_trunc('month', period_month)::date)
+);
+COMMENT ON TABLE tenant_quota_grant IS 'Units the platform team added to one tenant for one month (deliverability tests), on top of its plan; they end with the month';
+CREATE INDEX IF NOT EXISTS ix_tenant_quota_grant_month ON tenant_quota_grant(tenant_id, metric, period_month) WHERE removed_at IS NULL;
+ALTER TABLE tenant_quota_grant ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_quota_grant FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_tenant_quota_grant_tenant ON tenant_quota_grant;
+CREATE POLICY rls_tenant_quota_grant_tenant ON tenant_quota_grant
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT ON tenant_quota_grant TO cep_app;
+GRANT ALL ON tenant_quota_grant TO cep_admin;
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

@@ -747,7 +747,7 @@ This chapter is the long form. The Templates and Content chapter covers the libr
 | | |
 |---|---|
 | Permission | `template.edit` to edit, save and activate. Without it a template opens read-only: the canvas can be browsed and the Preview used, nothing can be changed. |
-| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account under Settings. |
+| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: CEP's, or your own under Settings. |
 
 ## The workspace, piece by piece
 
@@ -803,7 +803,7 @@ Settings every block shares, in Layout: **Margin** (space outside the block), **
 
 ## Deliverability mode
 
-Run Inbox Previews renders the last saved version in real email clients through the workspace's Mailgun Inspect account, chosen under Settings → Sending → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Tests count against the plan's monthly allowance, which Settings → Plan & Usage shows. Unsaved changes are not in a test: save first.
+Run Inbox Previews renders the last saved version in real email clients through CEP's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through CEP's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
 
 ## Saving, versions and activating
 
@@ -1045,11 +1045,14 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Set Up Mailgun Inspect | Region (US or EU), the Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | The designer's Deliverability tab can run inbox previews. |
-| Edit | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| Provided by CEP | Shown when your tests run through CEP's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | |
+| Edit Clients | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
+| Use Your Own Mailgun Account / Set Up Mailgun Inspect | Region (US or EU), your Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | Your tests run through your own account, and CEP does not limit them. |
+| Edit | Your own account's settings and its default clients. | |
+| Stop Using My Own Account | Removes your account; past results stay. | Tests go back to CEP's account, within your plan. Shown as Remove when CEP's account is not available. |
 | The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
 
-Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Tests count against the plan's monthly allowance, shown under Plan & Usage.
+Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Through CEP's account, tests count against your plan's monthly number plus the tests added for the month (added tests end with the month); through your own, they are counted under Plan & Usage for information only.
 
 ## How to
 
@@ -1369,7 +1372,7 @@ What the workspace's plan allows and how much of it this month has used: message
 | Contacts | People in the workspace against the limit. | |
 | Active users | Against the plan's limit; Users refuses a new one past it. | |
 | Storage | Media and files, in GB. | |
-| Deliverability tests this month | Inbox previews run against the allowance. | A spent allowance refuses the next test until next month. |
+| Deliverability tests this month | Inbox previews run against the total, with where it comes from under the meter: the plan's number plus any tests the platform team added for the month. Through your own Mailgun account, not limited. | A spent total refuses the next test until next month, or until the platform team adds tests. |
 | Messages by Channel | Email, SMS, MMS this month. | |
 | Invoices | Number, period, plan, amounts, status, issued and due dates. An invoice appears shortly after the end of each month. | |
 

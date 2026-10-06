@@ -125,15 +125,28 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
 
 function blockerFor({ allowance, savedVersion, readOnly }: { allowance: DeliverabilityAllowance; savedVersion: number; readOnly: boolean }) {
   if (!allowance.enabled) return { tone: 'warning' as const, text: 'Deliverability tests are not included in this workspace’s plan.', link: null }
-  if (!allowance.configured) return { tone: 'info' as const, text: 'No inbox-preview account is set up yet.', link: { to: '/settings/delivery', label: 'Add the Mailgun Inspect account in Settings → Delivery.' } }
+  if (!allowance.configured) return { tone: 'info' as const, text: 'No inbox-preview account is available. Ask your platform team, or', link: { to: '/settings/delivery', label: 'add your own Mailgun Inspect account under Sending Engines.' } }
   if (readOnly) return { tone: 'info' as const, text: 'This template is read-only here; tests run from the template’s editor.', link: null }
   if (savedVersion === 0) return { tone: 'info' as const, text: 'Save the design once before testing: a test renders the saved version.', link: null }
-  if (allowance.left === 0) return { tone: 'warning' as const, text: `This workspace has used its ${formatNumber(allowance.limit)} tests for the month. Testing resumes next month, or ask for a plan upgrade.`, link: null }
+  if (allowance.left === 0) return { tone: 'warning' as const, text: limitText(allowance), link: null }
   return null
 }
 
+/** "No inbox previews left this month: all 120 for October are used (50 on the Growth plan + 70 added). More become available on Nov 1, …" */
+function limitText(allowance: DeliverabilityAllowance): string {
+  const [year, month] = allowance.month.split('-').map(Number)
+  const name = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' })
+  const next = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const source = allowance.added && allowance.plan_limit !== null && allowance.plan_limit !== undefined
+    ? ` (${formatNumber(allowance.plan_limit)} on the ${allowance.plan ?? 'current'} plan + ${formatNumber(allowance.added)} added)` : ''
+  return `No inbox previews left this month: all ${formatNumber(allowance.limit)} for ${name} are used${source}. More become available on ${next}, or ask your platform team to add tests for this month.`
+}
+
 function AllowanceLine({ allowance }: { allowance: DeliverabilityAllowance }) {
-  if (allowance.limit === null) return <p className="cep-num text-xs text-ink-800">{formatNumber(allowance.used)} tests this month · no limit</p>
+  if (allowance.limit === null) {
+    const why = allowance.account === 'OWN' ? 'your own Mailgun account' : 'no limit'
+    return <p className="cep-num text-xs text-ink-800">{formatNumber(allowance.used)} tests this month · {why}</p>
+  }
   const spent = allowance.left === 0
   const near = !spent && allowance.left !== null && allowance.left <= Math.max(1, Math.ceil(allowance.limit * 0.1))
   return (
