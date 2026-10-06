@@ -177,3 +177,21 @@ test('editing a live version: the builder says so, and Save Draft saves the chan
   expect(calls.find((call) => call.method === 'POST' && call.url.endsWith('/journeys/j1/versions/'))?.body).toEqual({ from_version: 1 })
   expect(await screen.findByText('Saved as version 2')).toBeTruthy()
 })
+
+test('a Wait longer than 999 is refused in the step panel before it reaches the server', async () => {
+  installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Wait' }))
+  const panel = await screen.findByRole('dialog', { name: 'No duration set' })
+  const duration = within(panel).getByLabelText(/^Duration/)
+  await user.type(duration, '1000')
+  expect(within(panel).getByText('A whole number from 0 to 999.')).toBeTruthy()
+  expect((within(panel).getByRole('button', { name: 'Save Step' }) as HTMLButtonElement).disabled).toBe(true)
+  await user.clear(duration)
+  await user.type(duration, '30')
+  expect((within(panel).getByRole('button', { name: 'Save Step' }) as HTMLButtonElement).disabled).toBe(false)
+})

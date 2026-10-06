@@ -51,7 +51,7 @@ export function TestPopulationCard({ value, onChange }: TestPopulationCardProps)
                   controlSize="sm"
                   className="text-right tabular-nums"
                   value={value.sample_size ?? 50}
-                  onChange={(event) => onChange({ ...value, sample_size: Number(event.target.value) || 1 })}
+                  onChange={(event) => onChange({ ...value, sample_size: Math.min(200, Math.max(1, Math.round(Number(event.target.value)) || 1)) })}
                   aria-label="Sample Size"
                 />
               </span>

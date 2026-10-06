@@ -497,3 +497,6 @@ class JourneySerializer(TenantModelSerializer):
         model = Journey
         fields = "__all__"
         read_only_fields = AUDIT_FIELDS + ("status", "current_version", "scheduled_activate_at")
+        # the TEXT columns have no length of their own: these are the ceilings the forms count against (GET /field-rules/)
+        extra_kwargs = {"description": {"max_length": 2000}, "goal_description": {"max_length": 500},
+                        "exit_criteria_description": {"max_length": 500}, "reentry_after_days": {"min_value": 1, "max_value": 3650}}
