@@ -6,6 +6,7 @@ import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 
 import { buttonDanger, buttonPrimary, Field, Select, TextInput } from '@/components/Form'
+import { useFieldRules } from '@/lib/fieldRules'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { api } from '@/lib/api'
@@ -37,6 +38,13 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: Edi
   const [config, setConfig] = useState<Record<string, unknown>>(node.config)
   const set = (patch: Record<string, unknown>) => setConfig((prev) => ({ ...prev, ...patch }))
   const isMessage = type === 'EMAIL' || type === 'SMS' || type === 'MMS'
+  const rule = useFieldRules('journey_step')
+  const outOfRange = (name: string, min: number, max: number) => rangeError(config[name], Number(rule(name)?.min_value ?? min), Number(rule(name)?.max_value ?? max)) !== undefined
+  const tooLong = (name: string, max: number) => String(config[name] ?? '').length > (rule(name)?.max ?? max)
+  const eventType = String(config.event_type ?? '')
+  const invalid = (type === 'WAIT' && outOfRange('duration', 0, 999))
+    || (type === 'CONDITION' && (outOfRange('days', 0, 365) || tooLong('event_type', 60) || tooLong('message_step', 100)
+                                 || (config.check === 'EVENT' && eventType !== '' && !/^[A-Z][A-Z0-9_]{1,59}$/.test(eventType))))
 
   const switchChannel = (channel: 'EMAIL' | 'SMS') => {
     if (channel === (type === 'EMAIL' ? 'EMAIL' : 'SMS')) return
@@ -59,7 +67,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: Edi
           <button type="button" onClick={onDelete} className={buttonDanger}>
             <Trash2 size={16} strokeWidth={1.5} aria-hidden /> Delete Step
           </button>
-          <button type="button" onClick={() => onSave({ type, config })} className={`${buttonPrimary} flex-1`}>Save Step</button>
+          <button type="button" disabled={invalid} onClick={() => onSave({ type, config })} className={`${buttonPrimary} flex-1`}>Save Step</button>
         </div>
       }
     >
@@ -86,11 +94,21 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: Edi
 
 type SetFn = (patch: Record<string, unknown>) => void
 
+/** a whole number within the published range, or an error in words; blank is left to the readiness check */
+function rangeError(value: unknown, min: number, max: number): string | undefined {
+  if (value === '' || value === undefined || value === null) return undefined
+  const number = Number(value)
+  return Number.isInteger(number) && number >= min && number <= max ? undefined : `A whole number from ${min.toLocaleString('en-US')} to ${max.toLocaleString('en-US')}.`
+}
+
 function WaitFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
+  const rule = useFieldRules('journey_step')
+  const min = Number(rule('duration')?.min_value ?? 0)
+  const max = Number(rule('duration')?.max_value ?? 999)
   return (
     <div className="space-y-4">
-      <Field label="Duration" required>
-        {(ids) => <TextInput {...ids} type="number" min={0} value={String(config.duration ?? '')} onChange={(event) => set({ duration: event.target.value === '' ? '' : Number(event.target.value) })} />}
+      <Field label="Duration" required error={rangeError(config.duration, min, max)}>
+        {(ids) => <TextInput {...ids} type="number" min={min} max={max} step={1} value={String(config.duration ?? '')} onChange={(event) => set({ duration: event.target.value === '' ? '' : Number(event.target.value) })} />}
       </Field>
       <Field label="Unit">
         {(ids) => (
@@ -104,6 +122,13 @@ function WaitFields({ config, set }: { config: Record<string, unknown>; set: Set
 }
 
 function ConditionFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
+  const rule = useFieldRules('journey_step')
+  const daysMin = Number(rule('days')?.min_value ?? 0)
+  const daysMax = Number(rule('days')?.max_value ?? 365)
+  const eventMax = rule('event_type')?.max ?? 60
+  const messageMax = rule('message_step')?.max ?? 100
+  const eventType = String(config.event_type ?? '')
+  const messageStep = String(config.message_step ?? '')
   const check = String(config.check ?? '')
   const segments = useQuery({ queryKey: ['audiences', 'options'], queryFn: ({ signal }) => api.get<Audience[]>('/contact-lists/audiences/', undefined, signal) })
   return (
@@ -116,17 +141,18 @@ function ConditionFields({ config, set }: { config: Record<string, unknown>; set
           </Select>
         )}
       </Field>
-      <Field label="Within How Many Days" hint="Leave blank to look back to when the customer entered.">
-        {(ids) => <TextInput {...ids} type="number" min={0} value={String(config.days ?? '')} onChange={(event) => set({ days: event.target.value === '' ? '' : Number(event.target.value) })} />}
+      <Field label="Within How Many Days" hint="Leave blank to look back to when the customer entered." error={rangeError(config.days, daysMin, daysMax)}>
+        {(ids) => <TextInput {...ids} type="number" min={daysMin} max={daysMax} step={1} value={String(config.days ?? '')} onChange={(event) => set({ days: event.target.value === '' ? '' : Number(event.target.value) })} />}
       </Field>
       {check === 'EVENT' && (
-        <Field label="Event Type" required>
-          {(ids) => <TextInput {...ids} value={String(config.event_type ?? '')} onChange={(event) => set({ event_type: event.target.value })} placeholder="e.g. CATEGORY_PURCHASE" />}
+        <Field label="Event Type" required hint="Capital letters, digits and underscores, as the event is sent." limit={{ used: eventType.length, max: eventMax }}
+          error={eventType && !/^[A-Z][A-Z0-9_]{1,59}$/.test(eventType) ? 'Start with a letter; use capital letters, digits and underscores.' : undefined}>
+          {(ids) => <TextInput {...ids} value={eventType} maxLength={eventMax} onChange={(event) => set({ event_type: event.target.value.toUpperCase().replace(/[\s-]+/g, '_') })} placeholder="e.g. CATEGORY_PURCHASE" />}
         </Field>
       )}
       {(check === 'OPENED' || check === 'CLICKED') && (
-        <Field label="Which Message" hint="Leave blank to count any email sent earlier in this journey.">
-          {(ids) => <TextInput {...ids} value={String(config.message_step ?? '')} onChange={(event) => set({ message_step: event.target.value })} placeholder="step key, optional" />}
+        <Field label="Which Message" hint="Leave blank to count any email sent earlier in this journey." limit={{ used: messageStep.length, max: messageMax }}>
+          {(ids) => <TextInput {...ids} value={messageStep} maxLength={messageMax} onChange={(event) => set({ message_step: event.target.value })} placeholder="step key, optional" />}
         </Field>
       )}
       {check === 'IN_SEGMENT' && (

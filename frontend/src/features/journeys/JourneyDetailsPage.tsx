@@ -11,7 +11,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/Button'
 import { DataTable, type Column } from '@/components/DataTable'
-import { TextArea, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { Counter, TextArea, buttonDanger, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { Notice } from '@/components/Notice'
 import { EmptyState, ErrorState, SkeletonLine, Spinner } from '@/components/States'
@@ -21,6 +21,8 @@ import { CardLink, DetailCard, Fact, FACTS_GRID, Metric } from '@/features/campa
 import { problemText } from '@/features/contact-lists/problem'
 import { PageHelp } from '@/help/HelpPanel'
 import { api } from '@/lib/api'
+import { useFieldRules } from '@/lib/fieldRules'
+import { failureText } from '@/lib/saveFeedback'
 import { formatDate, formatDateTime, formatNumber, formatPercent, titleize } from '@/lib/format'
 import type {
   Journey, JourneyAudience, JourneyEntryRule, JourneyGeneratedCampaignRow, JourneyMetrics, JourneyTrendWeek,
@@ -46,29 +48,41 @@ function MetricCard({ label, value, sub }: { label: string; value: number | stri
 
 /** Click to edit Goal / Exit criteria inline. Full editing is the Setup modal's job (6e, not built yet) — this is
  * the "simple inline edit" fallback called for when that gap was flagged. */
-function EditableFact({ label, value, placeholder, onSave, editable }: { label: string; value: string | null; placeholder: string; onSave: (value: string) => Promise<unknown>; editable: boolean }) {
+function EditableFact({ label, value, placeholder, onSave, editable, max }: {
+  label: string; value: string | null; placeholder: string; onSave: (value: string) => Promise<unknown>; editable: boolean; max: number
+}) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const inputId = `fact-${label.toLowerCase().replace(/\W+/g, '-')}`
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await onSave(draft)
+      setEditing(false)
+    } catch (problem) {
+      // beside the text being edited, in CEP's words (lib/saveFeedback): the field's own message, or why it failed and what to do
+      setError(failureText(problem, `The ${label.toLowerCase()} was not saved`))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   if (editing) {
     return (
       <div>
-        <dt className="text-helper font-semibold text-ink-800">{label}</dt>
-        <TextArea value={draft} onChange={(event) => setDraft(event.target.value)} rows={2} className="mt-1 w-full" autoFocus />
+        <dt className="flex items-baseline justify-between gap-2 text-helper font-semibold text-ink-800">
+          <label htmlFor={inputId}>{label}</label>
+          <Counter used={draft.length} max={max} />
+        </dt>
+        <TextArea id={inputId} value={draft} maxLength={max} invalid={error !== null} onChange={(event) => setDraft(event.target.value)} rows={2} className="mt-1 w-full" autoFocus />
+        {error && <p role="alert" className="mt-1 text-helper font-medium text-danger-text">{error}</p>}
         <div className="mt-1.5 flex gap-2">
-          <Button size="sm" variant="primary" loading={saving} onClick={async () => {
-            setSaving(true)
-            try {
-              await onSave(draft)
-              setEditing(false)
-            } catch {
-              // the draft stays open; the page says why it was not saved
-            } finally {
-              setSaving(false)
-            }
-          }}>Save</Button>
-          <Button size="sm" onClick={() => { setDraft(value ?? ''); setEditing(false) }}>Cancel</Button>
+          <Button size="sm" variant="primary" loading={saving} onClick={() => void save()}>Save</Button>
+          <Button size="sm" onClick={() => { setDraft(value ?? ''); setError(null); setEditing(false) }}>Cancel</Button>
         </div>
       </div>
     )
@@ -114,6 +128,7 @@ export function JourneyDetailsPage() {
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState<unknown>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
+  const rule = useFieldRules('journey')
 
   const journeyQuery = useQuery({ queryKey: ['journeys', 'detail', id], queryFn: ({ signal }) => api.get<Journey>(`/journeys/${id}/`, undefined, signal) })
   const versionsQuery = useQuery({
@@ -199,7 +214,6 @@ export function JourneyDetailsPage() {
       toast.success('goal_description' in body ? 'Goal saved' : 'Exit criteria saved')
       queryClient.setQueryData(['journeys', 'detail', id], updated)
     },
-    onError: (error, body) => toast.failure(error, 'goal_description' in body ? 'The goal was not saved' : 'The exit criteria were not saved'),
   })
 
   if (journeyQuery.isPending) return <p className="flex items-center gap-3 text-sm text-ink-800"><Spinner /> Loading journey</p>
@@ -295,9 +309,9 @@ export function JourneyDetailsPage() {
         <DetailCard title="Setup" tag={<Tag icon={Lock}>Edit in the Builder</Tag>}>
           <dl className={FACTS_GRID}>
             <Fact label="Trigger">{trigger ? entrySummary(trigger) : entryRulesQuery.isPending ? 'Loading…' : 'Not set'}</Fact>
-            <EditableFact label="Goal" value={journey.goal_description} placeholder="Not set" editable={editable}
+            <EditableFact label="Goal" value={journey.goal_description} placeholder="Not set" editable={editable} max={rule('goal_description')?.max ?? 500}
               onSave={(value) => saveField.mutateAsync({ goal_description: value })} />
-            <EditableFact label="Exit Criteria" value={journey.exit_criteria_description} placeholder="Not set" editable={editable}
+            <EditableFact label="Exit Criteria" value={journey.exit_criteria_description} placeholder="Not set" editable={editable} max={rule('exit_criteria_description')?.max ?? 500}
               onSave={(value) => saveField.mutateAsync({ exit_criteria_description: value })} />
             <Fact label="Re-Entry">
               {titleize(journey.reentry_policy)}

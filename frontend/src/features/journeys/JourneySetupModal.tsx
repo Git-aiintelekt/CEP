@@ -36,6 +36,7 @@ import { useToast } from '@/components/Toast'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { ChoiceCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { api, ApiError } from '@/lib/api'
+import { useFieldRules } from '@/lib/fieldRules'
 import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 import type { Audience, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
 
@@ -249,6 +250,11 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const [step, setStep] = useState<1 | 2>(1)
   const [name, setName] = useState(initial.name)
   const [description, setDescription] = useState(initial.description)
+  const rule = useFieldRules('journey')
+  const nameMax = rule('name')?.max ?? 200
+  const descriptionMax = rule('description')?.max ?? 2000
+  const daysMin = Number(rule('reentry_after_days')?.min_value ?? 1)
+  const daysMax = Number(rule('reentry_after_days')?.max_value ?? 3650)
   const [entryType, setEntryType] = useState<EntryType | ''>(isEntryType(initial.entryType) ? initial.entryType : '')
   const [triggerValue, setTriggerValue] = useState(initial.triggerValue)
   const [triggerLabel, setTriggerLabel] = useState<string | null>(initial.triggerLabel)
@@ -275,7 +281,8 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const timed = entryType === 'DATE_TIME' && triggerValue !== ''
   const step1Ready = name.trim() !== '' && entryType !== '' && triggerValue !== '' && (!segmentNeeded || segment !== null)
     && (!timed || dateTimeProblem(triggerValue, dateTime) === null)
-  const step2Ready = populationMode !== '' && (reentryPolicy !== 'AFTER_X_DAYS' || Number(reentryAfterDays) > 0)
+  const daysOk = Number.isInteger(Number(reentryAfterDays)) && Number(reentryAfterDays) >= daysMin && Number(reentryAfterDays) <= daysMax
+  const step2Ready = populationMode !== '' && (reentryPolicy !== 'AFTER_X_DAYS' || daysOk)
 
   /** The entry rule to save. An unchanged trigger keeps everything its rule already carried; only the segment comes
    * from the picker (a starter's "choose your segment" note is then done with). */
@@ -339,9 +346,15 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const problemErrors = create.error instanceof ApiError && create.error.status === 400 ? create.error.problem.errors : undefined
   const nameErrorRaw = problemErrors?.name
   const nameError = nameErrorRaw ? String(Array.isArray(nameErrorRaw) ? nameErrorRaw[0] : nameErrorRaw) : undefined
+  const fieldError = (field: string) => {
+    const raw = problemErrors?.[field]
+    return raw ? String(Array.isArray(raw) ? raw[0] : raw) : undefined
+  }
+  const descriptionError = fieldError('description')
+  const daysError = fieldError('reentry_after_days')
   const conflict = create.error instanceof ApiError && create.error.status === 409
-  // what the name field does not say, in CEP's words
-  const failure = create.error && !conflict ? saveFailure(create.error, edit ? 'The setup was not saved' : 'The journey was not created', ['name']) : null
+  // what the name, description and re-entry fields do not say themselves, in CEP's words
+  const failure = create.error && !conflict ? saveFailure(create.error, edit ? 'The setup was not saved' : 'The journey was not created', ['name', 'description', 'reentry_after_days']) : null
   const genericError = failure && !(failure.title === FIELDS_TITLE && failure.general.length === 0) ? failure : null
   const refused = create.error instanceof ApiError && create.error.status === 400
 
@@ -351,8 +364,8 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
 
   // a name clash is step 1's own field — surface it there, not behind step 2's buttons
   useEffect(() => {
-    if (nameError) setStep(1)
-  }, [nameError])
+    if (nameError || descriptionError) setStep(1)
+  }, [nameError, descriptionError])
 
   return (
     <SetupDialog
@@ -388,8 +401,8 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
     >
       {step === 1 && (
         <>
-          <Field label="Journey Name" required strong error={nameError}>
-            {(ids) => <TextInput {...ids} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Welcome Series — New Loyalty Members" data-autofocus />}
+          <Field label="Journey Name" required strong error={nameError} limit={{ used: name.length, max: nameMax }}>
+            {(ids) => <TextInput {...ids} value={name} maxLength={nameMax} onChange={(event) => setName(event.target.value)} placeholder="e.g. Welcome Series — New Loyalty Members" data-autofocus />}
           </Field>
 
           <ChoiceGroup label="What Qualifies a Customer to Enter This Journey?" required strong columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
@@ -418,8 +431,8 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
             </Field>
           )}
 
-          <Field label="Description (Optional)" strong hint="What this journey is for. Shown on its details page.">
-            {(ids) => <TextArea {...ids} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Greets new loyalty members and walks them through their first rewards" />}
+          <Field label="Description (Optional)" strong hint="What this journey is for. Shown on its details page." error={descriptionError} limit={{ used: description.length, max: descriptionMax }}>
+            {(ids) => <TextArea {...ids} rows={3} maxLength={descriptionMax} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="e.g. Greets new loyalty members and walks them through their first rewards" />}
           </Field>
         </>
       )}
@@ -442,9 +455,10 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
           </ChoiceGroup>
 
           {reentryPolicy === 'AFTER_X_DAYS' && (
-            <Field label="Days Before Re-Entry" required strong hint="Counted from the day the customer finished or exited.">
+            <Field label="Days Before Re-Entry" required strong error={daysError ?? (reentryAfterDays !== '' && !daysOk ? `A whole number from ${daysMin.toLocaleString('en-US')} to ${daysMax.toLocaleString('en-US')}.` : undefined)}
+              hint="Counted from the day the customer finished or exited.">
               {(ids) => (
-                <InputGroup {...ids} type="number" min={1} controlSize="md" className="w-40" placeholder="e.g. 90" suffix="days" aria-label="Cooldown Days" disabled={locked}
+                <InputGroup {...ids} type="number" min={daysMin} max={daysMax} step={1} controlSize="md" className="w-40" placeholder="e.g. 90" suffix="days" aria-label="Cooldown Days" disabled={locked}
                   value={reentryAfterDays} onChange={(event) => setReentryAfterDays(event.target.value)} />
               )}
             </Field>

@@ -192,3 +192,15 @@ test('a live journey’s scheduled new version: the date, a Scheduled tag, and C
   expect(screen.getByRole('link', { name: 'Test Publish Version 2' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Pause Journey' })).toBeTruthy()
 })
+
+test('Goal edits in place against its 500-character limit', async () => {
+  installMockApi({ journey: makeJourney({ id: 'j1', status: 'DRAFT', goal_description: null }), journeyVersions: [makeJourneyVersion()] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+
+  await user.click(await screen.findByRole('button', { name: 'Edit Goal' }))
+  const goal = screen.getByLabelText('Goal') as HTMLTextAreaElement
+  expect(goal.maxLength).toBe(500)
+  await user.type(goal, 'First purchase in 30 days')
+  expect(screen.getByLabelText('25 of 500 characters')).toBeTruthy()
+})

@@ -32,7 +32,7 @@ tables). Needs a login; cached privately for an hour. Shape:
 - Read-only fields and the primary key are left out.
 
 The resources are listed in `backend/api/v1/field_rules.py` (`RESOURCES`): campaign, template, personalization_tag,
-journey, contact_list, new_contact_list, sender_profile, delivery_provider, subscription_topic, store, user, role,
+journey, journey_step, contact_list, new_contact_list, sender_profile, delivery_provider, subscription_topic, store, user, role,
 api_client, mail_server, identity_provider. Add a serializer there to publish its rules.
 
 ## In the browser
@@ -63,10 +63,24 @@ const rule = useFieldRules('campaign')
 
 Forms with the counter today: campaign setup (name, code, description), the campaign's subject line and preheader,
 targets notes, approval notes, drip step labels, new template and template form (name), contact list name and copy name,
-Settings → Tags (key, label). Numbers, dates and choices show no counter; their rule is the type.
+Settings → Tags (key, label), and Journeys: the Set-Up pop-up (Journey Name 200, Description 2,000), the journey page's
+Goal and Exit Criteria (500 each), and the step panel's Event Type (60) and Which Message (100). Numbers, dates and choices
+show no counter; their rule is the type, and a number field takes its range from `min_value` / `max_value`: Days Before
+Re-Entry 1 to 3,650, a Wait's Duration 0 to 999, a Condition's Within How Many Days 0 to 365 (out of range: the field says
+so and the pop-up's or panel's button stays disabled).
+
+### Journeys
+
+`journey` is the journey's own serializer. Its TEXT columns have no length, so the serializer sets the ceilings
+(`extra_kwargs`): description 2,000, goal_description and exit_criteria_description 500, reentry_after_days 1 to 3,650.
+`journey_step` publishes the step settings the canvas edits (`apps.journeys.graph.STEP_LIMITS`): label 120, duration 0 to
+999, days 0 to 365, event_type 60 (capital letters, digits and underscores), message_step 100. The graph save
+(`graph.clean`) checks every step's settings against the same limits and answers 400 naming the step and the setting.
+Blank settings are left to the Test Publish readiness check.
 
 ## On the server
 
 DRF validates every request against the same serializers: an over-length value answers 400 with the field named in
 `errors`, the same shape the API client already maps onto the form (`ApiError.fieldErrors`). The scratch suite
-`test_field_rules.py` checks that a 201-character campaign name and a 41-character code are refused on their fields.
+`test_field_rules.py` checks that a 201-character campaign name and a 41-character code are refused on their fields;
+`test_journey_field_rules.py` does the same for every journey field and step setting, one over and exactly at each limit.
