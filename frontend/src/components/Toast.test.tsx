@@ -5,6 +5,8 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { ToastProvider, useToast } from './Toast'
 
 /** Buttons that fire toasts, so the tests drive the provider through the public hook. */
+const undo = vi.fn()
+
 function Harness() {
   const toast = useToast()
   const ids = useRef<string[]>([])
@@ -19,6 +21,12 @@ function Harness() {
       </button>
       <button type="button" onClick={() => ids.current.push(toast.error('Template could not be saved', 'Check the subject line'))}>
         fire error
+      </button>
+      <button type="button" onClick={() => toast.success('Template archived', undefined, { action: { label: 'Undo', onClick: undo } })}>
+        fire undo
+      </button>
+      <button type="button" onClick={() => toast.running('Campaign run started', '12,400 recipients · Email')}>
+        fire running
       </button>
       <button type="button" onClick={() => toast.dismiss(ids.current[0])}>
         dismiss first
@@ -112,18 +120,54 @@ test('the dismiss button closes the toast', () => {
   expect(screen.queryByText('Template saved')).toBeNull()
 })
 
-test('the navy bar carries the status in a dot, and the error tone fills the bar', () => {
+test('every tone sits on the dark toast surface and only the dot carries the status', () => {
   renderToasts()
   click('fire success')
   const success = screen.getByRole('status')
-  expect(success.className).toContain('bg-sidebar')
+  expect(success.className).toContain('bg-toast')
   expect(success.querySelector('.bg-success')).toBeTruthy()
   expect(success.className).toContain('animate-toast-in')
 
   click('fire error')
   const error = screen.getByRole('alert')
-  expect(error.className).toContain('bg-danger')
-  expect(error.querySelector('.bg-white')).toBeTruthy()
+  expect(error.className).toContain('bg-toast')
+  expect(error.className).not.toContain('bg-danger')
+  expect(error.querySelector('.bg-danger')).toBeTruthy()
+})
+
+test('a running toast shows the ring instead of a dot and stays until dismissed', () => {
+  renderToasts()
+  click('fire running')
+
+  const running = screen.getByRole('status')
+  expect(running.className).toContain('bg-toast')
+  expect(running.querySelector('[data-toast-ring]')).toBeTruthy()
+  expect(screen.getByText('12,400 recipients · Email')).toBeTruthy()
+
+  advance(60_000)
+  expect(screen.getByText('Campaign run started')).toBeTruthy()
+})
+
+test('an action runs once and dismisses the toast', () => {
+  undo.mockClear()
+  renderToasts()
+  click('fire undo')
+
+  click('Undo')
+  expect(undo).toHaveBeenCalledTimes(1)
+  exit()
+  expect(screen.queryByText('Template archived')).toBeNull()
+})
+
+test('a toast with an action stays up for 8s instead of 4.5s', () => {
+  renderToasts()
+  click('fire undo')
+
+  advance(7999)
+  expect(screen.getByText('Template archived')).toBeTruthy()
+  advance(1)
+  exit()
+  expect(screen.queryByText('Template archived')).toBeNull()
 })
 
 test('a fourth toast evicts the oldest', () => {

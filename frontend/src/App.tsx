@@ -59,6 +59,7 @@ const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/Desi
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/MessagePlayground')) : null
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ReceiptPlayground')) : null
 const DevFields = import.meta.env.DEV ? lazy(() => import('@/pages/DevFields')) : null
+const ToastPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ToastPlayground')) : null
 const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/HomePlayground')) : null
 const SettingsPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/SettingsPlayground')) : null
 const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CalendarPlayground')) : null
@@ -115,6 +116,9 @@ export default function App() {
             )}
             {DevFields && (
               <Route path="/dev/fields" element={<Suspense fallback={<FullPageSpinner label="Loading the fields" />}><DevFields /></Suspense>} />
+            )}
+            {ToastPlayground && (
+              <Route path="/dev/toasts" element={<Suspense fallback={<FullPageSpinner label="Loading the toasts" />}><ToastPlayground /></Suspense>} />
             )}
             {HomePlayground && (
               // inside the app shell, like the real Home; outside RequireAuth, so it works with no backend
