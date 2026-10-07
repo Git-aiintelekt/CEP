@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -44,10 +44,11 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   body.setSelectionRange(4, 4)
   await user.selectOptions(screen.getByLabelText('Insert Personalization Tag'), '{{offer_code}}')
   expect(body.value).toBe('Use {{offer_code}} today')
+  await waitFor(() => expect(body.selectionStart).toBe(18))                // the editor puts the caret after the tag on the next frame
 
   await new Promise((resolve) => requestAnimationFrame(resolve))                                          // the insert puts the caret back on the next frame
   await user.click(body)
-  body.setSelectionRange(body.value.length, body.value.length)
+  body.setSelectionRange(body.value.length, body.value.length)              // paste at the end, wherever the click left the caret
   await user.paste(' – it’s “yours”')
   expect(counter()).toContain('UCS-2')
   expect(screen.getByText(/outside the standard SMS alphabet/)).toBeTruthy()

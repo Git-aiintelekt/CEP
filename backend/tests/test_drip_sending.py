@@ -1,4 +1,4 @@
-"""Drip sending (patch 0041): each message's run sends its own template, subject, preheader, picture and A/B test, at its own
+"""Drip sending (patch 0042): each message's run sends its own template, subject, preheader, picture and A/B test, at its own
 time, to the people of the first message's Campaign List under the governance of its own moment. Postal is mocked at the
 HTTP layer, texts go through the sandbox engine; every change is rolled back (tests/conftest.py)."""
 import json

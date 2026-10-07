@@ -164,7 +164,7 @@ def test_old_stopped_rows_are_backfilled(world, check):
     second = _stop_half_way(world, cid)
     world.sql("UPDATE mailer_execution SET not_sent_reason = NULL WHERE tenant_id = %s AND campaign_run_id = %s", [world.tenant, str(second.pk)])
     world.sql("""UPDATE mailer_execution SET not_sent_reason = 'STOPPED_EARLY'
-                  WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.'""")    # patch 0043's backfill
+                  WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.'""")    # patch 0044's backfill
     rows = world.sql("SELECT DISTINCT not_sent_reason FROM mailer_execution WHERE tenant_id = %s AND campaign_run_id = %s", [world.tenant, str(second.pk)], True)
     check("rows written with the old text get the code", rows == [("STOPPED_EARLY",)], rows)
     check.done()

@@ -22,7 +22,7 @@ from apps.tenants import context
 
 VIEW = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.view")]
 PAGE_MAX = 200
-# NOT_SENT is a filter of its own: rows CEP chose not to send (not_sent_reason, patch 0043; their status stays FAILED, and FAILED leaves them out)
+# NOT_SENT is a filter of its own: rows CEP chose not to send (not_sent_reason, patch 0044; their status stays FAILED, and FAILED leaves them out)
 STATUSES = {"EMAIL": ("QUEUED", "SUBMITTED", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED", "NOT_SENT"),
             "SMS": ("QUEUED", "SUBMITTED", "DELIVERED", "RESPONDED", "OPTED_OUT", "FAILED", "NOT_SENT")}
 SHOWN_STATUS = "CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.status END"

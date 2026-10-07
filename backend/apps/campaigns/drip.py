@@ -1,4 +1,4 @@
-"""Drip steps (patch 0040): each message of a drip campaign is a CampaignDripStep with its own template copy.
+"""Drip steps (patch 0041): each message of a drip campaign is a CampaignDripStep with its own template copy.
 
     timetable     everyone starts together on the start date (campaign.scheduled_at); a step's day counts from it (0-365),
                   sent at its own send_time or the series time (drip_config.time).

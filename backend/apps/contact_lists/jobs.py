@@ -181,7 +181,7 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
     chunk = min(20_000, _setting("lists.import_chunk_rows", 5000))
     with session.tenant_scope(tenant_id):
         with session.tx():
-            record = ContactListImport.objects.select_related("contact_list").get(pk=import_id, tenant_id=tenant_id)
+            record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
 
         def beat(done_, total):
             """After every chunk: progress for the people watching, a heartbeat for the claim, and a look at whether it was cancelled."""
@@ -203,8 +203,10 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
                 # the operator may have confirmed the mapping while the file was being read: go straight on
                 finish(status="STAGED", next_action="REVIEW" if confirmed else None, queued_at=timezone.now(), attempts=0)
             elif action == "REVIEW":
+                # read again for the confirmed mapping, with its list and workspace: refresh_from_db() would drop them, and
+                # review() would then fetch them outside any transaction, where row-level security hides them
                 with session.tx():
-                    record.refresh_from_db()
+                    record = ContactListImport.objects.select_related("contact_list", "tenant").get(pk=import_id, tenant_id=tenant_id)
                 imports.review(record, chunk, beat)
                 finish(status="REVIEW", next_action=None)
             else:

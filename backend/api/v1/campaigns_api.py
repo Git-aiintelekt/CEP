@@ -8,7 +8,7 @@
     POST   /campaigns/{id}/test-publish/   {to: [addresses], user_ids: [internal users]}: a test Run, nothing counted; a drip tests every message, one after another
     POST   /campaigns/{id}/publish/        production publish: validates, creates the Run(s), schedules or starts the send
     POST   /campaigns/{id}/pause/  resume/  cancel-schedule/  clone/  archive/  unarchive/   (a drip that has sent can't be cancelled back to a draft)
-    POST   /campaigns/{id}/stop/           a drip: cancel every unsent message for good; it is COMPLETED, stopped early (patch 0042)
+    POST   /campaigns/{id}/stop/           a drip: cancel every unsent message for good; it is COMPLETED, stopped early (patch 0043)
     GET    /campaigns/{id}/resume-plan/    a paused drip: what Resume will do to the missed and later messages, without doing it
     POST   /campaigns/bulk/                {action: archive|clone|pause|resume, ids: [...]}
     GET    /campaigns/{id}/preview/        ?party_id= &step= : the content as that customer would get it; a drip previews one message (default the first)
@@ -25,7 +25,7 @@
     POST   /campaigns/{id}/runs/{run_id}/choose-winner/  {variant: A|B}   a person decides the subject-line test instead of the metric (patch 0023)
     POST   /campaigns/{id}/clone/          {scheduled_at?, name?}: a draft copy ("Copy of …" unless a name is given, checked like any name); a drip's messages
                                            come with new template copies, the start date only when given
-    GET    /campaigns/{id}/steps/          a drip's messages in day order, with when each goes out, what it still needs (patch 0040) and its run with results (0041)
+    GET    /campaigns/{id}/steps/          a drip's messages in day order, with when each goes out, what it still needs (patch 0041) and its run with results (0042)
     POST   /campaigns/{id}/steps/          {start_from: copy|template|blank, source_step?, template?, starter?, day?, name?, consume_source?}: a message with its
                                            own template copy; consume_source soft-deletes the source when it is your own unused Draft (a preset's throwaway copy)
     PATCH  /campaigns/{id}/steps/{step_id}/   {name, day, send_time, subject_line, preheader, ab_config, template (copied in), consume_source?, row_version}
@@ -37,7 +37,7 @@
     PATCH  /campaigns/{id}/                a drip with drip_config {time} only saves the series time; the messages are never reshaped
     GET    /campaign-runs/{id}/skipped/    ?reason= &q= &page= &page_size=: the people a run skipped, with reason and address (recipients_api)
 
-A campaign carries `paused {at, by_name}` while it is paused (patch 0043). Steps carry `text_excerpt` (SMS/MMS, first 140
+A campaign carries `paused {at, by_name}` while it is paused (patch 0044). Steps carry `text_excerpt` (SMS/MMS, first 140
 characters) and their run block `not_sent`, plus `replied`/`opted_out` for texts.
 """
 import csv
@@ -118,7 +118,7 @@ class CampaignSerializer(s.CampaignSerializer):
     drip_summary = serializers.SerializerMethodField(help_text="Drips only: {count, last_day, first_send_at, last_send_at, ready}; null for other campaigns.")
     drip_progress = serializers.SerializerMethodField(help_text="Drips only: {total, sent, failed, cancelled, next: {position, name, scheduled_at} | null}; null otherwise.")
     stopped_early = serializers.SerializerMethodField(help_text="A drip stopped early: {at, by_name, cancelled}; null otherwise.")
-    paused = serializers.SerializerMethodField(help_text="While paused: {at, by_name} (patch 0043); null otherwise.")
+    paused = serializers.SerializerMethodField(help_text="While paused: {at, by_name} (patch 0044); null otherwise.")
 
     class Meta(s.CampaignSerializer.Meta):
         read_only_fields = s.AUDIT_FIELDS + ("status", "is_journey_generated", "origin_journey", "legacy_marketing_campaign_id", "previous_status", "published_at",

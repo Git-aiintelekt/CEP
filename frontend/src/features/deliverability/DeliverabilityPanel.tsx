@@ -4,11 +4,12 @@
  * placement have their cards already; they fill in when those services are added.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eye, Inbox, ShieldCheck, Target } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Eye, Inbox, ShieldCheck, Target } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/Button'
+import { Select } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { Notice } from '@/components/Notice'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -57,7 +58,7 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
     mutationFn: backend.start,
     onSuccess: (test) => { setSelectedId(test.id); void queryClient.invalidateQueries({ queryKey: [...key, 'tests'] }) },
   })
-  const [zoom, setZoom] = useState<DeliverabilityPreview | null>(null)
+  const [zoomId, setZoomId] = useState<string | null>(null)
 
   if (!active && !list.data) return null
   if (list.isError) return <div className="p-6"><ErrorState error={list.error} onRetry={() => void list.refetch()} /></div>
@@ -67,6 +68,8 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
   const blocker = blockerFor({ allowance, savedVersion, readOnly })
   const current = detail.data ?? tests.find((t) => t.id === currentId) ?? null
   const startError = start.isError ? failureText(start.error, 'The test was not started') : null
+  const viewable = current ? viewableOf(current) : []
+  const zoomIndex = viewable.findIndex((preview) => preview.id === zoomId)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 p-6">
@@ -109,16 +112,12 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
           </nav>
 
           <section aria-label="Test result" className="min-h-0 overflow-auto">
-            {current === null ? null : <TestResult test={current} onZoom={setZoom} />}
+            {current === null ? null : <TestResult test={current} onZoom={(preview) => setZoomId(preview.id)} />}
           </section>
         </div>
       )}
 
-      {zoom && (
-        <Modal title={zoom.name} subtitle={[zoom.os, zoom.browser].filter(Boolean).join(' · ')} onClose={() => setZoom(null)} size="xl" scrollBody>
-          <img src={zoom.screenshot || zoom.full_thumbnail || zoom.thumbnail} alt={`${zoom.name} render`} className="mx-auto block max-w-full" />
-        </Modal>
-      )}
+      {zoomIndex >= 0 && <PreviewViewer previews={viewable} index={zoomIndex} onMove={(index) => setZoomId(viewable[index].id)} onClose={() => setZoomId(null)} />}
     </div>
   )
 }
@@ -156,11 +155,59 @@ function AllowanceLine({ allowance }: { allowance: DeliverabilityAllowance }) {
   )
 }
 
+/** the renders grouped by client kind, in the order the result shows them: webmail, desktop apps, phones and tablets */
+function groupsOf(previews: DeliverabilityPreview[]) {
+  return CATEGORY_ORDER.map((category) => ({ category, rows: previews.filter((p) => p.category === category) }))
+    .concat([{ category: 'Other', rows: previews.filter((p) => !CATEGORY_ORDER.includes(p.category)) }])
+    .filter((group) => group.rows.length > 0)
+}
+
+const imageOf = (preview: DeliverabilityPreview) => preview.screenshot || preview.full_thumbnail || preview.thumbnail
+
+/** the renders that can be opened full size, in the result's order: what Previous and Next step through */
+function viewableOf(test: DeliverabilityTest): DeliverabilityPreview[] {
+  return groupsOf(test.previews).flatMap((group) => group.rows).filter((preview) => preview.status === 'COMPLETE' && Boolean(imageOf(preview)))
+}
+
+/** One render full size, with Previous and Next (also the arrow keys) and a picker of every render, desktop and mobile. */
+function PreviewViewer({ previews, index, onMove, onClose }: { previews: DeliverabilityPreview[]; index: number; onMove: (index: number) => void; onClose: () => void }) {
+  const preview = previews[index]
+  const last = previews.length - 1
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.target instanceof HTMLSelectElement || event.altKey || event.ctrlKey || event.metaKey) return
+      if (event.key === 'ArrowLeft' && index > 0) { event.preventDefault(); onMove(index - 1) }
+      if (event.key === 'ArrowRight' && index < last) { event.preventDefault(); onMove(index + 1) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [index, last, onMove])
+
+  return (
+    <Modal title={preview.name} subtitle={[preview.os, preview.browser].filter(Boolean).join(' · ')} onClose={onClose} size="xl" scrollBody
+      toolbar={
+        <div className="flex flex-wrap items-center gap-2">
+          <IconButton label="Previous Render" icon={ChevronLeft} disabled={index === 0} onClick={() => onMove(index - 1)} />
+          <Select aria-label="Render" controlSize="sm" className="w-auto min-w-0 max-w-xs" value={preview.id}
+            onChange={(event) => onMove(previews.findIndex((p) => p.id === event.target.value))}>
+            {groupsOf(previews).map((group) => (
+              <optgroup key={group.category} label={CATEGORY_LABEL[group.category] ?? group.category}>
+                {group.rows.map((p) => <option key={p.id} value={p.id}>{[p.name, p.os].filter(Boolean).join(' · ')}</option>)}
+              </optgroup>
+            ))}
+          </Select>
+          <IconButton label="Next Render" icon={ChevronRight} disabled={index === last} onClick={() => onMove(index + 1)} />
+          <span className="cep-num ml-1 text-xs text-ink-800">{formatNumber(index + 1)} of {formatNumber(previews.length)} · use ← and → to move</span>
+        </div>
+      }>
+      <img src={imageOf(preview)} alt={`${preview.name} render`} className="mx-auto block max-w-full" />
+    </Modal>
+  )
+}
+
 function TestResult({ test, onZoom }: { test: DeliverabilityTest; onZoom: (preview: DeliverabilityPreview) => void }) {
   const running = test.status === 'PENDING' || test.status === 'PROCESSING'
-  const groups = CATEGORY_ORDER.map((category) => ({ category, rows: test.previews.filter((p) => p.category === category) }))
-    .concat([{ category: 'Other', rows: test.previews.filter((p) => !CATEGORY_ORDER.includes(p.category)) }])
-    .filter((group) => group.rows.length > 0)
+  const groups = groupsOf(test.previews)
   const done = test.summary.complete ?? 0
   const failed = test.summary.failed ?? 0
   const total = test.summary.clients ?? test.previews.length

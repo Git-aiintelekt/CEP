@@ -1,4 +1,4 @@
-"""What a run sends. A drip message's run (campaign_run.drip_step_id, patch 0041) sends its step's own template, subject,
+"""What a run sends. A drip message's run (campaign_run.drip_step_id, patch 0042) sends its step's own template, subject,
 preheader and A/B test; every other run sends the campaign's template, as it always has."""
 from apps.templates.models import RenderedTemplateContent
 

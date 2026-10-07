@@ -272,7 +272,7 @@ def stats_many(tenant_id, run_ids, kind: str) -> dict[str, dict]:
     ids = [str(run_id) for run_id in run_ids]
     by_status, members, parts = {run_id: {} for run_id in ids}, {run_id: {} for run_id in ids}, {run_id: 0 for run_id in ids}
     with session.connection().cursor() as cursor:
-        # a message CEP chose not to send (not_sent_reason, patch 0043) is NOT_SENT here, never FAILED
+        # a message CEP chose not to send (not_sent_reason, patch 0044) is NOT_SENT here, never FAILED
         cursor.execute(f"""SELECT campaign_run_id::text, CASE WHEN not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE status END, count(*) FROM {TABLE[kind]}
                             WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) GROUP BY 1, 2""", [str(tenant_id), ids])
         for run_id, status, count in cursor.fetchall():

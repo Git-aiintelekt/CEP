@@ -300,7 +300,7 @@ def create_runs(campaign) -> list[CampaignRun]:
                 continue
             when = None if step.day == 0 and start is None else drip.scheduled_for(campaign, step, anchor)
             plan.append((CampaignRun.RunType.DRIP_INSTANCE, when, f"Day {step.day}", step.pk))
-    elif campaign.send_type == "DRIP":                    # a drip without message rows (none since patch 0040): the series in drip_config
+    elif campaign.send_type == "DRIP":                    # a drip without message rows (none since patch 0041): the series in drip_config
         anchor = (start or timezone.now()).astimezone(zone)
         clock = (campaign.drip_config or {}).get("time")
         for step in sorted(campaign.drip_config["steps"], key=lambda item: int(item["day"])):
@@ -346,7 +346,7 @@ def _actor_id(user):
 
 
 def paused(campaign) -> dict | None:
-    """{at, by_name} while paused (patch 0043); None otherwise."""
+    """{at, by_name} while paused (patch 0044); None otherwise."""
     if campaign.status != S.PAUSED or campaign.paused_at is None:
         return None
     by = campaign.paused_by

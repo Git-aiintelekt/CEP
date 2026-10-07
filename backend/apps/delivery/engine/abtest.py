@@ -1,4 +1,4 @@
-"""A/B subject lines (campaign.ab_config, patch 0023; a drip message's own step.ab_config, patch 0041). Email only: texts have no subject.
+"""A/B subject lines (campaign.ab_config, patch 0023; a drip message's own step.ab_config, patch 0042). Email only: texts have no subject.
 
 At the send, a sample of the audience is split in two: half gets subject A (the campaign's own, else the template's), half subject B. The rest is
 queued as HOLD and the engine leaves it alone. When campaign_run.ab_decide_at comes, decide() compares the two by the

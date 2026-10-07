@@ -1,4 +1,4 @@
-"""Drip steps (patch 0040): each message of a drip has its own row and its own template copy, managed under
+"""Drip steps (patch 0041): each message of a drip has its own row and its own template copy, managed under
 /campaigns/{id}/steps/, mirrored into drip_config and campaign.template_id so publish and the send engine work as before.
 Every change is rolled back (tests/conftest.py)."""
 import json
@@ -89,7 +89,7 @@ def test_drip_steps(check, admin_email):
     # ------------------------------------------------------------ an existing drip: backfilled, publishes as before
     old = api("post", "/api/v1/campaigns/", {"name": "ZD old series", "campaign_type": "DRIP", "channel": "SMS", "template": shared["id"], "sender_profile": sender["id"],
                                              "contact_lists": [list_id], "drip_config": {"steps": [{"day": 0, "label": "Hello"}, {"day": 3}, {"day": 7}], "time": "10:00"}}).json()
-    sql("DELETE FROM campaign_drip_step WHERE campaign_id = %s", [old["id"]])        # as it was before patch 0040
+    sql("DELETE FROM campaign_drip_step WHERE campaign_id = %s", [old["id"]])        # as it was before patch 0041
     backfill = re.search(r"INSERT INTO campaign_drip_step .*?;", SCHEMA.read_text(), re.S).group(0)
     sql(backfill)
     sql(backfill)

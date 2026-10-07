@@ -100,9 +100,9 @@ class Campaign(models.Model):
     subject_line = models.CharField(max_length=300, null=True, blank=True)  # this campaign's own; NULL = the template's (patch 0025)
     preheader = models.CharField(max_length=300, null=True, blank=True)
     topic = models.ForeignKey('governance.SubscriptionTopic', on_delete=models.PROTECT, db_column='topic_id', related_name='campaigns', null=True, blank=True)  # preference centre (patch 0028)
-    stopped_at = models.DateTimeField(null=True, blank=True)  # a drip stopped early: COMPLETED, and when (patch 0042)
+    stopped_at = models.DateTimeField(null=True, blank=True)  # a drip stopped early: COMPLETED, and when (patch 0043)
     stopped_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='stopped_by', related_name='+', null=True, blank=True)
-    paused_at = models.DateTimeField(null=True, blank=True)  # while paused: when (patch 0043); cleared on resume and stop
+    paused_at = models.DateTimeField(null=True, blank=True)  # while paused: when (patch 0044); cleared on resume and stop
     paused_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='paused_by', related_name='+', null=True, blank=True)
 
     class Meta:
@@ -140,7 +140,7 @@ class CampaignRun(models.Model):
     test_mode = models.BooleanField(default=False)
     sequence_label = models.CharField(max_length=60, null=True, blank=True)  # "Day 3", "Occurrence 2"
     ab_decide_at = models.DateTimeField(null=True, blank=True)  # when the subject-line winner is chosen; NULL = no test (patch 0023)
-    drip_step = models.ForeignKey('campaigns.CampaignDripStep', on_delete=models.SET_NULL, db_column='drip_step_id', related_name='runs', null=True, blank=True)  # DRIP_INSTANCE: the message it sends (patch 0041)
+    drip_step = models.ForeignKey('campaigns.CampaignDripStep', on_delete=models.SET_NULL, db_column='drip_step_id', related_name='runs', null=True, blank=True)  # DRIP_INSTANCE: the message it sends (patch 0042)
     scheduled_at = models.DateTimeField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -349,7 +349,7 @@ class CampaignActivityLog(models.Model):
 
 
 class CampaignDripStep(models.Model):
-    """One message of a drip campaign: its day after the start date, its own template copy and overrides (patch 0040)"""
+    """One message of a drip campaign: its day after the start date, its own template copy and overrides (patch 0041)"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
     campaign = models.ForeignKey('campaigns.Campaign', on_delete=models.CASCADE, db_column='campaign_id', related_name='drip_steps')

@@ -1590,7 +1590,16 @@ GRANT SELECT ON tenant_quota_grant TO cep_app;
 GRANT ALL ON tenant_quota_grant TO cep_admin;
 
 -- =====================================================================================
--- 28. DRIP STEPS (patch 0040): each message of a drip campaign is a row of its own
+-- 25. USAGE METRICS: DELIVERABILITY TESTS (patch 0040)
+-- The hourly rollup (billing.rollup_usage) records each tenant's deliverability tests per month since patch 0030, but the
+-- metric was never allowed here, so every rollup failed on its last metric and the month's tests were never stored.
+-- =====================================================================================
+ALTER TABLE tenant_usage DROP CONSTRAINT IF EXISTS ck_tenant_usage_metric;
+ALTER TABLE tenant_usage ADD CONSTRAINT ck_tenant_usage_metric
+    CHECK (metric IN ('EMAIL_SENT', 'SMS_SENT', 'MMS_SENT', 'CONTACTS', 'STORAGE_BYTES', 'API_CALLS', 'DELIVERABILITY_TESTS'));
+
+-- =====================================================================================
+-- 28. DRIP STEPS (patch 0041): each message of a drip campaign is a row of its own
 -- A drip sends several messages on a timetable to one audience, on one channel, all counted from the start date
 -- (campaign.scheduled_at). Each step has its own name, day, optional send time (NULL = the series time,
 -- campaign.drip_config.time), its own template copy, optional subject / preheader overrides and an optional A/B
@@ -1648,9 +1657,9 @@ SELECT c.tenant_id, c.id, (step ->> 'day')::int, left(COALESCE(step ->> 'label',
 ON CONFLICT (campaign_id, day) DO NOTHING;
 
 -- =====================================================================================
--- 29. DRIP RUNS (patch 0041): each run of a drip knows the message it sends
+-- 29. DRIP RUNS (patch 0042): each run of a drip knows the message it sends
 -- A DRIP_INSTANCE run sends its step's own template, subject, preheader and A/B test, and builds its audience from the
--- first message's Campaign List (apps/delivery/engine/runs.py). Runs planned before patch 0041 are matched to their step
+-- first message's Campaign List (apps/delivery/engine/runs.py). Runs planned before patch 0042 are matched to their step
 -- by their label ("Day 7" = the step on day 7 of the same campaign). A deleted step leaves its runs, unlinked.
 -- =====================================================================================
 ALTER TABLE campaign_run ADD COLUMN IF NOT EXISTS drip_step_id UUID REFERENCES campaign_drip_step(id) ON DELETE SET NULL;
@@ -1663,7 +1672,7 @@ UPDATE campaign_run r SET drip_step_id = s.id
    AND s.campaign_id = r.campaign_id AND r.sequence_label = 'Day ' || s.day;
 
 -- =====================================================================================
--- 30. STOPPED DRIPS (patch 0042): a drip stopped early is COMPLETED, with who stopped it and when
+-- 30. STOPPED DRIPS (patch 0043): a drip stopped early is COMPLETED, with who stopped it and when
 -- Stop Remaining Messages cancels every unsent message of a running or paused drip for good (apps/campaigns/service.py,
 -- stop). No new status: the campaign is COMPLETED and these two columns say it ended early.
 -- =====================================================================================
@@ -1673,7 +1682,7 @@ COMMENT ON COLUMN campaign.stopped_at IS 'A drip whose remaining messages were s
 COMMENT ON COLUMN campaign.stopped_by IS 'A drip whose remaining messages were stopped: who';
 
 -- =====================================================================================
--- 31. PAUSED BY, AND SENDS THAT NEVER WENT (patch 0043)
+-- 31. PAUSED BY, AND SENDS THAT NEVER WENT (patch 0044)
 -- campaign.paused_at / paused_by: who paused a campaign and when, set by pause and cleared by resume and stop (every
 -- campaign type). not_sent_reason on the execution rows: a message CEP decided not to send after queuing it. Its status
 -- stays FAILED (the status CHECKs are the hardening layer's, on partitioned tables), and this code tells it apart from a

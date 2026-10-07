@@ -144,9 +144,9 @@ Existing tables were extended rather than replaced (BRD 21).
 - Patch `0023_ab_subject_lines_send_time.sql`: `campaign.ab_config`, `campaign_run.ab_decide_at`,
   `mailer_execution.variant_key` (`A`, `B`, `HOLD`) and `send_after` on both execution tables (§8 and §9 below). The
   results of a subject test hang off `campaign_run_variant` as TD-04 planned.
-- Patch `0040_campaign_drip_steps.sql`: `campaign_drip_step` (RLS), one row per message of a drip (§10). Existing drips
+- Patch `0041_campaign_drip_steps.sql`: `campaign_drip_step` (RLS), one row per message of a drip (§10). Existing drips
   were backfilled from `drip_config.steps`, on the campaign's own template.
-- Patch `0041_campaign_run_drip_step.sql`: `campaign_run.drip_step_id`, the message a drip run sends; existing drip runs were
+- Patch `0042_campaign_run_drip_step.sql`: `campaign_run.drip_step_id`, the message a drip run sends; existing drip runs were
   matched to their message by their "Day N" label.
 
 ## 6. Background jobs
@@ -213,7 +213,7 @@ ticked and says "70 of 88 people have a known time zone. The other 18 get it at 
 (`StepSchedule.tsx`, `LocalTimeCoverage`). The review summary has a Local Time line and the campaign's Overview says
 "Each recipient's own time zone".
 
-## 10. Drip messages (patches 0040, 0041)
+## 10. Drip messages (patches 0041, 0042)
 
 A drip (`campaign_type = DRIP`) sends several messages on a timetable to one audience on one channel (never `MULTI`).
 Everyone starts together on the start date, `campaign.scheduled_at`; a message's `day` counts from it (0-365), at its own
@@ -241,7 +241,7 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 - **Clone** copies every message with a new template copy; the copy is named `name` when given ("Copy of …" otherwise),
   and the start date stays empty unless `scheduled_at` is given.
 
-### Sending (patch 0041)
+### Sending (patch 0042)
 
 - **A run per message.** Publishing plans one `DRIP_INSTANCE` run per message (`campaign_run.drip_step_id`, label "Day N"),
   on the start date + its day, at one time rule shared with the API's `scheduled_for`: the message's `send_time`, else the
@@ -296,7 +296,7 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
   when it respects the caps and is marketing) and `QUIET_HOURS` (a marketing text inside the workspace's quiet hours).
 
 
-### A running drip (phase B4, patch 0042)
+### A running drip (phase B4, patch 0043)
 
 - **Status.** A drip shows Scheduled until one of its production messages has started (even one that then failed), and
   Active after; Paused and Completed as usual. The list's status filter follows the same rule. A drip stopped early is
@@ -330,7 +330,7 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 - **Progress** for lists and Home: `drip_progress {total, sent, failed, cancelled, next}` from each message's latest
   production run, read from the list's prefetched runs (no query per drip).
 
-### What the drip screens needed (phase B4b, patch 0043)
+### What the drip screens needed (phase B4b, patch 0044)
 
 - **Series time alone.** `PATCH /campaigns/{id}/` with `drip_config: {time: "HH:MM"}` saves only the time; the messages
   (and the `steps` mirror) are untouched. Any other key is refused ("A drip's messages are set on its steps. Send only
@@ -343,7 +343,7 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 - **Not sent.** What a stopped drip had queued keeps status FAILED (the partitioned tables' CHECK is unchanged) and gets
   `not_sent_reason = 'STOPPED_EARLY'`. It counts as `not_sent`, never as failed or sent: run stats and the steps `run`
   block (`runs.stats_many`), campaign metrics (`service.metrics`), reports (the failed filters), billing (not a billable
-  send), and recipients (shown as `NOT_SENT`, with the code; the `FAILED` filter leaves them out). Patch 0043 backfills
+  send), and recipients (shown as `NOT_SENT`, with the code; the `FAILED` filter leaves them out). Patch 0044 backfills
   rows written with the old "Not sent: the drip was stopped early." text.
 - **Who paused.** `paused_at` / `paused_by` are set on Pause and cleared on Resume and Stop, for every campaign type;
   the API gives `paused {at, by_name}` while paused, else null.

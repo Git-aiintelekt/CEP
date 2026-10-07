@@ -64,7 +64,9 @@ while its month is open.
 - `backend/api/v1/deliverability_api.py`: `GET/PUT/DELETE /deliverability/service/`, `POST …/service/check/`,
   `GET /deliverability/clients/` (cached a day), `GET /deliverability/allowance/`, `GET/POST /templates/<id>/deliverability-tests/`,
   `GET/DELETE /deliverability-tests/<id>/`. The account needs `provider.edit`; tests need `template.edit` and the feature.
-- `backend/apps/platform_ops/billing.py`: `tests_this_month(tenant, account=None)`, `added_tests`, the meter in `quota()`.
+- `backend/apps/platform_ops/billing.py`: `tests_this_month(tenant, account=None)`, `added_tests`, the meter in `quota()`, and
+  the hourly `rollup_usage`, which stores each month's tests in `tenant_usage` as `DELIVERABILITY_TESTS` (allowed by that
+  table's metric check since patch 0040; before it, every rollup failed on this metric). The limit itself is counted live.
 - `backend/apps/platform_ops/admin_deliverability.py` and `templates/admin/platform_ops/inspect_account.html`,
   `templates/admin/tenants/deliverability_panel.html`, `deliverability_tests.html`: the back-office pages.
 - `frontend/src/features/deliverability/`: `backend.ts` (`apiDeliverability(templateId)`, and `sampleDeliverability()`
