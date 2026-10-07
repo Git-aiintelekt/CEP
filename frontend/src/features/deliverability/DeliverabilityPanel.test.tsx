@@ -62,6 +62,35 @@ test('opening a render shows the full screenshot in a dialog named after the cli
   expect((within(dialog).getByRole('img', { name: 'Gmail (Chrome) render' }) as HTMLImageElement).src.startsWith('data:image/svg+xml')).toBe(true)
 })
 
+test('the open render steps through every render, desktop and mobile: Previous and Next, the arrow keys, the picker; a failed one is left out', async () => {
+  const user = userEvent.setup()
+  const sample = sampleDeliverability()
+  mount(backendWith([await sample.read('sample-1')]))
+  await user.click(await screen.findByRole('button', { name: 'Open the Gmail (Chrome) render' }))
+  let dialog = await screen.findByRole('dialog', { name: 'Gmail (Chrome)' })
+  expect(within(dialog).getByText(/1 of 7/)).toBeTruthy()
+  expect(within(dialog).getByRole('button', { name: 'Previous Render' }).hasAttribute('disabled')).toBe(true)
+
+  await user.click(within(dialog).getByRole('button', { name: 'Next Render' }))
+  dialog = await screen.findByRole('dialog', { name: 'Outlook.com (Edge)' })
+  expect(within(dialog).getByRole('img', { name: 'Outlook.com (Edge) render' })).toBeTruthy()
+  await user.keyboard('{ArrowRight}')
+  dialog = await screen.findByRole('dialog', { name: 'Yahoo! Mail (Chrome)' })
+  await user.keyboard('{ArrowLeft}')
+  dialog = await screen.findByRole('dialog', { name: 'Outlook.com (Edge)' })
+
+  const picker = within(dialog).getByRole('combobox', { name: 'Render' }) as HTMLSelectElement
+  expect(within(picker).getAllByRole('option')).toHaveLength(7)
+  expect(within(picker).queryByRole('option', { name: /Outlook \(iPhone\)/ })).toBeNull()
+  expect(within(picker).getAllByRole('group').map((group) => group.getAttribute('label'))).toEqual(['Webmail', 'Desktop Apps', 'Phones and Tablets'])
+  await user.selectOptions(picker, 'gmail_android')
+  dialog = await screen.findByRole('dialog', { name: 'Gmail (Pixel 8)' })
+  expect(within(dialog).getByText(/7 of 7/)).toBeTruthy()
+  expect(within(dialog).getByRole('button', { name: 'Next Render' }).hasAttribute('disabled')).toBe(true)
+  await user.click(within(dialog).getByRole('button', { name: 'Previous Render' }))
+  expect(await screen.findByRole('dialog', { name: 'iPhone 15' })).toBeTruthy()
+})
+
 test('Run Inbox Previews starts a test, selects it, and the panel keeps reading it while it renders', async () => {
   const user = userEvent.setup()
   const sample = sampleDeliverability()
