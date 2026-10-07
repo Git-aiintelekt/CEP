@@ -1590,5 +1590,14 @@ GRANT SELECT ON tenant_quota_grant TO cep_app;
 GRANT ALL ON tenant_quota_grant TO cep_admin;
 
 -- =====================================================================================
+-- 25. USAGE METRICS: DELIVERABILITY TESTS (patch 0040)
+-- The hourly rollup (billing.rollup_usage) records each tenant's deliverability tests per month since patch 0030, but the
+-- metric was never allowed here, so every rollup failed on its last metric and the month's tests were never stored.
+-- =====================================================================================
+ALTER TABLE tenant_usage DROP CONSTRAINT IF EXISTS ck_tenant_usage_metric;
+ALTER TABLE tenant_usage ADD CONSTRAINT ck_tenant_usage_metric
+    CHECK (metric IN ('EMAIL_SENT', 'SMS_SENT', 'MMS_SENT', 'CONTACTS', 'STORAGE_BYTES', 'API_CALLS', 'DELIVERABILITY_TESTS'));
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================
