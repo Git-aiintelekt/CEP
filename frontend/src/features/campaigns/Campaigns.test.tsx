@@ -44,6 +44,7 @@ beforeEach(() => window.localStorage.clear())
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 test('list: what is coming up, locked status wording, the action that fits each status, archived campaigns kept out, filters and sorting sent to the API', async () => {
@@ -624,6 +625,9 @@ const todayName = () => new Intl.DateTimeFormat('en-US', { weekday: 'long', mont
 test('Clone of a drip opens the pop-up: the name prefilled, a start date required, the API’s errors under their fields, then the copy’s Sequence step', async () => {
   const campaigns = drips().map((item) => (item.id === 'd-active' ? { ...item, drip_config: { steps: [], time: '00:00' }, drip_summary: { count: 4, last_day: 14, first_send_at: null, last_send_at: null, ready: true } } : item))
   const calls = installMockApi({ campaigns })
+  // a fixed afternoon: "today at 00:00 CT" is already past wherever and whenever the test runs (only Date is faked; timers stay real)
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-15T18:00:00Z'))
   const user = userEvent.setup()
   await renderAppAt('/campaigns')
   await screen.findByRole('button', { name: 'Loyalty Welcome Series' })
@@ -654,7 +658,7 @@ test('Clone of a drip opens the pop-up: the name prefilled, a start date require
 
   await user.click(within(dialog).getByRole('button', { name: /^Start Date/ }))
   await user.click(await screen.findByRole('button', { name: 'Next Month' }))
-  await user.click((await screen.findAllByRole('button', { name: / 15, \d{4}$/ }))[0])
+  await user.click(await screen.findByRole('button', { name: /^[A-Za-z]+, November 15, 2026$/ }))   // the calendar's day, not the Start Date field (its name ends the same way)
   await user.click(within(dialog).getByRole('button', { name: 'Clone Campaign' }))
   await vi.waitFor(() => expect(window.location.pathname).toBe('/campaigns/d-active-copy/edit'))
   expect(window.location.search).toContain('step=sequence')
