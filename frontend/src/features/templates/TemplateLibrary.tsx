@@ -1,8 +1,11 @@
-/** "Your Templates": channel tabs, status, search, grid or list, with the CEP presets after the workspace's own. */
+/**
+ * "Your Templates": channel tabs, status, search, grid or list, with the CEP presets after the workspace's own. A drip's
+ * message templates sit together by name, say which message they are, and carry Locked while the drip is live.
+ */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { EllipsisVertical, Eye, LayoutGrid, List, Search, type LucideIcon } from 'lucide-react'
+import { EllipsisVertical, Eye, LayoutGrid, List, Lock, Search, type LucideIcon } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Button, IconButton } from '@/components/Button'
 import { Field, TextInput } from '@/components/Form'
@@ -25,7 +28,7 @@ import { usePresets } from './presetSource'
 import { ItemTile } from './preview/ItemTile'
 import { TemplatePreviewModal } from './preview/TemplatePreviewModal'
 import type { PreviewItem } from './preview/usePreviewContent'
-import { lastUsedText } from './lastUsed'
+import { groupDripTemplates, isUsed, lastUsedText } from './lastUsed'
 import { StatusTag } from './StatusTag'
 
 type View = 'grid' | 'list'
@@ -44,6 +47,11 @@ function readView(): View {
   } catch {
     return 'grid'
   }
+}
+
+/** "Locked": a live drip's message; the template can't change until the drip finishes or is stopped */
+function LockedTag() {
+  return <span data-locked className="inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm border border-line bg-fill-subtle px-2 text-xs font-semibold whitespace-nowrap text-ink-800"><Lock size={12} strokeWidth={1.5} aria-hidden />Locked</span>
 }
 
 function matches(preset: Preset, needle: string): boolean {
@@ -113,7 +121,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
 
   // presets follow the workspace's own templates, so they sit on the last page; they have no status to filter by
   const shownPresets = !list.hasNext && status === '' ? presets.filter((preset) => matches(preset, needle)) : []
-  const items: Item[] = [...list.rows.map((template) => ({ kind: 'template' as const, template })), ...shownPresets.map((preset) => ({ kind: 'preset' as const, preset }))]
+  const items: Item[] = [...groupDripTemplates(list.rows).map((template) => ({ kind: 'template' as const, template })), ...shownPresets.map((preset) => ({ kind: 'preset' as const, preset }))]
   const tabs: { key: TemplateChannel | 'ALL'; label: string }[] = [{ key: 'ALL', label: 'All' }, ...channels.map((channel) => ({ key: channel, label: lookOf(channel).label }))]
 
   return (
@@ -220,7 +228,16 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
           }
         >
           <p className="text-sm text-ink-800">“{deleting.name}” and its saved versions leave the library. A template that a campaign uses cannot be deleted: archive it instead.</p>
-          {remove.isError && <div className="mt-3"><ErrorState title="The template was not deleted" error={remove.error} /></div>}
+          {remove.isError && (
+            // a template a live drip uses is refused (409) in the API's own words, with the way to the drip
+            remove.error instanceof ApiError && remove.error.status === 409 ? (
+              <div role="alert" data-delete-refused className="mt-3 rounded-lg border border-danger bg-danger-bg px-5 py-4 text-sm text-danger-text">
+                <p className="font-medium">This Template Is in Use</p>
+                <p className="mt-1">{remove.error.message}</p>
+                {deleting.used_in_drip && <Link to={`/campaigns/${deleting.used_in_drip.campaign_id}`} className="mt-2 inline-block font-semibold underline underline-offset-2">View Campaign</Link>}
+              </div>
+            ) : <div className="mt-3"><ErrorState title="The template was not deleted" error={remove.error} /></div>
+          )}
         </Modal>
       )}
     </section>
@@ -318,7 +335,7 @@ function CardBody({ name, meta, usage, tags }: { name: string; meta: string; usa
     <span className="flex flex-col gap-1 p-3.5">
       <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
       <span className="text-xs text-ink-800">{meta}</span>
-      {usage && <span className="line-clamp-1 text-xs text-ink-800" data-last-used>{usage}</span>}
+      {usage && <span className="line-clamp-1 text-xs text-ink-800" title={usage} data-last-used>{usage}</span>}
       <span className="mt-1.5 flex flex-wrap gap-1.5 pr-8">{tags}</span>
     </span>
   )
@@ -344,7 +361,7 @@ function TemplateGrid({ items, canEdit, onPreview, actions }: ItemsProps) {
           const body = (
             <>
               <ItemTile item={item} />
-              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} usage={lastUsedText(template)} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag></>} />
+              <CardBody name={template.name} meta={`Edited ${formatRelative(template.updated_at)}`} usage={lastUsedText(template)} tags={<><StatusTag status={template.status} /><Tag>{lookOf(template.channel).label}</Tag>{template.used_in_drip?.locked && <LockedTag />}</>} />
             </>
           )
           return (
@@ -441,9 +458,9 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                     </span>
                   </td>
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
-                  <td className={CELL}><StatusTag status={template.status} /></td>
+                  <td className={CELL}><span className="inline-flex flex-wrap items-center gap-1.5"><StatusTag status={template.status} />{template.used_in_drip?.locked && <LockedTag />}</span></td>
                   <td className={`${CELL} whitespace-nowrap text-ink-800`}>Edited {formatRelative(template.updated_at)}</td>
-                  <td className={`${CELL} max-w-[240px] truncate text-ink-800`} title={lastUsedText(template)}>{template.last_used_in ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
+                  <td className={`${CELL} max-w-[240px] truncate text-ink-800`} title={lastUsedText(template)}>{isUsed(template) ? lastUsedText(template) : <span className="text-ink-300">Not used yet</span>}</td>
                   <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                     <RowMenu menus={menus} id={template.id} name={template.name}>
                       <MenuRow title="Preview" onClick={() => { menus.close(); onPreview(item) }} />

@@ -288,12 +288,15 @@ def test_campaign_module(check, admin_email):
         ended_ = service.schedule_next_occurrence(Campaign.objects.prefetch_related("campaign_runs").select_related("tenant").get(pk=rec["id"]))
         check("the recurrence ends after its number of sends, and the campaign completes", ended_ is None and get(rec["id"])["status"] == "COMPLETED")
         drip = api("post", "/api/v1/campaigns/", {"name": "ZC welcome series", "campaign_type": "DRIP", "channel": "SMS", "template": template["id"], "sender_profile": sender["id"],
-                                                  "contact_lists": [list_a], "drip_config": {"steps": [{"day": 0}, {"day": 3}, {"day": 7}], "time": "10:00"}}).json()
+                                                  "contact_lists": [list_a], "drip_config": {"steps": [{"day": 0}, {"day": 3}, {"day": 7}], "time": "10:00"},
+                                                  "scheduled_at": (timezone.now() + timedelta(days=1)).isoformat()}).json()
+        tested_drip = api("post", f"/api/v1/campaigns/{drip['id']}/test-publish/", {"to": ["+14705550100"]})      # a drip publishes once every message is tested
         pub, queued = publish(drip["id"])
-        steps = sorted(get(drip["id"])["runs"], key=lambda x: x["run_number"])
-        check("drip: the send type follows the campaign type, and publishing plans a Run per step (day 0 now, the others on their day at the set time)",
-              drip["send_type"] == "DRIP" and pub.status_code == 201 and [x["sequence_label"] for x in steps] == ["Day 0", "Day 3", "Day 7"] and {x["run_type"] for x in steps} == {"DRIP_INSTANCE"}
-              and steps[0]["scheduled_at"] is None and steps[2]["scheduled_at"] > steps[1]["scheduled_at"] and queued == 1, str([drip.get('send_type'), pub.status_code, [(x['sequence_label'], x['run_type'], x['scheduled_at']) for x in steps], queued]))
+        steps = sorted((x for x in get(drip["id"])["runs"] if not x["test_mode"]), key=lambda x: x["run_number"])
+        check("drip: the send type follows the campaign type; once every message is tested, publishing plans a Run per step on its day from the start date, at the set time",
+              drip["send_type"] == "DRIP" and tested_drip.status_code == 200 and pub.status_code == 201 and [x["sequence_label"] for x in steps] == ["Day 0", "Day 3", "Day 7"]
+              and {x["run_type"] for x in steps} == {"DRIP_INSTANCE"} and steps[0]["scheduled_at"] is not None and steps[2]["scheduled_at"] > steps[1]["scheduled_at"] > steps[0]["scheduled_at"]
+              and queued == 0, str([drip.get('send_type'), tested_drip.status_code, pub.status_code, [(x['sequence_label'], x['run_type'], x['scheduled_at']) for x in steps], queued]))
 
         # ------------------------------------------------------------ calendar
         daily = new("ZC daily texts", send_type="RECURRING", recurring_config={"frequency": "DAILY", "time": "09:00"}).json()

@@ -70,7 +70,7 @@ function FitWidth({ children }: { children: ReactNode }) {
   )
 }
 
-function TextThumbnail({ channel, data, tags, sender }: { channel: string; data: Extract<PreviewContent, { kind: 'message' }>; tags: PersonalizationTag[]; sender: string }) {
+export function TextThumbnail({ channel, data, tags, sender }: { channel: string; data: Extract<PreviewContent, { kind: 'message' }>; tags: PersonalizationTag[]; sender: string }) {
   const wide = useMinWidth(BREAKPOINT.md)
   const text = resolvedText(data.body, tags)
   const phone = (

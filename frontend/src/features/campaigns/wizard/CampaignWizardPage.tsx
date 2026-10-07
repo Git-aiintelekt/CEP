@@ -1,6 +1,6 @@
 /**
  * The campaign setup after the Create Campaign pop-up (/campaigns/:id/edit): Audience → Content → Test → Targets → Review & Publish.
- * E-receipts skip Audience. The campaign's details (name, type, purpose, owner, code, tags) are edited in the same
+ * E-receipts skip Audience. A drip goes Audience → Sequence → Targets → Test & Publish (setupFlow.ts). The campaign's details (name, type, purpose, owner, code, tags) are edited in the same
  * pop-up, opened from "Details".
  *
  * One form for every step (React Hook Form + the Zod schema). "Continue" checks the fields of the step you are on and
@@ -10,7 +10,7 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Pencil, Save } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CircleCheck, Pencil, Save, TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { FormProvider, useForm, type FieldPath } from 'react-hook-form'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -26,30 +26,26 @@ import { buttonClass } from '@/components/buttonStyles'
 import { api, ApiError } from '@/lib/api'
 import type { Campaign, CampaignFormOptions, ContactList } from '@/lib/types'
 
+import { seriesOf, sequenceProblems, statusText } from '../dripSequence'
+import { dripStepsQuery } from '../dripSteps'
 import { CardSubheading } from '../parts'
 import { campaignSchema, emptyValues, formFieldOf, fromCampaign, STEP_FIELDS, stepOfApiField, toInput, type CampaignFormValues } from '../schema'
 import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
-import { placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, setupHref, stepsDone, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
+import { isDrip, placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, setupHref, stepForType, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
 import { hasAction, tabOfStep } from '../vocabulary'
 import { FlowProgress, FlowStepMenu, FlowStepper, HoverTip } from './FlowStepper'
 import { StepAudience } from './StepAudience'
+import { StepDripPublish } from './StepDripPublish'
 import { PublishSummary, StepReview } from './StepReview'
 import { StepSchedule } from './StepSchedule'
+import { StepSequence } from './StepSequence'
 import { StepTargets } from './StepTargets'
 import { StepTemplate } from './StepTemplate'
 import { StepTest } from './StepTest'
 
-import { PageHelp } from '@/help/HelpPanel'
 
-const INTRO: Record<FlowStep, string> = {
-  audience: 'Attach the contact lists to send to, and the ones to keep out.',
-  content: 'Choose the message and who it comes from.',
-  test: 'See the message as a recipient will, and send yourself a test before it goes to anyone else.',
-  targets: 'Set what this campaign should achieve, and what it may cost. All of it is optional: skip it for now and come back later.',
-  publish: 'Decide when it goes out, check everything once more, then publish to production.',
-}
 /** the form fields each step owns: "Continue" (or saving a section) checks these and nothing else */
-const FIELDS: Record<FlowStep, readonly (keyof CampaignFormValues)[]> = { audience: STEP_FIELDS[1], content: STEP_FIELDS[2], targets: STEP_FIELDS[4], test: [], publish: STEP_FIELDS[3] }
+const FIELDS: Record<FlowStep, readonly (keyof CampaignFormValues)[]> = { audience: STEP_FIELDS[1], content: STEP_FIELDS[2], sequence: [], targets: STEP_FIELDS[4], test: [], publish: STEP_FIELDS[3] }
 /** where the API's field messages belong, by the old wizard's step index */
 const PLACE_OF_OLD_INDEX: (FlowStep | 'details')[] = ['details', 'audience', 'content', 'publish', 'targets']
 
@@ -66,6 +62,8 @@ export function CampaignWizardPage() {
   /** uploads on the Audience step waiting for a confirmation, and what to do once the person has answered about them */
   const [pendingUploads, setPendingUploads] = useState<ContactList[]>([])
   const [askFirst, setAskFirst] = useState<(() => void) | null>(null)
+  /** Continue pressed on Sequence while a message (or the start date) still needs something: the step shows why */
+  const [sequenceAttempt, setSequenceAttempt] = useState(0)
 
   const zone = me?.tenant.timezone || 'UTC'
   const form = useForm<CampaignFormValues>({ resolver: zodResolver(campaignSchema), defaultValues: emptyValues(zone, me?.principal.id ?? ''), mode: 'onTouched' })
@@ -82,6 +80,7 @@ export function CampaignWizardPage() {
 
   const loaded = existing.data
   const type = loaded?.campaign_type ?? 'REGULAR_MARKETING'
+  const dripSteps = useQuery({ ...dripStepsQuery(id), enabled: type === 'DRIP' })
   const steps = stepsFor(type)
   // a step opens once the ones before it were gone through; an unfinished setup resumes where it stopped
   const reachedKey: FlowStep = loaded && !loaded.setup_complete ? resumeStep(loaded.setup_step, type) : 'publish'
@@ -135,7 +134,9 @@ export function CampaignWizardPage() {
   }, [dirty])
 
   function show(key: FlowStep, sectionKey?: PublishSection) {
-    setParams(new URLSearchParams({ step: key, ...(sectionKey ? { section: sectionKey } : {}) }), { replace: true })
+    const step = stepForType(key, type)                                                 // a drip's content and test live on its own steps
+    const section = sectionKey && !(isDrip(type) && sectionKey === 'schedule') ? sectionKey : undefined
+    setParams(new URLSearchParams({ step, ...(section ? { section } : {}) }), { replace: true })
   }
   function openDetails(open: boolean) {
     if (!open) setDetailErrors(null)
@@ -145,6 +146,7 @@ export function CampaignWizardPage() {
   function goToOld(index: number) {
     const target = PLACE_OF_OLD_INDEX[index] ?? 'details'
     if (target === 'details') openDetails(true)
+    else if (isDrip(type) && (target === 'content' || target === 'publish')) show('sequence')       // a drip's templates, start and times
     else if (target === 'publish') show('publish', 'schedule')
     else show(target)
   }
@@ -206,6 +208,10 @@ export function CampaignWizardPage() {
   async function go(index: number) {
     if (index <= step) return show(steps[index].key)
     if (current === 'publish') return
+    if (current === 'sequence' && sequenceBlocked) {
+      setSequenceAttempt((count) => count + 1)
+      return
+    }
     const campaign = await commit(FIELDS[current], progressAfter(current, type))
     if (!campaign) return
     const furthest = campaign.setup_complete ? steps.length - 1 : steps.findIndex((item) => item.key === resumeStep(campaign.setup_step, campaign.campaign_type))
@@ -260,9 +266,12 @@ export function CampaignWizardPage() {
   const last = current === 'publish'
   const back = loaded.setup_complete ? `/campaigns/${loaded.id}?tab=${tabOfStep(current, loaded)}` : '/campaigns'
   const receipt = type === 'E_RECEIPT'
-  const canChangeType = typeCanChange(loaded)
+  const drip = isDrip(type)
+  const canChangeType = typeCanChange(loaded) && !drip       // a drip's Edit Details asks its messages (CampaignSetupDialog)
 
   const stepper = { steps: steps.map((item) => item.label), current: step, reached, completed, onGo: (index: number) => void go(index) }
+  const sequence = drip && dripSteps.data ? sequenceProblems(dripSteps.data, seriesOf(loaded, zone)) : null
+  const sequenceBlocked = !sequence || sequence.any
   const saveAndCloseClick = () => afterUploads(() => void saveAndClose())
   const backLabel = loaded.setup_complete ? 'Back to the Campaign' : 'Back to Campaigns'
 
@@ -313,21 +322,18 @@ export function CampaignWizardPage() {
           <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
             <div key={current} className="animate-step-in">
               <p className="text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
-              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1><PageHelp chapter="campaign-setup" /></span>
-              <p className="mt-1 text-sm text-ink-800">{INTRO[current]}</p>
-              {/* where the setup was left; not shown on the step it resumes at, which says so itself */}
-              {(loaded.setup_complete || current !== reachedKey) && (
-                <p className="mt-1 text-sm text-ink-800" data-testid="setup-progress">
-                  {loaded.setup_complete ? 'Changes are saved as you continue. Nothing is sent until you publish.'
-                    : `Setup in progress: ${stepsDone(loaded)} of ${steps.length} steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.`}
-                </p>
-              )}
+              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1></span>
               <div className="mt-6">
                 {current === 'audience' && <StepAudience campaign={loaded} onChangeType={canChangeType ? () => openDetails(true) : undefined} pending={pendingUploads} onPendingChange={setPendingUploads} />}
-                {current === 'content' && <StepTemplate campaign={loaded} />}
+                {current === 'content' && !drip && <StepTemplate campaign={loaded} />}
+                {current === 'sequence' && <StepSequence campaign={loaded} options={options.data} workspaceZone={zone} attempt={sequenceAttempt} onEditDetails={() => openDetails(true)} />}
                 {current === 'targets' && <StepTargets />}
                 {current === 'test' && <StepTest campaign={loaded} options={options.data} onTested={() => void markTested()} />}
-                {current === 'publish' && (
+                {current === 'publish' && drip && (
+                  <StepDripPublish campaign={loaded} options={options.data} workspaceZone={zone} onAllTested={() => void markTested()}
+                    beforePublish={async () => Boolean(await commit([], PROGRESS.schedule))} />
+                )}
+                {current === 'publish' && !drip && (
                   <div className="flex flex-col gap-10">
                     <PublishSummary campaign={loaded} onEdit={goToOld} onGo={(key) => show(key)} />
                     {PUBLISH_SECTIONS.map((part) => (
@@ -355,6 +361,12 @@ export function CampaignWizardPage() {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4 pb-8">
+              {current === 'sequence' && sequence && dripSteps.data && (
+                <span role="status" data-sequence-status className={`mr-auto flex basis-full items-center gap-2 text-sm font-medium sm:basis-auto ${sequence.any ? 'text-warning-text' : 'text-success-text'}`}>
+                  {sequence.any ? <TriangleAlert size={16} strokeWidth={1.5} aria-hidden className="text-warning" /> : <CircleCheck size={16} strokeWidth={1.5} aria-hidden />}
+                  {statusText(dripSteps.data, sequence)}
+                </span>
+              )}
               {step > 0 && <button type="button" className={buttonSecondary} onClick={() => show(steps[step - 1].key)}>Back</button>}
               {current === 'targets' && (
                 <button type="button" className={buttonClass({ variant: 'link' })} disabled={save.isPending} onClick={() => void skipTargets()}>Skip for Now</button>

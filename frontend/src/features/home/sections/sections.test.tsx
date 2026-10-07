@@ -182,3 +182,36 @@ test('a viewer with no create permission gets no Create New section at all', () 
   renderHome({ viewer: member(['campaign.edit', 'template.edit', 'list.edit', 'journey.edit']) })
   expect(screen.queryByRole('region', { name: 'Create New' })).toBeNull()
 })
+
+// ---------------------------------------------------------------- drips
+test('Drip Problems: one grouped card with each problem’s sentence and its own link; with one problem it reads like any other card', async () => {
+  const items = [
+    { id: 'f', text: 'Message 3 of Loyalty Welcome Series failed. No one received it.', actionLabel: 'Review', href: '/campaigns/d1' },
+    { id: 'p', text: 'Holiday Reminder Texts has been paused for 3 days. Message 2 was due Fri 16 Oct.', actionLabel: 'Open', href: '/campaigns/d2' },
+  ]
+  const drips: AttentionGroup = { id: 'drip-problems', severity: 'critical', category: 'Drip Problems', count: 2, label: items[0].text, actionLabel: 'Review', href: '/campaigns/d1', items }
+  renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [drips] } }) })
+  const card = attention().querySelector('[data-alert="drip-problems"]') as HTMLElement
+  expect(card.className).toContain('rounded-lg border border-line bg-surface')
+  expect(card.textContent).toContain('2 Drip Problems')
+  expect(within(card).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([['Review', '/campaigns/d1'], ['Open', '/campaigns/d2']])
+  expect(within(card).getByText(items[1].text)).toBeTruthy()
+
+  cleanup()
+  renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [{ ...drips, category: 'Drip Problem', count: 1, items: [items[1]] }] } }) })
+  const one = attention().querySelector('[data-alert="drip-problems"]') as HTMLElement
+  expect(one.textContent).toBe(`1 Drip Problem${items[1].text}Open`)
+})
+
+test('the sample Home shows the drip states: Drip Problems, a drip message in Next 7 Days, and Recent’s progress line', async () => {
+  const user = userEvent.setup()
+  renderHome()
+  await user.click(within(attention()).getByRole('button', { name: /^View All/ }))
+  expect(attention().querySelector('[data-alert="drip-problems"]')!.textContent).toContain('Message 3 of Back to School Bundles failed. No one received it.')
+  await user.click(within(screen.getByRole('radiogroup', { name: 'Pick a day' })).getAllByRole('radio')[1])
+  const run = [...document.querySelectorAll('[data-run]')].find((row) => row.textContent?.includes('Back to School Bundles · Message 4 of 5'))!
+  expect(run.textContent).toMatch(/· 08:00 E[DS]?T/)
+  expect(run.textContent).toContain('Drip · Email')
+  const recent = createSampleSource('busy').useRecentCampaigns({ campaignIds: [], channel: 'ALL', period: '30d' })
+  expect(recent.status === 'ready' && recent.data.rows.find((row) => row.id === 'c09')?.contextLine).toBe('Drip · 3 of 5 messages sent')
+})

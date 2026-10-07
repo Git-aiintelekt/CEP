@@ -1,7 +1,10 @@
-/** /templates/:id/design : loads the template, its latest design, the tag catalogue and the image library. */
+/**
+ * /templates/:id/design : loads the template, its latest design, the tag catalogue and the image library.
+ * ?drip={campaign}&step={message}: a drip message's template, opened from the Sequence step (drip mode, sequence/dripEditor).
+ */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
@@ -11,12 +14,17 @@ import { apiDeliverability } from '@/features/deliverability/backend'
 import { DesignerWorkspace, type DesignerBackend } from '@/features/designer/DesignerWorkspace'
 import { EditorFailure, EditorLoading } from '@/features/designer/EditorStates'
 import { canEditTemplate } from '@/features/designer/editAccess'
+import { dripLockNote } from '@/features/templates/lastUsed'
+import { DripTestButton } from '@/features/campaigns/sequence/DripTestButton'
+import { useDripMode } from '@/features/campaigns/sequence/dripEditor'
 import { api } from '@/lib/api'
 import type { CodeSample, Design, DesignVersion, MediaAsset, Page, PersonalizationTag, Template } from '@/lib/types'
 
 
 export default function TemplateDesignerPage() {
   const { id = '' } = useParams()
+  const [params] = useSearchParams()
+  const dripMode = useDripMode(id, params.get('drip'), params.get('step'))
   const { can, has } = useAuth()
   const codes = has('dynamic_codes')
   const queryClient = useQueryClient()
@@ -67,7 +75,7 @@ export default function TemplateDesignerPage() {
       />
     )
   }
-  if (!template.data || !design.data || !tags.data) return <EditorLoading label="Opening the designer" />
+  if (!template.data || !design.data || !tags.data || dripMode === undefined) return <EditorLoading label="Opening the designer" />
 
   if (template.data.channel !== 'EMAIL') {
     return (
@@ -89,8 +97,10 @@ export default function TemplateDesignerPage() {
       assets={(assets.data?.results ?? []).map((asset) => ({ url: asset.url, name: asset.file_name, width: asset.width_px, height: asset.height_px }))}
       backend={backend}
       backTo="/templates"
+      drip={dripMode ? { ...dripMode, test: (dirty) => <DripTestButton drip={dripMode} dirty={dirty} /> } : undefined}
       showNav
-      readOnly={!canEditTemplate(can, template.data.status)}
+      readOnly={!canEditTemplate(can, template.data.status, Boolean(template.data.used_in_drip?.locked))}
+      lockNote={dripLockNote(template.data)}
     />
   )
 }

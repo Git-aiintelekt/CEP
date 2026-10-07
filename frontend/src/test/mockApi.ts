@@ -1,14 +1,14 @@
 /** In-memory stand-in for the CEP API used by the component tests. */
 import { vi } from 'vitest'
 
-import { derived, handleCampaigns, listCampaigns, moduleDefaults } from './mockCampaigns'
+import { derived, handleCampaigns, listCampaigns, makeStep, moduleDefaults } from './mockCampaigns'
 import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } from './mockWorkspaceTools'
 import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
-import type { AttributedOrder, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
-              RunRecipient, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+              RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
   url: string
@@ -16,6 +16,8 @@ export interface Call {
   headers: Record<string, string>
   body: Record<string, unknown> | null
 }
+
+export { makeStep }
 
 const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2026-09-02T10:00:00Z', row_version: 1 }
 
@@ -32,6 +34,13 @@ export const templates: Template[] = [
   { ...audit, id: 'tpl-sms', name: 'Fall SMS', description: null, channel: 'SMS', status: 'ACTIVE', cloned_from: null },
   { ...audit, id: 'tpl-old', name: 'Retired Email', description: null, channel: 'EMAIL', status: 'ARCHIVED', cloned_from: null },
   { ...audit, id: 'tpl-receipt', name: 'Northline order receipt', description: null, channel: 'E_RECEIPT', status: 'ACTIVE', cloned_from: null },
+]
+
+/** the people one drip message left out (GET /campaign-runs/{id}/skipped/) */
+export const skippedPeople: RunSkippedPerson[] = [
+  { party_id: 'P-11', first_name: 'Jordan', last_name: 'Lee', address: 'jordan.lee@example.com', reason: 'FREQUENCY_CAP' },
+  { party_id: 'P-12', first_name: 'Priya', last_name: 'Shah', address: 'priya.shah@example.com', reason: 'FREQUENCY_CAP' },
+  { party_id: 'P-13', first_name: 'Sam', last_name: 'Ortiz', address: 'sam.ortiz@example.com', reason: 'UNSUBSCRIBED' },
 ]
 
 export const senders: SenderProfile[] = [
@@ -554,10 +563,24 @@ interface MockOptions {
   estimate?: Partial<CampaignAudience>
   /** GET /campaigns/{id}/activity/ fails with a 503 */
   activityFails?: boolean
+  /** a drip's messages by campaign id (GET /campaigns/{id}/steps/); default: the API's Day-0 message without a template */
+  dripSteps?: Record<string, DripStep[]>
+  /** what GET /campaign-runs/{id}/recipients/ lists; default: runRecipients */
+  recipientRows?: RunRecipient[]
+  /** what GET /campaign-runs/{id}/skipped/ lists; default: skippedPeople */
+  skippedPeople?: RunSkippedPerson[]
+  /** GET /campaigns/{id}/resume-plan/ */
+  resumePlan?: { missed: unknown[]; moved: unknown[]; unchanged: unknown[] }
+  /** drip messages (by step id) whose test send fails */
+  dripTestFails?: string[]
+  /** review warnings added to drip messages (by step id), besides the TOO_CLOSE the mock works out */
+  dripWarnings?: Record<string, { code: 'TOO_CLOSE' | 'FREQUENCY' | 'QUIET_HOURS'; message: string }[]>
   /** answer for POST /campaigns/ and PATCH /campaigns/{id}/ ; default echoes a saved campaign */
   onSave?: (call: Call) => Response | null
   /** answer for POST /templates/ ; default echoes a created draft */
   onSaveTemplate?: (call: Call) => Response | null
+  /** listed first in GET /templates/ (a drip's message templates, say) */
+  moreTemplates?: Template[]
   /** what GET /templates/{id}/ and /message/ answer */
   template?: Template
   message?: Message
@@ -619,9 +642,9 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
-  const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate }
+  const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate, steps: options.dripSteps, dripTestFails: options.dripTestFails, dripWarnings: options.dripWarnings, resumePlan: options.resumePlan }
   let listsNow: ContactList[] = [...(options.lists ?? contactLists)]
-  let templatesNow: Template[] = [...templates]
+  let templatesNow: Template[] = [...(options.moreTemplates ?? []), ...templates]
   let membersNow: ListMember[] = [...listMembers]
   const consentPolicyNow = { ...consentPolicy }
   const attributionNow: AttributionSettings = JSON.parse(JSON.stringify(attributionSettings))
@@ -760,10 +783,22 @@ export function installMockApi(options: MockOptions = {}) {
     if (/\/campaign-runs\/[^/]+\/recipients\/$/.test(path)) {
       const params = new URL(url, 'http://test.local').searchParams
       const status = params.get('status'), q = (params.get('q') ?? '').toLowerCase()
-      const rows = runRecipients.filter((row) => (!status || status.split(',').includes(row.status)) && (!q || row.address.includes(q) || `${row.first_name} ${row.last_name}`.toLowerCase().includes(q)))
-      const byStatus = runRecipients.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {})
+      const listed = options.recipientRows ?? runRecipients
+      const rows = listed.filter((row) => (!status || status.split(',').includes(row.status)) && (!q || row.address.includes(q) || `${row.first_name} ${row.last_name}`.toLowerCase().includes(q)))
+      const byStatus = listed.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {})
       return json({ run: { id: 'r1', run_number: 1, status: 'COMPLETED', test_mode: false, family: 'EMAIL' }, count: rows.length, page: 1, page_size: 50, results: rows, by_status: byStatus,
-                    statuses: ['QUEUED', 'SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED', 'FAILED'] })
+                    statuses: ['QUEUED', 'SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED', 'FAILED', 'NOT_SENT'] })
+    }
+    if (/\/campaign-runs\/[^/]+\/skipped\/$/.test(path)) {
+      // GET /campaign-runs/{id}/skipped/: who one run left out, filtered by reason and q, paged
+      const params = new URL(url, 'http://test.local').searchParams
+      const reason = params.get('reason'), q = (params.get('q') ?? '').toLowerCase()
+      const page = Number(params.get('page') ?? 1), size = Number(params.get('page_size') ?? 50)
+      const all = options.skippedPeople ?? skippedPeople
+      const rows = all.filter((row) => (!reason || row.reason === reason) && (!q || `${row.party_id} ${row.first_name} ${row.last_name} ${row.address}`.toLowerCase().includes(q)))
+      const byReason = all.reduce<Record<string, number>>((acc, row) => ({ ...acc, [row.reason]: (acc[row.reason] ?? 0) + 1 }), {})
+      return json({ run: { id: /campaign-runs\/([^/]+)\//.exec(path)?.[1], run_number: 1, status: 'COMPLETED', test_mode: false, family: 'EMAIL' }, count: rows.length, page, page_size: size,
+                    results: rows.slice((page - 1) * size, page * size), by_reason: byReason })
     }
     if (path.endsWith('/workspace/mail-server/test/')) {
       const ok = mailNow.server?.host !== 'smtp.broken.example'
@@ -984,6 +1019,9 @@ export function installMockApi(options: MockOptions = {}) {
       const id = /\/templates\/([^/]+)\/$/.exec(path)?.[1]
       // Fall Email is the campaign's template, which the server refuses to delete
       if (id === 'tpl-email') return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'This template is used by a campaign. Archive it instead.' }, 409)
+      // a live drip's message (drip.guard_template)
+      const drip = templatesNow.find((item) => item.id === id)?.used_in_drip
+      if (drip?.locked) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: `This template can't be deleted. ${drip.campaign_name} uses it for message ${drip.position}, and the drip is still running.` }, 409)
       templatesNow = templatesNow.filter((item) => item.id !== id)
       return json(null, 204)
     }
@@ -1292,7 +1330,8 @@ export function installMockApi(options: MockOptions = {}) {
       if (custom) return custom
       // as the API does: the body's ids come back with the names and details the pages show
       const before = campaignState.campaigns.find((item) => item.id === one)
-      const input = body as Partial<Campaign>
+      const input = { ...(body as Partial<Campaign>) }
+      if (input.drip_config && !input.drip_config.steps) input.drip_config = { ...(before?.drip_config ?? { steps: [] }), ...input.drip_config }   // the series time alone
       if (input.ab_config?.enabled && !input.ab_config.subject_b?.trim()) {
         return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { ab_config: ['Enter the second subject line, or switch the test off.'] } }, 400)
       }

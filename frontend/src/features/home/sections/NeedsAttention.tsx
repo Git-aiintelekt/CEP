@@ -19,7 +19,41 @@ function title(group: AttentionGroup): string {
   return `${formatNumber(group.count)}${group.atLeast ? '+' : ''} ${group.category}`
 }
 
+/** a group of separate problems (Drip Problems): each sentence with its own link; one problem reads like any other card */
+function ItemsCard({ group }: { group: AttentionGroup }) {
+  const items = group.items ?? []
+  if (items.length === 1) {
+    return (
+      <li className={CARD} data-alert={group.id}>
+        <SeverityIcon severity={group.severity} />
+        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+          <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
+          <span data-severity={group.severity} className="line-clamp-2 text-helper text-ink-800">{items[0].text}</span>
+        </span>
+        <Link to={items[0].href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{items[0].actionLabel}</Link>
+      </li>
+    )
+  }
+  return (
+    <li className={`${CARD} items-start`} data-alert={group.id}>
+      <SeverityIcon severity={group.severity} />
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5 leading-tight">
+        <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
+        <ul data-severity={group.severity} className="flex flex-col gap-1.5">
+          {items.map((item) => (
+            <li key={item.id} className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 text-helper text-ink-800">{item.text}</span>
+              <Link to={item.href} aria-label={`${item.actionLabel}: ${item.text}`} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{item.actionLabel}</Link>
+            </li>
+          ))}
+        </ul>
+      </span>
+    </li>
+  )
+}
+
 function AlertCard({ group }: { group: AttentionGroup }) {
+  if (group.items) return <ItemsCard group={group} />
   return (
     <li className={CARD} data-alert={group.id}>
       <SeverityIcon severity={group.severity} />

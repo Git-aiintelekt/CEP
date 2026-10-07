@@ -1,6 +1,7 @@
 /**
  * The calendar's week: seven columns from `start`, each day's sends as blocks in their campaign's status colour, in time
- * order. Below 768px the week is a list, a heading per day.
+ * order. A drip's message is a block of its own: "Loyalty Welcome Series · Message 3 of 4", and under it "First Reward ·
+ * 09:00 CT". A paused drip's held messages have no day, so they are not listed. Below 768px the week is a list, a heading per day.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Image, Mail, MessageSquare, type LucideIcon } from 'lucide-react'
@@ -21,7 +22,8 @@ import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
 import { CalendarDayModal, CalendarLegend } from './CalendarParts'
 import { dayOf } from './calendarMath'
-import { barStatus, statusLabel } from './calendarSpans'
+import { barStatus, dripSendTitle, isDripSend, statusLabel } from './calendarSpans'
+import { zoneShort } from './dripSequence'
 import { withJourneys } from './calendarView'
 import { campaignHome } from './vocabulary'
 
@@ -40,6 +42,9 @@ interface WeekSend {
   time: string
   name: string
   sent: boolean
+  /** a drip message: "First Reward · 09:00 CT", and the message's own name */
+  detail?: string
+  message?: string
 }
 
 const weekday = (day: string, style: 'short' | 'long') => new Intl.DateTimeFormat('en-GB', { weekday: style, timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
@@ -48,7 +53,7 @@ const dateOf = (day: string, month: 'short' | 'long') => new Intl.DateTimeFormat
 
 function spoken(send: WeekSend): string {
   const { label } = channelOf(send.span.channel)
-  return `${send.name}: ${statusLabel(barStatus(send.span))}, ${send.time}, ${label}${send.span.is_journey_generated ? ', journey run' : ''}${send.sent ? ', sent' : ''}`
+  return `${send.name}${send.detail ? `, ${send.detail}` : ''}: ${statusLabel(barStatus(send.span))}${send.detail ? '' : `, ${send.time}`}, ${label}${send.span.is_journey_generated ? ', journey run' : ''}${send.sent ? ', sent' : ''}`
 }
 
 function SendBlock({ send, canEdit }: { send: WeekSend; canEdit: boolean }) {
@@ -58,11 +63,12 @@ function SendBlock({ send, canEdit }: { send: WeekSend; canEdit: boolean }) {
       <Link to={campaignHome({ ...send.span, id: send.span.campaign }, canEdit)} aria-label={spoken(send)} data-send={send.span.campaign}
         className={`flex w-full min-w-0 flex-col gap-0.5 rounded-sm px-2 py-1.5 text-xs transition-colors duration-fast ${statusColours(barStatus(send.span))}`}>
         <span className="flex items-center gap-1.5">
-          <span className="font-semibold cep-num">{send.time}</span>
+          {!send.detail && <span className="font-semibold cep-num">{send.time}</span>}
           <Icon size={12} strokeWidth={1.5} aria-hidden />
           {send.sent && <span data-sent className="ml-auto">Sent</span>}
         </span>
-        <span className="line-clamp-2 break-words">{send.name}</span>
+        <span className={`line-clamp-2 break-words ${send.detail ? 'font-semibold' : ''}`}>{send.name}</span>
+        {send.detail && <span className="cep-num line-clamp-2 break-words" data-send-detail>{send.detail}</span>}
         {send.span.is_journey_generated && <span className="mt-0.5"><CategoryTag category="journey" /></span>}
       </Link>
     </Tooltip>
@@ -95,8 +101,12 @@ export function CampaignWeek({ filters, zone, canEdit, start, journeys, today }:
     span.sends.forEach((send, index) => {
       const bucket = sends.get(dayOf(send.at, zone))
       if (!bucket) return
+      const time = formatClock(send.at, zone)
       bucket.push({
-        key: `${span.campaign}-${index}`, span, at: send.at, time: formatClock(send.at, zone), name: send.label ? `${span.name}, ${send.label}` : span.name,
+        key: `${span.campaign}-${index}`, span, at: send.at, time,
+        name: isDripSend(send) ? dripSendTitle(span, send) : send.label ? `${span.name}, ${send.label}` : span.name,
+        detail: isDripSend(send) ? [send.name, `${time} ${zoneShort(zone)}`].filter(Boolean).join(' · ') : undefined,
+        message: isDripSend(send) ? send.name : undefined,
         sent: send.state === 'SENT' || send.state === 'SENDING' || new Date(send.at).getTime() < calendar.dataUpdatedAt,
       })
     })
@@ -125,7 +135,9 @@ export function CampaignWeek({ filters, zone, canEdit, start, journeys, today }:
                       <li key={send.key} className="flex items-center gap-2 py-2 text-sm">
                         <span className="w-12 shrink-0 text-ink-900 cep-num">{send.time}</span>
                         <Icon size={16} strokeWidth={1.5} role="img" aria-label={label} className="shrink-0 text-ink-800" />
-                        <Link to={campaignHome({ ...send.span, id: send.span.campaign }, canEdit)} aria-label={spoken(send)} className="min-w-0 flex-1 truncate text-ink-900 hover:underline">{send.name}</Link>
+                        <Link to={campaignHome({ ...send.span, id: send.span.campaign }, canEdit)} aria-label={spoken(send)} className="min-w-0 flex-1 truncate text-ink-900 hover:underline">
+                          {send.name}{send.message && <span className="text-ink-800"> · {send.message}</span>}
+                        </Link>
                         {send.span.is_journey_generated && <CategoryTag category="journey" />}
                         <StatusBadge status={barStatus(send.span)} />
                       </li>
@@ -167,7 +179,7 @@ export function CampaignWeek({ filters, zone, canEdit, start, journeys, today }:
       )}
 
       {wide && !calendar.isError && <CalendarLegend journeys={journeys} />}
-      {dayOpen && <CalendarDayModal day={dayOpen} spans={spansOn(dayOpen)} canEdit={canEdit} onClose={() => setDayOpen(null)} />}
+      {dayOpen && <CalendarDayModal day={dayOpen} zone={zone} spans={spansOn(dayOpen)} canEdit={canEdit} onClose={() => setDayOpen(null)} />}
     </div>
   )
 }

@@ -18,10 +18,9 @@ from django.utils import timezone
 
 from apps.campaigns.models import Campaign, CampaignList, CampaignRun
 from apps.platform_ops import notifications
-from apps.templates.models import RenderedTemplateContent
 
 from ..providers import ProviderError, registry
-from . import abtest, audience, audience_sms, sendtime, session
+from . import abtest, audience, audience_sms, content as run_content, sendtime, session
 
 log = logging.getLogger("cep.delivery")
 STALE_CLAIM = timedelta(minutes=15)
@@ -44,9 +43,21 @@ def family(campaign) -> str:
     return "EMAIL"
 
 
-def text_channel(campaign) -> str:
-    """SMS or MMS for a text run: the template says whether there is a picture."""
-    return "MMS" if (campaign.template_id and campaign.template.channel == "MMS") or campaign.channel == "MMS" else "SMS"
+def text_channel(campaign, template=None) -> str:
+    """SMS or MMS for a text run: the template says whether there is a picture (`template`: the run's own, a drip message's)."""
+    template = template if template is not None else (campaign.template if campaign.template_id else None)
+    return "MMS" if (template is not None and template.channel == "MMS") or campaign.channel == "MMS" else "SMS"
+
+
+def base_list(campaign, run) -> CampaignList | None:
+    """A later drip message's people: the first Campaign List built for one of this drip's messages. None for anything else,
+    and for the first message to build one (it builds from the contact lists, and becomes the base)."""
+    if not run.drip_step_id or run.test_mode:
+        return None
+    if not type(run.drip_step).objects.filter(campaign_id=run.campaign_id, day__lt=run.drip_step.day).exists():
+        return None                                     # the first message (a retry of it too) builds from the contact lists
+    return (CampaignList.objects.filter(campaign=campaign, tenant_id=run.tenant_id, status="FROZEN", campaign_run__test_mode=False, campaign_run__run_type="DRIP_INSTANCE")
+            .exclude(campaign_run_id=run.pk).select_related("campaign_run__drip_step").order_by("generated_at").first())
 
 
 def quiet_until(tenant_timezone: str, now: datetime | None = None) -> datetime | None:
@@ -90,30 +101,41 @@ def _deliver(notice: dict | None) -> None:
         log.exception("notification not delivered")
 
 
+def _step_words(run) -> tuple[str | None, dict]:
+    """A drip message's run: "Message 2 (How Points Work)" and {"step_position": 2}; (None, {}) for any other run."""
+    if not run.drip_step_id or run.drip_step is None:
+        return None, {}
+    label = run_content.step_label(run.drip_step)
+    return label, {"step_position": int(label.split()[1])}
+
+
 def _fail(tenant_id, run, reason: str) -> None:
     log.error("run %s failed: %s", run.pk, reason)
     notice = None
     with session.tx():
+        label, position = _step_words(run)
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="FAILED", completed_at=timezone.now())
         if not run.test_mode:
             notice = _notice(tenant_id, run, "send_failed", f"{run.campaign.name}: the send could not start", [f"Reason: {reason}", "Nothing went out. Fix the cause and publish again, or resume if it was paused."])
     if not run.test_mode:
-        _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED", f"Send could not start: {reason}", severity="ERROR")
+        words = (reason if reason.startswith(label) else f"{label} failed: {reason[:1].lower() + reason[1:]}") if label else f"Send could not start: {reason}"
+        _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED", words, severity="ERROR", detail=position or None)
     _deliver(notice)
 
 
 def start(tenant_id, run_id) -> dict:
     """-> {'batches': [[execution ids], ...], 'audience': {...}, 'family': 'EMAIL' | 'SMS'}. Safe to call twice: only one caller gets the claim."""
     with session.tx():
-        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "campaign__tenant").get(pk=run_id, tenant_id=tenant_id)
+        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "campaign__tenant", "drip_step__template").get(pk=run_id, tenant_id=tenant_id)
         campaign = run.campaign
         sender = campaign.sender_profile
-        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first() if campaign.template_id else None
+        template, content, step = run_content.of_run(run)
         kind = family(campaign)
+        channel = text_channel(campaign, template) if kind == "SMS" else "EMAIL"
         media_url = None
-        if kind == "SMS" and text_channel(campaign) == "MMS":
+        if kind == "SMS" and channel == "MMS" and template is not None:
             from apps.templates import design
-            media_url = design.message_media_url(campaign.template)
+            media_url = design.message_media_url(template)
         tenant_zone = campaign.tenant.timezone
 
     if campaign.status in ("PAUSED", "ARCHIVED"):            # stays SCHEDULED: it starts once the campaign is resumed
@@ -134,7 +156,7 @@ def start(tenant_id, run_id) -> dict:
     if sender is None or sender.deleted_at is not None:
         problem = "The campaign has no usable sender."
     elif content is None or not ((content.sms_body or "").strip() if kind == "SMS" else (content.html_content or content.text_content)):
-        problem = "The template has no saved content."
+        problem = f"{run_content.step_label(step)} has no saved content." if step is not None else "The template has no saved content."
     elif kind == "SMS" and not (sender.sender_id or "").strip():
         problem = "The sender has no number or short code to text from."
     else:
@@ -144,7 +166,7 @@ def start(tenant_id, run_id) -> dict:
             if adapter.channel != kind:
                 problem = (f"The sender's engine ({sender.delivery_provider.name}) carries {'email' if adapter.channel == 'EMAIL' else 'text messages'}, "
                            f"and this is {'a text' if kind == 'SMS' else 'an email'} campaign. Choose a sender of the right kind.")
-            elif kind == "SMS" and text_channel(campaign) == "MMS":
+            elif kind == "SMS" and channel == "MMS":
                 if not getattr(adapter, "supports_mms", False):
                     problem = f"{sender.delivery_provider.name} cannot send picture messages (MMS)."
                 elif not media_url:
@@ -162,19 +184,26 @@ def start(tenant_id, run_id) -> dict:
         return {"batches": [], "audience": {}, "failed": problem, "family": kind}
 
     with session.tx():
+        base = base_list(campaign, run)
         campaign_list = CampaignList.objects.create(campaign=campaign, campaign_run=run, tenant_id=tenant_id, status="BUILDING")
+        base_id = base.pk if base is not None else None
         if kind == "SMS":
             built = audience_sms.build(tenant_id=tenant_id, campaign=campaign, run=run, campaign_list=campaign_list, content=content, provider=sender.delivery_provider,
-                                       sender=sender, channel=text_channel(campaign), media_url=media_url)
+                                       sender=sender, channel=channel, media_url=media_url, base_list_id=base_id)
         else:
-            built = audience.build(tenant_id=tenant_id, campaign=campaign, run=run, campaign_list=campaign_list, content=content, provider_id=sender.delivery_provider_id)
+            built = audience.build(tenant_id=tenant_id, campaign=campaign, run=run, campaign_list=campaign_list, content=content, provider_id=sender.delivery_provider_id,
+                                   step=step, base_list_id=base_id)
         CampaignList.objects.filter(pk=campaign_list.pk).update(status="FROZEN", member_count=built["members"])
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id).update(status="SENDING")
         Campaign.objects.filter(pk=campaign.pk, tenant_id=tenant_id).exclude(status__in=["PAUSED", "ARCHIVED"]).update(status="ACTIVE")
         notes = []
+        if base is not None:
+            source = run_content.step_label(base.campaign_run.drip_step).split(" (")[0].lower() if base.campaign_run.drip_step_id else "an earlier message"
+            built["base_list"] = {"campaign_list": str(base.pk), "people": base.member_count}
+            notes.append(f"Built from {source}'s audience ({base.member_count:,} people); {built['members'] - built.get('eligible', 0):,} left out by governance.")
         with session.connection().cursor() as cursor:
             if kind == "EMAIL" and not run.test_mode:
-                built["ab_test"] = abtest.split(cursor, tenant_id=tenant_id, run=run, campaign=campaign, content=content)
+                built["ab_test"] = abtest.split(cursor, tenant_id=tenant_id, run=run, campaign=campaign, content=content, step=step)
                 if built["ab_test"] and "skipped" in built["ab_test"]:
                     notes.append("Subject line test skipped: " + built["ab_test"]["skipped"] + ".")
                 elif built["ab_test"]:
@@ -189,8 +218,10 @@ def start(tenant_id, run_id) -> dict:
                 notes.append(f"Local send times: {local['localised']:,} people get it at {local['wall_clock'][-5:]} their time"
                              + (f", the last at {local['last_at'].astimezone(ZoneInfo(tenant_zone)):%d %b %H:%M} {tenant_zone}" if local["last_at"] else "")
                              + (f"; {local['unknown_zone']:,} with no known zone go now." if local["unknown_zone"] else "."))
+        label, position = _step_words(run)
+        built.update(position)
         _activity(tenant_id, campaign.pk, run.pk, "SEND_STARTED",
-                  f"Send started{' (' + run.sequence_label + ')' if run.sequence_label else ''}: Campaign List frozen with {built['members']:,} people, "
+                  (f"{label} started" if label else f"Send started{' (' + run.sequence_label + ')' if run.sequence_label else ''}") + f": Campaign List frozen with {built['members']:,} people, "
                   f"{built.get('eligible', 0):,} to be sent, {built['members'] - built.get('eligible', 0):,} left out by governance or missing details."
                   + "".join(" " + note for note in notes), detail=built)
         with session.connection().cursor() as cursor:
@@ -233,25 +264,41 @@ def run_family(tenant_id, run_id) -> str:
 
 def stats(tenant_id, run_id, kind: str | None = None) -> dict:
     kind = kind or run_family(tenant_id, run_id)
+    return stats_many(tenant_id, [run_id], kind)[str(run_id)]
+
+
+def stats_many(tenant_id, run_ids, kind: str) -> dict[str, dict]:
+    """stats() for several runs of one family, one grouped query per measure: {run_id: {...}}."""
+    ids = [str(run_id) for run_id in run_ids]
+    by_status, members, parts = {run_id: {} for run_id in ids}, {run_id: {} for run_id in ids}, {run_id: 0 for run_id in ids}
     with session.connection().cursor() as cursor:
-        cursor.execute(f"SELECT status, count(*) FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id = %s GROUP BY 1", [str(tenant_id), str(run_id)])
-        by_status = dict(cursor.fetchall())
-        cursor.execute("""SELECT COALESCE(m.suppression_reason, 'ELIGIBLE'), count(*) FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id
-                           WHERE m.tenant_id = %s AND l.campaign_run_id = %s GROUP BY 1""", [str(tenant_id), str(run_id)])
-        members = dict(cursor.fetchall())
-        parts = 0
+        # a message CEP chose not to send (not_sent_reason, patch 0044) is NOT_SENT here, never FAILED
+        cursor.execute(f"""SELECT campaign_run_id::text, CASE WHEN not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE status END, count(*) FROM {TABLE[kind]}
+                            WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) GROUP BY 1, 2""", [str(tenant_id), ids])
+        for run_id, status, count in cursor.fetchall():
+            by_status[run_id][status] = count
+        cursor.execute("""SELECT l.campaign_run_id::text, COALESCE(m.suppression_reason, 'ELIGIBLE'), count(*) FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id
+                           WHERE m.tenant_id = %s AND l.campaign_run_id::text = ANY(%s) GROUP BY 1, 2""", [str(tenant_id), ids])
+        for run_id, reason, count in cursor.fetchall():
+            members[run_id][reason] = count
         if kind == "SMS":
-            cursor.execute("SELECT COALESCE(sum(segment_count), 0) FROM sms_execution WHERE tenant_id = %s AND campaign_run_id = %s AND status NOT IN ('QUEUED', 'FAILED')",
-                           [str(tenant_id), str(run_id)])
-            parts = int(cursor.fetchone()[0])
-    eligible = members.pop("ELIGIBLE", 0)
-    sent = sum(v for k, v in by_status.items() if k not in ("QUEUED", "FAILED"))
-    got = by_status.get
-    messages = {"queued": got("QUEUED", 0), "sent": sent, "failed": got("FAILED", 0),
-                "delivered": sum(got(k, 0) for k in (("DELIVERED", "RESPONDED", "OPTED_OUT") if kind == "SMS" else ("DELIVERED", "OPENED", "CLICKED"))),
-                "opened": got("OPENED", 0) + got("CLICKED", 0), "clicked": got("CLICKED", 0), "bounced": got("BOUNCED", 0), "complained": got("COMPLAINED", 0),
-                "replied": got("RESPONDED", 0) + got("OPTED_OUT", 0), "opted_out": got("OPTED_OUT", 0), "parts": parts}
-    return {"family": kind, "audience": {"members": eligible + sum(members.values()), "eligible": eligible, "suppressed": members}, "messages": messages, "by_status": by_status}
+            cursor.execute("""SELECT campaign_run_id::text, COALESCE(sum(segment_count), 0) FROM sms_execution
+                               WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) AND status NOT IN ('QUEUED', 'FAILED') GROUP BY 1""", [str(tenant_id), ids])
+            for run_id, count in cursor.fetchall():
+                parts[run_id] = int(count)
+    result = {}
+    for run_id in ids:
+        counts, left_out = by_status[run_id], dict(members[run_id])
+        eligible = left_out.pop("ELIGIBLE", 0)
+        sent = sum(v for k, v in counts.items() if k not in ("QUEUED", "FAILED", "NOT_SENT"))
+        got = counts.get
+        messages = {"queued": got("QUEUED", 0), "sent": sent, "failed": got("FAILED", 0), "not_sent": got("NOT_SENT", 0),
+                    "delivered": sum(got(k, 0) for k in (("DELIVERED", "RESPONDED", "OPTED_OUT") if kind == "SMS" else ("DELIVERED", "OPENED", "CLICKED"))),
+                    "opened": got("OPENED", 0) + got("CLICKED", 0), "clicked": got("CLICKED", 0), "bounced": got("BOUNCED", 0), "complained": got("COMPLAINED", 0),
+                    "replied": got("RESPONDED", 0) + got("OPTED_OUT", 0), "opted_out": got("OPTED_OUT", 0), "parts": parts[run_id]}
+        result[run_id] = {"family": kind, "audience": {"members": eligible + sum(left_out.values()), "eligible": eligible, "suppressed": left_out}, "messages": messages,
+                          "by_status": counts}
+    return result
 
 
 def codes_left_out(tenant_id, run_id) -> int:
@@ -266,10 +313,11 @@ def finalize(tenant_id, run_id) -> str | None:
     """COMPLETED when nothing is queued any more; FAILED when nothing at all went out. Returns the new status, or None while still sending."""
     notice = None
     with session.tx():
-        run = CampaignRun.objects.select_related("campaign__template").get(pk=run_id, tenant_id=tenant_id)
+        run = CampaignRun.objects.select_related("campaign__template", "drip_step").get(pk=run_id, tenant_id=tenant_id)
         if run.status != "SENDING" or run.run_type == "ERECEIPT_INSTANCE":    # a receipt run stays open all day: receipts.py closes yesterday's
             return None
-        numbers = stats(tenant_id, run_id, family(run.campaign))["messages"]
+        figures = stats(tenant_id, run_id, family(run.campaign))
+        numbers = figures["messages"]
         if numbers["queued"]:
             return None
         outcome = "FAILED" if numbers["failed"] and not numbers["sent"] else "COMPLETED"
@@ -279,11 +327,17 @@ def finalize(tenant_id, run_id) -> str | None:
         now = timezone.now()
         CampaignRun.objects.filter(pk=run.pk, tenant_id=tenant_id, status="SENDING").update(status=outcome, completed_at=now)
         if not run.test_mode:
+            label, position = _step_words(run)
+            skipped = sum(figures["audience"]["suppressed"].values())
+            if label:                                           # a drip message says which one it was
+                words = (f"{label} failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
+                         else f"{label} sent to {numbers['sent']:,}; {skipped:,} skipped." + (f" {numbers['failed']:,} failed." if numbers["failed"] else ""))
+            else:
+                words = (f"Send failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
+                         else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else "."))
             _activity(tenant_id, run.campaign_id, run.pk, "SEND_FAILED" if outcome == "FAILED" else "SEND_COMPLETED",
-                      (f"Send failed: none of {numbers['failed']:,} messages went out." if outcome == "FAILED"
-                       else f"Send completed: {numbers['sent']:,} sent" + (f", {numbers['failed']:,} failed." if numbers["failed"] else ".")
-                       + (f" A barcode or QR code was left out for {missing_codes:,} of them." if missing_codes else "")),
-                      severity="ERROR" if outcome == "FAILED" else "INFO", detail=numbers)
+                      words + (f" A barcode or QR code was left out for {missing_codes:,} of them." if missing_codes else ""),
+                      severity="ERROR" if outcome == "FAILED" else "INFO", detail={**numbers, **position})
             name = run.campaign.name + (f" ({run.sequence_label})" if run.sequence_label else "")
             notice = (_notice(tenant_id, run, "send_failed", f"{name}: the send failed", [f"None of {numbers['failed']:,} messages went out.", "Check the sending engine under Settings → Integrations, then publish again."])
                       if outcome == "FAILED" else

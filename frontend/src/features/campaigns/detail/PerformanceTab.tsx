@@ -12,13 +12,14 @@ import { SegmentedControl } from '@/components/SegmentedControl'
 import { TextReplies } from '@/features/delivery/RunResults'
 import { api } from '@/lib/api'
 import { formatMoney, formatNumber } from '@/lib/format'
-import type { Campaign, CampaignMetrics, CampaignTimeseries } from '@/lib/types'
+import type { Campaign, CampaignMetrics, CampaignTimeseries, DripStep } from '@/lib/types'
 
 import { CardError, CardLink, DetailCard, Meter, Metric } from '../parts'
 import { setupHref } from '../setupFlow'
 import { hasAction, isText } from '../vocabulary'
 import { resultsStamp, useCampaignMetrics } from './campaignMetrics'
 import { economicsHeadline, economicsRows, economicsSubline, hasTargets, type ActualCosts, type EconomicsRow, type Tone } from './economics'
+import { MessageComparison } from './MessageComparison'
 import { RunsCard } from './RunsCard'
 import { TimeseriesChart } from './TimeseriesChart'
 
@@ -44,7 +45,7 @@ function ResultsCard({ campaign, zone, metrics }: { campaign: Campaign; zone: st
     body = (
       <>
         <dl className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Metric label="Sent" value={formatNumber(counts.sent)} note={counts.queued ? `${formatNumber(counts.queued)} still queued` : counts.failed ? `${formatNumber(counts.failed)} failed` : undefined} />
+          <Metric label="Sent" value={formatNumber(counts.sent)} note={[counts.queued ? `${formatNumber(counts.queued)} still queued` : counts.failed ? `${formatNumber(counts.failed)} failed` : '', counts.not_sent ? `${formatNumber(counts.not_sent)} not sent` : ''].filter(Boolean).join(' · ') || undefined} />
           <Metric label="Delivered" value={formatNumber(counts.delivered)} note={`${rate(rates.delivery)} of sent`} />
           {texts ? (
             <>
@@ -134,8 +135,8 @@ const mailboxColumns: Column<CampaignMetrics['breakdown']['rows'][number]>[] = [
   { key: 'bounced', header: 'Bounced', align: 'right', render: (row) => formatNumber(row.bounced) },
 ]
 
-/** `focusRun`: a run to open and bring into view (the failed-run banner's "View run") */
-export function PerformanceTab({ campaign, zone, live, focusRun }: { campaign: Campaign; zone: string; live: boolean; focusRun?: string }) {
+/** `focusRun`: a run to open and bring into view (the failed-run banner's "View run"); `onSkipped`: a drip message's Skipped drawer */
+export function PerformanceTab({ campaign, zone, live, focusRun, onSkipped }: { campaign: Campaign; zone: string; live: boolean; focusRun?: string; onSkipped?: (step: DripStep) => void }) {
   const texts = isText(campaign)
   const metrics = useCampaignMetrics(campaign, live)
 
@@ -145,6 +146,7 @@ export function PerformanceTab({ campaign, zone, live, focusRun }: { campaign: C
   const data = metrics.data
   return (
     <div className="flex flex-col gap-6">
+      {campaign.campaign_type === 'DRIP' && <MessageComparison campaign={campaign} zone={zone} onSkipped={onSkipped ?? (() => {})} />}
       <ResultsCard campaign={campaign} zone={zone} metrics={metrics} />
       <EngagementCard campaign={campaign} zone={zone} live={live} />
       {data && <EconomicsCard campaign={campaign} metrics={data} />}

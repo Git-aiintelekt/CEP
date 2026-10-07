@@ -17,6 +17,9 @@ creates the mailer_execution rows. Rules, in order (first match is the recorded 
     DUPLICATE_ADDRESS  another party in this run has the same address (the first keeps it)
 
 Runs on the caller's connection, inside its transaction, under the tenant's row-level security.
+
+A later drip message (`base_list_id`) takes its people from the first message's Campaign List instead of the contact
+lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
 from apps.governance import preferences
 
@@ -27,14 +30,26 @@ PRIMARY_EMAIL = """(SELECT lower(e ->> 'address') FROM jsonb_array_elements(cm.e
                      WHERE COALESCE((e ->> 'is_valid')::boolean, TRUE) AND COALESCE(e ->> 'address', '') <> ''
                      ORDER BY COALESCE((e ->> 'is_primary')::boolean, FALSE) DESC LIMIT 1)"""
 
-BUILD = f"""
-WITH picked AS (                                          -- PARTY_ID_LAST_WINS across the attached lists
-    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status
+FROM_LISTS = """
+    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status    -- PARTY_ID_LAST_WINS across the attached lists
       FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
       JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
      WHERE m.tenant_id = %(tenant)s
-     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC
+     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC"""
+
+# a later drip message: everyone on the first message's Campaign List, whatever happened to them there, and nobody else
+FROM_BASE = """
+    SELECT DISTINCT ON (b.party_id) b.party_id, b.source_contact_list_id AS contact_list_id, b.custom_value_pairs AS custom_attributes, l.approval_status
+      FROM campaign_list_member b
+      LEFT JOIN contact_list l ON l.id = b.source_contact_list_id AND l.tenant_id = b.tenant_id
+     WHERE b.tenant_id = %(tenant)s AND b.campaign_list_id = %(base)s
+     ORDER BY b.party_id"""
+
+
+def _build_sql(picked: str) -> str:
+    return f"""
+WITH picked AS ({picked}
 ), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
     SELECT DISTINCT m.party_id FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
@@ -85,6 +100,10 @@ SELECT %(list)s, %(tenant)s, party_id, contact_list_id, COALESCE(custom_attribut
   FROM ranked
 """
 
+
+BUILD = _build_sql(FROM_LISTS)
+BUILD_FROM_BASE = _build_sql(FROM_BASE)
+
 LOG_SUPPRESSED = """
 INSERT INTO governance_evaluation_log (tenant_id, party_id, campaign_id, campaign_run_id, channel, policy_id, decision, reason)
 SELECT m.tenant_id, m.party_id, %(campaign)s, %(run)s, 'EMAIL',
@@ -105,15 +124,16 @@ SELECT m.tenant_id, %(campaign)s, %(run)s, m.id, m.party_id, {PRIMARY_EMAIL}, %(
 """
 
 
-def build(*, tenant_id, campaign, run, campaign_list, content, provider_id) -> dict:
-    """Fills the campaign list and queues one execution per eligible member. Returns the counts."""
+def build(*, tenant_id, campaign, run, campaign_list, content, provider_id, step=None, base_list_id=None) -> dict:
+    """Fills the campaign list and queues one execution per eligible member. Returns the counts. `base_list_id`: the people
+    are those on that Campaign List (a drip's first message) instead of the contact lists' members; every rule still applies."""
     marketing = campaign.solicitation_type == "MARKETING"
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": marketing,
             "caps": marketing and bool(getattr(campaign, "respect_governance", True)),     # corporate frequency limits: marketing only (BRD 12), unless switched off for this campaign
-            "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content)[:300], "provider": str(provider_id),
-            "topic": preferences.topic_filter(campaign)}
+            "content": str(content.pk), "version": content.version_number, "subject": subject_of(campaign, content, step)[:300], "provider": str(provider_id),
+            "topic": preferences.topic_filter(campaign), "base": str(base_list_id) if base_list_id else None}
     with session.connection().cursor() as cursor:
-        cursor.execute(BUILD, args)
+        cursor.execute(BUILD_FROM_BASE if base_list_id else BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)
         cursor.execute(QUEUE, args)
         queued = cursor.rowcount

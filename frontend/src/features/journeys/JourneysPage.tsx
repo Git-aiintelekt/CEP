@@ -3,8 +3,8 @@
  * choice is remembered per viewer). Create Journey opens the Setup modal (phase 6e); a starter's preview opens it
  * pre-filled. A row or card opens the preview popover, whose View Details opens the Journey Details page (6d). */
 import { AlertTriangle, LayoutGrid, List, Plus } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 
@@ -25,7 +25,7 @@ import { JourneyPreviewPopover } from './JourneyPreviewPopover'
 import { JourneySetupModal } from './JourneySetupModal'
 import { JourneyTemplatePreviewModal } from './templates/JourneyTemplatePreviewModal'
 import { JourneyTemplatesPanel } from './templates/JourneyTemplatesPanel'
-import { prefillFor, type SetupPrefill } from './templates/prefill'
+import { prefillFor, prefillNamed, type SetupPrefill } from './templates/prefill'
 import { StarterGalleryModal } from './templates/StarterGalleryModal'
 import { JourneyCard } from './templates/TemplateCards'
 import { FAMILY_META, FAMILY_OPTIONS } from './triggerFamily'
@@ -104,6 +104,15 @@ export function JourneysPage() {
     setPrefill(from)
     setSetupOpen(true)
   }
+  // Create a Journey Instead (the Create Campaign pop-up on the Campaigns list) arrives with the name and description typed there
+  const location = useLocation()
+  const handedOver = (location.state as { journeyFrom?: { name: string; description: string } } | null)?.journeyFrom
+  useEffect(() => {
+    if (!handedOver || !canEdit) return
+    openSetup(prefillNamed(handedOver.name, handedOver.description))
+    navigate(location.pathname + location.search, { replace: true, state: null })    // once: a reload or Back doesn't open it again
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedOver])
   const startFromTemplate = (starter: JourneyStarter) => {
     setPreviewing(null)
     setGalleryOpen(false)

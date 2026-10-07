@@ -66,7 +66,7 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
           <input id={id} role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-describedby={hintId}
             aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined} value={draft} disabled={disabled}
             onChange={(event) => { setDraft(event.target.value); setActive(-1); setProblem('') }} onKeyDown={onKey} onBlur={() => add(draft)}
-            placeholder={value.length === 0 ? 'Add a tag' : ''} className="h-7 min-w-32 flex-1 bg-transparent px-1 text-sm text-ink-900 outline-none placeholder:text-ink-300" />
+            placeholder={value.length === 0 ? 'e.g. Loyalty' : ''} className="h-7 min-w-32 flex-1 bg-transparent px-1 text-sm text-ink-900 outline-none placeholder:text-ink-300" />
         </div>
         {open && (
           <ul id={listId} role="listbox" aria-label="Tags in this workspace" className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden rounded-md border border-line bg-surface py-1 shadow-menu">

@@ -36,6 +36,10 @@ import { EMPTY_FILTERS, type Filters, filtersFromParams, SAVED_VIEWS, type Saved
 import { CampaignSetupDialog } from './setup/CampaignSetupDialog'
 import { setupHref, stepsFor } from './setupFlow'
 import { BULK_DONE, CONFIRM, useBulkAction, useCampaignAction, type BulkAction, type StatusAction } from './useCampaignAction'
+import { StopDialog } from './detail/DripDialogs'
+import { DripCloneDialog } from './DripCloneDialog'
+import { dripStepsQuery } from './dripSteps'
+import { dripNextSend, dripProgressText, isDripSeries } from './dripLines'
 import { channelLabel, hasAction, typeShortLabel } from './vocabulary'
 import { timeInZone } from './zone'
 
@@ -55,9 +59,18 @@ function scheduledText(campaign: Campaign): string {
   return formatDate(campaign.scheduled_at ?? campaign.published_at)
 }
 
-/** the Next Send cell: the day, and under it the time in the campaign's zone (or the workspace's) */
+/** the Next Send cell: the day, and under it the time in the campaign's zone (or the workspace's); a drip names its next message */
 function NextSendCell({ campaign, zone }: { campaign: Campaign; zone: string }) {
   const when = campaign.next_run_at
+  const drip = dripNextSend(campaign, zone)
+  if (drip) {
+    return (
+      <div className="min-w-0" data-drip-next>
+        <span className="cep-num block whitespace-nowrap text-helper text-ink-800">{drip.day}</span>
+        {drip.detail && <span className="cep-num block whitespace-nowrap text-helper text-ink-300">{drip.detail}</span>}
+      </div>
+    )
+  }
   return (
     <div className="min-w-0">
       <span className="cep-num block whitespace-nowrap text-helper text-ink-800">{scheduledText(campaign)}</span>
@@ -79,6 +92,13 @@ function RowAction({ campaign, rights, onAct }: { campaign: Campaign; rights: { 
     return <button type="button" className={small} aria-label={`Resume ${campaign.name}`} onClick={() => onAct('resume')}><Play size={14} strokeWidth={1.5} aria-hidden />Resume</button>
   }
   return null
+}
+
+/** Stop Remaining Messages from the row asks first, as the campaign page does: the pop-up names what is cancelled */
+function ListStopDialog({ campaign, onClose, onDone }: { campaign: Campaign; onClose: () => void; onDone: (message: string) => void }) {
+  const steps = useQuery(dripStepsQuery(campaign.id))
+  if (!steps.data) return null
+  return <StopDialog campaign={campaign} steps={steps.data} onClose={onClose} onDone={onDone} />
 }
 
 /** a click that lands on something with its own job (a link, the checkbox, the ⋮ button or its menu) is not a row click */
@@ -236,6 +256,8 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   const [confirming, setConfirming] = useState<{ campaign: Campaign; action: StatusAction } | null>(null)
   const [bulkArchive, setBulkArchive] = useState(false)
   const [bulkAsked, setBulkAsked] = useState<Exclude<BulkAction, 'archive' | 'clone'> | null>(null)
+  const [cloning, setCloning] = useState<Campaign | null>(null)
+  const [stopping, setStopping] = useState<Campaign | null>(null)
 
   const { created: _created, ...apiFilters } = filters
   const query = { search: search.trim(), ...apiFilters, ...savedQuery, ordering, page, page_size: pageSize }
@@ -260,7 +282,11 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     setBulkAsked(null)
     setSelected([])
     const verb = BULK_DONE[result.action as BulkAction] ?? result.action
-    setNotice(`${result.done.length} campaign${result.done.length === 1 ? '' : 's'} ${verb}.` + (result.skipped.length ? ` Left as they were: ${result.skipped.map((item) => `${item.name} (${item.reason})`).join('; ')}` : ''))
+    // a drip cloned in bulk has no start date: its copy's Sequence step asks for one
+    const drips = result.action === 'clone' ? rows.filter((row) => isDripSeries(row) && selected.includes(row.id)).length : 0
+    setNotice(`${result.done.length} campaign${result.done.length === 1 ? '' : 's'} ${verb}.`
+      + (drips ? ` ${drips === 1 ? 'The drip copy has' : 'The drip copies have'} no start date yet: choose one on the Drip Campaign Setup step.` : '')
+      + (result.skipped.length ? ` Left as they were: ${result.skipped.map((item) => `${item.name} (${item.reason})`).join('; ')}` : ''))
   })
 
   const rows = list.data?.results ?? []
@@ -305,7 +331,9 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
   }
   function run(campaign: Campaign, action: StatusAction) {
     setNotice('')
-    if (CONFIRM[action]) setConfirming({ campaign, action })
+    if (action === 'clone' && isDripSeries(campaign)) setCloning(campaign)
+    else if (action === 'stop') setStopping(campaign)
+    else if (CONFIRM[action]) setConfirming({ campaign, action })
     else act.mutate({ campaign, action })
   }
   const rights = { edit: canEdit, publish: canPublish }
@@ -402,14 +430,24 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewId, afterPreview])
 
-  const nameCell = (row: Campaign) => (
-    <div className="min-w-0">
-      <button type="button" data-campaign-name={row.id} onClick={() => openPreview(row.id)}
-        className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-brand-600">
-        {row.name}
-      </button>
-    </div>
-  )
+  const nameCell = (row: Campaign) => {
+    const progress = dripProgressText(row, workspaceZone)
+    return (
+      <div className="min-w-0">
+        <button type="button" data-campaign-name={row.id} onClick={() => openPreview(row.id)}
+          className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-brand-600">
+          {row.name}
+        </button>
+        {progress && <span data-drip-progress className="cep-num block truncate text-helper text-ink-800">{progress}</span>}
+      </div>
+    )
+  }
+  /** the narrow card's Next Send: a drip's next message, or today's date and time */
+  const cardNext = (row: Campaign) => {
+    const drip = dripNextSend(row, workspaceZone)
+    if (drip) return [drip.day, drip.detail].filter(Boolean).join(' · ')
+    return `${scheduledText(row)}${row.next_run_at ? ` · ${timeInZone(row.next_run_at, row.send_timezone || workspaceZone)}` : ''}`
+  }
   const footer = total > 0 && (
     <Footer page={page} pageSize={pageSize} total={total} onPage={setPage} onPageSize={(size) => { setPageSize(size); setPage(1); setSelected([]) }} divided={wide} />
   )
@@ -559,7 +597,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
                   {row.approval?.status === 'REQUESTED' && <Tag>Awaiting Approval</Tag>}
                   <ChannelCell channel={row.channel} />
                   <span>{typeShortLabel(row.campaign_type)}</span>
-                  <span className="cep-num">{scheduledText(row)}{row.next_run_at ? ` · ${timeInZone(row.next_run_at, row.send_timezone || workspaceZone)}` : ''}</span>
+                  <span className="cep-num" data-card-next>{cardNext(row)}</span>
                 </div>
               </li>
             ))}
@@ -572,6 +610,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         <CampaignPreview
           campaign={previewCampaign}
           canEdit={canEdit}
+          canPublish={canPublish}
           onClose={closePreview}
           onAction={(action) => { setAfterPreview({ campaign: previewCampaign, action }); closePreview() }}
           nav={previewNav}
@@ -622,7 +661,12 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
           <p className="text-sm text-ink-800">Sending stops for each of them; messages already handed to the provider still go out. A campaign that cannot be paused now is left as it is and named afterwards.</p>
         </Modal>
       )}
-      {createOpen && canEdit && <CampaignSetupDialog onClose={closeCreate} />}
+      {stopping && <ListStopDialog campaign={stopping} onClose={() => setStopping(null)} onDone={(message) => { setStopping(null); setNotice(message) }} />}
+      {cloning && <DripCloneDialog campaign={cloning} workspaceZone={workspaceZone} onClose={() => setCloning(null)} />}
+      {createOpen && canEdit && (
+        <CampaignSetupDialog onClose={closeCreate}
+          onCreateJourney={(journeyFrom) => navigate('/journeys', { state: { journeyFrom } })} />
+      )}
     </section>
   )
 }

@@ -16,7 +16,7 @@ from apps.templates import design
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import Outcome, ProviderError, SmsMessage, registry
-from . import session
+from . import content as run_content, session
 from .dispatch import MAX_ATTEMPTS, RetryBatch, _as_dict
 from .render import Renderer
 
@@ -25,9 +25,9 @@ log = logging.getLogger("cep.delivery")
 
 def _load(tenant_id, run_id):
     with session.tx():
-        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "campaign__tenant").get(pk=run_id, tenant_id=tenant_id)
+        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "campaign__tenant", "drip_step__template").get(pk=run_id, tenant_id=tenant_id)
         campaign = run.campaign
-        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        _, content, _ = run_content.of_run(run)                 # a drip message's text is its own template's body
         tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True))
         tenant_code = campaign.tenant.code
     return run, campaign, content, tags, tenant_code
@@ -167,20 +167,24 @@ def fail_queued(tenant_id, run_id, reason: str, execution_ids: list[int] | None 
         return cursor.rowcount
 
 
-def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
-    """The campaign's current text to a few numbers, with the catalogue's sample values. Not recorded as an execution."""
+def send_test(tenant_id, campaign, to: list[str], *, step=None, prefix: str = "[TEST]") -> list[dict]:
+    """The campaign's current text to a few numbers, with the catalogue's sample values. Not recorded as an execution.
+    A drip message's test (`step`) sends that message's body and picture, marked with `prefix` ("[Test 2/4 · Day 3]")."""
     with session.tx():
-        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        template = step.template if step is not None else campaign.template
+        content = RenderedTemplateContent.objects.filter(template_id=template.pk).order_by("-version_number").first()
         tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True))
         sender = campaign.sender_profile
         provider_row = sender.delivery_provider
-        media = design.message_media_url(campaign.template) if campaign.template.channel == "MMS" else None
+        media = design.message_media_url(template) if template.channel == "MMS" else None
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
     rendered = Renderer(campaign=campaign, run=None, content=text_content(content), tags=[]).render(customer={}, member={"custom_value_pairs": samples}, system={})
     results = []
     with registry.for_provider(provider_row) as provider:
         for number in to:
-            result = provider.send(SmsMessage(to_number=number, from_sender=sender.sender_id or "", text="[TEST] " + rendered["text"].strip(), media_url=media,
-                                              idempotency_key=f"test:{campaign.pk}:{timezone.now().timestamp():.0f}", tag="test"))
-            results.append({"to": number, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id})
+            text = f"{prefix} " + rendered["text"].strip()
+            result = provider.send(SmsMessage(to_number=number, from_sender=sender.sender_id or "", text=text, media_url=media,
+                                              idempotency_key=f"test:{campaign.pk}:{getattr(step, 'pk', '')}:{timezone.now().timestamp():.0f}", tag="test"))
+            results.append({"to": number, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
+                            **({"text": text, "media_url": media} if step is not None else {})})
     return results

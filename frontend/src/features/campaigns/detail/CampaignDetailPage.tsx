@@ -22,24 +22,31 @@ import { tabId, tabPanelId } from '@/components/tabIds'
 import { useToast } from '@/components/Toast'
 import { problemText } from '@/features/contact-lists/problem'
 import { api } from '@/lib/api'
-import type { Campaign } from '@/lib/types'
+import type { Campaign, DripStep } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { campaignPageActions, type CampaignMainAction, type CampaignPageMenuItem } from '../campaignMenu'
 import { channelIconOf } from '../channelIcons'
 import { CopyId } from '../CopyId'
+import { DripCloneDialog } from '../DripCloneDialog'
+import { isDripSeries } from '../dripLines'
 import { CONFIRM, useCampaignAction, type StatusAction } from '../useCampaignAction'
 import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
 import { setupHref, setupProgressText, stepsFor } from '../setupFlow'
 import { campaignHome, channelLabel, EDIT_PLACE_OF_TAB, hasAction, hasResults, latestFailedRun, typeLabel } from '../vocabulary'
 import { dateTimeInZone } from '../zone'
+import { dripStepsQuery } from '../dripSteps'
+import { pausedLine } from './dripDetail'
 import { AudienceTab } from './AudienceTab'
 import { ContentTab } from './ContentTab'
+import { DripBanners } from './DripBanners'
+import { ResumeDialog, RetryDialog, StopDialog } from './DripDialogs'
 import { FailedRunBanner } from './FailedRunBanner'
 import { ActivityTab } from './MoreTabs'
 import { OverviewTab } from './OverviewTab'
 import { PerformanceTab } from './PerformanceTab'
 import { RecipientsTab } from './RecipientsTab'
+import { SkippedDrawer } from './SkippedDrawer'
 
 import { PageHelp } from '@/help/HelpPanel'
 
@@ -56,7 +63,7 @@ const LIVE_RUN = ['SCHEDULED', 'PREPARING', 'SENDING']
 function MainButton({ main, disabled, onAction }: { main: CampaignMainAction; disabled: boolean; onAction: (action: StatusAction) => void }) {
   const Icon = main.icon
   const content = main.iconAfter ? <>{main.label}<Icon size={16} strokeWidth={1.5} aria-hidden /></> : <><Icon size={16} strokeWidth={1.5} aria-hidden />{main.label}</>
-  const button = main.action ? <button type="button" data-main-action className={buttonPrimary} disabled={disabled} onClick={() => onAction(main.action!)}>{content}</button>
+  const button = main.action ? <button type="button" data-main-action className={main.secondary ? buttonSecondary : buttonPrimary} disabled={disabled} onClick={() => onAction(main.action!)}>{content}</button>
     : main.external ? (
       <a href={main.to} target="_blank" rel="noreferrer" data-main-action className={buttonPrimary} aria-label={`${main.label} (opens in a new tab)`}>
         {content}<ExternalLink size={16} strokeWidth={1.5} aria-hidden />
@@ -80,8 +87,13 @@ export function CampaignDetailPage() {
   const [params, setParams] = useSearchParams()
   const [notice, setNotice] = useState<ReactNode>('')
   const [confirming, setConfirming] = useState<StatusAction | null>(null)
+  const [cloning, setCloning] = useState(false)
   const menus = useSingleDropdown<'more'>()
   const [focusTest, setFocusTest] = useState(0)
+  /** a published drip's own pop-ups and drawer */
+  const [dripDialog, setDripDialog] = useState<'resume' | 'stop' | null>(null)
+  const [retrying, setRetrying] = useState<DripStep | null>(null)
+  const [skipped, setSkipped] = useState<DripStep | null>(null)
 
   const campaign = useQuery({
     queryKey: ['campaigns', 'detail', id],
@@ -89,6 +101,8 @@ export function CampaignDetailPage() {
     // a run is started by the send engine after publishing: keep the page fresh while a send is due or going out
     refetchInterval: (query) => (query.state.data?.runs.some((run) => LIVE_RUN.includes(run.status) && (run.status !== 'SCHEDULED' || !run.scheduled_at || new Date(run.scheduled_at).getTime() < Date.now() + 60_000)) ? 5000 : false),
   })
+  const publishedDrip = Boolean(campaign.data && campaign.data.campaign_type === 'DRIP' && !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.data.status))
+  const dripSteps = useQuery({ ...dripStepsQuery(id), enabled: publishedDrip, refetchInterval: campaign.data?.runs.some((run) => ['PREPARING', 'SENDING'].includes(run.status)) ? 5000 : false })
   const act = useCampaignAction((message, after, action) => {
     setConfirming(null)
     if (action === 'clone') navigate(setupHref(after.id, { step: stepsFor(after.campaign_type)[0].key, details: true })) // the copy opens with its details, to rename it
@@ -126,7 +140,10 @@ export function CampaignDetailPage() {
 
   function run(action: StatusAction) {
     setNotice('')
-    if (CONFIRM[action]) setConfirming(action)
+    if (action === 'clone' && isDripSeries(data)) setCloning(true)
+    else if (publishedDrip && (action === 'resume' || action === 'stop')) setDripDialog(action)
+    else if (publishedDrip && action === 'pause') act.mutate({ campaign: data, action })
+    else if (CONFIRM[action]) setConfirming(action)
     else act.mutate({ campaign: data, action })
   }
 
@@ -173,7 +190,7 @@ export function CampaignDetailPage() {
               {moreOpen && (
                 <Popover label="More Actions" width={220} placement="bottom-end" {...menus.panelProps('more')}>
                   {menu.map((item) => (
-                    <MenuRow key={item.key} divider={false} title={item.label} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => pick(item)} />
+                    <MenuRow key={item.key} divider={false} title={item.label} tone={item.danger ? 'error' : 'default'} leading={<item.icon size={16} strokeWidth={1.5} aria-hidden className={item.danger ? 'text-danger-text' : 'text-ink-800'} />} onClick={() => pick(item)} />
                   ))}
                 </Popover>
               )}
@@ -183,13 +200,18 @@ export function CampaignDetailPage() {
       </header>
 
       <div className="mt-5 flex flex-col gap-3 empty:hidden">
-        {data.display_status === 'SCHEDULED' && data.next_run_at && (
+        {publishedDrip && dripSteps.data && (
+          <DripBanners campaign={data} steps={dripSteps.data} zone={zone} canPublish={rights.publish} canCancel={canCancelSchedule} busy={act.isPending}
+            onCancelSchedule={() => run('cancel-schedule')} onRetry={setRetrying}
+            onView={tabs.some((item) => item.id === 'performance') ? (runId) => setParams({ tab: 'performance', run: runId }, { replace: true }) : undefined} />
+        )}
+        {!publishedDrip && data.display_status === 'SCHEDULED' && data.next_run_at && (
           <Notice tone="warning" layout="banner" icon={Clock} iconTile title={`Scheduled for ${dateTimeInZone(data.next_run_at, zone)}`}
             action={canCancelSchedule && <Button size="sm" disabled={act.isPending} onClick={() => run('cancel-schedule')}>Cancel Schedule</Button>}>
             <p>Cancelling returns this campaign to a draft.</p>
           </Notice>
         )}
-        {failedRun && (
+        {failedRun && !publishedDrip && (
           <FailedRunBanner campaign={data} run={failedRun}
             onView={tabs.some((item) => item.id === 'performance') ? () => setParams({ tab: 'performance', run: failedRun.id }, { replace: true }) : undefined} />
         )}
@@ -206,9 +228,9 @@ export function CampaignDetailPage() {
             <p>The setup of this campaign is not finished: it stopped at {setupProgressText(data)}. Someone with the campaign.edit permission can continue it.</p>
           </Notice>
         )}
-        {data.status === 'PAUSED' && (
+        {data.status === 'PAUSED' && !publishedDrip && (
           <Notice tone="warning" layout="banner">
-            <p>This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>
+            <p>{pausedLine(data.paused, zone)}This campaign is paused. Nothing more goes out, and sends that come due wait, until it is resumed.</p>
           </Notice>
         )}
         {notice && <p role="status" className="rounded-lg border border-line bg-surface-subtle px-4 py-3 text-sm text-ink-900">{notice}</p>}
@@ -220,11 +242,11 @@ export function CampaignDetailPage() {
       </div>
 
       <div role="tabpanel" id={tabPanelId('campaign', tab)} aria-labelledby={tabId('campaign', tab)}>
-        {tab === 'overview' && <OverviewTab campaign={data} zone={zone} live={live} />}
-        {tab === 'performance' && <PerformanceTab campaign={data} zone={zone} live={live} focusRun={params.get('run') ?? undefined} />}
+        {tab === 'overview' && <OverviewTab campaign={data} zone={zone} live={live} onSkipped={setSkipped} onRetry={setRetrying} />}
+        {tab === 'performance' && <PerformanceTab campaign={data} zone={zone} live={live} focusRun={params.get('run') ?? undefined} onSkipped={setSkipped} />}
         {tab === 'recipients' && <RecipientsTab campaign={data} zone={zone} live={live} />}
         {tab === 'audience' && <AudienceTab campaign={data} zone={zone} />}
-        {tab === 'content' && <ContentTab campaign={data} focusTest={focusTest} />}
+        {tab === 'content' && <ContentTab campaign={data} focusTest={focusTest} zone={zone} />}
         {tab === 'activity' && <ActivityTab campaign={data} zone={zone} live={live} />}
       </div>
 
@@ -232,9 +254,15 @@ export function CampaignDetailPage() {
         <CampaignSetupDialog campaign={data} onClose={() => setEditingDetails(false)} onReload={() => void campaign.refetch()} />
       )}
 
+      {dripDialog === 'resume' && <ResumeDialog campaign={data} zone={zone} onClose={() => setDripDialog(null)} onDone={(message) => { setDripDialog(null); setNotice(message) }} />}
+      {dripDialog === 'stop' && <StopDialog campaign={data} steps={dripSteps.data ?? []} onClose={() => setDripDialog(null)} onDone={(message) => { setDripDialog(null); setNotice(message) }} />}
+      {retrying && <RetryDialog campaign={data} step={retrying} onClose={() => setRetrying(null)} onDone={(message) => { setRetrying(null); setNotice(message) }} />}
+      {skipped && <SkippedDrawer step={skipped} channel={data.channel} onClose={() => setSkipped(null)} />}
+      {cloning && <DripCloneDialog campaign={data} workspaceZone={me?.tenant.timezone || 'UTC'} onClose={() => setCloning(false)} />}
+
       {confirming && CONFIRM[confirming] && (
         <Modal
-          title={CONFIRM[confirming]!.title}
+          title={publishedDrip && confirming === 'cancel-schedule' ? "Cancel the drip's schedule?" : CONFIRM[confirming]!.title}
           onClose={() => setConfirming(null)}
           footer={
             <>
@@ -243,7 +271,7 @@ export function CampaignDetailPage() {
             </>
           }
         >
-          <p className="text-sm text-ink-800">{CONFIRM[confirming]!.text(data)}</p>
+          <p className="text-sm text-ink-800">{publishedDrip && confirming === 'cancel-schedule' ? 'Nothing has been sent. It goes back to a draft so you can edit it.' : CONFIRM[confirming]!.text(data)}</p>
           {act.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-text">{problemText(act.error)}</p>}
         </Modal>
       )}

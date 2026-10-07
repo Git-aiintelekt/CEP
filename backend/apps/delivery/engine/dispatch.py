@@ -14,7 +14,7 @@ from apps.governance import preferences
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, registry
-from . import session, unsubscribe
+from . import content as run_content, session, unsubscribe
 from .render import Renderer
 
 log = logging.getLogger("cep.delivery")
@@ -30,9 +30,9 @@ class RetryBatch(Exception):
 
 def _load(tenant_id, run_id):
     with session.tx():
-        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider").get(pk=run_id, tenant_id=tenant_id)
+        run = CampaignRun.objects.select_related("campaign__template", "campaign__sender_profile__delivery_provider", "drip_step__template").get(pk=run_id, tenant_id=tenant_id)
         campaign = run.campaign
-        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        _, content, step = run_content.of_run(run)
         tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True).select_related("inner_template"))
         inner = {}
         for tag in tags:
@@ -40,7 +40,7 @@ def _load(tenant_id, run_id):
                 body = RenderedTemplateContent.objects.filter(template_id=tag.inner_template_id).order_by("-version_number").first()
                 inner[tag.tag_key.strip("{} ")] = (body.html_content or "") if body else ""
         tenant_code = campaign.tenant.code
-    return run, campaign, content, tags, inner, tenant_code
+    return run, campaign, content, step, tags, inner, tenant_code
 
 
 def _claim(tenant_id, execution_id) -> tuple | None:
@@ -74,12 +74,12 @@ def _dead_letter(tenant_id, run_id, row, reason) -> None:
 
 def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     """Must be called inside session.tenant_scope(tenant_id). Raises RetryBatch when some messages should be tried again."""
-    run, campaign, content, tags, inner, tenant_code = _load(tenant_id, run_id)
+    run, campaign, content, step, tags, inner, tenant_code = _load(tenant_id, run_id)
     if run.status not in ("SENDING", "PREPARING"):
         return {"skipped": len(execution_ids), "reason": f"run is {run.status}"}
     sender = campaign.sender_profile
     provider_row = sender.delivery_provider
-    renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags, inner_templates=inner)
+    renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags, inner_templates=inner, step=step)
     marketing = campaign.solicitation_type == "MARKETING"
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0}
     retry_ids, retry_reason = [], ""
@@ -190,20 +190,24 @@ def _as_dict(value) -> dict:
     return value if isinstance(value, dict) else {}
 
 
-def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
+def send_test(tenant_id, campaign, to: list[str], *, step=None, label: dict | None = None) -> list[dict]:
     """Sends the campaign's current content to a few addresses, personalized with the catalogue's sample values.
-    Nothing is recorded as an execution and no consent rule applies: the recipients are the people building the campaign."""
+    Nothing is recorded as an execution and no consent rule applies: the recipients are the people building the campaign.
+    A drip message's test (`step`) sends that message's template, subject, preheader and A/B test; `label` marks it:
+    {"subject": "[Test 2 of 4 · would send Day 3]", "banner": "Test · Message 2 of 4 · ..."}."""
     with session.tx():
-        content = RenderedTemplateContent.objects.filter(template_id=campaign.template_id).order_by("-version_number").first()
+        template_id = (step.template_id if step is not None else campaign.template_id)
+        content = RenderedTemplateContent.objects.filter(template_id=template_id).order_by("-version_number").first()
         tags = list(PersonalizationTag.objects.filter(tenant_id=tenant_id, is_active=True, deleted_at__isnull=True))
         sender = campaign.sender_profile
         provider_row = sender.delivery_provider
         tenant_code = campaign.tenant.code
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
-    renderer = Renderer(campaign=campaign, run=None, content=content, tags=[])
+    renderer = Renderer(campaign=campaign, run=None, content=content, tags=[], step=step)
     # with a subject line test, each address gets both: [TEST A] with the template's subject and [TEST B] with the second one
     from . import abtest
-    test = abtest.config(campaign)
+    from .render import with_banner
+    test = abtest.config(campaign, step)
     variants = [("A", None), ("B", test["subject_b"])] if test else [(None, None)]
     results = []
     with registry.for_provider(provider_row) as provider:
@@ -213,10 +217,17 @@ def send_test(tenant_id, campaign, to: list[str]) -> list[dict]:
                 rendered = renderer.render(customer={}, member={"custom_value_pairs": samples},
                                            system={"unsubscribe_url": unsubscribe.url_for(token), "preference_url": preferences.link_for(campaign.tenant, token), "email": address},
                                            subject=own_subject)
-                mark = f"[TEST {variant}] " if variant else "[TEST] "
+                if label:
+                    words = label["subject"]
+                    mark = (words[:-1] + f" · {variant}] " if variant else words + " ")
+                    html, text = with_banner(rendered["html"], label["banner"]), label["banner"] + "\n\n" + rendered["text"]
+                else:
+                    mark, html, text = (f"[TEST {variant}] " if variant else "[TEST] "), rendered["html"], rendered["text"]
                 result = provider.send(EmailMessage(to_email=address, from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
-                                                    subject=mark + rendered["subject"], html=rendered["html"], text=rendered["text"],
-                                                    idempotency_key=f"test:{campaign.pk}:{variant or ''}:{timezone.now().timestamp():.0f}", tag="test", metadata={"cep_tenant": tenant_code}))
+                                                    subject=mark + rendered["subject"], html=html, text=text,
+                                                    idempotency_key=f"test:{campaign.pk}:{getattr(step, 'pk', '')}:{variant or ''}:{timezone.now().timestamp():.0f}", tag="test",
+                                                    metadata={"cep_tenant": tenant_code}))
                 results.append({"to": address, "ok": result.outcome is Outcome.ACCEPTED, "detail": result.reason or result.provider_message_id,
-                                **({"variant": variant, "subject": rendered["subject"]} if variant else {})})
+                                **({"variant": variant, "subject": rendered["subject"]} if variant and not label else {}),
+                                **({"subject": mark + rendered["subject"], **({"variant": variant} if variant else {})} if label else {})})
     return results

@@ -4,6 +4,7 @@
  * upload, or one made from an audience or a clone (the Contact lists page's own wizard). An uploaded list waits as
  * Needs review until it is confirmed, because file data isn't checked upstream. The estimate is the API's, for the lists
  * as they are here, saved or not; the real Campaign List is frozen when a send starts.
+ * A drip's audience is fixed at its first message: the note above Send To says so, and that the rules apply before each one.
  */
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
@@ -48,10 +49,10 @@ function ReceiptMessage({ onChangeType }: { onChangeType?: () => void }) {
   )
 }
 
-function SummaryCard({ included, pending, estimate }: { included: number; pending: number; estimate: ReturnType<typeof useAudienceEstimate> }) {
+function SummaryCard({ included, pending, estimate, noun }: { included: number; pending: number; estimate: ReturnType<typeof useAudienceEstimate>; noun: string }) {
   const [open, setOpen] = useState(false)
   let body
-  if (included === 0) body = <p className="text-sm text-ink-800">{pending > 0 ? 'Confirm the uploaded list to see how many people the campaign would reach.' : 'Add a contact list to see how many people the campaign would reach.'}</p>
+  if (included === 0) body = <p className="text-sm text-ink-800">{pending > 0 ? `Confirm the uploaded list to see how many people the ${noun} would reach.` : `Add a contact list to see how many people the ${noun} would reach.`}</p>
   else if (estimate.isError) body = <CardError what="the estimate" error={estimate.error} onRetry={() => void estimate.refetch()} />
   else if (!estimate.data) body = <div aria-busy className="flex flex-col gap-3"><SkeletonLine width="45%" /><SkeletonLine width="100%" /><SkeletonLine width="70%" /></div>
   else {
@@ -102,6 +103,8 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
   const channel = watch('channel')
   const purpose = watch('solicitation_type')
   const isReceipt = watch('campaign_type') === 'E_RECEIPT'
+  const drip = watch('campaign_type') === 'DRIP'
+  const noun = drip ? 'drip' : 'campaign'
 
   const [adding, setAdding] = useState<'send' | 'leave-out' | null>(null)
   // uploads made here: file data isn't checked upstream, so each waits for a confirmation before it counts
@@ -147,10 +150,17 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
     <div className="flex flex-col gap-6">
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="order-first lg:sticky lg:top-6 lg:order-last" data-audience-summary>
-          <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} />
+          <SummaryCard included={included.length} pending={pending.length ? pendingContacts : 0} estimate={estimate} noun={noun} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
+          {drip && (
+            <div data-drip-audience-note>
+              <Notice tone="info" layout="banner" title="How a Drip Audience Works">
+                <p>Everyone eligible starts the drip together on the start date. People added to these lists later don’t join. Consent and frequency limits are checked again before each message.</p>
+              </Notice>
+            </div>
+          )}
           <DetailCard title="Send To" actions={addButton} flush={sendRows.length > 0}>
             <div className={sendRows.length > 0 ? 'flex flex-col md:gap-0' : 'flex flex-col gap-4'}>
               {notice && <p role="status" className={`text-sm text-ink-900 ${sendRows.length > 0 ? 'px-0 pb-4 md:px-6 md:pt-4' : ''}`}>{notice}</p>}
@@ -167,7 +177,7 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
               ) : sendRows.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface-subtle px-6 py-10 text-center" data-empty="send-to">
                   <p className="text-sm font-semibold text-ink-900">No contact lists yet</p>
-                  <p className="text-helper text-ink-800">Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.</p>
+                  <p className="text-helper text-ink-800">Add the lists this {noun} goes to. A draft can be saved without one; publishing needs at least one.</p>
                   {lists.data && all.length === 0 && !canMake && (
                     <p className="text-helper text-ink-800">This workspace has no active contact lists yet. <Link to="/contact-lists" className="font-semibold text-brand-800 hover:underline">See Contact Lists</Link></p>
                   )}
@@ -213,7 +223,9 @@ export function StepAudience({ campaign, onChangeType, pending, onPendingChange 
 
       {nobody && (
         <Notice tone="warning" layout="banner">
-          <p>Nobody in these lists can receive this campaign today. Check the reasons in the audience summary.</p>
+          <p>{drip
+            ? `No one on these lists can receive ${purpose === 'MARKETING' ? 'marketing ' : ''}${channel === 'EMAIL' ? 'email' : 'texts'} right now. Check consent or the lists you’re leaving out.`
+            : 'Nobody in these lists can receive this campaign today. Check the reasons in the audience summary.'}</p>
         </Notice>
       )}
 

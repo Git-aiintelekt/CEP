@@ -30,8 +30,8 @@ test('the schema checks each send type for what it needs, and nothing else', () 
   expect(problems({ ...base, send_type: 'RECURRING' })).toEqual({ 'recurring.weekdays': 'Choose at least one day of the week.' })
   expect(problems({ ...base, send_type: 'RECURRING', recurring: { ...base.recurring, frequency: 'MONTHLY', day_of_month: '32', ends: 'AFTER', max_runs: '' } }))
     .toEqual({ 'recurring.day_of_month': 'Between 1 and 31.', 'recurring.max_runs': 'Between 1 and 999.' })
-  expect(problems({ ...base, send_type: 'DRIP', drip: { time: '09:00', steps: [{ day: '0', label: '' }, { day: '0', label: '' }, { day: 'x', label: '' }] } }))
-    .toEqual({ 'drip.steps.1.day': 'Another step is already on this day.', 'drip.steps.2.day': 'A day between 0 and 365 (0 = the first day).' })
+  // a drip's messages, days and times are rows the API owns (the Sequence step): the form checks nothing of them
+  expect(problems({ ...base, campaign_type: 'DRIP', send_type: 'DRIP' })).toEqual({})
   expect(problems({ ...base, targets: { ...base.targets, target_revenue: '12.345', target_clicks: '-4' } }))
     .toEqual({ 'targets.target_revenue': 'Enter an amount such as 2500 or 2500.50.', 'targets.target_clicks': 'Enter a whole number, zero or more.' })
 })
@@ -49,8 +49,10 @@ test('form -> API: empty boxes are "not set", the schedule is converted from the
   })
   const weekly = toInput({ ...values, send_type: 'RECURRING', recurring: { ...values.recurring, weekdays: ['MO', 'TH'], ends: 'AFTER', max_runs: '6' } })
   expect(weekly).toMatchObject({ scheduled_at: null, recurring_config: { frequency: 'WEEKLY', interval: 1, weekdays: ['MO', 'TH'], time: '09:00', end_date: null, max_runs: 6 } })
-  const series = toInput({ ...values, campaign_type: 'DRIP', send_type: 'DRIP', drip: { time: '10:00', steps: [{ day: '7', label: 'Reminder' }, { day: '0', label: '' }] } })
-  expect(series.drip_config).toEqual({ time: '10:00', steps: [{ day: 0 }, { day: 7, label: 'Reminder' }] }) // in day order
+  // a drip leaves out its series, template, subject, preheader and start date: the API owns the messages, and the start is set on Sequence
+  const series = toInput({ ...values, campaign_type: 'DRIP', send_type: 'DRIP', template: 't1', subject_line: 'Hello', preheader: 'Hi', sender_profile: 'sp-1' })
+  for (const key of ['drip_config', 'template', 'subject_line', 'preheader', 'scheduled_at']) expect(series).not.toHaveProperty(key)
+  expect(series).toMatchObject({ campaign_type: 'DRIP', send_type: 'DRIP', sender_profile: 'sp-1', contact_lists: ['cl-master'], row_version: undefined })
   expect(toInput({ ...values, campaign_type: 'E_RECEIPT' })).toMatchObject({ contact_lists: [], excluded_lists: [], send_type: 'IMMEDIATE', scheduled_at: null })
 })
 

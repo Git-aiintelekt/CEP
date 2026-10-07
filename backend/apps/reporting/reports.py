@@ -65,9 +65,9 @@ def _rates(row: dict) -> dict:
 
 COUNTS = {"EMAIL": """count(*) FILTER (WHERE x.status NOT IN ('QUEUED', 'FAILED')), count(*) FILTER (WHERE x.status IN ('DELIVERED', 'OPENED', 'CLICKED')),
                       count(*) FILTER (WHERE x.status IN ('OPENED', 'CLICKED')), count(*) FILTER (WHERE x.status = 'CLICKED'), count(*) FILTER (WHERE x.status = 'BOUNCED'),
-                      count(*) FILTER (WHERE x.status = 'COMPLAINED'), count(*) FILTER (WHERE x.status = 'FAILED')""",
+                      count(*) FILTER (WHERE x.status = 'COMPLAINED'), count(*) FILTER (WHERE x.status = 'FAILED' AND x.not_sent_reason IS NULL)""",
           "SMS": """count(*) FILTER (WHERE x.status NOT IN ('QUEUED', 'FAILED')), count(*) FILTER (WHERE x.status IN ('DELIVERED', 'RESPONDED', 'OPTED_OUT')),
-                    0::bigint, 0::bigint, 0::bigint, 0::bigint, count(*) FILTER (WHERE x.status = 'FAILED')"""}
+                    0::bigint, 0::bigint, 0::bigint, 0::bigint, count(*) FILTER (WHERE x.status = 'FAILED' AND x.not_sent_reason IS NULL)"""}
 TABLE = {"EMAIL": "mailer_execution", "SMS": "sms_execution"}
 
 
@@ -90,7 +90,7 @@ def summary(tenant, start: date | None = None, end: date | None = None, *, chann
             # one pass: grouping(day, campaign, hour) is 7 for the totals, 3 for a day, 5 for a campaign, 6 for an hour
             cursor.execute(f"""SELECT grouping(x.day, x.campaign_id, x.hour), x.day, x.campaign_id::text, x.hour, min(x.submitted_at), {COUNTS[family]}
                                  FROM (SELECT (x.submitted_at AT TIME ZONE %(zone)s)::date AS day, x.campaign_id, extract(hour FROM x.submitted_at AT TIME ZONE %(zone)s)::int AS hour,
-                                              x.submitted_at, x.status
+                                              x.submitted_at, x.status, x.not_sent_reason
                                          FROM {TABLE[family]} x JOIN campaign_run r ON r.id = x.campaign_run_id
                                         WHERE x.tenant_id = %(tenant)s AND NOT r.test_mode AND x.created_at >= %(since)s AND x.created_at < %(until)s) x
                                 GROUP BY GROUPING SETS ((x.day), (x.campaign_id), (x.hour), ())""", args)

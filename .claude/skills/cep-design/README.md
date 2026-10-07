@@ -48,7 +48,7 @@ Brand:
 
 | Token | Hex | Role |
 |---|---|---|
-| `--color-sidebar` | `#20265D` | sidebar — the only dark surface |
+| `--color-sidebar` | `#20265D` | sidebar; the only other dark surface is the toast (`--color-toast`, Gray 900) |
 | `--color-wordmark-navy` | `#273FA8` | wordmark (navy variant) |
 | `--brand-600` | `#3863DB` | action blue — primary buttons, links, focus ring |
 | `--brand-700` | `#4E47DD` | pill / large-CTA variant |
@@ -204,6 +204,16 @@ Elevation — **exactly three shadows, each with one job**:
 | `--elev-toast` | `0 8px 24px rgba(20,23,31,0.16)` | toasts |
 
 `--scrim: rgba(19,21,27,0.45)`. Cards, tiles, table rows and headers **never** carry a shadow, hover or otherwise — structure comes from 1px hairlines. No inner shadows; "sunken" (search and header fields) is a `Gray 100` fill with a transparent border at rest, white while focused. Disabled fields are also `Gray 100` but keep their visible `Gray 150` border and `Gray 400` text, which is what tells them apart.
+
+### Toast
+
+The one component that always renders on the dark surface, whatever its status (a locked exception, 2026-10-07). `components/Toast.tsx`, through `useToast()`; preview every variant at `/dev/toasts`.
+
+- **Surface:** `Gray 900` (`--color-toast`) for every tone, white text, 8px radius, the toast shadow, 44px tall, one line: dot · title · divider · detail · reference chip · action · close. Top right, under the top bar.
+- **Status by the dot only:** green (`success`) for done, red (`danger`) for errors, never a red fill; a small spinner ring for `running`. No icons, no checkmark badge.
+- **Action:** inline text, never a bordered button, in `--color-toast-action` (a light blue, so blue still means action on the dark surface). Running it dismisses the toast. Use it only where the action truly reverses the change.
+- **Timing:** success 4.5s, success with an action 8s, errors and running toasts stay until closed or replaced. Hover and focus pause the timer.
+- **Copy:** a sentence that states what happened, no exclamation marks; numbers lead the detail ("12,400 recipients · Email").
 
 ### Motion
 

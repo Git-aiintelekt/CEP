@@ -3,6 +3,7 @@ import { expect, test } from 'vitest'
 import type { CalendarSpan } from '@/lib/types'
 
 import { dayOf, monthWeeks, placeSpans, shiftMonth } from './calendarMath'
+import { describe, dripSendTip, isDripSend, onHold, sendState } from './calendarSpans'
 
 const span = (name: string, start: string, end: string | null, ongoing = false): CalendarSpan => ({
   campaign: name, name, code: null, channel: 'EMAIL', campaign_type: 'REGULAR_MARKETING', display_status: 'ACTIVE', is_journey_generated: false, setup_step: 6, setup_complete: true,
@@ -41,4 +42,21 @@ test('bars keep a row for all their days, are cut to the grid, and one that goes
   expect(by.Early).toMatchObject({ from: '2026-08-03', to: '2026-08-04', lane: 1 })
   expect(by.Series).toMatchObject({ lane: 1 })                              // the row Early left free
   expect(by['One day']).toMatchObject({ from: '2026-08-20', to: '2026-08-20', lane: 2 })
+})
+
+test('a drip send names its message; the tip is in the calendar’s zone; held messages leave the bar at the last send', () => {
+  const send = { at: '2026-10-19T13:00:00Z', state: 'WAITING' as const, label: 'Day 7', position: 3, count: 4, name: 'First Reward', step_id: 's3' }
+  expect(isDripSend(send)).toBe(true)
+  expect(isDripSend({ at: send.at, state: 'WAITING', label: null })).toBe(false)
+  expect(dripSendTip(send, 'America/New_York')).toBe('Message 3 of 4 · First Reward · Mon 19 Oct, 09:00 ET')
+  expect(sendState(send)).toEqual({ status: 'SCHEDULED', label: 'Scheduled' })
+  expect(sendState({ ...send, state: 'SENT' })).toEqual({ status: 'COMPLETED', label: 'Sent' })
+  const paused = { campaign: 'd1', name: 'Holiday Reminder Texts', code: null, channel: 'SMS', campaign_type: 'DRIP', display_status: 'PAUSED', is_journey_generated: false, setup_step: 6, setup_complete: true,
+    actions: [], timezone: 'America/New_York', start: '2026-10-09T13:00:00Z', end: '2026-10-09T13:00:00Z', ongoing: false, failed: false,
+    sends: [{ at: '2026-10-09T13:00:00Z', state: 'SENT' as const, label: 'Day 0', position: 1, count: 3, name: 'Save the Date', step_id: 's1' }],
+    on_hold: [{ position: 2, name: 'Early Access', step_id: 's2' }, { position: 3, name: 'Last Call', step_id: 's3' }] }
+  expect(onHold(paused)).toBe(true)
+  const [placed] = placeSpans([paused], monthWeeks({ year: 2026, month: 9 }), 'America/New_York')
+  expect([placed.from, placed.to]).toEqual(['2026-10-09', '2026-10-09'])
+  expect(describe(paused, 'America/New_York')).toBe('Holiday Reminder Texts: Paused, on hold')
 })

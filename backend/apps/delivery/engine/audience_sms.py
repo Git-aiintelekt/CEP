@@ -14,6 +14,9 @@ Rules, in order (first match is the recorded suppression_reason):
     DUPLICATE_NUMBER   another party in this run has the same number (the first keeps it)
 
 A GLOBAL policy counts every message the person received (email and text); a CHANNEL policy counts texts only.
+
+A later drip message (`base_list_id`) takes its people from the first message's Campaign List instead of the contact
+lists, all of them whatever their outcome there; every rule above then applies again at its own send.
 """
 from apps.governance import preferences
 
@@ -23,14 +26,26 @@ PRIMARY_PHONE = r"""(SELECT e ->> 'number' FROM jsonb_array_elements(cm.phones) 
                      WHERE (e ->> 'number') ~ '^\+[1-9][0-9]{7,14}$' AND upper(COALESCE(e ->> 'type', 'MOBILE')) NOT IN ('LANDLINE', 'FAX')
                      ORDER BY COALESCE((e ->> 'is_primary')::boolean, FALSE) DESC, (upper(COALESCE(e ->> 'type', '')) = 'MOBILE') DESC LIMIT 1)"""
 
-BUILD = f"""
-WITH picked AS (
-    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status
+FROM_LISTS = """
+    SELECT DISTINCT ON (m.party_id) m.party_id, m.contact_list_id, m.custom_attributes, l.approval_status    -- PARTY_ID_LAST_WINS across the attached lists
       FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'INCLUDE'
       JOIN contact_list l ON l.id = m.contact_list_id AND l.tenant_id = m.tenant_id
      WHERE m.tenant_id = %(tenant)s
-     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC
+     ORDER BY m.party_id, (l.approval_status IN ('AWAITING', 'REFUSED')), m.added_at DESC"""
+
+# a later drip message: everyone on the first message's Campaign List, whatever happened to them there, and nobody else
+FROM_BASE = """
+    SELECT DISTINCT ON (b.party_id) b.party_id, b.source_contact_list_id AS contact_list_id, b.custom_value_pairs AS custom_attributes, l.approval_status
+      FROM campaign_list_member b
+      LEFT JOIN contact_list l ON l.id = b.source_contact_list_id AND l.tenant_id = b.tenant_id
+     WHERE b.tenant_id = %(tenant)s AND b.campaign_list_id = %(base)s
+     ORDER BY b.party_id"""
+
+
+def _build_sql(picked: str) -> str:
+    return f"""
+WITH picked AS ({picked}
 ), excluded AS (                                        -- lists attached to keep their people OUT of this campaign
     SELECT DISTINCT m.party_id FROM contact_list_member m
       JOIN contact_list_campaign c ON c.contact_list_id = m.contact_list_id AND c.campaign_id = %(campaign)s AND c.role = 'EXCLUDE'
@@ -83,6 +98,10 @@ SELECT %(list)s, %(tenant)s, party_id, contact_list_id, COALESCE(custom_attribut
   FROM ranked
 """
 
+
+BUILD = _build_sql(FROM_LISTS)
+BUILD_FROM_BASE = _build_sql(FROM_BASE)
+
 LOG_SUPPRESSED = """
 INSERT INTO governance_evaluation_log (tenant_id, party_id, campaign_id, campaign_run_id, channel, policy_id, decision, reason)
 SELECT m.tenant_id, m.party_id, %(campaign)s, %(run)s, %(channel)s,
@@ -103,15 +122,16 @@ SELECT m.tenant_id, %(campaign)s, %(run)s, m.id, m.party_id, {PRIMARY_PHONE}, %(
 """
 
 
-def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender, channel: str, media_url: str | None) -> dict:
-    """Fills the campaign list and queues one sms_execution per eligible member. `channel` is SMS or MMS."""
+def build(*, tenant_id, campaign, run, campaign_list, content, provider, sender, channel: str, media_url: str | None, base_list_id=None) -> dict:
+    """Fills the campaign list and queues one sms_execution per eligible member. `channel` is SMS or MMS. `base_list_id`: as in
+    audience.build, the people of that Campaign List instead of the contact lists' members."""
     args = {"tenant": str(tenant_id), "campaign": str(campaign.pk), "run": str(run.pk), "list": str(campaign_list.pk), "marketing": campaign.solicitation_type == "MARKETING",
             "caps": campaign.solicitation_type == "MARKETING" and bool(getattr(campaign, "respect_governance", True)),
             "channel": channel, "content": str(content.pk), "version": content.version_number, "media": media_url if channel == "MMS" else None,
             "sender": (sender.sender_id or "")[:30] or None, "provider_code": provider.provider_type, "provider": str(provider.pk),
-            "topic": preferences.topic_filter(campaign)}
+            "topic": preferences.topic_filter(campaign), "base": str(base_list_id) if base_list_id else None}
     with session.connection().cursor() as cursor:
-        cursor.execute(BUILD, args)
+        cursor.execute(BUILD_FROM_BASE if base_list_id else BUILD, args)
         cursor.execute(LOG_SUPPRESSED, args)
         cursor.execute(QUEUE, args)
         queued = cursor.rowcount

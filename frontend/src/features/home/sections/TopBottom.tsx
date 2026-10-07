@@ -14,11 +14,11 @@ import type { HomeFilters, MessageChannel, TopBottom as TopBottomData, TopBottom
 const SHOWN = 3
 const CHANNEL_LABEL: Record<MessageChannel, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 
-/** "Email · 118% of target · +22.0%" or "SMS · 7.2% click rate · +0.4 pt": the channel, the ranking figure, the change */
+/** "Email · 118% of target · +22.0%" or "SMS · 7.2% click rate · +0.4 pt": the channel, a drip's progress, the ranking figure, the change */
 function context(row: TopBottomRow, mode: TopBottomData['mode']): string {
   const figure = mode === 'target' ? `${row.value}% of target` : `${formatPercent(row.value)} click rate`
   const change = row.change === null ? null : mode === 'target' ? formatPercentChange(row.change) : formatPointChange(row.change)
-  return [CHANNEL_LABEL[row.channel], figure, change].filter(Boolean).join(' · ')
+  return [CHANNEL_LABEL[row.channel], row.progress, figure, change].filter(Boolean).join(' · ')
 }
 
 const RANK = ['cep-home-rank-1 text-white', 'cep-home-rank-2 text-white', 'cep-home-rank-3 text-plum-800']

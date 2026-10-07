@@ -1599,5 +1599,112 @@ ALTER TABLE tenant_usage ADD CONSTRAINT ck_tenant_usage_metric
     CHECK (metric IN ('EMAIL_SENT', 'SMS_SENT', 'MMS_SENT', 'CONTACTS', 'STORAGE_BYTES', 'API_CALLS', 'DELIVERABILITY_TESTS'));
 
 -- =====================================================================================
+-- 28. DRIP STEPS (patch 0041): each message of a drip campaign is a row of its own
+-- A drip sends several messages on a timetable to one audience, on one channel, all counted from the start date
+-- (campaign.scheduled_at). Each step has its own name, day, optional send time (NULL = the series time,
+-- campaign.drip_config.time), its own template copy, optional subject / preheader overrides and an optional A/B
+-- subject test. Until the send engine reads these rows (phase B2), the API mirrors them into campaign.drip_config.steps
+-- and campaign.template_id (the first step's template), which is what publish and the send engine read today.
+-- tested_at / content_changed_at: a step counts as tested when tested_at is after content_changed_at (phase B3).
+-- Existing drips: one row per drip_config step, pointing at the campaign's current template (not a copy, so
+-- template_owned is FALSE: the drip never renames or removes that template).
+-- =====================================================================================
+CREATE TABLE IF NOT EXISTS campaign_drip_step (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    campaign_id         UUID NOT NULL REFERENCES campaign(id) ON DELETE CASCADE,
+    day                 INTEGER NOT NULL,                                -- days after the start date; 0 = the start date
+    name                VARCHAR(200) NOT NULL DEFAULT '',                -- may be empty while a draft
+    send_time           TIME,                                            -- NULL = the series time, drip_config.time
+    template_id         UUID REFERENCES template_master(id),             -- this step's own copy; NULL until chosen
+    template_owned      BOOLEAN NOT NULL DEFAULT FALSE,                  -- TRUE: the drip made template_id for this step (renamed, removed with it); FALSE: a shared template
+    subject_line        VARCHAR(300),                                    -- NULL = the template's
+    preheader           VARCHAR(300),
+    ab_config           JSONB,                                           -- as campaign.ab_config; one step per drip, email only
+    tested_at           TIMESTAMPTZ,
+    content_changed_at  TIMESTAMPTZ,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ux_campaign_drip_step_day UNIQUE (campaign_id, day),
+    CONSTRAINT ck_campaign_drip_step_day CHECK (day BETWEEN 0 AND 365)
+);
+COMMENT ON TABLE campaign_drip_step IS 'One message of a drip campaign: its day after the start date, send time, own template copy, subject / preheader overrides and A/B subject test';
+CREATE INDEX IF NOT EXISTS ix_campaign_drip_step_tenant_campaign ON campaign_drip_step(tenant_id, campaign_id);
+CREATE INDEX IF NOT EXISTS ix_campaign_drip_step_template ON campaign_drip_step(template_id);
+
+DROP TRIGGER IF EXISTS trg_campaign_drip_step_touch ON campaign_drip_step;
+CREATE TRIGGER trg_campaign_drip_step_touch BEFORE UPDATE ON campaign_drip_step FOR EACH ROW EXECUTE FUNCTION fn_touch_row();
+DROP TRIGGER IF EXISTS trg_campaign_drip_step_audit ON campaign_drip_step;
+CREATE TRIGGER trg_campaign_drip_step_audit AFTER INSERT OR UPDATE OR DELETE ON campaign_drip_step FOR EACH ROW EXECUTE FUNCTION fn_definition_audit();
+ALTER TABLE campaign_drip_step ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_drip_step FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_campaign_drip_step_tenant ON campaign_drip_step;
+CREATE POLICY rls_campaign_drip_step_tenant ON campaign_drip_step
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON campaign_drip_step TO cep_app;
+GRANT ALL ON campaign_drip_step TO cep_admin;
+
+-- existing drips: a row per drip_config step, on the campaign's own template, so they publish and send exactly as before
+INSERT INTO campaign_drip_step (tenant_id, campaign_id, day, name, template_id)
+SELECT c.tenant_id, c.id, (step ->> 'day')::int, left(COALESCE(step ->> 'label', ''), 200), c.template_id
+  FROM campaign c CROSS JOIN LATERAL jsonb_array_elements(c.drip_config -> 'steps') step
+ WHERE c.campaign_type = 'DRIP' AND jsonb_typeof(c.drip_config -> 'steps') = 'array'
+   AND (step ->> 'day') ~ '^\d+$' AND (step ->> 'day')::int BETWEEN 0 AND 365
+ON CONFLICT (campaign_id, day) DO NOTHING;
+
+-- =====================================================================================
+-- 29. DRIP RUNS (patch 0042): each run of a drip knows the message it sends
+-- A DRIP_INSTANCE run sends its step's own template, subject, preheader and A/B test, and builds its audience from the
+-- first message's Campaign List (apps/delivery/engine/runs.py). Runs planned before patch 0042 are matched to their step
+-- by their label ("Day 7" = the step on day 7 of the same campaign). A deleted step leaves its runs, unlinked.
+-- =====================================================================================
+ALTER TABLE campaign_run ADD COLUMN IF NOT EXISTS drip_step_id UUID REFERENCES campaign_drip_step(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS ix_campaign_run_drip_step ON campaign_run(drip_step_id) WHERE drip_step_id IS NOT NULL;
+COMMENT ON COLUMN campaign_run.drip_step_id IS 'DRIP_INSTANCE runs: the message (campaign_drip_step) this run sends';
+
+UPDATE campaign_run r SET drip_step_id = s.id
+  FROM campaign_drip_step s
+ WHERE r.drip_step_id IS NULL AND r.run_type = 'DRIP_INSTANCE' AND NOT r.test_mode
+   AND s.campaign_id = r.campaign_id AND r.sequence_label = 'Day ' || s.day;
+
+-- =====================================================================================
+-- 30. STOPPED DRIPS (patch 0043): a drip stopped early is COMPLETED, with who stopped it and when
+-- Stop Remaining Messages cancels every unsent message of a running or paused drip for good (apps/campaigns/service.py,
+-- stop). No new status: the campaign is COMPLETED and these two columns say it ended early.
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS stopped_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS stopped_by UUID REFERENCES app_user(id);
+COMMENT ON COLUMN campaign.stopped_at IS 'A drip whose remaining messages were stopped: when. The campaign is COMPLETED';
+COMMENT ON COLUMN campaign.stopped_by IS 'A drip whose remaining messages were stopped: who';
+
+-- =====================================================================================
+-- 31. PAUSED BY, AND SENDS THAT NEVER WENT (patch 0044)
+-- campaign.paused_at / paused_by: who paused a campaign and when, set by pause and cleared by resume and stop (every
+-- campaign type). not_sent_reason on the execution rows: a message CEP decided not to send after queuing it. Its status
+-- stays FAILED (the status CHECKs are the hardening layer's, on partitioned tables), and this code tells it apart from a
+-- real failure: the figures count it as not_sent, never failed, and billing never counts it.
+--   STOPPED_EARLY   the drip was stopped while this send was paused (apps/campaigns/drip_lifecycle.py, stop)
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS paused_by UUID REFERENCES app_user(id);
+COMMENT ON COLUMN campaign.paused_at IS 'While paused: when it was paused. Cleared on resume and on stop';
+COMMENT ON COLUMN campaign.paused_by IS 'While paused: who paused it';
+
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS not_sent_reason VARCHAR(30);
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS not_sent_reason VARCHAR(30);
+COMMENT ON COLUMN mailer_execution.not_sent_reason IS 'A queued message CEP chose not to send (status FAILED): STOPPED_EARLY. NULL for every other row';
+COMMENT ON COLUMN sms_execution.not_sent_reason IS 'A queued message CEP chose not to send (status FAILED): STOPPED_EARLY. NULL for every other row';
+
+-- rows written by a stop before the column existed carried only this text
+UPDATE mailer_execution SET not_sent_reason = 'STOPPED_EARLY'
+ WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.';
+UPDATE sms_execution SET not_sent_reason = 'STOPPED_EARLY'
+ WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.';
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

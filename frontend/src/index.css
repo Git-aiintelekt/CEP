@@ -28,7 +28,10 @@
   --color-surface-sunken: #eeeff5; /* Gray 100 — search and header fields at rest */
   --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
   --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
-  --color-sidebar: #20265d; /* Navy 900 — the only dark surface */
+  --color-sidebar: #20265d; /* Navy 900 — the rail's dark surface; the toast is the only other one */
+  /* the toast: always on Gray 900 whatever its status, which only the dot carries */
+  --color-toast: #17181c;
+  --color-toast-action: #9fb0ff; /* inline text actions (Undo): light enough to read on the toast, still blue */
   /* the navigation rail, all solid (no transparency): rest text and icon, hover / pressed / current-page fills,
      the current page's 3px left bar and the focus outline, and the divider between the two groups.
      Picked to the nav rail spec's roles; its exact values were not legible, so confirm before sign-off */

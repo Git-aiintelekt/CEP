@@ -5,7 +5,7 @@
  */
 import { z } from 'zod'
 
-import type { Campaign, CampaignInput, CampaignTargets, Channel, DripConfig, RecurringConfig } from '@/lib/types'
+import type { Campaign, CampaignInput, CampaignTargets, Channel, RecurringConfig } from '@/lib/types'
 
 import { isoToZoned, zonedToIso } from './zone'
 
@@ -49,7 +49,6 @@ export const campaignSchema = z
       end_date: z.string(),
       max_runs: z.string().trim(),
     }),
-    drip: z.object({ time: z.string(), steps: z.array(z.object({ day: z.string().trim(), label: z.string().trim().max(60, 'Use 60 characters or fewer.') })) }),
     respect_governance: z.boolean(),
     rate_limit_per_hour: count,
     timezone_optimization: z.boolean(),
@@ -80,17 +79,6 @@ export const campaignSchema = z
         if (!Number.isInteger(runs) || runs < 1 || runs > 999) issue(['recurring', 'max_runs'], 'Between 1 and 999.')
       }
     }
-    if (values.send_type === 'DRIP') {
-      if (!CLOCK.test(values.drip.time)) issue(['drip', 'time'], 'Choose the time of day.')
-      if (values.drip.steps.length === 0) issue(['drip', 'steps'], 'Add at least one step to the series.')
-      const seen = new Set<number>()
-      values.drip.steps.forEach((step, index) => {
-        const day = Number(step.day)
-        if (step.day === '' || !Number.isInteger(day) || day < 0 || day > 365) issue(['drip', 'steps', index, 'day'], 'A day between 0 and 365 (0 = the first day).')
-        else if (seen.has(day)) issue(['drip', 'steps', index, 'day'], 'Another step is already on this day.')
-        seen.add(day)
-      })
-    }
   })
 
 export type CampaignFormValues = z.infer<typeof campaignSchema>
@@ -100,7 +88,7 @@ export const STEP_FIELDS = [
   ['name', 'code', 'description', 'campaign_type', 'channel', 'solicitation_type', 'owner_user', 'tags'],
   ['contact_lists', 'excluded_lists'],
   ['template', 'sender_profile', 'subject_line', 'preheader', 'topic'],
-  ['send_type', 'scheduled_at', 'send_timezone', 'recurring', 'drip', 'respect_governance', 'rate_limit_per_hour', 'timezone_optimization'],
+  ['send_type', 'scheduled_at', 'send_timezone', 'recurring', 'respect_governance', 'rate_limit_per_hour', 'timezone_optimization'],
   ['targets'],
   [],
   [],
@@ -113,14 +101,13 @@ const API_FIELD_STEP: Record<string, number> = {
 }
 export const stepOfApiField = (field: string): number => API_FIELD_STEP[field] ?? 0
 /** the form names a nested group differently from the API */
-export const formFieldOf = (field: string): string => ({ recurring_config: 'recurring.frequency', drip_config: 'drip.steps' })[field] ?? field
+export const formFieldOf = (field: string): string => ({ recurring_config: 'recurring.frequency', drip_config: 'send_type' })[field] ?? field
 
 export function emptyValues(zone: string, owner: string): CampaignFormValues {
   return {
     name: '', code: '', description: '', campaign_type: 'REGULAR_MARKETING', channel: 'EMAIL', solicitation_type: 'MARKETING', owner_user: owner, tags: [],
     contact_lists: [], excluded_lists: [], template: '', sender_profile: '', subject_line: '', preheader: '', topic: '', send_type: 'IMMEDIATE', scheduled_at: '', send_timezone: zone,
     recurring: { frequency: 'WEEKLY', interval: '1', weekdays: [], day_of_month: '1', time: '09:00', ends: 'NEVER', end_date: '', max_runs: '' },
-    drip: { time: '09:00', steps: [{ day: '0', label: '' }] },
     respect_governance: true, rate_limit_per_hour: '', timezone_optimization: false,
     targets: { target_revenue: '', target_opens: '', target_clicks: '', target_conversions: '', target_redemptions: '', planned_cost: '', planned_offer_cost: '', notes: '' },
   }
@@ -134,7 +121,6 @@ export function fromCampaign(campaign: Campaign, workspaceZone: string): Campaig
   const zone = campaign.send_timezone || workspaceZone
   const base = emptyValues(zone, campaign.owner_user ?? '')
   const recurring = campaign.recurring_config
-  const drip = campaign.drip_config
   const targets = campaign.targets
   return {
     ...base,
@@ -150,7 +136,6 @@ export function fromCampaign(campaign: Campaign, workspaceZone: string): Campaig
           time: recurring.time || '09:00', ends: recurring.max_runs ? 'AFTER' : recurring.end_date ? 'ON' : 'NEVER', end_date: recurring.end_date ?? '', max_runs: text(recurring.max_runs),
         }
       : base.recurring,
-    drip: drip?.steps?.length ? { time: drip.time || '09:00', steps: drip.steps.map((step) => ({ day: text(step.day), label: step.label ?? '' })) } : base.drip,
     respect_governance: campaign.respect_governance ?? true, rate_limit_per_hour: text(campaign.rate_limit_per_hour), timezone_optimization: campaign.timezone_optimization ?? false,
     targets: targets
       ? {
@@ -165,8 +150,15 @@ export function fromCampaign(campaign: Campaign, workspaceZone: string): Campaig
 const whole = (value: string) => (value.trim() === '' ? null : Number(value))
 const amount = (value: string) => (value.trim() === '' ? null : value.trim())
 
+/**
+ * The campaign as the API takes it. A drip leaves out what belongs to its messages or its Sequence step: the series
+ * (drip_config, the steps are rows the API owns and a PATCH of drip_config would reshape them), the template (each
+ * message has its own copy), the subject line and preheader (set per message; the API refuses them on a drip), and the
+ * start date (scheduled_at, set on Sequence; this form would otherwise clear it).
+ */
 export function toInput(values: CampaignFormValues, rowVersion?: number): CampaignInput {
   const receipt = values.campaign_type === 'E_RECEIPT'
+  const drip = values.campaign_type === 'DRIP'
   const texts = values.channel === 'SMS' || values.channel === 'MMS'
   const sendType = receipt ? 'IMMEDIATE' : values.send_type
   const recurring: RecurringConfig | null =
@@ -178,10 +170,6 @@ export function toInput(values: CampaignFormValues, rowVersion?: number): Campai
           end_date: values.recurring.ends === 'ON' ? values.recurring.end_date : null,
           max_runs: values.recurring.ends === 'AFTER' ? Number(values.recurring.max_runs) : null,
         }
-      : null
-  const drip: DripConfig | null =
-    sendType === 'DRIP'
-      ? { time: values.drip.time, steps: values.drip.steps.map((step) => ({ day: Number(step.day), ...(step.label ? { label: step.label } : {}) })).sort((a, b) => a.day - b.day) }
       : null
   const targets: CampaignTargets = {
     target_revenue: amount(values.targets.target_revenue), target_opens: whole(values.targets.target_opens), target_clicks: whole(values.targets.target_clicks),
@@ -199,16 +187,18 @@ export function toInput(values: CampaignFormValues, rowVersion?: number): Campai
     tags: values.tags,
     contact_lists: receipt ? [] : values.contact_lists,
     excluded_lists: receipt ? [] : values.excluded_lists,
-    template: values.template || null,
+    ...(drip ? {} : {
+      template: values.template || null,
+      subject_line: texts ? null : values.subject_line.trim() || null,
+      preheader: texts ? null : values.preheader.trim() || null,
+      scheduled_at: sendType === 'SCHEDULED' ? zonedToIso(values.scheduled_at, values.send_timezone) : null,
+      drip_config: null,
+    }),
     sender_profile: values.sender_profile || null,
-    subject_line: texts ? null : values.subject_line.trim() || null,
-    preheader: texts ? null : values.preheader.trim() || null,
     topic: receipt ? null : values.topic || null,
     send_type: sendType,
-    scheduled_at: sendType === 'SCHEDULED' ? zonedToIso(values.scheduled_at, values.send_timezone) : null,
     send_timezone: values.send_timezone || null,
     recurring_config: recurring,
-    drip_config: drip,
     respect_governance: values.respect_governance,
     rate_limit_per_hour: whole(values.rate_limit_per_hour),
     timezone_optimization: values.timezone_optimization,

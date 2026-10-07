@@ -90,7 +90,7 @@ export function TextInput({ invalid = false, warning = false, describedBy, contr
   )
 }
 
-export function TextArea({ invalid = false, warning = false, describedBy, tone, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired & Omit<Styled, 'controlSize'>) {
+export function TextArea({ invalid = false, warning = false, describedBy, tone, className = '', ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & Wired & Omit<Styled, 'controlSize'> & { ref?: Ref<HTMLTextAreaElement> }) {
   return (
     <textarea
       {...props}

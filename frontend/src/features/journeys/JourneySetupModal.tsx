@@ -241,7 +241,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
       ? { name: edit.journey.name, description: edit.journey.description ?? '', entryType: trigger.entryType, triggerValue: trigger.value, triggerLabel: trigger.label, segment: trigger.segment,
           populationMode: edit.journey.population_mode, reentryPolicy: edit.journey.reentry_policy,
           reentryAfterDays: edit.journey.reentry_after_days ? String(edit.journey.reentry_after_days) : '' }
-      : { name: prefill?.name ?? '', description: '', entryType: prefill?.entryType ?? '', triggerValue: prefill?.triggerValue ?? '', triggerLabel: prefill?.triggerLabel ?? null,
+      : { name: prefill?.name ?? '', description: prefill?.description ?? '', entryType: prefill?.entryType ?? '', triggerValue: prefill?.triggerValue ?? '', triggerLabel: prefill?.triggerLabel ?? null,
           segment: triggerFromRule(prefill?.rule).segment, populationMode: prefill?.populationMode ?? '', reentryPolicy: prefill?.reentryPolicy ?? 'NEVER',
           reentryAfterDays: prefill?.reentryAfterDays ?? '' }
   })
@@ -383,9 +383,9 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
         message: [genericError.detail, ...(genericError.title === FIELDS_TITLE ? genericError.general : [])].join(' '),
         onRetry: refused ? undefined : () => create.mutate(),
       } : null}
-      banner={(prefill && !edit) || locked ? (
+      banner={(prefill?.source && !edit) || locked ? (
         <>
-          {prefill && !edit && (
+          {prefill?.source && !edit && (
             <p data-from-template className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
               <span className="inline-flex h-[22px] shrink-0 items-center rounded-sm bg-plum-100 px-2 text-xs font-semibold whitespace-nowrap text-plum-800">From Template</span>
               {prefill.sourceName} · Pre-filled. Change anything before you build.

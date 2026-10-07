@@ -28,7 +28,8 @@ from apps.media.models import MediaAsset
 from apps.platform_ops import billing, params
 from apps.templates import datapoints, design, starters
 from apps.templates.models import RenderedTemplateContent, TemplateDesignState
-from apps.campaigns.models import Campaign, CampaignRun
+from apps.campaigns import drip
+from apps.campaigns.models import Campaign, CampaignDripStep, CampaignRun
 from apps.campaigns.service import LIVE as LIVE_CAMPAIGN_STATUSES
 from apps.contact_lists.models import ContactList
 from apps.customers.models import Coupon, LoyaltyTier
@@ -204,7 +205,8 @@ class CampaignRunViewSet(viewsets.ReadOnlyModelViewSet):
 class TemplateViewSet(BaseTenantViewSet):
     # rendered content is the authority for versions: messages and imported templates may have no editor state
     _used = Campaign.objects.filter(template_id=OuterRef("pk"), deleted_at__isnull=True).order_by("-created_at")
-    queryset = TemplateMaster.objects.annotate(latest_version=Max("rendered_template_contents__version_number"),
+    _in_drip = CampaignDripStep.objects.filter(template_id=OuterRef("pk"), campaign__deleted_at__isnull=True).order_by("-campaign__created_at", "day")
+    queryset = TemplateMaster.objects.annotate(latest_version=Max("rendered_template_contents__version_number"), drip_step_id=Subquery(_in_drip.values("id")[:1]),
                                                used_by_id=Subquery(_used.values("id")[:1]), used_by_name=Subquery(_used.values("name")[:1]),
                                                used_by_status=Subquery(_used.values("status")[:1]), used_at=Subquery(_used.values("created_at")[:1]),
                                                campaign_count=Count("campaigns", filter=Q(campaigns__deleted_at__isnull=True), distinct=True))
@@ -216,9 +218,11 @@ class TemplateViewSet(BaseTenantViewSet):
     def perform_update(self, serializer):
         if serializer.instance.status == TemplateMaster.Status.ARCHIVED:
             raise Conflict("An archived template cannot be changed.")
+        drip.guard_template(serializer.instance, "edit")
         serializer.save()
 
     def perform_destroy(self, instance):
+        drip.guard_template(instance, "delete")
         if instance.campaigns.filter(deleted_at__isnull=True).exists():
             raise Conflict("This template is used by a campaign. Archive it instead.")
         super().perform_destroy(instance)
@@ -335,6 +339,7 @@ class TemplateViewSet(BaseTenantViewSet):
     @action(detail=True, methods=["post"])
     def archive(self, request, pk=None, version=None):
         template = self.get_object()
+        drip.guard_template(template, "archive")
         if template.campaigns.filter(deleted_at__isnull=True, status__in=["PRODUCTION_PUBLISHED", "ACTIVE", "TEST_PUBLISHED"]).exists():
             raise Conflict("A live campaign uses this template.")
         template.status = TemplateMaster.Status.ARCHIVED

@@ -23,6 +23,7 @@ import { TestPublishBox } from '../TestPublishBox'
 import { useCampaignMessage, useCampaignPreview, useSampleCustomers, type CampaignMessage } from '../useCampaignPreview'
 import { hasAction } from '../vocabulary'
 import { ChecksLine } from './ChecksLine'
+import { DripContent } from './DripContent'
 
 export const SEND_TEST_CARD = 'send-a-test'
 
@@ -63,7 +64,7 @@ function DetailsCard({ campaign, editable, message }: { campaign: Campaign; edit
   )
 }
 
-export function ContentTab({ campaign, focusTest = 0 }: { campaign: Campaign; focusTest?: number }) {
+export function ContentTab({ campaign, focusTest = 0, zone = 'UTC' }: { campaign: Campaign; focusTest?: number; zone?: string }) {
   const { can, me } = useAuth()
   const [party, setParty] = useState('')
   const [device, setDevice] = useState<PreviewDevice>('desktop')
@@ -106,6 +107,21 @@ export function ContentTab({ campaign, focusTest = 0 }: { campaign: Campaign; fo
       )}
     </>
   )
+
+  if (campaign.campaign_type === 'DRIP') {
+    return (
+      <div className="flex flex-col gap-6">
+        <DripContent campaign={campaign} zone={zone} editable={editable} />
+        {canTest && (
+          <div id={SEND_TEST_CARD} tabIndex={-1} className="rounded-lg outline-none focus:shadow-focus">
+            <DetailCard title="Send a Test">
+              <TestPublishBox campaign={campaign} people={people.data?.owners ?? []} defaultTo={me?.principal.email ?? ''} />
+            </DetailCard>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">

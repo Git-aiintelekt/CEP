@@ -2,10 +2,11 @@
  * The real page's source. The report, the campaign list and the calendar feed most sections; Needs Attention, Revenue vs. Cost,
  * Governance and Active Journeys read GET /home/overview/, one request for the four.
  */
-import { useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 
 import { api, ApiError } from '@/lib/api'
 import { formatClock, formatShortDay, zoneAbbreviation } from '@/lib/format'
+import { dripProgressText } from '@/features/campaigns/dripLines'
 import { typeShortLabel } from '@/features/campaigns/vocabulary'
 import { addDays, todayIn } from '@/features/reports/period'
 import type { Campaign, CampaignCalendarData, CountedPage, HomeJourneyRow, HomeOverview, ReportCampaignRow, ReportSummary, WorkspaceSetup } from '@/lib/types'
@@ -18,6 +19,7 @@ import { buildKpis, sumFigures, type CampaignFigures, type Figures } from './kpi
 import { rankTopBottom, type RankCandidate } from './rankTopBottom'
 import { marketingOnly, receiptFigures } from './receipts'
 import { contextLine } from './recentContext'
+import { dripProblemsGroup } from '../dripProblems'
 import type { Attention, AttentionGroup, CampaignOptions, EReceipts, FunnelChannel, Governance, HomeDataSource, HomeFilters, Journeys, Kpis, MessageChannel, RecentCampaigns, RecentStatus, RevenueCostSeries, Schedule, ScheduledRun, SectionResult, TopBottom } from './types'
 
 const unavailable = <T,>(): SectionResult<T> => ({ status: 'unavailable' })
@@ -73,7 +75,9 @@ function useAttention(filters: HomeFilters): SectionResult<Attention> {
         { ...GROUPS.publish, count: alerts.awaiting_publish },
         { ...GROUPS.approval, count: alerts.awaiting_approval },
       ]
-    return { groups: groups.filter((group) => group.count > 0), freshness }
+    // drips in trouble: one group, each problem with its own link (one campaign: only its own)
+    const drips = dripProblemsGroup((alerts.drip_problems ?? []).filter((problem) => !single || problem.campaign_id === single), viewer.timezone, overview.dataUpdatedAt)
+    return { groups: [...groups.filter((group) => group.count > 0), ...(drips ? [drips] : [])], freshness }
   })
 }
 
@@ -245,9 +249,13 @@ function useTopBottom(filters: HomeFilters): SectionResult<TopBottom> {
   const byRows = filters.campaignIds.length > 0 || filters.channel === 'MMS'
   const attributed = current.data ? (byRows ? sumFigures(inScope(current.data).map(rowFigures)) : totalFigures(current.data)).revenue !== null : false
   const campaigns = useQuery({ ...sentCampaignsQuery, enabled: attributed, select: (page: CountedPage<Campaign>) => page.results })
+  // a drip's progress line: from the campaigns target mode reads, else from the Campaign filter's list if it has loaded (no request of its own)
+  const queryClient = useQueryClient()
+  const known = () => campaigns.data ?? queryClient.getQueryData<CountedPage<Campaign>>(sentCampaignsQuery.queryKey)?.results ?? []
   if (!reports) return unavailable()
 
-  return combine(attributed ? [current, previous, campaigns] : [current, previous], () => {
+  return combine(attributed ? [current, previous, campaigns] : [current, previous], () => withProgress(rank(), known(), viewer.timezone))
+  function rank(): TopBottom {
     const rows = inScope(current.data!)
     const before = new Map(inScope(previous.data!).map((row) => [row.id, row]))
     const targets = new Map((campaigns.data ?? []).map((campaign) => [campaign.id, campaign.targets]))
@@ -267,7 +275,18 @@ function useTopBottom(filters: HomeFilters): SectionResult<TopBottom> {
     }
     const totals = byRows ? sumFigures(rows.map(rowFigures)) : totalFigures(current.data!)
     return rankTopBottom({ mode: 'clickRate', candidates, average: totals.delivered ? Math.round((totals.clicked / totals.delivered) * 1000) / 10 : null })
-  })
+  }
+}
+
+/** a drip in the ranking says how far it has got */
+function withProgress(ranked: TopBottom, campaigns: Campaign[], zone: string): TopBottom {
+  const byId = new Map(campaigns.map((campaign) => [campaign.id, campaign]))
+  const add = (row: TopBottom['top'][number]) => {
+    const campaign = byId.get(row.id)
+    const progress = campaign ? dripProgressText(campaign, zone) : null
+    return progress ? { ...row, progress } : row
+  }
+  return { ...ranked, top: ranked.top.map(add), bottom: ranked.bottom.map(add) }
 }
 
 /**
@@ -297,8 +316,10 @@ function useSchedule(filters: HomeFilters): SectionResult<Schedule> {
         const day = todayIn(zone, new Date(send.at))
         if (day < window.date_from || day > window.date_to) return
         const runs = byDay.get(day) ?? []
+        const drip = typeof send.position === 'number' && typeof send.count === 'number' ? { position: send.position, count: send.count } : undefined
         runs.push({
-          id: `${span.campaign}-${index}`, at: send.at, channel: span.channel as MessageChannel, name: send.label ? `${span.name}, ${send.label}` : span.name,
+          id: `${span.campaign}-${index}`, at: send.at, channel: span.channel as MessageChannel,
+          name: drip ? `${span.name} · Message ${drip.position} of ${drip.count}` : send.label ? `${span.name}, ${send.label}` : span.name, drip,
           source: span.is_journey_generated ? 'journey' : 'campaign', campaignId: span.is_journey_generated ? null : span.campaign,
           sent: send.state === 'SENT' || send.state === 'SENDING' || new Date(send.at).getTime() < now,
         })
@@ -359,7 +380,8 @@ function useRecentCampaigns(filters: HomeFilters, status: RecentStatus = 'ALL'):
       return {
         id: campaign.id,
         name: campaign.name,
-        contextLine: contextLine({
+        // a drip says how far it has got: "Drip · 2 of 4 messages sent"
+        contextLine: dripProgressText(campaign, zone) ? `${typeShortLabel('DRIP')} · ${dripProgressText(campaign, zone)}` : contextLine({
           typeLabel: typeShortLabel(campaign.campaign_type), status: campaign.display_status, editedAt: campaign.updated_at, nextRunAt: campaign.next_run_at,
           testSentAt: latest((campaign.runs ?? []).filter((run) => run.test_mode).map((run) => run.started_at)), lastSentAt,
           sendingNow: production.some((run) => run.status === 'SENDING' || run.status === 'PREPARING'),

@@ -33,7 +33,7 @@ test('the three campaigns furthest over target: name, channel, the share of targ
 test('light: two ranked campaigns, so only the better one is a top campaign', () => {
   renderHome({ state: 'light' })
   expect(rows()).toHaveLength(1)
-  expect(rows()[0].querySelector('[data-context]')!.textContent).toBe('Email · 92% of target · +4.1%')
+  expect(rows()[0].querySelector('[data-context]')!.textContent).toBe('Email · 2 of 4 messages sent · 92% of target · +4.1%')                  // a drip says how far it has got
 })
 
 test('no ranked campaigns: one quiet line', () => {

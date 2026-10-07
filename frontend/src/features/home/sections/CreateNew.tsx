@@ -6,6 +6,7 @@ import { buttonClass } from '@/components/buttonStyles'
 import { CampaignSetupDialog } from '@/features/campaigns/setup/CampaignSetupDialog'
 import { CreateListWizard } from '@/features/contact-lists/CreateListWizard'
 import { JourneySetupModal } from '@/features/journeys/JourneySetupModal'
+import { prefillNamed, type SetupPrefill } from '@/features/journeys/templates/prefill'
 import { CreateTemplateModal } from '@/features/templates/CreateTemplateModal'
 
 import type { CreateTile } from '../createNewTiles'
@@ -22,7 +23,9 @@ const NEUTRAL = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control-
 export function CreateNew({ tiles }: { tiles: CreateTile[] }) {
   const titleId = useId()
   const [open, setOpen] = useState<CreateTile['key'] | null>(null)
-  const close = () => setOpen(null)
+  /** Create a Journey Instead, from the Create Campaign pop-up: the journey pop-up opens with its name and description */
+  const [journeyFrom, setJourneyFrom] = useState<SetupPrefill | undefined>(undefined)
+  const close = () => { setOpen(null); setJourneyFrom(undefined) }
   const shown = ORDER.map((key) => tiles.find((tile) => tile.key === key)).filter((tile): tile is CreateTile => Boolean(tile))
   return (
     <section aria-labelledby={titleId} className="flex min-w-0 flex-wrap items-center gap-2">
@@ -33,10 +36,12 @@ export function CreateNew({ tiles }: { tiles: CreateTile[] }) {
           {key === 'campaign' ? 'Create Campaign' : label}
         </button>
       ))}
-      {open === 'campaign' && <CampaignSetupDialog onClose={close} />}
+      {open === 'campaign' && (
+        <CampaignSetupDialog onClose={close} onCreateJourney={({ name, description }) => { setJourneyFrom(prefillNamed(name, description)); setOpen('journey') }} />
+      )}
       {open === 'list' && <CreateListWizard onClose={close} />}
       {open === 'template' && <CreateTemplateModal onClose={close} />}
-      {open === 'journey' && <JourneySetupModal onClose={close} />}
+      {open === 'journey' && <JourneySetupModal prefill={journeyFrom} onClose={close} />}
     </section>
   )
 }

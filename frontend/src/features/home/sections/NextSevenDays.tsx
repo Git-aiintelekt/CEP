@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { ErrorState, SkeletonLine } from '@/components/States'
 import { TruncatedText } from '@/components/Tooltip'
 import { buttonClass } from '@/components/buttonStyles'
+import { zoneShort } from '@/features/campaigns/dripSequence'
 import { formatClock, formatShortDay } from '@/lib/format'
 
 import { HomeCard } from '../components/HomeCard'
@@ -79,13 +80,17 @@ function DayRuns({ schedule, index, journeysShown }: { schedule: Schedule; index
         <ul aria-label={`Sends ${when}`} className="flex flex-col gap-2">
           {runs.slice(0, NAMED).map((run) => {
             const journey = run.source === 'journey'
+            // a drip message carries its zone and its type: "Mon · 09:00 CT", "Drip · Email"
+            const kind = journey ? 'Journey' : run.drip ? 'Drip' : 'Campaign'
             return (
               <li key={run.id} data-run={run.source} className="flex items-center gap-2.5 rounded-control-md border border-line-subtle px-2.5 py-2">
                 <span aria-hidden className={`w-[3px] self-stretch rounded-xs ${journey ? 'cep-home-journey-down' : 'cep-home-blend-down'}`} />
-                <span className="shrink-0 text-helper font-medium whitespace-nowrap text-ink-800 cep-num">{index === 0 ? 'Today' : weekday(day.day, 'short')} · {formatClock(run.at, schedule.timezone)}</span>
+                <span className="shrink-0 text-helper font-medium whitespace-nowrap text-ink-800 cep-num">
+                  {index === 0 ? 'Today' : weekday(day.day, 'short')} · {formatClock(run.at, schedule.timezone)}{run.drip ? ` ${zoneShort(schedule.timezone)}` : ''}
+                </span>
                 <TruncatedText text={run.name} className="min-w-0 flex-1 text-helper font-semibold text-ink-900" />
                 <span className={`inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-[11px] font-semibold ${journey ? 'bg-cat-journey-bg text-cat-journey-text' : 'bg-cat-campaign-bg text-cat-campaign-text'}`}>
-                  {journey ? 'Journey' : 'Campaign'} · {CHANNEL_LABEL[run.channel]}
+                  {kind} · {CHANNEL_LABEL[run.channel]}
                 </span>
               </li>
             )

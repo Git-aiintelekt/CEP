@@ -76,7 +76,7 @@ test('each day’s accessible name carries its campaign / journey split', () => 
 test('the picked day’s sends listed in time order, four by name with their kind; the note counts the rest and the week', async () => {
   const user = userEvent.setup()
   renderHome()
-  expect(note().textContent).toBe('2 more today. 10 campaign sends and 5 journey touchpoints this week.')
+  expect(note().textContent).toBe('2 more today. 12 campaign sends and 5 journey touchpoints this week.')
   expect(runs()).toEqual(['October Newsletter Preview', 'Welcome Series, Step 2', 'Flash Sale Reminder', 'Fall Boots Launch'])
   const first = scheduleCard().querySelector('[data-run]')!
   expect(first.textContent).toContain('Today · 08:00')

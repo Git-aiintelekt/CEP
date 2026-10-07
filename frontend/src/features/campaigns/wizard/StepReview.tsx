@@ -18,6 +18,7 @@ import { formatMoney, formatNumber } from '@/lib/format'
 import type { Campaign, CampaignAudience, CampaignChecklist, CampaignRun } from '@/lib/types'
 
 import { AudiencePicture } from '../AudiencePicture'
+import { ChecklistItems } from '../ChecklistItems'
 import { APPROVAL_CARD_ID, ApprovalCard } from './ApprovalCard'
 import { Definition, Panel } from '../parts'
 import type { FlowStep } from '../setupFlow'
@@ -163,20 +164,7 @@ export function StepReview({ campaign, onEdit, beforePublish }: { campaign: Camp
           ) : checklist.isError ? (
             <ErrorState title="The checklist could not be loaded" error={checklist.error} onRetry={() => void checklist.refetch()} />
           ) : (
-            <ul className="space-y-3" aria-label="Pre-Publish Checklist">
-              {checklist.data.items.map((item) => (
-                <li key={item.key} className="flex items-start gap-2.5 text-sm">
-                  {item.ok ? <CircleCheck size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-success-text" aria-hidden />
-                    : item.advisory ? <CircleDashed size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-warning-text" aria-hidden />
-                    : <CircleAlert size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-danger-text" aria-hidden />}
-                  <span>
-                    <span className="font-medium text-ink-900">{item.label}</span>
-                    <span className="sr-only">{item.ok ? ': done' : item.advisory ? ': recommended' : ': to do'}</span>
-                    {!item.ok && item.problem && <span className={`block ${item.advisory ? 'text-ink-800' : 'text-danger-text'}`}>{item.problem}</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <ChecklistItems items={checklist.data.items} />
           )}
         </Panel>
 

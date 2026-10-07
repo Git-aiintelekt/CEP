@@ -52,7 +52,42 @@ def attention(tenant_id) -> dict:
     asked = Q(approval_status=approval.REQUESTED, status__in=service.EDITABLE)
     failed = campaigns.filter(Exists(failed_run)).exclude(status="PAUSED").exclude(asked).order_by("-updated_at").values_list("id", flat=True)
     counts = campaigns.aggregate(publish=Count("id", filter=Q(status="TEST_PUBLISHED")), approval=Count("id", filter=asked))
-    return {"failed_ids": [str(pk) for pk in failed], "awaiting_publish": counts["publish"], "awaiting_approval": counts["approval"]}
+    return {"failed_ids": [str(pk) for pk in failed], "awaiting_publish": counts["publish"], "awaiting_approval": counts["approval"],
+            "drip_problems": drip_problems(tenant_id)}
+
+
+PAUSED_LONG_AFTER = timedelta(days=3)
+
+
+def drip_problems(tenant_id) -> list[dict]:
+    """Drips that need someone: MESSAGE_FAILED, a message whose latest run failed in the last 7 days and reached nobody
+    (paused or not); PAUSED_LONG, a drip paused 3 days or more, with the message waiting on it."""
+    from apps.campaigns import drip_lifecycle
+    now = timezone.now()
+    drips = list(Campaign.objects.filter(tenant_id=tenant_id, deleted_at__isnull=True, campaign_type=Campaign.CampaignType.DRIP)
+                 .exclude(status__in=("ARCHIVED", "DRAFT", "TEST_PUBLISHED")).select_related("paused_by")
+                 .prefetch_related("drip_steps", "campaign_runs"))
+    problems = []
+    for campaign in drips:
+        steps = sorted(campaign.drip_steps.all(), key=lambda step: step.day)
+        position = {step.pk: index for index, step in enumerate(steps, start=1)}
+        latest = {}
+        for run in sorted((run for run in campaign.campaign_runs.all() if not run.test_mode and run.drip_step_id), key=lambda run: run.run_number):
+            latest[run.drip_step_id] = run
+        for step in steps:
+            run = latest.get(step.pk)
+            if (run is not None and run.status == "FAILED" and run.completed_at and run.completed_at >= now - FAILED_WITHIN
+                    and not drip_lifecycle._received(campaign, run)):
+                problems.append({"kind": "MESSAGE_FAILED", "campaign_id": str(campaign.pk), "campaign_name": campaign.name, "position": position[step.pk],
+                                 "message_name": step.name, "failed_at": run.completed_at})
+        if campaign.status == "PAUSED" and campaign.paused_at and campaign.paused_at <= now - PAUSED_LONG_AFTER:
+            waiting = next((run for step in steps for run in [latest.get(step.pk)] if run is not None and run.status == "SCHEDULED"), None)
+            step = next((item for item in steps if waiting is not None and item.pk == waiting.drip_step_id), None)
+            by = campaign.paused_by
+            problems.append({"kind": "PAUSED_LONG", "campaign_id": str(campaign.pk), "campaign_name": campaign.name, "paused_at": campaign.paused_at,
+                             "paused_by_name": (by.display_name or by.email) if by else None,
+                             "next": {"position": position[step.pk], "name": step.name, "was_due": waiting.scheduled_at} if step else None})
+    return problems
 
 
 def revenue_cost(cursor, args: dict, first_day: date, last_day: date, channel: str | None, campaign_ids: list[str]) -> dict:

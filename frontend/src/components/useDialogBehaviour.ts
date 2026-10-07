@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -14,6 +14,9 @@ interface DialogOptions {
  * close. A dialog opened on top of this one (a confirmation) owns the keyboard until it closes. Runs once per opening.
  */
 export function useDialogBehaviour(panel: RefObject<HTMLElement | null>, onClose: () => void, { returnFocus, escapeClosesMenusFirst = false }: DialogOptions = {}) {
+  // Escape calls the latest onClose: a dialog that saves on close sees what was typed since it opened
+  const close = useRef(onClose)
+  useEffect(() => { close.current = onClose })
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     const first = panel.current?.querySelector<HTMLElement>('[autofocus], [data-autofocus]') ?? panel.current?.querySelector<HTMLElement>('input, select, textarea, button:not([data-field-note])')
@@ -23,7 +26,7 @@ export function useDialogBehaviour(panel: RefObject<HTMLElement | null>, onClose
       if (open.length > 0 && open[open.length - 1] !== panel.current) return
       if (event.key === 'Escape') {
         if (escapeClosesMenusFirst && panel.current?.querySelector('[aria-expanded="true"][aria-haspopup], [role="combobox"][aria-expanded="true"]')) return
-        onClose()
+        close.current()
         return
       }
       if (event.key !== 'Tab' || !panel.current) return
@@ -44,7 +47,7 @@ export function useDialogBehaviour(panel: RefObject<HTMLElement | null>, onClose
       document.removeEventListener('keydown', onKey)
       ;(returnFocus?.() ?? opener)?.focus?.()
     }
-    // onClose identity changes every render of the parent; the dialog is mounted once per opening
+    // the dialog is mounted once per opening; onClose is read through the ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

@@ -46,6 +46,16 @@ export interface AttentionGroup {
   atLeast?: boolean
   actionLabel: string
   href: string
+  /** a group of separate problems (Drip Problems): each its own sentence and link, shown in the card */
+  items?: AttentionItem[]
+}
+
+export interface AttentionItem {
+  id: string
+  /** "Message 3 of Loyalty Welcome Series failed. No one received it." */
+  text: string
+  actionLabel: string
+  href: string
 }
 
 export interface Attention {
@@ -94,6 +104,8 @@ export interface TopBottomRow {
   figure: number
   /** on the previous period: % for revenue, points for click rate; null with no earlier figure */
   change: number | null
+  /** a drip: "2 of 4 messages sent" */
+  progress?: string | null
 }
 
 export interface TopBottom {
@@ -153,6 +165,8 @@ export interface ScheduledRun {
   campaignId: string | null
   /** sent or sending, or its time has passed */
   sent: boolean
+  /** a drip's message: which one, of how many; the name then reads "Loyalty Welcome Series · Message 3 of 4" */
+  drip?: { position: number; count: number }
 }
 
 export interface ScheduleDay {

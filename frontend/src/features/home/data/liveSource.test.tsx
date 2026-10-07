@@ -7,7 +7,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { addDays, todayIn } from '@/features/reports/period'
 import type { Campaign } from '@/lib/types'
 import { atZone } from '@/lib/zonedTime'
-import { installMockApi, makeCampaign, signIn } from '@/test/mockApi'
+import { installMockApi, makeCampaign, makeStep, signIn } from '@/test/mockApi'
 import { homeOverview, reportSummary } from '@/test/mockWorkspaceTools'
 
 import { SAMPLE_VIEWER } from './sampleViewer'
@@ -320,4 +320,37 @@ test('e-receipts come out of the marketing figures and go to their own tile', as
 test('no e-receipts in the period: the tile has nothing to show', async () => {
   installMockApi()
   expect(await ready((source) => source.useEReceipts(filters()))).toBeNull()
+})
+
+// ---------------------------------------------------------------------------------------------------- drips
+test('Needs Attention gains a Drip Problems group from drip_problems: each problem its own sentence and link; failed_ids as before', async () => {
+  const pausedAt = new Date(Date.now() - 3 * 86_400_000 - 3_600_000).toISOString()
+  installMockApi({ workspaceTools: { overview: { ...homeOverview(), attention: { ...homeOverview().attention, drip_problems: [
+    { kind: 'MESSAGE_FAILED', campaign_id: 'd1', campaign_name: 'Loyalty Welcome Series', position: 3, message_name: 'First Reward', failed_at: new Date().toISOString() },
+    { kind: 'PAUSED_LONG', campaign_id: 'd2', campaign_name: 'Holiday Reminder Texts', paused_at: pausedAt, paused_by_name: 'Maria Chen', next: { position: 2, name: 'Early Access', was_due: '2026-01-16T15:00:00Z' } },
+  ] } } } })
+  const attention = await ready((source) => source.useAttention(filters()))
+  const group = attention.groups.find((item) => item.id === 'drip-problems')!
+  expect([group.category, group.count, group.severity]).toEqual(['Drip Problems', 2, 'critical'])
+  expect(group.items!.map((item) => [item.text, item.actionLabel, item.href])).toEqual([
+    ['Message 3 of Loyalty Welcome Series failed. No one received it.', 'Review', '/campaigns/d1'],
+    ['Holiday Reminder Texts has been paused for 3 days. Message 2 was due Fri 16 Jan.', 'Open', '/campaigns/d2'],
+  ])
+  expect(attention.groups.find((item) => item.id === 'delivery-failures')?.count).toBe(1)
+})
+
+test('Next 7 Days: one row per drip message, named by its number; Recent Campaigns: a drip’s second line is its progress', async () => {
+  const zone = 'America/New_York'
+  const today = todayIn(zone)
+  const at = (offset: number) => atZone(addDays(today, offset), '09:00', zone)
+  const drip = makeCampaign({ id: 'd1', name: 'Loyalty Welcome Series', campaign_type: 'DRIP', send_type: 'DRIP', status: 'ACTIVE', send_timezone: zone,
+    drip_progress: { total: 4, sent: 2, failed: 0, cancelled: 0, next: { position: 3, name: 'First Reward', scheduled_at: at(1) } },
+    runs: [{ id: 'r3', campaign: 'd1', tenant: 't1', run_number: 3, run_type: 'DRIP_INSTANCE', status: 'SCHEDULED', test_mode: false, scheduled_at: at(1), started_at: null, completed_at: null, drip_step: 's3',
+             created_at: at(0), updated_at: at(0), row_version: 1 }] as Campaign['runs'] })
+  installMockApi({ campaigns: [drip], dripSteps: { d1: [makeStep({ id: 's1', day: 0 }), makeStep({ id: 's2', day: 3 }), makeStep({ id: 's3', day: 7, name: 'First Reward' }), makeStep({ id: 's4', day: 14 })] } })
+  const schedule = await ready((source) => source.useSchedule(filters()))
+  const run = schedule.days[1].runs[0]
+  expect([run.name, run.drip]).toEqual(['Loyalty Welcome Series · Message 3 of 4', { position: 3, count: 4 }])
+  const recent = await ready((source) => source.useRecentCampaigns(filters()))
+  expect(recent.rows.find((row) => row.id === 'd1')?.contextLine).toBe('Drip · 2 of 4 messages sent')
 })

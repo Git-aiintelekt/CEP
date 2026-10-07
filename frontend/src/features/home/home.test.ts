@@ -50,6 +50,7 @@ test('sample busy account: the mockup’s figures with no filters', () => {
   expect(alerts.map((group) => [group.severity, group.count, group.label, group.actionLabel])).toEqual([
     ['critical', 3, 'Campaigns with delivery failures', 'Review Failures'],
     ['critical', 2, 'Campaigns with bounce rate above 5%', 'Check Lists'],
+    ['critical', 2, 'Message 3 of Back to School Bundles failed. No one received it.', 'Review'],                 // the drip problems, one group
     ['blocking', 4, 'Campaigns awaiting production publish', 'Publish'],
     ['blocking', 1, 'Journey step missing an approved template', 'Fix Journey'],
     ['governance', 21_300, 'Customers held back by frequency caps', 'Review Caps'],
@@ -59,7 +60,7 @@ test('sample busy account: the mockup’s figures with no filters', () => {
   expect([topBottom.top.length, topBottom.middle.count, topBottom.bottom.length]).toEqual([3, 5, 3])
   expect(ready(source.useJourneys(filters())).totalJourneys).toBe(14)
   expect(ready(source.useRecentCampaigns(filters())).total).toBe(15)
-  expect(sumRuns(source)).toBe(15)
+  expect(sumRuns(source)).toBe(17)                                                        // the mockup's 15, and two drip messages
   expect(ready(source.useGovernance(filters()))).toMatchObject({ contacted: 412_380, heldBack: 38_940 })
   expect(ready(source.useEReceipts(filters()))?.sent).toBe(214_600)
 })

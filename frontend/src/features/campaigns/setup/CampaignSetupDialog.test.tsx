@@ -3,7 +3,9 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeCampaign, problem, signIn } from '@/test/mockApi'
+import { act } from 'react'
+
+import { installMockApi, makeCampaign, makeStep, problem, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -71,8 +73,10 @@ test('four type cards and four channel cards; MMS reads "Text with an image"; ar
   const { user } = await openCreate()
   const types = within(dialog()).getByRole('radiogroup', { name: 'Campaign Type' })
   expect(within(types).getAllByRole('radio').map((item) => item.textContent)).toEqual([
-    'Most CommonRegular MarketingOne-time or scheduled send', 'DripMulti-run scheduled pattern', 'E-ReceiptTransactional receipt communication', 'OtherService or legal notices'])
+    'Most CommonRegular MarketingOne-time or scheduled send', 'DripSeveral messages on a set schedule', 'E-ReceiptSent after a purchase', 'OtherAnything the others don’t cover'])
   const channels = within(dialog()).getByRole('radiogroup', { name: 'Channel' })
+  expect(within(channels).getByRole('radio', { name: /^Email/ }).textContent).toBe('EmailDesigned email with images and links')
+  expect(within(channels).getByRole('radio', { name: /^SMS/ }).textContent).toBe('SMSText up to 160 characters')
   expect(within(channels).getByRole('radio', { name: /^MMS/ }).textContent).toBe('MMSText with an image')
   expect(within(channels).getByRole('radio', { name: /Multiple Channels/ })).toBeTruthy()
 
@@ -85,16 +89,29 @@ test('four type cards and four channel cards; MMS reads "Text with an image"; ar
 
 test('message purpose waits for a type, fills in from it, and keeps a purpose the user chose', async () => {
   const { user } = await openCreate()
-  const purpose = () => within(dialog()).getByLabelText(/^Message Purpose/) as HTMLSelectElement
+  const purpose = () => within(dialog()).getByLabelText(/^Message Purpose/) as HTMLButtonElement
   expect(purpose().disabled).toBe(true)
-  expect(purpose().selectedOptions[0].textContent).toBe('Pick a Type First')
+  expect(purpose().textContent).toBe('Pick a Type First')
   await user.click(radio('Campaign Type', /Regular Marketing/))
-  expect(purpose().value).toBe('MARKETING')
+  expect(purpose().textContent).toBe('Marketing')
   await user.click(radio('Campaign Type', /^Other/))
-  expect(purpose().value).toBe('SERVICE')
-  await user.selectOptions(purpose(), 'LEGAL')
+  expect(purpose().textContent).toBe('Service')
+  await user.click(purpose())
+  const list = within(dialog()).getByRole('listbox', { name: 'Message Purpose' })                   // the design system's menu, not the browser's
+  expect(within(list).getAllByRole('option').map((option) => option.textContent)).toEqual(['Marketing', 'Transactional', 'Service', 'Legal'])
+  expect(within(list).getByRole('option', { name: 'Service' }).className).toContain('bg-brand-100')
+  expect(list.closest('[role="region"]')?.className).toContain('shadow-menu')
+  await user.click(within(list).getByRole('option', { name: 'Legal' }))
+  expect(within(dialog()).queryByRole('listbox')).toBeNull()
+  expect(purpose().textContent).toBe('Legal')
   await user.click(radio('Campaign Type', /^Drip/))
-  expect(purpose().value).toBe('LEGAL')                                                              // the user's choice stays
+  expect(purpose().textContent).toBe('Legal')                                                        // the user's choice stays
+
+  purpose().focus()
+  await user.keyboard('{Enter}')
+  await user.keyboard('{ArrowDown}{Enter}')                                                         // keyboard: open, move, pick
+  expect(within(dialog()).queryByRole('listbox')).toBeNull()
+  expect(purpose().textContent).toBe('Marketing')
 })
 
 test('E-Receipt offers Email or SMS as its channel (email by default), fills in Transactional, and creates an email campaign that opens at Content', async () => {
@@ -104,7 +121,7 @@ test('E-Receipt offers Email or SMS as its channel (email by default), fills in 
   const channels = within(within(dialog()).getByRole('radiogroup', { name: 'Channel' })).getAllByRole('radio')
   expect(channels.length).toBe(2)                                                                          // a receipt is an email or a text
   expect(channels.map((item) => item.getAttribute('aria-checked'))).toEqual(['true', 'false'])
-  expect((within(dialog()).getByLabelText(/^Message Purpose/) as HTMLSelectElement).value).toBe('TRANSACTIONAL')
+  expect(within(dialog()).getByLabelText(/^Message Purpose/).textContent).toBe('Transactional')
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   expect(await screen.findByRole('heading', { level: 1, name: 'Content' })).toBeTruthy()
   expect(window.location.pathname + window.location.search).toBe('/campaigns/c-new/edit?step=content')
@@ -311,7 +328,7 @@ test('Edit Details before any content: type and channel still change; to E-Recei
   expect(within(box).getByRole('radiogroup', { name: 'Campaign Type' })).toBeTruthy()
   await user.click(within(within(box).getByRole('radiogroup', { name: 'Campaign Type' })).getByRole('radio', { name: /E-Receipt/ }))
   expect(within(within(box).getByRole('radiogroup', { name: 'Channel' })).getAllByRole('radio').length).toBe(2)          // email or text
-  expect((within(box).getByLabelText(/^Message Purpose/) as HTMLSelectElement).value).toBe('TRANSACTIONAL')   // re-filled: the user hadn't changed it
+  expect(within(box).getByLabelText(/^Message Purpose/).textContent).toBe('Transactional')   // re-filled: the user hadn't changed it
   await user.click(within(box).getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ campaign_type: 'E_RECEIPT', channel: 'EMAIL', solicitation_type: 'TRANSACTIONAL', contact_lists: [], excluded_lists: [], send_type: 'IMMEDIATE' })
@@ -325,13 +342,15 @@ test('Edit Details: from E-Receipt back to Drip needs a channel, and becomes a s
   await renderAppAt('/campaigns/c1/edit?step=content&details=1')
   const box = await screen.findByRole('dialog', { name: 'Edit Details' })
   await user.click(within(within(box).getByRole('radiogroup', { name: 'Campaign Type' })).getByRole('radio', { name: /^Drip/ }))
-  expect((within(box).getByLabelText(/^Message Purpose/) as HTMLSelectElement).value).toBe('MARKETING')
+  expect(within(box).getByLabelText(/^Message Purpose/).textContent).toBe('Marketing')
   await user.click(within(box).getByRole('button', { name: 'Save' }))
   expect(await within(box).findByText('Choose a channel.')).toBeTruthy()
   await user.click(within(within(box).getByRole('radiogroup', { name: 'Channel' })).getByRole('radio', { name: /^SMS/ }))
   await user.click(within(box).getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  expect(calls.filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ campaign_type: 'DRIP', channel: 'SMS', send_type: 'DRIP', drip_config: { time: '09:00', steps: [{ day: 0 }] } })
+  const changed = calls.filter((call) => call.method === 'PATCH').at(-1)?.body
+  expect(changed).toMatchObject({ campaign_type: 'DRIP', channel: 'SMS', send_type: 'DRIP' })
+  expect(changed).not.toHaveProperty('drip_config')                                                 // the API makes the Day-0 message
   expect(within(screen.getByRole('navigation', { name: 'Setup Steps' })).getByRole('button', { name: /Audience/ })).toBeTruthy()
 })
 
@@ -365,3 +384,90 @@ test('the create flow speaks in title case for labels, and in sentences for help
   expect(screen.getByRole('button', { name: 'Continue to Content' })).toBeTruthy()
   expect(screen.getAllByRole('button', { name: 'Save and Close' })[0]).toBeTruthy()
 })
+
+// ---------------------------------------------------------------- drips
+
+test('Drip: the hint under the types, Multiple Channels unavailable with its reason on focus, and a chosen Multiple Channels cleared', async () => {
+  const { user } = await openCreate()
+  expect(dialog().querySelector('[data-drip-hint]')).toBeNull()
+  await user.click(radio('Channel', /Multiple Channels/))
+  await user.click(radio('Campaign Type', /^Drip/))
+  const hint = dialog().querySelector<HTMLElement>('[data-drip-hint]')!
+  expect(hint.textContent).toContain('Use a drip when everyone on a list gets the same messages on the same schedule. Use a journey when messages depend on what each customer does.')
+  expect(within(hint).getByRole('button', { name: 'Create a Journey Instead' }).className).toContain('text-brand-600')
+
+  const multi = radio('Channel', /Multiple Channels/)
+  expect(multi.getAttribute('aria-checked')).toBe('false')                                         // picked before Drip: cleared, to choose again
+  expect(multi.getAttribute('aria-disabled')).toBe('true')
+  expect((multi as HTMLButtonElement).disabled).toBe(false)                                        // focusable, so the reason can be read
+  expect(multi.textContent).toContain('Not available for a drip')
+  expect(multi.className).toContain('bg-fill-subtle')
+  expect(multi.className).not.toContain('opacity')
+  act(() => multi.focus())
+  expect((await screen.findByRole('tooltip')).textContent).toBe('A drip uses one channel. Use a journey to mix channels.')
+  await user.click(multi)
+  expect(multi.getAttribute('aria-checked')).toBe('false')
+
+  await user.click(radio('Campaign Type', /Regular Marketing/))
+  expect(dialog().querySelector('[data-drip-hint]')).toBeNull()
+  expect(radio('Channel', /Multiple Channels/).getAttribute('aria-disabled')).toBeNull()
+})
+
+test('Create a Journey Instead, from the list: the Journeys page opens Create Journey with the name and description', async () => {
+  const { user } = await openCreate()
+  await user.type(within(dialog()).getByLabelText(/^Campaign Name/), 'Welcome Messages')
+  await user.type(within(dialog()).getByLabelText(/^Description/), 'For new members')
+  await user.click(radio('Campaign Type', /^Drip/))
+  await user.click(within(dialog()).getByRole('button', { name: 'Create a Journey Instead' }))
+  const journey = await screen.findByRole('dialog', { name: 'Create Journey' })
+  expect(window.location.pathname).toBe('/journeys')
+  expect(screen.queryByRole('dialog', { name: 'Create Campaign' })).toBeNull()
+  expect((within(journey).getByLabelText(/^Journey Name/) as HTMLInputElement).value).toBe('Welcome Messages')
+  expect((within(journey).getByLabelText(/^Description/) as HTMLTextAreaElement).value).toBe('For new members')
+  expect(within(journey).queryByText('From Template')).toBeNull()                                  // not a starter: no template banner
+})
+
+test('Create a Journey Instead, from Home: Create Journey opens on Home with the name and description', async () => {
+  installMockApi({ campaigns: [] })
+  const user = userEvent.setup()
+  await renderAppAt('/')
+  await user.click(within(await screen.findByRole('region', { name: 'Create New' })).getByRole('button', { name: 'Create Campaign' }))
+  await user.type(within(dialog()).getByLabelText(/^Campaign Name/), 'Points Series')
+  await user.click(radio('Campaign Type', /^Drip/))
+  await user.click(within(dialog()).getByRole('button', { name: 'Create a Journey Instead' }))
+  const journey = await screen.findByRole('dialog', { name: 'Create Journey' })
+  expect(window.location.pathname).toBe('/')
+  expect((within(journey).getByLabelText(/^Journey Name/) as HTMLInputElement).value).toBe('Points Series')
+})
+
+test('Create Campaign for a drip posts the type, the series send type and the channel; never a series, a template or a start', async () => {
+  const { calls, user } = await openCreate()
+  await user.type(within(dialog()).getByLabelText(/^Campaign Name/), 'Welcome Series')
+  await user.click(radio('Campaign Type', /^Drip/))
+  await user.click(radio('Channel', /^Email/))
+  await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/campaigns/'))).toBe(true))
+  const body = calls.find((call) => call.method === 'POST' && call.url.endsWith('/campaigns/'))!.body
+  expect(body).toMatchObject({ name: 'Welcome Series', campaign_type: 'DRIP', send_type: 'DRIP', channel: 'EMAIL', setup_step: 1 })
+  for (const key of ['drip_config', 'template', 'subject_line', 'preheader', 'scheduled_at']) expect(body).not.toHaveProperty(key)
+})
+
+test('Edit Details for a drip: type and channel fixed once any message has a template, not only message 1', async () => {
+  const drip = { status: 'DRAFT', setup_step: 3, campaign_type: 'DRIP', send_type: 'DRIP' as const, template: null, template_name: null, sender_profile: null, sender_profile_name: null }
+  installMockApi({ campaign: makeCampaign(drip), dripSteps: { c1: [makeStep({ day: 0 }), makeStep({ day: 3, template: { id: 't9', name: 'Tips · 2 of 2', channel: 'EMAIL', status: 'DRAFT' } })] } })
+  await renderAppAt('/campaigns/c1/edit?step=sequence&details=1')
+  const box = await screen.findByRole('dialog', { name: 'Edit Details' })
+  expect(await within(box).findByText('A message already has a template. To use another type or channel, create a new campaign.')).toBeTruthy()
+  expect(box.querySelector('[data-locked="Campaign Type"]')).toBeTruthy()
+  expect(box.querySelector('[data-locked="Channel"]')).toBeTruthy()
+  expect(within(box).queryByRole('radiogroup', { name: 'Campaign Type' })).toBeNull()
+  expect(box.querySelector('[data-drip-hint]')).toBeNull()                                         // the hint is for Create only
+  cleanup()
+
+  installMockApi({ campaign: makeCampaign(drip), dripSteps: { c1: [makeStep({ day: 0 }), makeStep({ day: 3 })] } })
+  await renderAppAt('/campaigns/c1/edit?step=sequence&details=1')
+  const open = await screen.findByRole('dialog', { name: 'Edit Details' })
+  expect(await within(open).findByRole('radiogroup', { name: 'Campaign Type' })).toBeTruthy()      // no message has a template yet
+  expect(open.querySelector('[data-drip-hint]')).toBeNull()
+})
+

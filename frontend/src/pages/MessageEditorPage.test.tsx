@@ -46,6 +46,7 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   expect(body.value).toBe('Use {{offer_code}} today')
   await waitFor(() => expect(body.selectionStart).toBe(18))                // the editor puts the caret after the tag on the next frame
 
+  await new Promise((resolve) => requestAnimationFrame(resolve))                                          // the insert puts the caret back on the next frame
   await user.click(body)
   body.setSelectionRange(body.value.length, body.value.length)              // paste at the end, wherever the click left the caret
   await user.paste(' – it’s “yours”')

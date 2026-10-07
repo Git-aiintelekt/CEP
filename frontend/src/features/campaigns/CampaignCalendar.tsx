@@ -1,7 +1,9 @@
 /**
  * Calendar view of the campaigns: a month, Monday first, each campaign a bar over the days it runs, coloured by its
  * status. A one-time send is a bar of one day; a drip series, a recurrence or an e-receipt campaign spans its days, and
- * one that goes on runs to the edge of the month. Below 768px there is no room for a grid: the month is a list.
+ * one that goes on runs to the edge of the month. A drip's bar carries a numbered marker on each send day (filled once
+ * sent, outlined while to come); a paused drip's bar stops at its last send and says "On hold". Below 768px there is no
+ * room for a grid: the month is a list, with each drip message on its own line.
  * Week mode (CampaignWeek) and the Journey Runs switch live in the address, so Back steps back through them.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -14,17 +16,18 @@ import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Switch } from '@/components/Switch'
+import { Tooltip } from '@/components/Tooltip'
 import { statusColours } from '@/components/statusColours'
 import { buttonClass } from '@/components/buttonStyles'
 import { addDays } from '@/features/reports/period'
 import { api } from '@/lib/api'
-import type { CampaignCalendarData } from '@/lib/types'
+import type { CalendarSend, CalendarSpan, CampaignCalendarData } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
 import { CalendarDayModal, CalendarLegend } from './CalendarParts'
 import { CampaignWeek } from './CampaignWeek'
 import { dayOf, monthOf, monthWeeks, placeSpans, shiftMonth, type Month, type PlacedSpan } from './calendarMath'
-import { barStatus, dayTitle, describe } from './calendarSpans'
+import { barStatus, dayTitle, describe, dripSendTip, dripSendTitle, isDripSend, onHold, sendState } from './calendarSpans'
 import { calendarViewOf, weekTitle, withCalendarView, withJourneys, type CalendarMode, type CalendarView } from './calendarView'
 import { campaignHome } from './vocabulary'
 
@@ -33,6 +36,9 @@ const LANES = 3
 /** a day with more campaigns than lanes keeps the first two and says how many more in the third */
 const SHOWN_WHEN_FULL = LANES - 1
 const MODES: { value: CalendarMode; label: string }[] = [{ value: 'month', label: 'Month' }, { value: 'week', label: 'Week' }]
+
+/** the lines of the narrow month list: a campaign, or one line per drip message */
+type ListLine = { key: string; span: CalendarSpan; send?: CalendarSend & { position: number; count: number }; from: string; to: string }
 
 export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<string, string>; zone: string; canEdit: boolean }) {
   const today = dayOf(new Date().toISOString(), zone)
@@ -72,18 +78,46 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
     }
     return runs
   }
+  const sendDays = (item: PlacedSpan) => new Set(item.span.sends.filter(isDripSend).map((send) => dayOf(send.at, zone)))
   const bar = (item: PlacedSpan, week: string[], from: string, to: string) => {
     const startsHere = from === item.from
     const endsHere = to === item.to && !(item.span.ongoing && to === weeks[weeks.length - 1][6])
+    // a drip's name keeps to its first day, after that day's marker, so the markers on the days after stay clear
+    const marked = sendDays(item)
+    const days = week.indexOf(to) - week.indexOf(from) + 1
+    const label = marked.size ? { maxWidth: `calc(${100 / days}% - 4px)`, paddingLeft: marked.has(from) ? 22 : 0 } : undefined
     return (
       <Link key={`${item.span.campaign}-${from}`} to={campaignHome({ ...item.span, id: item.span.campaign }, canEdit)} title={describe(item.span, zone)} aria-label={describe(item.span, zone)}
         style={{ gridColumn: `${week.indexOf(from) + 1} / ${week.indexOf(to) + 2}`, gridRow: item.lane + 1 }}
         className={`mx-1 block h-5 truncate px-1.5 text-xs font-semibold leading-5 hover:underline ${statusColours(barStatus(item.span))} ${startsHere ? 'rounded-l-sm' : '-ml-px'} ${endsHere ? 'rounded-r-sm' : '-mr-px'} ${inMonth(from) || inMonth(to) ? '' : 'opacity-60'}`}>
         {item.span.is_journey_generated && <Route size={12} strokeWidth={1.5} aria-hidden data-journey-mark className="mr-1 inline-block align-[-2px] text-plum-700" />}
-        {item.span.name}
+        {label ? <span className="block truncate" style={label}>{onHold(item.span) ? `On hold · ${item.span.name}` : item.span.name}</span> : item.span.name}
       </Link>
     )
   }
+  /** a drip's sends on the days of this stretch: the message number, filled once sent, outlined while to come */
+  const markers = (item: PlacedSpan, week: string[], from: string, to: string) => item.span.sends.filter(isDripSend).flatMap((send) => {
+    const key = dayOf(send.at, zone)
+    if (key < from || key > to) return []
+    const sent = send.state === 'SENT' || send.state === 'SENDING'
+    const tip = dripSendTip(send, zone)
+    return [(
+      <span key={`${item.span.campaign}-m${send.position}`} style={{ gridColumn: week.indexOf(key) + 1, gridRow: item.lane + 1 }} className="z-10 ml-2 flex self-center justify-self-start">
+        <Tooltip content={tip}>
+          <Link to={campaignHome({ ...item.span, id: item.span.campaign }, canEdit)} aria-label={`${item.span.name}, ${tip}${sent ? ', sent' : ''}`}
+            data-marker={send.position} data-marker-state={sent ? 'sent' : 'upcoming'}
+            className={`cep-num flex h-[18px] min-w-[18px] items-center justify-center rounded-full border px-1 text-xs leading-none font-semibold ${sent ? `border-transparent ${statusColours('COMPLETED')}` : 'border-ink-800 bg-surface text-ink-900'}`}>
+            {send.position}
+          </Link>
+        </Tooltip>
+      </span>
+    )]
+  })
+  const listLines: ListLine[] = placed.flatMap((item) => {
+    const drip = item.span.sends.filter(isDripSend).filter((send) => { const key = dayOf(send.at, zone); return key >= weeks[0][0] && key <= weeks[weeks.length - 1][6] })
+    if (drip.length === 0) return [{ key: item.span.campaign, span: item.span, from: item.from, to: item.to }]
+    return drip.map((send) => ({ key: `${item.span.campaign}-${send.position}`, span: item.span, send, from: dayOf(send.at, zone), to: dayOf(send.at, zone) }))
+  })
 
   return (
     <section aria-label="Campaign calendar" className="rounded-lg border border-line bg-surface p-4">
@@ -111,12 +145,18 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
       ) : !wide ? (
         placed.length === 0 ? <p className="text-sm text-ink-800">{calendar.isPending ? 'Loading the month' : 'No campaign runs in this month with these filters.'}</p> : (
           <ul aria-label={`Campaigns in ${title}`} className="divide-y divide-line">
-            {placed.map((item) => (
-              <li key={item.span.campaign} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-                <Link to={campaignHome({ ...item.span, id: item.span.campaign }, canEdit)} className="min-w-0 truncate font-medium text-brand-800 hover:underline">{item.span.name}</Link>
+            {listLines.map((line) => (
+              <li key={line.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
+                <span className="flex min-w-0 flex-col">
+                  <Link to={campaignHome({ ...line.span, id: line.span.campaign }, canEdit)} className="min-w-0 truncate font-medium text-brand-800 hover:underline">
+                    {line.send ? dripSendTitle(line.span, line.send) : line.span.name}
+                  </Link>
+                  {line.send?.name && <span className="truncate text-xs text-ink-800">{line.send.name}</span>}
+                </span>
                 <span className="flex items-center gap-2 text-xs text-ink-800">
-                  {item.from === item.to ? dayTitle(item.from) : `${item.from} to ${item.span.ongoing ? 'ongoing' : item.to}`}
-                  <StatusBadge status={barStatus(item.span)} />
+                  {line.from === line.to ? dayTitle(line.from) : `${line.from} to ${line.span.ongoing ? 'ongoing' : line.to}`}
+                  {line.send ? <StatusBadge status={sendState(line.send).status} label={sendState(line.send).label} />
+                    : <StatusBadge status={barStatus(line.span)} label={onHold(line.span) ? 'On Hold' : undefined} />}
                 </span>
               </li>
             ))}
@@ -144,7 +184,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
                   })}
                 </div>
                 <div className="pointer-events-none absolute inset-x-0 top-9 grid grid-cols-7 gap-y-0.5 [&>*]:pointer-events-auto">
-                  {bars.filter((item) => item.lane < LANES).flatMap((item) => segments(item, week).map(([from, to]) => bar(item, week, from, to)))}
+                  {bars.filter((item) => item.lane < LANES).flatMap((item) => segments(item, week).flatMap(([from, to]) => [bar(item, week, from, to), ...markers(item, week, from, to)]))}
                   {week.filter(full).map((key) => (
                     <button key={`more-${key}`} type="button" onClick={() => setDayOpen(key)} style={{ gridColumn: week.indexOf(key) + 1, gridRow: LANES }}
                       className={`${buttonClass({ variant: 'link', size: 'sm' })} mx-1 h-5 justify-start px-1.5 text-xs`}>
@@ -162,7 +202,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
         <CalendarLegend journeys={view.journeys} note={calendar.data && placed.length === 0 ? 'No campaign runs in this month with these filters.' : undefined} />
       )}
 
-      {!week && dayOpen && <CalendarDayModal day={dayOpen} spans={onDay(dayOpen).map((item) => item.span)} canEdit={canEdit} onClose={() => setDayOpen(null)} />}
+      {!week && dayOpen && <CalendarDayModal day={dayOpen} zone={zone} spans={onDay(dayOpen).map((item) => item.span)} canEdit={canEdit} onClose={() => setDayOpen(null)} />}
     </section>
   )
 }

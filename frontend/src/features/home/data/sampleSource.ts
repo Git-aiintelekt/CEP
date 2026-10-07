@@ -12,6 +12,7 @@ import { PERIOD_DAYS } from '../period'
 import { buildKpis, sumFigures, type CampaignFigures, type Figures } from './kpiMath'
 import { rankTopBottom, type RankCandidate } from './rankTopBottom'
 import { contextLine } from './recentContext'
+import { dripProblemsGroup } from '../dripProblems'
 
 import { SAMPLE_SETUP } from '@/features/setup/sampleSetup'
 import type {
@@ -46,6 +47,8 @@ interface SampleCampaign {
   status: string
   daysAgo: number
   contextLine: string
+  /** a drip: how far it has got, "3 of 5 messages sent" */
+  drip?: string
 }
 
 const campaign = (
@@ -64,7 +67,7 @@ const BUSY: SampleCampaign[] = [
   campaign('c06', 'Fall Boots Launch', 'EMAIL', 286_400, 36.8, 4.4, 3420, 312_800, 112, 9.8, 'PRODUCTION_PUBLISHED', 5, 'One-time send · Loyalty Members'),
   campaign('c07', 'VIP Early Access: Autumn Collection for Platinum and Gold Members', 'EMAIL', 142_000, 51.3, 7.2, 1900, 214_000, 108, 16.4, 'SENDING', 6, 'Sending now · VIP Members'),
   campaign('c08', 'Loyalty Points Statement', 'EMAIL', 164_000, 39.5, 4.6, 1720, 98_400, 109, 4.6, 'PRODUCTION_PUBLISHED', 7, 'Recurring monthly · Loyalty Members'),
-  campaign('c09', 'Back to School Bundles', 'EMAIL', 142_000, 36.8, 3.9, 1380, 121_000, 96, 3.2, 'PRODUCTION_PUBLISHED', 8, 'Drip series · Parents'),
+  { ...campaign('c09', 'Back to School Bundles', 'EMAIL', 142_000, 36.8, 3.9, 1380, 121_000, 96, 3.2, 'PRODUCTION_PUBLISHED', 8, 'Drip series · Parents'), drip: '3 of 5 messages sent' },
   campaign('c10', 'Store Opening, Austin Domain Northside', 'EMAIL', 58_000, 44.1, 3.2, 410, 41_200, 118, 22.0, 'PRODUCTION_PUBLISHED', 9, 'One-time send · Texas Shoppers'),
   campaign('c11', 'Fall Denim Drop', 'EMAIL', 118_000, 18.4, 1.7, 520, 21_300, 28, -31.0, 'PRODUCTION_PUBLISHED', 10, 'One-time send · Denim Fans'),
   campaign('c12', 'Birthday Rewards', 'SMS', 74_000, null, 3.3, 690, 52_000, 88, 1.6, 'PRODUCTION_PUBLISHED', 11, 'Recurring daily · Birthdays Today'),
@@ -77,7 +80,7 @@ const BUSY: SampleCampaign[] = [
 const OWNERS = ['Maya Patel', 'Daniel Okafor', 'Marketing', 'Sarah Chen']
 
 const LIGHT: SampleCampaign[] = [
-  campaign('l1', 'Welcome Series: New Members', 'EMAIL', 4200, 46.3, 6.4, 96, 7400, 92, 4.1, 'PRODUCTION_PUBLISHED', 1, 'Drip series · New Members'),
+  { ...campaign('l1', 'Welcome Series: New Members', 'EMAIL', 4200, 46.3, 6.4, 96, 7400, 92, 4.1, 'PRODUCTION_PUBLISHED', 1, 'Drip series · New Members'), drip: '2 of 4 messages sent' },
   campaign('l2', 'Spring Sale Reminder', 'SMS', 2600, null, 3.1, 41, 2900, 74, -6.3, 'PRODUCTION_PUBLISHED', 4, 'One-time send · All Subscribers'),
 ]
 
@@ -128,9 +131,9 @@ const ALERTS: AttentionGroup[] = [
 // the rest of the busy workspace's fourteen journeys, all quieter than the five the card shows
 const QUIET_JOURNEYS = ['Post-Purchase Thank You', 'Loyalty Tier Upgrade', 'Replenishment Reminder', 'Review Request', 'VIP Onboarding', 'Back in Stock', 'Store Visit Follow-Up', 'Referral Thank You', 'Points Expiry Nudge']
 
-interface PlannedRun { day: number; time: string; channel: MessageChannel; name: string; source: 'campaign' | 'journey'; campaignId: string | null }
-const run = (day: number, time: string, channel: MessageChannel, name: string, source: 'campaign' | 'journey', campaignId: string | null = null): PlannedRun =>
-  ({ day, time, channel, name, source, campaignId })
+interface PlannedRun { day: number; time: string; channel: MessageChannel; name: string; source: 'campaign' | 'journey'; campaignId: string | null; drip?: { position: number; count: number } }
+const run = (day: number, time: string, channel: MessageChannel, name: string, source: 'campaign' | 'journey', campaignId: string | null = null, drip?: { position: number; count: number }): PlannedRun =>
+  ({ day, time, channel, name: drip ? `${name} · Message ${drip.position} of ${drip.count}` : name, source, campaignId, drip })
 
 // the mockup's week from today (a Tuesday there): 6, 2, 0, 4, 1, 0, 2
 const BUSY_PLAN: PlannedRun[] = [
@@ -142,10 +145,12 @@ const BUSY_PLAN: PlannedRun[] = [
   run(3, '14:00', 'EMAIL', 'Loyalty Points Statement', 'campaign', 'c08'), run(3, '16:00', 'EMAIL', 'Browse Abandonment, Step 1', 'journey'),
   run(4, '10:00', 'SMS', 'Price Drop Alerts', 'campaign', 'c13'),
   run(6, '09:00', 'EMAIL', 'Weekly Deals Digest', 'campaign', 'c15'), run(6, '13:00', 'SMS', 'Birthday Rewards', 'campaign', 'c12'),
+  // a drip's messages, one row each
+  run(1, '08:00', 'EMAIL', 'Back to School Bundles', 'campaign', 'c09', { position: 4, count: 5 }), run(4, '08:00', 'EMAIL', 'Back to School Bundles', 'campaign', 'c09', { position: 5, count: 5 }),
 ]
 const LIGHT_PLAN: PlannedRun[] = [
-  run(1, '10:00', 'EMAIL', 'Welcome Series: New Members', 'campaign', 'l1'), run(4, '14:00', 'SMS', 'Spring Sale Reminder', 'campaign', 'l2'),
-  run(6, '10:00', 'EMAIL', 'Welcome Series: New Members', 'campaign', 'l1'),
+  run(1, '10:00', 'EMAIL', 'Welcome Series: New Members', 'campaign', 'l1', { position: 3, count: 4 }), run(4, '14:00', 'SMS', 'Spring Sale Reminder', 'campaign', 'l2'),
+  run(6, '10:00', 'EMAIL', 'Welcome Series: New Members', 'campaign', 'l1', { position: 4, count: 4 }),
 ]
 
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
@@ -208,9 +213,13 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
         previousClickRate: round1(clickRate - (noise(index + 7) - 0.4)),
       }
     })
-    if (attribution) return rankTopBottom({ mode: 'target', candidates })
+    const progress = (ranked: TopBottom): TopBottom => {
+      const add = (row: TopBottom['top'][number]) => { const drip = catalogue.find((item) => item.id === row.id)?.drip; return drip ? { ...row, progress: drip } : row }
+      return { ...ranked, top: ranked.top.map(add), bottom: ranked.bottom.map(add) }
+    }
+    if (attribution) return progress(rankTopBottom({ mode: 'target', candidates }))
     const clickRate = kpis(filters).clickRate.value
-    return rankTopBottom({ mode: 'clickRate', candidates, average: clickRate })
+    return progress(rankTopBottom({ mode: 'clickRate', candidates, average: clickRate }))
   }
 
   const revenueCost = (filters: HomeFilters): RevenueCostSeries => {
@@ -290,7 +299,7 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
         .filter((item) => filters.campaignIds.length === 0 || (item.source === 'campaign' && item.campaignId !== null && filters.campaignIds.includes(item.campaignId)))
         .map((item, index) => {
           const at = atZone(day, item.time, zone)
-          return { id: `${day}-${index}`, at, channel: item.channel, name: item.name, source: item.source, campaignId: item.campaignId, sent: new Date(at) < sampleNow }
+          return { id: `${day}-${index}`, at, channel: item.channel, name: item.name, source: item.source, campaignId: item.campaignId, sent: new Date(at) < sampleNow, ...(item.drip ? { drip: item.drip } : {}) }
         })
       return { day, campaignRuns: runs.filter((run) => run.source === 'campaign').length, journeyRuns: runs.filter((run) => run.source === 'journey').length, runs }
     })
@@ -324,7 +333,7 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
         return {
           id: item.id,
           name: item.name,
-          contextLine: contextLine({
+          contextLine: item.drip ? `Drip · ${item.drip}` : contextLine({
             typeLabel, status: item.status, editedAt: lastActivity, lastSentAt: sent ? lastActivity : null, sendingNow: item.status === 'SENDING',
             nextRunAt: item.status === 'SCHEDULED' ? atZone(addDays(today, 2), '08:00', zone) : null, testSentAt: item.status === 'TEST_PUBLISHED' ? lastActivity : null,
           }, zone),
@@ -359,10 +368,21 @@ export function createSampleSource(state: SampleState, now: () => Date = () => n
     return { sent: Math.round(214_600 * factor), openRate: 61.2, offerClicks: Math.round(8_940 * factor), offerRevenue: money(Math.round(48_200 * factor)) }
   }
 
+  // a drip message nobody got, and a drip paused for three days, as the overview's drip_problems says them
+  const dripProblems = (): AttentionGroup[] => {
+    const today = todayIn(zone, now())
+    const group = dripProblemsGroup([
+      { kind: 'MESSAGE_FAILED', campaign_id: 'c09', campaign_name: 'Back to School Bundles', position: 3, message_name: 'Free Delivery', failed_at: atZone(addDays(today, -1), '08:00', zone) },
+      { kind: 'PAUSED_LONG', campaign_id: 'c-holiday', campaign_name: 'Holiday Reminder Texts', paused_at: atZone(addDays(today, -3), '09:00', zone), paused_by_name: 'Maya Patel',
+        next: { position: 2, name: 'Early Access', was_due: atZone(addDays(today, -1), '10:00', zone) } },
+    ], zone, now().getTime())
+    return group ? [group] : []
+  }
+
   const attention = (filters: HomeFilters): AttentionGroup[] => {
     if (state === 'noAlerts') return []
     if (state === 'light') return ALERTS.slice(5).map((group) => ({ ...group, count: 1 }))
-    if (filters.campaignIds.length !== 1) return ALERTS
+    if (filters.campaignIds.length !== 1) return [...ALERTS.slice(0, 2), ...dripProblems(), ...ALERTS.slice(2)]      // ranked: the drip group is critical
     // one campaign: only the groups a single campaign can be in, counting it once
     const one = catalogue.find((item) => item.id === filters.campaignIds[0])
     if (one?.status === 'TEST_PUBLISHED') return [{ ...ALERTS[2], count: 1 }]

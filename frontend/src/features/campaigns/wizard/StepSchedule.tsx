@@ -1,10 +1,10 @@
 /**
  * Step 4: when the campaign goes out and how it is delivered. Times are wall-clock times in the campaign's time
- * zone. A recurring or drip campaign stays ONE campaign: every occurrence or step becomes a run of it (BRD 7).
+ * zone. A recurring campaign stays ONE campaign: every occurrence becomes a run of it (BRD 7). A drip has no such
+ * section: its start date and its messages' days and times are set on its Sequence step.
  */
 import { useQuery } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
-import { useFieldArray, useFormContext } from 'react-hook-form'
+import { useFormContext } from 'react-hook-form'
 
 import { buttonSecondary, Field, Select, TextInput } from '@/components/Form'
 import { api } from '@/lib/api'
@@ -39,9 +39,7 @@ function LocalTimeCoverage({ campaignId, zone }: { campaignId: string; zone: str
 }
 
 export function StepSchedule({ options, workspaceZone, onChangeType, campaignId }: { options: CampaignFormOptions | undefined; workspaceZone: string; onChangeType?: () => void; campaignId?: string }) {
-  const { register, control, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
-  const steps = useFieldArray({ control, name: 'drip.steps' })
-  const LABEL_MAX = 60                                                                            // the steps live in the drip JSON, not a column
+  const { register, watch, setValue, formState: { errors } } = useFormContext<CampaignFormValues>()
   const type = watch('campaign_type')
   const sendType = watch('send_type')
   const zone = watch('send_timezone') || workspaceZone
@@ -63,10 +61,8 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
     )
   }
 
-  const isDrip = type === 'DRIP'
-  const choices = SEND_TYPES.filter((item) => (isDrip ? item.value === 'DRIP' : item.value !== 'DRIP'))
+  const choices = SEND_TYPES.filter((item) => item.value !== 'DRIP')
   const zones = options?.timezones ?? [zone]
-  const stepsError = errors.drip?.steps?.message ?? errors.drip?.steps?.root?.message
 
   function toggleDay(day: string) {
     setValue('recurring.weekdays', recurring.weekdays.includes(day) ? recurring.weekdays.filter((item) => item !== day) : WEEKDAYS.map((item) => item.value).filter((item) => item === day || recurring.weekdays.includes(item)), touch)
@@ -75,10 +71,9 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
   return (
     <div className="space-y-5">
       <Panel>
-        <ChoiceGroup label="When to Send" error={errors.send_type?.message} columns={isDrip ? 'sm:grid-cols-1' : 'sm:grid-cols-3'}>
+        <ChoiceGroup label="When to Send" error={errors.send_type?.message} columns="sm:grid-cols-3">
           {choices.map((item) => <ChoiceCard key={item.value} selected={sendType === item.value} onSelect={() => setValue('send_type', item.value, touch)} title={item.label} text={item.hint} />)}
         </ChoiceGroup>
-        {isDrip && <p className="mt-2 text-xs text-ink-800">A drip campaign always sends as a series. To send once, change the campaign type on the first step.</p>}
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <Field label="Time Zone" error={errors.send_timezone?.message} help="Every time on this step is a clock time in this zone, daylight saving included. The workspace's zone unless changed; the list and Home show the time in this zone too." hint={`Send times below are clock times in this zone. Workspace time zone: ${workspaceZone}.`}>
@@ -153,38 +148,6 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
           </div>
         )}
 
-        {sendType === 'DRIP' && (
-          <div className="mt-5 space-y-3 border-t border-line pt-5">
-            <div className="sm:w-1/3">
-              <Field label="Each Step Goes Out At" required error={errors.drip?.time?.message} hint="Day 0 goes out when you publish.">
-                {(ids) => <TextInput {...ids} type="time" {...register('drip.time')} />}
-              </Field>
-            </div>
-            <p className="text-sm font-medium text-ink-800">Steps</p>
-            {stepsError && <p role="alert" className="text-xs font-medium text-danger-text">{stepsError}</p>}
-            <ol className="space-y-3">
-              {steps.fields.map((step, index) => (
-                <li key={step.id} className="grid gap-3 rounded-lg border border-line bg-surface-subtle p-3 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:items-start">
-                  <Field label={`Step ${index + 1}: Day`} required error={errors.drip?.steps?.[index]?.day?.message}>
-                    {(ids) => <TextInput {...ids} inputMode="numeric" {...register(`drip.steps.${index}.day`)} />}
-                  </Field>
-                  <Field label="Label" error={errors.drip?.steps?.[index]?.label?.message} hint="Shown on the run, e.g. Welcome, Reminder." limit={{ used: (watch(`drip.steps.${index}.label`) ?? '').length, max: LABEL_MAX }}>
-                    {(ids) => <TextInput {...ids} maxLength={LABEL_MAX} {...register(`drip.steps.${index}.label`)} />}
-                  </Field>
-                  <button type="button" aria-label={`Remove Step ${index + 1}`} disabled={steps.fields.length === 1} onClick={() => steps.remove(index)}
-                    className="mt-6 flex h-10 w-10 items-center justify-center rounded-control-lg border border-line bg-surface text-ink-800 transition-colors hover:bg-fill-subtle disabled:text-ink-300">
-                    <Trash2 size={18} strokeWidth={1.5} aria-hidden />
-                  </button>
-                </li>
-              ))}
-            </ol>
-            <button type="button" className={buttonSecondary} disabled={steps.fields.length >= 30}
-              onClick={() => steps.append({ day: String(Math.max(0, ...watch('drip.steps').map((step) => Number(step.day) || 0)) + 3), label: '' })}>
-              <Plus size={16} strokeWidth={1.5} aria-hidden /> Add a Step
-            </button>
-            <p className="text-xs text-ink-800">Every step uses the template chosen for this campaign. Per-step templates arrive with journeys.</p>
-          </div>
-        )}
       </Panel>
 
       <Panel title="Delivery" description="How the send engine treats this campaign.">
