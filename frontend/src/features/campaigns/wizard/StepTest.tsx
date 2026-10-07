@@ -10,8 +10,9 @@ import { SubjectTestCard } from './SubjectTestCard'
 export function StepTest({ campaign, options, onTested }: { campaign: Campaign; options: CampaignFormOptions | undefined; onTested?: () => void }) {
   const { me } = useAuth()
   const tested = campaign.runs.some((run) => run.test_mode)
-  // a subject line test is for marketing email: a text has no subject, and a receipt goes to one person at a time
-  const subjectTest = campaign.channel === 'EMAIL' && campaign.campaign_type !== 'E_RECEIPT' && !campaign.is_journey_generated
+  // a subject line test is for marketing email: a text has no subject, and a receipt goes to one person at a time.
+  // A drip sets its test on one message (Sequence), never on the campaign: the API refuses the campaign's.
+  const subjectTest = campaign.channel === 'EMAIL' && !['E_RECEIPT', 'DRIP'].includes(campaign.campaign_type) && !campaign.is_journey_generated
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]" data-test-step-layout>
       <div className="min-w-0 space-y-5">

@@ -9,6 +9,7 @@ import { ErrorState, FullPageSpinner } from '@/components/States'
 import { MessageWorkspace, type MessageBackend } from '@/features/messaging/MessageWorkspace'
 import { api } from '@/lib/api'
 import type { DesignVersion, MediaAsset, Message, Page, PersonalizationTag, SenderProfile, Template } from '@/lib/types'
+import { dripLockNote } from '@/features/templates/lastUsed'
 
 export function MessageEditorPage() {
   const { id = '' } = useParams()
@@ -77,7 +78,8 @@ export function MessageEditorPage() {
       senderName={sender?.display_name}
       backend={backend}
       backTo="/templates"
-      readOnly={!can('template.edit') || template.data.status === 'ARCHIVED'}
+      readOnly={!can('template.edit') || template.data.status === 'ARCHIVED' || Boolean(template.data.used_in_drip?.locked)}
+      lockNote={dripLockNote(template.data)}
     />
   )
 }

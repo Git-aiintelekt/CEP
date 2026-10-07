@@ -285,6 +285,8 @@ export interface CampaignRun extends Audited {
   completed_at: string | null
   /** "Occurrence 3", "Day 7", "Test": which send of a recurring or drip campaign this run is */
   sequence_label?: string | null
+  /** a drip's run: the message (step id) it sends */
+  drip_step?: string | null
 }
 
 export interface Campaign extends Audited {
@@ -348,6 +350,19 @@ export interface Campaign extends Audited {
   /** the preference-centre topic it is filed under; people who unticked it are left out */
   topic: string | null
   topic_name?: string | null
+  /** drips only (null otherwise): the messages at a glance */
+  drip_summary?: DripSummary | null
+  /** drips only (null otherwise): each message by its latest production run */
+  drip_progress?: DripProgress | null
+  /** a drip whose remaining messages were stopped: it is COMPLETED, with this; null otherwise */
+  stopped_early?: StoppedEarly | null
+  /** while it is paused (any campaign type): when and by whom; null otherwise */
+  paused?: CampaignPaused | null
+}
+
+export interface CampaignPaused {
+  at: string
+  by_name: string | null
 }
 
 export interface CampaignApproval {
@@ -370,7 +385,7 @@ export interface AbConfig {
 }
 
 export type CampaignAction = 'edit' | 'clone' | 'test_publish' | 'publish' | 'pause' | 'resume' | 'cancel_schedule' | 'archive' | 'unarchive' | 'results'
-  | 'request_approval' | 'approve' | 'send_back'
+  | 'request_approval' | 'approve' | 'send_back' | 'stop'
 export type SendType = 'IMMEDIATE' | 'SCHEDULED' | 'RECURRING' | 'DRIP'
 
 export interface RecurringConfig {
@@ -388,6 +403,178 @@ export interface RecurringConfig {
 export interface DripConfig {
   steps: { day: number; label?: string }[]
   time?: string
+}
+
+// ---------------------------------------------------------------- drips: a message per step (GET /campaigns/{id}/steps/, docs/CAMPAIGNS.md §10)
+/** what a message still needs before it can be published */
+export type DripStepProblem = 'NEEDS_TEMPLATE' | 'NEEDS_SUBJECT' | 'NEEDS_TEXT' | 'SAME_DAY'
+
+export interface DripStep {
+  id: string
+  /** 1-based, in day order */
+  position: number
+  /** days after the start date (0-365) */
+  day: number
+  name: string
+  /** HH:MM; null = the series time (drip_config.time) */
+  send_time: string | null
+  /** HH:MM the message goes at: its own, the series time, or the start's own time; null while that needs a start date */
+  effective_send_time: string | null
+  /** when it goes: the start date + day at effective_send_time, in the campaign's zone; null without a start date */
+  scheduled_for: string | null
+  /** this message's own template copy; null until chosen */
+  template: { id: string; name: string; channel: Channel; status: string } | null
+  /** null = the template's */
+  subject_line: string | null
+  preheader: string | null
+  /** at most one message per drip, email only */
+  ab_config: AbConfig | null
+  problems: DripStepProblem[]
+  /** SMS/MMS: the first 140 characters of the text, tags as written; null for email */
+  text_excerpt?: string | null
+  row_version: number
+  /** GET /steps/ only: its latest production run and results; null until planned */
+  run?: DripStepRun | null
+  /** GET /steps/ (and a saved step) only: its test send */
+  test?: DripStepTest
+}
+
+export interface DripStepRun {
+  id: string
+  status: string
+  scheduled_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  sent: number
+  delivered: number
+  opened: number
+  clicked: number
+  unsubscribed: number
+  /** percentages, one decimal */
+  open_rate: number
+  click_rate: number
+  unsubscribe_rate: number
+  /** queued but never sent: the drip was stopped early. Never counted in sent or failed */
+  not_sent?: number
+  /** texts only: answers, opt-outs included (as a text campaign's Replies) */
+  replied?: number
+  /** texts only */
+  opted_out?: number
+  /** the people left out of this message, by reason (FREQUENCY_CAP, UNSUBSCRIBED, NO_CONSENT ...) */
+  skipped: { total: number; by_reason: { reason: string; count: number }[] }
+  /** the subject line test's results, when this message was tested */
+  ab: { variants: CampaignRunVariant[]; decide_at: string | null } | null
+}
+
+/** CHANGED: its content changed after the test, so it needs sending again */
+export type DripTestStatus = 'NOT_SENT' | 'SENDING' | 'SENT' | 'CHANGED' | 'FAILED'
+
+export interface DripStepTest {
+  status: DripTestStatus
+  sent_at: string | null
+  /** FAILED: the provider's answer */
+  error: string | null
+  run_id: string | null
+}
+
+/** POST /steps/ */
+export interface DripStepCreate {
+  start_from: 'copy' | 'template' | 'blank'
+  /** copy: the message to copy; default the last */
+  source_step?: string
+  /** template: copied for this message */
+  template?: string
+  /** template: a key from /template-starters/ instead */
+  starter?: string
+  /** default: the last message's day + 3 */
+  day?: number
+  name?: string
+  /** template: remove the source after copying when it is your own unused Draft (a preset's throwaway copy) */
+  consume_source?: boolean
+}
+
+/** PATCH /steps/{step}/: `template` copies that template in for the message */
+export interface DripStepUpdate {
+  name?: string
+  day?: number
+  send_time?: string | null
+  subject_line?: string | null
+  preheader?: string | null
+  ab_config?: AbConfig | null
+  template?: string
+  consume_source?: boolean
+  row_version?: number
+}
+
+export interface DripSummary {
+  count: number
+  last_day: number | null
+  first_send_at: string | null
+  last_send_at: string | null
+  /** every message has what it needs */
+  ready: boolean
+}
+
+export interface DripProgress {
+  total: number
+  /** messages whose latest production run completed or is sending */
+  sent: number
+  failed: number
+  cancelled: number
+  next: { position: number; name: string; scheduled_at: string | null } | null
+}
+
+export interface StoppedEarly {
+  at: string
+  by_name: string | null
+  /** messages cancelled by the stop */
+  cancelled: number
+}
+
+/** GET /campaign-runs/{id}/skipped/: the people one run left out */
+export interface RunSkippedPerson {
+  party_id: string
+  first_name: string | null
+  last_name: string | null
+  address: string | null
+  reason: string
+}
+
+export interface RunSkippedPage {
+  run: { id: string; run_number: number; status: string; test_mode: boolean; family: string }
+  count: number
+  page: number
+  page_size: number
+  results: RunSkippedPerson[]
+  by_reason: Record<string, number>
+}
+
+export type DripWarningCode = 'TOO_CLOSE' | 'FREQUENCY' | 'QUIET_HOURS'
+
+/** GET /steps/review/: the Test & Publish timeline */
+export interface DripReview {
+  messages: {
+    id: string
+    position: number
+    name: string
+    day: number
+    scheduled_for: string | null
+    /** email: the subject as it will be sent; texts: the start of the text */
+    subject: string | null
+    /** the audience estimate: the same people for every message (fixed from Day 0) */
+    estimated_recipients: number
+    warnings: { code: DripWarningCode; message: string }[]
+  }[]
+  summary: { count: number; first_send_at: string | null; last_send_at: string | null; estimated_recipients: number }
+}
+
+/** GET /resume-plan/: what Resume does to a paused drip, without doing it (times in the campaign's zone) */
+export interface ResumePlan {
+  /** waiting messages whose time passed: they go at the next send time, one per day */
+  missed: { position: number; name: string; was_due: string; will_send: string }[]
+  /** later messages moved just enough to stay a day after a missed one */
+  moved: { position: number; name: string; was_due: string; will_send: string }[]
+  unchanged: { position: number; name: string; sends: string | null }[]
 }
 
 /** Money comes back as a string ("25000.00"): it is never rounded through a float. */
@@ -471,7 +658,8 @@ export interface CampaignPreview {
 }
 
 export interface CampaignMetrics {
-  counts: Record<'queued' | 'sent' | 'failed' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'unsubscribed' | 'replied', number>
+  /** not_sent: queued but never sent (a drip stopped early), never in sent or failed */
+  counts: Record<'queued' | 'sent' | 'failed' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'complained' | 'unsubscribed' | 'replied', number> & { not_sent?: number }
   conversions: number
   revenue: string | number | null
   rates: Record<'delivery' | 'open' | 'click' | 'bounce' | 'unsubscribe' | 'conversion', number>
@@ -516,7 +704,20 @@ export interface CalendarSpan {
   ongoing: boolean
   /** every production send of it failed */
   failed: boolean
-  sends: { at: string; state: 'SENT' | 'SENDING' | 'WAITING' | 'PLANNED' | 'PROJECTED'; label: string | null }[]
+  sends: CalendarSend[]
+  /** a paused drip: its waiting messages, on no day until it resumes */
+  on_hold?: { position: number; name: string; state?: 'ON_HOLD'; step_id: string }[]
+}
+
+export interface CalendarSend {
+  at: string
+  state: 'SENT' | 'SENDING' | 'WAITING' | 'PLANNED' | 'PROJECTED'
+  label: string | null
+  /** a drip's send: which message, of how many in the whole drip */
+  position?: number
+  count?: number
+  name?: string
+  step_id?: string
 }
 
 export interface CampaignCalendarData {
@@ -540,10 +741,12 @@ export interface CampaignInput {
   campaign_type: string
   channel: Channel
   solicitation_type: string
-  template: string | null
+  /** left out for a drip: each message has its own (PATCH /campaigns/{id}/steps/{step}/) */
+  template?: string | null
   sender_profile: string | null
   contact_lists: string[]
-  scheduled_at: string | null
+  /** left out for a drip: its start date is set on the Sequence step */
+  scheduled_at?: string | null
   excluded_lists?: string[]
   owner_user?: string | null
   tags?: string[]
@@ -847,6 +1050,8 @@ export interface Template extends Audited {
   /** the newest campaign that uses it, or null: what is safe to change */
   last_used_in?: { id: string; name: string; status: string; at: string } | null
   campaign_count?: number
+  /** the drip message using it, or null; locked: the drip is live, so the template can't be changed */
+  used_in_drip?: { campaign_id: string; campaign_name: string; position: number; count: number; locked: boolean } | null
 }
 
 /** GET /template-starters/ : the gallery offered when creating a template */
@@ -1643,6 +1848,8 @@ export interface RunRecipient {
   address: string
   status: string
   status_reason: string | null
+  /** STOPPED_EARLY: queued but never sent (status reads NOT_SENT); null otherwise */
+  not_sent_reason?: string | null
   provider_message_id: string | null
   attempts: number
   variant_key: string | null
@@ -1907,7 +2114,14 @@ export interface HomeOverviewAttention {
   failed_ids: string[]
   awaiting_publish: number
   awaiting_approval: number
+  /** drips in trouble: a message nobody received, or paused 3+ days */
+  drip_problems?: DripProblem[]
 }
+
+export type DripProblem =
+  | { kind: 'MESSAGE_FAILED'; campaign_id: string; campaign_name: string; position: number; message_name: string; failed_at: string }
+  | { kind: 'PAUSED_LONG'; campaign_id: string; campaign_name: string; paused_at: string; paused_by_name: string | null
+      next: { position: number; name: string; was_due: string | null } | null }
 
 export interface HomeRevenueCost {
   granularity: 'day' | 'week'

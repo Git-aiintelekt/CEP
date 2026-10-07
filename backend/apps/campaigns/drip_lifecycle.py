@@ -85,11 +85,12 @@ def stop(campaign, user=None) -> Campaign:
     CampaignRun.objects.filter(pk__in=[run.pk for run in runs]).update(status="CANCELLED", completed_at=now)
     with service._conn().cursor() as cursor:                # a send paused part-way stops where it is: what it still queued never goes
         for table in ("mailer_execution", "sms_execution"):
-            cursor.execute(f"UPDATE {table} SET status = 'FAILED', status_reason = 'Not sent: the drip was stopped early.' "
+            cursor.execute(f"UPDATE {table} SET status = 'FAILED', status_reason = 'Not sent: the drip was stopped early.', not_sent_reason = 'STOPPED_EARLY' "
                            f"WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) AND status = 'QUEUED'", [str(campaign.tenant_id), [str(run.pk) for run in runs]])
     actor = None if user is None or hasattr(user, "has_scope") else user
     campaign.status, campaign.completed_at, campaign.stopped_at, campaign.stopped_by_id = S.COMPLETED, now, now, getattr(actor, "pk", None)
-    campaign.save(update_fields=["status", "completed_at", "stopped_at", "stopped_by"])
+    campaign.paused_at, campaign.paused_by_id = None, None
+    campaign.save(update_fields=["status", "completed_at", "stopped_at", "stopped_by", "paused_at", "paused_by"])
     named = [_lower(_label(run.drip_step, steps)) for run in sorted(runs, key=lambda run: run.drip_step.day if run.drip_step_id else 999)
              if run.drip_step_id and run.drip_step in steps]
     who = getattr(actor, "display_name", None) or getattr(actor, "email", None) or ("an API client" if user is not None else "the system")

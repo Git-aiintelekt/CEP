@@ -23,6 +23,8 @@ import { saveFile } from '@/lib/saveFile'
 import type { Campaign, CampaignRun, CampaignSuppressions, ProviderMessageStatus, RunRecipient, RunRecipientDetail, RunRecipientPage, SuppressionGroup, SuppressionRow } from '@/lib/types'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 
+import { whenInZone } from '../dripSequence'
+import { dripStepsQuery } from '../dripSteps'
 import { dateTimeInZone } from '../zone'
 
 type View = 'recipients' | 'blocked'
@@ -31,8 +33,18 @@ const STATUS_TONE: Record<string, TagTone> = {
   QUEUED: 'neutral', SUBMITTED: 'warning', DELIVERED: 'success', OPENED: 'success', CLICKED: 'success', RESPONDED: 'success',
   BOUNCED: 'error', COMPLAINED: 'error', FAILED: 'error', OPTED_OUT: 'error',
 }
-const STATUS_LABEL: Record<string, string> = { SUBMITTED: 'Sent', COMPLAINED: 'Marked as Spam', OPTED_OUT: 'Opted Out', RESPONDED: 'Replied' }
+const STATUS_LABEL: Record<string, string> = { SUBMITTED: 'Sent', COMPLAINED: 'Marked as Spam', OPTED_OUT: 'Opted Out', RESPONDED: 'Replied', NOT_SENT: 'Not Sent' }
 const statusLabel = (code: string) => STATUS_LABEL[code] ?? titleize(code)
+const NOT_SENT_WHY: Record<string, string> = { STOPPED_EARLY: 'Stopped early' }
+
+/** queued but never sent (a drip stopped early): grey, never a failure */
+function StatusTag({ row }: { row: Pick<RunRecipient, 'status' | 'not_sent_reason'> }) {
+  if (row.status === 'NOT_SENT') {
+    const why = row.not_sent_reason ? NOT_SENT_WHY[row.not_sent_reason] ?? titleize(row.not_sent_reason) : null
+    return <Tag>{why ? `Not Sent · ${why}` : 'Not Sent'}</Tag>
+  }
+  return <Tag tone={STATUS_TONE[row.status] ?? 'neutral'}>{statusLabel(row.status)}</Tag>
+}
 const GROUP_TONE: Record<SuppressionGroup, TagTone> = { UNSUBSCRIBED: 'neutral', BOUNCED: 'error', COMPLAINED: 'error', BLOCKED: 'warning' }
 const PAGE_SIZE = 50
 
@@ -50,6 +62,17 @@ export function RecipientsTab({ campaign, zone, live }: { campaign: Campaign; zo
 // ---------------------------------------------------------------------------------------------------- recipients of a run
 function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string; live: boolean }) {
   const runs = [...campaign.runs].sort((a, b) => b.run_number - a.run_number)
+  const drip = campaign.campaign_type === 'DRIP'
+  const steps = useQuery({ ...dripStepsQuery(campaign.id), enabled: drip })
+  /** a drip's production run reads as its message: "Message 1 · Welcome · Mon 12 Oct" */
+  const runLabel = (item: CampaignRun) => {
+    const step = drip && !item.test_mode ? steps.data?.find((candidate) => candidate.id === item.drip_step) : undefined
+    if (step) {
+      const when = whenInZone(item.started_at ?? item.scheduled_at, zone)
+      return `Message ${step.position} · ${step.name || 'Untitled Message'}${when ? ` · ${when.day}` : ''} · ${titleize(item.status)}`
+    }
+    return `#${item.run_number}${item.sequence_label ? ` · ${item.sequence_label}` : ''}${item.test_mode ? ' · test' : ''} · ${titleize(item.status)}`
+  }
   const [runId, setRunId] = useState<string>(() => (runs.find((run) => !run.test_mode) ?? runs[0])?.id ?? '')
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
@@ -86,7 +109,7 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
         {(row.first_name || row.last_name) && <span className="block text-xs text-ink-500">{[row.first_name, row.last_name].filter(Boolean).join(' ')}</span>}
       </button>
     ) },
-    { key: 'status', header: 'Status', render: (row) => <Tag tone={STATUS_TONE[row.status] ?? 'neutral'}>{statusLabel(row.status)}</Tag> },
+    { key: 'status', header: 'Status', render: (row) => <StatusTag row={row} /> },
     { key: 'reason', header: 'Reason', render: (row) => <span className="block max-w-xs truncate text-ink-700" title={row.status_reason ?? undefined}>{row.status_reason ?? (row.bounce_type ? `${titleize(row.bounce_type)} bounce` : '')}</span>, phoneOptional: true },
     { key: 'sent', header: 'Sent', render: (row) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.submitted_at, zone)}</span>, phoneOptional: true },
     { key: 'delivered', header: 'Delivered', render: (row) => <span className="cep-num whitespace-nowrap">{dateTimeInZone(row.delivered_at, zone)}</span>, phoneOptional: true },
@@ -103,7 +126,7 @@ function Recipients({ campaign, zone, live }: { campaign: Campaign; zone: string
       <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
         <Field label="Run">
           {(ids) => <Select {...ids} controlSize="sm" value={runId} onChange={(event) => { setRunId(event.target.value); setPage(1) }}>
-            {runs.map((item: CampaignRun) => <option key={item.id} value={item.id}>#{item.run_number}{item.sequence_label ? ` · ${item.sequence_label}` : ''}{item.test_mode ? ' · test' : ''} · {titleize(item.status)}</option>)}
+            {runs.map((item: CampaignRun) => <option key={item.id} value={item.id}>{runLabel(item)}</option>)}
           </Select>}
         </Field>
         <Field label="Status">
@@ -152,7 +175,7 @@ function RecipientModal({ runId, recipient, zone, texts, onClose }: { runId: str
       </div>}>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Tag tone={STATUS_TONE[recipient.status] ?? 'neutral'}>{statusLabel(recipient.status)}</Tag>
+          <StatusTag row={recipient} />
           {recipient.status_reason && <span className="text-ink-700">{recipient.status_reason}</span>}
           {recipient.attempts > 1 && <span className="cep-num text-xs text-ink-500">{recipient.attempts} attempts</span>}
           {recipient.variant_key && <Tag>{`Subject ${recipient.variant_key}`}</Tag>}

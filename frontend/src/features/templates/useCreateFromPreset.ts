@@ -43,6 +43,21 @@ async function fill(template: Template, key: string, content: PresetContent): Pr
   }
 }
 
+/**
+ * A frontend preset made into a Draft template without opening it (the drip's gallery passes it on as a message's
+ * template). `filled` is false when the copy exists but its content could not be added.
+ */
+export async function templateFromPreset(preset: Preset): Promise<{ template: Template; filled: boolean }> {
+  const template = await createCopy(preset)
+  if (!preset.content) return { template, filled: true }
+  try {
+    await fill(template, preset.key, preset.content)
+    return { template, filled: true }
+  } catch {
+    return { template, filled: false }
+  }
+}
+
 export function useCreateFromPreset() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()

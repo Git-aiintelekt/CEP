@@ -5,13 +5,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, Lock, X } from 'lucide-react'
 import { buttonPrimary } from '@/components/Form'
 import { Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { buttonClass, iconButtonClass } from '@/components/buttonStyles'
 import { asToken, extractTags, groupTags, unknownTags } from '@/features/designer/tags'
 import { EmojiPickerButton } from '@/features/emoji/EmojiPickerButton'
+import { isDripLockRefusal } from '@/features/templates/lastUsed'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
@@ -38,6 +39,8 @@ interface WorkspaceProps {
   backend: MessageBackend
   backTo: string
   readOnly?: boolean
+  /** a live drip's message: why it is read-only, in grey */
+  lockNote?: string | null
 }
 
 type Notice = { tone: 'ok' | 'warn' | 'error'; title: string; items?: string[] } | null
@@ -54,7 +57,11 @@ const asMedia = (asset: MediaAsset): NonNullable<Media> => ({
   id: asset.id, url: asset.url, file_name: asset.file_name, mime_type: asset.mime_type, byte_size: asset.byte_size, width_px: asset.width_px, height_px: asset.height_px,
 })
 
-export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, readOnly = false }: WorkspaceProps) {
+export function MessageWorkspace({ templateName, channel, status, message, tags, library, senderName = 'Your brand', backend, backTo, readOnly: readOnlyProp = false, lockNote = null }: WorkspaceProps) {
+  // a save the API refused because a live drip uses the template: read-only from then on, saying why
+  const [refusedLock, setRefusedLock] = useState<string | null>(null)
+  const lock = lockNote ?? refusedLock
+  const readOnly = readOnlyProp || lock !== null
   const textarea = useRef<HTMLTextAreaElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [body, setBody] = useState(message.sms_body)
@@ -132,6 +139,8 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
       if (error instanceof ApiError && error.status === 400) {
         setFieldErrors(error.fieldErrors)
         setNotice({ tone: 'error', title: 'This message cannot be saved yet', items: Object.values(error.fieldErrors) })
+      } else if (error instanceof ApiError && error.status === 409 && isDripLockRefusal(error.message)) {
+        setRefusedLock(error.message)
       } else if (error instanceof ApiError && error.status === 409) {
         setNotice({ tone: 'error', title: error.message, items: ['Open History to load the newest version. Your text stays here until you do.'] })
       } else {
@@ -241,6 +250,11 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
             )}
           </div>
         </div>
+        {lock && (
+          <p role="status" data-drip-lock className="mt-2.5 flex items-start gap-2 rounded-lg border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-800">
+            <Lock size={16} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0" />{lock}
+          </p>
+        )}
         {notice && (
           <div role={notice.tone === 'error' ? 'alert' : 'status'} className={`mt-2.5 flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${NOTICE_TONE[notice.tone]}`}>
             <div>

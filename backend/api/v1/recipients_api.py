@@ -22,14 +22,16 @@ from apps.tenants import context
 
 VIEW = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.view")]
 PAGE_MAX = 200
-STATUSES = {"EMAIL": ("QUEUED", "SUBMITTED", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED"),
-            "SMS": ("QUEUED", "SUBMITTED", "DELIVERED", "RESPONDED", "OPTED_OUT", "FAILED")}
-EMAIL_COLUMNS = """x.id, x.party_id, x.email_address AS address, x.status, x.status_reason, x.provider_message_id, x.attempts, x.variant_key, x.bounce_type,
+# NOT_SENT is a filter of its own: rows CEP chose not to send (not_sent_reason, patch 0043; their status stays FAILED, and FAILED leaves them out)
+STATUSES = {"EMAIL": ("QUEUED", "SUBMITTED", "DELIVERED", "OPENED", "CLICKED", "BOUNCED", "COMPLAINED", "FAILED", "NOT_SENT"),
+            "SMS": ("QUEUED", "SUBMITTED", "DELIVERED", "RESPONDED", "OPTED_OUT", "FAILED", "NOT_SENT")}
+SHOWN_STATUS = "CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.status END"
+EMAIL_COLUMNS = """x.id, x.party_id, x.email_address AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, x.variant_key, x.bounce_type,
                    x.created_at, x.submitted_at, x.delivered_at, x.opened_at, x.clicked_at, x.bounced_at, x.complained_at, NULL::timestamptz AS failed_at, x.send_after"""
-SMS_COLUMNS = """x.id, x.party_id, x.phone_number AS address, x.status, x.status_reason, x.provider_message_id, x.attempts, NULL::varchar AS variant_key, NULL::varchar AS bounce_type,
+SMS_COLUMNS = """x.id, x.party_id, x.phone_number AS address, x.status, x.status_reason, x.not_sent_reason, x.provider_message_id, x.attempts, NULL::varchar AS variant_key, NULL::varchar AS bounce_type,
                  x.created_at, x.submitted_at, x.delivered_at, NULL::timestamptz AS opened_at, NULL::timestamptz AS clicked_at, NULL::timestamptz AS bounced_at, NULL::timestamptz AS complained_at,
                  x.failed_at, x.send_after"""
-FIELDS = ("id", "party_id", "address", "status", "status_reason", "provider_message_id", "attempts", "variant_key", "bounce_type", "created_at", "submitted_at", "delivered_at",
+FIELDS = ("id", "party_id", "address", "status", "status_reason", "not_sent_reason", "provider_message_id", "attempts", "variant_key", "bounce_type", "created_at", "submitted_at", "delivered_at",
           "opened_at", "clicked_at", "bounced_at", "complained_at", "failed_at", "send_after", "first_name", "last_name")
 
 
@@ -54,7 +56,7 @@ def _where(kind: str, status: str | None, q: str | None) -> tuple[str, list]:
         wanted = [s for s in status.upper().split(",") if s in STATUSES[kind]]
         if not wanted:
             raise ValidationError({"status": f"One of {', '.join(STATUSES[kind])}."})
-        clauses.append("x.status = ANY(%s)")
+        clauses.append(f"{SHOWN_STATUS} = ANY(%s)")
         args.append(wanted)
     if q:
         clauses.append("(x.%s ILIKE %%s OR x.party_id ILIKE %%s OR cm.first_name ILIKE %%s OR cm.last_name ILIKE %%s)" % ("phone_number" if kind == "SMS" else "email_address"))
@@ -92,6 +94,51 @@ class RunRecipientsView(APIView):
         stats = engine_runs.stats(run.tenant_id, run.pk)
         return Response({"run": {"id": str(run.pk), "run_number": run.run_number, "status": run.status, "test_mode": run.test_mode, "family": _family(run)},
                          "count": total, "page": page, "page_size": size, "results": rows, "by_status": stats["by_status"], "statuses": STATUSES[_family(run)]})
+
+
+def skipped_for(run, *, reason: str | None = None, q: str | None = None, offset: int = 0, limit: int = 50) -> tuple[list[dict], int, dict]:
+    """The people the run's Campaign List left out (suppression_reason set): party, name, the address or number the
+    engine would have used, and the reason. -> (rows, total, {reason: count} over the whole list)."""
+    from apps.delivery.engine.audience import PRIMARY_EMAIL
+    from apps.delivery.engine.audience_sms import PRIMARY_PHONE
+    address = PRIMARY_PHONE if _family(run) == "SMS" else PRIMARY_EMAIL
+    clauses, args = ["m.tenant_id = %s AND l.campaign_run_id = %s AND m.suppression_reason IS NOT NULL"], [str(run.tenant_id), str(run.pk)]
+    if reason:
+        clauses.append("m.suppression_reason = ANY(%s)")
+        args.append([item.strip().upper() for item in reason.split(",") if item.strip()])
+    if q:
+        clauses.append("(m.party_id ILIKE %s OR cm.first_name ILIKE %s OR cm.last_name ILIKE %s OR " + address + " ILIKE %s)")
+        args += [f"%{q}%"] * 4
+    where = " AND ".join(clauses)
+    joins = """FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id AND l.tenant_id = m.tenant_id
+                LEFT JOIN customer_master cm ON cm.tenant_id = m.tenant_id AND cm.party_id = m.party_id"""
+    with session.connection().cursor() as cursor:
+        cursor.execute(f"SELECT count(*) {joins} WHERE {where}", args)
+        total = cursor.fetchone()[0]
+        cursor.execute(f"""SELECT m.party_id, cm.first_name, cm.last_name, {address}, m.suppression_reason {joins}
+                            WHERE {where} ORDER BY m.suppression_reason, m.party_id LIMIT %s OFFSET %s""", args + [limit, offset])
+        rows = [{"party_id": party, "first_name": first, "last_name": last, "address": addr, "reason": why} for party, first, last, addr, why in cursor.fetchall()]
+        cursor.execute("""SELECT m.suppression_reason, count(*) FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id AND l.tenant_id = m.tenant_id
+                           WHERE m.tenant_id = %s AND l.campaign_run_id = %s AND m.suppression_reason IS NOT NULL GROUP BY 1""", [str(run.tenant_id), str(run.pk)])
+        by_reason = dict(cursor.fetchall())
+    return rows, total, by_reason
+
+
+class RunSkippedView(APIView):
+    """GET /campaign-runs/{id}/skipped/?reason=FREQUENCY_CAP&q=jordan&page=1&page_size=50 : who the run's Campaign List left out"""
+    permission_classes = VIEW
+
+    @extend_schema(parameters=[OpenApiParameter("reason", str), OpenApiParameter("q", str), OpenApiParameter("page", int), OpenApiParameter("page_size", int)], responses={200: None})
+    def get(self, request, pk, version=None):
+        run = _run(pk)
+        try:
+            page, size = max(1, int(request.query_params.get("page", 1))), min(PAGE_MAX, max(1, int(request.query_params.get("page_size", 50))))
+        except ValueError:
+            raise ValidationError({"page": "A whole number."}) from None
+        rows, total, by_reason = skipped_for(run, reason=request.query_params.get("reason") or None, q=(request.query_params.get("q") or "").strip() or None,
+                                             offset=(page - 1) * size, limit=size)
+        return Response({"run": {"id": str(run.pk), "run_number": run.run_number, "status": run.status, "test_mode": run.test_mode, "family": _family(run)},
+                         "count": total, "page": page, "page_size": size, "results": rows, "by_reason": by_reason})
 
 
 class RunRecipientsExportView(APIView):

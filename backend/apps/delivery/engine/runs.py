@@ -272,7 +272,9 @@ def stats_many(tenant_id, run_ids, kind: str) -> dict[str, dict]:
     ids = [str(run_id) for run_id in run_ids]
     by_status, members, parts = {run_id: {} for run_id in ids}, {run_id: {} for run_id in ids}, {run_id: 0 for run_id in ids}
     with session.connection().cursor() as cursor:
-        cursor.execute(f"SELECT campaign_run_id::text, status, count(*) FROM {TABLE[kind]} WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) GROUP BY 1, 2", [str(tenant_id), ids])
+        # a message CEP chose not to send (not_sent_reason, patch 0043) is NOT_SENT here, never FAILED
+        cursor.execute(f"""SELECT campaign_run_id::text, CASE WHEN not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE status END, count(*) FROM {TABLE[kind]}
+                            WHERE tenant_id = %s AND campaign_run_id::text = ANY(%s) GROUP BY 1, 2""", [str(tenant_id), ids])
         for run_id, status, count in cursor.fetchall():
             by_status[run_id][status] = count
         cursor.execute("""SELECT l.campaign_run_id::text, COALESCE(m.suppression_reason, 'ELIGIBLE'), count(*) FROM campaign_list_member m JOIN campaign_list l ON l.id = m.campaign_list_id
@@ -288,9 +290,9 @@ def stats_many(tenant_id, run_ids, kind: str) -> dict[str, dict]:
     for run_id in ids:
         counts, left_out = by_status[run_id], dict(members[run_id])
         eligible = left_out.pop("ELIGIBLE", 0)
-        sent = sum(v for k, v in counts.items() if k not in ("QUEUED", "FAILED"))
+        sent = sum(v for k, v in counts.items() if k not in ("QUEUED", "FAILED", "NOT_SENT"))
         got = counts.get
-        messages = {"queued": got("QUEUED", 0), "sent": sent, "failed": got("FAILED", 0),
+        messages = {"queued": got("QUEUED", 0), "sent": sent, "failed": got("FAILED", 0), "not_sent": got("NOT_SENT", 0),
                     "delivered": sum(got(k, 0) for k in (("DELIVERED", "RESPONDED", "OPTED_OUT") if kind == "SMS" else ("DELIVERED", "OPENED", "CLICKED"))),
                     "opened": got("OPENED", 0) + got("CLICKED", 0), "clicked": got("CLICKED", 0), "bounced": got("BOUNCED", 0), "complained": got("COMPLAINED", 0),
                     "replied": got("RESPONDED", 0) + got("OPTED_OUT", 0), "opted_out": got("OPTED_OUT", 0), "parts": parts[run_id]}

@@ -2,6 +2,8 @@
  * Create Campaign: name it and pick a type and channel, over the Campaigns list. Creating stores the draft (as the old
  * wizard's first step did) and opens the setup at Audience, or at Content for an e-receipt. The same pop-up edits an
  * existing campaign's details ("Edit details"), with the type and channel fixed; saving there never moves the setup on.
+ * A drip uses one channel (Multiple Channels is unavailable while it is chosen); its first message is made by the API.
+ * The drip hint offers a journey instead, for messages that depend on what each customer does: onCreateJourney.
  */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,8 +14,9 @@ import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { useAuth } from '@/auth/AuthContext'
-import { Field, Select, TextArea, TextInput, buttonSecondary } from '@/components/Form'
+import { Field, TextArea, TextInput, buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
+import { SelectMenu } from '@/components/SelectMenu'
 import { SetupDialog } from '@/components/SetupDialog'
 import { useToast } from '@/components/Toast'
 import { useFieldRules } from '@/lib/fieldRules'
@@ -22,9 +25,10 @@ import { channelAllowed } from '@/lib/features'
 import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
 import type { Campaign, CampaignFormOptions } from '@/lib/types'
 
+import { dripStepsQuery } from '../dripSteps'
 import { ChoiceCard, ChoiceGroup } from '../parts'
 import { campaignSchema, emptyValues, fromCampaign, toInput, type CampaignFormValues } from '../schema'
-import { PROGRESS, setupHref, stepsFor, typeCanChange } from '../setupFlow'
+import { dripHasTemplate, PROGRESS, setupHref, stepsFor, typeCanChange } from '../setupFlow'
 import { SOLICITATION } from '../vocabulary'
 import { OwnerPicker } from './OwnerPicker'
 import { TagInput } from './TagInput'
@@ -36,13 +40,13 @@ type Purpose = CampaignFormValues['solicitation_type']
 const ICON = { size: 20, strokeWidth: 1.5, 'aria-hidden': true } as const
 const TYPES: { value: CampaignType; title: string; text: string; icon: ReactNode; badge?: string }[] = [
   { value: 'REGULAR_MARKETING', title: 'Regular Marketing', text: 'One-time or scheduled send', icon: <Megaphone {...ICON} />, badge: 'Most Common' },
-  { value: 'DRIP', title: 'Drip', text: 'Multi-run scheduled pattern', icon: <Repeat {...ICON} /> },
-  { value: 'E_RECEIPT', title: 'E-Receipt', text: 'Transactional receipt communication', icon: <ReceiptText {...ICON} /> },
-  { value: 'OTHER', title: 'Other', text: 'Service or legal notices', icon: <FileText {...ICON} /> },
+  { value: 'DRIP', title: 'Drip', text: 'Several messages on a set schedule', icon: <Repeat {...ICON} /> },
+  { value: 'E_RECEIPT', title: 'E-Receipt', text: 'Sent after a purchase', icon: <ReceiptText {...ICON} /> },
+  { value: 'OTHER', title: 'Other', text: 'Anything the others don’t cover', icon: <FileText {...ICON} /> },
 ]
 const CHANNELS: { value: Channel; title: string; text: string; icon: ReactNode }[] = [
-  { value: 'EMAIL', title: 'Email', text: 'Rich layout, subject line and preview text', icon: <Mail {...ICON} /> },
-  { value: 'SMS', title: 'SMS', text: '160 characters, text only', icon: <MessageSquare {...ICON} /> },
+  { value: 'EMAIL', title: 'Email', text: 'Designed email with images and links', icon: <Mail {...ICON} /> },
+  { value: 'SMS', title: 'SMS', text: 'Text up to 160 characters', icon: <MessageSquare {...ICON} /> },
   { value: 'MMS', title: 'MMS', text: 'Text with an image', icon: <Image {...ICON} /> },
   { value: 'MULTI', title: 'Multiple Channels', text: 'One campaign, more than one channel', icon: <Layers {...ICON} /> },
 ]
@@ -98,13 +102,17 @@ interface CampaignSetupDialogProps {
   onReload?: () => void
   /** the API's messages about these fields from a save elsewhere (the setup's Continue), shown on opening */
   initialErrors?: Partial<Record<string, string>>
+  /** Create Campaign: "Create a Journey Instead" in the drip hint. The caller closes this pop-up and opens Create Journey with these. */
+  onCreateJourney?: (start: { name: string; description: string }) => void
 }
 
 const FIXED_NOTE = 'The type and channel are fixed once you choose the content.'
+const DRIP_HINT = 'Use a drip when everyone on a list gets the same messages on the same schedule. Use a journey when messages depend on what each customer does.'
+const DRIP_ONE_CHANNEL = 'A drip uses one channel. Use a journey to mix channels.'
 
-export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, initialErrors }: CampaignSetupDialogProps) {
+export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, initialErrors, onCreateJourney }: CampaignSetupDialogProps) {
   const editing = Boolean(campaign)
-  const { me, has } = useAuth()
+  const { me, has, can } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -134,8 +142,12 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
   const rule = useFieldRules('campaign')
   const receipt = type === 'E_RECEIPT'
 
-  // Edit details: the type and channel stay open until the content is chosen
-  const locked = Boolean(campaign && !typeCanChange(campaign))
+  // Edit details: the type and channel stay open until the content is chosen. A drip's content is its messages' templates:
+  // campaign.template is only message 1's, so its steps are asked (the Sequence step's cache); fixed until they are known.
+  const savedDrip = campaign?.campaign_type === 'DRIP'
+  const steps = useQuery({ ...dripStepsQuery(campaign?.id ?? ''), enabled: Boolean(campaign && savedDrip) })
+  const dripLocked = savedDrip && (steps.isPending || dripHasTemplate(steps.data))
+  const locked = Boolean(campaign && (!typeCanChange(campaign) || dripLocked))
   const [purposeChosen, setPurposeChosen] = useState(locked)
   const [ownerChanged, setOwnerChanged] = useState(editing)
   const hasDetails = Boolean(campaign && (campaign.code || campaign.tags.length))
@@ -189,8 +201,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
         const sendType = nextType === 'DRIP' ? 'DRIP' : receipt || campaign.send_type === 'DRIP' ? 'IMMEDIATE' : campaign.send_type
         return api.patch<Campaign>(`/campaigns/${campaign.id}/`, {
           ...basics, campaign_type: nextType, channel: receipt ? (values.channel === 'SMS' ? 'SMS' : 'EMAIL') : values.channel, send_type: sendType,
-          ...(sendType !== campaign.send_type && sendType !== 'SCHEDULED' ? { scheduled_at: null } : {}),
-          ...(sendType === 'DRIP' && !campaign.drip_config ? { drip_config: { time: '09:00', steps: [{ day: 0 }] } } : {}),
+          ...(sendType !== campaign.send_type && sendType !== 'SCHEDULED' ? { scheduled_at: null } : {}),     // the API makes a new drip's Day-0 message
           ...(receipt ? { contact_lists: [], excluded_lists: [] } : {}),
         })
       }
@@ -241,11 +252,14 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
     if (!purposeChosen) setValue('solicitation_type', PURPOSE_OF[next], { shouldDirty: true, shouldValidate: Boolean(errors.solicitation_type) })
     if (next === 'E_RECEIPT' && channel !== 'SMS') setValue('channel', 'EMAIL', { shouldDirty: true, shouldValidate: Boolean(errors.channel) })      // a receipt is email, or a text
     else if (type === 'E_RECEIPT') setValue('channel', '', { shouldDirty: true })
+    else if (next === 'DRIP' && channel === 'MULTI') setValue('channel', '', { shouldDirty: true })     // a drip uses one channel: choose it again
   }
 
   const typeChoice = TYPES.find((item) => item.value === type)
   const channelChoice = CHANNELS.find((item) => item.value === channel)
   const people = options.data?.owners ?? []
+  const drip = type === 'DRIP'
+  const journeysOffered = Boolean(onCreateJourney) && !editing && can('journey.edit') && has('journeys')
 
   return (
     <SetupDialog title={editing ? 'Edit Details' : 'Create Campaign'} onClose={onClose} locked={busy}
@@ -270,36 +284,68 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               </Field>
             </div>
 
-            <div data-field="campaign_type">
-              {locked ? <LockedChoice label="Campaign Type" choice={typeChoice} /> : (
-                <ChoiceGroup label="Campaign Type" required strong error={errors.campaign_type?.message} hint={receipt && !editing ? FIXED_NOTE : undefined} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-                  {TYPES.map((item) => (
-                    <ChoiceCard key={item.value} tile selected={type === item.value} onSelect={() => chooseType(item.value)} title={item.title} text={item.text} icon={item.icon} badge={item.badge} />
-                  ))}
-                </ChoiceGroup>
-              )}
-            </div>
-
-            {(
-              <div data-field="channel">
-                {locked ? <LockedChoice label="Channel" choice={channelChoice} /> : (
-                  <ChoiceGroup label="Channel" required strong error={errors.channel?.message} hint={receipt ? 'An email receipt, or a text receipt for registers that ask for SMS.' : editing ? undefined : FIXED_NOTE} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-                    {CHANNELS.filter((item) => channelAllowed(has, item.value, channel) && (!receipt || item.value === 'EMAIL' || item.value === 'SMS')).map((item) => (
-                      <ChoiceCard key={item.value} tile selected={channel === item.value} title={item.title} text={item.text} icon={item.icon}
-                        onSelect={() => setValue('channel', item.value, { shouldDirty: true, shouldValidate: Boolean(errors.channel) })} />
-                    ))}
-                  </ChoiceGroup>
-                )}
+            {locked && savedDrip ? (
+              // a drip whose messages have templates: both fixed, side by side, with the way out
+              <div data-field="campaign_type" className="flex flex-col gap-2">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <LockedChoice label="Campaign Type" choice={typeChoice} />
+                  <LockedChoice label="Channel" choice={channelChoice} />
+                </div>
+                {!steps.isPending && <p className="text-helper text-ink-800">A message already has a template. To use another type or channel, create a new campaign.</p>}
               </div>
+            ) : (
+              <>
+                <div data-field="campaign_type">
+                  {locked ? <LockedChoice label="Campaign Type" choice={typeChoice} /> : (
+                    <ChoiceGroup label="Campaign Type" required strong error={errors.campaign_type?.message} hint={receipt && !editing ? FIXED_NOTE : undefined} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+                      {TYPES.map((item) => (
+                        <ChoiceCard key={item.value} tile selected={type === item.value} onSelect={() => chooseType(item.value)} title={item.title} text={item.text} icon={item.icon} badge={item.badge} />
+                      ))}
+                    </ChoiceGroup>
+                  )}
+                  {drip && !editing && !locked && (
+                    <div className="mt-3" data-drip-hint>
+                      <Notice tone="info" layout="banner">
+                        <p>{DRIP_HINT}</p>
+                        {journeysOffered && (
+                          <button type="button" className="mt-1.5 rounded-control-sm text-sm font-semibold text-brand-600 hover:underline"
+                            onClick={() => onCreateJourney?.({ name: form.getValues('name').trim(), description: form.getValues('description').trim() })}>
+                            Create a Journey Instead
+                          </button>
+                        )}
+                      </Notice>
+                    </div>
+                  )}
+                </div>
+
+                <div data-field="channel">
+                  {locked ? <LockedChoice label="Channel" choice={channelChoice} /> : (
+                    <ChoiceGroup label="Channel" required strong error={errors.channel?.message} columns="grid-cols-1 sm:grid-cols-2 md:grid-cols-4"
+                      hint={receipt ? 'An email receipt, or a text receipt for registers that ask for SMS.' : editing ? undefined : (
+                        <span className="flex items-center gap-1.5"><Lock size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />{FIXED_NOTE}</span>
+                      )}>
+                      {CHANNELS.filter((item) => channelAllowed(has, item.value, channel) && (!receipt || item.value === 'EMAIL' || item.value === 'SMS')).map((item) => {
+                        const offForDrip = drip && item.value === 'MULTI'
+                        return (
+                          <ChoiceCard key={item.value} tile selected={channel === item.value} title={item.title} text={offForDrip ? 'Not available for a drip' : item.text} icon={item.icon}
+                            unavailable={offForDrip ? DRIP_ONE_CHANNEL : undefined}
+                            onSelect={() => setValue('channel', item.value, { shouldDirty: true, shouldValidate: Boolean(errors.channel) })} />
+                        )
+                      })}
+                    </ChoiceGroup>
+                  )}
+                </div>
+              </>
             )}
 
             <div data-field="solicitation_type" className="sm:w-1/2 sm:pr-3">
               <Field label="Message Purpose" required strong error={errors.solicitation_type?.message} help="Marketing needs an opt-in and an unsubscribe link and counts against frequency limits. Transactional, service and legal skip the consent rules, but never a blocked or invalid address." hint="Decides which consent and frequency rules apply.">
                 {(ids) => (
-                  <Select {...ids} {...register('solicitation_type', { onChange: () => setPurposeChosen(true) })} disabled={!type || receipt}>
-                    {!type && <option value="">Pick a Type First</option>}
-                    {SOLICITATION.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                  </Select>
+                  <Controller control={control} name="solicitation_type" render={({ field }) => (
+                    <SelectMenu {...ids} label="Message Purpose" value={field.value} placeholder="Pick a Type First" disabled={!type || receipt}
+                      options={SOLICITATION.map((item) => ({ value: item.value, label: item.label }))}
+                      onChange={(next) => { field.onChange(next); setPurposeChosen(true) }} />
+                  )} />
                 )}
               </Field>
             </div>
@@ -313,7 +359,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               <div data-field="description">
                 <Field label="Description (Optional)" strong error={errors.description?.message}
                   limit={{ used: description.length, max: rule('description')?.max ?? 2000 }}>
-                  {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={rule('description')?.max ?? 2000} placeholder="e.g. Fall loyalty push to Gold and Platinum members" />}
+                  {(ids) => <TextArea {...ids} {...register('description')} rows={3} maxLength={rule('description')?.max ?? 2000} placeholder="e.g. Three welcome messages for new members" />}
                 </Field>
               </div>
             <div>
@@ -326,7 +372,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
                 <div id={`${titleId}-more`} className="mt-4 flex flex-col gap-6">
                   <div data-field="code" className="sm:w-1/2 sm:pr-3">
                     <Field label="Code (Optional)" strong error={errors.code?.message} help="The short handle reports, the API and the engine's call log use for this campaign. Made for you when left blank; fixed once the campaign exists." hint="Leave blank to get one automatically · capitals, digits and hyphens" limit={{ used: code.length, max: rule('code')?.max ?? 40 }}>
-                      {(ids) => <TextInput {...ids} {...register('code')} maxLength={rule('code')?.max ?? 40} placeholder="CMP-2026-0021" className="uppercase placeholder:normal-case" />}
+                      {(ids) => <TextInput {...ids} {...register('code')} maxLength={rule('code')?.max ?? 40} placeholder="e.g. CMP-2026-0021" className="uppercase placeholder:normal-case" />}
                     </Field>
                   </div>
                   <div data-field="tags">

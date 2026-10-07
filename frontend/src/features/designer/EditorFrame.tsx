@@ -35,6 +35,10 @@ interface EditorFrameProps<T extends string> {
   backTo: string
   /** the parent may cancel the navigation, e.g. to confirm leaving unsaved work */
   onBack?: (event: MouseEvent) => void
+  /** a worded back link instead of the arrow alone: "Back to Sequence" (a drip message's template) */
+  backText?: string
+  /** grey words before the name: "Loyalty Welcome Series · Message 3 of 4 · " */
+  context?: string
   tabs: EditorTabDef<T>[]
   tab: T
   onTabChange: (tab: T) => void
@@ -47,12 +51,14 @@ interface EditorFrameProps<T extends string> {
   /** a strip directly under the tab bar, above whichever pane is showing */
   notice?: ReactNode
   footer?: ReactNode
+  /** a strip directly under the top bar, above the step tracker: a drip message's "Changes apply to this message only." */
+  underBar?: ReactNode
   wizard?: WizardTrackerProps
   panes: EditorPane<T>[]
 }
 
 export function EditorFrame<T extends string>({
-  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, tabs, tab, onTabChange, nav, topBarEnd, tabBarEnd, help, notice, footer, wizard, panes,
+  name, status, saveNote, saveNoteTone = 'default', backTo, onBack, backText, context, tabs, tab, onTabChange, nav, topBarEnd, tabBarEnd, help, notice, footer, underBar, wizard, panes,
 }: EditorFrameProps<T>) {
   const baseId = useId()
   const tabRefs = useRef(new Map<T, HTMLButtonElement | null>())
@@ -90,7 +96,15 @@ export function EditorFrame<T extends string>({
     go(tabs[next].id)
   }
 
-  const backLink = (
+  const backLink = backText ? (
+    <>
+      <Link to={backTo} onClick={onBack}
+        className="-ml-2 inline-flex h-10 shrink-0 items-center gap-2 rounded-control-lg pr-3 pl-2 text-sm font-semibold whitespace-nowrap text-brand-600 transition-colors duration-fast ease-standard hover:bg-brand-100">
+        <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />{backText}
+      </Link>
+      <span aria-hidden className="h-6 w-px shrink-0 bg-line" />
+    </>
+  ) : (
     <Link
       to={backTo}
       onClick={onBack}
@@ -106,7 +120,7 @@ export function EditorFrame<T extends string>({
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas px-6 text-center">
         <p className="max-w-sm text-sm text-ink-800">The template editor needs a wider window. Widen it to at least 1024 px to continue.</p>
         <Link to={backTo} onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-800 hover:underline">
-          <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Back to Templates
+          <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> {backText ?? 'Back to Templates'}
         </Link>
       </div>
     )
@@ -119,7 +133,7 @@ export function EditorFrame<T extends string>({
       <header className="flex min-h-14 shrink-0 items-center gap-4 border-b border-line bg-surface px-6 py-2">
         {backLink}
         <div className="flex min-w-0 items-center gap-2.5">
-          <h1 className="min-w-0 truncate font-sans text-sm font-semibold text-ink-900">{name}</h1>
+          <h1 className="min-w-0 truncate font-sans text-sm font-semibold text-ink-900">{context && <span className="font-normal text-ink-800">{context}</span>}{name}</h1>
           <StatusBadge status={status} />
           {help}
         </div>
@@ -127,6 +141,7 @@ export function EditorFrame<T extends string>({
         {topBarEnd && <div className="flex shrink-0 items-center gap-2">{topBarEnd}</div>}
       </header>
 
+      {underBar}
       {wizard && (
         <div className="shrink-0 border-b border-line bg-surface px-6 py-2">
           <WizardTracker {...wizard} />

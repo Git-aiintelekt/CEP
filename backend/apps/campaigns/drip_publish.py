@@ -138,8 +138,17 @@ def send_tests(campaign, steps, to: list[str], user) -> list[dict]:
 
 
 # ---------------------------------------------------------------- what stands in the way of a production publish
-def _template_problem(campaign, step, template) -> str | None:
+def _copy_blockers(step, template) -> dict:
+    """What stops a message's own DRAFT copy from becoming ACTIVE. A message with its own subject line sends that one, so
+    the copy's missing subject (which the editor shows as set on the Sequence step) doesn't count."""
     from apps.templates import design
+    blockers = design.activation_blockers(template)
+    if (step.subject_line or "").strip():
+        blockers.pop("subject_line", None)
+    return blockers
+
+
+def _template_problem(campaign, step, template) -> str | None:
     if template.status == "ARCHIVED":
         return "its template is archived."
     if not step.template_owned and template.status != "ACTIVE":
@@ -148,7 +157,7 @@ def _template_problem(campaign, step, template) -> str | None:
     if problem:
         return problem
     if step.template_owned and template.status == "DRAFT":
-        blockers = design.activation_blockers(template)
+        blockers = _copy_blockers(step, template)
         if blockers:
             return next(iter(blockers.values()))
     return None
@@ -213,14 +222,13 @@ def checklist_items(campaign, found: dict) -> list[dict]:
 def activate_copies(campaign) -> list[str]:
     """Inside the publish: every DRAFT copy the drip owns becomes ACTIVE, once the template rules pass. -> the names activated.
     Raises ValidationError naming the message when one doesn't pass; the caller's savepoint then undoes the publish."""
-    from apps.templates import design
     from apps.templates.models import TemplateMaster
     activated = []
     for position, step in enumerate(drip.steps_of(campaign), start=1):
         template = _template(step)
         if template is None or not step.template_owned or template.status != "DRAFT":
             continue
-        blockers = design.activation_blockers(template)
+        blockers = _copy_blockers(step, template)
         if blockers:
             raise ValidationError({"messages_content": [f"Message {position}: {next(iter(blockers.values()))}"]})
         TemplateMaster.objects.filter(pk=template.pk).update(status=TemplateMaster.Status.ACTIVE)

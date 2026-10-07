@@ -556,3 +556,137 @@ test('?saved= and ?approval=requested open their saved views, alongside the addr
   await screen.findByRole('search', { name: 'Filter campaigns' })
   await vi.waitFor(() => expect(lastList().get('view')).toBe('attention'))
 })
+
+// ---------------------------------------------------------------------------------------------------- drips in the list
+const dripRun = (id: string, campaign: string, status: string, at: string) => run({ id, campaign, status, run_type: 'DRIP_INSTANCE', scheduled_at: at, started_at: status === 'SCHEDULED' ? null : at, completed_at: null })
+const drips = () => [
+  makeCampaign({ id: 'd-draft', name: 'VIP Preview Series', campaign_type: 'DRIP', send_type: 'DRIP', status: 'DRAFT', scheduled_at: '2026-11-02T14:00:00Z', send_timezone: 'America/Chicago',
+                 drip_summary: { count: 3, last_day: 7, first_send_at: '2026-11-02T14:00:00Z', last_send_at: '2026-11-09T14:00:00Z', ready: true } }),
+  makeCampaign({ id: 'd-sched', name: 'Back-to-School Bundles', campaign_type: 'DRIP', send_type: 'DRIP', status: 'PRODUCTION_PUBLISHED', send_timezone: 'America/Chicago',
+                 runs: [dripRun('rs1', 'd-sched', 'SCHEDULED', '2099-10-26T13:00:00Z')] as never,
+                 drip_summary: { count: 5, last_day: 14, first_send_at: '2026-10-26T13:00:00Z', last_send_at: '2026-11-09T14:00:00Z', ready: true },
+                 drip_progress: { total: 5, sent: 0, failed: 0, cancelled: 0, next: { position: 1, name: 'Bundles Are Here', scheduled_at: '2026-10-26T13:00:00Z' } } }),
+  makeCampaign({ id: 'd-active', name: 'Loyalty Welcome Series', campaign_type: 'DRIP', send_type: 'DRIP', status: 'ACTIVE', send_timezone: 'America/Chicago',
+                 drip_progress: { total: 4, sent: 2, failed: 0, cancelled: 0, next: { position: 3, name: 'First Reward', scheduled_at: '2026-10-19T14:00:00Z' } } }),
+  makeCampaign({ id: 'd-paused', name: 'Holiday Reminder Texts', channel: 'SMS', campaign_type: 'DRIP', send_type: 'DRIP', status: 'PAUSED', send_timezone: 'America/Chicago',
+                 paused: { at: '2026-01-13T15:00:00Z', by_name: 'Maria Chen' },
+                 drip_progress: { total: 3, sent: 1, failed: 0, cancelled: 0, next: { position: 2, name: 'Early Access', scheduled_at: '2026-01-16T15:00:00Z' } } }),
+  makeCampaign({ id: 'd-stopped', name: 'Autumn Win-Back', campaign_type: 'DRIP', send_type: 'DRIP', status: 'COMPLETED', send_timezone: 'America/Chicago',
+                 stopped_early: { at: '2026-09-10T15:00:00Z', by_name: 'Maria Chen', cancelled: 3 }, drip_progress: { total: 5, sent: 2, failed: 0, cancelled: 3, next: null } }),
+  makeCampaign({ id: 'd-done', name: 'Spring Reactivation', campaign_type: 'DRIP', send_type: 'DRIP', status: 'COMPLETED', send_timezone: 'America/Chicago',
+                 drip_progress: { total: 4, sent: 4, failed: 0, cancelled: 0, next: null } }),
+  makeCampaign({ id: 'c-reg', name: 'Fall Launch', send_type: 'SCHEDULED', status: 'PRODUCTION_PUBLISHED', scheduled_at: soon, runs: [run({ id: 'rr', campaign: 'c-reg', status: 'SCHEDULED', scheduled_at: soon, started_at: null, completed_at: null })] as never }),
+]
+const rowOf = (name: string) => screen.getByRole('button', { name }).closest('tr')!
+const progressOf = (name: string) => rowOf(name).querySelector('[data-drip-progress]')?.textContent ?? null
+const nextOf = (name: string) => rowOf(name).querySelector('[data-drip-next]')?.textContent ?? null
+
+test('drips in the list: a progress line under the name and Next Send naming the message, for every state; regular rows as they were', async () => {
+  installMockApi({ campaigns: drips() })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('button', { name: 'Loyalty Welcome Series' })
+
+  expect(progressOf('VIP Preview Series')).toBe('3 messages · draft')
+  expect(progressOf('Back-to-School Bundles')).toBe('5 messages · starts Mon 26 Oct')
+  expect(progressOf('Loyalty Welcome Series')).toBe('2 of 4 messages sent')
+  expect(progressOf('Holiday Reminder Texts')).toBe('1 of 3 messages sent')
+  expect(progressOf('Autumn Win-Back')).toBe('Stopped after 2 of 5')
+  expect(progressOf('Spring Reactivation')).toBe('4 of 4 messages sent')
+
+  expect(nextOf('Loyalty Welcome Series')).toMatch(/09:00 CT · Message 3 of 4$/)
+  expect(nextOf('Back-to-School Bundles')).toMatch(/08:00 CT · Message 1 of 5$/)
+  expect(nextOf('Holiday Reminder Texts')).toBe('On holdMessage 2 was due Fri 16 Jan')
+  expect(nextOf('Autumn Win-Back')).toBe('None3 cancelled')
+  expect(nextOf('Spring Reactivation')).toBe('None')
+  expect(nextOf('VIP Preview Series')).toBeNull()                                                           // a draft keeps today's cell
+
+  // the regular campaign: no second line, today's Next Send
+  expect(progressOf('Fall Launch')).toBeNull()
+  expect(nextOf('Fall Launch')).toBeNull()
+  // every column is still there
+  expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent?.trim()).filter(Boolean))
+    .toEqual(['Campaign Name', 'Type', 'Channel', 'Status', 'Triggered By', 'Audience', 'Next Send', 'Created', 'Actions'])
+  expect(rowOf('Loyalty Welcome Series').className).toContain('h-[72px]')
+})
+
+test('drips on narrow cards: the same lines', async () => {
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: !query.includes('768'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }))
+  installMockApi({ campaigns: drips() })
+  await renderAppAt('/campaigns')
+  const card = (await screen.findByRole('button', { name: 'Loyalty Welcome Series' })).closest('li')!
+  expect(card.querySelector('[data-drip-progress]')?.textContent).toBe('2 of 4 messages sent')
+  expect(card.querySelector('[data-card-next]')?.textContent).toMatch(/ · 09:00 CT · Message 3 of 4$/)
+  expect(screen.getByRole('button', { name: 'Holiday Reminder Texts' }).closest('li')!.querySelector('[data-card-next]')?.textContent).toBe('On hold · Message 2 was due Fri 16 Jan')
+})
+
+const todayName = () => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date())
+
+test('Clone of a drip opens the pop-up: the name prefilled, a start date required, the API’s errors under their fields, then the copy’s Sequence step', async () => {
+  const campaigns = drips().map((item) => (item.id === 'd-active' ? { ...item, drip_config: { steps: [], time: '00:00' }, drip_summary: { count: 4, last_day: 14, first_send_at: null, last_send_at: null, ready: true } } : item))
+  const calls = installMockApi({ campaigns })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('button', { name: 'Loyalty Welcome Series' })
+  await openMenu(user, 'Loyalty Welcome Series')
+  await user.click(within(rowMenu()).getByRole('button', { name: 'Clone' }))
+
+  const dialog = await screen.findByRole('dialog', { name: 'Clone Loyalty Welcome Series' })
+  expect((within(dialog).getByLabelText('Campaign Name') as HTMLInputElement).value).toBe('Copy of Loyalty Welcome Series')
+  expect(within(dialog).getByText('Day 0 sends on this date at 00:00 CT.')).toBeTruthy()
+  expect(within(dialog).getByText('All 4 messages are copied with their days, subjects and their own template copies. The audience is copied too. Nothing is published.')).toBeTruthy()
+  expect(within(dialog).getAllByRole('button').map((button) => button.textContent).slice(-2)).toEqual(['Cancel', 'Clone Campaign'])
+  await user.click(within(dialog).getByRole('button', { name: 'Clone Campaign' }))
+  expect(within(dialog).getByText('Choose a start date.')).toBeTruthy()
+  expect(calls.filter((call) => call.url.includes('/clone/'))).toHaveLength(0)
+
+  // a taken name, then a start already past (today at 00:00 CT): each under its field, in the API's words
+  const name = within(dialog).getByLabelText('Campaign Name')
+  await user.clear(name)
+  await user.type(name, 'Fall Launch')
+  await user.click(within(dialog).getByRole('button', { name: /^Start Date/ }))
+  await user.click(await screen.findByRole('button', { name: todayName() }))
+  await user.click(within(dialog).getByRole('button', { name: 'Clone Campaign' }))
+  expect(await within(dialog).findByText('Another campaign already has this name.')).toBeTruthy()
+  await user.clear(name)
+  await user.type(name, 'Loyalty Welcome Series, Spring')
+  await user.click(within(dialog).getByRole('button', { name: 'Clone Campaign' }))
+  expect(await within(dialog).findByText('Choose a time in the future.')).toBeTruthy()
+
+  await user.click(within(dialog).getByRole('button', { name: /^Start Date/ }))
+  await user.click(await screen.findByRole('button', { name: 'Next Month' }))
+  await user.click((await screen.findAllByRole('button', { name: / 15, \d{4}$/ }))[0])
+  await user.click(within(dialog).getByRole('button', { name: 'Clone Campaign' }))
+  await vi.waitFor(() => expect(window.location.pathname).toBe('/campaigns/d-active-copy/edit'))
+  expect(window.location.search).toContain('step=sequence')
+  expect(await screen.findByText('Copy created. Check the messages, then test and publish.')).toBeTruthy()
+  const posted = calls.filter((call) => call.url.includes('/campaigns/d-active/clone/')).at(-1)!.body as { name: string; scheduled_at: string }
+  expect(posted.name).toBe('Loyalty Welcome Series, Spring')
+  expect(posted.scheduled_at).toMatch(/-15T0[56]:00:00\.000Z$/)                                              // the 15th at 00:00 in Chicago
+})
+
+test('Clone of a regular campaign still copies at once; a bulk clone with a drip says the copy has no start date', async () => {
+  const calls = installMockApi({ campaigns: drips() })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('button', { name: 'Fall Launch' })
+  await openMenu(user, 'Fall Launch')
+  await user.click(within(rowMenu()).getByRole('button', { name: 'Clone' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.url.includes('/campaigns/c-reg/clone/'))).toBe(true))
+  expect(screen.queryByRole('dialog', { name: /^Clone / })).toBeNull()
+
+  await user.click(screen.getByRole('checkbox', { name: 'Select Loyalty Welcome Series' }))
+  await user.click(screen.getByRole('checkbox', { name: 'Select Fall Launch' }))
+  await user.click(within(screen.getByRole('region', { name: 'Bulk actions' })).getByRole('button', { name: 'Clone' }))
+  expect((await screen.findByText(/campaigns cloned\./)).textContent).toContain('The drip copy has no start date yet: choose one on the Sequence step.')
+})
+
+test('Stop Remaining Messages from the row asks first, as on the campaign page', async () => {
+  const calls = installMockApi({ campaigns: drips(), dripSteps: { 'd-active': [] } })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns')
+  await screen.findByRole('button', { name: 'Loyalty Welcome Series' })
+  await openMenu(user, 'Loyalty Welcome Series')
+  await user.click(within(rowMenu()).getByRole('button', { name: 'Stop Remaining Messages' }))
+  expect(await screen.findByRole('dialog', { name: /Stop/ })).toBeTruthy()
+  expect(calls.filter((call) => call.url.includes('/stop/'))).toHaveLength(0)
+})

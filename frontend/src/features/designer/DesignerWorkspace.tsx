@@ -2,13 +2,16 @@
  * Everything around the canvas: subject line, save with version lock, findings, preview, tag catalogue, history.
  * Talks to a `DesignerBackend`, so the template page passes the API and the dev playground passes an in-memory one.
  */
-import { Eye, PencilRuler, SendHorizontal } from 'lucide-react'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Eye, FileText, Lock, PencilRuler, SendHorizontal } from 'lucide-react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import { Button } from '@/components/Button'
 import { NavBar } from '@/components/NavBar'
+import { Notice } from '@/components/Notice'
 import { useToast } from '@/components/Toast'
 import { DeliverabilityPanel } from '@/features/deliverability/DeliverabilityPanel'
+import { isDripLockRefusal } from '@/features/templates/lastUsed'
 import type { DeliverabilityBackend } from '@/features/deliverability/backend'
 import { ApiError } from '@/lib/api'
 import { formatUtcClock } from '@/lib/format'
@@ -34,6 +37,7 @@ import { PreviewPane } from './preview/PreviewPane'
 import { buildPreview, type PreviewState } from './preview/previewState'
 import { insertIntoHeader, type HeaderField as HeaderFieldName } from './tags/insertIntoHeader'
 import { useRecentTags } from './tags/useRecentTags'
+import type { WizardTrackerProps } from './WizardTracker'
 
 import { PageHelp } from '@/help/HelpPanel'
 
@@ -47,6 +51,28 @@ export interface DesignerBackend {
   sampleCode?: (request: CodeSampleRequest) => Promise<CodeSample>
   /** inbox previews of the saved design; absent when the template has no deliverability testing (receipts, SMS) */
   deliverability?: DeliverabilityBackend
+}
+
+/**
+ * A drip message's template (opened from the Sequence step): the way back is to that message, the neighbouring
+ * messages are a click away, and the subject line, preheader and sender are the message's, set on the Sequence step.
+ */
+export interface DesignerDrip {
+  /** grey words before the title: "Loyalty Welcome Series · Message 3 of 4 · " */
+  context: string
+  title: string
+  templateName: string
+  /** `saved`: this visit saved the template */
+  backTo: (saved: boolean) => string
+  previous: string | null
+  next: string | null
+  wizard: WizardTrackerProps
+  subject: string
+  preheader: string
+  sender: string
+  changedSinceTest: boolean
+  /** the message's own Send Test; `dirty`: there are unsaved changes the test won't carry */
+  test: (dirty: boolean) => ReactNode
 }
 
 type EditorTab = 'content' | 'preview' | 'deliverability'
@@ -67,12 +93,15 @@ interface WorkspaceProps {
   backend: DesignerBackend
   backTo: string
   readOnly?: boolean
+  /** a live drip's message: why it is read-only, in grey ("Used by a live drip (…). It can't be changed until …") */
+  lockNote?: string | null
   /** the app's navigation bar down the left edge; the dev playgrounds leave it off */
   showNav?: boolean
+  drip?: DesignerDrip
 }
 
 
-export function DesignerWorkspace({ templateName, channel, status, design, tags, assets, backend, backTo, readOnly = false, showNav = false }: WorkspaceProps) {
+export function DesignerWorkspace({ templateName, channel, status, design, tags, assets, backend, backTo: plainBackTo, readOnly: readOnlyProp = false, lockNote = null, showNav = false, drip }: WorkspaceProps) {
   const editor = useRef<EmailDesignerHandle>(null)
   const [tab, setTab] = useState<EditorTab>('content')
   const [subject, setSubject] = useState(design.subject_line)
@@ -84,6 +113,10 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
   const [currentStatus, setCurrentStatus] = useState(status)
   const [busy, setBusy] = useState<'save' | 'activate' | 'load' | null>(null)
   const [conflict, setConflict] = useState(false)
+  // a save the API refused because a live drip uses the template: the editor goes read-only and says why
+  const [refusedLock, setRefusedLock] = useState<string | null>(null)
+  const lock = lockNote ?? refusedLock
+  const readOnly = readOnlyProp || lock !== null
   const [savedAt, setSavedAt] = useState<string | null>(() => clockOf(design.saved_at))
   const [versions, setVersions] = useState<DesignVersion[] | null>(null)
   const [versionsFailed, setVersionsFailed] = useState(false)
@@ -103,12 +136,17 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
   const pills = useSingleDropdown<PillKey>()
   const toast = useToast()
   const navigate = useNavigate()
+  const [savedHere, setSavedHere] = useState(false)
+  const backTo = drip ? drip.backTo(savedHere) : plainBackTo
+  // a drip message's subject and preheader are its own (Sequence step), not the template's
+  const sentSubject = drip ? drip.subject : subject
+  const sentPreheader = drip ? drip.preheader : preheader
 
   const dirty = canvasDirty || restored || subject !== saved.subject || preheader !== saved.preheader
   const guard = useLeaveGuard(dirty, () => navigate(backTo))
   const issues = useMemo(
-    () => computeIssues({ channel, subject, preheader, tags, savedVersion: saved.version, dirty, findings, blockers, imagesWithoutAlt: noAlt, placeholderImages: stale }),
-    [channel, subject, preheader, tags, saved.version, dirty, findings, blockers, noAlt, stale],
+    () => computeIssues({ channel, subject: sentSubject, preheader: sentPreheader, tags, savedVersion: saved.version, dirty, findings, blockers, imagesWithoutAlt: noAlt, placeholderImages: stale }),
+    [channel, sentSubject, sentPreheader, tags, saved.version, dirty, findings, blockers, noAlt, stale],
   )
 
   const summary = useMemo(() => summarise(issues), [issues])
@@ -164,6 +202,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       })
       editor.current.markSaved()
       setRestored(false)
+      setSavedHere(true)
       setSaved({ subject, preheader, version: result.version_number, shown: result.version_number })
       setVersions(null)
       setFindings(result.findings)
@@ -175,7 +214,9 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       refreshLinks()
     } catch (error) {
       if (auto) failedStamp.current = editStamp
-      if (error instanceof ApiError && error.status === 409) {
+      if (error instanceof ApiError && error.status === 409 && isDripLockRefusal(error.message)) {
+        setRefusedLock(error.message)
+      } else if (error instanceof ApiError && error.status === 409) {
         setConflict(true)
         toast.error(error.message)
       } else if (error instanceof ApiError && error.status === 400) {
@@ -352,9 +393,23 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     />
   )
 
+  const dripHeader = drip && (
+    <div className="shrink-0 border-b border-line-subtle bg-surface px-6 py-2.5" data-drip-header>
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
+        {([['Sender', drip.sender, 'No sender yet'], ['Subject', drip.subject, 'No subject yet'], ['Preheader', drip.preheader, 'No preheader']] as const).map(([label, value, empty]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-xs font-semibold text-ink-800">{label}</dt>
+            <dd className={`mt-1 truncate rounded-control-md border border-line bg-fill-subtle px-2.5 py-1.5 text-sm ${value ? 'text-ink-900' : 'text-ink-300'}`} title={value || undefined}>{value || empty}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-1.5 text-helper text-ink-800">Set on the Sequence step.</p>
+    </div>
+  )
+
   const contentPane = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b border-line-subtle bg-surface px-6 py-2.5">
+      {dripHeader || <div className="shrink-0 border-b border-line-subtle bg-surface px-6 py-2.5">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
           <HeaderField
             id={subjectId}
@@ -392,7 +447,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
             onPickEmoji={(emoji) => insertHeaderText('preheader', emoji)}
           />
         </div>
-      </div>
+      </div>}
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
@@ -421,7 +476,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     </div>
   )
 
-  const previewPane = <PreviewPane state={preview} subject={subject} preheader={preheader} tags={tags} />
+  const previewPane = <PreviewPane state={preview} subject={sentSubject} preheader={sentPreheader} tags={tags} />
   const deliverabilityPane = backend.deliverability
     ? <DeliverabilityPanel backend={backend.deliverability} active={tab === 'deliverability'} savedVersion={saved.version} dirty={dirty} readOnly={readOnly} />
     : null
@@ -430,7 +485,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
     <>
       {guard.dialog}
       <EditorFrame
-      name={templateName}
+      name={drip ? drip.title : templateName}
       status={currentStatus}
       help={<PageHelp chapter="email-designer" />}
       nav={
@@ -446,6 +501,23 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       saveNote={saveNote}
       saveNoteTone={dirty && !readOnly ? 'warning' : 'default'}
       backTo={backTo}
+      backText={drip ? 'Back to Sequence' : undefined}
+      context={drip?.context}
+      wizard={drip?.wizard}
+      underBar={drip && (
+        <div className="flex shrink-0 items-center gap-2.5 border-b border-line bg-surface-subtle px-6 py-2" data-drip-strip>
+          <FileText size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
+          <span className="truncate text-helper font-semibold text-ink-900">{drip.templateName}</span>
+          <span className="shrink-0 text-helper text-ink-800">Changes apply to this message only.</span>
+        </div>
+      )}
+      topBarEnd={drip && (
+        <>
+          <Button size="sm" variant="secondary" iconStart={ChevronLeft} disabled={!drip.previous} onClick={() => { const to = drip.previous; if (to) guard.requestLeave(() => navigate(to)) }}>Previous Message</Button>
+          <Button size="sm" variant="secondary" iconEnd={ChevronRight} disabled={!drip.next} onClick={() => { const to = drip.next; if (to) guard.requestLeave(() => navigate(to)) }}>Next Message</Button>
+          {drip.test(dirty)}
+        </>
+      )}
       onBack={(event) => {
         event.preventDefault()
         guard.requestLeave(() => navigate(backTo))
@@ -456,7 +528,8 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       tabBarEnd={pillBar}
       notice={
         <>
-          {readOnly && <ReadOnlyStrip />}
+          {drip?.changedSinceTest && <Notice tone="warning" layout="strip">Changed since the test. Send this message’s test again before you publish.</Notice>}
+          {lock ? <Notice tone="info" icon={Lock} iconClass="text-ink-800">{lock}</Notice> : readOnly && <ReadOnlyStrip />}
           {conflict && <ConflictStrip busy={busy !== null} onLoadLatest={() => void loadLatest()} />}
           {saved.shown > 0 && saved.shown !== saved.version && <VersionStrip version={saved.shown} busy={busy !== null} onBackToLatest={() => loadVersion(saved.version)} />}
         </>

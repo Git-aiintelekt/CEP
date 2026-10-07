@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { addDays, todayIn } from '@/features/reports/period'
 import type { Campaign } from '@/lib/types'
 import { atZone } from '@/lib/zonedTime'
-import { installMockApi, makeCampaign, signIn } from '@/test/mockApi'
+import { installMockApi, makeCampaign, signIn, makeStep } from '@/test/mockApi'
 
 import { weekTitle } from './calendarView'
 
@@ -179,4 +179,27 @@ test('below 768px the week is a list: a heading per day, "No sends" on empty one
   expect(journey.querySelector('[data-category="journey"]')).toBeTruthy()
   expect(within(journey).getByText('Active')).toBeTruthy()
   expect(document.querySelector('[data-calendar-week] .grid-cols-7')).toBeNull()
+})
+
+// ---------------------------------------------------------------------------------------------------- drips in the week
+const dripWeek = (status = 'ACTIVE'): Campaign[] => [makeCampaign({
+  id: 'd1', name: 'Loyalty Welcome Series', campaign_type: 'DRIP', send_type: 'DRIP', status, send_timezone: ZONE,
+  runs: [{ ...runAt('r1', local(0, '09:00'), 'COMPLETED'), campaign: 'd1', drip_step: 's1' }, { ...runAt('r2', local(2, '09:00')), campaign: 'd1', drip_step: 's2' }] as Campaign['runs'],
+})]
+const dripSteps = { d1: [makeStep({ id: 's1', day: 0, name: 'Welcome' }), makeStep({ id: 's2', day: 2, name: 'First Reward' }), makeStep({ id: 's3', day: 9, name: 'Reminder' })] }
+
+test('the week: each drip message is an entry of its own, "Message 3 of 4" with its name and time under it', async () => {
+  installMockApi({ campaigns: dripWeek(), dripSteps })
+  await renderAppAt('/campaigns?view=calendar&mode=week')
+  await vi.waitFor(() => expect(blocks(2)).toHaveLength(1))
+  expect(blocks(0)[0].textContent).toBe('SentLoyalty Welcome Series · Message 1 of 3Welcome · 09:00 ET')
+  expect(blocks(2)[0].textContent).toBe('Loyalty Welcome Series · Message 2 of 3First Reward · 09:00 ET')
+  expect(blocks(2)[0].getAttribute('aria-label')).toBe('Loyalty Welcome Series · Message 2 of 3, First Reward · 09:00 ET: Active, Email')
+})
+
+test('a paused drip’s waiting messages are not in the week', async () => {
+  installMockApi({ campaigns: dripWeek('PAUSED'), dripSteps })
+  await renderAppAt('/campaigns?view=calendar&mode=week')
+  await vi.waitFor(() => expect(blocks(0)).toHaveLength(1))
+  expect(blocks(2)).toHaveLength(0)
 })

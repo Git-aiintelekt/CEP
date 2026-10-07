@@ -21,8 +21,8 @@ A template is the content a campaign sends: an email design, a text message, or 
 |---|---|---|
 | Start a new message | One card per channel you may use: Email, E-Receipt, SMS, MMS. | Opens New Template for that channel. |
 | Your Templates | Search, a tab per channel, a Status filter (Draft, Active, Archived). | The library below. |
-| A template's card | Name, channel, status, when it was last used and by which campaign. | Opens the editor. |
-| Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template. |
+| A template's card | Name, channel, status, when it was last used and by which campaign. A drip message's template says which message it is ("Loyalty Welcome Series · Message 2 of 4"); a drip's templates sit together by name, and carry Locked while the drip is live. | Opens the editor. |
+| Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template, and while a drip uses it for a message ("This Template Is in Use", with the way to the campaign). |
 | Starting Point gallery | CEP's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
 
 ### New Template
@@ -100,6 +100,7 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 ## Things to know
 
 - Changing a template changes what every campaign using it sends from then on. Duplicate when a campaign must keep its own version.
+- A drip gives every message its own copy of a template, so a drip's messages never change other campaigns. Opened from the Sequence step the editor says which message it is, keeps the subject on the message (read-only here), and leads Back to Sequence. While the drip is live the copy is locked: the preview and the editor say "Used by a live drip (…). It can't be changed until the drip finishes or is stopped." and open read-only.
 - Only an active template can be published; a draft can be previewed and test sent.
 - A marketing email must carry the unsubscribe link; the designer blocks Activate without it and the campaign cannot publish.
 - Outlook for Windows ignores shadows; the field says so.

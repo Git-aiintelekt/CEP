@@ -340,11 +340,25 @@ def schedule_next_occurrence(campaign) -> CampaignRun | None:
 
 
 # ---------------------------------------------------------------- actions
+def _actor_id(user):
+    """A person's id for the *_by columns; an API client or the system leaves them empty."""
+    return None if user is None or hasattr(user, "has_scope") else getattr(user, "pk", None)
+
+
+def paused(campaign) -> dict | None:
+    """{at, by_name} while paused (patch 0043); None otherwise."""
+    if campaign.status != S.PAUSED or campaign.paused_at is None:
+        return None
+    by = campaign.paused_by
+    return {"at": campaign.paused_at, "by_name": (by.display_name or by.email) if by else None}
+
+
 def pause(campaign, user=None) -> Campaign:
     _require(campaign, "pause", f"A {campaign.get_status_display().lower()} campaign cannot be paused.")
     paused = CampaignRun.objects.filter(campaign=campaign, tenant_id=campaign.tenant_id, test_mode=False, status__in=("SENDING", "PREPARING")).update(status="PAUSED")
     campaign.previous_status, campaign.status = campaign.status, S.PAUSED
-    campaign.save(update_fields=["previous_status", "status"])
+    campaign.paused_at, campaign.paused_by_id = timezone.now(), _actor_id(user)
+    campaign.save(update_fields=["previous_status", "status", "paused_at", "paused_by"])
     record(campaign, "PAUSED", "Paused. Messages already handed to the provider still go out; nothing more is sent until it is resumed."
            + (f" {paused} send in progress stopped." if paused else " Runs that are due stay waiting."), user=user)
     return campaign
@@ -360,7 +374,8 @@ def resume(campaign, user=None) -> tuple[Campaign, list[str]]:
     runs = list(CampaignRun.objects.filter(campaign=campaign, tenant_id=campaign.tenant_id, status="PAUSED"))
     CampaignRun.objects.filter(pk__in=[run.pk for run in runs]).update(status="SENDING")
     campaign.status, campaign.previous_status = (campaign.previous_status if campaign.previous_status in LIVE else S.ACTIVE), None
-    campaign.save(update_fields=["status", "previous_status"])
+    campaign.paused_at, campaign.paused_by_id = None, None
+    campaign.save(update_fields=["status", "previous_status", "paused_at", "paused_by"])
     record(campaign, "RESUMED", "Resumed." + (f" {len(runs)} send continues where it stopped." if runs else "") + (f" {moved}" if moved else ""), user=user)
     return campaign, [str(run.pk) for run in runs]
 
@@ -409,7 +424,7 @@ def copy_name(tenant_id, name: str) -> str:
     return candidate
 
 
-def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime | None = None) -> Campaign:
+def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime | None = None, name: str | None = None) -> Campaign:
     """Settings, lists and targets; never status, runs or results. A drip's messages come along, each with its own new
     template copy; the start date does not (`scheduled_at`, when given, is the copy's)."""
     copied = ("campaign_type", "channel", "solicitation_type", "template_id", "sender_profile_id", "description", "tags", "send_type", "send_timezone", "recurring_config",
@@ -418,7 +433,7 @@ def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime |
     if campaign.campaign_type == Campaign.CampaignType.JOURNEY:                 # a copy is a campaign someone runs by hand
         values["campaign_type"] = Campaign.CampaignType.REGULAR_MARKETING
     actor = None if user is None or hasattr(user, "has_scope") else user
-    copy = Campaign.objects.create(tenant_id=campaign.tenant_id, name=copy_name(campaign.tenant_id, campaign.name), code=code, status=S.DRAFT,
+    copy = Campaign.objects.create(tenant_id=campaign.tenant_id, name=name or copy_name(campaign.tenant_id, campaign.name), code=code, status=S.DRAFT,
                                    owner_user_id=getattr(actor, "pk", None), created_by_id=getattr(actor, "pk", None), scheduled_at=scheduled_at, **values)
     ContactListCampaign.objects.bulk_create([ContactListCampaign(campaign=copy, contact_list_id=link.contact_list_id, tenant_id=copy.tenant_id, role=link.role)
                                              for link in campaign.contact_list_campaigns.all()])
@@ -521,15 +536,30 @@ def calendar_spans(campaigns, start: datetime, end: datetime) -> list[dict]:
     now, spans = timezone.now(), []
     for campaign in campaigns:
         runs = sorted((run for run in campaign.campaign_runs.all() if not run.test_mode and run.status != "CANCELLED"), key=lambda run: run.started_at or run.scheduled_at or run.created_at)
+        # a drip's sends name their message (position of count, name), counted over every message, whatever the range shows;
+        # while it is paused, the messages still waiting have no day: they are listed as on_hold instead
+        drip_steps = {step.pk: (position, step) for position, step in enumerate(sorted(campaign.drip_steps.all(), key=lambda item: item.day), start=1)} \
+            if campaign.campaign_type == Campaign.CampaignType.DRIP else {}
+        on_hold = []
+        if drip_steps and campaign.status == S.PAUSED:
+            on_hold = [run for run in runs if run.status == "SCHEDULED"]
+            runs = [run for run in runs if run.status != "SCHEDULED"]
+
+        def about(run):
+            if run.drip_step_id not in drip_steps:
+                return {}
+            position, step = drip_steps[run.drip_step_id]
+            return {"position": position, "count": len(drip_steps), "name": step.name, "step_id": str(step.pk)}
+
         moments = [(run.started_at or run.scheduled_at or run.created_at, "SENT" if run.status in ("COMPLETED", "FAILED") else "SENDING" if run.status in ("PREPARING", "SENDING", "PAUSED") else "WAITING",
-                    run.sequence_label) for run in runs]
+                    run.sequence_label, about(run)) for run in runs]
         live = campaign.status in LIVE or campaign.status == S.PAUSED
         if not moments and campaign.status in EDITABLE and campaign.send_type == "SCHEDULED" and campaign.scheduled_at:
-            moments = [(campaign.scheduled_at, "PLANNED", None)]                  # a draft with a date: not published, shown so the month is planned with it in view
+            moments = [(campaign.scheduled_at, "PLANNED", None, {})]              # a draft with a date: not published, shown so the month is planned with it in view
         ongoing = False
         if live and campaign.send_type == "RECURRING" and not validate_recurring(campaign.recurring_config):
             config, zone = campaign.recurring_config, zone_of(campaign)
-            limit, cursor = config.get("max_runs"), max([moment for moment, _, _ in moments] + [now])
+            limit, cursor = config.get("max_runs"), max([moment for moment, *_ in moments] + [now])
             for _ in range(60):                                                  # occurrences the planner has not created yet
                 if limit is not None and len(moments) >= int(limit):
                     break
@@ -537,15 +567,17 @@ def calendar_spans(campaigns, start: datetime, end: datetime) -> list[dict]:
                 if cursor is None or cursor >= end:
                     ongoing = cursor is not None
                     break
-                moments.append((cursor, "PROJECTED", None))
+                moments.append((cursor, "PROJECTED", None, {}))
         if live and campaign.campaign_type == Campaign.CampaignType.E_RECEIPT:
             ongoing = True
+        if not moments and on_hold and campaign.published_at:
+            moments = [(campaign.published_at, "ON_HOLD_START", None, {})]     # a drip paused before its first send: placed on its publish day
         if not moments:
             if not ongoing or not campaign.published_at:
                 continue
-            moments = [(campaign.published_at, "SENDING", None)]
-        first = min(moment for moment, _, _ in moments)
-        last = max([moment for moment, _, _ in moments] + ([campaign.completed_at] if campaign.completed_at else []))
+            moments = [(campaign.published_at, "SENDING", None, {})]
+        first = min(moment for moment, *_ in moments)
+        last = max([moment for moment, *_ in moments] + ([campaign.completed_at] if campaign.completed_at else []))
         if first >= end or (last < start and not ongoing):
             continue
         shown = display_status(campaign)
@@ -553,7 +585,10 @@ def calendar_spans(campaigns, start: datetime, end: datetime) -> list[dict]:
                       "display_status": shown, "is_journey_generated": campaign.is_journey_generated, "setup_step": campaign.setup_step, "setup_complete": setup_complete(campaign),
                       "actions": actions(campaign), "timezone": zone_of(campaign).key, "start": first, "end": None if ongoing else last, "ongoing": ongoing,
                       "failed": bool(runs) and all(run.status == "FAILED" for run in runs),
-                      "sends": [{"at": moment, "state": state, "label": label} for moment, state, label in sorted(moments, key=lambda item: item[0]) if start <= moment < end]})
+                      "sends": [{"at": moment, "state": state, "label": label, **extra} for moment, state, label, extra in sorted(moments, key=lambda item: item[0])
+                                if start <= moment < end and state != "ON_HOLD_START"],
+                      **({"on_hold": [{"position": about(run)["position"], "name": about(run)["name"], "state": "ON_HOLD", "step_id": about(run)["step_id"]}
+                                      for run in on_hold if about(run)]} if on_hold else {})})
     return sorted(spans, key=lambda span: (span["start"], span["name"].lower()))
 
 
@@ -567,7 +602,7 @@ def metrics(campaign) -> dict:
     tenant, pk = str(campaign.tenant_id), str(campaign.pk)
     table, address = ("sms_execution", "phone_number") if campaign.channel in ("SMS", "MMS") else ("mailer_execution", "email_address")
     with _conn().cursor() as cursor:
-        cursor.execute(f"""SELECT x.status, count(*) FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id
+        cursor.execute(f"""SELECT CASE WHEN x.not_sent_reason IS NOT NULL THEN 'NOT_SENT' ELSE x.status END, count(*) FROM {table} x JOIN campaign_run r ON r.id = x.campaign_run_id
                             WHERE x.tenant_id = %s AND x.campaign_id = %s AND NOT r.test_mode GROUP BY 1""", [tenant, pk])
         by = dict(cursor.fetchall())
         cursor.execute("""SELECT count(*) FROM consent_record WHERE tenant_id = %s AND campaign_id = %s AND action = 'OPT_OUT'""", [tenant, pk])
@@ -582,9 +617,9 @@ def metrics(campaign) -> dict:
             breakdown = [{"key": domain or "unknown", "sent": sent, "delivered": delivered, "opened": opened, "bounced": bounced} for domain, sent, delivered, opened, bounced in cursor.fetchall()]
     got = lambda *names: sum(int(by.get(name, 0)) for name in names)      # noqa: E731
     texts = table == "sms_execution"
-    sent = sum(int(v) for k, v in by.items() if k not in ("QUEUED", "FAILED"))
+    sent = sum(int(v) for k, v in by.items() if k not in ("QUEUED", "FAILED", "NOT_SENT"))
     delivered = got("DELIVERED", "RESPONDED", "OPTED_OUT") if texts else got("DELIVERED", "OPENED", "CLICKED")
-    numbers = {"queued": got("QUEUED"), "sent": sent, "failed": got("FAILED"), "delivered": delivered, "opened": got("OPENED", "CLICKED"), "clicked": got("CLICKED"),
+    numbers = {"queued": got("QUEUED"), "sent": sent, "failed": got("FAILED"), "not_sent": got("NOT_SENT"), "delivered": delivered, "opened": got("OPENED", "CLICKED"), "clicked": got("CLICKED"),
                "bounced": got("BOUNCED"), "complained": got("COMPLAINED"), "unsubscribed": max(unsubscribed, got("OPTED_OUT")), "replied": got("RESPONDED", "OPTED_OUT")}
     actual = campaign.campaign_actuals.order_by("-computed_at").first()
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()

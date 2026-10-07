@@ -51,6 +51,7 @@ urlpatterns = [
     path("campaigns/<uuid:pk>/send-test/", delivery_api.CampaignSendTestView.as_view(), name="campaign-send-test"),
     path("campaign-runs/<uuid:pk>/results/", delivery_api.CampaignRunResultsView.as_view(), name="campaign-run-results"),
     path("campaign-runs/<uuid:pk>/recipients/", recipients_api.RunRecipientsView.as_view(), name="campaign-run-recipients"),
+    path("campaign-runs/<uuid:pk>/skipped/", recipients_api.RunSkippedView.as_view(), name="campaign-run-skipped"),
     path("campaign-runs/<uuid:pk>/recipients/export.csv", recipients_api.RunRecipientsExportView.as_view(), name="campaign-run-recipients-export"),
     path("campaign-runs/<uuid:pk>/recipients/<int:execution_id>/", recipients_api.RunRecipientView.as_view(), name="campaign-run-recipient"),
     path("campaign-runs/<uuid:pk>/recipients/<int:execution_id>/check/", recipients_api.RunRecipientCheckView.as_view(), name="campaign-run-recipient-check"),

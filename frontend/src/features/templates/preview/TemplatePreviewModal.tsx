@@ -1,8 +1,9 @@
 /**
  * Read-only preview of a template or preset: nothing here saves or activates. A template's footer offers Edit, which
- * opens its editor; a preset's offers Copy This Template, the same copy-and-open as the Templates page always used.
+ * opens its editor; a preset's offers Copy This Template, the same copy-and-open as the Templates page always used. A
+ * live drip's message template says so in grey and opens read-only (Open, not Edit).
  */
-import { Monitor, Smartphone } from 'lucide-react'
+import { Lock, Monitor, Smartphone } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -19,6 +20,7 @@ import { formatNumber, formatRelative } from '@/lib/format'
 import type { PersonalizationTag } from '@/lib/types'
 
 import { lookOf } from '../channels'
+import { dripLockNote } from '../lastUsed'
 import { StatusTag } from '../StatusTag'
 import { useCreateFromPreset } from '../useCreateFromPreset'
 import { channelOf, resolvedText, usePreviewContent, type PreviewContent, type PreviewItem } from './usePreviewContent'
@@ -36,9 +38,11 @@ interface TemplatePreviewModalProps {
   /** Edit opens the editor (without template.edit it opens read-only, so the button says Open); presets get no copy button without it */
   canEdit: boolean
   onClose: () => void
+  /** replaces the footer's action: a picker uses the template or preset instead of opening or copying it (the drip's gallery) */
+  action?: { label: string; onClick: () => Promise<void> }
 }
 
-export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreviewModalProps) {
+export function TemplatePreviewModal({ item, canEdit, onClose, action }: TemplatePreviewModalProps) {
   const navigate = useNavigate()
   const [device, setDevice] = useState<Device>('desktop')
   const preview = usePreviewContent(item)
@@ -53,25 +57,41 @@ export function TemplatePreviewModal({ item, canEdit, onClose }: TemplatePreview
     await createFromPreset(item.preset)
     onClose()
   }
+  const use = async () => {
+    if (!action || copying.current) return
+    copying.current = true
+    setBusy(true)
+    try {
+      await action.onClick()
+    } finally {
+      copying.current = false
+      setBusy(false)
+    }
+  }
   const channel = channelOf(item)
   const isEmail = channel === 'EMAIL'
   const name = item.kind === 'preset' ? item.preset.name : item.template.name
+  const lock = item.kind === 'template' ? dripLockNote(item.template) : null
 
   // the tags, the note and the device switch share the header's second row, so the preview gets the height
   const tags = (
     <>
       <Tag>{lookOf(channel).label}</Tag>
       {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP Preset</Tag></> : <StatusTag status={item.template.status} />}
+      {lock && <Tag>Locked</Tag>}
       <span className="ml-1.5 text-xs text-ink-800">Tags show their sample values. Nothing here is saved or sent.</span>
     </>
   )
   const headerActions = isEmail ? <SegmentedControl label="Device" options={DEVICE_OPTIONS} value={device} onChange={setDevice} /> : undefined
 
   const footer =
-    item.kind === 'template' ? (
+    action ? (
+      <Button variant="primary" loading={busy} onClick={() => void use()}>{action.label}</Button>
+    ) : item.kind === 'template' ? (
       <div className="flex w-full items-center justify-between gap-3">
-        <span className="text-helper text-ink-800">Edited {formatRelative(item.template.updated_at)}</span>
-        <Button variant="primary" onClick={() => navigate(editorPathFor(item.template))}>{canEdit ? 'Edit' : 'Open'}</Button>
+        {lock ? <span data-lock-note className="flex items-start gap-1.5 text-helper text-pretty text-ink-800"><Lock size={16} strokeWidth={1.5} aria-hidden className="mt-px shrink-0" />{lock}</span>
+          : <span className="text-helper text-ink-800">Edited {formatRelative(item.template.updated_at)}</span>}
+        <Button variant="primary" onClick={() => navigate(editorPathFor(item.template))}>{canEdit && !lock ? 'Edit' : 'Open'}</Button>
       </div>
     ) : canEdit ? (
       <Button variant="primary" loading={busy} onClick={() => void copy()}>Copy This Template</Button>

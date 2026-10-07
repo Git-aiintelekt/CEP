@@ -3,40 +3,45 @@ import { CircleAlert } from 'lucide-react'
 import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
+import { Tooltip } from '@/components/Tooltip'
 import { formatMoney, formatNumber } from '@/lib/format'
 
 /**
  * One of a small set of options, shown as a card: the campaign type and channel pickers. Put them in a ChoiceGroup.
  * `tile`: a 24px icon over the title and description (beside them on phones), for the Create Campaign pop-up.
+ * `unavailable`: why it can't be chosen now, shown as a tooltip on hover and keyboard focus. The card stays focusable
+ * (aria-disabled, not disabled) so the reason can be read; it is drawn as a disabled control, never faded.
  */
-export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disabled = false, tile = false }: {
-  selected: boolean; onSelect: () => void; title: string; text: string; icon?: ReactNode; badge?: string; disabled?: boolean; tile?: boolean
+export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disabled = false, tile = false, unavailable }: {
+  selected: boolean; onSelect: () => void; title: string; text: string; icon?: ReactNode; badge?: string; disabled?: boolean; tile?: boolean; unavailable?: string
 }) {
-  const state = selected ? 'border-brand-600 bg-brand-100' : tile ? 'border-line bg-surface hover:border-brand-600' : 'border-line bg-surface hover:bg-surface-subtle'
-  const titleTone = selected ? 'text-brand-800' : 'text-ink-900'
+  const off = Boolean(unavailable)
+  const state = off ? 'cursor-not-allowed border-line bg-fill-subtle' : selected ? 'border-brand-600 bg-brand-100' : tile ? 'border-line bg-surface hover:border-brand-600' : 'border-line bg-surface hover:bg-surface-subtle'
+  const titleTone = off ? 'text-ink-300' : selected ? 'text-brand-800' : 'text-ink-900'
   const id = useId()
-  return (
+  const card = (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-text`}
+      aria-disabled={off || undefined}
       disabled={disabled}
-      onClick={onSelect}
+      onClick={off ? undefined : onSelect}
       className={`flex h-full rounded-lg border text-left transition-colors duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300 ${state} ${
         tile ? 'min-w-0 flex-col items-start gap-1.5 p-3.5' : 'flex-col items-start gap-1 p-3'
-      }`}
+      } ${off ? 'w-full' : ''}`}
     >
       {tile ? (
         // the set-up pop-ups' card (the "Setup Dialog" design): the icon with any tag on one row, then the title and its line
         <>
           <span className="flex w-full items-center justify-between gap-2">
-            {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${selected ? 'text-brand-600' : 'text-ink-800'}`}>{icon}</span> : <span />}
+            {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${off ? 'text-ink-300' : selected ? 'text-brand-600' : 'text-ink-800'}`}>{icon}</span> : <span />}
             {badge && <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-plum-100 px-1.5 text-[11px] font-semibold whitespace-nowrap text-plum-800">{badge}</span>}
           </span>
-          <span id={`${id}-title`} className="text-sm font-semibold text-ink-900">{title}</span>
-          <span id={`${id}-text`} className="text-helper text-ink-800">{text}</span>
+          <span id={`${id}-title`} className={`text-sm font-semibold ${off ? 'text-ink-300' : 'text-ink-900'}`}>{title}</span>
+          <span id={`${id}-text`} className={`text-helper ${off ? 'text-ink-300' : 'text-ink-800'}`}>{text}</span>
         </>
       ) : (
         <>
@@ -50,11 +55,12 @@ export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disab
       )}
     </button>
   )
+  return off ? <Tooltip content={unavailable} className="flex h-full w-full">{card}</Tooltip> : card
 }
 
 /** A radio group of ChoiceCards: one tab stop (the chosen card, or the first), and the arrow keys move and choose. */
 export function ChoiceGroup({ label, error, hint, columns = 'sm:grid-cols-2', required = false, strong = false, labelId, children }: {
-  label: string; error?: string; hint?: string; columns?: string; required?: boolean; strong?: boolean; labelId?: string; children: ReactNode
+  label: string; error?: string; hint?: ReactNode; columns?: string; required?: boolean; strong?: boolean; labelId?: string; children: ReactNode
 }) {
   const group = useRef<HTMLDivElement>(null)
   const ownId = useId()

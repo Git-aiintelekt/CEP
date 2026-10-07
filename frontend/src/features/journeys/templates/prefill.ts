@@ -1,13 +1,14 @@
-/** What the Setup pop-up starts with when someone uses a CEP starter. */
+/** What the Setup pop-up starts with: a CEP starter's settings, or only a name and description (a drip turned into a journey). */
 import type { JourneyEntryRule, JourneyStarter } from '@/lib/types'
 
 import { triggerFromRule } from '../entryTriggers'
 
 export interface SetupPrefill {
-  /** what POST /journeys/ is told the journey is made from */
-  source: { starter: string }
-  sourceName: string
+  /** what POST /journeys/ is told the journey is made from; absent when nothing but a name and description is carried over */
+  source?: { starter: string }
+  sourceName?: string
   name: string
+  description?: string
   entryType: string
   triggerValue: string
   triggerLabel: string | null
@@ -16,6 +17,11 @@ export interface SetupPrefill {
   populationMode: string
   reentryPolicy: string
   reentryAfterDays: string
+}
+
+/** Create a Journey Instead, from the Create Campaign pop-up: the name and description typed there, nothing else */
+export function prefillNamed(name: string, description: string): SetupPrefill {
+  return { name, description, entryType: '', triggerValue: '', triggerLabel: null, rule: undefined, populationMode: '', reentryPolicy: 'NEVER', reentryAfterDays: '' }
 }
 
 export function prefillFor(source: JourneyStarter): SetupPrefill {

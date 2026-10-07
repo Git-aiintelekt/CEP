@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { BulkResult, Campaign } from '@/lib/types'
 
-export type StatusAction = 'pause' | 'resume' | 'cancel-schedule' | 'clone' | 'archive' | 'unarchive'
+export type StatusAction = 'pause' | 'resume' | 'cancel-schedule' | 'clone' | 'archive' | 'unarchive' | 'stop'
 
 const DONE: Record<StatusAction, (before: Campaign, after: Campaign) => string> = {
   pause: (c) => `“${c.name}” is paused. Nothing more goes out until it is resumed.`,
@@ -13,6 +13,7 @@ const DONE: Record<StatusAction, (before: Campaign, after: Campaign) => string> 
   clone: (_, copy) => `“${copy.name}” was created as a draft.`,
   archive: (c) => `“${c.name}” is archived. It stays available for reporting.`,
   unarchive: (c, after) => `“${c.name}” is back as ${after.display_status_label}.`,
+  stop: (c, after) => `The remaining messages of “${c.name}” are cancelled${after.stopped_early?.cancelled ? ` (${after.stopped_early.cancelled})` : ''}. Messages already sent stay in reports.`,
 }
 
 /** what the confirm dialog asks before an action that stops or hides something; the others run at once */

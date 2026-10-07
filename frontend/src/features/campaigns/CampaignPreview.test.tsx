@@ -3,7 +3,8 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeCampaign, makeDesign, makeMessage, mediaLibrary, signIn } from '@/test/mockApi'
+import type { DripStep, DripStepRun } from '@/lib/types'
+import { installMockApi, makeCampaign, makeDesign, makeMessage, makeStep, mediaLibrary, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -307,4 +308,106 @@ test('footer: Clone makes the copy and closes the quick view; the ID copies with
   expect(await screen.findByText(/“Copy of Winter Preview” was created as a draft/, {}, { timeout: 3000 })).toBeTruthy()   // the toast waits for every open campaigns query to refetch
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(screen.getByRole('link', { name: 'Open the Copy' })).toBeTruthy()
+})
+
+// ---------------------------------------------------------------------------------------------------- a drip's quick view
+const stepRun = (id: string, status: string, at: string, overrides: Partial<DripStepRun> = {}): DripStepRun => ({
+  id, status, scheduled_at: at, started_at: status === 'COMPLETED' ? at : null, completed_at: status === 'COMPLETED' ? at : null, sent: status === 'COMPLETED' ? 12_000 : 0, delivered: 0, opened: 0,
+  clicked: 0, unsubscribed: 0, open_rate: 0, click_rate: 0, unsubscribe_rate: 0, skipped: { total: 0, by_reason: [] }, ab: null, ...overrides })
+const tpl = (id: string) => ({ id, name: `Loyalty Welcome Series · ${id}`, channel: 'EMAIL' as const, status: 'ACTIVE' })
+const loyaltySteps = (): DripStep[] => [
+  makeStep({ id: 's1', day: 0, name: 'Welcome', template: tpl('t1'), subject_line: 'Welcome to Rewards', run: stepRun('r1', 'COMPLETED', '2026-10-12T14:00:00Z') }),
+  makeStep({ id: 's2', day: 3, name: 'How Points Work', template: tpl('t2'), subject_line: '3 ways to earn points', run: stepRun('r2', 'COMPLETED', '2026-10-15T14:00:00Z') }),
+  makeStep({ id: 's3', day: 7, name: 'First Reward', template: tpl('t3'), subject_line: 'Your first reward is unlocked', run: stepRun('r3', 'SCHEDULED', '2026-10-19T14:00:00Z') }),
+  makeStep({ id: 's4', day: 14, name: 'Reminder', template: tpl('t4'), subject_line: null, run: stepRun('r4', 'SCHEDULED', '2026-10-26T14:00:00Z') }),
+]
+const loyalty = (overrides = {}) => makeCampaign({
+  id: 'd1', name: 'Loyalty Welcome Series', campaign_type: 'DRIP', send_type: 'DRIP', status: 'ACTIVE', send_timezone: 'America/Chicago', template: 't1', template_name: 'Loyalty Welcome Series · t1',
+  sender_profile: 'snd-email', sender_profile_name: 'Northwind Rewards', audience_size: 12_480,
+  drip_progress: { total: 4, sent: 2, failed: 0, cancelled: 0, next: { position: 3, name: 'First Reward', scheduled_at: '2026-10-19T14:00:00Z' } }, ...overrides,
+})
+const thumbLabel = () => dialog().querySelector('[data-thumb-label]')?.textContent
+const messageRows = () => [...dialog().querySelectorAll('[data-preview-message]')].map((row) => row.textContent)
+
+test('a drip’s quick view: the next message first, ‹ › and the list pick another, each row with its state, the figures, and ⋮ from campaign.actions', async () => {
+  const calls = installMockApi({ campaigns: [loyalty(), ...workspace()], dripSteps: { d1: loyaltySteps() }, design: emailDesign })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns?preview=d1')
+  await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })
+
+  await vi.waitFor(() => expect(thumbLabel()).toBe('Message 3 of 4 · Next, Mon 19 Oct'))
+  await vi.waitFor(() => expect(calls.some((call) => call.url.includes('/campaigns/d1/preview/') && call.url.includes('step=s3'))).toBe(true))
+  expect(messageRows()).toEqual(['1 · WelcomeMon 12 OctSent', '2 · How Points WorkThu 15 OctSent', '3 · First RewardMon 19 OctNext Up', '4 · ReminderMon 26 OctScheduled'])
+  expect(within(detail('Subject Line · Message 3')).getByText('Your first reward is unlocked')).toBeTruthy()
+
+  await user.click(within(dialog()).getByRole('button', { name: 'Previous Message' }))
+  expect(thumbLabel()).toBe('Message 2 of 4 · Sent, Thu 15 Oct')
+  await user.click(dialog().querySelector<HTMLElement>('[data-preview-message="4"]')!)
+  expect(thumbLabel()).toBe('Message 4 of 4 · Scheduled, Mon 26 Oct')
+  expect(within(detail('Subject Line · Message 4')).getByText('Uses the template’s subject line')).toBeTruthy()
+  expect(within(dialog()).getByRole('button', { name: 'Next Message' }).getAttribute('aria-disabled')).toBe('true')
+
+  const figures = dialog().querySelector('[data-preview-figures]')!
+  await vi.waitFor(() => expect(figures.textContent).toBe('Campaign List12,480Open Rate52.6%Conversions5'))
+  // today's frame: View Details, Clone and the ID stay
+  expect(within(dialog()).getByRole('link', { name: 'View Details' })).toBeTruthy()
+  expect(within(dialog()).getByRole('button', { name: 'Clone' })).toBeTruthy()
+
+  await user.click(within(dialog()).getByRole('button', { name: 'Actions for Loyalty Welcome Series' }))
+  expect(within(screen.getByRole('region', { name: 'Actions for Loyalty Welcome Series' })).getAllByRole('button').map((item) => item.textContent))
+    .toEqual(['View Results', 'Clone', 'Pause', 'Stop Remaining Messages', 'Archive'])
+})
+
+test('before the start no Pause, figures read "–"; paused says on hold; a draft is planned; a finished drip opens on message 1', async () => {
+  const later = new Date(Date.now() + 9 * 86_400_000).toISOString()
+  const pending = loyaltySteps().map((step) => ({ ...step, run: step.run && { ...step.run, status: 'SCHEDULED', started_at: null, completed_at: null, sent: 0 } }))
+  const scheduled = loyalty({ status: 'PRODUCTION_PUBLISHED', runs: [run({ id: 'r1', campaign: 'd1', status: 'SCHEDULED', scheduled_at: later, started_at: null, completed_at: null })],
+                              drip_progress: { total: 4, sent: 0, failed: 0, cancelled: 0, next: { position: 1, name: 'Welcome', scheduled_at: later } } })
+  installMockApi({ campaigns: [scheduled], dripSteps: { d1: pending }, design: emailDesign })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns?preview=d1')
+  await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })
+  await vi.waitFor(() => expect(thumbLabel()).toMatch(/^Message 1 of 4 · Next, /))
+  expect(dialog().querySelector('[data-preview-figures]')?.textContent).toBe('Campaign List12,480Open Rate–Conversions–')
+  await user.click(within(dialog()).getByRole('button', { name: 'Actions for Loyalty Welcome Series' }))
+  expect(within(screen.getByRole('region', { name: 'Actions for Loyalty Welcome Series' })).getAllByRole('button').map((item) => item.textContent)).toEqual(['Clone', 'Cancel Schedule', 'Archive'])
+
+  cleanup()
+  const held = loyaltySteps().map((step) => (step.id === 's3' ? { ...step, run: { ...step.run!, scheduled_at: '2026-01-16T15:00:00Z' } } : step))
+  installMockApi({ campaigns: [loyalty({ status: 'PAUSED', drip_progress: { total: 4, sent: 2, failed: 0, cancelled: 0, next: { position: 3, name: 'First Reward', scheduled_at: '2026-01-16T15:00:00Z' } } })], dripSteps: { d1: held }, design: emailDesign })
+  await renderAppAt('/campaigns?preview=d1')
+  await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })
+  await vi.waitFor(() => expect(thumbLabel()).toBe('Message 3 of 4 · On hold, was due Fri 16 Jan'))
+  expect(messageRows()[3]).toContain('On Hold')
+
+  cleanup()
+  const planned = loyaltySteps().map((step, index) => ({ ...step, run: null, scheduled_for: new Date(Date.UTC(2026, 10, 2 + [0, 3, 7, 14][index], 15)).toISOString() }))
+  installMockApi({ campaigns: [loyalty({ status: 'DRAFT', setup_step: 6, drip_progress: null, drip_summary: { count: 4, last_day: 14, first_send_at: null, last_send_at: null, ready: true } })], dripSteps: { d1: planned }, design: emailDesign })
+  await renderAppAt('/campaigns?preview=d1')
+  await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })
+  await vi.waitFor(() => expect(thumbLabel()).toBe('Message 1 of 4 · Planned for Mon 2 Nov'))
+  expect(messageRows()[0]).toContain('Not Published')
+
+  cleanup()
+  installMockApi({ campaigns: [loyalty({ status: 'COMPLETED', drip_progress: { total: 4, sent: 4, failed: 0, cancelled: 0, next: null } })], dripSteps: { d1: loyaltySteps() }, design: emailDesign })
+  await renderAppAt('/campaigns?preview=d1')
+  await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })
+  await vi.waitFor(() => expect(thumbLabel()).toBe('Message 1 of 4 · Sent, Mon 12 Oct'))
+})
+
+test('a regular campaign’s quick view is as it was: no message picker, no ⋮', async () => {
+  installMockApi({ campaigns: workspace(), design: emailDesign })
+  await renderAppAt('/campaigns?preview=c1')
+  await screen.findByRole('dialog', { name: 'Fall Launch' })
+  expect(dialog().querySelector('[data-thumb-label]')).toBeNull()
+  expect(within(dialog()).queryByRole('button', { name: 'Actions for Fall Launch' })).toBeNull()
+  expect(detail('Template')).toBeTruthy()
+})
+
+test('Clone in a drip’s quick view opens the Clone pop-up', async () => {
+  installMockApi({ campaigns: [loyalty(), ...workspace()], dripSteps: { d1: loyaltySteps() }, design: emailDesign })
+  const user = userEvent.setup()
+  await renderAppAt('/campaigns?preview=d1')
+  await user.click(await within(await screen.findByRole('dialog', { name: 'Loyalty Welcome Series' })).findByRole('button', { name: 'Clone' }))
+  expect(await screen.findByRole('dialog', { name: 'Clone Loyalty Welcome Series' })).toBeTruthy()
 })

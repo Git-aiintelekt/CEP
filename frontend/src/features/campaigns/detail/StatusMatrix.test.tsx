@@ -51,8 +51,17 @@ const CASES: Case[] = [
   { name: 'SMS', campaign: { channel: 'SMS', status: 'COMPLETED', runs: [run()] as never }, main: null, clone: true, menu: ['Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },
   { name: 'MMS', campaign: { channel: 'MMS', status: 'DRAFT' }, main: 'Continue Setup', clone: true, menu: ['Edit Campaign', 'Production Publish', 'Archive', 'Copy Campaign ID'], banners: [], tabs: BEFORE_SEND },
   { name: 'Multi-channel', campaign: { channel: 'MULTI' as Campaign['channel'], status: 'TEST_PUBLISHED' }, main: 'Production Publish', clone: true, menu: ['Edit Campaign', 'Send a Test', 'Archive', 'Copy Campaign ID'], banners: [], tabs: BEFORE_SEND },
-  { name: 'Drip', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', drip_config: { steps: [{ day: 1 }, { day: 3, label: 'Reminder' }] }, status: 'ACTIVE', runs: [run({ sequence_label: 'Day 1' })] as never },
-    main: null, clone: true, menu: ['Pause', 'Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },
+  // a published drip: the main action follows its state, Stop Remaining Messages while it runs or is paused, Archive always
+  { name: 'Drip, running', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', drip_config: { steps: [{ day: 1 }, { day: 3, label: 'Reminder' }] }, status: 'ACTIVE', runs: [run({ sequence_label: 'Day 1' })] as never },
+    main: 'Pause', clone: true, menu: ['Stop Remaining Messages', 'Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },
+  { name: 'Drip, before its start', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', status: 'PRODUCTION_PUBLISHED', scheduled_at: soon, runs: [waiting] as never },
+    main: 'Cancel Schedule', clone: true, menu: ['Archive', 'Copy Campaign ID'], banners: [], tabs: BEFORE_SEND },
+  { name: 'Drip, paused', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', status: 'PAUSED', runs: [run({ sequence_label: 'Day 0' })] as never },
+    main: 'Resume', clone: true, menu: ['Stop Remaining Messages', 'Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },
+  { name: 'Drip, completed', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', status: 'COMPLETED', runs: [run({ sequence_label: 'Day 0' })] as never },
+    main: 'Clone', clone: true, menu: ['Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },            // Clone is the main button, not a second one
+  { name: 'Drip, stopped early', campaign: { campaign_type: 'DRIP', send_type: 'DRIP', status: 'COMPLETED', stopped_early: { at: '2026-10-17T15:00:00Z', by_name: 'Maria Chen', cancelled: 2 }, runs: [run({ sequence_label: 'Day 0' })] as never },
+    main: 'Clone', clone: true, menu: ['Archive', 'Copy Campaign ID'], banners: [], tabs: ALL_TABS },            // Clone is the main button, not a second one
   { name: 'Recurring, next send waiting', campaign: { send_type: 'RECURRING', recurring_config: { frequency: 'WEEKLY', interval: 1, weekdays: ['MO'], time: '09:00' } as never, status: 'PRODUCTION_PUBLISHED', runs: [run({ sequence_label: 'Occurrence 1' }), { ...waiting, id: 'r2', run_number: 2 }] as never },
     main: null, clone: true, menu: ['Cancel Schedule', 'Archive', 'Copy Campaign ID'], banners: ['scheduled'], tabs: ALL_TABS },
 ]

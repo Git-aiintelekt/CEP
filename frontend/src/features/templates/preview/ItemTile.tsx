@@ -30,13 +30,15 @@ function ChannelPlaceholder({ channel }: { channel: string }) {
  * a transform against the measured room, so the layout drawn is the desktop one. The frame is inert: sandboxed,
  * out of the tab order and deaf to the pointer, so a click lands on the card around it.
  */
-function EmailThumb({ item }: { item: PreviewItem }) {
+function EmailThumb({ item, height = TILE_HEIGHT }: { item: PreviewItem; height?: number }) {
   const channel = channelOf(item)
   const box = useRef<HTMLSpanElement>(null)
   const inView = useInView(box)
   const { data, tags } = usePreviewContent(item, { enabled: inView })
   const html = useMemo(() => (data?.kind === 'email' && data.html ? fillForPreview(data.html, tags, DEFAULT_PROFILE) : null), [data, tags])
-  const [loaded, setLoaded] = useState(false)
+  // which html has painted: a newer save swaps the frame for a fresh one (a scaled frame reloaded in place can stay blank)
+  const [painted, setPainted] = useState<string | null>(null)
+  const loaded = html !== null && painted === html
 
   const [room, setRoom] = useState<number | null>(null)
   useLayoutEffect(() => {
@@ -49,20 +51,21 @@ function EmailThumb({ item }: { item: PreviewItem }) {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  const scale = room ? room / EMAIL_WIDTH : 0.4
+  const scale = room ? room / EMAIL_WIDTH : height / 300
 
   return (
-    <span ref={box} aria-hidden data-tile={html ? 'email' : 'placeholder'} className={`relative block ${TILE} overflow-hidden border-b border-line-subtle bg-surface`}>
+    <span ref={box} aria-hidden data-tile={html ? 'email' : 'placeholder'} style={{ height }} className="relative block w-full overflow-hidden border-b border-line-subtle bg-surface">
       {html && (
         <iframe
+          key={html}
           title="Email thumbnail"
           sandbox=""
           srcDoc={html}
           tabIndex={-1}
           scrolling="no"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => setPainted(html)}
           className="pointer-events-none absolute top-0 left-0 border-0 bg-surface"
-          style={{ width: EMAIL_WIDTH, height: TILE_HEIGHT / scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: EMAIL_WIDTH, height: height / scale, transform: `scale(${scale})`, transformOrigin: 'top left' }}
         />
       )}
       {/* stays over the frame until it has painted, so the card never flashes an empty white box */}
@@ -102,7 +105,8 @@ function MessageTile({ item }: { item: PreviewItem }) {
   )
 }
 
-export function ItemTile({ item }: { item: PreviewItem }) {
+/** `height`: an email's tile is this tall (px); the Sequence step's message cards show a small one */
+export function ItemTile({ item, height }: { item: PreviewItem; height?: number }) {
   const channel = channelOf(item)
-  return channel === 'SMS' || channel === 'MMS' ? <MessageTile item={item} /> : <EmailThumb item={item} />
+  return channel === 'SMS' || channel === 'MMS' ? <MessageTile item={item} /> : <EmailThumb item={item} height={height} />
 }

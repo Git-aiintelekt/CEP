@@ -1,5 +1,5 @@
 /** The ⋮ actions a campaign offers: one list for the table row and the preview pop-up, so the two never disagree, and the campaign page header's. */
-import { Archive, ArchiveRestore, ArrowRight, ChartColumn, Copy, FlaskConical, Pause, Play, Send, Settings2, Workflow, X, type LucideIcon } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowRight, ChartColumn, Copy, FlaskConical, OctagonX, Pause, Play, Send, Settings2, Workflow, X, type LucideIcon } from 'lucide-react'
 
 import type { Campaign } from '@/lib/types'
 
@@ -7,7 +7,7 @@ import { setupHref, type SetupPlace } from './setupFlow'
 import type { StatusAction } from './useCampaignAction'
 import { campaignHome, hasAction } from './vocabulary'
 
-export type CampaignMenuItem = { key: string; label: string; icon: LucideIcon } & ({ to: string; action?: never } | { action: StatusAction; to?: never })
+export type CampaignMenuItem = { key: string; label: string; icon: LucideIcon; /** red text: an action that can't be undone */ danger?: boolean } & ({ to: string; action?: never } | { action: StatusAction; to?: never })
 
 export function campaignMenuItems(campaign: Campaign, can: { edit: boolean; publish: boolean }): CampaignMenuItem[] {
   const own = !campaign.is_journey_generated
@@ -21,6 +21,7 @@ export function campaignMenuItems(campaign: Campaign, can: { edit: boolean; publ
     can.publish && hasAction(campaign, 'pause') && { key: 'pause', label: 'Pause', icon: Pause, action: 'pause' },
     can.publish && hasAction(campaign, 'resume') && { key: 'resume', label: 'Resume', icon: Play, action: 'resume' },
     can.publish && hasAction(campaign, 'cancel_schedule') && { key: 'cancel-schedule', label: 'Cancel Schedule', icon: X, action: 'cancel-schedule' },
+    can.publish && hasAction(campaign, 'stop') && { key: 'stop', label: 'Stop Remaining Messages', icon: OctagonX, action: 'stop', danger: true },
     can.edit && hasAction(campaign, 'archive') && { key: 'archive', label: 'Archive', icon: Archive, action: 'archive' },
     can.edit && hasAction(campaign, 'unarchive') && { key: 'unarchive', label: 'Unarchive', icon: ArchiveRestore, action: 'unarchive' },
   ]
@@ -39,9 +40,31 @@ export interface CampaignMainAction {
   action?: StatusAction
   /** opens in a new tab */
   external?: boolean
+  /** a white outline button instead of the primary (a running drip's Pause) */
+  secondary?: boolean
 }
 
-export type CampaignPageMenuItem = CampaignMenuItem | { key: string; label: string; icon: LucideIcon; command: 'copy-id' | 'edit-details'; to?: never; action?: never }
+export type CampaignPageMenuItem = CampaignMenuItem | { key: string; label: string; icon: LucideIcon; command: 'copy-id' | 'edit-details'; to?: never; action?: never; danger?: never }
+
+/**
+ * A published drip's header: Cancel Schedule before it starts, Pause while it runs, Resume while paused, Clone once it's
+ * done; under ⋮ Stop Remaining Messages (running or paused) and Archive. All from campaign.actions.
+ */
+function dripPageActions(campaign: Campaign, can: { edit: boolean; publish: boolean }) {
+  const main: CampaignMainAction | null =
+    can.publish && hasAction(campaign, 'resume') ? { key: 'resume', label: 'Resume', icon: Play, action: 'resume' }
+    : can.publish && hasAction(campaign, 'pause') ? { key: 'pause', label: 'Pause', icon: Pause, action: 'pause', secondary: true }
+    : can.publish && hasAction(campaign, 'cancel_schedule') ? { key: 'cancel-schedule', label: 'Cancel Schedule', icon: X, action: 'cancel-schedule', secondary: true }
+    : can.edit && hasAction(campaign, 'clone') ? { key: 'clone', label: 'Clone', icon: Copy, action: 'clone' }
+    : null
+  const menu: (CampaignPageMenuItem | false)[] = [
+    can.publish && hasAction(campaign, 'stop') && { key: 'stop', label: 'Stop Remaining Messages', icon: OctagonX, action: 'stop', danger: true },
+    can.edit && hasAction(campaign, 'archive') && { key: 'archive', label: 'Archive', icon: Archive, action: 'archive' },
+    can.edit && hasAction(campaign, 'unarchive') && { key: 'unarchive', label: 'Unarchive', icon: ArchiveRestore, action: 'unarchive' },
+    Boolean(campaign.code) && { key: 'copy-id', label: 'Copy Campaign ID', icon: Copy, command: 'copy-id' },
+  ]
+  return { main, clone: main?.key !== 'clone' && can.edit && hasAction(campaign, 'clone'), menu: menu.filter((item): item is CampaignPageMenuItem => Boolean(item)) }
+}
 
 /**
  * The campaign page's header: one main button, Clone, and the rest under ⋮. Every action the old row of buttons offered
@@ -49,6 +72,7 @@ export type CampaignPageMenuItem = CampaignMenuItem | { key: string; label: stri
  */
 export function campaignPageActions(campaign: Campaign, can: { edit: boolean; publish: boolean }, editPlace: SetupPlace | 'details') {
   const own = !campaign.is_journey_generated
+  if (own && campaign.campaign_type === 'DRIP' && !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status)) return dripPageActions(campaign, can)
   const edit = can.edit && own
   const publish = can.publish && own
   const testPublish = edit && hasAction(campaign, 'test_publish')

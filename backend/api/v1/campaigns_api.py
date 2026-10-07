@@ -23,15 +23,22 @@
     GET    /campaigns/{id}/checklist/      what stands between the campaign and a production publish (a drip: its messages ready, sendable and tested, a future start)
     POST   /campaigns/{id}/request-approval/  {note}   approve/  {note}   send-back/ {note}   (patch 0022; the workspace setting requires it)
     POST   /campaigns/{id}/runs/{run_id}/choose-winner/  {variant: A|B}   a person decides the subject-line test instead of the metric (patch 0023)
-    POST   /campaigns/{id}/clone/          {scheduled_at?}: a draft copy; a drip's messages come with new template copies, the start date only when given
+    POST   /campaigns/{id}/clone/          {scheduled_at?, name?}: a draft copy ("Copy of …" unless a name is given, checked like any name); a drip's messages
+                                           come with new template copies, the start date only when given
     GET    /campaigns/{id}/steps/          a drip's messages in day order, with when each goes out, what it still needs (patch 0040) and its run with results (0041)
-    POST   /campaigns/{id}/steps/          {start_from: copy|template|blank, source_step?, template?, starter?, day?, name?}: a message with its own template copy
-    PATCH  /campaigns/{id}/steps/{step_id}/   {name, day, send_time, subject_line, preheader, ab_config, template (copied in), row_version}
+    POST   /campaigns/{id}/steps/          {start_from: copy|template|blank, source_step?, template?, starter?, day?, name?, consume_source?}: a message with its
+                                           own template copy; consume_source soft-deletes the source when it is your own unused Draft (a preset's throwaway copy)
+    PATCH  /campaigns/{id}/steps/{step_id}/   {name, day, send_time, subject_line, preheader, ab_config, template (copied in), consume_source?, row_version}
     DELETE /campaigns/{id}/steps/{step_id}/   not the last one; its own template copy goes with it
     POST   /campaigns/{id}/steps/{step_id}/copy-as-next/   a copy of that message after the last one
     POST   /campaigns/{id}/steps/{step_id}/test/   {to, user_ids}: test-send that one message again
     POST   /campaigns/{id}/steps/{step_id}/retry/   a failed message nobody received: a new run for it, now
     GET    /campaigns/{id}/steps/review/   the Test & Publish timeline: each message's time, subject, reach and warnings (TOO_CLOSE, FREQUENCY, QUIET_HOURS)
+    PATCH  /campaigns/{id}/                a drip with drip_config {time} only saves the series time; the messages are never reshaped
+    GET    /campaign-runs/{id}/skipped/    ?reason= &q= &page= &page_size=: the people a run skipped, with reason and address (recipients_api)
+
+A campaign carries `paused {at, by_name}` while it is paused (patch 0043). Steps carry `text_excerpt` (SMS/MMS, first 140
+characters) and their run block `not_sent`, plus `replied`/`opted_out` for texts.
 """
 import csv
 import logging
@@ -69,6 +76,7 @@ log = logging.getLogger("cep.campaigns")
 TARGET_FIELDS = ("target_revenue", "target_opens", "target_clicks", "target_conversions", "target_redemptions", "planned_cost", "planned_offer_cost", "notes")
 STATUS_LABEL = {"SCHEDULED": "Scheduled", **dict(Campaign.Status.choices)}
 TAG_RE = re.compile(r"^[\w .&/+-]{1,40}$")
+CLOCK_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 class CampaignPagination(PageNumberPagination):
@@ -110,11 +118,13 @@ class CampaignSerializer(s.CampaignSerializer):
     drip_summary = serializers.SerializerMethodField(help_text="Drips only: {count, last_day, first_send_at, last_send_at, ready}; null for other campaigns.")
     drip_progress = serializers.SerializerMethodField(help_text="Drips only: {total, sent, failed, cancelled, next: {position, name, scheduled_at} | null}; null otherwise.")
     stopped_early = serializers.SerializerMethodField(help_text="A drip stopped early: {at, by_name, cancelled}; null otherwise.")
+    paused = serializers.SerializerMethodField(help_text="While paused: {at, by_name} (patch 0043); null otherwise.")
 
     class Meta(s.CampaignSerializer.Meta):
         read_only_fields = s.AUDIT_FIELDS + ("status", "is_journey_generated", "origin_journey", "legacy_marketing_campaign_id", "previous_status", "published_at",
                                              "completed_at", "archived_at", "approval_status", "approval_requested_by", "approval_requested_at", "approval_note",
-                                             "approval_decided_by", "approval_decided_at", "approval_decision_note", "stopped_at", "stopped_by")
+                                             "approval_decided_by", "approval_decided_at", "approval_decision_note", "stopped_at", "stopped_by",
+                                             "paused_at", "paused_by")
 
     # ---- representation
     def get_display_status(self, campaign) -> str:
@@ -148,6 +158,10 @@ class CampaignSerializer(s.CampaignSerializer):
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_stopped_early(self, campaign):
         return drip_lifecycle.stopped_early(campaign)
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_paused(self, campaign):
+        return service.paused(campaign)
 
     def get_list_count(self, campaign) -> int:
         return sum(1 for link in campaign.contact_list_campaigns.all() if link.role == "INCLUDE")
@@ -227,7 +241,24 @@ class CampaignSerializer(s.CampaignSerializer):
             problem = service.validate_recurring(attrs["recurring_config"])
             if problem:
                 errors["recurring_config"] = problem
-        if "drip_config" in attrs and attrs["drip_config"] and send_type == "DRIP":
+        self._series_time_only = False
+        config = attrs.get("drip_config")
+        if current("campaign_type") == "DRIP" and isinstance(config, dict) and "steps" not in config:
+            # a drip's messages are rows of their own (campaign_drip_step): drip_config here carries only the series time,
+            # which is merged into the stored config so the steps mirror stays exactly as it is
+            if set(config) - {"time"}:
+                errors["drip_config"] = "A drip's messages are set on its steps. Send only the series time here."
+            elif config.get("time") is not None and not CLOCK_RE.match(str(config["time"])):
+                errors["drip_config"] = "Enter the series time as HH:MM, for example 09:00."
+            else:
+                merged = dict(getattr(self.instance, "drip_config", None) or {})
+                if config.get("time") is None:
+                    merged.pop("time", None)
+                else:
+                    merged["time"] = str(config["time"])
+                attrs["drip_config"] = merged
+                self._series_time_only = True
+        elif "drip_config" in attrs and attrs["drip_config"] and send_type == "DRIP":
             problem = service.validate_drip(attrs["drip_config"])
             if problem:
                 errors["drip_config"] = problem
@@ -304,7 +335,8 @@ class CampaignSerializer(s.CampaignSerializer):
         changed = [words[name] for name, value in validated_data.items() if name in words and getattr(campaign, name) != value]
         before_template = campaign.template_id
         campaign = super().update(campaign, validated_data)
-        if {"drip_config", "template", "campaign_type"} & set(validated_data):
+        reshaping = {"template", "campaign_type"} | (set() if getattr(self, "_series_time_only", False) else {"drip_config"})
+        if reshaping & set(validated_data):
             drip.follow_campaign(campaign, before_template, self.context["request"].user)
         elif "name" in validated_data and campaign.campaign_type == Campaign.CampaignType.DRIP:
             drip.sync(campaign)                                      # the copies are named after the campaign: "{name} · 2 of 4"
@@ -317,7 +349,7 @@ class CampaignSerializer(s.CampaignSerializer):
     @staticmethod
     def _fresh(pk):
         """What was just written, read again: the lists and targets were changed after the instance was loaded."""
-        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant", "topic", "approval_requested_by", "approval_decided_by", "stopped_by")
+        return (Campaign.objects.select_related("template", "sender_profile", "owner_user", "tenant", "topic", "approval_requested_by", "approval_decided_by", "stopped_by", "paused_by")
                 .prefetch_related("campaign_runs", "contact_list_campaigns__contact_list", "campaign_targets", "drip_steps__template").get(pk=pk))
 
 
@@ -328,6 +360,14 @@ class TestPublishSerializer(serializers.Serializer):
 
 class CloneSerializer(serializers.Serializer):
     scheduled_at = serializers.DateTimeField(required=False, allow_null=True, help_text="The copy's send time or start date; left out, the copy has none.")
+    name = serializers.CharField(required=False, allow_blank=True, max_length=200, help_text="The copy's name; left out or blank, \"Copy of …\"")
+
+    def validate_name(self, value):
+        value = " ".join((value or "").split())
+        if not value:
+            return value
+        # the same rules as naming a campaign (CampaignSerializer.validate_name): 3 characters, unique among live campaigns
+        return CampaignSerializer.validate_name(CampaignSerializer(), value)
 
     def validate_scheduled_at(self, value):
         if value is not None and value <= timezone.now():
@@ -347,6 +387,8 @@ class StepAddSerializer(serializers.Serializer):
     starter = serializers.CharField(required=False, allow_blank=True, help_text="start_from=template: a key from /template-starters/ instead of a template")
     day = serializers.IntegerField(required=False, allow_null=True, help_text="default: the last message's day + 3", error_messages={"invalid": "Enter the day as a whole number."})
     name = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    consume_source = serializers.BooleanField(required=False, default=False,
+                                              help_text="start_from=template: soft-delete the template afterwards when it is an unused DRAFT you created (a preset saved only to start this message)")
 
 
 class StepUpdateSerializer(serializers.Serializer):
@@ -358,6 +400,7 @@ class StepUpdateSerializer(serializers.Serializer):
     ab_config = serializers.JSONField(required=False, allow_null=True)
     template = serializers.PrimaryKeyRelatedField(queryset=_workspace_templates(), required=False, allow_null=True,
                                                   error_messages={"does_not_exist": "Choose one of this workspace's templates."}, help_text="a template to copy in for this message")
+    consume_source = serializers.BooleanField(required=False, default=False, help_text="with template: soft-delete it afterwards when it is an unused DRAFT you created")
     row_version = serializers.IntegerField(required=False)
 
 
@@ -404,7 +447,7 @@ class CampaignViewSet(views.CampaignViewSet):
         attached = (ContactListCampaign.objects.filter(campaign_id=OuterRef("pk"), role="INCLUDE").values("campaign_id").annotate(n=Count("contact_list_id")).values("n")[:1])
         upcoming = CampaignRun.objects.filter(campaign_id=OuterRef("pk"), test_mode=False, status="SCHEDULED").order_by("scheduled_at").values("scheduled_at")[:1]
         frozen = CampaignList.objects.filter(campaign_id=OuterRef("pk"), status="FROZEN", campaign_run__test_mode=False).order_by("-generated_at").values("member_count")[:1]
-        qs = (super().get_queryset().select_related("owner_user", "tenant", "approval_requested_by", "approval_decided_by", "stopped_by").prefetch_related("campaign_targets", "drip_steps__template", drip.latest_contents_prefetch())
+        qs = (super().get_queryset().select_related("owner_user", "tenant", "approval_requested_by", "approval_decided_by", "stopped_by", "paused_by").prefetch_related("campaign_targets", "drip_steps__template", drip.latest_contents_prefetch())
               .annotate(list_count=Coalesce(Subquery(attached, output_field=IntegerField()), 0), next_run=Subquery(upcoming),
                         frozen_members=Subquery(frozen, output_field=IntegerField())))
         if self.action not in ("list", "calendar"):
@@ -766,7 +809,8 @@ class CampaignViewSet(views.CampaignViewSet):
     def clone(self, request, pk=None, version=None):
         body = CloneSerializer(data=request.data or {})
         body.is_valid(raise_exception=True)
-        copy = service.clone(self.get_object(), request.user, code=s.CampaignSerializer._next_code(), scheduled_at=body.validated_data.get("scheduled_at"))
+        copy = service.clone(self.get_object(), request.user, code=s.CampaignSerializer._next_code(), scheduled_at=body.validated_data.get("scheduled_at"),
+                             name=body.validated_data.get("name") or None)
         return self._answer(copy, 201)
 
     # ------------------------------------------------------------ drip messages
@@ -800,7 +844,8 @@ class CampaignViewSet(views.CampaignViewSet):
         values = dict(body.validated_data)
         source = self._step(campaign, values.pop("source_step")) if values.get("source_step") else None
         values.pop("source_step", None)
-        step = drip.add_step(campaign, request.user, source_step=source, **values)
+        consume = values.pop("consume_source", False)
+        step = drip.add_step(campaign, request.user, source_step=source, consume_source_template=consume, **values)
         return self._step_answer(campaign, step, 201)
 
     @extend_schema(methods=["PATCH"], request=StepUpdateSerializer, responses=dict)
@@ -816,7 +861,8 @@ class CampaignViewSet(views.CampaignViewSet):
         body.is_valid(raise_exception=True)
         values = dict(body.validated_data)
         row_version = values.pop("row_version", None)
-        step = drip.update_step(campaign, step, request.user, values, row_version=row_version)
+        consume = values.pop("consume_source", False)
+        step = drip.update_step(campaign, step, request.user, values, row_version=row_version, consume_source_template=consume)
         return self._step_answer(campaign, step)
 
     @extend_schema(request=None, responses={201: dict})

@@ -217,3 +217,33 @@ test('moving on with an upload still waiting asks first: confirm it and continue
   await vi.waitFor(() => expect(window.location.pathname).toBe('/campaigns/c1'))
   expect(second.calls.filter((call) => call.method === 'PATCH').every((call) => (call.body as { contact_lists?: string[] }).contact_lists?.length === 0 || !(call.body as object).hasOwnProperty('contact_lists'))).toBe(true)
 }, 20_000)
+
+// ---------------------------------------------------------------- drips
+const drip = (overrides = {}) => makeCampaign({ status: 'DRAFT', campaign_type: 'DRIP', send_type: 'DRIP', ...overrides })
+const DRIP_NOTE = 'Everyone eligible starts the drip together on the start date. People added to these lists later don’t join. Consent and frequency limits are checked again before each message.'
+
+test('a drip: "How a Drip Audience Works" above Send To, in the empty state too; everything else as for any campaign', async () => {
+  await openStep(drip({ contact_lists: [], contact_list_details: [] }))
+  const note = document.querySelector<HTMLElement>('[data-drip-audience-note]')!
+  expect(within(note).getByText('How a Drip Audience Works')).toBeTruthy()
+  expect(within(note).getByText(DRIP_NOTE)).toBeTruthy()
+  expect(note.compareDocumentPosition(card('Send To')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()      // above Send To
+  expect(within(card('Send To')).getByText('Add the lists this drip goes to. A draft can be saved without one; publishing needs at least one.')).toBeTruthy()
+  expect(within(card('Don’t Send To')).getByText('Nobody is left out by a list.')).toBeTruthy()
+  expect(within(card('Don’t Send To')).getByRole('button', { name: 'Add List to Leave Out' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: /Continue to Sequence/ })).toBeTruthy()                  // a draft can move on without lists
+  cleanup()
+
+  await openStep(makeCampaign({ status: 'DRAFT', contact_lists: [], contact_list_details: [] }))
+  expect(document.querySelector('[data-drip-audience-note]')).toBeNull()                           // not for other campaigns
+  expect(within(card('Send To')).getByText('Add the lists this campaign goes to. A draft can be saved without one; publishing needs at least one.')).toBeTruthy()
+})
+
+test('a drip nobody can receive: a warning in the channel’s words, never a block', async () => {
+  await openStep(drip({ channel: 'EMAIL' }), { estimate: { estimated_recipients: 0 } })
+  expect(await screen.findByText('No one on these lists can receive marketing email right now. Check consent or the lists you’re leaving out.')).toBeTruthy()
+  expect((screen.getByRole('button', { name: /Continue to Sequence/ }) as HTMLButtonElement).disabled).toBe(false)
+  cleanup()
+  await openStep(drip({ channel: 'SMS' }), { estimate: { estimated_recipients: 0 } })
+  expect(await screen.findByText('No one on these lists can receive marketing texts right now. Check consent or the lists you’re leaving out.')).toBeTruthy()
+})

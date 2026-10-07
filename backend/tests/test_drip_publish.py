@@ -242,6 +242,21 @@ def test_publish_activates_the_drips_own_copies(world, check):
     check.done()
 
 
+def test_a_messages_own_subject_counts_for_its_copy(world, check):
+    """A message started from a blank template has no subject in its copy; its own subject line (set on the Sequence step,
+    read-only in the editor) is what it sends, so the copy needs none to be activated."""
+    cid = _series(world, "ZS own subject")
+    _test_all(world, cid)
+    copies = [step["template"]["id"] for step in _steps(world, cid)]
+    world.sql("UPDATE template_master SET status = 'DRAFT' WHERE id = ANY(%s::uuid[])", [copies])
+    world.sql("UPDATE rendered_template_content SET subject_line = NULL WHERE template_id = %s", [copies[2]])
+    world.sql("UPDATE campaign_drip_step SET subject_line = 'Last call for your reward' WHERE campaign_id = %s AND day = 5", [cid])
+    check("the checklist doesn't ask the copy for a subject", "messages_content" not in _checklist(world, cid)["problems"], _checklist(world, cid)["problems"])
+    published = _publish(world, cid)
+    check("publish activates it", published.status_code == 201 and TemplateMaster.objects.get(pk=copies[2]).status == "ACTIVE", published.content[:200])
+    check.done()
+
+
 # ------------------------------------------------------------------------------------------------ review
 def test_review_timeline_and_warnings(world, check):
     body = world.template("ZS review email", "EMAIL", subject="Review subject", html="<p>Hi</p>")

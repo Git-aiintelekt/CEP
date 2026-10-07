@@ -350,3 +350,9 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 * Not a limit any more: the engine sends one-time runs, recurring occurrences (CAMPAIGNS.md §6) and drip messages, each
   drip message with its own content and its audience fixed at the first message (CAMPAIGNS.md §10). A/B subject lines
   are sent since 2026-09-27 (CAMPAIGNS.md §8).
+* Drips on the engines: each message is a run of its own through the campaign's sender. A drip's tests mark each message's
+  place in the subject ("[Test 2 of 3 · would send Day 3] " for email, with a banner in the body; "[Test 2/3 · Day 3] "
+  for texts). Stopping a drip while a send is paused leaves what it had queued unsent: those rows keep status FAILED with
+  `not_sent_reason = 'STOPPED_EARLY'` and count as not sent, never as failed or billed (patch 0043). To try a whole drip
+  locally without credentials, put an SMS drip on a `SANDBOX_SMS` sender; the sandbox's callback can mark messages
+  delivered or failed and post an inbound STOP.

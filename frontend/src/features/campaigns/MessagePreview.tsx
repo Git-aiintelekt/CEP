@@ -103,6 +103,12 @@ export function MmsImage({ url }: { url: string | null }) {
 interface MessagePreviewProps {
   campaignId: string
   templateId?: string
+  /** one message of a drip */
+  stepId?: string
+  /** shown instead of the preview's subject: the subject an A/B message's group B gets */
+  subject?: string
+  /** the subject line is said above the preview already (a drip's Test & Publish) */
+  hideSubject?: boolean
   withCustomers?: boolean
   compact?: boolean
   /** a click on the message opens it large in a pop-up */
@@ -111,7 +117,7 @@ interface MessagePreviewProps {
   controls?: { party: string; device: PreviewDevice; sender: string; image?: string | null }
 }
 
-export function MessagePreview({ campaignId, templateId, withCustomers = false, compact = false, enlarge = false, controls }: MessagePreviewProps) {
+export function MessagePreview({ campaignId, templateId, stepId, subject: subjectShown, hideSubject = false, withCustomers = false, compact = false, enlarge = false, controls }: MessagePreviewProps) {
   const [ownParty, setParty] = useState('')
   const [ownDevice, setDevice] = useState<PreviewDevice>('desktop')
   const [large, setLarge] = useState(false)
@@ -119,7 +125,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
   const device = controls?.device ?? ownDevice
 
   const people = useSampleCustomers(campaignId, withCustomers && !controls)
-  const preview = useCampaignPreview(campaignId, { templateId, party })
+  const preview = useCampaignPreview(campaignId, { templateId, party, stepId })
 
   if (preview.isPending) {
     // the Content tab's card: a grey block, as every card on the campaign page loads
@@ -133,7 +139,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
     return <ErrorState title="The preview could not be built" error={preview.error} onRetry={() => void preview.refetch()} />
   }
 
-  const data = preview.data
+  const data = subjectShown ? { ...preview.data, subject: subjectShown } : preview.data
   const isEmail = Boolean(data.html)
   if (compact) {
     return (
@@ -173,7 +179,7 @@ export function MessagePreview({ campaignId, templateId, withCustomers = false, 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink-900">{data.template} <span className="font-normal text-ink-800">· version {data.version}</span></p>
-          {data.subject && isEmail && <p className="truncate text-sm text-ink-800">Subject: {data.subject}</p>}
+          {data.subject && isEmail && !hideSubject && <p className="truncate text-sm text-ink-800">Subject: {data.subject}</p>}
         </div>
         <div className="flex flex-wrap items-end gap-3">
           {withCustomers && (people.data?.length ?? 0) > 0 && (

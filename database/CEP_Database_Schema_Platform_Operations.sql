@@ -1673,5 +1673,29 @@ COMMENT ON COLUMN campaign.stopped_at IS 'A drip whose remaining messages were s
 COMMENT ON COLUMN campaign.stopped_by IS 'A drip whose remaining messages were stopped: who';
 
 -- =====================================================================================
+-- 31. PAUSED BY, AND SENDS THAT NEVER WENT (patch 0043)
+-- campaign.paused_at / paused_by: who paused a campaign and when, set by pause and cleared by resume and stop (every
+-- campaign type). not_sent_reason on the execution rows: a message CEP decided not to send after queuing it. Its status
+-- stays FAILED (the status CHECKs are the hardening layer's, on partitioned tables), and this code tells it apart from a
+-- real failure: the figures count it as not_sent, never failed, and billing never counts it.
+--   STOPPED_EARLY   the drip was stopped while this send was paused (apps/campaigns/drip_lifecycle.py, stop)
+-- =====================================================================================
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ;
+ALTER TABLE campaign ADD COLUMN IF NOT EXISTS paused_by UUID REFERENCES app_user(id);
+COMMENT ON COLUMN campaign.paused_at IS 'While paused: when it was paused. Cleared on resume and on stop';
+COMMENT ON COLUMN campaign.paused_by IS 'While paused: who paused it';
+
+ALTER TABLE mailer_execution ADD COLUMN IF NOT EXISTS not_sent_reason VARCHAR(30);
+ALTER TABLE sms_execution ADD COLUMN IF NOT EXISTS not_sent_reason VARCHAR(30);
+COMMENT ON COLUMN mailer_execution.not_sent_reason IS 'A queued message CEP chose not to send (status FAILED): STOPPED_EARLY. NULL for every other row';
+COMMENT ON COLUMN sms_execution.not_sent_reason IS 'A queued message CEP chose not to send (status FAILED): STOPPED_EARLY. NULL for every other row';
+
+-- rows written by a stop before the column existed carried only this text
+UPDATE mailer_execution SET not_sent_reason = 'STOPPED_EARLY'
+ WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.';
+UPDATE sms_execution SET not_sent_reason = 'STOPPED_EARLY'
+ WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.';
+
+-- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

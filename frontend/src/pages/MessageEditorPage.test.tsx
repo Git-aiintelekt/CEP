@@ -45,7 +45,9 @@ test('SMS: a tag is inserted at the caret, pasted smart punctuation is flagged a
   await user.selectOptions(screen.getByLabelText('Insert Personalization Tag'), '{{offer_code}}')
   expect(body.value).toBe('Use {{offer_code}} today')
 
+  await new Promise((resolve) => requestAnimationFrame(resolve))                                          // the insert puts the caret back on the next frame
   await user.click(body)
+  body.setSelectionRange(body.value.length, body.value.length)
   await user.paste(' – it’s “yours”')
   expect(counter()).toContain('UCS-2')
   expect(screen.getByText(/outside the standard SMS alphabet/)).toBeTruthy()

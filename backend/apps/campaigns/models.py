@@ -102,6 +102,8 @@ class Campaign(models.Model):
     topic = models.ForeignKey('governance.SubscriptionTopic', on_delete=models.PROTECT, db_column='topic_id', related_name='campaigns', null=True, blank=True)  # preference centre (patch 0028)
     stopped_at = models.DateTimeField(null=True, blank=True)  # a drip stopped early: COMPLETED, and when (patch 0042)
     stopped_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='stopped_by', related_name='+', null=True, blank=True)
+    paused_at = models.DateTimeField(null=True, blank=True)  # while paused: when (patch 0043); cleared on resume and stop
+    paused_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='paused_by', related_name='+', null=True, blank=True)
 
     class Meta:
         managed = False

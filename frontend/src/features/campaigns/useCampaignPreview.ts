@@ -5,10 +5,11 @@ import { api } from '@/lib/api'
 import type { Campaign, CampaignPreview, Template } from '@/lib/types'
 
 /** GET /campaigns/:id/preview/, shared by everything that shows the message so it is fetched once. 409 means no content yet. */
-export function useCampaignPreview(campaignId: string, { templateId = '', party = '', enabled = true }: { templateId?: string; party?: string; enabled?: boolean } = {}) {
+/** `stepId`: one message of a drip (?step=) */
+export function useCampaignPreview(campaignId: string, { templateId = '', party = '', stepId = '', enabled = true }: { templateId?: string; party?: string; stepId?: string; enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: ['campaigns', 'preview', campaignId, templateId, party],
-    queryFn: ({ signal }) => api.get<CampaignPreview & { channel?: string }>(`/campaigns/${campaignId}/preview/`, { template: templateId || undefined, party_id: party }, signal),
+    queryKey: ['campaigns', 'preview', campaignId, templateId, party, stepId],
+    queryFn: ({ signal }) => api.get<CampaignPreview & { channel?: string }>(`/campaigns/${campaignId}/preview/`, { template: templateId || undefined, party_id: party, step: stepId || undefined }, signal),
     retry: false,
     enabled,
   })

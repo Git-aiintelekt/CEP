@@ -10,7 +10,7 @@ import { SkeletonLine } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { ReceiptApiDetails } from '@/features/delivery/RunResults'
 import { formatMoney, formatNumber, titleize } from '@/lib/format'
-import type { Campaign } from '@/lib/types'
+import type { Campaign, DripStep } from '@/lib/types'
 
 import { audienceSummary, useCampaignAudience } from '../audienceNumbers'
 import { CampaignThumbnail } from '../CampaignThumbnail'
@@ -18,6 +18,7 @@ import { Detail } from '../CampaignPreviewDetails'
 import { useMessageDetails, type DetailState } from '../messageDetails'
 import { CardError, CardLink, CardSubheading, DetailCard, Fact, FACTS_GRID, Metric } from '../parts'
 import { setupHref } from '../setupFlow'
+import { seriesOf, whenInZone, zoneShort } from '../dripSequence'
 import { useCampaignMessage } from '../useCampaignPreview'
 import { hasAction, hasResults, isText, sendTypeLabel, whenText } from '../vocabulary'
 import { dateTimeInZone } from '../zone'
@@ -25,6 +26,7 @@ import { AudienceSummary } from './AudienceSummary'
 import { useCampaignMetrics, resultsStamp } from './campaignMetrics'
 import { ChecksLine } from './ChecksLine'
 import { RunsCard } from './RunsCard'
+import { SeriesTimelineCard } from './SeriesTimeline'
 
 const plural = (count: number, word: string) => `${formatNumber(count)} ${word}${count === 1 ? '' : 's'}`
 
@@ -39,6 +41,8 @@ function MetricsCard({ campaign, zone, live }: { campaign: Campaign; zone: strin
     : data && !data.conversions && !data.revenue ? 'Arrives with the attribution feed'
     : 'No target set'
   const stamp = resultsStamp(campaign, zone, data ? metrics.dataUpdatedAt : null)
+  const progress = campaign.drip_progress ?? null
+  const next = whenInZone(progress?.next?.scheduled_at, zone)
 
   return (
     <DetailCard title="Metrics" actions={<>{stamp && <span className="text-ink-800">{stamp}</span>}<CardLink to="?tab=performance">See All</CardLink></>}>
@@ -59,6 +63,8 @@ function MetricsCard({ campaign, zone, live }: { campaign: Campaign; zone: strin
             </>
           )}
           <Metric label="Conversions" value={data ? formatNumber(data.conversions) : '–'} note={data ? conversionNote : undefined} />
+          {progress && <Metric label="Messages Sent" value={`${formatNumber(progress.sent)} of ${formatNumber(progress.total)}`} note={progress.cancelled ? `${formatNumber(progress.cancelled)} cancelled` : progress.failed ? `${formatNumber(progress.failed)} failed` : undefined} />}
+          {progress && <Metric label="Next Message" value={next ? `${next.day}, ${next.time} ${zoneShort(zone)}` : 'None waiting'} note={progress.next ? `Message ${progress.next.position}${progress.next.name ? ` · ${progress.next.name}` : ''}` : undefined} />}
         </dl>
       )}
     </DetailCard>
@@ -97,6 +103,13 @@ function SetupCard({ campaign, zone, editable }: { campaign: Campaign; zone: str
           <Fact label="Corporate Frequency Limits">{campaign.respect_governance ? 'Applied' : 'Switched off for this campaign'}</Fact>
           <Fact label="Messages per Hour">{campaign.rate_limit_per_hour ? `At most ${formatNumber(campaign.rate_limit_per_hour)}` : 'No limit of its own'}</Fact>
           <Fact label="Recipient's Local Time">{campaign.timezone_optimization ? "Each recipient's own time zone" : 'Not used'}</Fact>
+          {campaign.campaign_type === 'DRIP' && (
+            <>
+              <Fact label="Start Date">{campaign.scheduled_at ? (whenInZone(campaign.scheduled_at, zone)?.long ?? '—') : 'Not chosen yet'}</Fact>
+              <Fact label="Series Send Time">{`${seriesOf(campaign, zone).time} ${zoneShort(zone)}`}</Fact>
+              <Fact label="Topic">{campaign.topic_name ?? (campaign.topic ? 'Chosen' : 'None')}</Fact>
+            </>
+          )}
           {drip.length > 0 && (
             <Fact label="Series Steps" className="col-span-full">
               <ol className="flex flex-wrap gap-2" aria-label="Series Steps">
@@ -206,14 +219,17 @@ function ContentCard({ campaign, editable }: { campaign: Campaign; editable: boo
   )
 }
 
-export function OverviewTab({ campaign, zone, live }: { campaign: Campaign; zone: string; live: boolean }) {
+/** `onSkipped` / `onRetry`: a published drip's timeline opens the Skipped drawer and the Retry confirmation the page holds */
+export function OverviewTab({ campaign, zone, live, onSkipped, onRetry }: { campaign: Campaign; zone: string; live: boolean; onSkipped?: (step: DripStep) => void; onRetry?: (step: DripStep) => void }) {
   const { can } = useAuth()
   const editable = can('campaign.edit') && hasAction(campaign, 'edit') && !campaign.is_journey_generated
   const receipt = campaign.campaign_type === 'E_RECEIPT'
   const sent = hasResults(campaign)
+  const publishedDrip = campaign.campaign_type === 'DRIP' && !['DRAFT', 'TEST_PUBLISHED'].includes(campaign.status)
   return (
     <div className="flex flex-col gap-6">
       {sent && <MetricsCard campaign={campaign} zone={zone} live={live} />}
+      {publishedDrip && <SeriesTimelineCard campaign={campaign} zone={zone} canPublish={can('campaign.publish')} onSkipped={onSkipped ?? (() => {})} onRetry={onRetry ?? (() => {})} />}
       <SetupCard campaign={campaign} zone={zone} editable={editable} />
       {!receipt && <AudienceCard campaign={campaign} editable={editable} />}
       <ContentCard campaign={campaign} editable={editable} />

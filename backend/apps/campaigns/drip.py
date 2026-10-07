@@ -131,6 +131,22 @@ def _from_starter(campaign, key: str, user, name: str):
     return template
 
 
+def consume_source(template, user) -> bool:
+    """consume_source: the template a message was just copied from goes, when it was only ever a stepping stone (the
+    frontend saves a preset as a Draft, then adds the message from it). Soft-deleted only when it is a live DRAFT the same
+    person created and nothing uses it: no campaign, no drip message, no journey step. Otherwise it stays, silently."""
+    from apps.journeys.models import JourneyNode
+    from apps.templates.models import TemplateMaster
+    user_id = _user_id(user)
+    if template is None or user_id is None or template.deleted_at is not None or template.status != TemplateMaster.Status.DRAFT or template.created_by_id != user_id:
+        return False
+    if (Campaign.objects.filter(template_id=template.pk, deleted_at__isnull=True).exists()
+            or CampaignDripStep.objects.filter(template_id=template.pk).exists()
+            or JourneyNode.objects.filter(journey_version__journey__tenant_id=template.tenant_id, deleted_at__isnull=True, config__template_id=str(template.pk)).exists()):
+        return False
+    return TemplateMaster.objects.filter(pk=template.pk, deleted_at__isnull=True).update(deleted_at=timezone.now(), updated_by_id=user_id) == 1
+
+
 def _discard(campaign, template_id, owned: bool) -> None:
     """A step let go of its template: an own copy nothing else uses is soft-deleted; a shared template is left alone."""
     from apps.templates.models import TemplateMaster
@@ -241,7 +257,8 @@ def _clean_text(campaign, name: str, value):
     return value
 
 
-def add_step(campaign, user, *, start_from: str, source_step=None, template=None, starter: str | None = None, day=None, name: str = "") -> CampaignDripStep:
+def add_step(campaign, user, *, start_from: str, source_step=None, template=None, starter: str | None = None, day=None, name: str = "",
+             consume_source_template: bool = False) -> CampaignDripStep:
     require_editable(campaign)
     steps = steps_of(campaign)
     if len(steps) >= MAX_STEPS:
@@ -268,6 +285,8 @@ def add_step(campaign, user, *, start_from: str, source_step=None, template=None
     else:
         raise ValidationError({"start_from": ["Start from a copy, a template or a blank message."]})
     step = CampaignDripStep.objects.create(tenant_id=campaign.tenant_id, campaign=campaign, day=day, created_by_id=_user_id(user), content_changed_at=timezone.now(), **values)
+    if consume_source_template and start_from == "template" and template is not None:
+        consume_source(template, user)
     steps = sync(campaign)
     _changed(campaign, user, f"Message {_position(steps, step)} added (Day {day}).")
     return step
@@ -277,7 +296,7 @@ EDITABLE_FIELDS = ("name", "day", "send_time", "subject_line", "preheader", "ab_
 WORDS = {"name": "name", "day": "day", "send_time": "send time", "subject_line": "subject line", "preheader": "preheader", "ab_config": "A/B test", "template": "template"}
 
 
-def update_step(campaign, step, user, values: dict, row_version=None) -> CampaignDripStep:
+def update_step(campaign, step, user, values: dict, row_version=None, consume_source_template: bool = False) -> CampaignDripStep:
     require_editable(campaign)
     if row_version is not None and str(row_version) != str(step.row_version):
         raise Conflict("Someone else changed this message after you opened it. Reload to see their changes.")
@@ -314,6 +333,8 @@ def update_step(campaign, step, user, values: dict, row_version=None) -> Campaig
     steps = sync(campaign)
     if "template" in changed:
         _discard(campaign, old_template, old_owned)
+        if consume_source_template:
+            consume_source(values["template"], user)
     step = next(item for item in steps_of(campaign) if item.pk == step.pk)
     _changed(campaign, user, f"Message {_position(steps, step)} changed: " + ", ".join(WORDS[name] for name in changed if name in WORDS) + ".")
     return step
@@ -411,7 +432,8 @@ def run_results(campaign, steps) -> dict:
                 .order_by("drip_step_id", "-run_number").distinct("drip_step_id"))
     if not runs:
         return {}
-    figures = engine_runs.stats_many(campaign.tenant_id, [run.pk for run in runs], engine_runs.family(campaign))
+    kind = engine_runs.family(campaign)
+    figures = engine_runs.stats_many(campaign.tenant_id, [run.pk for run in runs], kind)
     with service._conn().cursor() as cursor:
         cursor.execute("""SELECT campaign_run_id::text, count(*) FROM consent_record WHERE tenant_id = %s AND campaign_id = %s AND action = 'OPT_OUT'
                            AND campaign_run_id::text = ANY(%s) GROUP BY 1""", [str(campaign.tenant_id), str(campaign.pk), [str(run.pk) for run in runs]])
@@ -425,11 +447,25 @@ def run_results(campaign, steps) -> dict:
             "id": str(run.pk), "status": run.status, "scheduled_at": run.scheduled_at, "started_at": run.started_at, "completed_at": run.completed_at,
             "sent": numbers["sent"], "delivered": numbers["delivered"], "opened": numbers["opened"], "clicked": numbers["clicked"], "unsubscribed": unsubscribed,
             "open_rate": service.rate(numbers["opened"], numbers["delivered"]), "click_rate": service.rate(numbers["clicked"], numbers["delivered"]),
-            "unsubscribe_rate": service.rate(unsubscribed, numbers["delivered"]),
+            "unsubscribe_rate": service.rate(unsubscribed, numbers["delivered"]), "not_sent": numbers["not_sent"],
+            **({"replied": numbers["replied"], "opted_out": numbers["opted_out"]} if kind == "SMS" else {}),
             "skipped": {"total": sum(members["suppressed"].values()),
                         "by_reason": [{"reason": reason, "count": count} for reason, count in sorted(members["suppressed"].items(), key=lambda item: (-item[1], item[0]))]},
             "ab": {"variants": abtest.summary(run), "decide_at": run.ab_decide_at} if run.pk in tested else None}
     return results
+
+
+EXCERPT_LENGTH = 140
+
+
+def _excerpt(step, contents: dict) -> str | None:
+    """A text message's first 140 characters as written (tags left as they are), from the latest content already loaded
+    for problems(); None for email and for a message without text."""
+    template = step.template if step.template_id else None
+    if template is None or template.channel not in TEXT_CHANNELS:
+        return None
+    body = (getattr(contents.get(step.template_id), "sms_body", None) or "").strip()
+    return body[:EXCERPT_LENGTH] or None
 
 
 def payloads(campaign, steps=None, with_runs: bool = False, with_tests: bool = False) -> list[dict]:
@@ -445,7 +481,7 @@ def payloads(campaign, steps=None, with_runs: bool = False, with_tests: bool = F
              "scheduled_for": scheduled_for(campaign, step),
              "template": {"id": str(step.template.pk), "name": step.template.name, "channel": step.template.channel, "status": step.template.status}
              if step.template_id and step.template.deleted_at is None else None,
-             "subject_line": step.subject_line, "preheader": step.preheader, "ab_config": step.ab_config,
+             "subject_line": step.subject_line, "preheader": step.preheader, "ab_config": step.ab_config, "text_excerpt": _excerpt(step, contents),
              "problems": problems(campaign, step, contents, days), "row_version": step.row_version,
              **({"run": runs.get(step.pk)} if with_runs else {}), **({"test": tests[step.pk]} if with_tests else {})}
             for position, step in enumerate(steps, start=1)]

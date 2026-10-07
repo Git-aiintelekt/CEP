@@ -94,7 +94,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
             <label className="flex h-9 items-center gap-2 rounded-control-md bg-surface-sunken px-2.5 focus-within:bg-surface focus-within:shadow-focus">
               <Search size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
               <input ref={searchBox} role="combobox" aria-expanded aria-controls={listId} aria-activedescendant={shown[active] ? `${listId}-${active}` : undefined}
-                aria-label="Search workspace members" placeholder="Search workspace members" value={search}
+                aria-label="Search workspace members" placeholder="e.g. Maria Chen" value={search}
                 onChange={(event) => { setSearch(event.target.value); setActive(0) }} onKeyDown={onKey}
                 className="min-w-0 flex-1 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-300" />
             </label>

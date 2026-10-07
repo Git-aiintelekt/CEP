@@ -1,14 +1,14 @@
 /**
- * The setup after Create Campaign: Audience → Content → Test → Targets → Review & Publish, through the real app against the
- * in-memory API. What each Continue records (setup_step), where an unfinished setup resumes, and where old links land.
+ * The setup after Create Campaign: Audience → Content → Test → Targets → Review & Publish (a drip: Audience → Sequence →
+ * Targets → Test & Publish), through the real app against the in-memory API. What each Continue records (setup_step), where an unfinished setup resumes, and where old links land.
  */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, makeCampaign, me, problem, signIn } from '@/test/mockApi'
+import { installMockApi, makeStep, makeCampaign, me, problem, signIn } from '@/test/mockApi'
 
-import { placeFromParams, resumeStep } from '../setupFlow'
+import { placeFromParams, progressAfter, resumeStep, stepsDone, stepsFor } from '../setupFlow'
 
 async function renderAppAt(path: string) {
   signIn(path)
@@ -229,20 +229,64 @@ test('a conflict (409) offers to reload the stored version', async () => {
   expect(screen.getByRole('button', { name: /Reload the Latest Version/ })).toBeTruthy()
 })
 
-test('a drip series is set in Review & Publish, as it was on Scheduling & Delivery', async () => {
-  const calls = installMockApi({ campaign: makeCampaign({ status: 'DRAFT', campaign_type: 'DRIP', send_type: 'DRIP', drip_config: { time: '10:00', steps: [{ day: 0, label: 'Welcome' }] } }) })
+test('a drip goes Audience → Sequence → Targets → Test & Publish; each Continue records its step and sends none of the messages\' fields', async () => {
+  const calls = installMockApi({ campaign: draft({ campaign_type: 'DRIP', send_type: 'DRIP', contact_lists: [], contact_list_details: [], subject_line: 'Old subject', scheduled_at: '2026-11-02T14:00:00Z' }),
+    dripSteps: { c1: [makeStep({ id: 's1', name: 'Welcome', template: { id: 't1', name: 'Fall · 1 of 1', channel: 'EMAIL', status: 'DRAFT' }, subject_line: 'Welcome in' })] } })
   const user = userEvent.setup()
-  await renderAppAt('/campaigns/c1/edit?step=publish')
-  expect(await screen.findByRole('radio', { name: /Drip Series/ })).toBeTruthy()
-  await user.click(screen.getByRole('button', { name: 'Add a Step' }))
-  await user.clear(screen.getByLabelText(/^Step 2: Day/))
-  await user.type(screen.getByLabelText(/^Step 2: Day/), '0')
-  await user.click(screen.getByRole('button', { name: 'Save Schedule' }))
-  expect(await screen.findByText('Another step is already on this day.')).toBeTruthy()
-  await user.clear(screen.getByLabelText(/^Step 2: Day/))
-  await user.type(screen.getByLabelText(/^Step 2: Day/), '7')
-  await user.click(screen.getByRole('button', { name: 'Save Schedule' }))
-  await vi.waitFor(() => expect(patches(calls).at(-1)?.body).toMatchObject({ send_type: 'DRIP', drip_config: { time: '10:00', steps: [{ day: 0, label: 'Welcome' }, { day: 7 }] } }))
+  await renderAppAt('/campaigns/c1/edit')
+  await stepHeading('Audience')
+  expect(railButtons().map((button) => button.textContent?.replace(/^\d/, ''))).toEqual(['Audience', 'Sequence', 'Targets', 'Test & Publish'])
+
+  await user.click(screen.getByRole('button', { name: /Continue to Sequence/ }))
+  await stepHeading('Sequence')
+  expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 2, campaign_type: 'DRIP', send_type: 'DRIP' })
+  for (const key of ['drip_config', 'template', 'subject_line', 'preheader', 'scheduled_at', 'ab_config']) expect(patches(calls).at(-1)?.body).not.toHaveProperty(key)
+  const card = await screen.findByRole('button', { name: 'Open message 1, Welcome' })
+  expect(card.textContent).toContain('Message 1 of 1 · Day 0')
+  expect(screen.getByText('The message is ready.')).toBeTruthy()
+
+  await user.click(screen.getByRole('button', { name: /Continue to Targets/ }))
+  await stepHeading('Targets')
+  expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 3 })
+  await user.click(screen.getByRole('button', { name: /Continue to Test & Publish/ }))
+  await stepHeading('Test & Publish')
+  expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 5 })
+  expect(screen.getByRole('heading', { name: 'Send a Test' })).toBeTruthy()                         // today's Test, then Summary and Publish
+  expect(await screen.findByRole('heading', { name: 'Before You Publish' })).toBeTruthy()
+  expect(screen.queryByText('When and How It Goes Out')).toBeNull()                                 // a drip's start and times are on Sequence
+  expect(screen.queryByRole('heading', { name: /Subject Line Test/ })).toBeNull()                    // set on one message, never on the campaign
+})
+
+test('a drip: progress, where its setup resumes, and old links', () => {
+  expect([1, 2, 3, 4, 5, 6].map((progress) => resumeStep(progress, 'DRIP'))).toEqual(['audience', 'sequence', 'targets', 'targets', 'publish', 'publish'])
+  expect(progressAfter('audience', 'DRIP')).toBe(2)
+  expect(progressAfter('sequence', 'DRIP')).toBe(3)
+  expect(progressAfter('targets', 'DRIP')).toBe(5)
+  expect(progressAfter('test', 'DRIP')).toBe(6)                                                     // tested: the setup is complete
+  expect([1, 2, 3, 5].map((setup_step) => stepsDone({ setup_step, campaign_type: 'DRIP' }))).toEqual([0, 1, 2, 3])
+  expect(stepsFor('DRIP').map((step) => [step.label, step.next])).toEqual([['Audience', 'Continue to Sequence'], ['Sequence', 'Continue to Targets'],
+    ['Targets', 'Continue to Test & Publish'], ['Test & Publish', undefined]])
+  const at = (query: string, type = 'DRIP') => placeFromParams(new URLSearchParams(query), type)
+  expect(at('step=content')).toEqual({ step: 'sequence' })
+  expect(at('step=test')).toEqual({ step: 'publish' })
+  expect(at('step=publish&section=schedule')).toEqual({ step: 'publish' })
+  expect(at('step=publish&section=review')).toEqual({ step: 'publish', section: 'review' })
+  expect(at('step=3')).toEqual({ step: 'sequence' })
+  expect(at('step=6')).toEqual({ step: 'publish' })
+  expect(at('step=4')).toEqual({ step: 'publish' })
+  expect(at('step=content', 'REGULAR_MARKETING')).toEqual({ step: 'content' })                      // every other type as before
+  expect(at('step=sequence', 'REGULAR_MARKETING')).toEqual({ step: 'audience' })
+  expect(stepsFor('REGULAR_MARKETING').map((step) => step.key)).toEqual(['audience', 'content', 'test', 'targets', 'publish'])
+})
+
+test('a drip\'s old links open its own steps', async () => {
+  installMockApi({ campaign: draft({ campaign_type: 'DRIP', send_type: 'DRIP', setup_step: 6 }) })
+  await renderAppAt('/campaigns/c1/edit?step=content')
+  await stepHeading('Sequence')
+  cleanup()
+  installMockApi({ campaign: draft({ campaign_type: 'DRIP', send_type: 'DRIP', setup_step: 6 }) })
+  await renderAppAt('/campaigns/c1/edit?step=test')
+  await stepHeading('Test & Publish')
 })
 
 test('every field of the old seven steps is still reachable', async () => {

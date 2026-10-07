@@ -233,11 +233,13 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 - **Locks.** A template a message uses can't be deleted or archived while its drip is test published, published, active or
   paused, and can't be changed at all (settings, design, message, receipt layout) while it is published, active or paused.
   The template carries `used_in_drip {campaign_id, campaign_name, position, count, locked}`.
-- **Compatibility mirror.** Publish's checks and the checklist still read `drip_config.steps` and `campaign.template_id`
-  (until B3); every message change, and renaming the campaign, rewrites them from the rows (`campaign.template_id` = the
-  first message's template). Saving `drip_config` or `template` on the campaign itself (the setup before the Sequence step) makes the rows
-  follow: days are added and removed to match, on the campaign's template.
-- **Clone** copies every message with a new template copy; the start date stays empty unless `scheduled_at` is given.
+- **Compatibility mirror.** `drip_config.steps` and `campaign.template_id` are kept as a mirror of the rows for older
+  readers (since B3 the checklist and publish read the messages themselves); every message change, and renaming the
+  campaign, rewrites them from the rows (`campaign.template_id` = the first message's template). Saving `drip_config` with
+  steps, or `template`, on the campaign itself makes the rows follow: days are added and removed to match, on the
+  campaign's template. `drip_config: {time}` alone only saves the series time (B4b).
+- **Clone** copies every message with a new template copy; the copy is named `name` when given ("Copy of …" otherwise),
+  and the start date stays empty unless `scheduled_at` is given.
 
 ### Sending (patch 0041)
 
@@ -285,7 +287,9 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
   test item stays advisory). Publish applies the same function (`drip_publish.problems`) and answers 400 with the same
   texts.
 - **Template activation.** The drip's own copies (`template_owned`) stay drafts until the publish, which checks each with
-  the template rules (`design.activation_blockers`) and activates them, all or none. A shared template must already be active.
+  the template rules (`design.activation_blockers`) and activates them, all or none. A message with its own subject line
+  sends that one, so its copy's missing subject doesn't count (`drip_publish._copy_blockers`, B10): a message started from a
+  blank template is sendable once the message has a subject. A shared template must already be active.
 - **Review.** `GET /steps/review/` is the Test & Publish timeline: per message its time, subject (or the start of the text),
   the audience estimate (the same people for every message), and warnings: `TOO_CLOSE` (under 2 days after the previous
   one), `FREQUENCY` (the drip alone passes an active frequency cap for its channel, from the caps and its own timetable,
@@ -326,11 +330,71 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 - **Progress** for lists and Home: `drip_progress {total, sent, failed, cancelled, next}` from each message's latest
   production run, read from the list's prefetched runs (no query per drip).
 
+### What the drip screens needed (phase B4b, patch 0043)
+
+- **Series time alone.** `PATCH /campaigns/{id}/` with `drip_config: {time: "HH:MM"}` saves only the time; the messages
+  (and the `steps` mirror) are untouched. Any other key is refused ("A drip's messages are set on its steps. Send only
+  the series time here."), and so is a bad time ("Enter the series time as HH:MM, for example 09:00.").
+- **Text excerpt.** Each step has `text_excerpt`: an SMS/MMS message's first 140 characters, tags as written; null for
+  email. Read from the contents already loaded for the list, so no extra query per message.
+- **`consume_source`** (on `POST /steps/` and on `PATCH /steps/{id}/` with `template`): after copying, the source
+  template is soft-deleted when it is a Draft, created by the same user, and used by no campaign, journey or other
+  message. Otherwise it is left alone, silently. This is for the Draft a preset makes on the way into a drip.
+- **Not sent.** What a stopped drip had queued keeps status FAILED (the partitioned tables' CHECK is unchanged) and gets
+  `not_sent_reason = 'STOPPED_EARLY'`. It counts as `not_sent`, never as failed or sent: run stats and the steps `run`
+  block (`runs.stats_many`), campaign metrics (`service.metrics`), reports (the failed filters), billing (not a billable
+  send), and recipients (shown as `NOT_SENT`, with the code; the `FAILED` filter leaves them out). Patch 0043 backfills
+  rows written with the old "Not sent: the drip was stopped early." text.
+- **Who paused.** `paused_at` / `paused_by` are set on Pause and cleared on Resume and Stop, for every campaign type;
+  the API gives `paused {at, by_name}` while paused, else null.
+- **Text figures.** An SMS/MMS step's `run` adds `replied` (RESPONDED and OPTED_OUT, both answers) and `opted_out`.
+- **Skipped list.** `GET /campaign-runs/{id}/skipped/?reason=&q=&page=&page_size=`: the run's frozen list members with
+  a suppression reason, with name, address and reason, plus `by_reason`; `q` matches party id, name or address. Another
+  workspace's run is a 404.
+- **Calendar.** A drip's sends carry `position`, `count` (all messages, whatever the range shows), `name` and `step_id`.
+  A paused drip's waiting messages leave the days and go in the span's `on_hold: [{position, name, state: "ON_HOLD", step_id}]`.
+- **Home.** `attention.drip_problems` lists `MESSAGE_FAILED` (a message's latest production run failed in the last 7
+  days and nobody got it, paused or not) and `PAUSED_LONG` (paused 3 days or more, with who paused and the next
+  message waiting). `failed_ids` is unchanged.
+- **Clone with a name.** `POST /clone/ {name}` names the copy; the name is checked like any campaign name.
+
+### The screens (phases B5–B9)
+
+- **Create Campaign** offers Drip with a hint that points to a journey when messages should depend on what a customer
+  does (Create a Journey Instead opens the journey pop-up with the name); Multiple Channels is unavailable for a drip.
+- **The setup** has four steps: Audience (with how a drip audience works), **Sequence** (the messages as a timeline of
+  cards, a drawer per message, Add Message from a copy, the gallery or blank, Series at a Glance with the start date,
+  the series time and zone and a calendar, Sender and Topic once for all), Targets, and **Test & Publish** (a preview per
+  message, Send All as a Test, the test state per message, the review timeline with its warnings, the checklist, Publish
+  to Production). The series time saves alone (`drip_config: {time}`); the date, time and zone never change the messages.
+  The drawer saves each field when it is left, one save after another with the version the last returned; Escape, × and
+  Done save what was typed and not yet left.
+- **The email editor** opened for a message (`?drip=&step=`) says which message it is, keeps the subject on the message
+  (read-only there), offers Previous / Next Message and the message's own test, and returns Back to Sequence.
+- **The campaign page** of a published drip: the Series Timeline (each message's state and figures, Skipped with View
+  People, Replies and Opted Out for texts, Not Sent for what a stop left unsent), the banners (scheduled, paused with who
+  and when, stopped early, a failed message with Retry), Message Comparison on Performance, the messages on Content, and
+  Resume / Stop / Retry pop-ups. **Clone** asks for the copy's name and start date and opens its Sequence step.
+- **Everywhere else:** the Campaigns list (a progress line and Next Send naming the message), the quick view (one message
+  at a time with ‹ ›, the message list, the figures, ⋮ from `campaign.actions`), the calendar (one bar with numbered
+  markers; each message its own entry in the week and the day list; a paused drip on hold), Home (Next 7 Days per
+  message, a Drip Problems group, the progress line in Recent and Top) and the Templates library (a drip's templates
+  together, "Last Used In" naming the message, Locked, read-only preview and editor, the API's refusal to delete).
+
+### Not in v1
+
+- **Rolling entry:** everyone starts together; people added to the lists later never join (use a journey).
+- **Per-message conversions and revenue:** conversions and revenue are the campaign's, not split by message.
+- **Per-person series progress:** no view of where one person is in the series, beyond each run's recipients.
+- **Saved test lists:** test recipients are picked each time.
+- **Apply to all messages:** a change (a subject, a preheader, a send time) is made per message.
+
 ## 11. Tests
 
 - Backend: `test_campaign_module.py` (35 checks, one rolled-back transaction, real sends through the sandbox text
   engine), `test_ab_sendtime.py` (16: the split, the decision, a person's choice, the tie, the small audience, local send
   times), `test_approval.py` (20), `test_drip_lifecycle.py` (11 tests: status and actions, stop, resume, retry, progress), `test_drip_publish.py` (10 tests: test all, out of date, the checklist and publish, activation, review), `test_drip_sending.py` (11 tests: planning, content, the fixed audience, A/B, preview, results), `test_drip_steps.py` (28: backfill, the messages API, copies and names, locks, clone,
-  the mirror), plus the send engine, SMS engine, contact list and legacy campaign suites.
+  the mirror), `test_drip_publish.py` now 11 (a message's own subject counts for its copy), `test_drip_extras.py` (11 tests: series time, excerpts, consume_source, not sent, who paused, text figures,
+  the skipped list, the calendar, Home's drip problems, clone with a name), plus the send engine, SMS engine, contact list and legacy campaign suites.
 - Frontend: `features/campaigns/campaignForm.test.ts` (time zones, schema, form ⇄ API), `calendarMath.test.ts` (the month grid, workspace days, bar rows) and `Campaigns.test.tsx` (list,
   setup, campaign page, permissions) against the in-memory API in `test/mockCampaigns.ts`.

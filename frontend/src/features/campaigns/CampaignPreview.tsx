@@ -1,11 +1,16 @@
 /**
  * The campaign quick view: a peek at what a campaign is and what its message looks like, never what its row already
  * says. Floats over the list from md up (details left, the message's thumbnail right, each scrolling on its own);
- * a bottom sheet on phones (thumbnail first). Previous / next and ↑ / ↓ walk the table without closing it.
+ * a bottom sheet on phones (thumbnail first). Previous / next and ↑ / ↓ walk the table without closing it. A drip shows
+ * one message at a time with ‹ › and its list of messages (DripPreview), and a ⋮ menu from campaign.actions.
  */
+import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, ChevronDown, ChevronUp, Copy, X } from 'lucide-react'
-import { useEffect, useId, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { useAuth } from '@/auth/AuthContext'
+import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { IconButton } from '@/components/Button'
 import { FloatingDialog } from '@/components/FloatingDialog'
@@ -13,10 +18,17 @@ import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { StatusBadge } from '@/components/StatusBadge'
 import type { Campaign } from '@/lib/types'
 
+import { CampaignActionsMenu } from './CampaignActionsMenu'
+import { campaignMenuItems } from './campaignMenu'
 import { CampaignPreviewDetails } from './CampaignPreviewDetails'
 import { CampaignThumbnail } from './CampaignThumbnail'
 import { ChannelIcon } from './ChannelIcon'
 import { CopyId } from './CopyId'
+import { DripPreviewDetails, DripThumbnailColumn } from './DripPreview'
+import { isDripSeries } from './dripLines'
+import { startIndex } from './dripPeek'
+import { seriesOf } from './dripSequence'
+import { dripStepsQuery } from './dripSteps'
 import type { StatusAction } from './useCampaignAction'
 import { useCampaignMessage } from './useCampaignPreview'
 import { campaignHome, channelLabel, hasAction } from './vocabulary'
@@ -33,8 +45,10 @@ export interface PreviewNavigation {
 interface CampaignPreviewProps {
   campaign: Campaign
   canEdit: boolean
+  /** a drip's ⋮ menu offers Pause, Resume and Stop only with campaign.publish */
+  canPublish?: boolean
   onClose: () => void
-  /** clone: the page closes the pop-up and runs it as from the row */
+  /** clone (and a drip's ⋮ actions): the page closes the pop-up and runs it as from the row */
   onAction: (action: StatusAction) => void
   nav: PreviewNavigation
   returnFocus?: () => HTMLElement | null
@@ -42,9 +56,19 @@ interface CampaignPreviewProps {
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 
-export function CampaignPreview({ campaign, canEdit, onClose, onAction, nav, returnFocus }: CampaignPreviewProps) {
+export function CampaignPreview({ campaign, canEdit, canPublish = false, onClose, onAction, nav, returnFocus }: CampaignPreviewProps) {
   const titleId = useId()
   const thumbnailColumn = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const { me } = useAuth()
+  const menus = useSingleDropdown<string>()
+  const drip = isDripSeries(campaign)
+  const steps = useQuery({ ...dripStepsQuery(campaign.id), enabled: drip })
+  const series = seriesOf(campaign, me?.tenant.timezone || 'UTC')
+  // the message on show, per campaign: moving to another campaign starts again at its own next message
+  const [picked, setPicked] = useState<{ id: string; index: number } | null>(null)
+  const index = picked?.id === campaign.id ? picked.index : steps.data ? startIndex(campaign, steps.data) : 0
+  const pick = (next: number) => setPicked({ id: campaign.id, index: next })
 
   const message = useCampaignMessage(campaign)
   const { channel, content } = message
@@ -83,6 +107,8 @@ export function CampaignPreview({ campaign, canEdit, onClose, onAction, nav, ret
         </span>
       </div>
       <div className="flex shrink-0 items-center">
+        {drip && <CampaignActionsMenu menus={menus} id="preview" label={`Actions for ${campaign.name}`} items={campaignMenuItems(campaign, { edit: canEdit, publish: canPublish })}
+          onPick={(item) => (item.action ? onAction(item.action) : navigate(item.to))} />}
         <IconButton label="Previous Campaign" icon={ChevronUp} softDisabled={!nav.hasPrevious} onClick={nav.onPrevious} />
         <IconButton label="Next Campaign" icon={ChevronDown} softDisabled={!nav.hasNext} onClick={nav.onNext} />
         <span aria-hidden className="mx-1 h-5 w-px bg-fill-muted" />
@@ -114,11 +140,13 @@ export function CampaignPreview({ campaign, canEdit, onClose, onAction, nav, ret
     <FloatingDialog labelledBy={titleId} onClose={onClose} header={header} footer={footer} returnFocus={returnFocus} width={760} maxHeight="min(640px, 100dvh - 96px)" bodyScroll="columns">
       <div className="flex flex-col md:contents">
         <div className="order-2 border-line-subtle p-5 md:order-1 md:w-[52%] md:shrink-0 md:overflow-y-auto md:overscroll-contain md:border-r">
-          <CampaignPreviewDetails key={campaign.id} campaign={campaign} channel={channel} content={content} tags={content.tags} />
+          {drip ? <DripPreviewDetails campaign={campaign} steps={steps.data} index={index} onIndex={pick} series={series} />
+            : <CampaignPreviewDetails key={campaign.id} campaign={campaign} channel={channel} content={content} tags={content.tags} />}
         </div>
         <div ref={thumbnailColumn} tabIndex={0} role="region" aria-label="Message preview"
           className="order-1 flex min-w-0 flex-1 justify-center bg-surface-sunken p-5 md:order-2 md:w-[48%] md:items-start md:overflow-y-auto md:overscroll-contain">
-          <CampaignThumbnail campaign={campaign} message={message} />
+          {drip ? <DripThumbnailColumn campaign={campaign} steps={steps.data} index={index} onIndex={pick} series={series} />
+            : <CampaignThumbnail campaign={campaign} message={message} />}
         </div>
       </div>
     </FloatingDialog>

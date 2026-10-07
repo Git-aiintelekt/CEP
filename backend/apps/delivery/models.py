@@ -125,6 +125,7 @@ class MailerExecution(models.Model):
     idempotency_key = models.CharField(max_length=200)  # tenant_id+campaign_run_id+party_id+channel+communication_version
     status = models.CharField(max_length=20, default='QUEUED', choices=Status.choices)  # QUEUED, SUBMITTED, DELIVERED, OPENED, CLICKED, BOUNCED, COMPLAINED, FAILED
     status_reason = models.CharField(max_length=200, null=True, blank=True)
+    not_sent_reason = models.CharField(max_length=30, null=True, blank=True)  # STOPPED_EARLY: queued, then never sent (patch 0043); status stays FAILED
     provider_message_id = models.CharField(max_length=200, null=True, blank=True)  # Postal message id
     bounce_domain = models.CharField(max_length=200, null=True, blank=True)
     bounce_type = models.CharField(max_length=10, null=True, blank=True, choices=BounceType.choices)  # HARD, SOFT — drives contact_point_status blocking
@@ -188,6 +189,7 @@ class SmsExecution(models.Model):
     idempotency_key = models.CharField(max_length=200)
     status = models.CharField(max_length=20, default='QUEUED', choices=Status.choices)  # QUEUED, SUBMITTED, DELIVERED, RESPONDED, FAILED, OPTED_OUT
     status_reason = models.CharField(max_length=200, null=True, blank=True)
+    not_sent_reason = models.CharField(max_length=30, null=True, blank=True)  # STOPPED_EARLY: queued, then never sent (patch 0043); status stays FAILED
     provider_message_id = models.CharField(max_length=200, null=True, blank=True)  # Digivize message id
     submitted_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)

@@ -9,15 +9,15 @@ give the viewer.
 
 | Section | Request | Notes |
 |---|---|---|
-| Needs Attention | `GET /home/overview/` (`attention`) | failed production sends in the last week (ids), test-published campaigns, campaigns waiting for approval. Bounce rate, frequency cap and journey-step alerts still have no source. |
+| Needs Attention | `GET /home/overview/` (`attention`) | failed production sends in the last week (ids), test-published campaigns, campaigns waiting for approval; `drip_problems` (a drip message that failed with nobody reached, a drip paused 3+ days). Bounce rate, frequency cap and journey-step alerts still have no source. |
 | Workspace set-up card | `GET /workspace/setup/`, administrators only (nobody else asks) | under the alerts until every required set-up step is done or the card is hidden with Hide Until Later; `docs/WORKSPACE_SETUP.md` |
 | Marketing Performance (KPIs) | `GET /reports/summary/` for the period and the one before | store revenue and a summed revenue target are not available yet, so Campaign Contribution says so |
-| Top and Bottom Campaigns | the same two summaries, joined with `GET /campaigns/?status=…&page_size=200` for each campaign's target | ranks by revenue against target; by click rate when attribution is not set up |
+| Top and Bottom Campaigns | the same two summaries, joined with `GET /campaigns/?status=…&page_size=200` for each campaign's target | ranks by revenue against target; by click rate when attribution is not set up. A drip is one row with its combined figures; its line adds "2 of 4 messages sent" (from the campaign list when it has loaded: click-rate mode makes no request of its own) |
 | Attributed Revenue vs. Campaign Cost | `GET /home/overview/` (`revenue_cost`) | per campaign: attributed revenue and cost from `campaign_actual` (else the campaign's planned cost), spread over the days it sent in proportion to its sends; weekly points over a month; the target pace is the campaigns' revenue targets over the period |
 | Engagement Funnel | the current period's summary | `by_channel` for the counts, the campaign rows for conversions |
-| Next 7 Days | `GET /campaigns/calendar/` | journey runs arrive as journey-generated campaigns |
+| Next 7 Days | `GET /campaigns/calendar/` | journey runs arrive as journey-generated campaigns; a drip's sends name their message (`position`/`count`/`name`), a paused drip's waiting messages are `on_hold` |
 | Active Journeys | `GET /home/overview/` (`journeys`) | active and paused journeys with `journey_enrollment` counts: in flight (ACTIVE), entered (all), conversion (COMPLETED ÷ entered). A journey whose last run failed reads Failed with the step's channel and time. Null (card hidden) without the journeys feature. |
-| Recent Campaigns | `GET /campaigns/?ordering=-updated_at&page_size=50` joined with the summary and the overview's failed ids | the other sorts are within those 50 |
+| Recent Campaigns | `GET /campaigns/?ordering=-updated_at&page_size=50` joined with the summary and the overview's failed ids | the other sorts are within those 50. A drip is one row with its combined figures; its second line is "Drip · 2 of 4 messages sent" |
 | Governance | `GET /home/overview/` (`governance`) | the period's campaign lists: distinct people contacted, distinct people held back by frequency cap, no consent (no consent, unsubscribed, topic unticked) and the suppression list (suppressed, blocked, invalid address) |
 | E-Receipts | the current period's summary, e-receipt campaign rows only | the marketing figures leave e-receipts out |
 
@@ -51,4 +51,6 @@ three queries each; not done here because the Campaign filter and Top and Bottom
 
 `/dev/home` (dev builds only) shows the page on sample data with switches for the account state (Busy, Light, No
 Attribution, No Alerts, Cards Missing) and the viewer. Cards Missing is what a viewer without `report.view` sees in a
-workspace without journeys: Revenue vs. Cost, Governance and Active Journeys hidden, the rest packed two per row.
+workspace without journeys: Revenue vs. Cost, Governance and Active Journeys hidden, the rest packed two per row. The
+sample has drip examples: a Drip Problems group (a failed message, a drip paused three days), drip messages in Next 7
+Days, and the progress line in Recent and Top.
