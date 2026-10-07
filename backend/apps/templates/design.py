@@ -122,6 +122,8 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
         raise Conflict("The email designer is for EMAIL and E_RECEIPT templates.")
     if template.status == "ARCHIVED" or template.deleted_at is not None:
         raise Conflict("An archived template cannot be changed.")
+    from apps.campaigns import drip
+    drip.guard_template(template, "edit")                     # a live drip sends exactly what was tested
 
     errors = {}
     if len(mjml_source.encode()) > MAX_MJML_BYTES:
@@ -160,6 +162,7 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
         for index, key in enumerate(findings["tags_used"]) if key in tags and tags[key].id not in linked])
 
     TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())     # fires the touch trigger: row_version, updated_by
+    _drip_content_changed(template, user_id)
     return {**design_payload(template, number), "findings": findings}
 
 
@@ -207,6 +210,12 @@ def clone_template(source: TemplateMaster, user_id, *, name: str | None = None) 
         TemplateMediaAsset(template=copy, media_asset_id=link.media_asset_id, tenant_id=copy.tenant_id)
         for link in TemplateMediaAsset.objects.filter(template=source)])
     return copy
+
+
+def _drip_content_changed(template: TemplateMaster, user_id) -> None:
+    """The drip messages sending this template need a new test (apps/campaigns/drip_publish.py)."""
+    from apps.campaigns import drip_publish
+    drip_publish.content_changed(template, user_id)
 
 
 def activation_blockers(template: TemplateMaster) -> dict:
@@ -292,6 +301,8 @@ def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, secti
         raise Conflict("The receipt layout is for E_RECEIPT templates.")
     if template.status == "ARCHIVED" or template.deleted_at is not None:
         raise Conflict("An archived template cannot be changed.")
+    from apps.campaigns import drip
+    drip.guard_template(template, "edit")                     # a live drip sends exactly what was tested
 
     errors = {}
     if layout_preset == "CUSTOM_HTML":
@@ -317,6 +328,7 @@ def save_receipt(template: TemplateMaster, user_id, *, layout_preset: str, secti
     state = {"kind": "receipt", "layout_preset": layout_preset, "sections": sections, "custom_html": custom_html, "custom_css": custom_css}
     TemplateDesignState.objects.create(template=template, version_number=number, editor_state=state, created_by_id=user_id)
     TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())
+    _drip_content_changed(template, user_id)
     return receipt_payload(template, number)
 
 
@@ -426,6 +438,8 @@ def save_message(template: TemplateMaster, user_id, *, sms_body: str, subject_li
         raise Conflict("The message editor is for SMS and MMS templates.")
     if template.status == "ARCHIVED" or template.deleted_at is not None:
         raise Conflict("An archived template cannot be changed.")
+    from apps.campaigns import drip
+    drip.guard_template(template, "edit")                     # a live drip sends exactly what was tested
 
     errors, media = {}, None
     body = sms_body.replace("\r\n", "\n").strip()
@@ -474,6 +488,7 @@ def save_message(template: TemplateMaster, user_id, *, sms_body: str, subject_li
         TemplateMediaAsset.objects.create(template=template, media_asset=media, tenant_id=template.tenant_id)
 
     TemplateMaster.objects.filter(pk=template.pk).update(updated_at=Now())
+    _drip_content_changed(template, user_id)
     return message_payload(template, number)
 
 

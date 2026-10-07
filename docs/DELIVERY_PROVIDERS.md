@@ -347,5 +347,6 @@ MMS needs a template with a picture that has a public address (the aggregator fe
 * Link shortening and click tracking in texts; automatic HELP / STOP confirmation texts (left to the aggregator).
 * Open pixel and click redirect of our own (`services/tracking`): opens and clicks currently come from the provider's
   tracking through webhooks, so SMTP sends report neither.
-* Recurring and drip runs, journey-generated sends: the run model supports them; the engine sends `ONE_TIME` runs
-  today. A/B subject lines are sent since 2026-09-27 (CAMPAIGNS.md §8).
+* Not a limit any more: the engine sends one-time runs, recurring occurrences (CAMPAIGNS.md §6) and drip messages, each
+  drip message with its own content and its audience fixed at the first message (CAMPAIGNS.md §10). A/B subject lines
+  are sent since 2026-09-27 (CAMPAIGNS.md §8).

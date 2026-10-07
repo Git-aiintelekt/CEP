@@ -230,6 +230,15 @@ class TemplateSerializer(TenantModelSerializer):
     latest_version = serializers.IntegerField(read_only=True, default=0, help_text="0 until a design has been saved")
     last_used_in = serializers.SerializerMethodField(help_text="The newest campaign that uses the template, or null: what is safe to change.")
     campaign_count = serializers.SerializerMethodField()
+    used_in_drip = serializers.SerializerMethodField(help_text="The drip message using the template: {campaign_id, campaign_name, position, count, locked}, or null. "
+                                                                 "locked: the drip is live, so the template can't be changed.")
+
+    @extend_schema_field(serializers.DictField(allow_null=True))
+    def get_used_in_drip(self, template):
+        from apps.campaigns import drip
+        if hasattr(template, "drip_step_id") and template.drip_step_id is None:
+            return None
+        return drip.used_in_drip(template)
 
     @extend_schema_field(serializers.DictField(allow_null=True))
     def get_last_used_in(self, template):

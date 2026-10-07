@@ -10,7 +10,7 @@ nothing when the workspace does not have the feature or the recipient's value is
 lists the blocks left out, which the send counts.
 
 The subject and the preheader are the campaign's own when it has them (set on the setup's Content step), else the
-template's. The preheader goes at the top of the HTML part as hidden text: the line an inbox shows after the subject.
+template's. A drip message (`step`) uses its own override, else its template's, and never the campaign's. The preheader goes at the top of the HTML part as hidden text: the line an inbox shows after the subject.
 """
 from __future__ import annotations
 
@@ -36,13 +36,15 @@ PREHEADER_STYLE = "display:none;font-size:1px;color:#ffffff;line-height:1px;max-
 PREHEADER_FILL = "&#847;&zwnj;&nbsp;" * 200
 
 
-def subject_of(campaign, content) -> str:
-    """The subject as written, tags and all: the campaign's own, else the template's, else the campaign's name."""
-    return (getattr(campaign, "subject_line", None) or "").strip() or (content.subject_line or "").strip() or campaign.name
+def subject_of(campaign, content, step=None) -> str:
+    """The subject as written, tags and all: the campaign's own (a drip message's own), else the template's, else the campaign's name."""
+    own = step if step is not None else campaign
+    return (getattr(own, "subject_line", None) or "").strip() or (content.subject_line or "").strip() or campaign.name
 
 
-def preheader_of(campaign, content) -> str:
-    return (getattr(campaign, "preheader", None) or "").strip() or (getattr(content, "preheader", None) or "").strip()
+def preheader_of(campaign, content, step=None) -> str:
+    own = step if step is not None else campaign
+    return (getattr(own, "preheader", None) or "").strip() or (getattr(content, "preheader", None) or "").strip()
 
 
 def with_preheader(html: str, preheader: str) -> str:
@@ -52,6 +54,22 @@ def with_preheader(html: str, preheader: str) -> str:
     block = f'<div style="{PREHEADER_STYLE}">{escape(preheader, quote=False)}{PREHEADER_FILL}</div>'
     found = BODY_RE.search(html)
     return html[:found.end()] + block + html[found.end():] if found else block + html
+
+
+BANNER_STYLE = "padding:8px 12px;margin:0;border-bottom:1px solid #cfd6e4;background:#f4f6fa;color:#1f2937;font:13px/18px Arial,sans-serif;"
+
+
+def with_banner(html: str, text: str) -> str:
+    """A test's label as a thin plain strip at the top of the body, after the hidden preheader so the inbox line is unchanged.
+    Only test sends call this: production HTML never carries it."""
+    if not html or not text:
+        return html
+    block = f'<div style="{BANNER_STYLE}">{escape(text, quote=False)}</div>'
+    found = BODY_RE.search(html)
+    at = found.end() if found else 0
+    if html.startswith(f'<div style="{PREHEADER_STYLE}">', at):
+        at = html.index("</div>", at) + len("</div>")
+    return html[:at] + block + html[at:]
 
 
 def _dig(source, path: str):
@@ -82,16 +100,16 @@ def _format(value, tag) -> str:
 
 
 class Renderer:
-    def __init__(self, *, campaign, run, content, tags, inner_templates: dict[str, str] | None = None):
+    def __init__(self, *, campaign, run, content, tags, inner_templates: dict[str, str] | None = None, step=None):
         self.campaign, self.run, self.content = campaign, run, content
         self.tags = {tag.tag_key.strip("{} "): tag for tag in tags}
         self.sources: dict = {}
         self.used: dict[str, str] = {}
         inner = inner_templates or {}
-        self.preheader = preheader_of(campaign, content)
+        self.preheader = preheader_of(campaign, content, step)
         self.html = with_preheader(self._expand_inner(content.html_content or "", inner), self.preheader)
         self.text = content.text_content or ""
-        self.subject = subject_of(campaign, content)
+        self.subject = subject_of(campaign, content, step)
         self.codes_on: bool | None = None                   # read once, and only for a design that has a code block
 
     def _expand_inner(self, html: str, inner: dict[str, str]) -> str:

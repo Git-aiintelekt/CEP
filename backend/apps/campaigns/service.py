@@ -90,6 +90,10 @@ def next_run_at(campaign) -> datetime | None:
 
 
 def display_status(campaign) -> str:
+    from . import drip_lifecycle
+    shown = drip_lifecycle.display_status(campaign)          # a drip that has started sending is never "Scheduled"
+    if shown is not None:
+        return shown
     if campaign.status == S.PRODUCTION_PUBLISHED:
         upcoming = next_run_at(campaign)
         if upcoming is not None and upcoming > timezone.now():
@@ -103,7 +107,9 @@ def setup_complete(campaign) -> bool:
 
 
 def actions(campaign) -> list[str]:
-    allowed = list(ACTIONS.get(display_status(campaign), ()))
+    from . import drip_lifecycle
+    shown = display_status(campaign)
+    allowed = list(drip_lifecycle.actions(campaign, shown) if drip_lifecycle.is_drip(campaign) else ACTIONS.get(shown, ()))
     if campaign.is_journey_generated:
         allowed = [name for name in allowed if name in ("clone", "results")]
     return allowed
@@ -259,26 +265,56 @@ def publish_problems(campaign, production: bool = True) -> dict:
     return missing
 
 
+def content_problem(template, solicitation_type: str) -> str | None:
+    """What makes a template's saved content unsendable for this kind of message, or None: no content, no unsubscribe link in
+    marketing email, no opt-out wording in marketing texts, no picture in an MMS."""
+    from apps.templates import design
+    from apps.templates.models import RenderedTemplateContent
+    content = RenderedTemplateContent.objects.filter(template_id=template.pk).order_by("-version_number").first()
+    body = ((content.html_content or "") + (content.sms_body or "")) if content else ""
+    marketing = solicitation_type == Campaign.SolicitationType.MARKETING
+    if not body.strip():
+        return "This template has no saved content yet."
+    if marketing and template.channel == "EMAIL" and design.UNSUBSCRIBE_TAG not in design.extract_tags(body):
+        return "Marketing email must contain the {{unsubscribe_url}} link."
+    if marketing and template.channel in design.MESSAGE_CHANNELS and not design.OPT_OUT_RE.search(body):
+        return "Marketing text messages must say how to opt out, for example: Reply STOP to unsubscribe."
+    if template.channel == "MMS" and design.message_blockers(template).get("media_asset"):
+        return "This MMS template has no picture."
+    return None
+
+
 def create_runs(campaign) -> list[CampaignRun]:
-    """The Runs a production publish creates. Drip: one per step. Recurring: the first occurrence (the rest follow one by one)."""
+    """The Runs a production publish creates. Drip: one per message (campaign_drip_step), each on the start date + its day at
+    drip.scheduled_for's time; Day 0 now when there is no start date. Recurring: the first occurrence (the rest follow one by one)."""
     start = campaign.scheduled_at if campaign.send_type != "IMMEDIATE" else None
     number = campaign.campaign_runs.count()
     zone = zone_of(campaign)
     plan = []
-    if campaign.send_type == "DRIP":
+    if campaign.send_type == "DRIP" and campaign.drip_steps.exists():
+        from . import drip
+        anchor = start or timezone.now()
+        planned = set(CampaignRun.objects.filter(campaign=campaign, test_mode=False, drip_step__isnull=False).exclude(status="CANCELLED").values_list("drip_step_id", flat=True))
+        for step in drip.steps_of(campaign):
+            if step.pk in planned:                        # a message that already has its run is never planned again
+                continue
+            when = None if step.day == 0 and start is None else drip.scheduled_for(campaign, step, anchor)
+            plan.append((CampaignRun.RunType.DRIP_INSTANCE, when, f"Day {step.day}", step.pk))
+    elif campaign.send_type == "DRIP":                    # a drip without message rows (none since patch 0040): the series in drip_config
         anchor = (start or timezone.now()).astimezone(zone)
         clock = (campaign.drip_config or {}).get("time")
         for step in sorted(campaign.drip_config["steps"], key=lambda item: int(item["day"])):
             day = int(step["day"])
             when = None if day == 0 and start is None else (_at(anchor.date() + timedelta(days=day), clock, zone) if clock or day else anchor)
-            plan.append((CampaignRun.RunType.DRIP_INSTANCE, when, f"Day {day}"))
+            plan.append((CampaignRun.RunType.DRIP_INSTANCE, when, f"Day {day}", None))
     elif campaign.send_type == "RECURRING":
         when = next_occurrence(campaign.recurring_config, start or timezone.now(), zone, first=True)
-        plan.append((CampaignRun.RunType.RECURRING_INSTANCE, when, "Occurrence 1"))
+        plan.append((CampaignRun.RunType.RECURRING_INSTANCE, when, "Occurrence 1", None))
     else:
-        plan.append((CampaignRun.RunType.ONE_TIME, start, None))
-    return [CampaignRun.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, run_number=number + index, run_type=run_type, scheduled_at=when, sequence_label=label)
-            for index, (run_type, when, label) in enumerate(plan, start=1)]
+        plan.append((CampaignRun.RunType.ONE_TIME, start, None, None))
+    return [CampaignRun.objects.create(campaign=campaign, tenant_id=campaign.tenant_id, run_number=number + index, run_type=run_type, scheduled_at=when, sequence_label=label,
+                                       drip_step_id=step_id)
+            for index, (run_type, when, label, step_id) in enumerate(plan, start=1)]
 
 
 def schedule_next_occurrence(campaign) -> CampaignRun | None:
@@ -314,18 +350,25 @@ def pause(campaign, user=None) -> Campaign:
     return campaign
 
 
+@transaction.atomic
 def resume(campaign, user=None) -> tuple[Campaign, list[str]]:
-    """-> the campaign and the ids of the Runs whose remaining messages have to be handed to the engine again."""
+    """-> the campaign and the ids of the Runs whose remaining messages have to be handed to the engine again. A drip's missed
+    messages are moved in the same transaction as the status change, so the dispatcher never sees them due (drip_lifecycle)."""
+    from . import drip_lifecycle
     _require(campaign, "resume", "Only a paused campaign can be resumed.")
+    moved = drip_lifecycle.apply_resume_plan(campaign, user) if drip_lifecycle.is_drip(campaign) else ""
     runs = list(CampaignRun.objects.filter(campaign=campaign, tenant_id=campaign.tenant_id, status="PAUSED"))
     CampaignRun.objects.filter(pk__in=[run.pk for run in runs]).update(status="SENDING")
     campaign.status, campaign.previous_status = (campaign.previous_status if campaign.previous_status in LIVE else S.ACTIVE), None
     campaign.save(update_fields=["status", "previous_status"])
-    record(campaign, "RESUMED", "Resumed." + (f" {len(runs)} send continues where it stopped." if runs else ""), user=user)
+    record(campaign, "RESUMED", "Resumed." + (f" {len(runs)} send continues where it stopped." if runs else "") + (f" {moved}" if moved else ""), user=user)
     return campaign, [str(run.pk) for run in runs]
 
 
 def cancel_schedule(campaign, user=None) -> Campaign:
+    from . import drip_lifecycle
+    if drip_lifecycle.is_drip(campaign) and drip_lifecycle.started(campaign):        # people have messages: it can't become a draft again
+        raise ActionError("Messages have already gone out. Stop the remaining messages instead.")
     _require(campaign, "cancel_schedule", "Only a campaign that is scheduled and has not started can be taken back.")
     cancelled = CampaignRun.objects.filter(campaign=campaign, tenant_id=campaign.tenant_id, test_mode=False, status="SCHEDULED").update(status="CANCELLED")
     campaign.status, campaign.published_at = S.DRAFT, None
@@ -366,8 +409,9 @@ def copy_name(tenant_id, name: str) -> str:
     return candidate
 
 
-def clone(campaign, user=None, code: str | None = None) -> Campaign:
-    """Settings, lists and targets; never status, runs or results."""
+def clone(campaign, user=None, code: str | None = None, scheduled_at: datetime | None = None) -> Campaign:
+    """Settings, lists and targets; never status, runs or results. A drip's messages come along, each with its own new
+    template copy; the start date does not (`scheduled_at`, when given, is the copy's)."""
     copied = ("campaign_type", "channel", "solicitation_type", "template_id", "sender_profile_id", "description", "tags", "send_type", "send_timezone", "recurring_config",
               "drip_config", "respect_governance", "rate_limit_per_hour", "timezone_optimization", "receipt_config", "setup_step", "subject_line", "preheader")
     values = {name: getattr(campaign, name) for name in copied}
@@ -375,7 +419,7 @@ def clone(campaign, user=None, code: str | None = None) -> Campaign:
         values["campaign_type"] = Campaign.CampaignType.REGULAR_MARKETING
     actor = None if user is None or hasattr(user, "has_scope") else user
     copy = Campaign.objects.create(tenant_id=campaign.tenant_id, name=copy_name(campaign.tenant_id, campaign.name), code=code, status=S.DRAFT,
-                                   owner_user_id=getattr(actor, "pk", None), created_by_id=getattr(actor, "pk", None), **values)
+                                   owner_user_id=getattr(actor, "pk", None), created_by_id=getattr(actor, "pk", None), scheduled_at=scheduled_at, **values)
     ContactListCampaign.objects.bulk_create([ContactListCampaign(campaign=copy, contact_list_id=link.contact_list_id, tenant_id=copy.tenant_id, role=link.role)
                                              for link in campaign.contact_list_campaigns.all()])
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()
@@ -383,7 +427,12 @@ def clone(campaign, user=None, code: str | None = None) -> Campaign:
         CampaignTarget.objects.create(campaign=copy, tenant_id=copy.tenant_id, created_by_id=getattr(actor, "pk", None),
                                       **{name: getattr(target, name) for name in ("target_revenue", "target_opens", "target_clicks", "target_conversions", "target_redemptions",
                                                                                    "planned_cost", "planned_offer_cost", "notes")})
-    record(copy, "CLONED", f"Created as a copy of “{campaign.name}”. Settings, lists and targets were copied; runs and results were not.", user=user, detail={"source": str(campaign.pk)})
+    if campaign.campaign_type == Campaign.CampaignType.DRIP:
+        from . import drip
+        drip.clone_steps(campaign, copy, user)
+    record(copy, "CLONED", f"Created as a copy of “{campaign.name}”. Settings, lists and targets were copied"
+           + (", and every message with a new copy of its template" if campaign.campaign_type == Campaign.CampaignType.DRIP else "") + "; runs and results were not.",
+           user=user, detail={"source": str(campaign.pk)})
     return copy
 
 
@@ -537,7 +586,6 @@ def metrics(campaign) -> dict:
     delivered = got("DELIVERED", "RESPONDED", "OPTED_OUT") if texts else got("DELIVERED", "OPENED", "CLICKED")
     numbers = {"queued": got("QUEUED"), "sent": sent, "failed": got("FAILED"), "delivered": delivered, "opened": got("OPENED", "CLICKED"), "clicked": got("CLICKED"),
                "bounced": got("BOUNCED"), "complained": got("COMPLAINED"), "unsubscribed": max(unsubscribed, got("OPTED_OUT")), "replied": got("RESPONDED", "OPTED_OUT")}
-    rate = lambda part, whole: round(part * 100 / whole, 1) if whole else 0.0      # noqa: E731
     actual = campaign.campaign_actuals.order_by("-computed_at").first()
     target = campaign.campaign_targets.filter(deleted_at__isnull=True).order_by("-created_at").first()
     conversions = getattr(actual, "attributed_conversions", None) or 0
@@ -557,6 +605,11 @@ def metrics(campaign) -> dict:
               "runs": CampaignRun.objects.filter(campaign=campaign, test_mode=False).count(), "test_runs": CampaignRun.objects.filter(campaign=campaign, test_mode=True).count()}
     cache.set(cache_key, result, RESULTS_CACHE_TTL)
     return result
+
+
+def rate(part, whole) -> float:
+    """A percentage with one decimal, 0.0 when there is nothing to divide by: every rate the results show."""
+    return round(part * 100 / whole, 1) if whole else 0.0
 
 
 def timeseries(campaign, bucket: str = "hour") -> dict:

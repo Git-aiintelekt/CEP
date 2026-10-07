@@ -1,4 +1,4 @@
-"""A/B subject lines (campaign.ab_config, patch 0023). Email only: texts have no subject.
+"""A/B subject lines (campaign.ab_config, patch 0023; a drip message's own step.ab_config, patch 0041). Email only: texts have no subject.
 
 At the send, a sample of the audience is split in two: half gets subject A (the campaign's own, else the template's), half subject B. The rest is
 queued as HOLD and the engine leaves it alone. When campaign_run.ab_decide_at comes, decide() compares the two by the
@@ -24,9 +24,10 @@ DECIDE_RANGE = (30, 7 * 24 * 60)
 TIE_POINTS = 1.0
 
 
-def config(campaign) -> dict | None:
-    """The test as it will run, or None when there is none (off, no subject B, or not an email campaign)."""
-    raw = campaign.ab_config or {}
+def config(campaign, step=None) -> dict | None:
+    """The test as it will run, or None when there is none (off, no subject B, or not an email campaign). A drip message's
+    run tests only what its step says; the campaign's setting never applies to it."""
+    raw = (step.ab_config if step is not None else campaign.ab_config) or {}
     if not raw.get("enabled") or not (raw.get("subject_b") or "").strip() or campaign.channel != "EMAIL":
         return None
     return {**DEFAULTS, **{key: raw[key] for key in DEFAULTS if raw.get(key) is not None}, "subject_b": raw["subject_b"].strip()[:300]}
@@ -55,16 +56,16 @@ def validate(value) -> str | None:
     return None
 
 
-def split(cursor, *, tenant_id, run, campaign, content) -> dict | None:
+def split(cursor, *, tenant_id, run, campaign, content, step=None) -> dict | None:
     """Right after the audience is queued: labels the sample A and B, the rest HOLD, and plans the decision. None = no test."""
-    cfg = config(campaign)
+    cfg = config(campaign, step)
     if cfg is None:
         return None
     args = {"tenant": str(tenant_id), "run": str(run.pk)}
     cursor.execute("SELECT count(*) FROM mailer_execution WHERE tenant_id = %(tenant)s AND campaign_run_id = %(run)s AND status = 'QUEUED'", args)
     total = cursor.fetchone()[0]
     from apps.delivery.engine.render import subject_of
-    subject_a = subject_of(campaign, content)[:300]
+    subject_a = subject_of(campaign, content, step)[:300]
     if total < MIN_AUDIENCE:
         return {"skipped": f"only {total} people to send to: fewer than {MIN_AUDIENCE}, so everyone gets subject A", "total": total}
     sample = max(2, round(total * cfg["sample_pct"] / 100))
