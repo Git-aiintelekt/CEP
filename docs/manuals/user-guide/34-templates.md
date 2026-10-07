@@ -100,7 +100,7 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 ## Things to know
 
 - Changing a template changes what every campaign using it sends from then on. Duplicate when a campaign must keep its own version.
-- A drip gives every message its own copy of a template, so a drip's messages never change other campaigns. Opened from the Sequence step the editor says which message it is, keeps the subject on the message (read-only here), and leads Back to Sequence. While the drip is live the copy is locked: the preview and the editor say "Used by a live drip (…). It can't be changed until the drip finishes or is stopped." and open read-only.
+- A drip gives every message its own copy of a template, so a drip's messages never change other campaigns. Opened from the Drip Campaign Setup step the editor says which message it is, keeps the subject on the message (read-only here), and leads Back to Drip Campaign Setup. While the drip is live the copy is locked: the preview and the editor say "Used by a live drip (…). It can't be changed until the drip finishes or is stopped." and open read-only.
 - Only an active template can be published; a draft can be previewed and test sent.
 - A marketing email must carry the unsubscribe link; the designer blocks Activate without it and the campaign cannot publish.
 - Outlook for Windows ignores shadows; the field says so.

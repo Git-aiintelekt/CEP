@@ -57,23 +57,23 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('drip mode: Back to Sequence, the context, the drip tracker, the strip, the subject read-only and the changed-since-test strip', async () => {
+test('drip mode: Back to Drip Campaign Setup, the context, the drip tracker, the strip, the subject read-only and the changed-since-test strip', async () => {
   setup()
   await renderAppAt('/templates/t2/design?drip=c1&step=s2')
 
-  const back = await screen.findByRole('link', { name: 'Back to Sequence' })
+  const back = await screen.findByRole('link', { name: 'Back to Drip Campaign Setup' })
   expect(back.getAttribute('href')).toBe('/campaigns/c1/edit?step=sequence&message=s2')
   expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Loyalty Welcome · Message 2 of 3 · How Points Work')
   const tracker = screen.getByRole('navigation', { name: 'Campaign Steps' })
-  expect(within(tracker).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Audience', 'Sequence', 'Targets', 'Test & Publish'])
-  expect(within(tracker).getByText('Sequence').closest('[aria-current]')?.getAttribute('aria-current')).toBe('step')
+  expect(within(tracker).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Audience', 'Drip Campaign Setup', 'Targets', 'Test & Publish'])
+  expect(within(tracker).getByText('Drip Campaign Setup').closest('[aria-current]')?.getAttribute('aria-current')).toBe('step')
   expect(document.querySelector('[data-drip-strip]')?.textContent).toBe('Loyalty Welcome · t2Changes apply to this message only.')
 
   const header = document.querySelector<HTMLElement>('[data-drip-header]')!
   expect(within(header).getByText('3 ways to earn points')).toBeTruthy()
   expect(within(header).getByText('Shop, review and refer.')).toBeTruthy()
   expect(within(header).getByText('Northwind Rewards · rewards@northwind.example')).toBeTruthy()
-  expect(within(header).getByText('Set on the Sequence step.')).toBeTruthy()
+  expect(within(header).getByText('Set on the Drip Campaign Setup step.')).toBeTruthy()
   expect(screen.queryByRole('textbox', { name: /Subject/ })).toBeNull()
   expect(screen.queryByText('The template’s own subject')).toBeNull()
   expect(screen.getByText('Changed since the test. Send this message’s test again before you publish.')).toBeTruthy()
@@ -83,7 +83,7 @@ test('Previous and Next go to the neighbouring messages in drip mode, behind the
   setup()
   const user = userEvent.setup()
   await renderAppAt('/templates/t2/design?drip=c1&step=s2')
-  await screen.findByRole('link', { name: 'Back to Sequence' })
+  await screen.findByRole('link', { name: 'Back to Drip Campaign Setup' })
 
   await user.click(screen.getByRole('button', { name: 'Change the Canvas' }))
   await user.click(screen.getByRole('button', { name: 'Next Message' }))
@@ -100,12 +100,12 @@ test('a save marks the way back, and Send Test sends this message’s own test',
   const calls = setup()
   const user = userEvent.setup()
   await renderAppAt('/templates/t2/design?drip=c1&step=s2')
-  await screen.findByRole('link', { name: 'Back to Sequence' })
+  await screen.findByRole('link', { name: 'Back to Drip Campaign Setup' })
 
   await user.click(screen.getByRole('button', { name: 'Change the Canvas' }))
   await user.click(screen.getByRole('button', { name: /^Save/ }))
   await vi.waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.includes('/templates/t2/design/'))).toBe(true))
-  await vi.waitFor(() => expect(screen.getByRole('link', { name: 'Back to Sequence' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=sequence&message=s2&saved=1'))
+  await vi.waitFor(() => expect(screen.getByRole('link', { name: 'Back to Drip Campaign Setup' }).getAttribute('href')).toBe('/campaigns/c1/edit?step=sequence&message=s2&saved=1'))
 
   await user.click(screen.getByRole('button', { name: 'Send Test' }))
   const dialog = await screen.findByRole('dialog', { name: 'Send a Test' })

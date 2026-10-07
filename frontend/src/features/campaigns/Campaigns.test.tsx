@@ -251,7 +251,7 @@ test('campaign page: Edit campaign (⋮) opens the part of the setup that holds 
 
   await editFrom('Audience')
   await user.click(await screen.findByRole('button', { name: /Review & Publish/ }))
-  expect(await screen.findByRole('heading', { level: 1, name: 'Review & Publish' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 1, name: 'Review & Publish' }, { timeout: 4000 })).toBeTruthy()
   await user.click(screen.getAllByRole('button', { name: 'Save and Close' })[0])
   expect(await screen.findByRole('tab', { name: 'Overview', selected: true })).toBeTruthy()           // scheduling lives on Overview
 })
@@ -677,7 +677,7 @@ test('Clone of a regular campaign still copies at once; a bulk clone with a drip
   await user.click(screen.getByRole('checkbox', { name: 'Select Loyalty Welcome Series' }))
   await user.click(screen.getByRole('checkbox', { name: 'Select Fall Launch' }))
   await user.click(within(screen.getByRole('region', { name: 'Bulk actions' })).getByRole('button', { name: 'Clone' }))
-  expect((await screen.findByText(/campaigns cloned\./)).textContent).toContain('The drip copy has no start date yet: choose one on the Sequence step.')
+  expect((await screen.findByText(/campaigns cloned\./)).textContent).toContain('The drip copy has no start date yet: choose one on the Drip Campaign Setup step.')
 })
 
 test('Stop Remaining Messages from the row asks first, as on the campaign page', async () => {

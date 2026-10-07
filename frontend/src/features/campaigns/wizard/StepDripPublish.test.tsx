@@ -51,7 +51,7 @@ test('the page, and the preview: a tab per message, each previewed by its own st
   const user = userEvent.setup()
   await renderAppAt(PATH)
 
-  expect(await screen.findByText('Send every message to testers now, check them in one sitting, then review the timeline and publish.')).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: 'Test & Publish' })).toBeTruthy()
   const tabs = await screen.findByRole('tablist', { name: 'Messages' })
   expect(within(tabs).getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['1 · Welcome', '2 · How Points Work', '3 · First Reward'])
   const meta = () => document.querySelector('[data-preview-meta]')?.textContent

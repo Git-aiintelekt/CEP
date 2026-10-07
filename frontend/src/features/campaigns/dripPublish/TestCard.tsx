@@ -78,7 +78,7 @@ export function TestCard({ campaign, steps, series, subjects, people, defaultTo,
     },
   })
 
-  const blocked = !campaign.sender_profile ? 'Choose a sender on the Sequence step first.' : ''
+  const blocked = !campaign.sender_profile ? 'Choose a sender on the Drip Campaign Setup step first.' : ''
   const ready = !test.isPending && !blocked && recipients.chosen && total > 0
 
   return (

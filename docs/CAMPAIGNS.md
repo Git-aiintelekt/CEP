@@ -362,7 +362,7 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
 
 - **Create Campaign** offers Drip with a hint that points to a journey when messages should depend on what a customer
   does (Create a Journey Instead opens the journey pop-up with the name); Multiple Channels is unavailable for a drip.
-- **The setup** has four steps: Audience (with how a drip audience works), **Sequence** (the messages as a timeline of
+- **The setup** has four steps: Audience (with how a drip audience works), **Drip Campaign Setup** (the messages as a timeline of
   cards, a drawer per message, Add Message from a copy, the gallery or blank, Series at a Glance with the start date,
   the series time and zone and a calendar, Sender and Topic once for all), Targets, and **Test & Publish** (a preview per
   message, Send All as a Test, the test state per message, the review timeline with its warnings, the checklist, Publish
@@ -370,11 +370,11 @@ campaign; template, subject line, preheader, day, send time and the A/B subject 
   The drawer saves each field when it is left, one save after another with the version the last returned; Escape, × and
   Done save what was typed and not yet left.
 - **The email editor** opened for a message (`?drip=&step=`) says which message it is, keeps the subject on the message
-  (read-only there), offers Previous / Next Message and the message's own test, and returns Back to Sequence.
+  (read-only there), offers Previous / Next Message and the message's own test, and returns Back to Drip Campaign Setup.
 - **The campaign page** of a published drip: the Series Timeline (each message's state and figures, Skipped with View
   People, Replies and Opted Out for texts, Not Sent for what a stop left unsent), the banners (scheduled, paused with who
   and when, stopped early, a failed message with Retry), Message Comparison on Performance, the messages on Content, and
-  Resume / Stop / Retry pop-ups. **Clone** asks for the copy's name and start date and opens its Sequence step.
+  Resume / Stop / Retry pop-ups. **Clone** asks for the copy's name and start date and opens its Drip Campaign Setup step.
 - **Everywhere else:** the Campaigns list (a progress line and Next Send naming the message), the quick view (one message
   at a time with ‹ ›, the message list, the figures, ⋮ from `campaign.actions`), the calendar (one bar with numbered
   markers; each message its own entry in the week and the day list; a paused drip on hold), Home (Next 7 Days per

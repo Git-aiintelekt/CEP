@@ -69,7 +69,7 @@ export function DripContent({ campaign, zone, editable }: { campaign: Campaign; 
         </nav>
         {step && (
           <DetailCard title={`Message ${step.position} · ${messageTitle(step)}`}
-            actions={editable && !published && <Link to={sequenceHref(campaign.id, step.id)} className="text-helper font-semibold text-brand-800 hover:underline">Edit in Sequence</Link>}>
+            actions={editable && !published && <Link to={sequenceHref(campaign.id, step.id)} className="text-helper font-semibold text-brand-800 hover:underline">Edit in Drip Campaign Setup</Link>}>
             <div className="flex flex-col gap-5">
               <dl className="grid gap-4 sm:grid-cols-2">
                 <Line label="Template">{step.template?.name ?? 'Not chosen yet'}</Line>

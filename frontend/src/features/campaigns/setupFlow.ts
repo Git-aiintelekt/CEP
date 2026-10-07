@@ -20,8 +20,8 @@ export const FLOW_STEPS: { key: FlowStep; label: string; next?: string }[] = [
 ]
 
 export const DRIP_STEPS: { key: FlowStep; label: string; next?: string }[] = [
-  { key: 'audience', label: 'Audience', next: 'Continue to Sequence' },
-  { key: 'sequence', label: 'Sequence', next: 'Continue to Targets' },
+  { key: 'audience', label: 'Audience', next: 'Continue to Drip Campaign Setup' },
+  { key: 'sequence', label: 'Drip Campaign Setup', next: 'Continue to Targets' },
   { key: 'targets', label: 'Targets', next: 'Continue to Test & Publish' },
   { key: 'publish', label: 'Test & Publish' },
 ]

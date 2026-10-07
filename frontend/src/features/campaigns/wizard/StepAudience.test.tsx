@@ -231,7 +231,7 @@ test('a drip: "How a Drip Audience Works" above Send To, in the empty state too;
   expect(within(card('Send To')).getByText('Add the lists this drip goes to. A draft can be saved without one; publishing needs at least one.')).toBeTruthy()
   expect(within(card('Don’t Send To')).getByText('Nobody is left out by a list.')).toBeTruthy()
   expect(within(card('Don’t Send To')).getByRole('button', { name: 'Add List to Leave Out' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: /Continue to Sequence/ })).toBeTruthy()                  // a draft can move on without lists
+  expect(screen.getByRole('button', { name: /Continue to Drip Campaign Setup/ })).toBeTruthy()                  // a draft can move on without lists
   cleanup()
 
   await openStep(makeCampaign({ status: 'DRAFT', contact_lists: [], contact_list_details: [] }))
@@ -242,7 +242,7 @@ test('a drip: "How a Drip Audience Works" above Send To, in the empty state too;
 test('a drip nobody can receive: a warning in the channel’s words, never a block', async () => {
   await openStep(drip({ channel: 'EMAIL' }), { estimate: { estimated_recipients: 0 } })
   expect(await screen.findByText('No one on these lists can receive marketing email right now. Check consent or the lists you’re leaving out.')).toBeTruthy()
-  expect((screen.getByRole('button', { name: /Continue to Sequence/ }) as HTMLButtonElement).disabled).toBe(false)
+  expect((screen.getByRole('button', { name: /Continue to Drip Campaign Setup/ }) as HTMLButtonElement).disabled).toBe(false)
   cleanup()
   await openStep(drip({ channel: 'SMS' }), { estimate: { estimated_recipients: 0 } })
   expect(await screen.findByText('No one on these lists can receive marketing texts right now. Check consent or the lists you’re leaving out.')).toBeTruthy()

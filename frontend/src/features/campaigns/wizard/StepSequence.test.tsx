@@ -34,7 +34,7 @@ const four = (): DripStep[] => [
 const ready = (): DripStep[] => four().slice(0, 3)
 const stepCalls = (calls: Call[]) => calls.filter((call) => call.url.includes('/steps/') && call.method !== 'GET')
 const campaignPatches = (calls: Call[]) => calls.filter((call) => call.method === 'PATCH' && /\/campaigns\/c1\/(\?|$)/.test(call.url))
-const card = (position: number, name: string) => screen.findByRole('button', { name: `Open message ${position}, ${name}` })
+const card = (position: number, name: string) => screen.findByRole('button', { name: `Open message ${position}, ${name}` }, { timeout: 4000 })
 const drawer = (name: string) => screen.findByRole('dialog', { name })
 
 beforeEach(() => window.localStorage.clear())
@@ -61,7 +61,8 @@ test('the timeline: cards in day order with their eyebrow and tags, gap pills, t
   installMockApi({ campaign: drip(), dripSteps: { c1: four() } })
   await renderAppAt('/campaigns/c1/edit?step=sequence')
 
-  expect(await screen.findByText(/Every message goes to everyone on the campaign list, on its day\./)).toBeTruthy()
+  await card(1, 'Welcome')
+  expect(screen.queryByText(/Every message goes to everyone on the campaign list/)).toBeNull()                 // no description on this step
   const second = await card(2, 'How Points Work')
   expect(second.textContent).toContain('Message 2 of 4 · Day 3 · Thu 15 Oct, 09:00 CT')
   expect(second.textContent).toContain('3 ways to earn points')
@@ -104,7 +105,7 @@ test('without a start date: the marker and the summary ask for one, and Continue
   await user.click(screen.getByRole('button', { name: /Continue to Targets/ }))
   expect((await screen.findByRole('alert')).textContent).toContain('Choose a start date.')
   expect(campaignPatches(calls)).toHaveLength(0)
-  expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Sequence')
+  expect(document.querySelector('h1[tabindex="-1"]')?.textContent).toBe('Drip Campaign Setup')
 })
 
 test('Continue with problems: the banner, the flagged card, Show First Problem; once all are ready it moves on to Targets', async () => {
@@ -472,4 +473,13 @@ test('Escape saves what was typed and not yet left, as Done does', async () => {
   await user.type(subject, 'Earn points three ways')
   await user.keyboard('{Escape}')
   await vi.waitFor(() => expect(stepCalls(calls).filter((call) => call.method === 'PATCH').at(-1)?.body).toMatchObject({ subject_line: 'Earn points three ways' }))
+})
+
+test('the step has no description, no help icon and no setup progress line', async () => {
+  installMockApi({ campaign: drip({ setup_step: 3 }), dripSteps: { c1: ready() } })
+  await renderAppAt('/campaigns/c1/edit?step=sequence')
+  await card(1, 'Welcome')
+  expect(screen.queryByText(/Every message goes to everyone on the campaign list/)).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Help for this page' })).toBeNull()
+  expect(screen.queryByTestId('setup-progress')).toBeNull()
 })

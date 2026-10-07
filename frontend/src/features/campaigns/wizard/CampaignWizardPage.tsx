@@ -31,7 +31,7 @@ import { dripStepsQuery } from '../dripSteps'
 import { CardSubheading } from '../parts'
 import { campaignSchema, emptyValues, formFieldOf, fromCampaign, STEP_FIELDS, stepOfApiField, toInput, type CampaignFormValues } from '../schema'
 import { CampaignSetupDialog } from '../setup/CampaignSetupDialog'
-import { isDrip, placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, setupHref, stepForType, stepsDone, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
+import { isDrip, placeFromParams, progressAfter, typeCanChange, PROGRESS, PUBLISH_SECTIONS, resumeStep, setupHref, stepForType, stepsFor, type FlowStep, type PublishSection, type SetupPlace } from '../setupFlow'
 import { hasAction, tabOfStep } from '../vocabulary'
 import { FlowProgress, FlowStepMenu, FlowStepper, HoverTip } from './FlowStepper'
 import { StepAudience } from './StepAudience'
@@ -43,17 +43,7 @@ import { StepTargets } from './StepTargets'
 import { StepTemplate } from './StepTemplate'
 import { StepTest } from './StepTest'
 
-import { PageHelp } from '@/help/HelpPanel'
 
-const INTRO: Record<FlowStep, string> = {
-  audience: 'Attach the contact lists to send to, and the ones to keep out.',
-  content: 'Choose the message and who it comes from.',
-  sequence: 'Every message goes to everyone on the campaign list, on its day. Days count from the start date, so moving the start date moves every message.',
-  test: 'See the message as a recipient will, and send yourself a test before it goes to anyone else.',
-  targets: 'Set what this campaign should achieve, and what it may cost. All of it is optional: skip it for now and come back later.',
-  publish: 'Decide when it goes out, check everything once more, then publish to production.',
-}
-const DRIP_PUBLISH_INTRO = 'Send every message to testers now, check them in one sitting, then review the timeline and publish.'
 /** the form fields each step owns: "Continue" (or saving a section) checks these and nothing else */
 const FIELDS: Record<FlowStep, readonly (keyof CampaignFormValues)[]> = { audience: STEP_FIELDS[1], content: STEP_FIELDS[2], sequence: [], targets: STEP_FIELDS[4], test: [], publish: STEP_FIELDS[3] }
 /** where the API's field messages belong, by the old wizard's step index */
@@ -332,15 +322,7 @@ export function CampaignWizardPage() {
           <form noValidate onSubmit={(event) => { event.preventDefault(); if (!last) afterUploads(() => void go(step + 1)) }} className="min-w-0">
             <div key={current} className="animate-step-in">
               <p className="text-xs font-semibold text-ink-800">Step {step + 1} of {steps.length}</p>
-              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1><PageHelp chapter="campaign-setup" /></span>
-              <p className="mt-1 text-sm text-ink-800">{drip && current === 'publish' ? DRIP_PUBLISH_INTRO : INTRO[current]}</p>
-              {/* where the setup was left; not shown on the step it resumes at, which says so itself */}
-              {(loaded.setup_complete || current !== reachedKey) && (
-                <p className="mt-1 text-sm text-ink-800" data-testid="setup-progress">
-                  {loaded.setup_complete ? 'Changes are saved as you continue. Nothing is sent until you publish.'
-                    : `Setup in progress: ${stepsDone(loaded)} of ${steps.length} steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.`}
-                </p>
-              )}
+              <span className="flex items-center gap-1.5"><h1 ref={heading} tabIndex={-1} className="font-display text-page-title font-semibold text-ink-900 outline-none">{steps[step].label}</h1></span>
               <div className="mt-6">
                 {current === 'audience' && <StepAudience campaign={loaded} onChangeType={canChangeType ? () => openDetails(true) : undefined} pending={pendingUploads} onPendingChange={setPendingUploads} />}
                 {current === 'content' && !drip && <StepTemplate campaign={loaded} />}

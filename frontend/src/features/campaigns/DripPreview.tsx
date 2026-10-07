@@ -128,7 +128,7 @@ export function DripPreviewDetails({ campaign, steps, index, onIndex, series }: 
           ? { state: 'ready' as const, value: `${lists[0].name}${listCount > 1 ? ` and ${listCount - 1} more` : ''}`, secondary: [LIST_KIND[lists[0].list_kind] ?? lists[0].list_kind, lists[0].list_environment === 'TEST' ? 'Test' : 'Production'].join(' · ') }
           : { state: 'missing' as const, hint: 'Choose contact lists on the Audience step' })} />
       )}
-      <Detail label="Sender" {...(campaign.sender_profile_name ? { state: 'ready' as const, value: campaign.sender_profile_name } : { state: 'missing' as const, hint: 'Choose a sender on the Sequence step' })} />
+      <Detail label="Sender" {...(campaign.sender_profile_name ? { state: 'ready' as const, value: campaign.sender_profile_name } : { state: 'missing' as const, hint: 'Choose a sender on the Drip Campaign Setup step' })} />
       {campaign.topic_name && <Detail label="Topic" state="ready" value={campaign.topic_name} />}
       {!texts && step && <StepSubject key={step.id} step={step} />}
     </div>

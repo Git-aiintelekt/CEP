@@ -285,7 +285,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     // a drip cloned in bulk has no start date: its copy's Sequence step asks for one
     const drips = result.action === 'clone' ? rows.filter((row) => isDripSeries(row) && selected.includes(row.id)).length : 0
     setNotice(`${result.done.length} campaign${result.done.length === 1 ? '' : 's'} ${verb}.`
-      + (drips ? ` ${drips === 1 ? 'The drip copy has' : 'The drip copies have'} no start date yet: choose one on the Sequence step.` : '')
+      + (drips ? ` ${drips === 1 ? 'The drip copy has' : 'The drip copies have'} no start date yet: choose one on the Drip Campaign Setup step.` : '')
       + (result.skipped.length ? ` Left as they were: ${result.skipped.map((item) => `${item.name} (${item.reason})`).join('; ')}` : ''))
   })
 

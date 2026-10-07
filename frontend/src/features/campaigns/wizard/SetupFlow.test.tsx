@@ -235,10 +235,10 @@ test('a drip goes Audience → Sequence → Targets → Test & Publish; each Con
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit')
   await stepHeading('Audience')
-  expect(railButtons().map((button) => button.textContent?.replace(/^\d/, ''))).toEqual(['Audience', 'Sequence', 'Targets', 'Test & Publish'])
+  expect(railButtons().map((button) => button.textContent?.replace(/^\d/, ''))).toEqual(['Audience', 'Drip Campaign Setup', 'Targets', 'Test & Publish'])
 
-  await user.click(screen.getByRole('button', { name: /Continue to Sequence/ }))
-  await stepHeading('Sequence')
+  await user.click(screen.getByRole('button', { name: /Continue to Drip Campaign Setup/ }))
+  await stepHeading('Drip Campaign Setup')
   expect(patches(calls).at(-1)?.body).toMatchObject({ setup_step: 2, campaign_type: 'DRIP', send_type: 'DRIP' })
   for (const key of ['drip_config', 'template', 'subject_line', 'preheader', 'scheduled_at', 'ab_config']) expect(patches(calls).at(-1)?.body).not.toHaveProperty(key)
   const card = await screen.findByRole('button', { name: 'Open message 1, Welcome' })
@@ -264,7 +264,7 @@ test('a drip: progress, where its setup resumes, and old links', () => {
   expect(progressAfter('targets', 'DRIP')).toBe(5)
   expect(progressAfter('test', 'DRIP')).toBe(6)                                                     // tested: the setup is complete
   expect([1, 2, 3, 5].map((setup_step) => stepsDone({ setup_step, campaign_type: 'DRIP' }))).toEqual([0, 1, 2, 3])
-  expect(stepsFor('DRIP').map((step) => [step.label, step.next])).toEqual([['Audience', 'Continue to Sequence'], ['Sequence', 'Continue to Targets'],
+  expect(stepsFor('DRIP').map((step) => [step.label, step.next])).toEqual([['Audience', 'Continue to Drip Campaign Setup'], ['Drip Campaign Setup', 'Continue to Targets'],
     ['Targets', 'Continue to Test & Publish'], ['Test & Publish', undefined]])
   const at = (query: string, type = 'DRIP') => placeFromParams(new URLSearchParams(query), type)
   expect(at('step=content')).toEqual({ step: 'sequence' })
@@ -282,7 +282,7 @@ test('a drip: progress, where its setup resumes, and old links', () => {
 test('a drip\'s old links open its own steps', async () => {
   installMockApi({ campaign: draft({ campaign_type: 'DRIP', send_type: 'DRIP', setup_step: 6 }) })
   await renderAppAt('/campaigns/c1/edit?step=content')
-  await stepHeading('Sequence')
+  await stepHeading('Drip Campaign Setup')
   cleanup()
   installMockApi({ campaign: draft({ campaign_type: 'DRIP', send_type: 'DRIP', setup_step: 6 }) })
   await renderAppAt('/campaigns/c1/edit?step=test')
@@ -323,7 +323,8 @@ test('the setup-in-progress line says how far the setup got, and the back button
   await stepHeading('Test')
   expect(screen.queryByTestId('setup-progress')).toBeNull()
   await user.click(screen.getByRole('button', { name: /^Audience/ }))
-  expect((await screen.findByTestId('setup-progress')).textContent).toBe('Setup in progress: 2 of 5 steps done. The campaign opens here until setup is finished. Nothing is sent until you publish.')
+  await stepHeading('Audience')
+  expect(screen.queryByTestId('setup-progress')).toBeNull()                                           // no progress line on any step
   const back = screen.getByRole('link', { name: 'Back to Campaigns' })                                   // the flow bar's back button
   expect(back.getAttribute('href')).toBe('/campaigns')
   expect(back.querySelector('svg')?.getAttribute('class')).toContain('lucide-arrow-left')
@@ -341,4 +342,11 @@ test('a text campaign with an email list attached says what the list may lack, a
   expect(await stepHeading('Audience')).toBeTruthy()
   await screen.findByTestId('audience-reason')
   expect(screen.queryByText(/its people may have no/)).toBeNull()
+})
+
+test('no setup step shows a description under its title', async () => {
+  installMockApi({ campaign: makeCampaign({ status: 'DRAFT', setup_step: 1 }) })
+  await renderAppAt('/campaigns/c1/edit?step=audience')
+  expect(await screen.findByRole('heading', { level: 1, name: 'Audience' })).toBeTruthy()
+  expect(screen.queryByText('Attach the contact lists to send to, and the ones to keep out.')).toBeNull()
 })

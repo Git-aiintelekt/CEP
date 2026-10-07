@@ -208,7 +208,7 @@ export function MessageDrawer({ campaign, step, steps, series, onClose, onOpenSt
               <div className="grid grid-cols-[120px_minmax(0,1fr)] items-start gap-4">
                 <Field label="Day" strong>
                   {(ids) => (
-                    <TextInput {...ids} invalid={Boolean(dayError)} inputMode="numeric" className="cep-num" value={draft.day}
+                    <TextInput {...ids} invalid={Boolean(dayError)} inputMode="numeric" className="cep-num mt-0!" value={draft.day}
                       onChange={(event) => { set('day')(event.target.value); setDayProblem(null) }} onBlur={saveDay}
                       onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); saveDay() } }} />
                   )}

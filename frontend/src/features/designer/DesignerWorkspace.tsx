@@ -403,7 +403,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
           </div>
         ))}
       </dl>
-      <p className="mt-1.5 text-helper text-ink-800">Set on the Sequence step.</p>
+      <p className="mt-1.5 text-helper text-ink-800">Set on the Drip Campaign Setup step.</p>
     </div>
   )
 
@@ -501,7 +501,7 @@ export function DesignerWorkspace({ templateName, channel, status, design, tags,
       saveNote={saveNote}
       saveNoteTone={dirty && !readOnly ? 'warning' : 'default'}
       backTo={backTo}
-      backText={drip ? 'Back to Sequence' : undefined}
+      backText={drip ? 'Back to Drip Campaign Setup' : undefined}
       context={drip?.context}
       wizard={drip?.wizard}
       underBar={drip && (
