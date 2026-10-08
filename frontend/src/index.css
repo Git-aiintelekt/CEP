@@ -42,7 +42,7 @@
   --color-surface-subtle: #f9fafb; /* Gray 75 — table header, alternating rows */
   --color-surface-hover: #eeeff5; /* Gray 100 — row and menu-item hover, one step above the surface it sits on */
   --color-surface-sunken: #eeeff5; /* Gray 100 — search and header fields at rest */
-  --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
+  --color-canvas: #f9fafb; /* trial: the page sheet beside the navy rail, a near-White grey; cards on it stay White */
   --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
   --color-sidebar: #20265d; /* Navy 900 — the rail's dark surface; the toast is the only other one */
   /* the toast: always on Gray 900 whatever its status, which only the dot carries */
@@ -118,13 +118,13 @@
   --color-cat-transactional-bg: #eeeff5;
   --color-cat-transactional-text: #4a4e5a;
 
-  /* ---- Plum accent: journey markers, icon badges, small highlights. Never action, link, status or large fills ---- */
-  --color-plum-50: #fbf4f9;
-  --color-plum-100: #f4e4f1;
-  --color-plum-200: #e8c6e0;
-  --color-plum-500: #a8488f;
-  --color-plum-700: #8a3375;
-  --color-plum-800: #6e2a5e;
+  /* ---- the old Plum accent slots. Trial: they hold the blue ramp, so blue is the only accent (names kept so nothing breaks) ---- */
+  --color-plum-50: #f3f6fe;
+  --color-plum-100: #dee9fc;
+  --color-plum-200: #c3d5f9;
+  --color-plum-500: #3863db;
+  --color-plum-700: #2b4dd0;
+  --color-plum-800: #233c9e;
 
   /* ---- callouts are periwinkle, never a blue-tinted info box ---- */
   --color-callout-bg: #eef2fe;
@@ -155,24 +155,24 @@
 
   /* ---- chart palette, in order: series n takes chart-n. Blue only ever leads; no status colour is in the palette (2026-10-08) ---- */
   --color-chart-1: #3863db; /* Blue 600 */
-  --color-chart-2: #a8488f; /* Plum 500 */
+  --color-chart-2: #a8488f; /* Plum 500: charts keep plum (the cost line, the second reason) though the accent is blue */
   --color-chart-3: #418eae; /* wordmark teal */
-  --color-chart-4: #9ea2ad; /* Gray 400, also the reference line */
+  --color-chart-4: #9ea2ad; /* Gray 400 */
   --color-chart-5: #b08a6e; /* Taupe 500 */
   --color-chart-6: #7570d4; /* Periwinkle 500 */
   --color-chart-pair: var(--color-chart-2); /* the second series when a chart has exactly two: the same Plum */
   --color-chart-soft: #dee9fc; /* quiet bars that sit behind a highlight (Integrations' call volume) */
 
-  /* ---- radii. Nothing is more rounded than 8px; pill is for switch tracks and progress fills ---- */
-  --radius-xs: 2px; /* checkbox */
-  --radius-sm: 4px; /* controls, tags, tooltips — the default */
-  --radius-md: 6px; /* menus */
-  --radius-lg: 8px; /* cards, modals, drawer bodies */
-  --radius-pill: 9999px; /* switch tracks and progress fills only */
-  /* buttons and controls round with their height: 40px → 8, 32px → 6, 24px and under → 4. The editors reset these to 4 (.editor-radii) */
-  --radius-control-lg: 8px;
-  --radius-control-md: 6px;
-  --radius-control-sm: 4px;
+  /* ---- radii (new-theme-style trial, 2026-10-08): soft cards, pill controls ---- */
+  --radius-xs: 4px; /* checkbox */
+  --radius-sm: 6px; /* tags, tooltips, small boxes */
+  --radius-md: 12px; /* menus, boxes inside a card, multi-line fields */
+  --radius-lg: 16px; /* cards, modals, drawer bodies */
+  --radius-pill: 9999px;
+  /* buttons and single-line controls are pills. The editors reset these to 4 (.editor-radii) */
+  --radius-control-lg: 9999px;
+  --radius-control-md: 9999px;
+  --radius-control-sm: 9999px;
 
   /* ---- type scale, IBM Plex Sans (2026-10-08). Body is 15px: Plex's shorter lowercase reads at 15 the way Inter did at 14.
      Plex is spaced for 0 tracking: only the two largest sizes tighten, and 12px opens up slightly ---- */
@@ -315,9 +315,9 @@
  * so components never carry a raw colour. Do not reuse them on other pages.
  */
 @theme {
-  --color-home-canvas: #f4f5f9; /* where the plum wash fades to */
-  --color-home-hero-rule: #4a5291; /* the footer rule on the navy hero */
-  --color-home-hero-plum-rule: #b9659f; /* the footer rule on the plum hero */
+  --color-home-canvas: #f9fafb; /* the page tint */
+  --color-home-hero-rule: #6585e4; /* the footer rule on the blue hero */
+  --color-home-hero-plum-rule: #6585e4;
   /* the hero figures: Home's one size above Display (approved 2026-10-08) */
   --text-home-hero: 40px;
   --text-home-hero--line-height: 48px;
@@ -334,8 +334,8 @@
 [data-theme="light"] {
   color-scheme: light;
   --color-sidebar: #20265d;
-  --color-canvas: #ffffff;
-  --color-home-canvas: #f4f5f9;
+  --color-canvas: #f9fafb;
+  --color-home-canvas: #f9fafb;
   --color-surface: #ffffff;
   --color-surface-overlay: #ffffff;
   --color-surface-subtle: #f9fafb;
@@ -369,12 +369,12 @@
   --color-link-hover: #2b4dd0;
   --color-wordmark-navy: #273fa8;
   --color-wordmark-teal: #418eae;
-  --color-plum-50: #fbf4f9;
-  --color-plum-100: #f4e4f1;
-  --color-plum-200: #e8c6e0;
-  --color-plum-500: #a8488f;
-  --color-plum-700: #8a3375;
-  --color-plum-800: #6e2a5e;
+  --color-plum-50: #f3f6fe;
+  --color-plum-100: #dee9fc;
+  --color-plum-200: #c3d5f9;
+  --color-plum-500: #3863db;
+  --color-plum-700: #2b4dd0;
+  --color-plum-800: #233c9e;
   --color-success: #5ec16a;
   --color-success-bg: #e3f4e5;
   --color-success-text: #0e6027;
@@ -495,12 +495,12 @@
   --color-link-hover: #a9c1f7;
   --color-wordmark-navy: #7a9df0;
   --color-wordmark-teal: #6fb6d4;
-  --color-plum-50: #2a1424;
-  --color-plum-100: #3d1c34;
-  --color-plum-200: #56264a;
-  --color-plum-500: #a8488f;
-  --color-plum-700: #e3aad3;
-  --color-plum-800: #efcce6;
+  --color-plum-50: #152447;
+  --color-plum-100: #1c2e5a;
+  --color-plum-200: #24408a;
+  --color-plum-500: #5a80e6;
+  --color-plum-700: #a9c1f7;
+  --color-plum-800: #cbdaf9;
   --color-success: #5ec16a;
   --color-success-bg: #15351d;
   --color-success-text: #a3dfaa;
@@ -591,23 +591,25 @@
 /* Dark Home: no plum wash (the neutral shell's flat canvas), and gradients that end in a light Plum step move to a deep one */
 [data-theme="dark"] {
   .cep-home-wash { background: var(--color-canvas); }
-  .cep-home-journey { background: linear-gradient(135deg, var(--color-plum-500) 0%, #7a3468 100%); }
-  .cep-home-journey-down { background: linear-gradient(180deg, var(--color-plum-500) 0%, #7a3468 100%); }
-  .cep-home-rank-1 { background: linear-gradient(135deg, #7a3468 0%, var(--color-plum-500) 100%); }
-  .cep-home-step-4 { background: linear-gradient(90deg, var(--color-plum-500) 0%, #7a3468 100%); }
+  /* the light hero turns deep navy: its chip sits on Blue 100 (dark) instead of the card colour */
+  .cep-home-hero-chip { background: var(--color-brand-100); }
+  .cep-home-journey { background: linear-gradient(135deg, var(--color-plum-500) 0%, #233c9e 100%); }
+  .cep-home-journey-down { background: linear-gradient(180deg, var(--color-plum-500) 0%, #233c9e 100%); }
+  .cep-home-rank-1 { background: linear-gradient(135deg, #233c9e 0%, var(--color-plum-500) 100%); }
+  .cep-home-step-4 { background: linear-gradient(90deg, var(--color-plum-500) 0%, #233c9e 100%); }
 }
 
 @layer components {
   /* navy outside a 12px quarter circle: the shell's sheet corner, pinned under the top bar */
   .cep-sheet-corner { background: radial-gradient(circle at 100% 100%, transparent 11.5px, var(--color-sidebar) 12px); }
-  .cep-home-wash { background: linear-gradient(180deg, var(--color-plum-50) 0px, var(--color-home-canvas) 360px); }
-  .cep-home-hero-navy { background: linear-gradient(140deg, var(--color-sidebar) 0%, var(--color-plum-800) 100%); }
-  .cep-home-hero-plum { background: linear-gradient(140deg, var(--color-plum-800) 0%, var(--color-plum-500) 100%); }
+  .cep-home-wash { background: var(--color-canvas); }
+  .cep-home-hero-navy { background: linear-gradient(140deg, var(--color-brand-600) 0%, var(--color-plum-800) 100%); }
+  .cep-home-hero-light { background: linear-gradient(160deg, var(--color-plum-100) 0%, var(--color-plum-50) 100%); }
   /* blue into plum: progress fills, the set-up badge, the funnel and ranking bars */
-  .cep-home-blend { background: linear-gradient(90deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
-  .cep-home-blend-diagonal { background: linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
+  .cep-home-blend { background: linear-gradient(90deg, var(--color-brand-600) 0%, var(--color-plum-700) 100%); }
+  .cep-home-blend-diagonal { background: linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-plum-700) 100%); }
   /* the revenue bars and the recent-campaign mark: plum at the top into blue */
-  .cep-home-blend-down { background: linear-gradient(180deg, var(--color-brand-600) 0%, var(--color-plum-500) 100%); }
+  .cep-home-blend-down { background: linear-gradient(180deg, var(--color-brand-600) 0%, var(--color-plum-700) 100%); }
   .cep-home-journey { background: linear-gradient(135deg, var(--color-plum-500) 0%, var(--color-plum-800) 100%); }
   .cep-home-journey-down { background: linear-gradient(180deg, var(--color-plum-500) 0%, var(--color-plum-800) 100%); }
   /* section and KPI icon badges, ranks */

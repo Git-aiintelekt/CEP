@@ -1,6 +1,6 @@
 /**
  * Every chart in CEP is drawn by this frame, so they all look and behave alike (the Charts rules in the cep-design
- * README): the legend that shows and hides series, horizontal gridlines, 12px axis labels, a guide line and tooltip
+ * README): the legend that shows and hides series, horizontal gridlines over a darker baseline, 13px axis labels, a guide line and tooltip
  * on hover, arrow keys and touch, the numbers as a table, and the same loading, empty and error states.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
@@ -63,6 +63,8 @@ interface ChartProps {
   reference?: ChartReference
   /** 'none': the legend is drawn elsewhere with ChartLegend, and the chart follows its `hidden` */
   legend?: 'top' | 'none'
+  /** label every nth category on the x axis (7 for a week of days) instead of as many as fit */
+  labelStep?: number
   /** the series keys hidden from outside (useChartLegend); the chart's own legend manages this itself */
   hidden?: ReadonlySet<string>
 }
@@ -94,7 +96,7 @@ export function Swatch({ color, hollow = false, shape = 'square' }: { color: str
   if (shape !== 'square') {
     return <span aria-hidden data-swatch={shape} className={`w-3.5 shrink-0 border-t-2 ${shape === 'dashed' ? 'border-dashed' : ''} ${hollow ? 'opacity-40' : ''}`} style={{ borderColor: color }} />
   }
-  return <span aria-hidden data-swatch="square" className="h-2.5 w-2.5 shrink-0 rounded-xs border-2" style={{ borderColor: color, backgroundColor: hollow ? 'transparent' : color }} />
+  return <span aria-hidden data-swatch="square" className="h-3 w-3 shrink-0 rounded-[3px] border-2" style={{ borderColor: color, backgroundColor: hollow ? 'transparent' : color }} />
 }
 
 const shapeOf = (item: { mark?: 'bar' | 'line' }): SwatchShape => (item.mark === 'line' ? 'line' : 'square')
@@ -114,14 +116,14 @@ export function ChartLegend({ series, reference, hidden, onToggle }: ChartLegend
         const on = !hidden.has(item.key)
         return (
           <button key={item.key} type="button" aria-pressed={on} onClick={() => onToggle(item.key)}
-            className={`inline-flex h-6 items-center gap-2 rounded-control-sm px-1 text-helper transition-colors duration-fast ease-standard hover:bg-surface-hover ${on ? 'text-ink-800' : 'text-ink-800'}`}>
+            className="inline-flex h-7 items-center gap-2 rounded-control-sm px-1.5 text-sm text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-hover">
             <Swatch color={item.color} hollow={!on} shape={shapeOf(item)} />
             <span className={on ? '' : 'line-through'}>{item.label}</span>
           </button>
         )
       })}
       {reference && (
-        <span data-legend-reference className="inline-flex h-6 items-center gap-2 px-1 text-helper text-ink-800">
+        <span data-legend-reference className="inline-flex h-7 items-center gap-2 px-1.5 text-sm text-ink-800">
           <Swatch color={REFERENCE_COLOR} shape="dashed" />
           {reference.label}
         </span>
@@ -159,7 +161,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', hidden: hiddenOutside }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -178,7 +180,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const whole = plotted.every(Number.isInteger)
   const ticks = niceTicks(Math.max(0, ...plotted), 4, whole)
   const top = ticks.at(-1)!
-  const left = Math.max(32, Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7 + 12)
+  const left = Math.max(36, Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7.5 + 14)
   // any bars put every category in a band, so a line among bars runs through the bars' centres
   const bars = colored.some((item) => markOf(item) === 'bar')
   const plotWidth = Math.max(1, width - left - PAD.right)
@@ -190,7 +192,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
     y: (value) => PAD.top + plotHeight * (1 - value / top),
   }
   const labelWidth = Math.max(...categories.map((category) => category.label.length)) * 7 + 24
-  const every = labelEvery(count, plotWidth - labelWidth, labelWidth)
+  const every = Math.max(labelStep ?? 1, labelEvery(count, plotWidth - labelWidth, labelWidth))
 
   useLayoutEffect(() => {
     if (tip.current) setTipWidth(tip.current.offsetWidth || 180)
@@ -255,12 +257,12 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
           <svg width={width} height={height} aria-hidden className="block overflow-visible" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {ticks.map((tick) => (
               <g key={tick}>
-                <line x1={left} x2={width - PAD.right} y1={plot.y(tick)} y2={plot.y(tick)} stroke="var(--color-line-subtle)" strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={left - 8} y={plot.y(tick) + 4} textAnchor="end" fontSize={12} fill="var(--color-ink-800)">{formatTick(tick)}</text>
+                <line x1={left} x2={width - PAD.right} y1={plot.y(tick)} y2={plot.y(tick)} stroke={tick === 0 ? 'var(--color-line)' : 'var(--color-line-subtle)'} strokeWidth={tick === 0 ? 1.5 : 1} shapeRendering="crispEdges" />
+                <text x={left - 10} y={plot.y(tick) + 4} textAnchor="end" fontSize={13} fill="var(--color-ink-800)">{formatTick(tick)}</text>
               </g>
             ))}
             {categories.map((category, index) => index % every === 0 && (
-              <text key={category.key} x={plot.x(index)} y={height - 8} fontSize={12} fill="var(--color-ink-800)"
+              <text key={category.key} x={plot.x(index)} y={height - 7} fontSize={13} fill="var(--color-ink-800)"
                 textAnchor={bars || count === 1 ? 'middle' : index === 0 ? 'start' : index === count - 1 ? 'end' : 'middle'}>{category.label}</text>
             ))}
             {active !== null && (

@@ -1,7 +1,7 @@
 /** The chart palette, in order: a chart's nth series takes the nth colour unless it names one. */
 export const CHART_COLORS = [1, 2, 3, 4, 5, 6].map((index) => `var(--color-chart-${index})`)
 
-/** A series' colour by its place among all the chart's series (hidden ones included): with exactly two, the second is Plum. */
+/** A series' colour by its place among all the chart's series (hidden ones included): with exactly two, the second takes the pair colour. */
 export function seriesColor(index: number, count: number): string {
   if (count === 2 && index === 1) return 'var(--color-chart-pair)'
   return CHART_COLORS[index % CHART_COLORS.length]
@@ -12,8 +12,8 @@ export function colorSeries<T extends { color?: string }>(series: T[]): (T & { c
   return series.map((item, index) => ({ ...item, color: item.color ?? seriesColor(index, series.length) }))
 }
 
-/** the reference line's look: dashed Gray 400, never a colour slot */
-export const REFERENCE_COLOR = 'var(--color-chart-4)'
+/** the reference line's look: dashed Gray 700, darker than the gridlines, never a colour slot */
+export const REFERENCE_COLOR = 'var(--color-ink-700)'
 
 /** Round steps (1, 2, 2.5, 5 × 10ⁿ) from 0 up past `max`, about `count` of them; whole steps for whole numbers. */
 export function niceTicks(max: number, count = 4, whole = true): number[] {

@@ -163,24 +163,24 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
             : (
               <table className="w-full text-sm" aria-label="Customers in the journey">
                 <thead>
-                  <tr className="border-b border-line text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
-                    <th className="px-3 py-2">Customer</th><th className="px-3 py-2">Entered</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Where Now</th><th className="px-3 py-2">Converted</th>
+                  <tr className="h-12 border-b border-line text-left text-sm font-semibold whitespace-nowrap text-ink-900">
+                    <th className="px-2 first:pl-6 last:pr-6">Customer</th><th className="px-2 first:pl-6 last:pr-6">Entered</th><th className="px-2 first:pl-6 last:pr-6">Status</th><th className="px-2 first:pl-6 last:pr-6">Where Now</th><th className="px-2 first:pl-6 last:pr-6">Converted</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.id} className="border-b border-line-subtle last:border-0">
-                      <td className="px-3 py-2">
-                        <button type="button" onClick={() => setOpen(row.id)} className="text-left font-medium text-link hover:text-brand-700">{row.name}</button>
-                        {row.email && <span className="block text-xs text-ink-800">{row.email}</span>}
+                    <tr key={row.id} className="h-[72px] border-b border-line-subtle last:border-0">
+                      <td className="px-2 py-3 first:pl-6 last:pr-6">
+                        <button type="button" onClick={() => setOpen(row.id)} className="text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-link">{row.name}</button>
+                        {row.email && <span className="block text-helper text-ink-800">{row.email}</span>}
                       </td>
-                      <td className="cep-num px-3 py-2 text-ink-800">{formatDateTime(row.enrolled_at)}<span className="block text-xs">version {row.version_number}</span></td>
-                      <td className="px-3 py-2"><StatusBadge status={row.status} label={STATUS_LABEL[row.status] ?? row.status} /></td>
-                      <td className="px-3 py-2 text-ink-800">
+                      <td className="cep-num px-2 py-3 first:pl-6 last:pr-6 text-ink-800">{formatDateTime(row.enrolled_at)}<span className="block text-xs">version {row.version_number}</span></td>
+                      <td className="px-2 py-3 first:pl-6 last:pr-6"><StatusBadge status={row.status} label={STATUS_LABEL[row.status] ?? row.status} /></td>
+                      <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-800">
                         {row.where ? <>{row.where.label}{row.where.next_scheduled_at && <span className="block text-xs">until {formatDateTime(row.where.next_scheduled_at)}</span>}</>
                           : row.exit_reason ? <span className="text-xs">{row.exit_reason}</span> : <span className="text-ink-300">—</span>}
                       </td>
-                      <td className="px-3 py-2">{row.converted_at ? <Tag>{row.attributed_revenue ? money(row.attributed_revenue) : 'Converted'}</Tag> : <span className="text-ink-300">—</span>}</td>
+                      <td className="px-2 py-3 first:pl-6 last:pr-6">{row.converted_at ? <Tag>{row.attributed_revenue ? money(row.attributed_revenue) : 'Converted'}</Tag> : <span className="text-ink-300">—</span>}</td>
                     </tr>
                   ))}
                 </tbody>

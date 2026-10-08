@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "rootDir": "..",
+    "outDir": "../dist/types",
+    "tsBuildInfoFile": null
+  },
+  "include": [],
+  "files": ["entry.ts"]
+}
