@@ -24,7 +24,15 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - What happens behind the scenes
   - Things to know
+  - The customer page
 - Campaigns
+  - What this page is for
+  - Who can use it
+  - The fields and controls
+  - How to
+  - What happens behind the scenes
+  - Things to know
+- Reports
   - What this page is for
   - Who can use it
   - The fields and controls
@@ -421,6 +429,28 @@ The upload button in the header shows the uploads running on every page and rais
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
 
+## The customer page
+
+**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's members opens their page directly.
+
+One customer across the workspace, read from the records C360 syncs (or an upload added). Nothing is edited here: the record is C360's.
+
+| Part | What it shows |
+|---|---|
+| Header | The name, the customer id, where the record came from and when it was last updated, and a tag per channel saying whether they can receive marketing (Email: Can receive; SMS: No consent). |
+| Record | Email addresses, phone numbers and the address, as the record holds them. |
+| Consent | Per channel: the consent status, whether they can receive and why not, when they opted in or out and how, and any suppression. This is the verdict the send engine uses. |
+| Custom Attributes | Every field C360 sent with the record (loyalty tier, home store, time zone, dates), which conditions, splits, date entries and time-of-day waits read. |
+| Journeys | Every journey they entered, with where they are now, whether they converted and **View Timeline**, which opens their timeline on the journey's page; and the journeys they are kept out of by a suppression. |
+| Events | The last 50 events received for them, with their data. |
+| Orders | The last 20 orders Attribution received, and the campaign each was credited to. |
+| Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
+| Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
+
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before CEP can reach them.
+
+Who may see it: anyone who may see contact lists, campaigns or journeys.
+
 ---
 
 # Campaigns
@@ -519,6 +549,65 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 - Pause does not recall messages the engine already accepted.
 - A journey-generated campaign is read-only here; change the journey instead.
 - The hourly rate limit is stored and shown but not enforced yet; the engine's Messages per Minute is.
+
+---
+
+# Reports
+
+**Where:** Reports, in the main menu.
+
+## What this page is for
+
+Reports shows how the workspace performed over a period, from the figures CEP already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.
+
+## Who can use it
+
+Anyone whose role carries Reports · View (`report.view`). Scheduling the weekly email needs User Admin (`user.admin`). The Journeys dataset is offered when the workspace has the Journeys feature.
+
+## The fields and controls
+
+| Control | What it does |
+|---|---|
+| Dataset | **Campaigns** or **Journeys**. The period applies to both; the other controls change with the dataset. |
+| Period | This Month, Last 7 Days, Last Month, or Custom (a start and an end date, in the workspace's time zone). |
+| Channel (Campaigns) | All Channels, Email or SMS. |
+| Journey (Journeys) | Every Journey, or one journey of the workspace. |
+| Export CSV | The dataset being shown as a file: the campaigns of the period, or every journey's every day. |
+| Schedule Report (Campaigns, administrators) | The weekly email: the day, the hour and who receives it. |
+
+### The Campaigns dataset
+
+Four tiles (Sent, Delivered, Opened, Clicked, each with its rate and a note), **Sent and Opened by Day** (Sent and Delivered for SMS), **Best and Worst** (the highest open rate, the highest click rate, the most unsubscribes, the best send hour, over campaigns with at least 50 sends) and **Campaigns in the Period**, one row per campaign that sent anything, with a checkbox to pick two to six and **Compare** them side by side.
+
+### The Journeys dataset
+
+| Part | What it shows |
+|---|---|
+| Entered | Customers who entered a journey in the period, and how many journeys had any activity. |
+| Converted | Customers whose goal was reached in the period (or, in a journey without a Goal step, who reached an Exit), the conversion rate over those entered, and the attributed revenue. |
+| Messages Sent | The journeys' messages sent in the period, with the delivered rate and how many a step held back (consent, suppressions, caps, quiet hours) or failed. |
+| Opened | The open rate over those delivered, and the click rate. |
+| Entered and Converted by Day | The daily curve for the period. |
+| Journeys in the Period | One row per journey: its status, entered, converted (with the rate), revenue, sent, delivered, open and click rates, held back and failed. The name opens the journey's page. |
+
+The CSV has a finer grain than the table: one row per journey per day, with every figure above, and a total line.
+
+## How to
+
+1. **Read a month.** Leave Period on This Month; switch Dataset to Journeys to see the journeys' side of the same month.
+2. **Follow one journey.** On the Journeys dataset choose it under Journey; every tile, the curve and the CSV narrow to it.
+3. **Keep the numbers.** Export CSV while the period and the filter are set; the file is named for the dataset and the period.
+
+## What happens behind the scenes
+
+The Campaigns dataset reads the execution tables once per channel for the period and keeps the answer for 30 seconds. The Journeys dataset reads enrollments (entered by the day they entered, converted by the day the goal was reached, with their revenue), the journeys' generated campaigns' messages (test runs left out) and the message steps that were held back or failed, in the workspace's time zone, and keeps the answer for 30 seconds as well. A journey deleted since stays out of the figures.
+
+## Things to know
+
+- Rates over fewer than 50 sends are left out of Best and Worst.
+- The Journeys dataset counts a message on the day it was sent, an entry on the day the customer entered, and a conversion on the day the goal event arrived, so the three can fall on different days for the same customer.
+- Held back is the message steps governance stopped (no consent, a suppression, a frequency cap, quiet hours); the journey page's Customers card can list the customers behind each reason.
+- The weekly email carries the Campaigns dataset.
 
 ---
 

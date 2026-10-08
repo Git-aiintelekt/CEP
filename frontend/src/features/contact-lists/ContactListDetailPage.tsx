@@ -443,7 +443,10 @@ export function ContactListDetailPage() {
                     <input type="checkbox" aria-label={`Select ${row.email ?? row.party_id}`} checked={selected.includes(row.id)}
                       onChange={() => setSelected(selected.includes(row.id) ? selected.filter((value) => value !== row.id) : [...selected, row.id])} className="h-4 w-4 accent-brand-600" />
                   </td>
-                  <td className="px-3 py-2 font-medium text-ink-900">{row.email ?? <span className="font-normal text-ink-800">no email on file · {row.party_id}</span>}</td>
+                  <td className="px-3 py-2 font-medium text-ink-900">
+                    {row.known ? <Link to={`/customers/${encodeURIComponent(row.party_id)}`} className="hover:underline">{row.email ?? row.party_id}</Link>
+                      : row.email ?? <span className="font-normal text-ink-800">no email on file · {row.party_id}</span>}
+                  </td>
                   <td className="px-3 py-2 text-ink-800">{row.first_name ?? '—'}</td>
                   <td className="px-3 py-2 text-ink-800">{row.last_name ?? '—'}</td>
                   <td className="cep-num px-3 py-2 text-right text-ink-800">{formatDate(row.added_at)}</td>

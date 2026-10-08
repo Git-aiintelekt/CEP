@@ -1,5 +1,6 @@
 /** Reports, suppressions, notifications and approvals for the mock API: shaped like the backend's answers, stateful where a test writes. */
 import type {
+  JourneysReport,
   ApprovalSettings, HomeOverview, NotificationSettings, PosReceived, PosSettings, PreferenceCenterSettings, ReportCompareCampaign, ReportSchedule, ReportSummary, Store, SubscriptionTopic,
   SuppressionRow, SuppressionSummary,
 } from '@/lib/types'
@@ -16,6 +17,30 @@ function json(body: unknown, status = 200) {
 }
 const invalid = (errors: Record<string, string[]>) => json({ type: 'about:blank', title: 'Invalid input', status: 400, errors }, 400)
 const rates = (delivery: number, open: number, click: number, bounce: number, unsubscribe: number) => ({ delivery, open, click, bounce, unsubscribe })
+
+const journeyCounts = (entered: number, converted: number, revenue: number, sent: number, delivered: number, opened: number, clicked: number, held_back = 0, failed = 0) =>
+  ({ entered, converted, revenue, sent, delivered, opened, clicked, bounced: 0, held_back, failed })
+const journeyRates = (row: { entered: number; converted: number; sent: number; delivered: number; opened: number; clicked: number }) => ({
+  conversion: row.entered ? Math.round((row.converted / row.entered) * 1000) / 10 : null, delivery: row.sent ? Math.round((row.delivered / row.sent) * 1000) / 10 : null,
+  open: row.delivered ? Math.round((row.opened / row.delivered) * 1000) / 10 : null, click: row.delivered ? Math.round((row.clicked / row.delivered) * 1000) / 10 : null,
+})
+const welcome = { id: 'j1', name: 'Welcome Series', status: 'ACTIVE', population_mode: 'EVENT_TRIGGERED' }
+const winBack = { id: 'j2', name: 'Win-Back Lapsed Customers', status: 'PAUSED', population_mode: 'CONTINUOUSLY_QUALIFYING' }
+const welcomeTotals = journeyCounts(312, 48, 2140.5, 900, 870, 410, 95, 12, 3)
+const winBackTotals = journeyCounts(140, 9, 610, 280, 270, 90, 20, 30, 0)
+const allTotals = journeyCounts(452, 57, 2750.5, 1180, 1140, 500, 115, 42, 3)
+export const journeysReport: JourneysReport = {
+  period: { from: '2026-09-01', to: '2026-09-30', timezone: 'America/New_York', days: 30 },
+  journey: null,
+  journeys: [welcome, winBack],
+  totals: { ...allTotals, journeys: 2 },
+  rates: journeyRates(allTotals),
+  days: [{ day: '2026-09-02', ...journeyCounts(120, 10, 400, 300, 290, 120, 30) }, { day: '2026-09-15', ...journeyCounts(332, 47, 2350.5, 880, 850, 380, 85, 42, 3) }],
+  by_journey: [{ ...welcome, ...welcomeTotals, rates: journeyRates(welcomeTotals) }, { ...winBack, ...winBackTotals, rates: journeyRates(winBackTotals) }],
+  rows: [{ journey_id: 'j1', journey_name: 'Welcome Series', day: '2026-09-02', ...journeyCounts(120, 10, 400, 300, 290, 120, 30) },
+         { journey_id: 'j1', journey_name: 'Welcome Series', day: '2026-09-15', ...journeyCounts(192, 38, 1740.5, 600, 580, 290, 65, 12, 3) },
+         { journey_id: 'j2', journey_name: 'Win-Back Lapsed Customers', day: '2026-09-15', ...journeyCounts(140, 9, 610, 280, 270, 90, 20, 30, 0) }],
+}
 
 export const reportSummary: ReportSummary = {
   period: { from: '2026-09-01', to: '2026-09-26', timezone: 'America/New_York', days: 26 },
@@ -174,6 +199,14 @@ export function handleWorkspaceTools({ path, url, method, body }: Request, state
     return json({ ...reportSummary, channel, period: { ...reportSummary.period, from: query.get('from') ?? reportSummary.period.from, to: query.get('to') ?? reportSummary.period.to }, campaigns })
   }
   if (path.endsWith('/reports/campaigns.csv')) return new Response('campaign,channel,sent\nFall Launch,EMAIL,12000\n', { headers: { 'Content-Type': 'text/csv' } })
+  if (path.endsWith('/reports/journeys/')) {
+    const journey = query.get('journey')
+    const rows = journeysReport.rows.filter((row) => !journey || row.journey_id === journey)
+    const by_journey = journeysReport.by_journey.filter((row) => !journey || row.id === journey)
+    const totals = { ...journeysReport.totals, entered: rows.reduce((sum, row) => sum + row.entered, 0), journeys: by_journey.length }
+    return json({ ...journeysReport, journey, period: { ...journeysReport.period, from: query.get('from') ?? journeysReport.period.from, to: query.get('to') ?? journeysReport.period.to }, rows, by_journey, totals })
+  }
+  if (path.endsWith('/reports/journeys.csv')) return new Response('journey,day,entered\nWelcome Series,2026-09-02,120\n', { headers: { 'Content-Type': 'text/csv' } })
   if (path.endsWith('/reports/compare/')) return json({ campaigns: (query.get('ids') ?? '').split(',').filter(Boolean).map(compared) })
   if (path.endsWith('/reports/schedule/')) {
     if (method === 'PUT') {

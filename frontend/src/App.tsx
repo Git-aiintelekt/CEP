@@ -20,6 +20,8 @@ import { CampaignDetailPage } from '@/features/campaigns/detail/CampaignDetailPa
 import { CampaignWizardPage } from '@/features/campaigns/wizard/CampaignWizardPage'
 import { ContactListDetailPage } from '@/features/contact-lists/ContactListDetailPage'
 import { ContactListsPage } from '@/features/contact-lists/ContactListsPage'
+import { CustomerPage } from '@/features/customers/CustomerPage'
+import { CustomersPage } from '@/features/customers/CustomersPage'
 import { UploadsPage } from '@/features/contact-lists/UploadsPage'
 import { LandingAfterSignIn } from '@/features/home/LandingAfterSignIn'
 import { JourneyDetailsPage } from '@/features/journeys/JourneyDetailsPage'
@@ -65,6 +67,7 @@ const HomePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/HomePlay
 const SettingsPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/SettingsPlayground')) : null
 const CalendarPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CalendarPlayground')) : null
 const JourneySetupPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/JourneySetupPlayground')) : null
+const CustomerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CustomerPlayground')) : null
 const ConditionPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ConditionPlayground')) : null
 const TimelinePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/TimelinePlayground')) : null
 
@@ -129,6 +132,7 @@ export default function App() {
                 <Route path="/dev/home" element={<Suspense fallback={<FullPageSpinner label="Loading Home" />}><HomePlayground /></Suspense>} />
                 <Route path="/dev/settings/*" element={<Suspense fallback={<FullPageSpinner label="Loading Settings" />}>{SettingsPlayground && <SettingsPlayground />}</Suspense>} />
                 {CalendarPlayground && <Route path="/dev/calendar" element={<Suspense fallback={<FullPageSpinner label="Loading the calendar" />}><CalendarPlayground /></Suspense>} />}
+                {CustomerPlayground && <Route path="/dev/customer" element={<Suspense fallback={<FullPageSpinner label="Loading the playground" />}><CustomerPlayground /></Suspense>} />}
                 {JourneySetupPlayground && <Route path="/dev/journey-setup" element={<Suspense fallback={<FullPageSpinner label="Loading the Set-Up" />}><JourneySetupPlayground /></Suspense>} />}
                 {ConditionPlayground && <Route path="/dev/journey-condition" element={<Suspense fallback={<FullPageSpinner label="Loading the Condition" />}><ConditionPlayground /></Suspense>} />}
                 {TimelinePlayground && <Route path="/dev/journey-timeline" element={<Suspense fallback={<FullPageSpinner label="Loading the timeline" />}><TimelinePlayground /></Suspense>} />}
@@ -151,6 +155,8 @@ export default function App() {
                 <Route path="contact-lists" element={<ContactListsPage />} />
                 <Route path="contact-lists/uploads" element={<UploadsPage />} />
                 <Route path="contact-lists/:id" element={<ContactListDetailPage />} />
+                <Route path="customers" element={<CustomersPage />} />
+                <Route path="customers/:partyId" element={<CustomerPage />} />
                 <Route path="templates" element={<TemplatesPage />} />
                 <Route path="templates/new" element={<TemplateFormPage />} />
                 <Route path="journeys" element={<JourneysPage />} />

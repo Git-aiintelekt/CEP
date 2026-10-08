@@ -1,21 +1,27 @@
 /**
- * Read-only preview of a CEP starter: its flow drawn with the canvas's own cards, who can enter, its goal, channels
- * and steps. Nothing is copied until Use This Template, which hands the starter to the Setup pop-up.
+ * Read-only preview of a CEP starter or a saved template: its flow drawn with the canvas's own cards, who can enter, its goal,
+ * channels and steps. Nothing is copied until Use This Template, which hands it to the Setup pop-up. A saved template can be
+ * deleted here (journey.edit); journeys made from it keep working.
  */
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Eye } from 'lucide-react'
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 
 import { Button } from '@/components/Button'
 import { Modal } from '@/components/Modal'
 import { Notice } from '@/components/Notice'
 import { Spinner } from '@/components/States'
+import { useToast } from '@/components/Toast'
+import { api } from '@/lib/api'
+import { formatDate } from '@/lib/format'
 import type { JourneyStarter } from '@/lib/types'
 
 import type { CardTag } from '../canvasLayout'
 import { fromWireGraph, isNodeConfigured, type EditorNode } from '../graphModel'
 import { CATEGORY, NODE_META, type AddableType } from '../nodeDefs'
 import { entrySetupNote, populationText, reentryText, stepName, stepsOf, triggerSentence, unconfiguredSteps } from './templateMeta'
-import { CategoryChip, ChannelIcons, StarterTag } from './TemplateParts'
+import { SAVED_TEMPLATES_KEY } from './templateApi'
+import { CategoryChip, ChannelIcons, TemplateKindTag } from './TemplateParts'
 import { CHANNEL_META } from '../channelMeta'
 
 // @xyflow/react stays out of the Journeys list's bundle until a preview opens
@@ -47,16 +53,35 @@ export function JourneyTemplatePreviewModal({ starter: current, canEdit, onClose
   const steps = stepsOf(current.graph)
   const needsSetup = unconfiguredSteps(current.graph)
   const setupNote = entrySetupNote(rule)
+  const saved = current.saved
+  const toast = useToast()
+  const queryClient = useQueryClient()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/journey-templates/${current.template_id}/`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SAVED_TEMPLATES_KEY })
+      toast.success(`“${current.name}” is deleted. Journeys made from it keep working.`)
+      onClose()
+    },
+  })
 
   const badge = (
     <span className="flex flex-wrap items-center gap-2">
       <CategoryChip category={current.category} />
-      <StarterTag />
+      <TemplateKindTag starter={current} />
     </span>
   )
 
-  const footer = (
+  const footer = confirmDelete ? (
     <>
+      <span className="mr-auto text-sm text-ink-900">Delete this template? Journeys made from it keep working.</span>
+      <Button onClick={() => setConfirmDelete(false)}>Keep</Button>
+      <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Delete Template</Button>
+    </>
+  ) : (
+    <>
+      {canEdit && saved && <Button onClick={() => setConfirmDelete(true)} disabled={remove.isPending}>Delete Template</Button>}
       <Button onClick={onClose}>{canEdit ? 'Cancel' : 'Close'}</Button>
       {canEdit && <Button variant="primary" onClick={() => onUse(current)}>Use This Template</Button>}
     </>
@@ -98,9 +123,16 @@ export function JourneyTemplatePreviewModal({ starter: current, canEdit, onClose
               )}
             </Fact>
             <Fact label="Steps">{steps.length} {steps.length === 1 ? 'step' : 'steps'} after the entry trigger</Fact>
+            {saved && (
+              <Fact label="Saved">
+                {formatDate(saved.created_at)}{saved.created_by_name ? ` by ${saved.created_by_name}` : ''}
+                <span className="block text-helper text-ink-800">{saved.used_count === 0 ? 'No journey made from it yet' : `${saved.used_count} ${saved.used_count === 1 ? 'journey' : 'journeys'} made from it`}</span>
+              </Fact>
+            )}
           </dl>
 
-          <Notice tone="info" layout="banner" title={`${needsSetup.length} ${needsSetup.length === 1 ? 'step needs' : 'steps need'} setup`}>
+          {remove.isError && <p role="alert" className="text-sm font-medium text-danger-text">The template was not deleted.</p>}
+          {(needsSetup.length > 0 || !saved) && <Notice tone="info" layout="banner" title={`${needsSetup.length} ${needsSetup.length === 1 ? 'step needs' : 'steps need'} setup`}>
             <p>These steps arrive empty. In Build, you choose your workspace’s own email and SMS content and the coupon to issue.</p>
             {needsSetup.length > 0 && (
               <ul aria-label="Steps That Need Setup" className="mt-3 flex flex-col gap-2">
@@ -118,7 +150,7 @@ export function JourneyTemplatePreviewModal({ starter: current, canEdit, onClose
                 })}
               </ul>
             )}
-          </Notice>
+          </Notice>}
 
           {canEdit && <p className="text-helper text-ink-800">Use This Template creates a new draft journey. The template itself doesn’t change.</p>}
         </div>

@@ -1351,7 +1351,8 @@ export interface Journey extends Audited {
 
 export type JourneyTemplateCategory = 'LIFECYCLE' | 'COMMERCE' | 'LOYALTY' | 'ENGAGEMENT'
 
-/** GET /journey-starters/ : one of CEP's ten ready-made journeys (apps/journeys/starters.py) */
+/** GET /journey-starters/ : one of CEP's ten ready-made journeys (apps/journeys/starters.py); a workspace's saved template
+ * (JourneyTemplate) is shown through the same shape, with `template_id` set and the key `template:{id}` */
 export interface JourneyStarter {
   key: string
   name: string
@@ -1363,6 +1364,31 @@ export interface JourneyStarter {
   reentry_after_days: number | null
   graph: JourneyGraph
   /** every step after the entry trigger */
+  step_count: number
+  channels: string[]
+  /** a saved template's id (journey_template); absent on a CEP starter */
+  template_id?: string
+  /** a saved template: who saved it and when, how many journeys were made from it */
+  saved?: { created_by_name: string | null; created_at: string; used_count: number; row_version: number }
+}
+
+/** GET /journey-templates/ : a journey version the workspace saved as a template (Save as Template on a journey's page) */
+export interface JourneyTemplate {
+  id: string
+  name: string
+  description: string | null
+  category: JourneyTemplateCategory
+  population_mode: Journey['population_mode']
+  reentry_policy: Journey['reentry_policy']
+  reentry_after_days: number | null
+  goal_description: string | null
+  graph: JourneyGraph
+  created_by: string | null
+  created_by_name: string | null
+  created_at: string
+  updated_at: string
+  row_version: number
+  used_count: number
   step_count: number
   channels: string[]
 }
@@ -2597,4 +2623,121 @@ export interface JourneyEventRow {
   occurred_at: string
   received_at: string
   customer_name: string | null
+}
+
+/** GET /journeys/{id}/customers/reasons/ : a reason a step held customers back, with how many: the Customers card's reason filter */
+export interface JourneyHeldBackReason {
+  reason: string
+  label: string
+  customers: number
+}
+
+/** GET /customers/?q= : one match */
+export interface CustomerSearchRow {
+  party_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  source_system: string
+  synced_at: string
+}
+
+export interface CustomerSearchPage {
+  count: number
+  page: number
+  page_size: number
+  results: CustomerSearchRow[]
+}
+
+/** GET /customers/{party_id}/ : the customer page (apps/customers/profile.py) */
+export interface CustomerRecord {
+  customer: {
+    party_id: string
+    first_name: string | null
+    last_name: string | null
+    name: string
+    emails: { address?: string; is_primary?: boolean; is_valid?: boolean }[]
+    phones: { number?: string; type?: string; is_primary?: boolean }[]
+    primary_address: Record<string, unknown> | null
+    custom_attributes: Record<string, unknown>
+    source_system: string
+    synced_at: string
+  }
+  consent: {
+    channel: string
+    consent_status: string
+    marketable: boolean
+    marketable_reason: string | null
+    opted_in_at: string | null
+    opted_out_at: string | null
+    opt_out_method: string | null
+    suppressed: boolean
+    suppression_reason: string | null
+    updated_at: string
+  }[]
+  lists: { id: string; name: string; source_type: string; membership_source: string; added_at: string }[]
+  events: { id: number; event_type: string; label: string; source: string; event_id: string | null; payload: Record<string, unknown>; occurred_at: string; received_at: string }[]
+  orders: { order_ref: string; kind: string; amount: number; currency: string; ordered_at: string; channel: string; status: string; campaign_id: string | null; campaign_name: string | null }[]
+  messages: {
+    channel: string
+    campaign_id: string | null
+    campaign_name: string | null
+    journey_generated: boolean
+    status: string
+    status_reason: string | null
+    submitted_at: string | null
+    delivered_at: string | null
+    opened_at: string | null
+    clicked_at: string | null
+    at: string
+  }[]
+  journeys: {
+    enrollment_id: string
+    journey_id: string
+    journey_name: string
+    journey_status: string
+    version_number: number
+    enrolled_at: string
+    status: string
+    converted_at: string | null
+    attributed_revenue: number | null
+    exited_at: string | null
+    exit_reason: string | null
+    where: { node_key: string; node_type: string; label: string; next_scheduled_at: string | null } | null
+  }[]
+  journey_suppressions: { journey_id: string; journey_name: string; note: string | null; created_at: string }[]
+}
+
+/** GET /reports/journeys/ : the Journeys dataset, per journey per day over the period (apps/reporting/journey_reports.py) */
+export interface JourneysReportCounts {
+  entered: number
+  converted: number
+  revenue: number
+  sent: number
+  delivered: number
+  opened: number
+  clicked: number
+  bounced: number
+  held_back: number
+  failed: number
+}
+
+export interface JourneysReportRates {
+  conversion: number | null
+  delivery: number | null
+  open: number | null
+  click: number | null
+}
+
+export interface JourneysReport {
+  period: { from: string; to: string; timezone: string; days: number }
+  /** the journey the figures are narrowed to, or null for every journey */
+  journey: string | null
+  /** every journey of the workspace, for the filter */
+  journeys: { id: string; name: string; status: string; population_mode: string }[]
+  totals: JourneysReportCounts & { journeys: number }
+  rates: JourneysReportRates
+  days: (JourneysReportCounts & { day: string })[]
+  by_journey: (JourneysReportCounts & { id: string; name: string; status: string; population_mode: string; rates: JourneysReportRates })[]
+  rows: (JourneysReportCounts & { journey_id: string; journey_name: string; day: string })[]
 }

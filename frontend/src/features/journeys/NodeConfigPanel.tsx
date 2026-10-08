@@ -10,7 +10,7 @@ import { useFieldRules } from '@/lib/fieldRules'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { api } from '@/lib/api'
-import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Page, Template } from '@/lib/types'
+import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Page, SenderProfile, Template } from '@/lib/types'
 
 import { ConditionBuilder, MatchCount, useConditionFields } from './conditions/ConditionBuilder'
 import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneyStepOption } from './conditions/conditionModel'
@@ -159,10 +159,15 @@ function ConditionFields({ config, set, steps, journeyId }: { config: Record<str
   )
 }
 
+const SENDER_CHANNELS: Record<MessageType, string[]> = { EMAIL: ['EMAIL'], SMS: ['SMS'], MMS: ['MMS', 'SMS'] }
+
 function MessageFields({ type, config, set }: { type: MessageType; config: Record<string, unknown>; set: SetFn }) {
   const templates = useQuery({ queryKey: ['templates', 'options', type], queryFn: ({ signal }) => api.get<Page<Template>>('/templates/', { page_size: 200, channel: type }, signal) })
+  const senders = useQuery({ queryKey: ['sender-profiles', 'options'], queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal) })
+  const usable = (senders.data ?? []).filter((item) => SENDER_CHANNELS[type].includes(item.channel))
+  const fallback = usable.find((item) => item.is_default && item.channel === SENDER_CHANNELS[type][0]) ?? usable.find((item) => item.is_default) ?? usable[0]
   return (
-    <div>
+    <div className="space-y-4">
       <Field label="Template" required hint="Opens in Template Studio to edit design.">
         {(ids) =>
           templates.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading templates</p>
@@ -174,6 +179,15 @@ function MessageFields({ type, config, set }: { type: MessageType; config: Recor
               {(templates.data?.results ?? []).filter((item) => item.status !== 'ARCHIVED').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           )}
+      </Field>
+      <Field label="Sender" hint={fallback ? `Leave as the default to send from ${fallback.display_name}.` : 'Set up a sender under Settings → Sending Engines.'}>
+        {(ids) => (
+          <Select {...ids} value={String(config.sender_profile_id ?? '')} disabled={senders.isPending}
+            onChange={(event) => { const chosen = usable.find((item) => item.id === event.target.value); set({ sender_profile_id: chosen?.id ?? null, sender_name: chosen?.display_name ?? null }) }}>
+            <option value="">{fallback ? `Workspace default (${fallback.display_name})` : 'Workspace default'}</option>
+            {usable.map((item) => <option key={item.id} value={item.id}>{item.display_name}{item.from_address ? ` · ${item.from_address}` : item.sender_id ? ` · ${item.sender_id}` : ''}{item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}</option>)}
+          </Select>
+        )}
       </Field>
     </div>
   )

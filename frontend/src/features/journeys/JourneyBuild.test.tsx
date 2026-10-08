@@ -373,3 +373,26 @@ test('a Webhook step takes an https address and a secret, can send a test call, 
   const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
   expect(graph.graph.nodes.find((node) => node.type === 'WEBHOOK')?.config).toEqual({ url: 'https://hooks.example.com/cep', secret: 'shh' })
 })
+
+test('a message step chooses its sender, the workspace default unless another is picked, and saves it with the template', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Email' }))
+  const panel = await screen.findByRole('dialog', { name: 'No template chosen' })
+  const sender = await within(panel).findByLabelText(/^Sender/) as HTMLSelectElement
+  expect(within(sender).getByRole('option', { name: 'Workspace default (Northwind Rewards)' })).toBeTruthy()
+  expect(within(sender).queryByRole('option', { name: /Northwind SMS/ })).toBeNull()                 // an SMS sender cannot send email
+  await user.selectOptions(sender, 'snd-smtp')
+  const template = within(panel).getByLabelText(/^Template/) as HTMLSelectElement
+  await vi.waitFor(() => expect(template.options.length).toBeGreaterThan(1))
+  await user.selectOptions(template, template.options[1].value)
+  await user.click(within(panel).getByRole('button', { name: 'Save Step' }))
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
+  expect(graph.graph.nodes.find((node) => node.type === 'EMAIL')?.config).toMatchObject({ sender_profile_id: 'snd-smtp', sender_name: 'Northwind', template_id: template.options[1].value })
+})
