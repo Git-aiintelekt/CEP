@@ -54,7 +54,7 @@ export function RingKpi({ label, icon: Icon, note, value, quiet = false, support
           <div data-kpi-loading className="flex flex-col gap-1"><SkeletonLine width="60%" height={26} /><SkeletonLine width="80%" /></div>
         ) : (
           <>
-            <span className={`font-display font-semibold tracking-[-0.02em] cep-num ${quiet ? 'text-xl text-ink-800' : 'text-[26px] leading-[1.15] text-ink-900'}`}>{quiet ? value : <CountUp value={value ?? '—'} />}</span>
+            <span className={`font-display font-semibold cep-num ${quiet ? 'text-section-title text-ink-800' : 'text-kpi text-ink-900'}`}>{quiet ? value : <CountUp value={value ?? '—'} />}</span>
             {supporting && <span className="truncate text-xs text-ink-800">{supporting}</span>}
             {chips && <span className="flex flex-wrap items-center gap-1.5">{chips}</span>}
           </>

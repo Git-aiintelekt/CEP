@@ -49,7 +49,7 @@ export function HeroCard({ tone, label, chip, value, quiet = false, sub, spark, 
       ) : (
         <>
           <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-            <span className={`font-display font-semibold tracking-[-0.02em] cep-num ${quiet ? 'text-2xl' : 'text-[40px] leading-[1.1]'}`}>{quiet ? value : <CountUp value={value ?? '—'} />}</span>
+            <span className={`font-display font-semibold cep-num ${quiet ? 'text-kpi' : 'text-home-hero'}`}>{quiet ? value : <CountUp value={value ?? '—'} />}</span>
             {sub && <span className={`text-sm ${t.soft}`}>{sub}</span>}
           </p>
           {children}

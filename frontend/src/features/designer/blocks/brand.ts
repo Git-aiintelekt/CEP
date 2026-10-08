@@ -27,8 +27,6 @@ export const RECEIPT_SWATCHES = [
 /** The brand tag pair (Brand 100 / Brand 800), for a receipt's accent card. */
 export const BRAND_TINT = { background: '#dee9fc', text: '#2b4dd0' } as const
 
-export const FONT_STACK = 'Helvetica, Arial, sans-serif'
-
 /**
  * What a block inside a column is inset by.
  *

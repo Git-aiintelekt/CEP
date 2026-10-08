@@ -14,7 +14,7 @@ const CATEGORY: Record<Category, { label: string; icon: LucideIcon; colours: str
 export function CategoryTag({ category }: { category: Category }) {
   const { label, icon: Icon, colours } = CATEGORY[category]
   return (
-    <span data-category={category} className={`inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${colours}`}>
+    <span data-category={category} className={`inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium whitespace-nowrap ${colours}`}>
       <Icon size={12} strokeWidth={1.5} aria-hidden />
       {label}
     </span>

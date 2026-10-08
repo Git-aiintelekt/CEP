@@ -124,7 +124,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <IconButton variant="outline" icon={ChevronLeft} label={week ? 'Previous Week' : 'Previous Month'}
           onClick={() => (week ? setView({ start: addDays(view.start, -7) }) : setMonth(shiftMonth(month, -1)))} />
-        <h2 aria-live="polite" className="min-w-40 text-center font-display text-lg font-semibold text-ink-900">{title}</h2>
+        <h2 aria-live="polite" className="min-w-40 text-center font-display text-section-title font-semibold text-ink-900">{title}</h2>
         <IconButton variant="outline" icon={ChevronRight} label={week ? 'Next Week' : 'Next Month'}
           onClick={() => (week ? setView({ start: addDays(view.start, 7) }) : setMonth(shiftMonth(month, 1)))} />
         {week

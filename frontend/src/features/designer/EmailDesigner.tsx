@@ -66,6 +66,7 @@ import { PICKER_LABEL as EMOJI_LABEL } from '@/features/emoji/EmojiPicker'
 import { PICKER_LABEL, TagPickerPopover } from './tags/TagPickerPopover'
 import { TagsPanel, type TagsPanelHandle } from './tags/TagsPanel'
 import { captureCaret, insertAtCaret, type CaretTarget } from './tags/insertAtCaret'
+import { linkEmailFont, withEmailFont, withEmailFontLink, withoutEmailFont } from './emailFonts'
 
 // grapesjs-mjml ships as a UMD bundle: depending on the bundler the default import is the plugin or a { default } wrapper.
 type MjmlPlugin = Plugin<{ resetDevices?: boolean; useCustomTheme?: boolean }>
@@ -312,7 +313,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     const editor = editorRef.current
     if (!editor) return { html: '', errors: ['The editor is not ready'] }
     const result = editor.runCommand('mjml-code-to-html') as { html?: string; errors?: { formattedMessage?: string; message?: string }[] } | undefined
-    return { html: result?.html ?? '', errors: (result?.errors ?? []).map((error) => error.formattedMessage ?? error.message ?? 'MJML error') }
+    return { html: withEmailFontLink(result?.html ?? ''), errors: (result?.errors ?? []).map((error) => error.formattedMessage ?? error.message ?? 'MJML error') }
   }, [])
 
   // Escape leaves fullscreen, and leaving it re-places the overlays for the wider canvas
@@ -462,6 +463,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       for (const frame of editor.Canvas.getFrames()) {
         injectCanvasSkin(frame.view?.getDoc(), skinFor())
         paintPhoneWidth(frame.view?.getDoc(), editor.getDevice() === PHONE_DEVICE)
+        linkEmailFont(frame.view?.getDoc(), editor.getHtml())
       }
     }
     skinCanvas.current = skin
@@ -483,6 +485,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     }
     editor.on('canvas:frame:load', ({ window: frame }) => {
       injectCanvasSkin(frame.document, skinFor())
+      linkEmailFont(frame.document, editor.getHtml())
       paintPhoneWidth(frame.document, editor.getDevice() === PHONE_DEVICE)
       frame.addEventListener('wheel', onWheel, { passive: false })
       // the sheet eases between devices: the fit and the centring follow its width as it goes
@@ -496,6 +499,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       for (const frame of editor.Canvas.getFrames()) {
         injectCanvasSkin(frame.view?.getDoc(), skinFor())
         paintPhoneWidth(frame.view?.getDoc(), editor.getDevice() === PHONE_DEVICE)
+        linkEmailFont(frame.view?.getDoc(), editor.getHtml())
       }
     })
 
@@ -715,9 +719,9 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
         const fixed = repairProject(initialState)
         repaired = fixed.moved
         editor.loadProjectData(fixed.project)
-      } else editor.setComponents(expandSelfClosing(initialMjml))
+      } else editor.setComponents(expandSelfClosing(withoutEmailFont(initialMjml)))
     } catch {
-      editor.setComponents(expandSelfClosing(initialMjml)) // a project saved by an older editor build: fall back to its MJML
+      editor.setComponents(expandSelfClosing(withoutEmailFont(initialMjml))) // a project saved by an older editor build: fall back to its MJML
     } finally {
       loading.current = false
     }
@@ -1021,7 +1025,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
     getDesign: () => {
       const editor = editorRef.current
       if (!editor) throw new Error('The editor is not ready')
-      return { editor_state: editor.getProjectData(), mjml_source: editor.getHtml() }
+      return { editor_state: editor.getProjectData(), mjml_source: withEmailFont(editor.getHtml()) }
     },
     getMjml: () => editorRef.current?.getHtml() ?? '',
     compileHtml,
@@ -1031,7 +1035,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       loading.current = true
       try {
         if (isProject(design.editor_state)) editor.loadProjectData(repairProject(design.editor_state).project)
-        else if (design.mjml_source) editor.setComponents(expandSelfClosing(design.mjml_source))
+        else if (design.mjml_source) editor.setComponents(expandSelfClosing(withoutEmailFont(design.mjml_source)))
       } finally {
         loading.current = false
       }

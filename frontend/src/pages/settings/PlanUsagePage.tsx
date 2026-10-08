@@ -25,7 +25,7 @@ function Meter({ meter, currency }: { meter: UsageMeter; currency: string }) {
         <h3 className="text-sm font-medium text-ink-800">{meter.label}</h3>
         {meter.percent !== null && <span className="text-xs font-semibold text-ink-800">{meter.percent}%</span>}
       </div>
-      <p className="mt-1 text-xl font-semibold text-ink-900">
+      <p className="mt-1 text-kpi font-semibold text-ink-900">
         {formatNumber(meter.used)}{unit}
         {meter.limit !== null && <span className="text-sm font-normal text-ink-800"> of {formatNumber(meter.limit)}{unit}</span>}
       </p>

@@ -38,7 +38,7 @@ function Card({ title, sub, children }: { title: string; sub?: string; children:
   return (
     <section className={CARD} aria-label={title}>
       <div className="flex flex-col gap-0.5 border-b border-line px-4 py-4">
-        <h2 className="text-[15px] leading-snug font-semibold text-ink-900">{title}</h2>
+        <h2 className="text-card-title font-semibold text-ink-900">{title}</h2>
         {sub && <p className="text-helper text-ink-800">{sub}</p>}
       </div>
       <div className="flex flex-col gap-4 p-4">{children}</div>

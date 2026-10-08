@@ -243,7 +243,7 @@ export function LoginPage() {
             )}
           </form>
 
-          <p className="text-[13px] leading-normal text-ink-800">
+          <p className="text-helper text-ink-800">
             By continuing you agree to CEP's Terms of Service and Privacy Policy.
           </p>
         </AuthStep>
@@ -324,7 +324,7 @@ export function LoginPage() {
               Resend Link
             </button>
             {resetError && <AuthAlert>{resetError}</AuthAlert>}
-            {resentAt && <span className="text-[13px] text-ink-800">Link resent at {resentAt} UTC</span>}
+            {resentAt && <span className="text-helper text-ink-800">Link resent at {resentAt} UTC</span>}
           </div>
 
           <div className="border-t border-line pt-4">

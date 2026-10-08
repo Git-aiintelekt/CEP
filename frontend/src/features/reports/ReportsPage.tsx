@@ -136,7 +136,7 @@ function Tile({ label, value, hint }: { label: string; value: string; hint: stri
   return (
     <div className="rounded-lg border border-line bg-surface p-4">
       <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{label}</p>
-      <p className="mt-1 font-display text-3xl font-semibold text-ink-900 tabular-nums">{value}</p>
+      <p className="mt-1 font-display text-display font-semibold text-ink-900 tabular-nums">{value}</p>
       <p className="mt-1 text-helper text-ink-800">{hint}</p>
     </div>
   )

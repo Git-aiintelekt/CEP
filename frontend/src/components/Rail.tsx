@@ -19,7 +19,7 @@ export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onN
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <Link to="/" aria-label="CEP home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
-          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-sm font-bold tracking-[-0.03em] text-white">CEP</span>
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-white">CEP</span>
         </Link>
         {end}
       </div>

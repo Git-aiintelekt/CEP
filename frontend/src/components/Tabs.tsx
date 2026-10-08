@@ -14,7 +14,7 @@ export interface TabItem<T extends string> {
 
 const SIZE = {
   /** the editor's main views */
-  md: { list: 'gap-6', tab: 'h-10 text-sm', icon: 16 },
+  md: { list: 'gap-6', tab: 'h-10 text-button', icon: 16 },
   /** inside a side panel */
   sm: { list: 'gap-4', tab: 'h-8 text-xs', icon: 14 },
 }

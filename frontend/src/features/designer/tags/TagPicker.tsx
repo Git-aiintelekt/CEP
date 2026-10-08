@@ -159,7 +159,7 @@ function PanelRow({ tag, onPick, disabled }: Omit<RowsProps, 'tags' | 'layout'> 
       className={`flex w-full flex-col items-start gap-px px-3 py-1.5 text-left ${disabled ? 'bg-fill-subtle' : 'hover:bg-surface-subtle'}`}
     >
       <span className={`w-full truncate text-xs font-semibold ${disabled ? 'text-ink-300' : 'text-ink-900'}`}>{tag.label}</span>
-      <span className={`cep-num w-full truncate text-[11px] ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
+      <span className={`w-full truncate font-mono text-[11px] ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
     </button>
   )
 }
@@ -184,7 +184,7 @@ function Row({ tag, onPick, disabled, layout = 'popover' }: Omit<RowsProps, 'tag
         {tag.sample_value ? <span className={`max-w-[45%] truncate text-xs ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{tag.sample_value}</span> : null}
       </span>
       <span className="flex w-full items-baseline gap-2 text-xs">
-        <span className={`cep-num shrink-0 ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
+        <span className={`shrink-0 font-mono ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>
         <span className={`truncate ${disabled ? 'text-ink-300' : 'text-ink-800'}`}>{fallback}</span>
       </span>
     </button>

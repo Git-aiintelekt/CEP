@@ -42,7 +42,7 @@ afterEach(() => {
 test('opens from the header button with focus in the name; Cancel closes it without asking and focus goes back', async () => {
   const { user, opener } = await openCreate()
   const box = dialog()
-  expect(within(box).getByRole('heading', { name: 'Create Campaign' }).className).toContain('text-lg')               // the shared set-up frame's title
+  expect(within(box).getByRole('heading', { name: 'Create Campaign' }).className).toContain('text-card-heading')               // the shared set-up frame's title
   expect(box.hasAttribute('data-setup-dialog')).toBe(true)
   expect(within(box).queryByText(/^Name it and pick/)).toBeNull()                                   // no subtitle under the title
   expect(within(box).getByRole('radiogroup', { name: /^Channel/ }).getAttribute('aria-describedby')).toBeTruthy()

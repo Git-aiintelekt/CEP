@@ -1,3 +1,4 @@
+import { EMAIL_FONT_STACK } from '@/features/designer/emailFonts'
 import { RECEIPT_BLOCKS } from '@/features/designer/blocks/receiptBlocks'
 import { RECEIPT_SLOT_MJML } from '@/features/designer/blocks/receiptSlot'
 
@@ -12,7 +13,7 @@ export function receiptOuterMjml({ headline, body }: { headline: string; body: s
   return `<mjml>
   <mj-head>
     <mj-attributes>
-      <mj-all font-family="Helvetica, Arial, sans-serif" />
+      <mj-all font-family="${EMAIL_FONT_STACK}" />
       <mj-text font-size="15px" line-height="24px" color="#334155" />
     </mj-attributes>
   </mj-head>

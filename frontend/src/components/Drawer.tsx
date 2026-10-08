@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom'
 
 import { IconButton } from './Button'
 import { useDialogBehaviour } from './useDialogBehaviour'
+import { useEditorTypeClass } from './editorScope'
 
 interface DrawerProps {
   title: string
@@ -27,15 +28,16 @@ export function Drawer({ title, eyebrow, onClose, children, footer, banner }: Dr
   const panel = useRef<HTMLElement>(null)
   useDialogBehaviour(panel, onClose, { escapeClosesMenusFirst: true })
 
+  const editorType = useEditorTypeClass()
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className={`${editorType} fixed inset-0 z-50 flex justify-end`}>
       <div aria-hidden data-drawer-scrim className="absolute inset-0 animate-fade-in bg-scrim motion-reduce:animate-none" onMouseDown={onClose} />
       <aside ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId}
         className="relative flex h-full w-full animate-slide-in-right flex-col bg-surface shadow-drawer motion-reduce:animate-none md:w-[480px]">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="flex min-w-0 flex-col gap-0.5">
             {eyebrow && <span className="cep-num text-xs text-ink-800">{eyebrow}</span>}
-            <h2 id={titleId} className="font-display text-lg font-semibold text-pretty text-ink-900">{title}</h2>
+            <h2 id={titleId} className="font-display text-card-heading font-semibold text-pretty text-ink-900">{title}</h2>
           </div>
           <IconButton label="Close" icon={X} size="sm" onClick={onClose} className="-mr-2" />
         </div>

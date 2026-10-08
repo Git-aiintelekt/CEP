@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 
 import { useDialogBehaviour } from './useDialogBehaviour'
+import { useEditorTypeClass } from './editorScope'
 
 interface FloatingDialogProps {
   /** id of the element that names the dialog, usually the heading inside `header` */
@@ -39,9 +40,10 @@ export function FloatingDialog({ labelledBy, onClose, header, children, footer, 
   useDialogBehaviour(panel, onClose, { returnFocus, escapeClosesMenusFirst: true })
 
   const closeOutside = (event: React.MouseEvent) => event.target === event.currentTarget && onClose()
+  const editorType = useEditorTypeClass()
   return createPortal(
     wide ? (
-      <div data-dialog-layer={dim ? 'scrim' : 'clear'} className={`fixed inset-0 z-50 flex items-center justify-center px-6 py-12 ${dim ? 'animate-fade-in bg-scrim motion-reduce:animate-none' : ''}`} onMouseDown={closeOutside}>
+      <div data-dialog-layer={dim ? 'scrim' : 'clear'} className={`${editorType} fixed inset-0 z-50 flex items-center justify-center px-6 py-12 ${dim ? 'animate-fade-in bg-scrim motion-reduce:animate-none' : ''}`} onMouseDown={closeOutside}>
         <div
           ref={panel}
           role="dialog"
@@ -56,7 +58,7 @@ export function FloatingDialog({ labelledBy, onClose, header, children, footer, 
         </div>
       </div>
     ) : (
-      <div data-dialog-layer="scrim" className="fixed inset-0 z-50 flex animate-fade-in items-end bg-scrim motion-reduce:animate-none" onMouseDown={closeOutside}>
+      <div data-dialog-layer="scrim" className={`${editorType} fixed inset-0 z-50 flex animate-fade-in items-end bg-scrim motion-reduce:animate-none`} onMouseDown={closeOutside}>
         <div
           ref={panel}
           role="dialog"

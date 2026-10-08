@@ -38,7 +38,7 @@ export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disab
         <>
           <span className="flex w-full items-center justify-between gap-2">
             {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${off ? 'text-ink-300' : selected ? 'text-brand-600' : 'text-ink-800'}`}>{icon}</span> : <span />}
-            {badge && <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-plum-100 px-1.5 text-[11px] font-semibold whitespace-nowrap text-plum-800">{badge}</span>}
+            {badge && <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-plum-100 px-1.5 text-xs font-medium whitespace-nowrap text-plum-800">{badge}</span>}
           </span>
           <span id={`${id}-title`} className={`text-sm font-semibold ${off ? 'text-ink-300' : 'text-ink-900'}`}>{title}</span>
           <span id={`${id}-text`} className={`text-helper ${off ? 'text-ink-300' : 'text-ink-800'}`}>{text}</span>
@@ -185,7 +185,7 @@ export function Metric({ label, value, note }: { label: string; value: ReactNode
   return (
     <div className="flex min-w-0 flex-col gap-1" data-metric={label}>
       <dt className="text-helper font-semibold text-ink-800">{label}</dt>
-      <dd className="cep-num font-display text-2xl font-semibold text-ink-900">{value}</dd>
+      <dd className="cep-num font-display text-kpi font-semibold text-ink-900">{value}</dd>
       {note && <dd className="cep-num text-helper text-ink-800">{note}</dd>}
     </div>
   )

@@ -4,6 +4,7 @@
  * Static markup only: nothing in it may depend on script running in an inbox.
  */
 import type { Component, Editor } from 'grapesjs'
+import { EMAIL_FONT_STACK } from '../emailFonts'
 
 export const RECEIPT_SLOT_TYPE = 'cep-receipt-slot'
 export const RECEIPT_SLOT_CSS_CLASS = 'cep-receipt-slot'
@@ -22,10 +23,10 @@ export const RECEIPT_SLOT_MJML = `<mj-raw css-class="${RECEIPT_SLOT_CSS_CLASS}">
       <td style="padding:8px 24px 24px">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px dashed #94a3b8;border-radius:8px">
           <tr>
-            <td align="center" style="padding:32px 16px;font-family:Helvetica, Arial, sans-serif;font-size:15px;line-height:24px;color:#334155">Receipt content injects here</td>
+            <td align="center" style="padding:32px 16px;font-family:${EMAIL_FONT_STACK};font-size:15px;line-height:24px;color:#334155">Receipt content injects here</td>
           </tr>
         </table>
-        <p style="margin:8px 0 0;font-family:Helvetica, Arial, sans-serif;font-size:12px;line-height:18px;color:#64748b;text-align:center">Configured in Receipt layout</p>
+        <p style="margin:8px 0 0;font-family:${EMAIL_FONT_STACK};font-size:12px;line-height:18px;color:#64748b;text-align:center">Configured in Receipt layout</p>
       </td>
     </tr>
   </table>

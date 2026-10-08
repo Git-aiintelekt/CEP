@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 
 import { IconButton } from './Button'
 import { useDialogBehaviour } from './useDialogBehaviour'
+import { useEditorTypeClass } from './editorScope'
 
 interface ModalProps {
   title: string
@@ -47,15 +48,16 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
 
   useDialogBehaviour(panel, onClose, { escapeClosesMenusFirst })
 
+  const editorType = useEditorTypeClass()
   return createPortal(
-    <div className={`fixed inset-0 z-50 flex animate-fade-in justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 ${size === 'screen' ? 'items-center' : 'items-start md:p-10'}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className={`${editorType} fixed inset-0 z-50 flex animate-fade-in justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 ${size === 'screen' ? 'items-center' : 'items-start md:p-10'}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface ${WIDTH[size]} ${scrollBody ? `flex max-h-[calc(100dvh-2rem)] flex-col ${size === 'screen' ? '' : 'md:max-h-[calc(100dvh-5rem)]'}` : ''}`}>
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-3 py-1">
             {leading}
             <div className="min-w-0">
               {badge && <div className="mb-3">{badge}</div>}
-              <h2 id={titleId} className={`font-display font-semibold text-ink-900 ${leading || badge ? 'text-lg' : 'text-base'}`}>{title}</h2>
+              <h2 id={titleId} className={`font-display text-card-heading font-semibold text-ink-900`}>{title}</h2>
               {subtitle && <p id={subtitleId} className="mt-0.5 text-helper text-ink-800">{subtitle}</p>}
               {headerExtra && <div className="mt-1.5 flex flex-wrap items-center gap-1.5">{headerExtra}</div>}
             </div>

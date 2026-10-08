@@ -36,14 +36,14 @@ const GROUP: Record<SegmentedVariant, string> = {
 }
 
 function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: boolean, iconOnly: boolean, stretch: boolean): string {
-  const base = `inline-flex items-center justify-center gap-1.5 border text-xs font-semibold whitespace-nowrap transition-colors duration-base ease-standard ${stretch ? 'flex-1' : ''}`
+  const base = `inline-flex items-center justify-center gap-1.5 border text-xs font-medium whitespace-nowrap transition-colors duration-base ease-standard ${stretch ? 'flex-1' : ''}`
   if (variant === 'track') {
     const shape = `h-7 rounded-control-sm ${iconOnly ? 'w-8' : 'px-2.5'}`
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-line bg-surface text-ink-300' : 'border-transparent text-ink-300'}`
     return `${base} ${shape} ${selected ? 'border-line bg-surface text-ink-900' : 'border-transparent text-ink-800 hover:text-ink-900'}`
   }
   if (variant === 'solid') {
-    const shape = 'h-full border-0 px-3 text-sm'
+    const shape = 'h-full border-0 px-3 text-button'
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'bg-fill-muted text-ink-800' : 'bg-fill-subtle text-ink-300'}`
     return `${base} ${shape} ${selected ? 'bg-brand-600 text-white' : 'bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`
   }

@@ -107,7 +107,7 @@ function EconomicsCard({ campaign, metrics }: { campaign: Campaign; metrics: Cam
   return (
     <DetailCard title="Economics" actions={edit} flush>
       <div className="flex flex-col gap-1.5 pb-5 md:px-6 md:pt-6">
-        <p className="cep-num font-display text-xl font-semibold tracking-tight text-ink-900" data-testid="economics-headline">{economicsHeadline(metrics, NO_COSTS)}</p>
+        <p className="cep-num font-display text-section-title font-semibold text-ink-900" data-testid="economics-headline">{economicsHeadline(metrics, NO_COSTS)}</p>
         {subline && <p className="cep-num text-sm text-ink-800">{subline}</p>}
       </div>
       <div className="md:border-t md:border-line-subtle">

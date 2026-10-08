@@ -1,8 +1,10 @@
+import { EMAIL_FONT_STACK } from './emailFonts'
+
 /** What a brand-new email template opens with: a sendable skeleton, including the unsubscribe link marketing mail needs. */
 export const STARTER_MJML = `<mjml>
   <mj-head>
     <mj-attributes>
-      <mj-all font-family="Helvetica, Arial, sans-serif" />
+      <mj-all font-family="${EMAIL_FONT_STACK}" />
       <mj-text font-size="15px" line-height="24px" color="#334155" />
     </mj-attributes>
   </mj-head>

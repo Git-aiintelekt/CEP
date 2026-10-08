@@ -19,7 +19,7 @@ export function SetupCard({ result }: { result: SectionResult<WorkspaceSetup | n
       <span aria-hidden className="cep-home-blend-diagonal flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"><ListChecks size={20} strokeWidth={1.5} /></span>
       <span className="flex min-w-0 flex-1 basis-60 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-[15px] leading-tight font-semibold text-ink-900">Set Up Your Workspace</span>
+          <span className="text-card-title font-semibold text-ink-900">Set Up Your Workspace</span>
           <span className="inline-flex h-[22px] items-center rounded-sm bg-plum-100 px-2 text-xs font-semibold whitespace-nowrap text-plum-800">{data.done} of {data.total} done</span>
         </span>
         <span className="text-helper text-ink-800">{next ? `Next: ${next.label}. ${next.text}` : 'The required steps are done.'}</span>

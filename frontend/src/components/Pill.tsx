@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 export type PillTone = 'neutral' | 'danger' | 'warning'
 
 const BASE =
-  'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control-md border px-[10px] text-[13px] font-semibold whitespace-nowrap transition-colors duration-base ease-standard'
+  'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-control-md border px-[10px] text-label font-medium whitespace-nowrap transition-colors duration-base ease-standard'
 
 /** Neutral pills walk the grey ramp; a tinted pill has no darker fill in the system, so its edge carries the state. */
 const TONE: Record<PillTone, string> = {

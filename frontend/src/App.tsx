@@ -3,6 +3,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 
 import { AuthProvider } from '@/auth/AuthContext'
+import { EditorScopeContext } from '@/components/editorScope'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { SessionIdleGuard } from '@/auth/SessionIdleGuard'
 import { AppShell } from '@/components/AppShell'
@@ -77,9 +78,9 @@ const queryClient = new QueryClient({
   },
 })
 
-/** The template editors keep 4px corners on every button and control (see .editor-radii); `contents` adds no box. */
+/** The template editors keep 4px corners and their own type sizes (.editor-radii, .editor-type); `contents` adds no box. */
 function EditorScope({ children }: { children: ReactNode }) {
-  return <div className="editor-radii contents">{children}</div>
+  return <EditorScopeContext.Provider value><div className="editor-radii editor-type contents">{children}</div></EditorScopeContext.Provider>
 }
 
 function NotFoundPage() {

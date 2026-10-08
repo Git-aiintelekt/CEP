@@ -34,7 +34,7 @@ function Tile({ label, value, note }: { label: string; value: number; note: stri
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-line-subtle bg-surface-subtle p-4" data-tile={label}>
       <dt className="text-helper font-semibold text-ink-800">{label}</dt>
-      <dd className="cep-num font-display text-2xl font-semibold text-ink-900">{formatNumber(value)}</dd>
+      <dd className="cep-num font-display text-kpi font-semibold text-ink-900">{formatNumber(value)}</dd>
       <dd className="text-helper text-ink-800">{note}</dd>
     </div>
   )

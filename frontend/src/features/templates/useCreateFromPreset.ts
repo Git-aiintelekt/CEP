@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api'
 import { editorPathFor } from '@/lib/editorRoute'
 import { loadingOverlay } from '@/lib/loadingOverlay'
 import type { DesignSaveInput, MessageSaveInput, Preset, PresetContent, ReceiptLayoutSaveInput, Template } from '@/lib/types'
+import { withEmailFont } from '@/features/designer/emailFonts'
 
 const MAX_TRIES = 10
 const OVERLAY_FADE_MS = 600
@@ -35,7 +36,7 @@ async function fill(template: Template, key: string, content: PresetContent): Pr
     await api.post(`/templates/${template.id}/message/`, input)
     return
   }
-  const design: DesignSaveInput = { editor_state: { kind: 'preset', key }, mjml_source: content.mjml, subject_line: content.subject_line, preheader: content.preheader, base_version: 0 }
+  const design: DesignSaveInput = { editor_state: { kind: 'preset', key }, mjml_source: withEmailFont(content.mjml), subject_line: content.subject_line, preheader: content.preheader, base_version: 0 }
   await api.post(`/templates/${template.id}/design/`, design)
   if (content.kind === 'receipt') {
     const layout: ReceiptLayoutSaveInput = { layout_preset: content.layout_preset, sections: content.sections, custom_html: null, custom_css: null, base_version: 0 }

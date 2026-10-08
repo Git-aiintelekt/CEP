@@ -154,7 +154,7 @@ test('E-Receipts: four figures and the note; Not Set Up without attribution; the
   expect(governance().closest('[data-row]')!.getAttribute('data-layout')).toBe('thirds')
   cleanup()
   renderHome({ state: 'noAttribution' })
-  expect(within(receipts()!).getByText('Not Set Up').className).toContain('text-xl text-ink-800')
+  expect(within(receipts()!).getByText('Not Set Up').className).toContain('text-section-title text-ink-800')
 })
 
 test('E-Receipts ignore Home’s Campaign and Channel filters, and hide without the feature, in the light workspace and for one campaign', () => {

@@ -46,7 +46,7 @@ function EmailShell({ children }: { children: ReactNode }) {
   return (
     <div data-testid="email-shell" className="rounded-lg border border-line bg-surface-subtle p-4">
       <div aria-hidden className="flex flex-col gap-2 opacity-40">
-        <div className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-bold tracking-wide text-white">YOUR BRAND</div>
+        <div className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-white">YOUR BRAND</div>
         <div className="flex flex-col gap-1.5 px-1 py-2">
           <div className="h-3 w-2/3 rounded-sm bg-ink-300" />
           <div className="h-2 w-full rounded-sm bg-fill-muted" />

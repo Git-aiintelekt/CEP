@@ -35,7 +35,7 @@ function StatCard({ label, value }: { label: string; value: number | undefined }
   return (
     <div className="rounded-lg border border-line bg-surface px-4 py-3">
       <dt className="text-xs font-semibold text-ink-800">{label}</dt>
-      <dd className="cep-num mt-1 font-display text-2xl font-semibold text-ink-900">{value === undefined ? '–' : formatNumber(value)}</dd>
+      <dd className="cep-num mt-1 font-display text-kpi font-semibold text-ink-900">{value === undefined ? '–' : formatNumber(value)}</dd>
     </div>
   )
 }

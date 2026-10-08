@@ -4,6 +4,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { EMAIL_FONT_STACK } from '../../emailFonts'
+
 export type AlignAxis = 'horizontal' | 'vertical'
 
 export interface AlignOption {
@@ -31,11 +33,12 @@ export const ALIGN_OPTIONS: Record<AlignAxis, AlignOption[]> = {
 }
 
 /**
- * Email-safe families, each with the fallbacks a mail client is expected to have. Web fonts are not offered: they
- * need an mj-font in the head and most inboxes ignore them anyway. Ubuntu is here because it is MJML's own default,
- * so the "Default (…)" row can name it.
+ * IBM Plex Sans first: the one web font, linked by an mj-font added on save (../../emailFonts.ts), with Helvetica and
+ * Arial behind it for the inboxes that ignore web fonts. Then the email-safe families, each with the fallbacks a mail
+ * client is expected to have. Ubuntu is here because it is MJML's own default, so the "Default (…)" row can name it.
  */
 export const FONT_FAMILIES: SelectOption[] = [
+  { value: EMAIL_FONT_STACK, label: 'IBM Plex Sans' },
   { value: 'Arial, Helvetica, sans-serif', label: 'Arial' },
   { value: 'Helvetica, Arial, sans-serif', label: 'Helvetica' },
   { value: 'Verdana, Geneva, sans-serif', label: 'Verdana' },

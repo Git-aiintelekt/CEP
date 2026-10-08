@@ -9,7 +9,7 @@ import { InputGroup } from './InputGroup'
 import { Popover } from './Popover'
 import { Tooltip } from './Tooltip'
 
-const CHIP = 'inline-flex h-10 max-w-full items-center gap-2 rounded-control-lg border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-fast ease-standard'
+const CHIP = 'inline-flex h-10 max-w-full items-center gap-2 rounded-control-lg border px-3 text-label font-medium whitespace-nowrap transition-colors duration-fast ease-standard'
 const CHIP_STATE = {
   rest: 'border-line bg-surface text-ink-900 hover:bg-surface-subtle',
   active: 'border-brand-600 bg-brand-100 text-brand-800',

@@ -168,7 +168,7 @@ export function StarterGallery({ channel, value, onChange, bare = false }: Start
                   )}
                   <div className="p-3">
                     <p className="truncate text-sm font-semibold text-ink-900">{starter.name}</p>
-                    <span className="mt-1.5 inline-flex h-5 items-center rounded-sm bg-fill-subtle px-1.5 text-[11px] font-semibold text-ink-800">{starter.category}</span>
+                    <span className="mt-1.5 inline-flex h-5 items-center rounded-sm bg-fill-subtle px-1.5 text-xs font-medium text-ink-800">{starter.category}</span>
                     <p className="mt-1.5 text-xs text-ink-800">{starter.description}</p>
                   </div>
                 </button>

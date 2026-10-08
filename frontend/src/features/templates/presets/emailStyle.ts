@@ -6,6 +6,8 @@
  * The MJML keeps to what both renderers round-trip (mrml on the server, grapesjs-mjml in the designer): sections,
  * columns, groups, text, buttons, dividers and spacers. No images, and no mj-head (see DEFAULTS).
  */
+import { EMAIL_FONT_STACK } from '@/features/designer/emailFonts'
+
 export const EMAIL = {
   canvas: '#f4f3ef',
   surface: '#ffffff',
@@ -20,7 +22,7 @@ export const EMAIL = {
   onInkMuted: '#a9adb6',
 } as const
 
-export const EMAIL_FONT = 'Helvetica, Arial, sans-serif'
+export const EMAIL_FONT = EMAIL_FONT_STACK
 
 /**
  * Each element's look, written onto the element itself. The designer's canvas does not apply mj-head/mj-attributes
