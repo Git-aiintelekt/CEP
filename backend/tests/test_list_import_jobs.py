@@ -19,9 +19,9 @@ from apps.tenants.models import Tenant
 
 pytestmark = [pytest.mark.django_db(databases=["default", "platform"])]
 
-CSV = ("﻿Email,First name,Last name,Mobile number,Postal code,Loyalty ID,Loyalty tier,Last order date,Email consent date,Text consent date\r\n"
-       "dolores.alvarez@jobs.test,Dolores,Alvarez,+14045550101,30303,NWA790001,GOLD,2026-08-24,2026-01-10,2026-01-10\r\n"
-       "miriam.okonkwo@jobs.test,Miriam,Okonkwo,+14045550102,31401,NWA790002,SILVER,2026-07-15,2026-03-02,\r\n").encode("utf-8")
+CSV = ("﻿Email,First name,Last name,Mobile number,Postal code,Loyalty ID,Loyalty tier,Last order date,Time zone,Email consent date,Text consent date\r\n"
+       "dolores.alvarez@jobs.test,Dolores,Alvarez,+14045550101,30303,NWA790001,GOLD,2026-08-24,America/New_York,2026-01-10,2026-01-10\r\n"
+       "miriam.okonkwo@jobs.test,Miriam,Okonkwo,+14045550102,31401,NWA790002,SILVER,2026-07-15,Mars/Olympus,2026-03-02,\r\n").encode("utf-8")
 
 
 def _forget_tenant():
@@ -92,6 +92,15 @@ def test_upload_through_the_worker(check, admin_email):
             context.reset(token)
             row = worker("APPLY")
             check("the two contacts are added to the list", row.status == "APPLIED" and row.summary["result"]["added"] == 2, f"{row.status} {row.summary.get('result')}")
+            with connections["default"].cursor() as cursor:
+                cursor.execute("""SELECT lower(cm.emails -> 0 ->> 'address'), cm.custom_attributes ->> 'timezone' FROM customer_master cm
+                                   WHERE cm.tenant_id = %s AND lower(cm.emails -> 0 ->> 'address') IN ('dolores.alvarez@jobs.test', 'miriam.okonkwo@jobs.test') ORDER BY 1""", [T])
+                zones = dict(cursor.fetchall())
+                cursor.execute("SELECT warning FROM contact_list_import_row WHERE tenant_id = %s AND import_id = %s AND row_number = 3", [T, str(row.pk)])
+                warning = (cursor.fetchone() or [None])[0]
+            check("a recognised Time zone lands on the customer's record; an unknown one is left out with a remark",
+                  zones.get("dolores.alvarez@jobs.test") == "America/New_York" and zones.get("miriam.okonkwo@jobs.test") is None
+                  and "Time zone not recognised" in (warning or ""), f"{zones} {warning}")
         transaction.set_rollback(True, using="default")
         transaction.set_rollback(True, using="platform")
     check.done()

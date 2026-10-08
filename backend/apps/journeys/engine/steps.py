@@ -8,7 +8,9 @@
 Step configuration (journey_node.config), by node_type:
 
     START            -
-    WAIT             {duration, unit: MINUTES | HOURS | DAYS | WEEKS}, {duration: "P1DT6H"} (ISO 8601) or {days, hours, minutes}
+    WAIT             {duration, unit: MINUTES | HOURS | DAYS | WEEKS}, {duration: "P1DT6H"} (ISO 8601) or {days, hours, minutes};
+                     {mode: TIME_OF_DAY | DATE_ATTRIBUTE, ...} waits until a time of day in the customer's time zone, or until a
+                     date on their record (apps.journeys.waits)
     CONDITION        {rule}  ->  branch YES or NO: a condition rule (apps.journeys.conditions) over the customer's record, this
                      journey's messages and steps, events, lists and segments. The earlier form is still read:
                      {check, days?, event_type?, segment_id?, category?, message_step?} with check PURCHASED, OPENED, CLICKED,
@@ -32,7 +34,7 @@ from django.utils import timezone
 from apps.customers.models import Coupon, CustomerMaster, LoyaltyTier, Segment
 from apps.delivery.engine import session
 
-from .. import conditions
+from .. import conditions, schedule, waits
 from ..models import JourneyGeneratedCampaign, JourneyNode
 from . import messages
 from .outcome import Done, Finish, Hold
@@ -57,8 +59,12 @@ def wait_seconds(config: dict) -> int | None:
         return None
 
 
-def _wait(node, state, enrollment) -> Hold | Done:
-    seconds = wait_seconds(node.config or {})
+def _wait(node, state, enrollment) -> Hold | Done | Finish:
+    config = node.config or {}
+    if waits.mode_of(config) != "DURATION":
+        attributes = CustomerMaster.objects.filter(tenant_id=enrollment.tenant_id, party_id=enrollment.party_id).values_list("custom_attributes", flat=True).first()
+        return waits.run(config, state, enrollment, attributes or {}, schedule.tenant_zone(enrollment.tenant_id))
+    seconds = wait_seconds(config)
     if seconds is None or seconds < 0:
         return Done("FAILED", {"reason": "The wait has no valid duration."})
     due = state.entered_node_at + timedelta(seconds=seconds)

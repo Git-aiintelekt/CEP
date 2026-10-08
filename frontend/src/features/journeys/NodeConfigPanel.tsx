@@ -1,4 +1,4 @@
-/** The per-step panel: Wait's duration, Condition's rule (the condition builder, with a step name and the Match on Entry
+/** The per-step panel: Wait's duration or moment (WaitFields), Condition's rule (the condition builder, with a step name and the Match on Entry
  * count), a channel switch + template picker for Email/SMS/MMS, and a coupon/tier/segment picker for the three Action
  * types. Delete is here and on the card's ⋮ menu; × (or Escape) cancels. */
 import { useQuery } from '@tanstack/react-query'
@@ -15,8 +15,9 @@ import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Pag
 import { ConditionBuilder, MatchCount, useConditionFields } from './conditions/ConditionBuilder'
 import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneyStepOption } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
-import { categoryLine, describeStep, WAIT_UNITS, type AddableType } from './nodeDefs'
+import { categoryLine, describeStep, type AddableType } from './nodeDefs'
 import { SidePanel } from './SidePanel'
+import { WaitFields, waitMode, waitProblem } from './WaitFields'
 
 /** The closest existing read pattern for a cached C360 reference (customers.Coupon / customers.LoyaltyTier, the
  * same treatment as customers.Segment, which is exposed to the frontend via GET /contact-lists/audiences/). No such
@@ -60,7 +61,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
   const outOfRange = (name: string, min: number, max: number) => rangeError(config[name], Number(rule(name)?.min_value ?? min), Number(rule(name)?.max_value ?? max)) !== undefined
   const tooLong = (name: string, max: number) => String(config[name] ?? '').length > (rule(name)?.max ?? max)
   const conditionRule = type === 'CONDITION' && config.rule && typeof config.rule === 'object' ? (config.rule as ConditionRule) : null
-  const invalid = (type === 'WAIT' && outOfRange('duration', 0, 999))
+  const invalid = (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
     || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
   const switchChannel = (channel: 'EMAIL' | 'SMS') => {
@@ -78,7 +79,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
     <SidePanel
       title={describeStep({ ...node, type, config }).title}
       subtitle={categoryLine(type as AddableType)}
-      wide={type === 'CONDITION'}
+      wide={type === 'CONDITION' || (type === 'WAIT' && waitMode(config) !== 'DURATION')}
       onClose={onClose}
       footer={
         <div className="flex w-full gap-2">
@@ -117,26 +118,6 @@ function rangeError(value: unknown, min: number, max: number): string | undefine
   if (value === '' || value === undefined || value === null) return undefined
   const number = Number(value)
   return Number.isInteger(number) && number >= min && number <= max ? undefined : `A whole number from ${min.toLocaleString('en-US')} to ${max.toLocaleString('en-US')}.`
-}
-
-function WaitFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
-  const rule = useFieldRules('journey_step')
-  const min = Number(rule('duration')?.min_value ?? 0)
-  const max = Number(rule('duration')?.max_value ?? 999)
-  return (
-    <div className="space-y-4">
-      <Field label="Duration" required error={rangeError(config.duration, min, max)}>
-        {(ids) => <TextInput {...ids} type="number" min={min} max={max} step={1} value={String(config.duration ?? '')} onChange={(event) => set({ duration: event.target.value === '' ? '' : Number(event.target.value) })} />}
-      </Field>
-      <Field label="Unit">
-        {(ids) => (
-          <Select {...ids} value={String(config.unit ?? 'DAYS')} onChange={(event) => set({ unit: event.target.value })}>
-            {WAIT_UNITS.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
-          </Select>
-        )}
-      </Field>
-    </div>
-  )
 }
 
 function ConditionFields({ config, set, steps, journeyId }: { config: Record<string, unknown>; set: SetFn; steps: JourneyStepOption[]; journeyId?: string }) {

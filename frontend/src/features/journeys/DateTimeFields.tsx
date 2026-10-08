@@ -15,7 +15,7 @@ import { useSingleDropdown } from '@/lib/useSingleDropdown'
 
 import { WEEKDAYS, clockText, dateTimeDefinition, describeSchedule, type AudienceRef, type DateTimeChoice } from './entryTriggers'
 
-const TIMES = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
+export const TIMES = Array.from({ length: 48 }, (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`)
 const OFFSETS = [-90, -60, -30, -21, -14, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3, 5, 7, 10, 14, 21, 30, 60, 90]
 const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, index) => String(index + 1))
 
@@ -126,7 +126,7 @@ export function DateTimeFields({ schedule, value, onChange }: { schedule: string
   )
 }
 
-function AttributeField({ value, onPick }: { value: string; onPick: (attribute: string) => void }) {
+export function AttributeField({ value, onPick, label = 'Date' }: { value: string; onPick: (attribute: string) => void; label?: string }) {
   const attributes = useQuery({
     queryKey: ['journeys', 'date-attributes'],
     queryFn: ({ signal }) => api.get<JourneyDateAttribute[]>('/journeys/date-attributes/', undefined, signal),
@@ -138,7 +138,7 @@ function AttributeField({ value, onPick }: { value: string; onPick: (attribute: 
     : attributes.isSuccess && rows.length === 0 ? 'No customer record holds a date yet: C360 sends them as custom attributes.'
     : chosen ? `${formatNumber(chosen.customers)} customer${chosen.customers === 1 ? ' has' : 's have'} it today.` : undefined
   return (
-    <Field label="Date" required strong hint={hint}>
+    <Field label={label} required strong hint={hint}>
       {(ids) => (
         <Select {...ids} value={value} disabled={attributes.isPending} onChange={(event) => onPick(event.target.value)}>
           <option value="">{attributes.isPending ? 'Loading…' : 'Select a Date'}</option>
