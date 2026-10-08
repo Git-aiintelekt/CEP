@@ -227,6 +227,23 @@ test('the Customers card lists everyone enrolled with where they are, and openin
   expect(within(timeline).getByText(/waiting until/)).toBeTruthy()
 })
 
+test('the Customers card filters by a held-back reason, and the timeline links to the customer record', async () => {
+  const calls = installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1?customer=e-aaliyah')
+  await screen.findByRole('heading', { name: 'New Loyalty Member Welcome', level: 1 })
+
+  const drawer = await screen.findByRole('dialog', { name: 'Aaliyah Brooks' })                     // opened by ?customer=
+  expect(within(drawer).getByRole('link', { name: 'View Customer Record' }).getAttribute('href')).toBe('/customers/p-aaliyah')
+  await user.keyboard('{Escape}')
+  await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'Aaliyah Brooks' })).toBeNull())
+
+  const reason = await screen.findByLabelText('Held Back Reason')
+  expect(within(reason).getByRole('option', { name: 'Held back: No consent (2)' })).toBeTruthy()
+  await user.selectOptions(reason, 'NO_CONSENT')
+  await vi.waitFor(() => expect(calls.filter((call) => call.url.includes('/journeys/j1/customers/?')).at(-1)?.url).toContain('reason=NO_CONSENT'))
+})
+
 test('the Suppressions card adds a customer by email, says they left the journey, and removes them again', async () => {
   installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
   const user = userEvent.setup()

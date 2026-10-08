@@ -84,6 +84,29 @@ test('two to six campaigns can be compared side by side', async () => {
   expect(within(openRow).getByText('40.3%')).toBeTruthy()
 })
 
+test('the Journeys dataset: tiles, the day curve, one row per journey, the journey filter and its own CSV', async () => {
+  const calls = installMockApi()
+  const user = userEvent.setup()
+  await renderAppAt('/reports')
+  await screen.findByText('18,402')
+
+  await user.click(screen.getByRole('radio', { name: 'Journeys' }))
+  expect(await screen.findByText('452')).toBeTruthy()                                                     // entered
+  expect(screen.getByText('Entered and Converted by Day')).toBeTruthy()
+  const table = screen.getByRole('table', { name: 'Journeys in the period' })
+  expect(within(table).getByRole('link', { name: 'Welcome Series' }).getAttribute('href')).toBe('/journeys/j1')
+  expect(within(table).getByText('Win-Back Lapsed Customers')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Schedule Report' })).toBeNull()
+
+  await user.selectOptions(screen.getByLabelText('Journey'), 'j2')
+  await vi.waitFor(() => expect(new URL(lastCall(calls, '/reports/journeys/')!.url, 'http://x').searchParams.get('journey')).toBe('j2'))
+  await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Journeys in the period' })).queryByText('Welcome Series')).toBeNull())
+
+  await user.click(screen.getByRole('button', { name: 'Export CSV' }))
+  await vi.waitFor(() => expect(lastCall(calls, '/reports/journeys.csv')).toBeTruthy())
+  expect(lastCall(calls, '/reports/journeys.csv')?.url).toContain('journey=j2')
+})
+
 test('Export CSV downloads the period\'s campaigns', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()

@@ -7,7 +7,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { abandonedCartGraph, installMockApi, makeJourney, me, signIn } from '@/test/mockApi'
+import { abandonedCartGraph, installMockApi, makeJourney, makeJourneyVersion, makeSavedTemplate, me, signIn } from '@/test/mockApi'
 
 // @xyflow/react needs both in jsdom (see JourneyBuild.test.tsx): the zoom matrix, and a ResizeObserver that reports a size
 beforeEach(() => {
@@ -53,7 +53,7 @@ test('the Journey Templates panel offers Start from Scratch and the first four s
   await renderAppAt('/journeys')
 
   const panel = await screen.findByRole('region', { name: 'Journey Templates' })
-  expect(within(panel).getByText('Start a journey from a blank canvas or a CEP starter. A template is copied into a new draft; the original never changes.')).toBeTruthy()
+  expect(within(panel).getByText('Start a journey from a blank canvas, a CEP starter or a template saved from one of your journeys. A template is copied into a new draft; the original never changes.')).toBeTruthy()
   const row = within(panel).getByRole('list', { name: 'Start a Journey' })
   await vi.waitFor(() => expect(within(row).getAllByRole('listitem')).toHaveLength(5))
   expect(within(row).getByRole('button', { name: /Start from Scratch/ })).toBeTruthy()
@@ -192,20 +192,64 @@ test('without journey.edit the starters can be looked at but not used', async ()
   expect(within(preview).getAllByRole('button', { name: 'Close' })).toHaveLength(2)          // the header's × and the footer's
 })
 
-test('Save as Template is gone from the Build canvas, and so is its ⋮ menu', async () => {
-  installMockApi({ journey: makeJourney({ source_name: 'Abandoned Cart Recovery' }), journeyGraph: abandonedCartGraph })
+test('the Build canvas has no Save as Template; the journey page does, and it snapshots the live version under a name and category', async () => {
+  const calls = installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE', current_version: 'v1' }), journeyVersions: [makeJourneyVersion({ id: 'v1', status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
+  const user = userEvent.setup()
   await renderAppAt('/journeys/j1/build')
   await screen.findByTestId('journey-canvas')
-  expect(screen.getByRole('button', { name: /Save Draft/ })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull()
   expect(screen.queryByText('Save as Template')).toBeNull()
-})
 
-test('Save as Template is gone from Journey Details, and so is its ⋮ menu', async () => {
-  installMockApi({ journey: makeJourney({ status: 'ACTIVE' }) })
   await renderAppAt('/journeys/j1')
   await screen.findByRole('heading', { name: 'New Loyalty Member Welcome', level: 1 })
-  expect(screen.getByRole('link', { name: 'Edit Journey' })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'More Actions' })).toBeNull()
-  expect(screen.queryByText('Save as Template')).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Save as Template' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Save as Template' })
+  expect(within(dialog).getByText(/Version 1 of/)).toBeTruthy()
+  const name = within(dialog).getByLabelText(/Template Name/) as HTMLInputElement
+  expect(name.value).toBe('New Loyalty Member Welcome')
+  await user.clear(name)
+  await user.type(name, 'Our Welcome')
+  await user.selectOptions(within(dialog).getByLabelText(/Category/), 'LOYALTY')
+  await user.type(within(dialog).getByLabelText(/Description/), 'Welcome as we run it.')
+  await user.click(within(dialog).getByRole('button', { name: 'Save Template' }))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'Save as Template' })).toBeNull())
+  const post = calls.find((call) => call.method === 'POST' && call.url.endsWith('/journey-templates/'))
+  expect(post?.body).toEqual({ journey_id: 'j1', version_number: 1, name: 'Our Welcome', category: 'LOYALTY', description: 'Welcome as we run it.' })
+  expect(await screen.findByText(/is saved as a template/)).toBeTruthy()
+})
+
+test('a saved template sits under Your Templates on the panel and in the gallery; Use This Template creates from it, and it can be deleted', async () => {
+  const calls = installMockApi({ savedTemplates: [makeSavedTemplate()] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys')
+
+  const panel = await screen.findByRole('region', { name: 'Journey Templates' })
+  const yours = await within(panel).findByRole('list', { name: /Your Templates/ })
+  await user.click(within(yours).getByRole('button', { name: 'Our Cart Reminder, Saved Template' }))
+  const preview = await screen.findByRole('dialog', { name: 'Our Cart Reminder' })
+  expect(within(preview).getByText('Saved Template')).toBeTruthy()
+  expect(within(preview).getByText(/by Aby John/)).toBeTruthy()
+  expect(within(preview).getByText('2 journeys made from it')).toBeTruthy()
+  await user.click(within(preview).getByRole('button', { name: 'Use This Template' }))
+  const setup = await screen.findByRole('dialog', { name: /^Create Journey$/ })
+  expect((within(setup).getByLabelText(/Journey Name/) as HTMLInputElement).value).toBe('Our Cart Reminder (copy)')
+  await user.click(within(setup).getByRole('button', { name: /Next/ }))
+  await user.click(within(setup).getByRole('button', { name: 'Create Journey' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url.includes('/journeys/j-new/versions/1/graph/'))).toBe(true))
+  const post = calls.find((call) => call.method === 'POST' && call.url.endsWith('/journeys/'))
+  expect(post?.body).toMatchObject({ name: 'Our Cart Reminder (copy)', template: 'jt-1' })
+  expect(post?.body).not.toHaveProperty('starter')
+  expect(await screen.findByText(/Created from Our Cart Reminder/)).toBeTruthy()
+
+  await renderAppAt('/journeys')
+  await user.click(await screen.findByRole('button', { name: 'View More' }))
+  const gallery = await screen.findByRole('dialog', { name: 'Starter Templates' })
+  await user.click(within(gallery).getByRole('button', { name: /^Your Templates/ }))
+  expect(within(gallery).getByRole('heading', { name: 'Your Templates · 1' })).toBeTruthy()
+  await user.click(within(gallery).getByRole('button', { name: 'Our Cart Reminder, Saved Template' }))
+  const again = await screen.findByRole('dialog', { name: 'Our Cart Reminder' })
+  await user.click(within(again).getByRole('button', { name: 'Delete Template' }))
+  expect(within(again).getByText(/Delete this template\?/)).toBeTruthy()
+  await user.click(within(again).getByRole('button', { name: 'Delete Template' }))
+  await vi.waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url.endsWith('/journey-templates/jt-1/'))).toBe(true))
+  await vi.waitFor(() => expect(screen.queryByRole('dialog', { name: 'Our Cart Reminder' })).toBeNull())
 })

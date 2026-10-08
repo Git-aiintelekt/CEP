@@ -1,6 +1,7 @@
 /**
- * Reports: the workspace over a period, its campaigns compared, exported, and emailed every week. Everything comes from the
- * API's figures (sends, deliveries, opens, clicks, unsubscribes and revenue already recorded); nothing new is collected here.
+ * Reports: the workspace over a period, its campaigns compared, exported, and emailed every week; and the Journeys dataset
+ * (per journey per day) beside it. Everything comes from the API's figures (sends, deliveries, opens, clicks, unsubscribes,
+ * revenue, entries and conversions already recorded); nothing new is collected here.
  */
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
@@ -11,6 +12,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { DataTable, type Column } from '@/components/DataTable'
 import { Field, TextInput } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
+import { PageHelp } from '@/help/HelpPanel'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -19,13 +21,16 @@ import { buttonClass } from '@/components/buttonStyles'
 import { api } from '@/lib/api'
 import { formatMoney, formatNumber } from '@/lib/format'
 import { saveFile } from '@/lib/saveFile'
-import type { ReportCampaignRow, ReportHighlight, ReportSummary } from '@/lib/types'
+import type { JourneysReport as JourneysReportData, ReportCampaignRow, ReportHighlight, ReportSummary } from '@/lib/types'
 
 import { CompareModal } from './CompareModal'
+import { JourneyFilter, JourneysReport } from './JourneysReport'
 import { ScheduleModal } from './ScheduleModal'
 import { PERIOD_OPTIONS, daysBetween, formatDay, percent, periodFor, type Period, type PeriodKey } from './period'
 
 type ChannelFilter = 'ALL' | 'EMAIL' | 'SMS'
+type Dataset = 'CAMPAIGNS' | 'JOURNEYS'
+const DATASETS: { value: Dataset; label: string }[] = [{ value: 'CAMPAIGNS', label: 'Campaigns' }, { value: 'JOURNEYS', label: 'Journeys' }]
 const CHANNELS: { value: ChannelFilter; label: string }[] = [
   { value: 'ALL', label: 'All Channels' },
   { value: 'EMAIL', label: 'Email' },
@@ -37,8 +42,11 @@ const COMPARE_MIN = 2
 const COMPARE_MAX = 6
 
 export function ReportsPage() {
-  const { can, me } = useAuth()
+  const { can, has, me } = useAuth()
   const zone = me?.tenant.timezone || 'UTC'
+  const journeysOn = has('journeys')
+  const [dataset, setDataset] = useState<Dataset>('CAMPAIGNS')
+  const [journeyId, setJourneyId] = useState('')
   const [periodKey, setPeriodKey] = useState<PeriodKey>('month')
   const [custom, setCustom] = useState<Period>(() => periodFor('month', zone))
   const [channel, setChannel] = useState<ChannelFilter>('ALL')
@@ -53,7 +61,14 @@ export function ReportsPage() {
   const summary = useQuery({
     queryKey: ['reports', 'summary', query],
     queryFn: ({ signal }) => api.get<ReportSummary>('/reports/summary/', query, signal),
-    enabled: can('report.view') && customValid,
+    enabled: can('report.view') && customValid && dataset === 'CAMPAIGNS',
+    placeholderData: (previous) => previous,
+  })
+  const journeysQuery = { from: period.from, to: period.to, ...(journeyId ? { journey: journeyId } : {}) }
+  const journeys = useQuery({
+    queryKey: ['reports', 'journeys', journeysQuery],
+    queryFn: ({ signal }) => api.get<JourneysReportData>('/reports/journeys/', journeysQuery, signal),
+    enabled: can('report.view') && customValid && dataset === 'JOURNEYS',
     placeholderData: (previous) => previous,
   })
 
@@ -64,6 +79,10 @@ export function ReportsPage() {
   async function exportCsv() {
     setExportProblem('')
     try {
+      if (dataset === 'JOURNEYS') {
+        saveFile(await api.download('/reports/journeys.csv', journeysQuery), `cep-journeys-${period.from}-to-${period.to}.csv`)
+        return
+      }
       saveFile(await api.download('/reports/campaigns.csv', query), `cep-report-${period.from}-to-${period.to}.csv`)
     } catch (error) {
       setExportProblem(`The export was not produced. ${error instanceof Error ? error.message : ''}`.trim())
@@ -71,17 +90,22 @@ export function ReportsPage() {
   }
 
   const data = summary.data
+  const journeysData = journeys.data
+  const showingJourneys = dataset === 'JOURNEYS'
   const toggle = (id: string) => setSelected((was) => (was.includes(id) ? was.filter((item) => item !== id) : was.length >= COMPARE_MAX ? was : [...was, id]))
 
   return (
     <section>
       <PageHeader
         title="Reports"
-        description={data ? `${formatDay(data.period.from)} – ${formatDay(data.period.to)} · ${data.period.timezone}` : 'How the workspace performed over a period, campaign by campaign.'}
+        help={<PageHelp chapter="reports" />}
+        description={showingJourneys
+          ? (journeysData ? `${formatDay(journeysData.period.from)} – ${formatDay(journeysData.period.to)} · ${journeysData.period.timezone}` : 'How the journeys performed over a period, journey by journey, day by day.')
+          : (data ? `${formatDay(data.period.from)} – ${formatDay(data.period.to)} · ${data.period.timezone}` : 'How the workspace performed over a period, campaign by campaign.')}
         actions={
           <div className="flex flex-wrap gap-2">
-            {can('user.admin') && <button type="button" className={buttonClass({ variant: 'secondary' })} onClick={() => setScheduling(true)}>Schedule Report</button>}
-            <button type="button" className={buttonClass({ variant: 'primary' })} disabled={!data} onClick={() => void exportCsv()}>
+            {can('user.admin') && !showingJourneys && <button type="button" className={buttonClass({ variant: 'secondary' })} onClick={() => setScheduling(true)}>Schedule Report</button>}
+            <button type="button" className={buttonClass({ variant: 'primary' })} disabled={showingJourneys ? !journeysData : !data} onClick={() => void exportCsv()}>
               <Download size={16} strokeWidth={1.5} aria-hidden />Export CSV
             </button>
           </div>
@@ -89,6 +113,7 @@ export function ReportsPage() {
       />
 
       <div className="mb-5 flex flex-wrap items-end gap-3">
+        {journeysOn && <SegmentedControl label="Dataset" options={DATASETS} value={dataset} onChange={(next) => { setDataset(next); setSelected([]) }} />}
         <SegmentedControl label="Period" options={PERIOD_OPTIONS} value={periodKey} onChange={(next) => { setPeriodKey(next); setSelected([]) }} />
         {periodKey === 'custom' && (
           <div className="flex flex-wrap items-end gap-2">
@@ -96,14 +121,20 @@ export function ReportsPage() {
             <div className="w-40"><Field label="To">{(ids) => <TextInput {...ids} type="date" value={custom.to} min={custom.from || undefined} onChange={(event) => setCustom((was) => ({ ...was, to: event.target.value }))} />}</Field></div>
           </div>
         )}
-        <SegmentedControl label="Channel" options={CHANNELS} value={channel} onChange={(next) => { setChannel(next); setSelected([]) }} />
-        {summary.isFetching && data && <span className="flex items-center gap-2 text-helper text-ink-800"><Spinner size="sm" /> Updating</span>}
+        {showingJourneys
+          ? <JourneyFilter data={journeysData} value={journeyId} onChange={setJourneyId} />
+          : <SegmentedControl label="Channel" options={CHANNELS} value={channel} onChange={(next) => { setChannel(next); setSelected([]) }} />}
+        {(showingJourneys ? journeys.isFetching && journeysData : summary.isFetching && data) && <span className="flex items-center gap-2 text-helper text-ink-800"><Spinner size="sm" /> Updating</span>}
       </div>
 
       {!customValid && <p role="alert" className="mb-4 text-sm text-danger-text">Choose a start date on or before the end date.</p>}
       {exportProblem && <p role="alert" className="mb-4 text-sm text-danger-text">{exportProblem}</p>}
 
-      {summary.isError && !data ? (
+      {showingJourneys ? (
+        journeys.isError && !journeysData ? <ErrorState title="The report could not be loaded" error={journeys.error} onRetry={() => void journeys.refetch()} />
+        : !journeysData ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the report</p>
+        : <JourneysReport data={journeysData} />
+      ) : summary.isError && !data ? (
         <ErrorState title="The report could not be loaded" error={summary.error} onRetry={() => void summary.refetch()} />
       ) : !data ? (
         <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading the report</p>

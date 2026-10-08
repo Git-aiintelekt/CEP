@@ -4,6 +4,8 @@
     GET  /reports/campaigns.csv   the same period as a file
     GET  /reports/compare/        ?ids=a,b[,c...]     two to six campaigns side by side
     GET  /reports/schedule/       PUT {enabled, weekday 0-6, hour 0-23, recipients: [...]}   the weekly email (reading: report.view; changing: user.admin)
+    GET  /reports/journeys/       ?from &to &journey=<id>      the Journeys dataset: per journey per day (apps.reporting.journey_reports)
+    GET  /reports/journeys.csv    the same rows as a file
 """
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -14,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.permissions import HasPermissionCode
-from apps.reporting import reports
+from apps.reporting import journey_reports, reports
 from apps.tenants import context
 from apps.tenants.models import Tenant
 
@@ -69,6 +71,33 @@ class ReportCsvView(APIView):
         report = _report(request)
         response = HttpResponse(reports.csv_text(report), content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="campaigns {report["period"]["from"]} to {report["period"]["to"]}.csv"'
+        return response
+
+
+def _journeys_report(request):
+    start, end = _dates(request.query_params)
+    try:
+        return journey_reports.summary(_tenant(), start, end, journey_id=request.query_params.get("journey") or None)
+    except reports.ReportError as exc:
+        raise ValidationError({exc.field: str(exc)}) from None
+
+
+class JourneysReportView(APIView):
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        return Response(_journeys_report(request))
+
+
+class JourneysReportCsvView(APIView):
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        report = _journeys_report(request)
+        response = HttpResponse(journey_reports.csv_text(report), content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="journeys {report["period"]["from"]} to {report["period"]["to"]}.csv"'
         return response
 
 

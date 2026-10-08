@@ -56,7 +56,16 @@ SELECT e.id::text, e.party_id, cm.first_name, cm.last_name, lower(cm.emails -> 0
    AND (%(q)s = '' OR cm.first_name ILIKE %(like)s OR cm.last_name ILIKE %(like)s OR (cm.first_name || ' ' || cm.last_name) ILIKE %(like)s
         OR (cm.emails -> 0 ->> 'address') ILIKE %(like)s OR e.party_id = %(q)s)
    AND (%(status)s = '' OR e.status = %(status)s)
+   AND (%(reason)s = '' OR EXISTS (SELECT 1 FROM journey_node_execution x WHERE x.tenant_id = e.tenant_id AND x.journey_enrollment_id = e.id
+                                      AND x.execution_status = 'SKIPPED' AND coalesce(x.result_data ->> 'reason', '') = %(reason)s))
  ORDER BY e.enrolled_at DESC LIMIT %(limit)s OFFSET %(offset)s"""
+
+REASONS_SQL = """
+SELECT coalesce(x.result_data ->> 'reason', ''), count(DISTINCT e.id)
+  FROM journey_node_execution x
+  JOIN journey_enrollment e ON e.id = x.journey_enrollment_id AND e.tenant_id = x.tenant_id
+ WHERE x.tenant_id = %(tenant)s AND e.journey_id = %(journey)s AND x.execution_status = 'SKIPPED'
+ GROUP BY 1 ORDER BY 2 DESC, 1"""
 
 
 def _name(first, last, party_id) -> str:
@@ -89,12 +98,29 @@ def _step_words(node_type: str | None, config: dict | None) -> str:
     return str(node_type or "Step").title()
 
 
-def customers(journey: Journey, q: str = "", status: str = "", page: int = 1, page_size: int = PAGE_SIZE) -> dict:
+def reason_words(reason: str) -> str:
+    """A held-back reason as the card says it: NO_CONSENT -> No consent; a sentence stays a sentence."""
+    reason = (reason or "").strip()
+    if not reason:
+        return "No reason recorded"
+    return reason.replace("_", " ").capitalize() if reason.isupper() or "_" in reason else reason
+
+
+def held_back_reasons(journey: Journey) -> list[dict]:
+    """Every reason a step held a customer back in this journey, with how many customers: the Customers card's reason filter."""
+    with _conn().cursor() as cursor:
+        cursor.execute(REASONS_SQL, {"tenant": str(journey.tenant_id), "journey": str(journey.id)})
+        rows = cursor.fetchall()
+    return [{"reason": reason, "label": reason_words(reason), "customers": int(count)} for reason, count in rows]
+
+
+def customers(journey: Journey, q: str = "", status: str = "", page: int = 1, page_size: int = PAGE_SIZE, reason: str = "") -> dict:
+    """?reason= keeps only the customers a step held back for that reason (a SKIPPED execution with it)."""
     page_size = max(1, min(int(page_size or PAGE_SIZE), 200))
     page = max(1, int(page or 1))
     q = (q or "").strip()
     args = {"tenant": str(journey.tenant_id), "journey": str(journey.id), "q": q, "like": f"%{q}%", "status": (status or "").upper(),
-            "limit": page_size, "offset": (page - 1) * page_size}
+            "reason": (reason or "").strip()[:200], "limit": page_size, "offset": (page - 1) * page_size}
     with _conn().cursor() as cursor:
         cursor.execute(CUSTOMERS_SQL, args)
         rows = cursor.fetchall()

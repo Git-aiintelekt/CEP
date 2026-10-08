@@ -191,7 +191,8 @@ function RecentCard({ data }: { data: EventsSettings }) {
     { key: 'received', header: 'Received', render: (row) => <span className="cep-num whitespace-nowrap">{formatDateTime(row.received_at)}</span> },
     { key: 'event', header: 'Event', render: (row) => <span className="flex flex-col"><span className="font-semibold text-ink-900">{row.label}</span>
       <span className="text-xs text-ink-800">{row.event_type}{row.event_id ? ` · ${row.event_id}` : ''}</span></span> },
-    { key: 'customer', header: 'Customer', render: (row) => <span className="flex flex-col"><span className="text-ink-900">{row.customer_name || row.party_id}</span>
+    { key: 'customer', header: 'Customer', render: (row) => <span className="flex flex-col">
+      {row.customer_name ? <Link to={`/customers/${encodeURIComponent(row.party_id)}`} className="text-ink-900 hover:underline">{row.customer_name}</Link> : <span className="text-ink-900">{row.party_id}</span>}
       {row.customer_name ? <span className="text-xs text-ink-800">{row.party_id}</span> : <span className="text-xs text-ink-800">Not in the customer records yet</span>}</span> },
     { key: 'source', header: 'Source', render: (row) => <Tag>{row.source}</Tag> },
     { key: 'occurred', header: 'Happened', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{formatDateTime(row.occurred_at)}</span>, phoneOptional: true },

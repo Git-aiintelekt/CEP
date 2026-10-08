@@ -484,19 +484,26 @@ class JourneyViewSet(views.JourneyViewSet):
     @action(detail=True, methods=["get"])
     def customers(self, request, pk=None, version=None):
         """The journey page's Customers card: everyone enrolled, newest first, with where they are now
-        (?q= name, email or id; ?status= ACTIVE | COMPLETED | EXITED; ?page= ?page_size=)."""
+        (?q= name, email or id; ?status= ACTIVE | COMPLETED | EXITED; ?reason= a held-back reason; ?page= ?page_size=)."""
         params = request.query_params
         try:
             page, size = int(params.get("page", 1)), int(params.get("page_size", timeline.PAGE_SIZE))
         except ValueError:
             raise ValidationError({"page": "A whole number."}) from None
-        return Response(timeline.customers(self.get_object(), q=params.get("q", ""), status=params.get("status", ""), page=page, page_size=size))
+        return Response(timeline.customers(self.get_object(), q=params.get("q", ""), status=params.get("status", ""), page=page, page_size=size,
+                                           reason=params.get("reason", "")))
+
+    @extend_schema(responses={200: None})
+    @action(detail=True, methods=["get"], url_path="customers/reasons")
+    def customer_reasons(self, request, pk=None, version=None):
+        """The reasons steps held customers back in this journey, with how many each: the Customers card's reason filter."""
+        return Response({"results": timeline.held_back_reasons(self.get_object())})
 
     @extend_schema(responses={(200, "text/csv"): str})
     @action(detail=True, methods=["get"], url_path="customers/export",
             permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.export")])
     def customers_export(self, request, pk=None, version=None):
-        """The Customers card as CSV (journey.export): everyone matching ?q= and ?status=."""
+        """The Customers card as CSV (journey.export): everyone matching ?q=, ?status= and ?reason=."""
         import csv
         from django.http import StreamingHttpResponse
         journey = self.get_object()
@@ -515,7 +522,8 @@ class JourneyViewSet(views.JourneyViewSet):
             yield writer.writerow(["name", "email", "customer_id", "entered", "version", "status", "where_now", "converted", "attributed_revenue", "exited", "exit_reason"])
             page = 1
             while True:
-                chunk = timeline.customers(journey, q=params_.get("q", ""), status=params_.get("status", ""), page=page, page_size=200)["results"]
+                chunk = timeline.customers(journey, q=params_.get("q", ""), status=params_.get("status", ""), page=page, page_size=200,
+                                           reason=params_.get("reason", ""))["results"]
                 for row in chunk:
                     yield writer.writerow([safe(c) for c in (row["name"], row["email"], row["party_id"], row["enrolled_at"].isoformat(), row["version_number"], row["status"],
                                                              (row["where"] or {}).get("label"), row["converted_at"].isoformat() if row["converted_at"] else "", row["attributed_revenue"],

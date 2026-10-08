@@ -8,7 +8,7 @@ import { formatDate } from '@/lib/format'
 import type { Journey, JourneyStarter } from '@/lib/types'
 
 import { triggerSentence, stepsText } from './templateMeta'
-import { CategoryChip, ChannelIcons, FamilyChip, StarterTag, StepStrip, StepTypeStrip } from './TemplateParts'
+import { CategoryChip, ChannelIcons, FamilyChip, StepStrip, StepTypeStrip, TemplateKindTag, templateKind } from './TemplateParts'
 
 const CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard'
 const ROUND_ARROW = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800'
@@ -36,7 +36,7 @@ export function ScratchCard({ onClick }: { onClick: () => void }) {
 export function PanelStarterCard({ starter, onClick }: { starter: JourneyStarter; onClick: () => void }) {
   const sentence = triggerSentence(starter.graph.entry_rules[0])
   return (
-    <button type="button" onClick={onClick} aria-label={`${starter.name}, CEP Starter`} className={`${CARD} hover:bg-surface-subtle active:bg-fill-subtle`}>
+    <button type="button" onClick={onClick} aria-label={`${starter.name}, ${templateKind(starter)}`} className={`${CARD} hover:bg-surface-subtle active:bg-fill-subtle`}>
       <span className="flex h-[88px] w-full shrink-0 flex-col justify-between bg-surface-subtle px-4 py-3">
         <span className="flex"><CategoryChip category={starter.category} /></span>
         <StepStrip graph={starter.graph} max={5} />
@@ -74,15 +74,17 @@ function StepsLine({ count, channels }: { count: number; channels: string[] }) {
 
 export function GalleryStarterCard({ starter, onClick }: { starter: JourneyStarter; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label={`${starter.name}, CEP Starter`} className={`${CARD} ${BORDERED}`}>
+    <button type="button" onClick={onClick} aria-label={`${starter.name}, ${templateKind(starter)}`} className={`${CARD} ${BORDERED}`}>
       <span className="flex flex-1 flex-col gap-2 p-4">
-        <span className="flex flex-wrap gap-1.5"><CategoryChip category={starter.category} /><StarterTag /></span>
+        <span className="flex flex-wrap gap-1.5"><CategoryChip category={starter.category} /><TemplateKindTag starter={starter} /></span>
         <span className="text-card-title font-semibold text-ink-900">{starter.name}</span>
         <TriggerLine text={triggerSentence(starter.graph.entry_rules[0])} />
         <span className="mt-1"><StepStrip graph={starter.graph} /></span>
         <StepsLine count={starter.step_count} channels={starter.channels} />
       </span>
-      <span className="border-t border-line px-4 py-2.5 text-xs text-ink-800">Made by CEP · Never changes</span>
+      <span className="border-t border-line px-4 py-2.5 text-xs text-ink-800">
+        {starter.saved ? `Saved ${formatDate(starter.saved.created_at)}${starter.saved.created_by_name ? ` by ${starter.saved.created_by_name}` : ''}` : 'Made by CEP · Never changes'}
+      </span>
     </button>
   )
 }
