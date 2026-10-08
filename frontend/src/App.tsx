@@ -70,6 +70,7 @@ const JourneySetupPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/
 const CustomerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/CustomerPlayground')) : null
 const ConditionPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/ConditionPlayground')) : null
 const TimelinePlayground = import.meta.env.DEV ? lazy(() => import('@/pages/TimelinePlayground')) : null
+const JourneyBuildPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/JourneyBuildPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -136,6 +137,7 @@ export default function App() {
                 {JourneySetupPlayground && <Route path="/dev/journey-setup" element={<Suspense fallback={<FullPageSpinner label="Loading the Set-Up" />}><JourneySetupPlayground /></Suspense>} />}
                 {ConditionPlayground && <Route path="/dev/journey-condition" element={<Suspense fallback={<FullPageSpinner label="Loading the Condition" />}><ConditionPlayground /></Suspense>} />}
                 {TimelinePlayground && <Route path="/dev/journey-timeline" element={<Suspense fallback={<FullPageSpinner label="Loading the timeline" />}><TimelinePlayground /></Suspense>} />}
+                {JourneyBuildPlayground && <Route path="/dev/journey-build" element={<Suspense fallback={<FullPageSpinner label="Loading the builder" />}><JourneyBuildPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>

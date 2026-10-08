@@ -31,10 +31,10 @@ Every staff account reads; acknowledging an alert needs change rights.
 | probe-uptime | Calls the uptime targets and alerts when one goes down or comes back. | 10 min (every minute on the scheduler) |
 | prune-observability | Removes errors, request figures and uptime probes past their retention. | 49 h |
 | attribute-orders | Credits the orders workspaces sent to campaigns and writes each campaign's revenue, cost and ROI (workspaces with attribution on). | 30 min (every 5 minutes on the scheduler) |
-| enroll-journey-customers | Enrols the customers who meet a live journey's entry: list members, events (sent, from orders, from tracking, No Response), segment changes, Date / Time schedules whose moment has come (each fires once). A Fixed journey closes after its first pass. | 10 min (every minute on the scheduler) |
-| advance-journey-customers | Moves journey customers whose next step is due: waits, conditions, messages (through a daily campaign per step), coupon requests, tier and segment changes. | 10 min (every minute on the scheduler) |
+| enroll-journey-customers | Enrols the customers who meet a live journey's entry: list members, events (sent, from orders, from tracking, No Response), segment changes, Date / Time schedules whose moment has come (each fires once), attribute matches; Only Customers Where filters and per-journey suppressions apply. A Fixed journey closes after its first pass. One scheduler per workspace (an advisory lock). | 10 min (every minute on the scheduler) |
+| advance-journey-customers | Converts anyone whose goal event arrived, then moves journey customers whose next step is due: waits (durations, a time of day, a date on the record), conditions, splits, messages (through a daily campaign per step), coupon requests, record, tier, segment and list changes, webhooks. A temporary failure is retried after 5, 15 and 60 minutes, then given up (Needs Attention). | 10 min (every minute on the scheduler) |
 | activate-scheduled-journeys | Takes journeys approved for a later time live once it comes, retiring the older live version. | 10 min (every minute on the scheduler) |
-| rollup-journey-analytics | Rolls journey enrolments and steps into the Performance figures. | 49 h (nightly) |
+| rollup-journey-analytics | Rolls journey enrolments, conversions, revenue, the message counts and steps into the Performance figures. | 49 h (nightly) |
 
 The cadence is how late a job may be before it reads overdue; the scheduler runs most of them more often. Two chatty jobs (the outbox relay and the list imports) record only failures and one success a minute.
 
