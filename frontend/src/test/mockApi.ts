@@ -1144,6 +1144,15 @@ export function installMockApi(options: MockOptions = {}) {
       return json([{ party_id: 'p-devon', name: 'Devon Okafor', email: 'devon@example.com', summary: 'Gold · Lakeside Mall' }].filter((item) => item.name.toLowerCase().includes(q) || item.email.includes(q)))
     }
     if (/\/journeys\/[^/]+\/attention\/$/.test(path) && method === 'GET') return json(journeyAttentionNow)
+    if (/\/journeys\/[^/]+\/webhook-test\/$/.test(path) && method === 'POST') {
+      const url = String(body?.url ?? '')
+      return json(url.startsWith('https://') ? { ok: true, status: 200, error: null, duration_ms: 212, response: 'received' } : { ok: false, status: null, error: 'The address must be https (http is only allowed for localhost).', duration_ms: 0 })
+    }
+    if (/\/journeys\/[^/]+\/webhook-calls\/$/.test(path) && method === 'GET') {
+      return json([{ id: 9, called_at: '2026-10-09T10:12:00Z', url: 'https://hooks.example.com/cep', status: 200, outcome: 'OK', error: null, attempt: 1, duration_ms: 212, node_key: 'webhook-1', enrollment_id: 'enr-1', test: false },
+                   { id: 8, called_at: '2026-10-09T10:05:00Z', url: 'https://hooks.example.com/cep', status: 503, outcome: 'RETRY', error: null, attempt: 1, duration_ms: 1840, node_key: 'webhook-1', enrollment_id: 'enr-2', test: false },
+                   { id: 7, called_at: '2026-10-09T09:58:00Z', url: 'https://hooks.example.com/cep', status: 200, outcome: 'OK', error: null, attempt: 1, duration_ms: 190, node_key: 'test', enrollment_id: null, test: true }])
+    }
     const journeyActionMatch = /\/journeys\/([^/]+)\/customers\/([^/]+)\/(retry|skip)\/$/.exec(path)
     if (journeyActionMatch && method === 'POST') {
       journeyAttentionNow = journeyActionMatch[3] === 'skip' ? journeyAttentionNow.filter((row) => row.id !== journeyActionMatch[2])

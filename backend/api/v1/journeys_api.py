@@ -59,7 +59,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters, suppressions, timeline
+from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters, suppressions, timeline, webhooks
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -563,6 +563,25 @@ class JourneyViewSet(views.JourneyViewSet):
         if found is None:
             raise NotFound("This customer is not in the journey.")
         return Response(found)
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path="webhook-test",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.edit")])
+    def webhook_test(self, request, pk=None, version=None):
+        """Send a Test Call: {url, secret?, secret_enc?, include_attributes?} -> {ok, status, error, duration_ms, response} (apps.journeys.webhooks)."""
+        body = request.data if isinstance(request.data, dict) else {}
+        config = webhooks.clean_config({key: body.get(key) for key in ("url", "secret", "secret_enc", "label", "include_attributes") if key in body})
+        return Response(webhooks.test_call(self.get_object(), config))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"], url_path="webhook-calls")
+    def webhook_calls(self, request, pk=None, version=None):
+        """The journey's last webhook calls, newest first (apps.journeys.webhooks.calls)."""
+        try:
+            limit = int(request.query_params.get("limit", 50))
+        except ValueError:
+            raise ValidationError({"limit": "A whole number."}) from None
+        return Response(webhooks.calls(self.get_object(), limit))
 
     @extend_schema(request=None, responses={200: None})
     @action(detail=True, methods=["get"])

@@ -20,6 +20,7 @@ Step configuration (journey_node.config), by node_type:
     SPLIT            {by: ATTRIBUTE | RANDOM, attribute?, paths: [{key, label, values | share}]} (apps.journeys.extras), or the earlier
                      {by: RANDOM | LOYALTY_TIER | CUSTOMER_TYPE, paths: [{branch_key, share} | {branch_key, values}], otherwise?}.
                      The path chosen is kept in state_data["splits"] so a retry never rolls again.
+    WEBHOOK          {url, secret_enc?, include_attributes?}  a signed POST with the customer and journey context (apps.journeys.webhooks)
     PROFILE_UPDATE   {attribute, value}          sets customer_master.custom_attributes[attribute]
     LIST_ADD / LIST_REMOVE  {contact_list_id}    list membership (membership_source JOURNEY)
     EMAIL, SMS, MMS  see messages.py
@@ -39,7 +40,7 @@ from django.utils import timezone
 from apps.customers.models import Coupon, CustomerMaster, LoyaltyTier, Segment
 from apps.delivery.engine import session
 
-from .. import conditions, extras, goals, schedule, waits
+from .. import conditions, extras, goals, schedule, waits, webhooks
 from ..models import JourneyGeneratedCampaign, JourneyNode
 from . import messages
 from .outcome import Done, Finish, Hold
@@ -297,6 +298,7 @@ HANDLERS = {
     "PROFILE_UPDATE": _profile,
     "LIST_ADD": _list,
     "LIST_REMOVE": _list,
+    "WEBHOOK": webhooks.run,
     "GOAL": goals.run,
     "EXIT": lambda node, state, enrollment: Finish("COMPLETED"),
 }

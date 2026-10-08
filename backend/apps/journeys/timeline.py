@@ -18,7 +18,7 @@ from django.utils import timezone
 from apps.contact_lists.governance import PRIMARY_EMAIL_SQL, STATUSES, status_sql
 from apps.delivery.engine import session
 
-from . import conditions, goals, schedule, waits
+from . import conditions, goals, schedule, waits, webhooks
 from .engine import steps as steps_engine
 from .engine.advance import _next
 from .models import Journey, JourneyEnrollment, JourneyEntryRule, JourneyNode, JourneyVersion
@@ -82,6 +82,8 @@ def _step_words(node_type: str | None, config: dict | None) -> str:
         return f"Update loyalty tier to {config.get('tier_name') or '?'}"
     if node_type == "SEGMENT_UPDATE":
         return f"{'Remove from' if str(config.get('action') or '').upper() == 'REMOVE' else 'Add to'} segment {config.get('segment_name') or ''}".strip()
+    if node_type == "WEBHOOK":
+        return webhooks.describe(config)
     if node_type == "EXIT":
         return "Exit journey"
     return str(node_type or "Step").title()
@@ -474,7 +476,8 @@ def preview(version: JourneyVersion, party_id: str, assumptions: dict | None = N
             break
         else:
             entry["outcome"] = {"COUPON_ISSUE": "Would request the coupon from C360", "LOYALTY_CHANGE": "Would set the loyalty tier",
-                                "SEGMENT_UPDATE": "Would change the segment membership"}.get(node.node_type, "Would run")
+                                "SEGMENT_UPDATE": "Would change the segment membership", "WEBHOOK": f"Would POST to {webhooks.host_of(config)} (not called in a preview)",
+                                "PROFILE_UPDATE": "Would set the attribute", "LIST_ADD": "Would add to the list", "LIST_REMOVE": "Would remove from the list"}.get(node.node_type, "Would run")
             entry["at"] = clock
         steps.append(entry)
         following = _next(node, branch)

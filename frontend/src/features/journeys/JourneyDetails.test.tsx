@@ -277,3 +277,13 @@ test('Needs Attention lists a step that was given up on, with Retry Now and Skip
   await user.click(within(table).getByText('Kenji Tanaka').closest('tr')!.querySelector('button')!)   // Retry Now
   await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Customers needing attention' })).getByText('Retrying now')).toBeTruthy())
 })
+
+test('a journey with a Webhook step shows its calls with the endpoint’s answer', async () => {
+  installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE', step_types: ['WEBHOOK', 'EXIT'] }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
+  await renderAppAt('/journeys/j1')
+  const table = await screen.findByRole('table', { name: 'Webhook calls' })
+  expect(within(table).getAllByText('Delivered')).toHaveLength(2)
+  expect(within(table).getByText('Retried')).toBeTruthy()
+  expect(within(table).getByText('Test call')).toBeTruthy()
+  expect(within(table).getByText('1840 ms')).toBeTruthy()
+})
