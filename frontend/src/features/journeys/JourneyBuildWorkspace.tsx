@@ -4,13 +4,15 @@
 import { X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { useQuery } from '@tanstack/react-query'
+
 import { IconButton } from '@/components/Button'
 import { buttonSecondary } from '@/components/Form'
 import { Notice } from '@/components/Notice'
 import { Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
-import { ApiError } from '@/lib/api'
-import type { Journey, JourneyEntryRule, JourneyNodeType, JourneyVersionDetail } from '@/lib/types'
+import { api, ApiError } from '@/lib/api'
+import type { Journey, JourneyEntryRule, JourneyNodeType, JourneyVersionCounts, JourneyVersionDetail } from '@/lib/types'
 
 import { AddStepPanel } from './AddStepPanel'
 import { Footer, ReadinessPill } from './Footer'
@@ -25,6 +27,7 @@ import { NodeConfigPanel } from './NodeConfigPanel'
 import { entrySummary, populationLabel, reentryLabel, SettingsSidebar } from './SettingsSidebar'
 import { StageBar } from './StageBar'
 import { goalContinues } from './GoalFields'
+import { PreviewRoutePanel } from './PreviewRoutePanel'
 import { stepName } from './templates/templateMeta'
 
 interface AddRequest {
@@ -104,6 +107,15 @@ export function JourneyBuildWorkspace({
   const [addRequest, setAddRequest] = useState<AddRequest | null>(null)
   const [selected, setSelected] = useState<Path | null>(null)
   const [setupOpen, setSetupOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  // a live or paused version: how many customers passed, or are waiting at, each step — refreshed with the scheduler
+  const live = version.status === 'ACTIVE' || journey.status === 'PAUSED'
+  const countsQuery = useQuery({
+    queryKey: ['journeys', journey.id, 'counts', version.version_number],
+    queryFn: ({ signal }) => api.get<JourneyVersionCounts>(`/journeys/${journey.id}/versions/${version.version_number}/counts/`, undefined, signal),
+    enabled: live,
+    refetchInterval: 60_000,
+  })
   const [bannerHidden, setBannerHidden] = useState(() => bannerDismissed(journey.id))
   const toast = useToast()
 
@@ -195,6 +207,7 @@ export function JourneyBuildWorkspace({
         actions={
           <>
             <ReadinessPill validity={validity} />
+            <button type="button" onClick={() => { setSelected(null); setAddRequest(null); setPreviewOpen(true) }} className={buttonSecondary}>Preview Route</button>
             <button type="button" onClick={() => void handleSaveDraft()} disabled={saving} className={buttonSecondary}>
               {saving ? <Spinner size="sm" /> : null} Save Draft
             </button>
@@ -218,6 +231,7 @@ export function JourneyBuildWorkspace({
           <div className="min-h-0 flex-1">
             <JourneyCanvas
               root={root}
+              counts={countsQuery.data?.steps}
               entryTrigger={entryRules.length === 0 ? 'Not set' : entryRules.map(entrySummary).join('; ')}
               entryDetail={`${populationLabel(journey)} · Re-entry: ${reentryLabel(journey)}`}
               selectedKey={selectedNode?.key ?? null}
@@ -229,6 +243,7 @@ export function JourneyBuildWorkspace({
           </div>
         </main>
         {addRequest && <AddStepPanel insideBranch={addRequest.insideBranch} onClose={() => setAddRequest(null)} onPick={handleAdd} />}
+        {previewOpen && !selectedNode && !addRequest && <PreviewRoutePanel journeyId={journey.id} versionNumber={version.version_number} dirty={dirty} onClose={() => setPreviewOpen(false)} />}
         {selectedNode && (
           <NodeConfigPanel key={selectedNode.key} node={selectedNode} onClose={() => setSelected(null)} onSave={handleConfigSave} onDelete={() => selected && handleDelete(selected)}
             steps={conditionStepOptions(root, selectedNode.key, (node) => describeStep(node).title)} journeyId={journey.id}

@@ -204,3 +204,25 @@ test('Goal edits in place against its 500-character limit', async () => {
   await user.type(goal, 'First purchase in 30 days')
   expect(screen.getByLabelText('25 of 500 characters')).toBeTruthy()
 })
+
+test('the Customers card lists everyone enrolled with where they are, and opening one shows their timeline', async () => {
+  installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+  await screen.findByRole('heading', { name: 'New Loyalty Member Welcome', level: 1 })
+
+  const table = await screen.findByRole('table', { name: 'Customers in the journey' })
+  expect(within(table).getByText('Marcus Hale')).toBeTruthy()
+  expect(within(table).getByText('Wait 3 days')).toBeTruthy()                       // Aaliyah is waiting there
+  expect(within(table).getByText('Goal reached')).toBeTruthy()                       // Marcus completed through the goal
+  await user.type(screen.getByLabelText('Search customers'), 'aali')
+  await vi.waitFor(() => expect(within(table).queryByText('Marcus Hale')).toBeNull())
+
+  await user.click(within(table).getByRole('button', { name: 'Aaliyah Brooks' }))
+  const drawer = await screen.findByRole('dialog', { name: 'Aaliyah Brooks' })
+  expect(within(drawer).getByText(/Entered .* · version 1 · In Journey/)).toBeTruthy()
+  const timeline = within(drawer).getByRole('list', { name: 'Customer timeline' })
+  expect(within(timeline).getByText('Email: Welcome')).toBeTruthy()
+  expect(within(timeline).getByText(/delivered .* · opened/)).toBeTruthy()
+  expect(within(timeline).getByText(/waiting until/)).toBeTruthy()
+})

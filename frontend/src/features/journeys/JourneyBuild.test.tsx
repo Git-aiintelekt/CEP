@@ -279,3 +279,22 @@ test('a Goal names its event, filters and window; set to continue it opens Reach
   expect(goal.config).toEqual({ event_type: 'PURCHASE', window_days: 14, when_reached: 'CONTINUE', props: [{ key: 'amount', op: 'gte', value: 25 }] })
   expect(graph.graph.connections.some((edge) => edge.from === goal.key)).toBe(false) // nothing follows the goal yet: its paths open on the canvas, the graph gets edges once steps are added
 })
+
+test('Preview Route walks the saved draft as a chosen customer, and a step that depends on what has not happened asks what to assume', async () => {
+  installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  await screen.findByTestId('journey-canvas')
+
+  await user.click(screen.getByRole('button', { name: 'Preview Route' }))
+  const panel = await screen.findByRole('dialog', { name: 'Preview Route' })
+  await user.type(within(panel).getByLabelText('Preview As'), 'dev')
+  await user.click(await within(panel).findByRole('button', { name: /Devon Okafor/ }))
+  const route = await within(panel).findByRole('list', { name: 'Preview route' }, { timeout: 4000 })
+  expect(within(route).getByText('Enters when a Welcome event arrives for them. The entry filters pass.')).toBeTruthy()
+  expect(within(route).getByText('Continues Tue 13 Oct, 11:02')).toBeTruthy()
+  expect(within(route).getByText(/assuming No/)).toBeTruthy()
+  await user.click(within(route).getByRole('radio', { name: 'Assume Yes' }))
+  expect(await within(route).findByText(/assuming Yes/)).toBeTruthy()
+  expect(within(route).getByText(/Would exit .* as not converted/)).toBeTruthy()
+})
