@@ -19,7 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from api.exceptions import Conflict
 
-from . import conditions, goals, waits
+from . import conditions, extras, goals, waits
 from .models import Journey, JourneyConnection, JourneyEntryRule, JourneyNode, JourneyVersion
 
 # block -> node_type -> node_family. Issue Coupon (COUPON_ISSUE) and Change Loyalty Tier (LOYALTY_CHANGE) invoke the
@@ -36,6 +36,9 @@ NODE_FAMILY = {
     "COUPON_ISSUE": JourneyNode.NodeFamily.ACTION,
     "LOYALTY_CHANGE": JourneyNode.NodeFamily.ACTION,
     "SEGMENT_UPDATE": JourneyNode.NodeFamily.ACTION,
+    "PROFILE_UPDATE": JourneyNode.NodeFamily.ACTION,   # sets any customer attribute (apps.journeys.extras)
+    "LIST_ADD": JourneyNode.NodeFamily.ACTION,
+    "LIST_REMOVE": JourneyNode.NodeFamily.ACTION,
     "GOAL": JourneyNode.NodeFamily.CONTROL,            # the outcome the journey is for (apps.journeys.goals)
     "EXIT": JourneyNode.NodeFamily.CONTROL,            # End
 }
@@ -181,6 +184,14 @@ def clean(graph) -> dict:
             wait_problem = waits.problem(node["config"])
             if wait_problem:
                 problem("nodes", index, f"{node['key']}: {wait_problem}")
+        if node["type"] == "SPLIT" and node["config"].get("paths") is not None:
+            split_problem = extras.split_problem(node["config"])
+            if split_problem:
+                problem("nodes", index, f"{node['key']}: {split_problem}")
+        if node["type"] == "PROFILE_UPDATE" and node["config"].get("attribute"):
+            profile_problem = extras.profile_problem(node["config"])
+            if profile_problem:
+                problem("nodes", index, f"{node['key']}: {profile_problem}")
         if node["type"] == "GOAL" and node["config"].get("event_type"):
             goal_problem = goals.problem(node["config"])
             if goal_problem:

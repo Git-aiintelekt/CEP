@@ -10,6 +10,7 @@
 import type { ConditionRule, JourneyGraph, JourneyGraphConnection, JourneyGraphNode, JourneyNodeType } from '@/lib/types'
 
 import { isRuleComplete } from './conditions/conditionModel'
+import { isExtraConfigured, splitBranchKeys, splitBranchLabels } from './ExtraStepFields'
 import { goalContinues, isGoalConfigured } from './GoalFields'
 import { isWaitConfigured } from './WaitFields'
 
@@ -17,18 +18,30 @@ export interface EditorNode {
   key: string
   type: JourneyNodeType
   config: Record<string, unknown>
-  /** on a CONDITION node (Yes / No), and on a GOAL that continues (YES = Reached, NO = Not Yet) */
-  branches?: { YES: EditorNode[]; NO: EditorNode[] }
+  /** on a CONDITION node (YES / NO), a GOAL that continues (YES = Reached, NO = Not Yet) and a SPLIT (its paths' keys, OTHERWISE last) */
+  branches?: Record<string, EditorNode[]>
 }
 
-/** A step that opens two branches: a Condition, or a Goal set to continue on the Reached path. */
+/** A step that opens branches: a Condition, a Goal set to continue on the Reached path, or a Split. */
 export function isFork(node: Pick<EditorNode, 'type' | 'config'>): boolean {
-  return node.type === 'CONDITION' || (node.type === 'GOAL' && goalContinues(node.config ?? {}))
+  return node.type === 'CONDITION' || node.type === 'SPLIT' || (node.type === 'GOAL' && goalContinues(node.config ?? {}))
 }
 
-/** The two branch labels the canvas shows at a fork. */
-export function forkLabels(node: Pick<EditorNode, 'type' | 'config'>): { YES: string; NO: string } {
+/** The branch keys a fork opens, in canvas order (left to right). */
+export function forkKeys(node: Pick<EditorNode, 'type' | 'config'>): string[] {
+  if (node.type === 'SPLIT') return splitBranchKeys(node.config ?? {})
+  return isFork(node) ? ['YES', 'NO'] : []
+}
+
+/** The branch labels the canvas shows at a fork, by key. */
+export function forkLabels(node: Pick<EditorNode, 'type' | 'config'>): Record<string, string> {
+  if (node.type === 'SPLIT') return splitBranchLabels(node.config ?? {})
   return node.type === 'GOAL' ? { YES: 'REACHED', NO: 'NOT YET' } : { YES: 'YES', NO: 'NO' }
+}
+
+/** Empty branches for every key a fork opens, keeping the steps of the keys that stay. */
+export function emptyBranches(node: Pick<EditorNode, 'type' | 'config'>, keep?: Record<string, EditorNode[]>): Record<string, EditorNode[]> {
+  return Object.fromEntries(forkKeys(node).map((key) => [key, keep?.[key] ?? []]))
 }
 
 let counter = 0
@@ -56,10 +69,10 @@ function buildChain(chain: EditorNode[], incoming: Pending[], x: number, y: numb
     maxY = Math.max(maxY, curY)
     curY += Y_STEP
     if (isFork(node)) {
-      const yes = buildChain(node.branches?.YES ?? [], [{ key: node.key, branch: 'YES' }], x - X_STEP, curY, nodes, connections)
-      const no = buildChain(node.branches?.NO ?? [], [{ key: node.key, branch: 'NO' }], x + X_STEP, curY, nodes, connections)
-      pending = [...yes.ends, ...no.ends]
-      curY = Math.max(yes.maxY, no.maxY) + Y_STEP
+      const keys = forkKeys(node)
+      const results = keys.map((key, i) => buildChain(node.branches?.[key] ?? [], [{ key: node.key, branch: key }], x + (i - (keys.length - 1) / 2) * 2 * X_STEP, curY, nodes, connections))
+      pending = results.flatMap((result) => result.ends)
+      curY = Math.max(...results.map((result) => result.maxY)) + Y_STEP
       maxY = curY
       continue
     }
@@ -110,12 +123,12 @@ function walkInclusive(key: string, byFrom: EdgeIndex, byKey: NodeIndex, incomin
   if (!node) return []
   if (node.type === 'EXIT') return [{ key: node.key, type: node.type, config: node.config }]
   if (isFork(node)) {
-    const yesOut = outs(node.key, byFrom).find((edge) => edge.branch_key === 'YES')
-    const noOut = outs(node.key, byFrom).find((edge) => edge.branch_key === 'NO')
-    const yes = yesOut ? traceBranch(yesOut.to, byFrom, byKey, incomingCount) : { nodes: [], rejoin: null }
-    const no = noOut ? traceBranch(noOut.to, byFrom, byKey, incomingCount) : { nodes: [], rejoin: null }
-    const parsed: EditorNode = { key: node.key, type: node.type, config: node.config, branches: { YES: yes.nodes, NO: no.nodes } }
-    const rejoin = yes.rejoin ?? no.rejoin
+    const traced = forkKeys(node).map((key) => {
+      const out = outs(node.key, byFrom).find((edge) => edge.branch_key === key)
+      return [key, out ? traceBranch(out.to, byFrom, byKey, incomingCount) : { nodes: [], rejoin: null }] as const
+    })
+    const parsed: EditorNode = { key: node.key, type: node.type, config: node.config, branches: Object.fromEntries(traced.map(([key, result]) => [key, result.nodes])) }
+    const rejoin = traced.map(([, result]) => result.rejoin).find((key) => key !== null) ?? null
     return [parsed, ...(rejoin ? walkInclusive(rejoin, byFrom, byKey, incomingCount) : [])]
   }
   return [{ key: node.key, type: node.type, config: node.config }, ...walk(node.key, byFrom, byKey, incomingCount)]
@@ -150,7 +163,7 @@ export function conditionStepOptions(root: EditorNode[], exceptKey: string, desc
 
 /** Flattens the tree to a plain list, for counting / validity checks. */
 export function flatten(chain: EditorNode[]): EditorNode[] {
-  return chain.flatMap((node) => (node.branches ? [node, ...flatten(node.branches.YES), ...flatten(node.branches.NO)] : [node]))
+  return chain.flatMap((node) => (node.branches ? [node, ...Object.values(node.branches).flatMap(flatten)] : [node]))
 }
 
 /** What each node type needs configured before the journey is ready for Test Publish. */
@@ -174,8 +187,12 @@ export function isNodeConfigured(node: EditorNode): boolean {
       return Boolean(config.segment_id) && Boolean(config.action)
     case 'GOAL':
       return isGoalConfigured(config)
-    case 'EXIT':
     case 'SPLIT':
+    case 'PROFILE_UPDATE':
+    case 'LIST_ADD':
+    case 'LIST_REMOVE':
+      return isExtraConfigured(node.type, config)
+    case 'EXIT':
     case 'START':
     default:
       return true
@@ -194,7 +211,7 @@ export function checkValidity(root: EditorNode[]): Validity {
 }
 
 /** Replaces the node at `path` (a sequence of indices through root / branches) with the result of `update`. */
-export type Path = { index: number; branch?: 'YES' | 'NO' }[]
+export type Path = { index: number; branch?: string }[]
 
 function cloneAt(chain: EditorNode[], path: Path, mutate: (chain: EditorNode[]) => EditorNode[]): EditorNode[] {
   if (path.length === 0) return mutate(chain)
@@ -202,8 +219,8 @@ function cloneAt(chain: EditorNode[], path: Path, mutate: (chain: EditorNode[]) 
   return chain.map((node, index) => {
     if (index !== head.index) return node
     if (!head.branch) return node
-    const branches = node.branches ?? { YES: [], NO: [] }
-    return { ...node, branches: { ...branches, [head.branch]: cloneAt(branches[head.branch], rest, mutate) } }
+    const branches = node.branches ?? emptyBranches(node)
+    return { ...node, branches: { ...branches, [head.branch]: cloneAt(branches[head.branch] ?? [], rest, mutate) } }
   })
 }
 
@@ -224,7 +241,7 @@ export function cloneWithNewKeys(node: EditorNode): EditorNode {
     key: newKey(node.type),
     type: node.type,
     config: { ...node.config },
-    ...(node.branches ? { branches: { YES: node.branches.YES.map(cloneWithNewKeys), NO: node.branches.NO.map(cloneWithNewKeys) } } : {}),
+    ...(node.branches ? { branches: Object.fromEntries(Object.entries(node.branches).map(([key, chain]) => [key, chain.map(cloneWithNewKeys)])) } : {}),
   }
 }
 

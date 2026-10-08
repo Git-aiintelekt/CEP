@@ -298,3 +298,50 @@ test('Preview Route walks the saved draft as a chosen customer, and a step that 
   expect(await within(route).findByText(/assuming Yes/)).toBeTruthy()
   expect(within(route).getByText(/Would exit .* as not converted/)).toBeTruthy()
 })
+
+test('a Split by an attribute opens one path per value set and Everyone Else, named on the canvas, and is saved with its paths', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Split' }))
+  const panel = await screen.findByRole('dialog', { name: 'No attribute chosen' })
+  await user.type(within(panel).getByLabelText(/^Attribute/), 'home_store')
+  await user.type(within(panel).getByLabelText('Path 1 Name'), 'Lakeside')
+  await user.type(within(panel).getByLabelText('Path 1 Values'), 'Lakeside Mall')
+  await user.click(within(panel).getByRole('button', { name: 'Add Path' }))
+  await user.type(within(panel).getByLabelText('Path 2 Name'), 'Downtown')
+  await user.type(within(panel).getByLabelText('Path 2 Values'), 'Downtown, Airport')
+  await user.click(within(panel).getByRole('button', { name: 'Save Step' }))
+
+  expect(await within(canvas).findByText('Split by Home Store, 3 paths')).toBeTruthy()
+  // three paths: the "+" before the split, one per path, and one after
+  await vi.waitFor(() => expect(within(canvas).getAllByRole('button', { name: 'Add a Step' })).toHaveLength(5)) // the path labels sit on edges, which jsdom does not draw
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
+  expect(graph.graph.nodes.find((node) => node.type === 'SPLIT')?.config).toEqual({
+    by: 'ATTRIBUTE', attribute: 'home_store', paths: [{ key: 'P1', label: 'Lakeside', values: ['Lakeside Mall'] }, { key: 'P2', label: 'Downtown', values: ['Downtown', 'Airport'] }],
+  })
+})
+
+test('Update Profile names the attribute and the value', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Update Profile' }))
+  const panel = await screen.findByRole('dialog', { name: 'No attribute chosen' })
+  await user.type(within(panel).getByLabelText(/^Attribute/), 'customer_status')
+  await user.type(within(panel).getByLabelText(/^Set To/), 'Welcomed')
+  await user.click(within(panel).getByRole('button', { name: 'Save Step' }))
+  expect(await within(canvas).findByText('Set Customer Status to Welcomed')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
+  expect(graph.graph.nodes.find((node) => node.type === 'PROFILE_UPDATE')?.config).toEqual({ attribute: 'customer_status', value: 'Welcomed' })
+})

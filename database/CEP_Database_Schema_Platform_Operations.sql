@@ -1516,6 +1516,42 @@ ALTER TABLE journey_enrollment
     ADD COLUMN IF NOT EXISTS attributed_revenue NUMERIC(14,2);
 COMMENT ON COLUMN journey_enrollment.converted_at IS 'The Goal step: the first matching event''s moment, set when the customer reaches the step or when the event arrives while they are in the journey';
 CREATE INDEX IF NOT EXISTS ix_journey_enrollment_converted ON journey_enrollment(journey_id, converted_at) WHERE converted_at IS NOT NULL;
+-- per-journey suppressions (patch 0046, apps/journeys/suppressions.py): customers one journey must never enter or message
+CREATE TABLE IF NOT EXISTS journey_suppression (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id   UUID NOT NULL REFERENCES tenant(id),
+    journey_id  UUID NOT NULL REFERENCES journey(id) ON DELETE CASCADE,
+    party_id    VARCHAR(60) NOT NULL,
+    given       VARCHAR(200),                 -- what was typed: an email address, a mobile number or the customer id
+    note        VARCHAR(200),
+    created_by  UUID,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ux_journey_suppression UNIQUE (journey_id, party_id)
+);
+CREATE INDEX IF NOT EXISTS ix_journey_suppression_tenant ON journey_suppression(tenant_id, journey_id);
+ALTER TABLE journey_suppression ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_journey_suppression_tenant ON journey_suppression;
+CREATE POLICY rls_journey_suppression_tenant ON journey_suppression
+    USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+ALTER TABLE journey_suppression FORCE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON journey_suppression TO cep_app;
+GRANT ALL ON journey_suppression TO cep_admin;
+-- the Add to List step writes list members as JOURNEY
+ALTER TABLE contact_list_member DROP CONSTRAINT IF EXISTS ck_contact_list_member_membership_source;
+ALTER TABLE contact_list_member ADD CONSTRAINT ck_contact_list_member_membership_source
+    CHECK (membership_source IN ('UPLOAD', 'RULE', 'SEGMENT', 'MANUAL', 'CLONE', 'JOURNEY'));
+-- journey.export (the Customers card's CSV) and journey.suppress (per-journey suppressions): every role that edits journeys gets both
+INSERT INTO permission (id, code, description) VALUES
+    ('a3000000-0000-4000-8000-000000000018', 'journey.export', 'Journey export'),
+    ('a3000000-0000-4000-8000-000000000019', 'journey.suppress', 'Journey suppress')
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO role_permission (role_id, permission_id)
+    SELECT rp.role_id, p.id FROM role_permission rp
+    JOIN permission edit ON edit.id = rp.permission_id AND edit.code = 'journey.edit'
+    JOIN permission p ON p.code IN ('journey.export', 'journey.suppress')
+ON CONFLICT DO NOTHING;
+
 -- the nightly rollup gains the goal figures and the journey's message figures across every step
 ALTER TABLE journey_master_analytical
     ADD COLUMN IF NOT EXISTS converted_count    INTEGER,

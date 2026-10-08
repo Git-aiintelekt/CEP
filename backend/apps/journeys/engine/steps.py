@@ -17,8 +17,11 @@ Step configuration (journey_node.config), by node_type:
                      REDEEMED, EVENT (any journey_event of event_type) or IN_SEGMENT; `days` looks back that many days from
                      now, without it back to when the customer entered; OPENED / CLICKED look at the emails of this journey,
                      those of `message_step` (a node key) when given.
-    SPLIT            {by: RANDOM | LOYALTY_TIER | CUSTOMER_TYPE, paths: [{branch_key, share} | {branch_key, values: [...]}], otherwise?}
+    SPLIT            {by: ATTRIBUTE | RANDOM, attribute?, paths: [{key, label, values | share}]} (apps.journeys.extras), or the earlier
+                     {by: RANDOM | LOYALTY_TIER | CUSTOMER_TYPE, paths: [{branch_key, share} | {branch_key, values}], otherwise?}.
                      The path chosen is kept in state_data["splits"] so a retry never rolls again.
+    PROFILE_UPDATE   {attribute, value}          sets customer_master.custom_attributes[attribute]
+    LIST_ADD / LIST_REMOVE  {contact_list_id}    list membership (membership_source JOURNEY)
     EMAIL, SMS, MMS  see messages.py
     COUPON_ISSUE     {coupon_id}  ->  a coupon_issuance request C360 fulfils (GET /coupon-issuances/) and a COUPON_ISSUED event
     LOYALTY_CHANGE   {tier_id}    ->  confirms an apps.customers.LoyaltyTier reference, sets customer_master.custom_attributes.loyalty_tier
@@ -36,7 +39,7 @@ from django.utils import timezone
 from apps.customers.models import Coupon, CustomerMaster, LoyaltyTier, Segment
 from apps.delivery.engine import session
 
-from .. import conditions, goals, schedule, waits
+from .. import conditions, extras, goals, schedule, waits
 from ..models import JourneyGeneratedCampaign, JourneyNode
 from . import messages
 from .outcome import Done, Finish, Hold
@@ -136,8 +139,15 @@ def _split(node, state, enrollment) -> Done:
     if chosen is not None:
         return Done(result={"path": chosen, "kept": True}, branch=chosen)
     config = node.config or {}
-    paths = [path for path in config.get("paths") or [] if isinstance(path, dict) and path.get("branch_key")]
+    paths = [{**path, "branch_key": str(path.get("branch_key") or path.get("key") or "").upper()} for path in config.get("paths") or []
+             if isinstance(path, dict) and (path.get("branch_key") or path.get("key"))]
     by = str(config.get("by") or "RANDOM").upper()
+    if by == "ATTRIBUTE" and config.get("attribute"):     # the builder's form: any attribute, Everyone Else last
+        config = {**config, "otherwise": extras.OTHERWISE}
+        by = str(config["attribute"]).strip()
+        SPLIT_ATTRIBUTE_LOCAL = {by: by}
+    else:
+        SPLIT_ATTRIBUTE_LOCAL = SPLIT_ATTRIBUTE
     chosen = None
     if by == "RANDOM":
         shares = [(str(path["branch_key"]), max(0.0, float(path.get("share") or 0))) for path in paths]
@@ -150,15 +160,56 @@ def _split(node, state, enrollment) -> Done:
                     chosen = key
                     break
             chosen = chosen or shares[-1][0]
-    elif by in SPLIT_ATTRIBUTE:
+    elif by in SPLIT_ATTRIBUTE_LOCAL:
         attributes = CustomerMaster.objects.filter(tenant_id=enrollment.tenant_id, party_id=enrollment.party_id).values_list("custom_attributes", flat=True).first() or {}
-        value = str(attributes.get(SPLIT_ATTRIBUTE[by]) or "").strip().lower()
+        value = str(attributes.get(SPLIT_ATTRIBUTE_LOCAL[by]) or "").strip().lower()
         chosen = next((str(path["branch_key"]) for path in paths if value and value in {str(item).strip().lower() for item in path.get("values") or []}), None)
     else:
         return Done("FAILED", {"reason": f"Unknown split '{by}'."}, branch=config.get("otherwise"))
     chosen = chosen or config.get("otherwise")
     state.state_data.setdefault("splits", {})[node.node_key] = chosen
     return Done(result={"path": chosen, "by": by}, branch=chosen)
+
+
+def _profile(node, state, enrollment) -> Done:
+    """Update Profile: sets one custom attribute on the customer's record."""
+    config = node.config or {}
+    found = extras.profile_problem(config)
+    if found:
+        return Done("FAILED", {"reason": found})
+    attribute, value = str(config["attribute"]).strip(), config["value"]
+    import json
+    with session.connection().cursor() as cursor:
+        cursor.execute("SELECT custom_attributes -> %s FROM customer_master WHERE tenant_id = %s AND party_id = %s", [attribute, str(enrollment.tenant_id), enrollment.party_id])
+        row = cursor.fetchone()
+        cursor.execute("UPDATE customer_master SET custom_attributes = COALESCE(custom_attributes, '{}'::jsonb) || jsonb_build_object(%s::text, %s::jsonb) WHERE tenant_id = %s AND party_id = %s",
+                       [attribute, json.dumps(value), str(enrollment.tenant_id), enrollment.party_id])
+        changed = cursor.rowcount > 0
+    previous = row[0] if row else None
+    if isinstance(previous, str):
+        try:
+            previous = json.loads(previous)
+        except ValueError:
+            pass
+    return Done(result={"attribute": attribute, "value": value, "from": previous, "changed": changed})
+
+
+def _list(node, state, enrollment) -> Done:
+    """Add to List / Remove from List: the customer's membership of a contact list."""
+    from apps.contact_lists.models import ContactList
+    config = node.config or {}
+    contact_list = ContactList.objects.filter(tenant_id=enrollment.tenant_id, pk=config.get("contact_list_id"), deleted_at__isnull=True).first() if config.get("contact_list_id") else None
+    if contact_list is None:
+        return Done("FAILED", {"reason": "The contact list does not exist (any more)."})
+    with session.connection().cursor() as cursor:
+        if node.node_type == "LIST_ADD":
+            cursor.execute("""INSERT INTO contact_list_member (contact_list_id, tenant_id, party_id, membership_source, matched_by)
+                              VALUES (%s, %s, %s, 'JOURNEY', 'PARTY_ID') ON CONFLICT DO NOTHING""", [str(contact_list.pk), str(enrollment.tenant_id), enrollment.party_id])
+        else:
+            cursor.execute("DELETE FROM contact_list_member WHERE tenant_id = %s AND contact_list_id = %s AND party_id = %s",
+                           [str(enrollment.tenant_id), str(contact_list.pk), enrollment.party_id])
+        changed = cursor.rowcount > 0
+    return Done(result={"list": contact_list.name, "action": "ADD" if node.node_type == "LIST_ADD" else "REMOVE", "changed": changed})
 
 
 def _segment(node, state, enrollment) -> Done:
@@ -243,6 +294,9 @@ HANDLERS = {
     "COUPON_ISSUE": _coupon,
     "LOYALTY_CHANGE": _loyalty,
     "SEGMENT_UPDATE": _segment,
+    "PROFILE_UPDATE": _profile,
+    "LIST_ADD": _list,
+    "LIST_REMOVE": _list,
     "GOAL": goals.run,
     "EXIT": lambda node, state, enrollment: Finish("COMPLETED"),
 }
