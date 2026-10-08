@@ -25,7 +25,7 @@ import { useFieldRules } from '@/lib/fieldRules'
 import { failureText } from '@/lib/saveFeedback'
 import { formatDate, formatDateTime, formatNumber, formatPercent, titleize } from '@/lib/format'
 import type {
-  Journey, JourneyAudience, JourneyEntryRule, JourneyGeneratedCampaignRow, JourneyMetrics, JourneyTrendWeek,
+  Journey, JourneyAudience, JourneyEntryRule, JourneyGeneratedCampaignRow, JourneyMessageMetrics, JourneyMetrics, JourneyTrendWeek,
   JourneyVersion, JourneyActivityEntry,
 } from '@/lib/types'
 
@@ -38,6 +38,30 @@ import { FAMILY_META } from './triggerFamily'
 interface PerformanceResponse {
   summary: { active_enrollment_count: number; completed_count: number; exited_count: number; status: string | null; last_refreshed_at: string } | null
   metrics: JourneyMetrics
+  messages?: JourneyMessageMetrics
+}
+
+function MessagesBlock({ messages }: { messages: JourneyMessageMetrics | undefined }) {
+  if (!messages) return null
+  const pct = (value: number | null) => (value === null ? undefined : `${formatPercent(value)} of sent`)
+  const held = messages.held_back_reasons.length ? messages.held_back_reasons.map((item) => `${item.reason} ${formatNumber(item.count)}`).join(' · ') : undefined
+  return (
+    <div className="mt-4 rounded-lg border border-line p-4">
+      <h3 className="text-card-title font-semibold text-ink-900">Messages, All Steps</h3>
+      <p className="mt-0.5 text-helper text-ink-800">Every message step added up, last 30 days. Each step’s own figures are on its generated campaign.</p>
+      <dl className={`${FACTS_GRID} mt-3`}>
+        <MetricCard label="Sent" value={messages.sent} />
+        <MetricCard label="Delivered" value={messages.delivered} sub={pct(messages.delivered_pct)} />
+        <MetricCard label="Opened" value={messages.opened} sub={pct(messages.opened_pct)} />
+        <MetricCard label="Clicked" value={messages.clicked} sub={pct(messages.clicked_pct)} />
+        <MetricCard label="Bounced" value={messages.bounced} />
+        <MetricCard label="Complained" value={messages.complained} />
+        <MetricCard label="Unsubscribed" value={messages.unsubscribed} />
+        <MetricCard label="Held Back" value={messages.held_back} sub={held} />
+        <MetricCard label="Failed" value={messages.failed} />
+      </dl>
+    </div>
+  )
 }
 
 const LIFECYCLE_LABEL: Record<string, string> = { DRAFT: 'Publish Journey', ACTIVE: 'Pause Journey', PAUSED: 'Resume Journey' }
@@ -300,9 +324,17 @@ export function JourneyDetailsPage() {
         <dl className={FACTS_GRID}>
           <MetricCard label="Enrolled" value={metrics?.enrolled} sub={`Since ${formatDate(journey.created_at)}`} />
           <MetricCard label="In Journey" value={metrics?.in_journey} sub="Waiting at a delay" />
-          <MetricCard label="Goal Converted" value={metrics?.goal_converted} sub={journey.status === 'DRAFT' ? 'Not published' : formatPercent(metrics?.goal_converted_pct) + ' of enrolled'} />
+          <MetricCard label={metrics?.has_goal ? 'Converted' : 'Goal Converted'} value={metrics?.goal_converted}
+            sub={journey.status === 'DRAFT' ? 'Not published' : `${formatPercent(metrics?.goal_converted_pct)} of enrolled`} />
           <MetricCard label="Exited Early" value={metrics?.exited_early} sub={journey.status === 'DRAFT' ? 'Not published' : formatPercent(metrics?.exited_early_pct) + ' of enrolled'} />
         </dl>
+        {metrics?.has_goal && journey.status !== 'DRAFT' && (
+          <dl className={`${FACTS_GRID} mt-4`} data-goal-figures>
+            <MetricCard label="Attributed Revenue" value={metrics.attributed_revenue === null || metrics.attributed_revenue === undefined ? null : formatNumber(metrics.attributed_revenue)} sub="Within the goal’s window, from the Attribution settings" />
+            <MetricCard label="Average per Conversion" value={metrics.revenue_per_conversion === null || metrics.revenue_per_conversion === undefined ? null : formatNumber(metrics.revenue_per_conversion)} />
+          </dl>
+        )}
+        {journey.status !== 'DRAFT' && <MessagesBlock messages={performanceQuery.data?.messages} />}
       </section>
 
       <section className="mt-6 flex flex-col gap-6">

@@ -2077,7 +2077,8 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
 | Update Segment | Adds the customer to a segment, or removes them. |
-| Exit Journey | Ends the path; the customer counts as Goal Converted. End every path with one. |
+| Goal | The outcome the journey is for: an event (Purchase, Coupon Redemption, or any type you name), optional filters on its data (order total is at least 25), and an attribution window from entering (14 days). A customer is **converted** when the event arrives within the window: when they reach the step, or at once wherever they are in the journey. **Mark converted and exit** takes them out; **Mark converted and continue on the Reached path** opens Reached and Not Yet paths under the step (a thank-you can follow). Revenue is the matching events' amounts, as Attribution sends them. |
+| Exit Journey | Ends the path. Without a Goal step, reaching an Exit counts as Goal Converted. End every path with one. |
 
 **Save Draft** (top right) keeps your work; nothing saves on its own. When every step is set up, choose **Continue to Test Publish**.
 
@@ -2155,6 +2156,7 @@ Only customers in the customer records enter, since a message to someone unknown
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
 - The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- The journey page's Performance shows Converted (with a Goal: conversions and their revenue; without one: Exit arrivals) and **Messages, All Steps**: every message step's sent, delivered, opened, clicked, bounced, complained, unsubscribed, held back (by reason) and failed figures added up for the last 30 days. The nightly roll-up keeps the same figures per journey.
 - A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name CEP does not know, waits in the workspace's time zone. Test Publish skips every wait.
 - A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - The Split step (more than two paths) is not offered; use Conditions.

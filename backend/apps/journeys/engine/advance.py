@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 
+from .. import goals
 from ..models import JourneyConnection, JourneyCustomerState, JourneyEnrollment, JourneyNodeExecution
 from . import steps, tenants
 from .outcome import Done, Finish, Hold
@@ -95,8 +96,12 @@ def advance_one(enrollment_id) -> str:
 
 
 def advance_tenant(tenant_id: str) -> dict:
-    counts = {"moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0}
+    counts = {"moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0}
     with session.tenant_scope(tenant_id):
+        try:                                               # goals first: a customer whose goal event arrived leaves before their next step
+            counts["converted"] = goals.check_tenant(tenant_id)["converted"]
+        except Exception:                                  # noqa: BLE001
+            log.exception("journey goals could not be checked for tenant %s", tenant_id)
         with session.tx(), session.connection().cursor() as cursor:
             cursor.execute(DUE, [str(tenant_id), PER_PASS])
             due = [row[0] for row in cursor.fetchall()]
@@ -110,12 +115,10 @@ def advance_tenant(tenant_id: str) -> dict:
 
 
 def run() -> dict:
-    totals = {"tenants": 0, "moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0}
-    for tenant_id in tenants("""SELECT DISTINCT e.tenant_id FROM journey_customer_state s
-                                  JOIN journey_enrollment e ON e.id = s.journey_enrollment_id
+    totals = {"tenants": 0, "moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0}
+    for tenant_id in tenants("""SELECT DISTINCT e.tenant_id FROM journey_enrollment e
                                   JOIN journey j ON j.id = e.journey_id JOIN tenant t ON t.id = e.tenant_id
-                                 WHERE s.next_scheduled_at <= now() AND e.status = 'ACTIVE' AND j.status = 'ACTIVE' AND j.deleted_at IS NULL
-                                   AND t.status = 'ACTIVE'"""):
+                                 WHERE e.status = 'ACTIVE' AND j.status = 'ACTIVE' AND j.deleted_at IS NULL AND t.status = 'ACTIVE'"""):
         try:
             counts = advance_tenant(tenant_id)
         except Exception:                                  # noqa: BLE001
@@ -123,6 +126,7 @@ def run() -> dict:
             totals["failed"] += 1
             continue
         totals["tenants"] += 1
+        totals["converted"] += counts["converted"]
         for key, value in counts.items():
             totals[key] += value
     return totals

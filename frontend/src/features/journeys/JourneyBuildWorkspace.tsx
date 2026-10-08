@@ -24,6 +24,7 @@ import { describeStep, type AddableType } from './nodeDefs'
 import { NodeConfigPanel } from './NodeConfigPanel'
 import { entrySummary, populationLabel, reentryLabel, SettingsSidebar } from './SettingsSidebar'
 import { StageBar } from './StageBar'
+import { goalContinues } from './GoalFields'
 import { stepName } from './templates/templateMeta'
 
 interface AddRequest {
@@ -142,7 +143,10 @@ export function JourneyBuildWorkspace({
 
   const handleConfigSave = ({ type, config }: { type: JourneyNodeType; config: Record<string, unknown> }) => {
     if (!selected) return
-    setRoot((current) => updateAt(current, selected, { type, config }))
+    // a Goal set to continue opens its Reached / Not Yet paths; set back to exit, it closes them (the panel refuses while they hold steps)
+    const node = nodeAt(root, selected)
+    const branches = type === 'GOAL' && goalContinues(config) ? node?.branches ?? { YES: [], NO: [] } : type === 'GOAL' ? undefined : node?.branches
+    setRoot((current) => updateAt(current, selected, branches ? { type, config, branches } : { type, config, branches: undefined }))
     setSelected(null)
   }
 
@@ -227,7 +231,8 @@ export function JourneyBuildWorkspace({
         {addRequest && <AddStepPanel insideBranch={addRequest.insideBranch} onClose={() => setAddRequest(null)} onPick={handleAdd} />}
         {selectedNode && (
           <NodeConfigPanel key={selectedNode.key} node={selectedNode} onClose={() => setSelected(null)} onSave={handleConfigSave} onDelete={() => selected && handleDelete(selected)}
-            steps={conditionStepOptions(root, selectedNode.key, (node) => describeStep(node).title)} journeyId={journey.id} />
+            steps={conditionStepOptions(root, selectedNode.key, (node) => describeStep(node).title)} journeyId={journey.id}
+            insideBranch={Boolean(selected?.some((step) => step.branch))} />
         )}
       </div>
       <Footer journeyId={journey.id} validity={validity} onBackToSetup={() => setSetupOpen(true)} />

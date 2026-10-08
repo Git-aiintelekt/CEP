@@ -1,12 +1,13 @@
 /** Node type metadata for the Add-a-step picker, the step cards and the step panel: label, icon, category (with the
  * category colours approved for the Journey canvas only), and what the picker and the card say about each type. */
-import { Clock, Gift, GitBranch, LogIn, LogOut, Mail, MessageSquare, Sparkles, Tags } from 'lucide-react'
+import { Clock, Gift, GitBranch, LogIn, LogOut, Mail, MessageSquare, Sparkles, Tags, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import type { ConditionRule, JourneyNodeType } from '@/lib/types'
 
 import { summarizeRule } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
+import { summarizeGoal } from './GoalFields'
 import { summarizeWait } from './WaitFields'
 
 export { WAIT_UNITS } from './WaitFields'
@@ -52,6 +53,7 @@ export const NODE_META: Record<AddableType, NodeMeta> = {
   COUPON_ISSUE: { label: 'Issue Coupon', icon: Gift, category: 'ACTION', kind: 'Coupon', pickerTitle: 'Issue Coupon', pickerDescription: 'Invokes the existing Coupon service' },
   LOYALTY_CHANGE: { label: 'Update Loyalty Tier', icon: Sparkles, category: 'ACTION', kind: 'Loyalty', pickerTitle: 'Update Loyalty Tier', pickerDescription: 'Invokes the existing Loyalty service' },
   SEGMENT_UPDATE: { label: 'Update Segment', icon: Tags, category: 'ACTION', kind: 'Segment', pickerTitle: 'Update Segment', pickerDescription: 'Invokes the existing Segmentation service' },
+  GOAL: { label: 'Goal', icon: Target, category: 'CONTROL', kind: 'Goal', pickerTitle: 'Goal', pickerDescription: 'The outcome this journey is for: an event within a window' },
   EXIT: { label: 'Exit Journey', icon: LogOut, category: 'CONTROL', kind: 'Exit', pickerTitle: 'Exit Journey', pickerDescription: 'Ends this path for the customer' },
 }
 
@@ -71,7 +73,7 @@ export const NODE_GROUPS: NodeGroup[] = [
   { key: 'LOGIC', types: ['WAIT', 'CONDITION'] },
   { key: 'COMMUNICATION', types: ['EMAIL', 'SMS'] },
   { key: 'ACTION', types: ['COUPON_ISSUE', 'LOYALTY_CHANGE', 'SEGMENT_UPDATE'] },
-  { key: 'CONTROL', types: ['EXIT'] },
+  { key: 'CONTROL', types: ['GOAL', 'EXIT'] },
 ]
 
 export const CHECK_OPTIONS = [
@@ -105,6 +107,8 @@ export function summarize(type: JourneyNodeType, config: Record<string, unknown>
       return config.tier_name ? `Tier: ${config.tier_name}` : 'No tier chosen'
     case 'SEGMENT_UPDATE':
       return config.segment_name ? `${config.action === 'REMOVE' ? 'Remove from' : 'Add to'} ${config.segment_name}` : 'No segment chosen'
+    case 'GOAL':
+      return summarizeGoal(config)
     case 'EXIT':
       return 'Exit Journey'
     default:
@@ -121,6 +125,7 @@ const DESCRIPTION: Partial<Record<JourneyNodeType, string>> = {
   COUPON_ISSUE: 'Invokes the existing Coupon service',
   LOYALTY_CHANGE: 'Invokes the existing Loyalty service',
   SEGMENT_UPDATE: 'Invokes the existing Segmentation service',
+  GOAL: 'Converted when the event arrives within the window',
   EXIT: 'Ends this path for the customer',
 }
 

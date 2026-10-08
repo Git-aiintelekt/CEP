@@ -1109,7 +1109,9 @@ export function installMockApi(options: MockOptions = {}) {
       return json(journeyNow)
     }
     if (/\/journeys\/[^/]+\/performance\/$/.test(path) && method === 'GET') {
-      return json({ window: { date_from: '2026-09-05', date_to: '2026-10-05' }, summary: journeyPerformanceNow, customers: 0, steps: [], metrics: journeyMetricsNow })
+      return json({ window: { date_from: '2026-09-05', date_to: '2026-10-05' }, summary: journeyPerformanceNow, customers: 0, steps: [], metrics: journeyMetricsNow,
+                    messages: { sent: 9870, delivered: 9640, delivered_pct: 97.7, opened: 3920, opened_pct: 39.7, clicked: 1110, clicked_pct: 11.2, bounced: 142, complained: 3, unsubscribed: 27,
+                                held_back: 214, held_back_reasons: [{ reason: 'No consent', count: 118 }, { reason: 'Frequency cap', count: 71 }], failed: 9 } })
     }
     if (/\/journeys\/[^/]+\/audience\/$/.test(path) && method === 'GET') return json(journeyAudienceNow)
     if (/\/journeys\/[^/]+\/enrollment-trend\/$/.test(path) && method === 'GET') return json(journeyTrendNow)

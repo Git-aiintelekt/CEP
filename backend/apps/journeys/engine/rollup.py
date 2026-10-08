@@ -18,16 +18,42 @@ MASTER = ["""
 DELETE FROM journey_master_analytical a WHERE a.tenant_id = %(tenant)s
    AND NOT EXISTS (SELECT 1 FROM journey j WHERE j.id = a.journey_id AND j.deleted_at IS NULL)""", """
 INSERT INTO journey_master_analytical (journey_id, tenant_id, journey_name, population_mode, status, business_objective,
-                                       active_enrollment_count, completed_count, exited_count, created_at, last_refreshed_at)
+                                       active_enrollment_count, completed_count, exited_count, converted_count, attributed_revenue, created_at, last_refreshed_at)
 SELECT j.id, j.tenant_id, j.name, j.population_mode, j.status, j.description,
        count(e.id) FILTER (WHERE e.status = 'ACTIVE'), count(e.id) FILTER (WHERE e.status = 'COMPLETED'),
-       count(e.id) FILTER (WHERE e.status = 'EXITED'), j.created_at, now()
+       count(e.id) FILTER (WHERE e.status = 'EXITED'), count(e.id) FILTER (WHERE e.converted_at IS NOT NULL), COALESCE(sum(e.attributed_revenue), 0),
+       j.created_at, now()
   FROM journey j LEFT JOIN journey_enrollment e ON e.journey_id = j.id AND e.tenant_id = j.tenant_id
  WHERE j.tenant_id = %(tenant)s AND j.deleted_at IS NULL
  GROUP BY j.id
 ON CONFLICT (journey_id) DO UPDATE SET journey_name = EXCLUDED.journey_name, population_mode = EXCLUDED.population_mode, status = EXCLUDED.status,
        business_objective = EXCLUDED.business_objective, active_enrollment_count = EXCLUDED.active_enrollment_count,
-       completed_count = EXCLUDED.completed_count, exited_count = EXCLUDED.exited_count, last_refreshed_at = now()"""]
+       completed_count = EXCLUDED.completed_count, exited_count = EXCLUDED.exited_count, converted_count = EXCLUDED.converted_count,
+       attributed_revenue = EXCLUDED.attributed_revenue, last_refreshed_at = now()""", """
+UPDATE journey_master_analytical a SET
+       sent_count = m.sent, delivered_count = m.delivered, open_count = m.opened, click_count = m.clicked, bounce_count = m.bounced, complaint_count = m.complained
+  FROM (SELECT g.journey_id,
+               count(*) FILTER (WHERE x.sent) AS sent, count(*) FILTER (WHERE x.delivered) AS delivered, count(*) FILTER (WHERE x.opened) AS opened,
+               count(*) FILTER (WHERE x.clicked) AS clicked, count(*) FILTER (WHERE x.bounced) AS bounced, count(*) FILTER (WHERE x.complained) AS complained
+          FROM journey_generated_campaign g
+          JOIN (SELECT tenant_id, campaign_id,
+                       (submitted_at IS NOT NULL OR status IN ('SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED')) AS sent,
+                       (delivered_at IS NOT NULL OR status IN ('DELIVERED', 'OPENED', 'CLICKED')) AS delivered,
+                       (opened_at IS NOT NULL OR status IN ('OPENED', 'CLICKED')) AS opened, (clicked_at IS NOT NULL OR status = 'CLICKED') AS clicked,
+                       (bounced_at IS NOT NULL OR status = 'BOUNCED') AS bounced, (complained_at IS NOT NULL OR status = 'COMPLAINED') AS complained
+                  FROM mailer_execution WHERE tenant_id = %(tenant)s
+                UNION ALL
+                SELECT tenant_id, campaign_id, (submitted_at IS NOT NULL OR status IN ('SUBMITTED', 'DELIVERED', 'RESPONDED')),
+                       (delivered_at IS NOT NULL OR status IN ('DELIVERED', 'RESPONDED')), FALSE, FALSE, status = 'FAILED', FALSE
+                  FROM sms_execution WHERE tenant_id = %(tenant)s) x ON x.tenant_id = g.tenant_id AND x.campaign_id = g.campaign_id
+         WHERE g.tenant_id = %(tenant)s GROUP BY g.journey_id) m
+ WHERE a.tenant_id = %(tenant)s AND a.journey_id = m.journey_id""", """
+UPDATE journey_master_analytical a SET held_back_count = h.held, failed_count = h.failed
+  FROM (SELECT e.journey_id, count(*) FILTER (WHERE x.execution_status = 'SKIPPED') AS held, count(*) FILTER (WHERE x.execution_status = 'FAILED') AS failed
+          FROM journey_node_execution x JOIN journey_node n ON n.id = x.journey_node_id
+          JOIN journey_enrollment e ON e.id = x.journey_enrollment_id AND e.tenant_id = x.tenant_id
+         WHERE x.tenant_id = %(tenant)s AND n.node_family = 'COMMUNICATION' GROUP BY e.journey_id) h
+ WHERE a.tenant_id = %(tenant)s AND a.journey_id = h.journey_id"""]
 
 SINCE = """SELECT LEAST(date_trunc('day', now()) - interval '1 day',
                         COALESCE(date_trunc('day', (SELECT max(executed_at) FROM journey_execution_master_analytical WHERE tenant_id = %(tenant)s)),

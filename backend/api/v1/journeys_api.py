@@ -622,6 +622,8 @@ class JourneyViewSet(views.JourneyViewSet):
                 "exited_count": rollup.exited_count, "status": rollup.status, "last_refreshed_at": rollup.last_refreshed_at},
             "customers": facts.values("party_id").distinct().count(),
             "steps": sorted(steps.values(), key=lambda step: -step["customers"]),
+            # the journey's messages across every step within the window, and what was held back or failed (phase 3, goals)
+            "messages": details.message_metrics(journey, start, end),
             # Journey Details' 4 metric cards (phase 6d): read live, not from the nightly rollup above, so a
             # journey shows correct numbers before its first rollup has run.
             "metrics": details.metrics(journey),

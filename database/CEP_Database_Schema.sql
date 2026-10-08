@@ -550,7 +550,10 @@ CREATE TABLE journey_enrollment (
     status               VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, EXITED, COMPLETED
     enrolled_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     exited_at              TIMESTAMPTZ,
-    exit_reason              VARCHAR(100)
+    exit_reason              VARCHAR(100),
+    converted_at             TIMESTAMPTZ,              -- the Goal step: the first matching event's moment (apps/journeys/goals.py)
+    converted_node_id        UUID,                     -- the Goal step reached (journey_node.id)
+    attributed_revenue       NUMERIC(14,2)             -- the matching events' amounts within the goal's window
 );
 CREATE INDEX ix_journey_enrollment_party ON journey_enrollment(tenant_id, party_id);
 CREATE INDEX ix_journey_enrollment_journey_status ON journey_enrollment(journey_id, status);
@@ -883,6 +886,16 @@ CREATE TABLE journey_master_analytical (
     active_enrollment_count            INTEGER,
     completed_count                       INTEGER,
     exited_count                             INTEGER,
+    converted_count                             INTEGER,          -- customers converted by the Goal step
+    attributed_revenue                           NUMERIC(14,2),    -- their revenue within the goal's window
+    sent_count                                    INTEGER,          -- the journey's messages, every step: sent (submitted)
+    delivered_count                                INTEGER,
+    open_count                                      INTEGER,
+    click_count                                      INTEGER,
+    bounce_count                                      INTEGER,
+    complaint_count                                    INTEGER,
+    held_back_count                                     INTEGER,         -- message steps skipped by governance (consent, caps, suppressions)
+    failed_count                                         INTEGER,         -- message steps that could not send
     created_at                                  TIMESTAMPTZ,
     last_refreshed_at                              TIMESTAMPTZ NOT NULL DEFAULT now()
 );

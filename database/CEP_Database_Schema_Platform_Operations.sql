@@ -1509,6 +1509,26 @@ COMMENT ON COLUMN journey_version.population_frozen_at IS 'Fixed population: set
 ALTER TABLE journey_version ADD COLUMN IF NOT EXISTS last_fired_at TIMESTAMPTZ;          -- Date / Time entry: the schedule moment that last fired
 COMMENT ON COLUMN journey_version.last_fired_at IS 'Date / Time entry rules: the latest schedule moment whose customers entered (apps/journeys/schedule.py); a moment fires once';
 
+-- the Goal step (patch 0045, apps/journeys/goals.py): who converted, at which goal, and the revenue within its window
+ALTER TABLE journey_enrollment
+    ADD COLUMN IF NOT EXISTS converted_at       TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS converted_node_id  UUID,
+    ADD COLUMN IF NOT EXISTS attributed_revenue NUMERIC(14,2);
+COMMENT ON COLUMN journey_enrollment.converted_at IS 'The Goal step: the first matching event''s moment, set when the customer reaches the step or when the event arrives while they are in the journey';
+CREATE INDEX IF NOT EXISTS ix_journey_enrollment_converted ON journey_enrollment(journey_id, converted_at) WHERE converted_at IS NOT NULL;
+-- the nightly rollup gains the goal figures and the journey's message figures across every step
+ALTER TABLE journey_master_analytical
+    ADD COLUMN IF NOT EXISTS converted_count    INTEGER,
+    ADD COLUMN IF NOT EXISTS attributed_revenue NUMERIC(14,2),
+    ADD COLUMN IF NOT EXISTS sent_count         INTEGER,
+    ADD COLUMN IF NOT EXISTS delivered_count    INTEGER,
+    ADD COLUMN IF NOT EXISTS open_count         INTEGER,
+    ADD COLUMN IF NOT EXISTS click_count        INTEGER,
+    ADD COLUMN IF NOT EXISTS bounce_count       INTEGER,
+    ADD COLUMN IF NOT EXISTS complaint_count    INTEGER,
+    ADD COLUMN IF NOT EXISTS held_back_count    INTEGER,
+    ADD COLUMN IF NOT EXISTS failed_count       INTEGER;
+
 CREATE TABLE IF NOT EXISTS coupon_issuance (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tenant_id           UUID NOT NULL REFERENCES tenant(id),

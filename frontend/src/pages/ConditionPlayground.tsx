@@ -1,6 +1,6 @@
 /** /dev/journey-condition (dev builds only): the Condition step's panel on sample data, nothing from the API.
  * ?case=busy (default) — the mixed condition with a nested group | sparse — one empty row | wait-time — a Wait until a
- * time of day | wait-date — a Wait until a date on the record. */
+ * time of day | wait-date — a Wait until a date on the record | goal — a Goal step. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -53,8 +53,9 @@ export default function ConditionPlayground() {
   const config = sample === 'sparse' ? { rule: { all: true, conditions: [{ field: '', op: '' }] } }
     : sample === 'wait-time' ? { mode: 'TIME_OF_DAY', time: '09:00', zone: 'CUSTOMER', weekdays: [] }
     : sample === 'wait-date' ? { mode: 'DATE_ATTRIBUTE', attribute: 'renewal_date', offset_days: -3, time: '10:00', zone: 'CUSTOMER', if_passed: 'EXIT' }
+    : sample === 'goal' ? { label: 'First purchase', event_type: 'PURCHASE', window_days: 14, when_reached: 'CONTINUE', props: [{ key: 'amount', op: 'gte', value: 25 }] }
     : { label: 'Worth a second email?', rule: BUSY }
-  const type = sample.startsWith('wait') ? 'WAIT' as const : 'CONDITION' as const
+  const type = sample.startsWith('wait') ? 'WAIT' as const : sample === 'goal' ? 'GOAL' as const : 'CONDITION' as const
   const [client] = useState(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
     seeded.setQueryData(CONDITION_FIELDS_KEY, SAMPLE_CATALOGUE)
