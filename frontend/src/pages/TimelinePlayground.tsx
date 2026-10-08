@@ -1,12 +1,14 @@
 /** /dev/journey-timeline (dev builds only): the journey page's Customers card with a customer's timeline open, and the
- * builder's Preview Route panel, on sample data; nothing from the API. ?case=customers (default) | preview */
+ * builder's Preview Route panel, and the Needs Attention card, on sample data; nothing from the API.
+ * ?case=customers (default) | preview | attention */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { CustomersCard } from '@/features/journeys/CustomersCard'
+import { NeedsAttentionCard } from '@/features/journeys/NeedsAttentionCard'
 import { PreviewRoutePanel } from '@/features/journeys/PreviewRoutePanel'
-import type { JourneyCustomersPage, JourneyPreviewCustomer, JourneyPreviewRoute, JourneyTimeline } from '@/lib/types'
+import type { JourneyAttentionRow, JourneyCustomersPage, JourneyPreviewCustomer, JourneyPreviewRoute, JourneyTimeline } from '@/lib/types'
 
 const ROWS: JourneyCustomersPage = {
   count: 3, page: 1, page_size: 25,
@@ -46,6 +48,12 @@ const ROUTE: JourneyPreviewRoute = {
     { node_key: 'exit-1', node_type: 'EXIT', label: 'Exit journey', outcome: 'Would exit Tue 20 Oct as not converted', at: '2026-10-20T15:02:00Z', depends: false, assumed: null, branch: null },
   ],
 }
+const ATTENTION: JourneyAttentionRow[] = [
+  { id: 'enr-9', party_id: 'p-kenji', name: 'Kenji Tanaka', email: 'kenji.tanaka@example.com', node_key: 'email-1', node_type: 'EMAIL', label: 'Email: Welcome', reason: 'The email engine answered 503',
+    attempts: 2, max_attempts: 3, next_try_at: new Date(Date.now() + 48 * 60_000).toISOString(), gave_up_at: null, first_failed_at: '2026-10-09T10:00:00Z' },
+  { id: 'enr-10', party_id: 'p-sofia', name: 'Sofia Ramirez', email: 'sofia.ramirez@example.com', node_key: 'sms-1', node_type: 'SMS', label: 'SMS: Welcome gift', reason: 'There is no sms sender to send from.',
+    attempts: 4, max_attempts: 3, next_try_at: null, gave_up_at: '2026-10-09T12:20:00Z', first_failed_at: '2026-10-09T11:00:00Z' },
+]
 const DEVON: JourneyPreviewCustomer = { party_id: 'p-devon', name: 'Devon Okafor', email: 'devon@example.com', summary: 'Gold · Lakeside Mall' }
 
 export default function TimelinePlayground() {
@@ -57,6 +65,7 @@ export default function TimelinePlayground() {
     seeded.setQueryData(['journeys', 'j-sample', 'customers', 'enr-2'], TIMELINE)
     seeded.setQueryData(['journeys', 'preview-customers', 'dev'], [DEVON])
     seeded.setQueryData(['journeys', 'j-sample', 'preview', 3, 'p-devon', {}], ROUTE)
+    seeded.setQueryData(['journeys', 'j-sample', 'attention'], ATTENTION)
     return seeded
   })
   return (
@@ -64,6 +73,10 @@ export default function TimelinePlayground() {
       {sample === 'preview' ? (
         <div className="flex h-screen justify-end bg-surface-subtle">
           <PreviewRoutePanel journeyId="j-sample" versionNumber={3} dirty={false} onClose={() => undefined} />
+        </div>
+      ) : sample === 'attention' ? (
+        <div className="mx-auto max-w-4xl p-6">
+          <NeedsAttentionCard journeyId="j-sample" published />
         </div>
       ) : (
         <div className="mx-auto max-w-4xl p-6">

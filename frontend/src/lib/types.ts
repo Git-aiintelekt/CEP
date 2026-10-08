@@ -1382,7 +1382,7 @@ export interface JourneyStats {
 /** journey_node.node_type (apps/journeys/engine/steps.py documents each config shape) */
 export type JourneyNodeType =
   | 'START' | 'WAIT' | 'CONDITION' | 'SPLIT' | 'EMAIL' | 'SMS' | 'MMS'
-  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'GOAL' | 'EXIT'
+  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'PROFILE_UPDATE' | 'LIST_ADD' | 'LIST_REMOVE' | 'GOAL' | 'EXIT'
 
 /** GET /journeys/{id}/versions/ : one row, no graph */
 export interface JourneyVersion {
@@ -1676,6 +1676,35 @@ export interface JourneyPreviewRoute {
   customer: JourneyPreviewCustomer & { attributes: Record<string, unknown> } | null
   entry: { outcome: string; enters: boolean | null } | null
   steps: JourneyPreviewStep[]
+}
+
+/** GET /journeys/{id}/attention/ : a customer whose step is being retried or was given up on (apps/journeys/engine/retries.py) */
+export interface JourneyAttentionRow {
+  id: string
+  party_id: string
+  name: string
+  email: string | null
+  node_key: string | null
+  node_type: string | null
+  label: string
+  reason: string | null
+  attempts: number
+  max_attempts: number
+  next_try_at: string | null
+  gave_up_at: string | null
+  first_failed_at: string | null
+}
+
+/** GET /journeys/{id}/suppressions/ : a customer this journey never enters or messages (apps/journeys/suppressions.py) */
+export interface JourneySuppression {
+  id: string
+  party_id: string
+  name: string
+  email: string | null
+  given: string | null
+  note: string | null
+  created_at: string
+  created_by_name: string | null
 }
 
 export interface JourneyActivityEntry {

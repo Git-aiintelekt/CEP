@@ -6,7 +6,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { CATEGORY, NODE_GROUPS, NODE_META, type AddableType } from './nodeDefs'
 import { SidePanel } from './SidePanel'
 
-const NESTING_NOTE = "A Condition can't be added inside another step's branch. Keep branching steps on the main journey, before or after this fork."
+const NESTING_NOTE = "A Condition or Split can't be added inside another step's branch. Keep branching steps on the main journey, before or after this fork."
 
 export function AddStepPanel({ insideBranch, onClose, onPick }: { insideBranch: boolean; onClose: () => void; onPick: (type: AddableType) => void }) {
   return (
@@ -19,7 +19,7 @@ export function AddStepPanel({ insideBranch, onClose, onPick }: { insideBranch: 
               <h3 className={`text-xs font-semibold tracking-wide uppercase ${category.text}`}>{category.label}</h3>
               <div className="mt-2 space-y-1">
                 {group.types.map((type, index) => {
-                  const disabled = insideBranch && type === 'CONDITION'
+                  const disabled = insideBranch && (type === 'CONDITION' || type === 'SPLIT')
                   const meta = NODE_META[type]
                   const button = (
                     <button

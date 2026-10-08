@@ -29,7 +29,8 @@ every pass, newcomers and new events alike.
 A candidate enters unless the re-entry policy says no. Nobody is ever in a journey twice at once
 (ux_journey_enrollment_no_reentry); after that, NEVER keeps them out, AFTER_X_DAYS lets them back once that many days have
 passed since they last entered, and EVERY_QUALIFYING_EVENT lets them back each time they qualify again. Only customers in
-customer_master enter: a message to someone unknown could never go out.
+customer_master enter: a message to someone unknown could never go out. A customer suppressed for the journey
+(journey_suppression, apps.journeys.suppressions) never enters it.
 """
 import logging
 
@@ -40,7 +41,7 @@ from apps.delivery.engine import session
 
 from .. import conditions, events, schedule
 from ..models import Journey, JourneyEntryRule, JourneyNode, JourneyVersion
-from . import tenants
+from . import retries, tenants
 
 log = logging.getLogger("cep.journeys")
 PER_PASS = 5000                                           # per journey and pass; the rest enter on the next pass
@@ -84,6 +85,7 @@ WITH candidates AS ({candidates}),
 best AS (
     SELECT c.party_id, max(c.qualified_at) AS qualified_at FROM candidates c
       JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id{filters}
+     WHERE NOT EXISTS (SELECT 1 FROM journey_suppression x WHERE x.tenant_id = %(tenant)s AND x.journey_id = %(journey)s AND x.party_id = c.party_id)
      GROUP BY c.party_id
 ), previous AS (
     SELECT e.party_id, max(e.enrolled_at) AS last_at, bool_or(e.status = 'ACTIVE') AS inside FROM journey_enrollment e
@@ -198,7 +200,9 @@ def enroll_journey(tenant_id: str, journey: Journey) -> int:
 
 def enroll_tenant(tenant_id: str) -> dict:
     entered, failed = 0, 0
-    with session.tenant_scope(tenant_id):
+    with session.tenant_scope(tenant_id), retries.lock(session.connection(), f"journeys:enroll:{tenant_id}") as held:
+        if not held:                                       # another scheduler is enrolling this workspace: skip it this pass
+            return {"entered": 0, "failed": 0, "locked": True}
         with session.tx():
             live = list(Journey.objects.filter(tenant_id=tenant_id, status=Journey.Status.ACTIVE, deleted_at__isnull=True))
         _raise_no_response(tenant_id, live)

@@ -7,7 +7,7 @@ import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
-import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyStarter, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -24,7 +24,7 @@ const audit = { tenant: 't1', created_at: '2026-09-01T10:00:00Z', updated_at: '2
 export const me = {
   principal: { kind: 'user', id: 'u1', email: 'aby.john@aiintelekt.com', display_name: 'Aby John', is_platform_admin: false, roles: ['Marketing Admin'],
                permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit',
-                             'journey.view', 'journey.edit', 'journey.activate'] },
+                             'journey.view', 'journey.edit', 'journey.activate', 'journey.export', 'journey.suppress'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
@@ -532,6 +532,8 @@ interface MockOptions {
   journeyTrend?: JourneyTrendWeek[]
   /** GET /journeys/{id}/campaigns/ ; default: journeyGeneratedCampaignRows, one row */
   journeyGeneratedCampaigns?: JourneyGeneratedCampaignRow[]
+  /** GET /journeys/{id}/attention/ ; default: nothing needs attention */
+  journeyAttention?: JourneyAttentionRow[]
   /** GET /journeys/{id}/activity/ ; default: journeyActivityEntries */
   journeyActivity?: JourneyActivityEntry[]
   /** GET /journey-starters/ ; default: journeyStarters, 6 starters across the 4 categories */
@@ -652,6 +654,8 @@ export function installMockApi(options: MockOptions = {}) {
   let jobsNow: ListImport[] = [...(options.listUploads ?? [])]
   const importDoneAt = new Map<string, number>()
   let journeyNow: Journey = makeJourney(options.journey)
+  let journeySuppressionsNow: JourneySuppression[] = []
+  let journeyAttentionNow: JourneyAttentionRow[] = options.journeyAttention ?? []
   let journeyVersionsNow: JourneyVersion[] = options.journeyVersions ?? [makeJourneyVersion()]
   const journeyGraphs = new Map<number, JourneyGraph>([[1, options.journeyGraph ?? BLANK_GRAPH]])
   // apps/journeys/graph.py name_references: a rule naming a list or segment carries its current name (null when gone)
@@ -713,6 +717,24 @@ export function installMockApi(options: MockOptions = {}) {
       const groups = (['UNSUBSCRIBED', 'BOUNCED', 'COMPLAINED', 'BLOCKED'] as const).map((key) => ({ key, label: key === 'BLOCKED' ? 'Blocked by You' : key.charAt(0) + key.slice(1).toLowerCase(),
         count: toolsState.suppressions.filter((row) => row.group === key).length, email: 0, phone: 0, this_week: 0 }))
       return json({ count: rows.length, page: 1, page_size: 50, results: rows, summary: { total: toolsState.suppressions.length, this_week: 0, groups } })
+    }
+    // a journey's own suppressions, before the workspace tools answer every suppressions path
+    const suppressionMatch = /\/journeys\/([^/]+)\/suppressions\/(?:([^/]+)\/)?$/.exec(path)
+    if (suppressionMatch) {
+      if (method === 'DELETE') {
+        journeySuppressionsNow = journeySuppressionsNow.filter((row) => row.id !== suppressionMatch[2])
+        return new Response(null, { status: 204 })
+      }
+      if (method === 'POST') {
+        const given = String(body?.given ?? '')
+        if (!given.includes('@') && !/^\+?\d{8,}$/.test(given) && !given.startsWith('p-')) {
+          return json({ type: 'about:blank', title: 'Invalid input', status: 400, errors: { given: ['No customer has that email address, mobile number or id.'] } }, 400)
+        }
+        journeySuppressionsNow = [{ id: `sup-${journeySuppressionsNow.length + 1}`, party_id: 'p-new', name: 'Dolores Alvarez', email: given.includes('@') ? given : null, given, note: String(body?.note ?? '') || null,
+                                    created_at: '2026-10-09T10:00:00Z', created_by_name: 'Aby John' }, ...journeySuppressionsNow]
+        return json({ added: true, party_id: 'p-new', exited: 1, suppressions: journeySuppressionsNow }, 201)
+      }
+      return json(journeySuppressionsNow)
     }
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
@@ -1120,6 +1142,13 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/journeys/preview-customers/')) {
       const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
       return json([{ party_id: 'p-devon', name: 'Devon Okafor', email: 'devon@example.com', summary: 'Gold · Lakeside Mall' }].filter((item) => item.name.toLowerCase().includes(q) || item.email.includes(q)))
+    }
+    if (/\/journeys\/[^/]+\/attention\/$/.test(path) && method === 'GET') return json(journeyAttentionNow)
+    const journeyActionMatch = /\/journeys\/([^/]+)\/customers\/([^/]+)\/(retry|skip)\/$/.exec(path)
+    if (journeyActionMatch && method === 'POST') {
+      journeyAttentionNow = journeyActionMatch[3] === 'skip' ? journeyAttentionNow.filter((row) => row.id !== journeyActionMatch[2])
+        : journeyAttentionNow.map((row) => (row.id === journeyActionMatch[2] ? { ...row, gave_up_at: null, next_try_at: new Date().toISOString() } : row))
+      return json({ [journeyActionMatch[3] === 'skip' ? 'skipped' : 'retried']: true })
     }
     const journeyCountsMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/counts\/$/.exec(path)
     if (journeyCountsMatch && method === 'GET') return json({ entered: 3412, in_journey: 212, steps: {} })

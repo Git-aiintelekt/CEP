@@ -5,7 +5,7 @@
  * Read-only (a template's preview): the same cards and connectors, with no "+" points, so cards sit closer. */
 import type { Edge, Node } from '@xyflow/react'
 
-import { type EditorNode, type Path, forkLabels, isFork, isNodeConfigured } from './graphModel'
+import { type EditorNode, type Path, forkKeys, forkLabels, isFork, isNodeConfigured } from './graphModel'
 import { hasEmailPreview } from './nodeDefs'
 
 /** the tag a card shows under its description: a starter's unconfigured steps "Needs Setup" */
@@ -103,21 +103,23 @@ function placeStep(node: EditorNode, nodePath: Path, x: number, y: number, optio
   return height
 }
 
-/** a Condition's two branches, side by side under it; returns their ends and the lower bottom */
+/** a fork's branches, side by side under it (two for a Condition or Goal, a Split's paths); returns their ends and the lowest bottom */
 function layoutFork(node: EditorNode, containerPath: Path, i: number, x: number, y: number, options: Options, out: Out): { ends: Pending[]; bottom: number } {
-  const yesPath: Path = [...containerPath, { index: i, branch: 'YES' }]
-  const noPath: Path = [...containerPath, { index: i, branch: 'NO' }]
-  const branchY = y + FORK_GAP
-  const before = out.edges.length
-  const yes = layoutChain(node.branches?.YES ?? [], yesPath, true, x - BRANCH_X, branchY, [{ id: node.key }], options, out)
-  const firstYes = out.edges.slice(before).find((edge) => edge.source === node.key)
-  const middle = out.edges.length
-  const no = layoutChain(node.branches?.NO ?? [], noPath, true, x + BRANCH_X, branchY, [{ id: node.key }], options, out)
-  const firstNo = out.edges.slice(middle).find((edge) => edge.source === node.key)
+  const keys = forkKeys(node)
   const labels = forkLabels(node)
-  if (firstYes) firstYes.label = labels.YES
-  if (firstNo) firstNo.label = labels.NO
-  return { ends: [...yes.ends, ...no.ends], bottom: Math.max(yes.bottom, no.bottom) + REJOIN_GAP }
+  const branchY = y + FORK_GAP
+  const ends: Pending[] = []
+  let bottom = branchY
+  keys.forEach((key, index) => {
+    const branchPath: Path = [...containerPath, { index: i, branch: key }]
+    const before = out.edges.length
+    const result = layoutChain(node.branches?.[key] ?? [], branchPath, true, x + (index - (keys.length - 1) / 2) * 2 * BRANCH_X, branchY, [{ id: node.key }], options, out)
+    const first = out.edges.slice(before).find((edge) => edge.source === node.key)
+    if (first) first.label = labels[key] ?? key
+    ends.push(...result.ends)
+    bottom = Math.max(bottom, result.bottom)
+  })
+  return { ends, bottom: bottom + REJOIN_GAP }
 }
 
 function layoutChain(chain: EditorNode[], containerPath: Path, insideBranch: boolean, x: number, y: number, incoming: Pending[], options: Options, out: Out): { ends: Pending[]; bottom: number } {

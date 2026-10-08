@@ -9,6 +9,7 @@ import type { ConditionItem } from '@/lib/types'
 
 import { useConditionFields } from './conditions/ConditionBuilder'
 import { PROPERTY_OPERATORS, titleFromKey } from './conditions/conditionModel'
+import { ValuesText } from './ExtraStepFields'
 import { RadioCard } from './RadioCard'
 
 export const MAX_WINDOW = 365
@@ -130,8 +131,7 @@ export function GoalFields({ config, set, insideBranch, hasBranchSteps }: { conf
                     </span>
                   )}
                   {operator && operator.takes === 'many' && (
-                    <span className="inline-block w-40"><TextInput controlSize="sm" aria-label="Property Values" value={Array.isArray(prop.value) ? prop.value.join(', ') : ''} placeholder="a, b, c"
-                      onChange={(event) => setProp(index, { value: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} /></span>
+                    <span className="inline-block w-40"><ValuesText label="Property Values" values={Array.isArray(prop.value) ? prop.value : []} placeholder="a, b, c" onChange={(value) => setProp(index, { value })} /></span>
                   )}
                   <button type="button" aria-label="Remove Filter" onClick={() => set({ props: props.filter((_prop, i) => i !== index) })} className="text-ink-800 hover:text-ink-900">
                     <X size={16} strokeWidth={1.5} aria-hidden />

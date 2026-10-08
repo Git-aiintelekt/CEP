@@ -1,12 +1,13 @@
 /** Node type metadata for the Add-a-step picker, the step cards and the step panel: label, icon, category (with the
  * category colours approved for the Journey canvas only), and what the picker and the card say about each type. */
-import { Clock, Gift, GitBranch, LogIn, LogOut, Mail, MessageSquare, Sparkles, Tags, Target } from 'lucide-react'
+import { Clock, Gift, GitBranch, ListMinus, ListPlus, LogIn, LogOut, Mail, MessageSquare, Sparkles, Split, Tags, Target, UserPen } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import type { ConditionRule, JourneyNodeType } from '@/lib/types'
 
 import { summarizeRule } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
+import { summarizeExtra } from './ExtraStepFields'
 import { summarizeGoal } from './GoalFields'
 import { summarizeWait } from './WaitFields'
 
@@ -46,13 +47,16 @@ interface NodeMeta {
 export const NODE_META: Record<AddableType, NodeMeta> = {
   WAIT: { label: 'Wait', icon: Clock, category: 'LOGIC', kind: 'Wait', pickerTitle: 'Wait', pickerDescription: 'Pause for a duration, until a time of day, or until a date on the record' },
   CONDITION: { label: 'Condition', icon: GitBranch, category: 'LOGIC', kind: 'Condition', pickerTitle: 'Condition / Split', pickerDescription: 'Branch the flow based on a rule' },
-  SPLIT: { label: 'Split', icon: GitBranch, category: 'LOGIC', kind: 'Split', pickerTitle: 'Split', pickerDescription: 'Branch the flow based on a rule' },
+  SPLIT: { label: 'Split', icon: Split, category: 'LOGIC', kind: 'Split', pickerTitle: 'Split', pickerDescription: 'Several paths: by an attribute’s value, or at random' },
   EMAIL: { label: 'Send Email', icon: Mail, category: 'COMMUNICATION', kind: 'Email', pickerTitle: 'Email', pickerDescription: 'Send via Mailer Master → Postal' },
   SMS: { label: 'Send SMS', icon: MessageSquare, category: 'COMMUNICATION', kind: 'SMS/MMS', pickerTitle: 'SMS / MMS', pickerDescription: 'Send via SMS Master → Digivize' },
   MMS: { label: 'Send MMS', icon: MessageSquare, category: 'COMMUNICATION', kind: 'SMS/MMS', pickerTitle: 'SMS / MMS', pickerDescription: 'Send via SMS Master → Digivize' },
   COUPON_ISSUE: { label: 'Issue Coupon', icon: Gift, category: 'ACTION', kind: 'Coupon', pickerTitle: 'Issue Coupon', pickerDescription: 'Invokes the existing Coupon service' },
   LOYALTY_CHANGE: { label: 'Update Loyalty Tier', icon: Sparkles, category: 'ACTION', kind: 'Loyalty', pickerTitle: 'Update Loyalty Tier', pickerDescription: 'Invokes the existing Loyalty service' },
   SEGMENT_UPDATE: { label: 'Update Segment', icon: Tags, category: 'ACTION', kind: 'Segment', pickerTitle: 'Update Segment', pickerDescription: 'Invokes the existing Segmentation service' },
+  PROFILE_UPDATE: { label: 'Update Profile', icon: UserPen, category: 'ACTION', kind: 'Profile', pickerTitle: 'Update Profile', pickerDescription: 'Sets any attribute on the customer’s record' },
+  LIST_ADD: { label: 'Add to List', icon: ListPlus, category: 'ACTION', kind: 'List', pickerTitle: 'Add to List', pickerDescription: 'Adds the customer to a contact list' },
+  LIST_REMOVE: { label: 'Remove from List', icon: ListMinus, category: 'ACTION', kind: 'List', pickerTitle: 'Remove from List', pickerDescription: 'Takes the customer off a contact list' },
   GOAL: { label: 'Goal', icon: Target, category: 'CONTROL', kind: 'Goal', pickerTitle: 'Goal', pickerDescription: 'The outcome this journey is for: an event within a window' },
   EXIT: { label: 'Exit Journey', icon: LogOut, category: 'CONTROL', kind: 'Exit', pickerTitle: 'Exit Journey', pickerDescription: 'Ends this path for the customer' },
 }
@@ -70,9 +74,9 @@ export interface NodeGroup {
 
 /** The four groups of the Add-a-step picker. One "SMS / MMS" row creates an SMS step. */
 export const NODE_GROUPS: NodeGroup[] = [
-  { key: 'LOGIC', types: ['WAIT', 'CONDITION'] },
+  { key: 'LOGIC', types: ['WAIT', 'CONDITION', 'SPLIT'] },
   { key: 'COMMUNICATION', types: ['EMAIL', 'SMS'] },
-  { key: 'ACTION', types: ['COUPON_ISSUE', 'LOYALTY_CHANGE', 'SEGMENT_UPDATE'] },
+  { key: 'ACTION', types: ['COUPON_ISSUE', 'LOYALTY_CHANGE', 'PROFILE_UPDATE', 'SEGMENT_UPDATE', 'LIST_ADD', 'LIST_REMOVE'] },
   { key: 'CONTROL', types: ['GOAL', 'EXIT'] },
 ]
 
@@ -109,6 +113,11 @@ export function summarize(type: JourneyNodeType, config: Record<string, unknown>
       return config.segment_name ? `${config.action === 'REMOVE' ? 'Remove from' : 'Add to'} ${config.segment_name}` : 'No segment chosen'
     case 'GOAL':
       return summarizeGoal(config)
+    case 'SPLIT':
+    case 'PROFILE_UPDATE':
+    case 'LIST_ADD':
+    case 'LIST_REMOVE':
+      return summarizeExtra(type, config)
     case 'EXIT':
       return 'Exit Journey'
     default:
@@ -126,6 +135,10 @@ const DESCRIPTION: Partial<Record<JourneyNodeType, string>> = {
   LOYALTY_CHANGE: 'Invokes the existing Loyalty service',
   SEGMENT_UPDATE: 'Invokes the existing Segmentation service',
   GOAL: 'Converted when the event arrives within the window',
+  SPLIT: 'Each customer takes one path',
+  PROFILE_UPDATE: 'Sets an attribute on the record',
+  LIST_ADD: 'Adds the customer to a contact list',
+  LIST_REMOVE: 'Takes the customer off a contact list',
   EXIT: 'Ends this path for the customer',
 }
 

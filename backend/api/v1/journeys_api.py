@@ -59,7 +59,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters, timeline
+from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters, suppressions, timeline
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -492,6 +492,68 @@ class JourneyViewSet(views.JourneyViewSet):
             raise ValidationError({"page": "A whole number."}) from None
         return Response(timeline.customers(self.get_object(), q=params.get("q", ""), status=params.get("status", ""), page=page, page_size=size))
 
+    @extend_schema(responses={(200, "text/csv"): str})
+    @action(detail=True, methods=["get"], url_path="customers/export",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.export")])
+    def customers_export(self, request, pk=None, version=None):
+        """The Customers card as CSV (journey.export): everyone matching ?q= and ?status=."""
+        import csv
+        from django.http import StreamingHttpResponse
+        journey = self.get_object()
+        params_ = request.query_params
+
+        class Echo:
+            def write(self, value):
+                return value
+
+        def safe(value):
+            text = "" if value is None else str(value)
+            return "'" + text if text[:1] in "=+-@" else text
+
+        def rows():
+            writer = csv.writer(Echo())
+            yield writer.writerow(["name", "email", "customer_id", "entered", "version", "status", "where_now", "converted", "attributed_revenue", "exited", "exit_reason"])
+            page = 1
+            while True:
+                chunk = timeline.customers(journey, q=params_.get("q", ""), status=params_.get("status", ""), page=page, page_size=200)["results"]
+                for row in chunk:
+                    yield writer.writerow([safe(c) for c in (row["name"], row["email"], row["party_id"], row["enrolled_at"].isoformat(), row["version_number"], row["status"],
+                                                             (row["where"] or {}).get("label"), row["converted_at"].isoformat() if row["converted_at"] else "", row["attributed_revenue"],
+                                                             row["exited_at"].isoformat() if row["exited_at"] else "", row["exit_reason"])])
+                if len(chunk) < 200:
+                    break
+                page += 1
+
+        response = StreamingHttpResponse(list(rows()), content_type="text/csv; charset=utf-8")
+        name = "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in journey.name).strip() or "journey"
+        response["Content-Disposition"] = f'attachment; filename="{name} customers.csv"'
+        return response
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get", "post"], url_path="suppressions")
+    def journey_suppressions(self, request, pk=None, version=None):
+        """Per-journey suppressions (apps.journeys.suppressions). GET lists them; POST {given, note} adds the customer an email
+        address, mobile number or id names (journey.suppress), taking them out of the journey if they are inside."""
+        journey = self.get_object()
+        if request.method == "POST":
+            if not HasPermissionCode.for_("journey.suppress")().has_permission(request, self):
+                raise PermissionDenied("Suppressing a customer for a journey needs the Journeys · Suppress permission.")
+            body = request.data if isinstance(request.data, dict) else {}
+            try:
+                outcome = suppressions.add(journey, str(body.get("given") or ""), str(body.get("note") or ""), _user_id(request))
+            except ValueError as error:
+                raise ValidationError({"given": str(error)}) from None
+            return Response({**outcome, "suppressions": suppressions.listing(journey)}, status=201 if outcome["added"] else 200)
+        return Response(suppressions.listing(journey))
+
+    @extend_schema(request=None, responses={204: None})
+    @action(detail=True, methods=["delete"], url_path=r"suppressions/(?P<suppression>[0-9a-f-]+)",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.suppress")])
+    def journey_suppression_remove(self, request, pk=None, suppression=None, version=None):
+        if not suppressions.remove(self.get_object(), suppression):
+            raise NotFound("No such suppression.")
+        return Response(status=204)
+
     @extend_schema(request=None, responses={200: None})
     @action(detail=True, methods=["get"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)")
     def customer_timeline(self, request, pk=None, enrollment=None, version=None):
@@ -501,6 +563,30 @@ class JourneyViewSet(views.JourneyViewSet):
         if found is None:
             raise NotFound("This customer is not in the journey.")
         return Response(found)
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"])
+    def attention(self, request, pk=None, version=None):
+        """The Needs Attention card: customers whose step is being retried or was given up on (apps.journeys.timeline.attention)."""
+        return Response(timeline.attention(self.get_object()))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)/retry",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.edit")])
+    def customer_retry(self, request, pk=None, enrollment=None, version=None):
+        """Retry Now: the failing step runs again on the next pass."""
+        if not timeline.retry_now(self.get_object(), enrollment):
+            raise NotFound("This customer has nothing to retry.")
+        return Response({"retried": True})
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)/skip",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.edit")])
+    def customer_skip(self, request, pk=None, enrollment=None, version=None):
+        """Skip Step: the step is recorded as skipped and the customer moves on."""
+        if not timeline.skip_step(self.get_object(), enrollment):
+            raise NotFound("This customer is not waiting at a step.")
+        return Response({"skipped": True})
 
     @extend_schema(request=None, responses={200: None})
     @action(detail=True, methods=["get"], url_path=r"versions/(?P<number>\d+)/counts")

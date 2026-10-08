@@ -4,6 +4,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { useAuth } from '@/auth/AuthContext'
+
 import { Drawer } from '@/components/Drawer'
 import { buttonSecondary } from '@/components/Form'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
@@ -112,6 +114,22 @@ function TimelineDrawer({ journeyId, enrollmentId, onClose }: { journeyId: strin
 }
 
 export function CustomersCard({ journeyId, published }: { journeyId: string; published: boolean }) {
+  const { can } = useAuth()
+  const [exportProblem, setExportProblem] = useState<string | null>(null)
+  const exportCsv = async () => {
+    try {
+      const blob = await api.download(`/journeys/${journeyId}/customers/export/`, { q: search.trim() || undefined, status: status || undefined })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'journey-customers.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+      setExportProblem(null)
+    } catch {
+      setExportProblem('The customers were not exported.')
+    }
+  }
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -171,6 +189,8 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
           {total > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-3 py-2 text-sm text-ink-800">
               <span className="cep-num">Showing {formatNumber(rows.length)} of {formatNumber(total)}</span>
+              {can('journey.export') && <button type="button" className={buttonSecondary} onClick={() => void exportCsv()}>Export CSV</button>}
+              {exportProblem && <span role="alert" className="text-danger-text">{exportProblem}</span>}
               {pages > 1 && (
                 <span className="flex items-center gap-2">
                   <button type="button" className={buttonSecondary} disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>

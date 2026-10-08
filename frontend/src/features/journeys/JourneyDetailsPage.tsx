@@ -31,6 +31,8 @@ import type {
 
 import { CHANNEL_META } from './channelMeta'
 import { CustomersCard } from './CustomersCard'
+import { NeedsAttentionCard } from './NeedsAttentionCard'
+import { SuppressionsCard } from './SuppressionsCard'
 import { EnrollmentTrendChart } from './EnrollmentTrendChart'
 import { activityLine } from './JourneyPreviewPopover'
 import { entrySummary } from './SettingsSidebar'
@@ -376,7 +378,11 @@ export function JourneyDetailsPage() {
           </DetailCard>
         )}
 
+        <NeedsAttentionCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
+
         <CustomersCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
+
+        <SuppressionsCard journeyId={journey.id} />
 
         <DetailCard title="Versions" flush>
           {versionsQuery.isPending ? (
