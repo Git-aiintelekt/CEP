@@ -20,6 +20,7 @@ import { SidePanel } from './SidePanel'
 import { ListFields, ProfileFields, SplitFields, extraProblem, normalizeExtra, splitMode } from './ExtraStepFields'
 import { GoalFields, goalProblem, normalizeGoal } from './GoalFields'
 import { WaitFields, waitMode, waitProblem } from './WaitFields'
+import { WebhookFields, webhookProblem } from './WebhookFields'
 
 /** The closest existing read pattern for a cached C360 reference (customers.Coupon / customers.LoyaltyTier, the
  * same treatment as customers.Segment, which is exposed to the frontend via GET /contact-lists/audiences/). No such
@@ -71,7 +72,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
   // a Split's paths that hold steps cannot be removed; the keys in use are those branches
   const usedKeys = Object.entries(node.branches ?? {}).filter(([, chain]) => chain.length > 0).map(([key]) => key)
   const splitRefused = type === 'SPLIT' && (extraProblem('SPLIT', config) !== null || (splitMode(config) === 'ATTRIBUTE' && String(config.attribute ?? '').trim() === '' && false))
-  const invalid = goalRefused || splitRefused || (type === 'PROFILE_UPDATE' && extraProblem('PROFILE_UPDATE', config) !== null)
+  const invalid = goalRefused || splitRefused || (type === 'PROFILE_UPDATE' && extraProblem('PROFILE_UPDATE', config) !== null) || (type === 'WEBHOOK' && webhookProblem(config) !== null)
     || (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
     || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
@@ -121,6 +122,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
       {type === 'SPLIT' && <SplitFields config={config} set={set} usedKeys={usedKeys} />}
       {type === 'PROFILE_UPDATE' && <ProfileFields config={config} set={set} />}
       {(type === 'LIST_ADD' || type === 'LIST_REMOVE') && <ListFields type={type} config={config} set={set} />}
+      {type === 'WEBHOOK' && <WebhookFields config={config} set={set} journeyId={journeyId} />}
       {type === 'EXIT' && <p className="text-sm text-ink-800">Nothing to configure — this ends the journey for the customer.</p>}
     </SidePanel>
   )

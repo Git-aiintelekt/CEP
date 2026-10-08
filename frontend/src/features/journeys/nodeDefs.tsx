@@ -1,6 +1,6 @@
 /** Node type metadata for the Add-a-step picker, the step cards and the step panel: label, icon, category (with the
  * category colours approved for the Journey canvas only), and what the picker and the card say about each type. */
-import { Clock, Gift, GitBranch, ListMinus, ListPlus, LogIn, LogOut, Mail, MessageSquare, Sparkles, Split, Tags, Target, UserPen } from 'lucide-react'
+import { Clock, Gift, GitBranch, ListMinus, ListPlus, LogIn, LogOut, Mail, MessageSquare, Sparkles, Split, Tags, Target, UserPen, Webhook } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import type { ConditionRule, JourneyNodeType } from '@/lib/types'
@@ -10,6 +10,7 @@ import type { EditorNode } from './graphModel'
 import { summarizeExtra } from './ExtraStepFields'
 import { summarizeGoal } from './GoalFields'
 import { summarizeWait } from './WaitFields'
+import { summarizeWebhook } from './WebhookFields'
 
 export { WAIT_UNITS } from './WaitFields'
 
@@ -57,6 +58,7 @@ export const NODE_META: Record<AddableType, NodeMeta> = {
   PROFILE_UPDATE: { label: 'Update Profile', icon: UserPen, category: 'ACTION', kind: 'Profile', pickerTitle: 'Update Profile', pickerDescription: 'Sets any attribute on the customer’s record' },
   LIST_ADD: { label: 'Add to List', icon: ListPlus, category: 'ACTION', kind: 'List', pickerTitle: 'Add to List', pickerDescription: 'Adds the customer to a contact list' },
   LIST_REMOVE: { label: 'Remove from List', icon: ListMinus, category: 'ACTION', kind: 'List', pickerTitle: 'Remove from List', pickerDescription: 'Takes the customer off a contact list' },
+  WEBHOOK: { label: 'Webhook', icon: Webhook, category: 'ACTION', kind: 'Webhook', pickerTitle: 'Webhook', pickerDescription: 'A signed POST with the customer and journey context' },
   GOAL: { label: 'Goal', icon: Target, category: 'CONTROL', kind: 'Goal', pickerTitle: 'Goal', pickerDescription: 'The outcome this journey is for: an event within a window' },
   EXIT: { label: 'Exit Journey', icon: LogOut, category: 'CONTROL', kind: 'Exit', pickerTitle: 'Exit Journey', pickerDescription: 'Ends this path for the customer' },
 }
@@ -76,7 +78,7 @@ export interface NodeGroup {
 export const NODE_GROUPS: NodeGroup[] = [
   { key: 'LOGIC', types: ['WAIT', 'CONDITION', 'SPLIT'] },
   { key: 'COMMUNICATION', types: ['EMAIL', 'SMS'] },
-  { key: 'ACTION', types: ['COUPON_ISSUE', 'LOYALTY_CHANGE', 'PROFILE_UPDATE', 'SEGMENT_UPDATE', 'LIST_ADD', 'LIST_REMOVE'] },
+  { key: 'ACTION', types: ['COUPON_ISSUE', 'LOYALTY_CHANGE', 'PROFILE_UPDATE', 'SEGMENT_UPDATE', 'LIST_ADD', 'LIST_REMOVE', 'WEBHOOK'] },
   { key: 'CONTROL', types: ['GOAL', 'EXIT'] },
 ]
 
@@ -118,6 +120,8 @@ export function summarize(type: JourneyNodeType, config: Record<string, unknown>
     case 'LIST_ADD':
     case 'LIST_REMOVE':
       return summarizeExtra(type, config)
+    case 'WEBHOOK':
+      return summarizeWebhook(config)
     case 'EXIT':
       return 'Exit Journey'
     default:
@@ -139,6 +143,7 @@ const DESCRIPTION: Partial<Record<JourneyNodeType, string>> = {
   PROFILE_UPDATE: 'Sets an attribute on the record',
   LIST_ADD: 'Adds the customer to a contact list',
   LIST_REMOVE: 'Takes the customer off a contact list',
+  WEBHOOK: 'A signed POST to your endpoint',
   EXIT: 'Ends this path for the customer',
 }
 

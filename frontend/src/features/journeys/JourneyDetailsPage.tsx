@@ -33,6 +33,7 @@ import { CHANNEL_META } from './channelMeta'
 import { CustomersCard } from './CustomersCard'
 import { NeedsAttentionCard } from './NeedsAttentionCard'
 import { SuppressionsCard } from './SuppressionsCard'
+import { WebhookCallsCard } from './WebhookCallsCard'
 import { EnrollmentTrendChart } from './EnrollmentTrendChart'
 import { activityLine } from './JourneyPreviewPopover'
 import { entrySummary } from './SettingsSidebar'
@@ -383,6 +384,8 @@ export function JourneyDetailsPage() {
         <CustomersCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
 
         <SuppressionsCard journeyId={journey.id} />
+
+        {journey.step_types.includes('WEBHOOK') && <WebhookCallsCard journeyId={journey.id} />}
 
         <DetailCard title="Versions" flush>
           {versionsQuery.isPending ? (

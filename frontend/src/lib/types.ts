@@ -1382,7 +1382,7 @@ export interface JourneyStats {
 /** journey_node.node_type (apps/journeys/engine/steps.py documents each config shape) */
 export type JourneyNodeType =
   | 'START' | 'WAIT' | 'CONDITION' | 'SPLIT' | 'EMAIL' | 'SMS' | 'MMS'
-  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'PROFILE_UPDATE' | 'LIST_ADD' | 'LIST_REMOVE' | 'GOAL' | 'EXIT'
+  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'PROFILE_UPDATE' | 'LIST_ADD' | 'LIST_REMOVE' | 'WEBHOOK' | 'GOAL' | 'EXIT'
 
 /** GET /journeys/{id}/versions/ : one row, no graph */
 export interface JourneyVersion {
@@ -1676,6 +1676,21 @@ export interface JourneyPreviewRoute {
   customer: JourneyPreviewCustomer & { attributes: Record<string, unknown> } | null
   entry: { outcome: string; enters: boolean | null } | null
   steps: JourneyPreviewStep[]
+}
+
+/** GET /journeys/{id}/webhook-calls/ : one call a Webhook step (or Send a Test Call) made, from the integration log (apps/journeys/webhooks.py) */
+export interface JourneyWebhookCall {
+  id: number
+  called_at: string
+  url: string
+  status: number | null
+  outcome: 'OK' | 'RETRY' | 'REJECTED' | 'ERROR' | string
+  error: string | null
+  attempt: number
+  duration_ms: number | null
+  node_key: string | null
+  enrollment_id: string | null
+  test: boolean
 }
 
 /** GET /journeys/{id}/attention/ : a customer whose step is being retried or was given up on (apps/journeys/engine/retries.py) */
