@@ -63,13 +63,13 @@ export function UploadsPage() {
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full min-w-[760px] text-left text-sm">
             <caption className="sr-only">List Uploads</caption>
-            <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-900">
-              <tr>
-                <th scope="col" className="px-3 py-2">List and File</th>
-                <th scope="col" className="px-3 py-2">Status</th>
-                <th scope="col" className="w-56 px-3 py-2">Progress</th>
-                <th scope="col" className="px-3 py-2">Uploaded</th>
-                <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
+            <thead className="text-sm font-semibold whitespace-nowrap text-ink-900">
+              <tr className="h-12 border-b border-line">
+                <th scope="col" className="px-2 py-3 first:pl-6 last:pr-6">List and File</th>
+                <th scope="col" className="px-2 py-3 first:pl-6 last:pr-6">Status</th>
+                <th scope="col" className="w-56 px-2 py-3 first:pl-6 last:pr-6">Progress</th>
+                <th scope="col" className="px-2 py-3 first:pl-6 last:pr-6">Uploaded</th>
+                <th scope="col" className="px-2 py-3 first:pl-6 last:pr-6"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
@@ -77,18 +77,18 @@ export function UploadsPage() {
                 const resume = resumeLink(job)
                 const over = ['APPLIED', 'FAILED', 'CANCELLED'].includes(job.status)
                 return (
-                  <tr key={job.id}>
-                    <th scope="row" className="max-w-xs px-3 py-2 font-normal">
-                      <p className="truncate font-medium text-ink-900">{job.list_name}</p>
-                      <p className="truncate text-xs text-ink-800">{job.file_name}{job.row_count ? ` · ${formatNumber(job.row_count)} rows` : ''}</p>
+                  <tr key={job.id} className="h-[72px]">
+                    <th scope="row" className="max-w-xs px-2 py-3 first:pl-6 last:pr-6 font-normal">
+                      <p className="truncate text-card-title font-semibold text-ink-900">{job.list_name}</p>
+                      <p className="truncate text-helper text-ink-800">{job.file_name}{job.row_count ? ` · ${formatNumber(job.row_count)} rows` : ''}</p>
                     </th>
-                    <td className="px-3 py-2"><StatusBadge status={job.working ? 'SENDING' : (TONE[job.status] ?? job.status)} label={job.working ? 'In Progress' : job.status === 'APPLIED' ? 'Imported' : job.status === 'REVIEW' || job.status === 'STAGED' ? 'Waiting for You' : undefined} /></td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-3 first:pl-6 last:pr-6"><StatusBadge status={job.working ? 'SENDING' : (TONE[job.status] ?? job.status)} label={job.working ? 'In Progress' : job.status === 'APPLIED' ? 'Imported' : job.status === 'REVIEW' || job.status === 'STAGED' ? 'Waiting for You' : undefined} /></td>
+                    <td className="px-2 py-3 first:pl-6 last:pr-6">
                       <p className="mb-1 text-xs text-ink-800">{jobSummary(job)}</p>
                       {job.working && <ProgressBar job={job} />}
                     </td>
-                    <td className="px-3 py-2 text-xs text-ink-800">{uploadedWhen(job)}</td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-3 first:pl-6 last:pr-6 text-xs text-ink-800">{uploadedWhen(job)}</td>
+                    <td className="px-2 py-3 first:pl-6 last:pr-6 text-right">
                       <span className="flex flex-wrap justify-end gap-2">
                         {resume && canImport && <button type="button" className={buttonSecondary} onClick={() => setParams({ resume: `${job.contact_list}:${job.id}` })}>Continue</button>}
                         {job.summary && <button type="button" className={buttonSecondary} onClick={() => setReportOf(job.id)}>Report</button>}

@@ -423,19 +423,19 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
   )
 }
 
-// the same header as DataTable: 12px, title case
-const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-900'
-const CELL = 'h-14 px-4 align-middle'
+// the same table as DataTable and the Campaigns list: a 48px header with no fill, 72px rows, 24px at the outer edges
+const HEAD = 'h-12 px-2 text-left text-sm font-semibold whitespace-nowrap text-ink-900 first:pl-6 last:pr-6'
+const CELL = 'h-[72px] px-2 py-3 align-middle first:pl-6 last:pr-6'
 
 function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
   const navigate = useNavigate()
   const menus = useSingleDropdown<string>()
 
   return (
-    <div className="relative overflow-x-auto rounded-lg border border-line">
+    <div className="relative overflow-x-auto rounded-lg border border-line bg-surface">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <caption className="sr-only">Templates</caption>
-        <thead className="bg-surface-subtle">
+        <thead>
           <tr className="border-b border-line">
             <th scope="col" className={HEAD}>Template</th>
             <th scope="col" className={HEAD}>Channel</th>
@@ -450,11 +450,11 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
             if (item.kind === 'template') {
               const { template } = item
               return (
-                <tr key={template.id} onClick={() => onPreview(item)} className="cursor-pointer border-b border-line-subtle last:border-b-0 hover:bg-surface-hover">
+                <tr key={template.id} onClick={() => onPreview(item)} className="cursor-pointer border-b border-line-subtle transition-colors duration-fast ease-standard last:border-b-0 hover:bg-surface-hover">
                   <td className={CELL}>
                     <span className="block min-w-0">
-                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{template.name}</button>
-                      {template.description && <span className="block truncate text-xs text-ink-800">{template.description}</span>}
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 hover:underline">{template.name}</button>
+                      {template.description && <span className="block truncate text-helper text-ink-800">{template.description}</span>}
                     </span>
                   </td>
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
@@ -481,11 +481,11 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                 <td className={CELL}>
                   <span className="block min-w-0">
                     {canEdit ? (
-                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{preset.name}</button>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 hover:underline">{preset.name}</button>
                     ) : (
                       <span className="block truncate font-semibold text-ink-900">{preset.name}</span>
                     )}
-                    {preset.description && <span className="block truncate text-xs text-ink-800">{preset.description}</span>}
+                    {preset.description && <span className="block truncate text-helper text-ink-800">{preset.description}</span>}
                   </span>
                 </td>
                 <td className={CELL}><Tag>{lookOf(preset.channel).label}</Tag></td>

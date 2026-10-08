@@ -32,13 +32,38 @@ export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onN
 
 const TOOLTIP_DELAY = 300
 
-/** The label beside a collapsed item: after a short hover, or at once on keyboard focus. Portalled, so the rail's scroll box can't clip it. */
+/**
+ * The label beside a collapsed item: after a short hover, or at once on keyboard focus. Portalled, so the rail's scroll
+ * box can't clip it. It never outlives what it labels: a press, a scroll, a resize or the rail opening or closing puts
+ * it away, and a hover that ended before the delay shows nothing.
+ */
 function useTooltip(enabled: boolean) {
   const [at, setAt] = useState<{ left: number; top: number } | null>(null)
   const timer = useRef<number | undefined>(undefined)
   // a focus that follows a press is a click, not the keyboard: those get the hover delay instead
   const pressed = useRef(false)
-  useEffect(() => () => window.clearTimeout(timer.current), [])
+  // the rail opened or closed (or the item went away): drop any label shown or waiting
+  useEffect(() => () => {
+    window.clearTimeout(timer.current)
+    setAt(null)
+  }, [enabled])
+
+  const shown = enabled ? at : null
+  useEffect(() => {
+    if (!shown) return
+    const away = () => {
+      window.clearTimeout(timer.current)
+      setAt(null)
+    }
+    window.addEventListener('scroll', away, true)
+    window.addEventListener('resize', away)
+    document.addEventListener('pointerdown', away, true)
+    return () => {
+      window.removeEventListener('scroll', away, true)
+      window.removeEventListener('resize', away)
+      document.removeEventListener('pointerdown', away, true)
+    }
+  }, [shown])
 
   const place = (target: HTMLElement) => {
     const rect = target.getBoundingClientRect()
@@ -53,10 +78,15 @@ function useTooltip(enabled: boolean) {
     props: {
       onMouseEnter: (event: MouseEvent<HTMLElement>) => {
         const target = event.currentTarget
-        timer.current = window.setTimeout(() => place(target), TOOLTIP_DELAY)
+        window.clearTimeout(timer.current)
+        // only if the pointer is still on the item when the delay ends
+        timer.current = window.setTimeout(() => { if (target.isConnected && target.matches(':hover')) place(target) }, TOOLTIP_DELAY)
       },
       onMouseLeave: hide,
-      onPointerDown: () => { pressed.current = true },
+      onPointerDown: () => {
+        pressed.current = true
+        hide()
+      },
       onFocus: (event: FocusEvent<HTMLElement>) => {
         if (!pressed.current) place(event.currentTarget)
         pressed.current = false
@@ -64,7 +94,7 @@ function useTooltip(enabled: boolean) {
       onBlur: hide,
       onKeyDown: (event: KeyboardEvent) => { if (event.key === 'Escape') hide() },
     },
-    shown: at,
+    shown,
   }
 }
 

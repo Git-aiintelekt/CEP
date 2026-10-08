@@ -54,7 +54,7 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
         <span className="cep-num text-helper text-ink-800">{formatNumber(value.length)} of {MAX_TAGS}</span>
       </div>
       <div className="relative mt-1.5">
-        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-control-lg border bg-surface px-2 py-1 focus-within:border-focus focus-within:shadow-focus ${message ? 'border-danger' : 'border-line-control'}`}>
+        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-surface px-2 py-1 focus-within:border-focus focus-within:shadow-focus ${message ? 'border-danger' : 'border-line-control'}`}>
           {value.map((tag) => (
             <span key={tag} className="inline-flex h-6 items-center gap-1 rounded-sm bg-fill-subtle pr-0.5 pl-2 text-xs font-semibold text-ink-800">
               {tag}

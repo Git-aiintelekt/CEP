@@ -11,8 +11,9 @@ export interface SegmentOption<V extends string> {
  * track: a Gray 100 track with a raised white segment (devices, preview width); the track is the 32px control.
  * outline: separate bordered 32px segments, the selected one in brand (alignment, units).
  * solid: one bordered 40px bar, the selected half filled Blue 600 (the Journey step panel's channel switch).
+ * joined: one bordered 36px bar, the selected segment tinted Blue 100 (Home's funnel channel switch).
  */
-export type SegmentedVariant = 'track' | 'outline' | 'solid'
+export type SegmentedVariant = 'track' | 'outline' | 'solid' | 'joined'
 
 interface SegmentedControlProps<V extends string> {
   /** the group's accessible name */
@@ -33,6 +34,7 @@ const GROUP: Record<SegmentedVariant, string> = {
   track: 'gap-0.5 rounded-control-md bg-fill-subtle p-0.5',
   outline: 'gap-1',
   solid: 'h-10 overflow-hidden rounded-control-lg border border-line',
+  joined: 'h-9 overflow-hidden rounded-md border border-line',
 }
 
 function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: boolean, iconOnly: boolean, stretch: boolean): string {
@@ -41,6 +43,11 @@ function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: bo
     const shape = `h-7 rounded-control-sm ${iconOnly ? 'w-8' : 'px-2.5'}`
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-line bg-surface text-ink-300' : 'border-transparent text-ink-300'}`
     return `${base} ${shape} ${selected ? 'border-line bg-surface text-ink-900' : 'border-transparent text-ink-800 hover:text-ink-900'}`
+  }
+  if (variant === 'joined') {
+    const shape = 'h-full border-0 px-3.5 text-sm font-semibold'
+    if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'bg-fill-muted text-ink-800' : 'bg-fill-subtle text-ink-300'}`
+    return `${base} ${shape} ${selected ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-800 hover:bg-surface-hover active:bg-fill-subtle'}`
   }
   if (variant === 'solid') {
     const shape = 'h-full border-0 px-3 text-button'

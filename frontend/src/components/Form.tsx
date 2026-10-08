@@ -96,7 +96,7 @@ export function TextArea({ invalid = false, warning = false, describedBy, tone, 
       {...props}
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
-      className={`${CONTROL_BASE} mt-1 rounded-control-lg px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
+      className={`${CONTROL_BASE} mt-1 rounded-md px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
     />
   )
 }

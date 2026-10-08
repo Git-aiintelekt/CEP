@@ -421,34 +421,34 @@ export function ContactListDetailPage() {
         <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full min-w-[860px] text-left text-sm">
             <caption className="sr-only">Contacts in {data.name}</caption>
-            <thead className="border-b border-line bg-surface-subtle text-xs font-semibold text-ink-900">
-              <tr>
-                <th scope="col" className="w-10 px-3 py-2">
+            <thead className="text-sm font-semibold whitespace-nowrap text-ink-900">
+              <tr className="h-12 border-b border-line">
+                <th scope="col" className="w-10 pr-2 pl-6">
                   <input type="checkbox" aria-label="Select everyone on this page" checked={allOnPage} disabled={rows.length === 0}
                     onChange={() => setSelected(allOnPage ? selected.filter((value) => !rows.some((row) => row.id === value)) : [...new Set([...selected, ...rows.map((row) => row.id)])])}
                     className="h-4 w-4 accent-brand-600" />
                 </th>
-                <th scope="col" className="px-3 py-2">Email</th>
-                <th scope="col" className="px-3 py-2">First Name</th>
-                <th scope="col" className="px-3 py-2">Last Name</th>
-                <th scope="col" className="px-3 py-2 text-right">Added On</th>
-                <th scope="col" className="px-3 py-2">Source</th>
-                <th scope="col" className="px-3 py-2">Marketing Email</th>
+                <th scope="col" className="px-2">Email</th>
+                <th scope="col" className="px-2">First Name</th>
+                <th scope="col" className="px-2">Last Name</th>
+                <th scope="col" className="px-2 text-right">Added On</th>
+                <th scope="col" className="px-2">Source</th>
+                <th scope="col" className="pr-6 pl-2">Marketing Email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
               {rows.map((row) => (
-                <tr key={row.id} className={selected.includes(row.id) ? 'bg-callout-bg' : undefined}>
-                  <td className="px-3 py-2">
+                <tr key={row.id} className={`h-[72px] transition-colors duration-fast ease-standard ${selected.includes(row.id) ? 'bg-callout-bg' : 'hover:bg-surface-hover'}`}>
+                  <td className="py-3 pr-2 pl-6">
                     <input type="checkbox" aria-label={`Select ${row.email ?? row.party_id}`} checked={selected.includes(row.id)}
                       onChange={() => setSelected(selected.includes(row.id) ? selected.filter((value) => value !== row.id) : [...selected, row.id])} className="h-4 w-4 accent-brand-600" />
                   </td>
-                  <td className="px-3 py-2 font-medium text-ink-900">{row.email ?? <span className="font-normal text-ink-800">no email on file · {row.party_id}</span>}</td>
-                  <td className="px-3 py-2 text-ink-800">{row.first_name ?? '—'}</td>
-                  <td className="px-3 py-2 text-ink-800">{row.last_name ?? '—'}</td>
-                  <td className="cep-num px-3 py-2 text-right text-ink-800">{formatDate(row.added_at)}</td>
-                  <td className="px-3 py-2"><Tag>{MEMBER_SOURCE[row.source] ?? titleize(row.source)}</Tag></td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-3 text-card-title font-semibold text-ink-900">{row.email ?? <span className="font-normal text-ink-800">no email on file · {row.party_id}</span>}</td>
+                  <td className="px-2 py-3 text-ink-800">{row.first_name ?? '—'}</td>
+                  <td className="px-2 py-3 text-ink-800">{row.last_name ?? '—'}</td>
+                  <td className="cep-num px-2 py-3 text-right text-ink-800">{formatDate(row.added_at)}</td>
+                  <td className="px-2 py-3"><Tag>{MEMBER_SOURCE[row.source] ?? titleize(row.source)}</Tag></td>
+                  <td className="py-3 pr-6 pl-2">
                     {row.email_status_label && (
                       <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${row.sendable ? 'text-success-text' : 'text-warning-text'}`}>
                         <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${row.sendable ? 'bg-success' : 'bg-warning'}`} />

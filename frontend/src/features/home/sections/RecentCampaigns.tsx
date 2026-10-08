@@ -1,4 +1,3 @@
-import { History } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -22,8 +21,8 @@ const LIST_STATUS: Record<RecentStatus, string | null> = { ALL: null, LIVE: 'PRO
 const SHOWN = 6
 const CHANNEL_LABEL: Record<MessageChannel, string> = { EMAIL: 'Email', SMS: 'SMS', MMS: 'MMS' }
 
-const HEAD = 'h-10 px-3 text-left text-xs font-semibold whitespace-nowrap text-ink-900'
-const NUMBER_HEAD = 'h-10 px-3 text-right text-xs font-semibold whitespace-nowrap text-ink-900'
+const HEAD = 'h-10 px-3 text-left text-label font-semibold whitespace-nowrap text-ink-900'
+const NUMBER_HEAD = 'h-10 px-3 text-right text-label font-semibold whitespace-nowrap text-ink-900'
 // by the card's own width (it is the full page or two thirds of it), not the window's
 const WIDE = 'hidden @min-[760px]:table-cell'
 const MID = 'hidden @min-[600px]:table-cell'
@@ -38,9 +37,14 @@ function RevenueCell({ row, attributed }: { row: RecentCampaignRow; attributed: 
   if (row.revenue === null) return <>—</>
   const percent = row.target ? Math.round((row.revenue / row.target) * 100) : null
   return (
-    <span className="inline-flex flex-col items-end gap-0.5">
-      <span>{formatCompactMoney(row.revenue)}</span>
-      {percent !== null && <span data-target-share className="text-helper text-ink-800">{percent}% of target</span>}
+    <span className="inline-flex items-center justify-end gap-2.5">
+      <span className="font-semibold">{formatCompactMoney(row.revenue)}</span>
+      {percent !== null && (
+        <>
+          <span aria-hidden className="hidden h-1.5 w-16 overflow-hidden rounded-pill bg-fill-subtle @min-[600px]:block"><span className="block h-full rounded-pill bg-brand-600" style={{ width: `${Math.min(100, percent)}%` }} /></span>
+          <span data-target-share className="w-10 text-left text-helper text-ink-800">{percent}%<span className="sr-only"> of target</span></span>
+        </>
+      )}
     </span>
   )
 }
@@ -48,10 +52,8 @@ function RevenueCell({ row, attributed }: { row: RecentCampaignRow; attributed: 
 function Row({ row, attributed }: { row: RecentCampaignRow; attributed: boolean }) {
   return (
     <tr data-campaign={row.id} className="h-16">
-      <td className="px-3">
+      <td className="pr-3 pl-6">
         <div className="flex min-w-0 items-center gap-2.5">
-          {/* blue into plum once it has delivered something in the period, a hairline before that */}
-          <span aria-hidden data-mark className={`h-8 w-[3px] shrink-0 rounded-xs ${row.delivered === null ? 'bg-line-subtle' : 'cep-home-blend-down'}`} />
           <div className="flex min-w-0 flex-col items-start">
             <Link to={`/campaigns/${row.id}`} className="max-w-full min-w-0 rounded-sm text-sm font-semibold text-ink-900 hover:underline"><TruncatedText text={row.name} /></Link>
             <TruncatedText text={row.contextLine} className="text-xs text-ink-800" />
@@ -66,9 +68,9 @@ function Row({ row, attributed }: { row: RecentCampaignRow; attributed: boolean 
         {row.openRate === 'not_tracked' ? <span className="whitespace-nowrap text-ink-800">Not Tracked</span> : <span className="text-ink-900">{row.openRate === null ? '—' : formatPercent(row.openRate)}</span>}
       </td>
       <td className="px-3 text-right text-sm text-ink-900 cep-num"><RevenueCell row={row} attributed={attributed} /></td>
-      <td className={`${WIDE} px-3 text-sm text-ink-900`}>
+      <td className={`${WIDE} pr-6 pl-3 text-sm text-ink-900`}>
         <span className="flex min-w-0 items-center gap-2">
-          {row.owner && <span aria-hidden className="cep-home-journey flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-on-brand">{initials(row.owner)}</span>}
+          {row.owner && <span aria-hidden className="bg-brand-600 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-on-brand">{initials(row.owner)}</span>}
           <TruncatedText text={row.owner ?? '—'} />
         </span>
       </td>
@@ -94,7 +96,7 @@ export function RecentCampaigns({ filters }: { filters: HomeFilters }) {
   const rows = data ? sortRecent(data.rows, sort, data.attributionSetUp).slice(0, SHOWN) : []
 
   return (
-    <HomeCard title="Recent Campaigns" icon={History} flush
+    <HomeCard title="Recent Campaigns" flush
       helper={data ? `Showing ${rows.length} of ${data.total}` : undefined}
       actions={(
         <div role="group" aria-label="Recent Campaigns Options" className="flex flex-wrap items-center gap-3">
@@ -105,27 +107,27 @@ export function RecentCampaigns({ filters }: { filters: HomeFilters }) {
             {({ close }) => <SingleSelectMenu label="Status" options={STATUSES} value={status} onChange={(value) => { setStatus(value); close() }} />}
           </FilterChip>
           {changed && <ClearFiltersLink onClick={clear} />}
+          <Link to={viewAll} className={buttonClass({ variant: 'secondary', size: 'sm' })}>View All Campaigns</Link>
         </div>
-      )}
-      footer={<Link to={viewAll} className={`${buttonClass({ variant: 'link', size: 'sm' })} -ml-3`}>View All Campaigns</Link>}>
+      )}>
       {result.status === 'loading' ? (
-        <div data-recent="loading" className="flex flex-col gap-6 p-4">{[80, 65, 72, 58, 70, 60].map((width) => <SkeletonLine key={width} width={`${width}%`} />)}</div>
+        <div data-recent="loading" className="flex flex-col gap-6 px-6 pb-6">{[80, 65, 72, 58, 70, 60].map((width) => <SkeletonLine key={width} width={`${width}%`} />)}</div>
       ) : result.status === 'error' ? (
-        <div className="p-4"><ErrorState error={result.error} onRetry={result.retry} title="Recent campaigns could not be loaded" /></div>
+        <div className="px-6 pb-6"><ErrorState error={result.error} onRetry={result.retry} title="Recent campaigns could not be loaded" /></div>
       ) : rows.length === 0 ? (
-        <p className="flex flex-wrap items-center gap-2 p-4 text-sm text-ink-800">No campaigns match these filters.{changed && <ClearFiltersLink onClick={clear} />}</p>
+        <p className="flex flex-wrap items-center gap-2 px-6 pb-6 text-sm text-ink-800">No campaigns match these filters.{changed && <ClearFiltersLink onClick={clear} />}</p>
       ) : (
         <div className="@container">
         <table className="w-full table-fixed border-collapse">
           <caption className="sr-only">Recent campaigns</caption>
           <thead className="bg-surface-subtle">
-            <tr className="border-b border-line-subtle">
-              <th scope="col" className={HEAD}>Campaign</th>
+            <tr className="border-y border-line-subtle">
+              <th scope="col" className={`${HEAD} pl-6`}>Campaign</th>
               <th scope="col" className={`${HEAD} ${STATUS} w-[150px]`}>Status</th>
               <th scope="col" className={`${HEAD} ${MID} w-[100px]`}>Channel</th>
               <th scope="col" className={`${NUMBER_HEAD} ${MID} w-[96px]`}>Delivered</th>
               <th scope="col" className={`${NUMBER_HEAD} ${WIDE} w-[96px]`}>Open Rate</th>
-              <th scope="col" className={`${NUMBER_HEAD} w-[120px]`}>Revenue</th>
+              <th scope="col" className={`${NUMBER_HEAD} w-[120px] @min-[600px]:w-[210px]`}>Revenue vs. Target</th>
               <th scope="col" className={`${HEAD} ${WIDE} w-[170px]`}>Owner</th>
             </tr>
           </thead>

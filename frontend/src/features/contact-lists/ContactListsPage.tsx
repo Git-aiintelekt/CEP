@@ -177,8 +177,8 @@ export function ContactListsPage() {
       key: 'name', header: 'Name', className: 'max-w-sm',
       render: (row) => (
         <div className="min-w-0">
-          <p className="truncate font-medium text-ink-900">{row.name}{row.status === 'ARCHIVED' && <span className="ml-2 align-middle"><Tag>Archived</Tag></span>}</p>
-          {row.description && <p className="truncate text-xs text-ink-800">{row.description}</p>}
+          <p className="truncate text-card-title font-semibold text-ink-900">{row.name}{row.status === 'ARCHIVED' && <span className="ml-2 align-middle"><Tag>Archived</Tag></span>}</p>
+          {row.description && <p className="truncate text-helper text-ink-800">{row.description}</p>}
         </div>
       ),
     },

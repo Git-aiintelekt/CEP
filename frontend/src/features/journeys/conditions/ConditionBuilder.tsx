@@ -171,7 +171,7 @@ function ValuesInput({ values, onChange, type, suggestions, label }: { values: S
   }
   return (
     <div className="min-w-[180px] flex-1">
-      <div className="flex min-h-8 flex-wrap items-center gap-1 rounded-control-md border border-line-control bg-surface px-1.5 py-1 focus-within:border-focus">
+      <div className="flex min-h-8 flex-wrap items-center gap-1 rounded-md border border-line-control bg-surface px-1.5 py-1 focus-within:border-focus">
         {values.map((value) => (
           <span key={String(value)} className="inline-flex h-6 items-center gap-1 rounded-sm bg-fill-subtle px-1.5 text-xs text-ink-900">
             {String(value)}

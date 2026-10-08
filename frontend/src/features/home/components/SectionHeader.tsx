@@ -31,15 +31,15 @@ interface SectionHeaderProps {
 
 const TITLE: Record<SectionLevel, string> = {
   page: 'font-display text-section-title font-semibold text-ink-900',
-  card: 'font-display text-card-heading font-semibold text-ink-900',
+  card: 'font-display text-section-title font-semibold text-ink-900',
 }
 
-/** A section's title row. "page" sits on the page with no card; "card" is a card's header with a divider under it. */
+/** A section's title row. "page" sits on the page with no card and may carry an icon badge; "card" is a card's header, no badge and no divider. */
 export function SectionHeader({ level, title, titleId, icon: Icon, count, countTone = 'neutral', helper, actions, strip = false }: SectionHeaderProps) {
   return (
-    <div data-section-header={level} className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-3 ${level === 'card' ? `rounded-t-lg border-b border-line-subtle px-4 py-3 ${strip ? 'cep-home-strip' : ''}` : ''}`}>
-      <div className="flex min-w-0 items-center gap-3">
-        {Icon && (
+    <div data-section-header={level} className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-3 ${level === 'card' ? `rounded-t-lg px-6 pt-5 pb-4 ${strip ? 'cep-home-strip' : ''}` : ''}`}>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+        {level === 'page' && Icon && (
           <span aria-hidden data-plum-icon className="cep-home-badge flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-plum-700">
             <Icon size={16} strokeWidth={1.5} />
           </span>
