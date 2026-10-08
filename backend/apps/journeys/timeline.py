@@ -164,6 +164,76 @@ def timeline(journey: Journey, enrollment_id) -> dict | None:
     }
 
 
+# ---------------------------------------------------------------------------------------------------- Needs Attention
+ATTENTION_SQL = """
+SELECT e.id::text, e.party_id, cm.first_name, cm.last_name, lower(cm.emails -> 0 ->> 'address'), n.node_key, n.node_type, n.config, s.state_data -> 'retry', s.next_scheduled_at
+  FROM journey_customer_state s
+  JOIN journey_enrollment e ON e.id = s.journey_enrollment_id AND e.status = 'ACTIVE'
+  LEFT JOIN customer_master cm ON cm.tenant_id = e.tenant_id AND cm.party_id = e.party_id
+  LEFT JOIN journey_node n ON n.id = s.current_node_id
+ WHERE e.tenant_id = %(tenant)s AND e.journey_id = %(journey)s AND s.state_data ? 'retry'
+ ORDER BY (s.state_data -> 'retry' ->> 'gave_up_at') DESC NULLS LAST, s.next_scheduled_at"""
+
+
+def attention(journey: Journey) -> list[dict]:
+    """Customers whose step is being retried or was given up on (apps.journeys.engine.retries): the journey page's Needs Attention card."""
+    with _conn().cursor() as cursor:
+        cursor.execute(ATTENTION_SQL, {"tenant": str(journey.tenant_id), "journey": str(journey.pk)})
+        rows = cursor.fetchall()
+    found = []
+    for enrollment_id, party_id, first, last, email, node_key, node_type, config, retry, next_at in rows:
+        retry = _json(retry)
+        found.append({"id": enrollment_id, "party_id": party_id, "name": _name(first, last, party_id), "email": email,
+                      "node_key": node_key, "node_type": node_type, "label": _step_words(node_type, _json(config)),
+                      "reason": retry.get("reason"), "attempts": retry.get("attempts") or 0, "max_attempts": 3,
+                      "next_try_at": next_at if not retry.get("gave_up_at") else None, "gave_up_at": retry.get("gave_up_at"),
+                      "first_failed_at": retry.get("first_failed_at")})
+    return found
+
+
+def retry_now(journey: Journey, enrollment_id) -> bool:
+    """Retry Now: the step runs again on the next pass."""
+    from .engine import retries
+    from .models import JourneyCustomerState
+    with session.tx():
+        state = JourneyCustomerState.objects.select_for_update().filter(journey_enrollment__journey=journey, journey_enrollment_id=enrollment_id,
+                                                                         journey_enrollment__status="ACTIVE").first()
+        if state is None or not (state.state_data or {}).get("retry"):
+            return False
+        retries.retry_now(state)
+        state.save(update_fields=["state_data", "next_scheduled_at"])
+    return True
+
+
+def skip_step(journey: Journey, enrollment_id) -> bool:
+    """Skip Step: the step is recorded as skipped and the customer moves to what follows it (or exits when nothing does)."""
+    from django.utils import timezone as dj_timezone
+
+    from .engine.advance import _next
+    from .engine.outcome import Done
+    from .models import JourneyCustomerState, JourneyEnrollment, JourneyNodeExecution
+    with session.tx():
+        state = (JourneyCustomerState.objects.select_for_update(of=("self",)).select_related("journey_enrollment", "current_node")
+                 .filter(journey_enrollment__journey=journey, journey_enrollment_id=enrollment_id, journey_enrollment__status="ACTIVE").first())
+        if state is None or state.current_node is None:
+            return False
+        enrollment, node = state.journey_enrollment, state.current_node
+        retry = (state.state_data or {}).get("retry") or {}
+        JourneyNodeExecution.objects.create(journey_enrollment=enrollment, journey_node=node, tenant_id=enrollment.tenant_id, party_id=enrollment.party_id,
+                                            execution_status="SKIPPED", result_data={"reason": "Skipped by hand", "after": retry.get("reason"), "attempts": retry.get("attempts")})
+        state.state_data = {key: value for key, value in (state.state_data or {}).items() if key not in ("retry", "pending")}
+        following = _next(node, None)
+        now = dj_timezone.now()
+        if following is None:
+            JourneyEnrollment.objects.filter(pk=enrollment.pk).update(status="EXITED", exited_at=now, exit_reason=f"No step follows {node.node_key}.")
+            state.next_scheduled_at = None
+        else:
+            state.current_node, state.entered_node_at, state.next_scheduled_at = following, now, now
+        state.save(update_fields=["current_node", "entered_node_at", "next_scheduled_at", "state_data"])
+        _ = Done
+    return True
+
+
 # ---------------------------------------------------------------------------------------------------- counts on a live canvas
 COUNTS_SQL = """
 SELECT n.node_key,

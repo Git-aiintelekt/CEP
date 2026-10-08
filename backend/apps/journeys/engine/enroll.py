@@ -41,7 +41,7 @@ from apps.delivery.engine import session
 
 from .. import conditions, events, schedule
 from ..models import Journey, JourneyEntryRule, JourneyNode, JourneyVersion
-from . import tenants
+from . import retries, tenants
 
 log = logging.getLogger("cep.journeys")
 PER_PASS = 5000                                           # per journey and pass; the rest enter on the next pass
@@ -200,7 +200,9 @@ def enroll_journey(tenant_id: str, journey: Journey) -> int:
 
 def enroll_tenant(tenant_id: str) -> dict:
     entered, failed = 0, 0
-    with session.tenant_scope(tenant_id):
+    with session.tenant_scope(tenant_id), retries.lock(session.connection(), f"journeys:enroll:{tenant_id}") as held:
+        if not held:                                       # another scheduler is enrolling this workspace: skip it this pass
+            return {"entered": 0, "failed": 0, "locked": True}
         with session.tx():
             live = list(Journey.objects.filter(tenant_id=tenant_id, status=Journey.Status.ACTIVE, deleted_at__isnull=True))
         _raise_no_response(tenant_id, live)
