@@ -72,7 +72,7 @@ const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; 
   onBrand: {
     enabled: 'text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed',
     pressed: 'bg-brand-fill-pressed text-on-brand',
-    disabled: 'cursor-not-allowed text-brand-100',
+    disabled: 'cursor-not-allowed text-on-brand-soft',
   },
   /** on the navy top bar: the rail's icon colours */
   onNavy: {
