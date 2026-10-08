@@ -22,7 +22,7 @@ from apps.delivery.models import MailerExecution, SmsExecution
 from apps.governance.models import CommunicationGovernancePolicy
 from apps.templates.models import TemplateMaster
 
-from . import graph, schedule
+from . import conditions, graph, schedule
 from .engine import enroll as enroll_engine
 from .engine import steps as steps_engine
 from .engine.outcome import Done, Finish, Hold
@@ -56,6 +56,8 @@ def _entry_summary(version: JourneyVersion) -> str:
         elif rule["entry_type"] == "CUSTOMER_LIST":
             parts.append(f"the {rule['reference_name']} customer list" if rule.get("reference_name")
                          else "an unknown customer list" if "reference_name" in rule else "a customer list")
+        elif rule["entry_type"] == "SEGMENT_CHANGE" and str(definition.get("change_trigger") or "").upper() == conditions.ATTRIBUTE_MATCH:
+            parts.append(conditions.describe_entry(definition.get("rule")))
         elif rule["entry_type"] == "SEGMENT_CHANGE" and definition.get("change_trigger"):
             parts.append({"LOYALTY_TIER": "a loyalty tier change", "PREFERENCE_UPDATE": "a preference update",
                           "ADDRESS_CHANGE": "an address change"}.get(str(definition["change_trigger"]).upper(), "an attribute change"))
@@ -78,6 +80,8 @@ def _step_configured(node: JourneyNode) -> bool:
     if node.node_type == "WAIT":
         return config.get("duration") not in (None, "")
     if node.node_type == "CONDITION":
+        if "rule" in config:
+            return conditions.is_complete(config["rule"])
         return bool(config.get("check")) or bool(isinstance(config.get("expr"), dict) and config["expr"].get("event"))
     if node.node_type in MESSAGE_TYPES:
         return bool(config.get("template_id"))
@@ -127,7 +131,16 @@ def _governance(journey: Journey, version: JourneyVersion) -> dict:
 
 def _entry_ok(version: JourneyVersion) -> bool:
     rules = list(JourneyEntryRule.objects.filter(journey_version=version, deleted_at__isnull=True))
-    return bool(rules) and all(schedule.problem(rule.rule_definition or {}) is None for rule in rules if rule.entry_type == "DATE_TIME")
+    return bool(rules) and all(_rule_ok(rule) for rule in rules)
+
+
+def _rule_ok(rule: JourneyEntryRule) -> bool:
+    definition = rule.rule_definition or {}
+    if rule.entry_type == "DATE_TIME" and schedule.problem(definition) is not None:
+        return False
+    if enroll_engine.is_attribute_match(rule) and not (conditions.is_complete(definition.get("rule")) and conditions.problem(definition.get("rule"), in_journey=False) is None):
+        return False
+    return not isinstance(definition.get("filters"), dict) or conditions.problem(definition["filters"], in_journey=False) is None
 
 
 def readiness(journey: Journey, version: JourneyVersion) -> dict:
@@ -164,7 +177,7 @@ def _random_candidates(tenant_id, version: JourneyVersion, limit: int) -> list[s
             continue
         with session.connection().cursor() as cursor:
             cursor.execute(f"SELECT DISTINCT c.party_id FROM ({sql}) c "
-                           f"JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id LIMIT 2000", args)
+                           f"JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id{enroll_engine.entry_filters(rule, args)} LIMIT 2000", args)
             party_ids.update(row[0] for row in cursor.fetchall())
     ordered = list(party_ids)
     random.shuffle(ordered)

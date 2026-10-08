@@ -240,3 +240,47 @@ test('the name and description count against their published limits, and re-entr
   expect(within(dialog).queryByText('A whole number from 1 to 3,650.')).toBeNull()
   expect((within(dialog).getByRole('button', { name: 'Create Journey' }) as HTMLButtonElement).disabled).toBe(false)
 })
+
+test('Customer Attribute Matches takes a rule, Only Customers Where narrows any trigger, and both are saved into the entry rule', async () => {
+  const calls = installMockApi()
+  const { user, dialog } = await openSetup()
+
+  await user.type(within(dialog).getByLabelText(/^Journey Name/), 'New Customer Welcome')
+  await user.click(within(dialog).getByRole('radio', { name: 'Segment or Customer Change' }))
+  await user.click(within(dialog).getByRole('button', { name: 'Select a Change Trigger' }))
+  await user.click(screen.getByRole('button', { name: 'Customer Attribute Matches' }))
+  const next = within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement
+  expect(next.disabled).toBe(true) // the rule is still empty
+
+  const matches = within(dialog.querySelector('[data-attribute-match]') as HTMLElement)
+  await user.click(matches.getByRole('button', { name: 'Add Condition' }))
+  await user.click(matches.getByRole('button', { name: 'Field' }))
+  await user.click(screen.getByRole('button', { name: /Customer Status/ }))
+  await user.selectOptions(matches.getByLabelText('Operator'), 'is')
+  await user.type(matches.getByLabelText('Value'), 'New')
+  expect(matches.getByText('Customers enter when their Customer Status is “New”.')).toBeTruthy()
+  expect(next.disabled).toBe(false)
+
+  const filters = within(dialog.querySelector('[data-entry-filters]') as HTMLElement)
+  await user.click(filters.getByRole('button', { name: 'Add Condition' }))
+  expect(next.disabled).toBe(true) // an unfinished filter row holds Next
+  await user.click(filters.getByRole('button', { name: 'Field' }))
+  await user.click(screen.getByRole('button', { name: 'Country' }))
+  await user.selectOptions(filters.getByLabelText('Operator'), 'is')
+  await user.type(filters.getByLabelText('Value'), 'United States')
+  expect(filters.getByText('Only customers where their country is “United States”.')).toBeTruthy()
+  expect(await within(dialog).findByText('218 of 20,100 customers would enter now.', {}, { timeout: 3000 })).toBeTruthy()
+  expect(next.disabled).toBe(false)
+
+  await user.click(next)
+  await user.click(within(dialog).getByRole('radio', { name: /^Continuously Qualifying/ }))
+  await user.click(within(dialog).getByRole('button', { name: 'Create Journey' }))
+  await screen.findByRole('heading', { name: 'Journey Settings' })
+  const save = calls.find((call) => call.method === 'PUT' && /\/journeys\/.+\/versions\/1\/graph\/$/.test(call.url))
+  expect(save?.body?.graph).toMatchObject({ entry_rules: [{ entry_type: 'SEGMENT_CHANGE', rule_definition: {
+    change_trigger: 'ATTRIBUTE_MATCH',
+    rule: { all: true, conditions: [{ field: 'attr:customer_status', op: 'is', value: 'New' }] },
+    filters: { all: true, conditions: [{ field: 'customer:country', op: 'is', value: 'United States' }] },
+  } }] })
+  expect(screen.getAllByText(/Customer Attribute Matches/).length).toBeGreaterThan(0)
+})

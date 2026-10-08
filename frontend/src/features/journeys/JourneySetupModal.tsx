@@ -19,6 +19,10 @@
  *
  * Enters Segment / Exits Segment also need a Segment (GET /contact-lists/audiences/), saved as segment_id — what
  * apps/journeys/engine/enroll.py reads.
+ *
+ * Customer Attribute Matches (SEGMENT_CHANGE {change_trigger: ATTRIBUTE_MATCH, rule}) takes a condition rule over the
+ * customer's record, and every trigger can carry Only Customers Where filters ({filters}); both are written with the
+ * condition builder (conditions/ConditionBuilder.tsx) and read by apps/journeys/conditions.py.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ban, Calendar, CalendarClock, ChevronDown, Lock, Repeat, RefreshCw, Tags, Users, Zap, type LucideIcon } from 'lucide-react'
@@ -38,11 +42,14 @@ import { ChoiceCard, ChoiceGroup } from '@/features/campaigns/parts'
 import { api, ApiError } from '@/lib/api'
 import { useFieldRules } from '@/lib/fieldRules'
 import { FIELDS_TITLE, saveFailure } from '@/lib/saveFeedback'
-import type { Audience, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
+import type { Audience, ConditionRule, ContactList, Journey, JourneyEntryRule, JourneyVersionDetail, Page } from '@/lib/types'
+
+import { ConditionBuilder, MatchCount, useConditionFields } from './conditions/ConditionBuilder'
+import { countConditions, emptyRule, isRuleComplete, normalizeRule, ruleProblem } from './conditions/conditionModel'
 
 import {
-  DATE_TIME_TRIGGER_GROUPS, EVENT_TRIGGER_GROUPS, SEGMENT_CHANGE_TRIGGER_GROUPS, TRIGGER_PLACEHOLDER, dateTimeDefinition, dateTimeFromRule, dateTimeProblem,
-  entryRuleFor, needsSegment, triggerFromRule, type DateTimeChoice,
+  DATE_TIME_TRIGGER_GROUPS, EVENT_TRIGGER_GROUPS, SEGMENT_CHANGE_TRIGGER_GROUPS, TRIGGER_PLACEHOLDER, conditionsFromRule, dateTimeDefinition, dateTimeFromRule, dateTimeProblem,
+  entryRuleFor, isAttributeMatch, needsSegment, triggerFromRule, type DateTimeChoice,
   type Reference, type TriggerGroup,
 } from './entryTriggers'
 import { DateTimeFields } from './DateTimeFields'
@@ -260,6 +267,9 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const [triggerLabel, setTriggerLabel] = useState<string | null>(initial.triggerLabel)
   const [segment, setSegment] = useState<Reference | null>(initial.segment)
   const [dateTime, setDateTime] = useState<DateTimeChoice>(() => dateTimeFromRule(originalRule))
+  const [matchRule, setMatchRule] = useState<ConditionRule>(() => conditionsFromRule(originalRule).rule ?? emptyRule())
+  const [filters, setFilters] = useState<ConditionRule>(() => conditionsFromRule(originalRule).filters ?? emptyRule())
+  const fields = useConditionFields()
   const [populationMode, setPopulationMode] = useState<PopulationMode | ''>(initial.populationMode as PopulationMode | '')
   const [reentryPolicy, setReentryPolicy] = useState<ReentryPolicy>(initial.reentryPolicy as ReentryPolicy)
   const [reentryAfterDays, setReentryAfterDays] = useState(initial.reentryAfterDays)
@@ -279,15 +289,29 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
 
   const segmentNeeded = needsSegment(entryType, triggerValue)
   const timed = entryType === 'DATE_TIME' && triggerValue !== ''
+  const attributeMatch = isAttributeMatch(entryType, triggerValue)
+  const matchReady = isRuleComplete(matchRule, fields.data, true)
+  const filtersUsed = countConditions(filters) > 0
+  const filtersOk = ruleProblem(filters, fields.data, true) === null
   const step1Ready = name.trim() !== '' && entryType !== '' && triggerValue !== '' && (!segmentNeeded || segment !== null)
-    && (!timed || dateTimeProblem(triggerValue, dateTime) === null)
+    && (!timed || dateTimeProblem(triggerValue, dateTime) === null) && (!attributeMatch || matchReady) && filtersOk
   const daysOk = Number.isInteger(Number(reentryAfterDays)) && Number(reentryAfterDays) >= daysMin && Number(reentryAfterDays) <= daysMax
   const step2Ready = populationMode !== '' && (reentryPolicy !== 'AFTER_X_DAYS' || daysOk)
 
   /** The entry rule to save. An unchanged trigger keeps everything its rule already carried; only the segment comes
    * from the picker (a starter's "choose your segment" note is then done with). */
+  /** the attribute trigger's rule and the Only Customers Where filters, as the engine reads them */
+  const withConditions = (rule: JourneyEntryRule): JourneyEntryRule => {
+    const definition: Record<string, unknown> = { ...rule.rule_definition }
+    if (attributeMatch) definition.rule = normalizeRule(matchRule, fields.data)
+    else delete definition.rule
+    if (filtersUsed) definition.filters = normalizeRule(filters, fields.data)
+    else delete definition.filters
+    return { ...rule, rule_definition: definition }
+  }
+
   const chosenRule = (): JourneyEntryRule => {
-    if (entryType === 'DATE_TIME') return { entry_type: 'DATE_TIME', rule_definition: dateTimeDefinition(triggerValue, dateTime) }
+    if (entryType === 'DATE_TIME') return withConditions({ entry_type: 'DATE_TIME', rule_definition: dateTimeDefinition(triggerValue, dateTime) })
     const original = triggerFromRule(originalRule)
     if (originalRule && entryType === original.entryType && triggerValue === original.value) {
       const definition: Record<string, unknown> = { ...originalRule.rule_definition }
@@ -296,9 +320,9 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
         definition.segment_name = segment.name ?? undefined
         delete definition.setup_note
       }
-      return { entry_type: originalRule.entry_type, rule_definition: definition }
+      return withConditions({ entry_type: originalRule.entry_type, rule_definition: definition })
     }
-    return entryRuleFor(entryType, triggerValue, triggerLabel ?? undefined, segmentNeeded ? segment : null)
+    return withConditions(entryRuleFor(entryType, triggerValue, triggerLabel ?? undefined, segmentNeeded ? segment : null))
   }
 
   const create = useMutation({
@@ -429,6 +453,27 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
             <Field label="Segment" required strong hint={segment ? undefined : setupNote ?? 'Customers enter when they join or leave this segment.'}>
               {() => <SegmentDropdown value={segment} onPick={setSegment} />}
             </Field>
+          )}
+
+          {attributeMatch && (
+            <div data-attribute-match>
+              <p className="block text-sm font-semibold text-ink-900">Customer Record Matches<span className="ml-0.5 text-danger-plain" aria-hidden>*</span></p>
+              <p className="mt-1.5 mb-2 text-helper text-ink-800">Customers whose record matches enter, each once; with Every Qualifying Event, again when their record changes.</p>
+              <ConditionBuilder rule={matchRule} onChange={setMatchRule} lead="Enter when" readBackLead="Customers enter when" atEntry />
+            </div>
+          )}
+
+          {entryType !== '' && triggerValue !== '' && (
+            <div data-entry-filters>
+              <p className="block text-sm font-semibold text-ink-900">Only Customers Where (Optional)</p>
+              <p className="mt-1.5 mb-2 text-helper text-ink-800">Narrows who enters: a customer the trigger would admit is checked against these first.</p>
+              <ConditionBuilder rule={filters} onChange={setFilters} lead="Only customers where" readBackLead="Only customers where" atEntry />
+            </div>
+          )}
+
+          {(attributeMatch || filtersUsed) && (
+            <MatchCount rule={attributeMatch ? matchRule : null} filters={filtersUsed ? filters : null} ready={(!attributeMatch || matchReady) && filtersOk && (attributeMatch || filtersUsed)}
+              wording={attributeMatch ? 'enter' : 'match'} />
           )}
 
           <Field label="Description (Optional)" strong hint="What this journey is for. Shown on its details page." error={descriptionError} limit={{ used: description.length, max: descriptionMax }}>

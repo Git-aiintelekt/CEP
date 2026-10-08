@@ -15,11 +15,12 @@ import type { Journey, JourneyEntryRule, JourneyNodeType, JourneyVersionDetail }
 import { AddStepPanel } from './AddStepPanel'
 import { Footer, ReadinessPill } from './Footer'
 import {
+  conditionStepOptions,
   checkValidity, cloneWithNewKeys, flatten, fromWireGraph, insertAt, isNodeConfigured, newKey, removeAt, updateAt, type EditorNode, type Path,
 } from './graphModel'
 import { JourneyCanvas } from './JourneyCanvas'
 import { JourneySetupModal, type SetupValues } from './JourneySetupModal'
-import type { AddableType } from './nodeDefs'
+import { describeStep, type AddableType } from './nodeDefs'
 import { NodeConfigPanel } from './NodeConfigPanel'
 import { entrySummary, populationLabel, reentryLabel, SettingsSidebar } from './SettingsSidebar'
 import { StageBar } from './StageBar'
@@ -225,7 +226,8 @@ export function JourneyBuildWorkspace({
         </main>
         {addRequest && <AddStepPanel insideBranch={addRequest.insideBranch} onClose={() => setAddRequest(null)} onPick={handleAdd} />}
         {selectedNode && (
-          <NodeConfigPanel key={selectedNode.key} node={selectedNode} onClose={() => setSelected(null)} onSave={handleConfigSave} onDelete={() => selected && handleDelete(selected)} />
+          <NodeConfigPanel key={selectedNode.key} node={selectedNode} onClose={() => setSelected(null)} onSave={handleConfigSave} onDelete={() => selected && handleDelete(selected)}
+            steps={conditionStepOptions(root, selectedNode.key, (node) => describeStep(node).title)} journeyId={journey.id} />
         )}
       </div>
       <Footer journeyId={journey.id} validity={validity} onBackToSetup={() => setSetupOpen(true)} />

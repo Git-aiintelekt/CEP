@@ -19,6 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from api.exceptions import Conflict
 
+from . import conditions
 from .models import Journey, JourneyConnection, JourneyEntryRule, JourneyNode, JourneyVersion
 
 # block -> node_type -> node_family. Issue Coupon (COUPON_ISSUE) and Change Loyalty Tier (LOYALTY_CHANGE) invoke the
@@ -80,6 +81,32 @@ def _step_problem(config: dict) -> str | None:
     return None
 
 
+def _entry_rule_problem(entry_type: str, definition: dict) -> str | None:
+    """What is wrong with a rule's conditions: the attribute trigger's rule, or any rule's Only Customers Where filters."""
+    if entry_type == "SEGMENT_CHANGE" and str(definition.get("change_trigger") or "").upper() == conditions.ATTRIBUTE_MATCH:
+        found = conditions.problem(definition.get("rule"), in_journey=False)
+        if found:
+            return f"rule: {found}"
+    if definition.get("filters") is not None:
+        found = conditions.problem(definition["filters"], in_journey=False)
+        if found:
+            return f"filters: {found}"
+    return None
+
+
+MESSAGE_TYPES = ("EMAIL", "SMS", "MMS")
+
+
+def _reference_problem(rule: dict, types: dict) -> str | None:
+    """A condition naming this journey's message or Condition step must name one that is in the graph."""
+    for kind, key in conditions.references(rule):
+        if kind == "message" and key != "*" and types.get(key) not in MESSAGE_TYPES:
+            return f"The condition names a message step '{key}' that is not in this journey."
+        if kind == "step" and types.get(key) != "CONDITION":
+            return f"The condition names a Condition step '{key}' that is not in this journey."
+    return None
+
+
 def clean(graph) -> dict:
     """The graph in canonical form, or a ValidationError naming every problem found."""
     if not isinstance(graph, dict):
@@ -102,6 +129,10 @@ def clean(graph) -> dict:
         definition = rule.get("rule_definition", {})
         if not isinstance(definition, dict):
             problem("entry_rules", index, "rule_definition must be an object.")
+            continue
+        rule_problem = _entry_rule_problem(rule["entry_type"], definition)
+        if rule_problem:
+            problem("entry_rules", index, rule_problem)
             continue
         rules.append({"entry_type": rule["entry_type"], "rule_definition": definition})
 
@@ -144,6 +175,11 @@ def clean(graph) -> dict:
     starts = [key for key, node_type in types.items() if node_type == "START"]
     if raw_nodes and len(starts) != 1:
         problem("nodes", None, "A journey has exactly one Start step.")
+    for index, node in enumerate(nodes):
+        if node["type"] == "CONDITION" and "rule" in node["config"]:
+            rule_problem = conditions.problem(node["config"]["rule"], in_journey=True) or _reference_problem(node["config"]["rule"], types)
+            if rule_problem:
+                problem("nodes", index, f"{node['key']}: {rule_problem}")
 
     connections, seen = [], set()
     raw_connections = graph.get("connections") or []

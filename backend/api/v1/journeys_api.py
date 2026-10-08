@@ -59,7 +59,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import details, graph, lifecycle, listing, publish, schedule, starters
+from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -440,6 +440,39 @@ class JourneyViewSet(views.JourneyViewSet):
         """The dates on customer records a Date / Time entry can follow: custom attributes holding YYYY-MM-DD values, with how
         many customers have each (apps.journeys.schedule)."""
         return Response(schedule.date_attributes(context.require().tenant_id))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=False, methods=["get"], url_path="condition-fields")
+    def condition_fields(self, request, version=None):
+        """What the condition builder offers (apps.journeys.conditions.fields): the standard customer fields, the workspace's
+        custom attributes with a type guess and their values when few, the events seen lately with their property keys, its
+        lists and segments."""
+        return Response(conditions.fields(context.require().tenant_id))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=False, methods=["post"], url_path="condition-count")
+    def condition_count(self, request, version=None):
+        """{matching, total}: how many of the workspace's customers the body's rule and/or filters hold for right now — Setup's
+        "would enter now" for the Customer Attribute Matches trigger and the Only Customers Where filters."""
+        body = request.data if isinstance(request.data, dict) else {}
+        rule, filters = body.get("rule"), body.get("filters")
+        try:
+            return Response(conditions.count_customers(context.require().tenant_id, rule if isinstance(rule, dict) else None,
+                                                       filters if isinstance(filters, dict) else None))
+        except conditions.RuleError as error:
+            raise ValidationError({"rule": str(error)}) from None
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path="condition-count")
+    def step_condition_count(self, request, pk=None, version=None):
+        """{matching, total, sampled}: of the customers in this journey now, how many the body's rule holds for — the Condition
+        step's Match on Entry line."""
+        journey = self.get_object()
+        body = request.data if isinstance(request.data, dict) else {}
+        try:
+            return Response(conditions.count_in_journey(journey.tenant_id, journey.pk, body.get("rule")))
+        except conditions.RuleError as error:
+            raise ValidationError({"rule": str(error)}) from None
 
     # ------------------------------------------------------------ lifecycle (phase 6d, Journey Details)
     @extend_schema(request=None, responses=JourneySerializer)

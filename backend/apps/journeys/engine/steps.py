@@ -9,10 +9,12 @@ Step configuration (journey_node.config), by node_type:
 
     START            -
     WAIT             {duration, unit: MINUTES | HOURS | DAYS | WEEKS}, {duration: "P1DT6H"} (ISO 8601) or {days, hours, minutes}
-    CONDITION        {check, days?, event_type?, segment_id?, category?, message_step?}  ->  branch YES or NO
-                     check: PURCHASED, OPENED, CLICKED, REDEEMED, EVENT (any journey_event of event_type), IN_SEGMENT.
-                     `days` looks back that many days from now; without it, back to when the customer entered.
-                     OPENED / CLICKED look at the emails of this journey: those of `message_step` (a node key) when given.
+    CONDITION        {rule}  ->  branch YES or NO: a condition rule (apps.journeys.conditions) over the customer's record, this
+                     journey's messages and steps, events, lists and segments. The earlier form is still read:
+                     {check, days?, event_type?, segment_id?, category?, message_step?} with check PURCHASED, OPENED, CLICKED,
+                     REDEEMED, EVENT (any journey_event of event_type) or IN_SEGMENT; `days` looks back that many days from
+                     now, without it back to when the customer entered; OPENED / CLICKED look at the emails of this journey,
+                     those of `message_step` (a node key) when given.
     SPLIT            {by: RANDOM | LOYALTY_TIER | CUSTOMER_TYPE, paths: [{branch_key, share} | {branch_key, values: [...]}], otherwise?}
                      The path chosen is kept in state_data["splits"] so a retry never rolls again.
     EMAIL, SMS, MMS  see messages.py
@@ -30,6 +32,7 @@ from django.utils import timezone
 from apps.customers.models import Coupon, CustomerMaster, LoyaltyTier, Segment
 from apps.delivery.engine import session
 
+from .. import conditions
 from ..models import JourneyGeneratedCampaign, JourneyNode
 from . import messages
 from .outcome import Done, Finish, Hold
@@ -71,6 +74,13 @@ def _journey_campaigns(enrollment, step_key: str | None) -> list[str]:
 
 def _check(node, state, enrollment) -> Done:
     config = node.config or {}
+    if isinstance(config.get("rule"), dict):
+        try:
+            met = conditions.evaluate(config["rule"], enrollment)
+        except conditions.RuleError as error:
+            return Done("FAILED", {"reason": str(error), "met": False}, branch="NO")
+        return Done(result={"conditions": conditions.count_conditions(conditions.clean(config["rule"], in_journey=True)), "met": met},
+                    branch="YES" if met else "NO")
     expression = config.get("expr") if isinstance(config.get("expr"), dict) else {}
     if not config.get("check") and expression.get("event"):         # the seed data's form: {expr: {event, within_days}}
         config = {"check": "EVENT", "event_type": expression["event"], "days": expression.get("within_days")}

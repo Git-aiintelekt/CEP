@@ -806,6 +806,21 @@ export function installMockApi(options: MockOptions = {}) {
       mailNow = { ...mailNow, sender_profile: sender, server: mailNow.server && { ...mailNow.server, last_tested_at: '2026-09-18T10:00:00Z', last_test_ok: ok, last_test_error: ok ? null : 'ConnectionRefusedError: [Errno 111]' } }
       return json({ ok, error: ok ? null : 'ConnectionRefusedError: [Errno 111]', to: body?.to, sender_profile: sender })
     }
+    if (path.endsWith('/journeys/condition-fields/')) {
+      return json({
+        customer: [{ key: 'customer:first_name', label: 'First Name', type: 'text' }, { key: 'customer:email', label: 'Email Address', type: 'text' },
+                   { key: 'customer:country', label: 'Country', type: 'text' }, { key: 'customer:last_purchase_at', label: 'Last Purchase Date', type: 'date' },
+                   { key: 'customer:purchase_count', label: 'Number of Purchases', type: 'number' }],
+        attributes: [{ key: 'attr:loyalty_tier', label: 'Loyalty Tier', type: 'text', customers: 18240, values: ['Silver', 'Gold', 'Platinum'] },
+                     { key: 'attr:customer_status', label: 'Customer Status', type: 'text', customers: 20100, values: ['New', 'Active', 'Lapsed'] },
+                     { key: 'attr:renewal_date', label: 'Renewal Date', type: 'date', customers: 9120, values: null }],
+        events: [{ key: 'event:PURCHASE', label: 'Purchase', seen: 1240, properties: ['amount', 'store'] }, { key: 'event:CART_ABANDON', label: 'Abandoned Cart', seen: 310, properties: ['cart_value'] }],
+        lists: [{ key: 'list:cl-1', label: 'Do Not Contact' }],
+        segments: [{ key: 'segment:seg-1', label: 'VIP Customers' }],
+      })
+    }
+    if (path.endsWith('/journeys/condition-count/') && method === 'POST') return json({ matching: 218, total: 20100, sampled: false })
+    if (/\/journeys\/[^/]+\/condition-count\/$/.test(path) && method === 'POST') return json({ matching: 1284, total: 3412, sampled: false })
     if (path.endsWith('/journeys/date-attributes/')) {
       return json([{ key: 'birth_date', label: 'Birth Date', customers: 18240 }, { key: 'membership_date', label: 'Membership Date', customers: 9120 }])
     }

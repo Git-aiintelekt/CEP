@@ -6,7 +6,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 
 import { IconButton } from '@/components/Button'
 
-export function SidePanel({ title, subtitle, onClose, children, footer }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+export function SidePanel({ title, subtitle, onClose, children, footer, wide = false }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const panel = useRef<HTMLElement>(null)
   const close = useRef(onClose)
   useEffect(() => {
@@ -32,7 +32,7 @@ export function SidePanel({ title, subtitle, onClose, children, footer }: { titl
   }, [])
 
   return (
-    <section ref={panel} role="dialog" aria-label={title} className="flex h-full w-[360px] shrink-0 flex-col border-l border-line bg-surface">
+    <section ref={panel} role="dialog" aria-label={title} className={`flex h-full shrink-0 flex-col border-l border-line bg-surface ${wide ? 'w-[520px]' : 'w-[360px]'}`}>
       <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <h2 className="truncate font-display text-base font-semibold text-ink-900" title={title}>{title}</h2>

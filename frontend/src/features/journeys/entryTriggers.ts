@@ -15,7 +15,7 @@
  * segment_id); its three Attribute Change options are stored as {change_trigger} and enrol on that attribute's change
  * event (apps/journeys/events.py ATTRIBUTE_EVENTS: LOYALTY_TIER_CHANGE, PREFERENCE_UPDATE, ADDRESS_CHANGE).
  */
-import type { JourneyEntryRule } from '@/lib/types'
+import type { ConditionRule, JourneyEntryRule } from '@/lib/types'
 
 export interface TriggerOption {
   value: string
@@ -99,7 +99,27 @@ export const SEGMENT_CHANGE_TRIGGER_GROUPS: TriggerGroup[] = [
       { value: 'ADDRESS_CHANGE', label: 'Address Change' },
     ],
   },
+  {
+    key: 'ATTRIBUTE_MATCH', label: 'Customer Record',
+    options: [
+      { value: 'ATTRIBUTE_MATCH', label: 'Customer Attribute Matches' },
+    ],
+  },
 ]
+
+/** {change_trigger: ATTRIBUTE_MATCH, rule}: the customers whose record matches the rule enter (apps/journeys/conditions.py). */
+export const ATTRIBUTE_MATCH = 'ATTRIBUTE_MATCH'
+
+export function isAttributeMatch(entryType: string, value: string): boolean {
+  return entryType === 'SEGMENT_CHANGE' && value === ATTRIBUTE_MATCH
+}
+
+/** The condition rules an entry rule carries: the attribute trigger's own rule, and any rule's Only Customers Where filters. */
+export function conditionsFromRule(rule: JourneyEntryRule | undefined): { rule: ConditionRule | null; filters: ConditionRule | null } {
+  const definition = (rule?.rule_definition ?? {}) as { rule?: ConditionRule; filters?: ConditionRule }
+  const read = (value: ConditionRule | undefined) => (value && typeof value === 'object' && Array.isArray(value.conditions) ? { all: value.all !== false, conditions: value.conditions } : null)
+  return { rule: read(definition.rule), filters: read(definition.filters) }
+}
 
 export const TRIGGER_PLACEHOLDER: Record<string, string> = {
   EVENT: 'Select an Event Trigger',

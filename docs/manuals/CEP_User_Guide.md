@@ -36,6 +36,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Who can use it
   - The fields and controls
   - How to
+  - A Drip Campaign
   - What happens behind the scenes
   - Things to know
 - Templates and Content
@@ -451,11 +452,11 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 | Saved views | All, Mine, Sending Today, Needs Attention, Awaiting Approval (shown to approvers and publishers), Drafts. | One click sets the filters below to that question. |
 | Search | By name or code. | |
 | Filters | Triggered By (manual, journey, and the owner), Status, Type, Channel, Date Created (a preset or a custom range), Tag. | The table and the calendar alike. In the calendar the month replaces the date range. |
-| The table | Campaign Name (with Continue Setup for an unfinished draft), Type, Channel, Status, Triggered By, Audience, Next Send (the day and the time in the campaign's zone; *local time* when the send follows each recipient's clock), Created. Sort by the column headers. | |
-| Row actions | Pause, Resume or Approve beside the menu when the status allows; the menu: Continue Setup or Edit, View Journey for a journey campaign, View Results, Clone, Pause, Resume, Cancel Schedule, Archive, Unarchive. | Each action is only offered when the campaign's status allows it and you have the permission. |
+| The table | Campaign Name (with Continue Setup for an unfinished draft), Type, Channel, Status, Triggered By, Audience, Next Send (the day and the time in the campaign's zone; *local time* when the send follows each recipient's clock), Created. Sort by the column headers. A drip adds a line under its name ("2 of 4 messages sent", "5 messages · starts Mon 26 Oct", "Stopped after 2 of 5", "3 messages · draft") and its Next Send names the message ("09:00 CT · Message 3 of 4"; "On hold" while paused). | |
+| Row actions | Pause, Resume or Approve beside the menu when the status allows; the menu: Continue Setup or Edit, View Journey for a journey campaign, View Results, Clone, Pause, Resume, Cancel Schedule, Stop Remaining Messages (a running or paused drip; it asks first), Archive, Unarchive. | Each action is only offered when the campaign's status allows it and you have the permission. |
 | Select | The checkbox per row, or every campaign on the page. | Shows the bulk bar: Clone, Pause, Resume, Archive for the selection. Campaigns that cannot take the action are skipped and named. |
 | Rows per Page, Previous, Next | Pages of 50 by default. | |
-| The calendar | Monday first, previous and next month, Today; a bar per campaign coloured by status (green going out or sent, amber paused or test published, red failed or cancelled, grey a draft that plans a date); more than three on a day fold into *+n more*. | A bar opens the campaign. |
+| The calendar | Monday first, previous and next month, Today; a bar per campaign coloured by status (green going out or sent, amber paused or test published, red failed or cancelled, grey a draft that plans a date); more than three on a day fold into *+n more*. A drip is one bar with a numbered marker on each send day (filled once sent, outlined to come; hover for the message and time); a paused drip's bar stops at its last send and says On hold. The week view and the day list show each drip message on its own. | A bar opens the campaign. |
 
 ### A campaign's page
 
@@ -463,8 +464,8 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 |---|---|---|
 | The header | The name, its status, channel and type chips, Manual or Journey, the code (copies on click), the description. | |
 | The main button | What the campaign most needs next: Continue Setup for an unfinished draft, Production Publish once a test has been sent, Resume when paused. | Opens the set-up at the right step, or acts at once. |
-| Clone, More Actions | Clone makes "Copy of …" with the settings, lists, exclusions and targets, never the runs or results. More Actions: Edit Campaign, Send a Test, Production Publish, Pause, Cancel Schedule, Archive, Unarchive, View Results, as the status allows. | |
-| Overview | The headline figures (audience, sent, delivery rate, opens and clicks or replies and STOPs, conversions), the campaign's facts (purpose, owner, template, sender, tags), when and how it goes out, its dates, its targets, and a preview of the message. | Edit on a card opens the set-up at the step that owns it. |
+| Clone, More Actions | Clone makes "Copy of …" with the settings, lists, exclusions and targets, never the runs or results. For a drip it asks first for the copy's name and start date, copies every message with its own template copy, and opens the copy's Drip Campaign Setup step. More Actions: Edit Campaign, Send a Test, Production Publish, Pause, Cancel Schedule, Archive, Unarchive, View Results, as the status allows. | |
+| Overview | The headline figures (audience, sent, delivery rate, opens and clicks or replies and STOPs, conversions), the campaign's facts (purpose, owner, template, sender, tags), when and how it goes out, its dates, its targets, and a preview of the message. A published drip shows the Series Timeline instead: each message with its state and figures, Skipped with the reasons and View People, a calendar, and the banners for scheduled, paused (who and when), stopped early and a failed message (Retry Message when nobody got it). | Edit on a card opens the set-up at the step that owns it. |
 | Performance | Sent, delivered, opened, clicked, bounced, unsubscribed, complaints and conversions per run, the curve by hour or by day, and for an email campaign with a subject line test, A and B side by side with the winner and Send A / Send B to the Rest while people wait. | |
 | Recipients | One row per person of a run: address or number, name, status (Queued, Sent, Delivered, Opened, Clicked, Bounced, Marked as Spam, Failed), the reason, the times, the engine's message id; filter by status, search, Export CSV. A row opens the message's timeline with every callback the engine sent, and Check with the Engine asks Postal directly. Blocked & Unsubscribed lists this campaign's people who cannot be sent to and why. | |
 | Audience | The lists attached and excluded, the funnel from everyone in the lists to the estimated recipients, the reasons people are left out, system exclusions, and once sent, the frozen picture of the last send beside today's estimate; Export CSV of the frozen list with who was left out and why. | |
@@ -495,6 +496,10 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 
 **Reuse a campaign.** Clone. Rename the copy, check its lists and schedule, publish.
 
+**Pause, resume or stop a drip.** Pause holds every waiting message. Resume shows first what happens to the messages whose day passed while paused (they go at the next send time, one a day, and later ones move only if they must). Stop Remaining Messages cancels the rest for good; the drip is Completed, stopped early, and its templates are free again. To send it again, clone it.
+
+**Retry a drip message that failed.** When a message failed and nobody received it, its card and banner offer Retry Message: it goes again now to the same audience.
+
 **Approve a campaign.** When the workspace's Approvals setting is on, a campaign asks for approval on its Review & Publish step; an approver sees it under Awaiting Approval, opens it and approves or sends it back with a note. The person who asked can never be the one who approves.
 
 **Read what happened to one person's message.** Recipients → search the address → open the row. The timeline shows when it was queued, handed to the engine, and every delivery, bounce, open and click the engine reported; Check with the Engine fetches the engine's own record.
@@ -519,7 +524,7 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 
 # Campaign Set-Up
 
-**Where:** Campaigns → Create Campaign, then the five steps; Edit Campaign on a campaign's page opens the same steps.
+**Where:** Campaigns → Create Campaign, then the five steps (four for a drip: see A Drip Campaign below); Edit Campaign on a campaign's page opens the same steps.
 
 ## What this page is for
 
@@ -539,8 +544,8 @@ The set-up is where a campaign is defined: who it is for, what it says, a test, 
 | Field | What it is | What it changes |
 |---|---|---|
 | Campaign Name | An internal name, unique among the workspace's live campaigns. | How the campaign is listed everywhere, including reports and Home. |
-| Campaign Type | Regular Marketing (one-time or scheduled), Drip (a series of runs on a pattern), E-Receipt (a receipt sent per purchase), Other (service or legal notices). Fixed once saved. | Which steps and schedule choices follow: a drip has steps instead of one time; an e-receipt has no audience or schedule, the point of sale triggers each send. |
-| Channel | Email, SMS, MMS, or Multiple Channels. For a receipt: email, or a text receipt for registers that ask for SMS. Fixed once saved. | Which templates and senders are offered, how the audience is judged (email consent and addresses, or text consent and numbers), and what the message can carry. |
+| Campaign Type | Regular Marketing (one-time or scheduled), Drip (several messages on a timetable, everyone starting together), E-Receipt (a receipt sent per purchase), Other (service or legal notices). Fixed once saved. Picking Drip shows when a journey suits better, with Create a Journey Instead. | Which steps follow: a drip has Audience, Drip Campaign Setup, Targets and Test & Publish; an e-receipt has no audience or schedule, the point of sale triggers each send. |
+| Channel | Email, SMS, MMS, or Multiple Channels (not for a drip: a drip uses one channel). For a receipt: email, or a text receipt for registers that ask for SMS. Fixed once saved. | Which templates and senders are offered, how the audience is judged (email consent and addresses, or text consent and numbers), and what the message can carry. |
 | Message Purpose | Marketing, transactional, service or legal. | Which consent and frequency rules apply: marketing needs an opt-in and an unsubscribe link and counts against frequency limits; the others skip the consent rules but never a blocked address. |
 | Owner | You, unless changed; Change opens a searchable list of users. | Who is told about the campaign's runs and failures, and whose it is under Mine. |
 | Tags | Free words. | A filter on the Campaigns page. |
@@ -586,7 +591,7 @@ The set-up is where a campaign is defined: who it is for, what it says, a test, 
 | Control | What it is | What it changes |
 |---|---|---|
 | The summary card | Names anything unfinished: the checklist's problems, no test sent, no targets, each with the way to it. | |
-| When to Send | Send immediately, Schedule (Send At), or Recurring: Repeats (daily, weekly with Days of the Week, monthly with Day of the Month), At, Ends (never, on a Last Day, after a Number of Sends). A drip: Each Step Goes Out At and a label per step; Day 0 goes out when you publish. | The run or runs. Send times are clock times in the campaign's time zone. |
+| When to Send | Send immediately, Schedule (Send At), or Recurring: Repeats (daily, weekly with Days of the Week, monthly with Day of the Month), At, Ends (never, on a Last Day, after a Number of Sends). A drip has no When to Send: its start date and times are on the Drip Campaign Setup step. | The run or runs. Send times are clock times in the campaign's time zone. |
 | Time Zone | The campaign's zone; the workspace's unless changed. | The clock the times above are read in, daylight saving included. |
 | Send at Each Recipient's Local Time | The same clock time in each recipient's own zone, from their address or a time zone attribute. The step says how many people have a known zone. | Each message waits for its own time; people without a zone get the campaign's time. |
 | Apply Corporate Frequency Limits | On unless switched off. Marketing only. | Off lifts the frequency cap for this campaign and writes a warning to the activity log. Consent, unsubscribes and blocked addresses always apply. |
@@ -601,11 +606,28 @@ The set-up is where a campaign is defined: who it is for, what it says, a test, 
 
 **Rehearse without sending to anyone.** Attach a Test list, send tests to colleagues, publish to test. A test publish moves the status and sends nothing to real people.
 
-**Send a series.** Drip on Create Campaign. On Review & Publish give each step its day and label; publishing plans every run at once, day 0 now.
+**Send a series.** Drip on Create Campaign → Audience: tick the list → Drip Campaign Setup: build message 1, then Add Message (a copy of the last keeps the header and footer), give each its day and subject, choose the start date, the send time and the zone, and the sender → Targets → Test & Publish: Send All as a Test, check each message, then Publish to Production.
 
 **Send at everyone's 10 a.m.** Tick Send at Each Recipient's Local Time and set Send At to 10:00. The step says how many people have a known zone; the others get 10:00 in the campaign's zone.
 
 **Test two subject lines.** On the Test step switch on Test a Second Subject Line, write B, keep the sample at 20 percent and the decision at four hours, save. The Performance tab shows A and B side by side once the run starts.
+
+## A Drip Campaign
+
+A drip sends several messages on a timetable to one audience on one channel. Everyone on the campaign list starts together on the start date; each message goes on its day (Day 0 is the start date) at the series time, or at its own time.
+
+| Step | What you do there |
+|---|---|
+| Audience | As for any campaign. The note says how a drip audience works: people added to the lists after message 1 don't join, and consent and frequency limits are checked again before each message. |
+| Drip Campaign Setup | The messages as a timeline of cards, in day order, with the gap between them. Open a card to set its name (it names the template copy too), its day, its own send time, the template (Choose from Gallery, Edit Template, Change), the subject line and preheader (email) or the text (SMS, MMS), and the A/B subject test (one message per drip, email only). Add Message starts from a copy of the last message, a template from the gallery, or a blank one; Copy as Next Message does the same from the open one; Remove Message asks first. Series at a Glance holds the start date, the send time and the time zone, what the series adds up to and a calendar; Sender (and Topic) are set once for every message. Changing the date, time or zone moves every message's date but never changes the messages. Continue lists the messages that still need something, with Show First Problem. |
+| Targets | As for any campaign; the targets are for the drip as a whole. |
+| Test & Publish | Preview each message (as a sample customer, on desktop or mobile). Send All as a Test sends every message now, one after another, to the people you pick; each subject starts with its place: "[Test 2 of 3 · would send Day 3]" for email, "[Test 2/3 · Day 3]" for texts, and the A/B message sends both subjects. A message edited after its test says Changed since the test; Resend it. The Review Timeline shows each message's date, subject and reach, with warnings for messages closer than two days, frequency limits and quiet hours. Before You Publish lists what's left; Publish to Production plans every message at once. |
+
+Each message has its own copy of its template ("Loyalty Welcome Series · 2 of 4"), so editing one never changes another. From the editor, Back to Drip Campaign Setup returns to the message. A message's own subject line is what it sends; its template copy needs none.
+
+Once published, the campaign page shows the Series Timeline: each message Sent with its figures, Sending, Next Up, Scheduled, On Hold, Cancelled or Failed, and who was skipped and why (View People lists them). Pause holds the waiting messages; Resume first shows when the missed ones will go. Stop Remaining Messages cancels the rest for good (to send again, clone it). A failed message nobody received can be retried. Clone asks for the copy's name and start date and opens its Drip Campaign Setup step.
+
+**Not in the first version:** people can't join a drip after it starts (no rolling entry), conversions and revenue aren't split by message, there's no view of where one person is in the series, test recipients can't be saved as a list, and a change can't be applied to every message at once.
 
 ## What happens behind the scenes
 
@@ -620,6 +642,7 @@ The set-up is where a campaign is defined: who it is for, what it says, a test, 
 - A Test list blocks a production publish; an unverified sender blocks it too, while test sends still work.
 - A campaign's own subject line never changes the template; other campaigns on the same template keep theirs.
 - The hourly limit is not enforced yet; pace a send with the engine's Messages per Minute.
+- A drip's messages can't change once it is published, and their templates are locked (read-only, not deletable) until it finishes or is stopped.
 
 ---
 
@@ -646,8 +669,8 @@ A template is the content a campaign sends: an email design, a text message, or 
 |---|---|---|
 | Start a new message | One card per channel you may use: Email, E-Receipt, SMS, MMS. | Opens New Template for that channel. |
 | Your Templates | Search, a tab per channel, a Status filter (Draft, Active, Archived). | The library below. |
-| A template's card | Name, channel, status, when it was last used and by which campaign. | Opens the editor. |
-| Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template. |
+| A template's card | Name, channel, status, when it was last used and by which campaign. A drip message's template says which message it is ("Loyalty Welcome Series · Message 2 of 4"); a drip's templates sit together by name, and carry Locked while the drip is live. | Opens the editor. |
+| Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template, and while a drip uses it for a message ("This Template Is in Use", with the way to the campaign). |
 | Starting Point gallery | CEP's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
 
 ### New Template
@@ -725,6 +748,7 @@ The short tour; the chapter The Email Designer has every block and setting, and 
 ## Things to know
 
 - Changing a template changes what every campaign using it sends from then on. Duplicate when a campaign must keep its own version.
+- A drip gives every message its own copy of a template, so a drip's messages never change other campaigns. Opened from the Drip Campaign Setup step the editor says which message it is, keeps the subject on the message (read-only here), and leads Back to Drip Campaign Setup. While the drip is live the copy is locked: the preview and the editor say "Used by a live drip (…). It can't be changed until the drip finishes or is stopped." and open read-only.
 - Only an active template can be published; a draft can be previewed and test sent.
 - A marketing email must carry the unsubscribe link; the designer blocks Activate without it and the campaign cannot publish.
 - Outlook for Windows ignores shadows; the field says so.
@@ -2013,7 +2037,9 @@ On the Journeys page, choose **Create Journey**, or **Start from Scratch** in th
 |---|---|
 | Journey Name | A name unique in the workspace, for example *Welcome Series — New Loyalty Members*. |
 | What Qualifies a Customer to Enter This Journey? | **Customer List**, **Event**, **Date / Time** or **Segment or Customer Change**. |
-| Specific Trigger | The list, the event (Purchase, Abandoned Cart, Birthday, No Response …), the schedule, or the change (Enters Segment, Exits Segment, Loyalty Tier, Preference Update, Address Change). Enters / Exits Segment also asks which **Segment**. |
+| Specific Trigger | The list, the event (Purchase, Abandoned Cart, Birthday, No Response …), the schedule, or the change (Enters Segment, Exits Segment, Loyalty Tier, Preference Update, Address Change, Customer Attribute Matches). Enters / Exits Segment also asks which **Segment**. |
+| Customer Record Matches | For **Customer Attribute Matches**: the conditions a customer's record must meet to enter (see *Conditions* below), for example Customer Status is New. Everyone whose record matches enters, each once; with Every Qualifying Event, again when their record changes. A grey line says how many would enter now. |
+| Only Customers Where (Optional) | Conditions that narrow any trigger: a customer the trigger would admit enters only if their record matches, for example Country is United States and Email Consent is Opted In. |
 | Description (Optional) | What the journey is for; shown on its page. |
 
 **Date / Time entries** add their own fields under Specific Trigger, and a grey line reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter"):
@@ -2046,7 +2072,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Step | What it does |
 |---|---|
 | Wait | Pauses for minutes, hours, days or weeks. |
-| Condition | Splits into Yes and No: made a purchase, opened an email, clicked a link, redeemed a coupon, a specific event happened (optionally within a number of days), or is in a segment. |
+| Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Email, SMS / MMS | Sends a published template. |
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
@@ -2054,6 +2080,17 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Exit Journey | Ends the path; the customer counts as Goal Converted. End every path with one. |
 
 **Save Draft** (top right) keeps your work; nothing saves on its own. When every step is set up, choose **Continue to Test Publish**.
+
+#### Conditions
+
+The same builder writes a Condition step, the Customer Attribute Matches trigger and the Only Customers Where filters. Each row is a field, how to compare it, and a value; **All** means every row must hold, **Any** that one is enough; **Add Group** nests one All / Any group inside the rule. A sentence under the builder reads the whole condition back. A rule holds at most 20 conditions.
+
+| Fields | Compared with |
+|---|---|
+| Customer: first name, last name, email address, phone number, country, state, city, postal code, source system, record updated, last purchase date, number of purchases, and every custom attribute on the records (with its values to pick from when there are few) | Text: is, is not, is any of, is none of, contains, does not contain, starts with, is set, is not set. Numbers: equals, does not equal, is at least, is at most, is between. Dates: is within the last N days, is more than N days ago, is before, is after, is between. A custom attribute is read as text, a number or a date by the comparison you choose. |
+| This Journey (Condition steps only): each Email or SMS step, any message of the journey, each other Condition | A message: was sent, was delivered, was opened, was clicked, bounced, was delivered and not opened, was not sent. A Condition: answered Yes, answered No. Only sends after the customer entered count. |
+| Events: the types seen in the last 90 days and the standard ones, or any type you name | Happened, did not happen; optionally within the last N days (otherwise since the customer entered the journey, or ever at entry), and filters on the event's own data (store is Lakeside, amount is at least 100). |
+| Lists and segments | Is in, is not in. |
 
 ### 5. Test publish
 
@@ -2118,6 +2155,7 @@ Only customers in the customer records enter, since a message to someone unknown
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
 - The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - The Split step (more than two paths) is not offered; use Conditions.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
 - Events are explained in **Events** (Settings → Events), purchases in **Attribution**.

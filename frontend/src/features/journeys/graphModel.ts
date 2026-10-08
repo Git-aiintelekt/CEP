@@ -7,7 +7,9 @@
  * one spine, a Condition's two branches reconverging on the node that has more than one incoming edge, or ending in
  * their own Exit step).
  */
-import type { JourneyGraph, JourneyGraphConnection, JourneyGraphNode, JourneyNodeType } from '@/lib/types'
+import type { ConditionRule, JourneyGraph, JourneyGraphConnection, JourneyGraphNode, JourneyNodeType } from '@/lib/types'
+
+import { isRuleComplete } from './conditions/conditionModel'
 
 export interface EditorNode {
   key: string
@@ -127,6 +129,13 @@ export function fromWireGraph(graph: JourneyGraph): EditorNode[] {
   return walk(start.key, byFrom, byKey, incomingCount)
 }
 
+/** The steps a Condition can name: every message step, and every other Condition. */
+export function conditionStepOptions(root: EditorNode[], exceptKey: string, describe: (node: EditorNode) => string): { key: string; label: string; type: 'EMAIL' | 'SMS' | 'MMS' | 'CONDITION' }[] {
+  return flatten(root)
+    .filter((node) => node.key !== exceptKey && (node.type === 'EMAIL' || node.type === 'SMS' || node.type === 'MMS' || node.type === 'CONDITION'))
+    .map((node) => ({ key: node.key, label: describe(node), type: node.type as 'EMAIL' | 'SMS' | 'MMS' | 'CONDITION' }))
+}
+
 /** Flattens the tree to a plain list, for counting / validity checks. */
 export function flatten(chain: EditorNode[]): EditorNode[] {
   return chain.flatMap((node) => (node.branches ? [node, ...flatten(node.branches.YES), ...flatten(node.branches.NO)] : [node]))
@@ -139,6 +148,7 @@ export function isNodeConfigured(node: EditorNode): boolean {
     case 'WAIT':
       return config.duration !== undefined && config.duration !== null && config.duration !== ''
     case 'CONDITION':
+      if (config.rule && typeof config.rule === 'object') return isRuleComplete(config.rule as ConditionRule, undefined, false)
       return Boolean(config.check)
     case 'EMAIL':
     case 'SMS':
