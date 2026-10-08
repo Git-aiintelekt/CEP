@@ -227,6 +227,9 @@ class JourneyEnrollment(models.Model):
     status = models.CharField(max_length=20, default='ACTIVE', choices=Status.choices)  # ACTIVE, EXITED, COMPLETED
     enrolled_at = models.DateTimeField(db_default=Now())
     exited_at = models.DateTimeField(null=True, blank=True)
+    converted_at = models.DateTimeField(null=True, blank=True)        # the Goal step (apps.journeys.goals): the first matching event's moment
+    converted_node_id = models.UUIDField(null=True, blank=True)       # the Goal step reached
+    attributed_revenue = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     exit_reason = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(db_default=Now())
     updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)

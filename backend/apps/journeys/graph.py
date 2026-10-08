@@ -19,7 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from api.exceptions import Conflict
 
-from . import conditions, waits
+from . import conditions, goals, waits
 from .models import Journey, JourneyConnection, JourneyEntryRule, JourneyNode, JourneyVersion
 
 # block -> node_type -> node_family. Issue Coupon (COUPON_ISSUE) and Change Loyalty Tier (LOYALTY_CHANGE) invoke the
@@ -36,6 +36,7 @@ NODE_FAMILY = {
     "COUPON_ISSUE": JourneyNode.NodeFamily.ACTION,
     "LOYALTY_CHANGE": JourneyNode.NodeFamily.ACTION,
     "SEGMENT_UPDATE": JourneyNode.NodeFamily.ACTION,
+    "GOAL": JourneyNode.NodeFamily.CONTROL,            # the outcome the journey is for (apps.journeys.goals)
     "EXIT": JourneyNode.NodeFamily.CONTROL,            # End
 }
 ENTRY_TYPES = set(JourneyEntryRule.EntryType.values)
@@ -180,6 +181,10 @@ def clean(graph) -> dict:
             wait_problem = waits.problem(node["config"])
             if wait_problem:
                 problem("nodes", index, f"{node['key']}: {wait_problem}")
+        if node["type"] == "GOAL" and node["config"].get("event_type"):
+            goal_problem = goals.problem(node["config"])
+            if goal_problem:
+                problem("nodes", index, f"{node['key']}: {goal_problem}")
         if node["type"] == "CONDITION" and "rule" in node["config"]:
             rule_problem = conditions.problem(node["config"]["rule"], in_journey=True) or _reference_problem(node["config"]["rule"], types)
             if rule_problem:

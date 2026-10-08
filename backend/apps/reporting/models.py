@@ -51,6 +51,16 @@ class JourneyMasterAnalytical(models.Model):
     active_enrollment_count = models.IntegerField(null=True, blank=True)
     completed_count = models.IntegerField(null=True, blank=True)
     exited_count = models.IntegerField(null=True, blank=True)
+    converted_count = models.IntegerField(null=True, blank=True)          # the Goal step
+    attributed_revenue = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    sent_count = models.IntegerField(null=True, blank=True)               # the journey's messages across every step
+    delivered_count = models.IntegerField(null=True, blank=True)
+    open_count = models.IntegerField(null=True, blank=True)
+    click_count = models.IntegerField(null=True, blank=True)
+    bounce_count = models.IntegerField(null=True, blank=True)
+    complaint_count = models.IntegerField(null=True, blank=True)
+    held_back_count = models.IntegerField(null=True, blank=True)
+    failed_count = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(null=True, blank=True)
     last_refreshed_at = models.DateTimeField(db_default=Now())
 

@@ -22,7 +22,7 @@ from apps.delivery.models import MailerExecution, SmsExecution
 from apps.governance.models import CommunicationGovernancePolicy
 from apps.templates.models import TemplateMaster
 
-from . import conditions, graph, schedule, waits
+from . import conditions, goals, graph, schedule, waits
 from .engine import enroll as enroll_engine
 from .engine import steps as steps_engine
 from .engine.outcome import Done, Finish, Hold
@@ -91,6 +91,8 @@ def _step_configured(node: JourneyNode) -> bool:
         return bool(config.get("tier_id"))
     if node.node_type == "SEGMENT_UPDATE":
         return bool(config.get("segment_id")) and bool(config.get("action"))
+    if node.node_type == "GOAL":
+        return goals.configured(config)
     return True
 
 

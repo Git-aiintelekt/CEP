@@ -50,9 +50,10 @@ OPERATORS = {
     "step": ("yes", "no"),
     "event": ("happened", "not_happened"),
     "membership": ("in", "not_in"),
+    "goal": ("reached", "not_reached"),
 }
 NO_VALUE = {"is_set", "is_not_set"}
-VALUELESS_KINDS = {"message", "step", "event", "list", "segment"}                                # their operators carry no value
+VALUELESS_KINDS = {"message", "step", "event", "list", "segment", "goal"}                                # their operators carry no value
 LIST_VALUE = {"in", "not_in", "between", "between_dates"}
 NUMBER_OPS = set(OPERATORS["number"]) - {"is_set", "is_not_set"}
 DATE_OPS = set(OPERATORS["date"]) - {"is_set", "is_not_set"}
@@ -84,7 +85,7 @@ class RuleError(ValueError):
 def field_kind(field: str) -> tuple[str, str] | None:
     """("customer" | "attr" | "message" | "step" | "event" | "list" | "segment", the rest), or None for an unknown field."""
     prefix, _, rest = str(field or "").partition(":")
-    if prefix in ("customer", "attr", "message", "step", "event", "list", "segment") and rest:
+    if prefix in ("customer", "attr", "message", "step", "event", "list", "segment", "goal") and rest:
         return prefix, rest
     return None
 
@@ -138,7 +139,7 @@ def _clean_condition(raw: dict, in_journey: bool) -> dict:
     if kind is None:
         raise RuleError("Choose a field.")
     prefix, rest = kind
-    if prefix in ("message", "step") and not in_journey:
+    if prefix in ("message", "step", "goal") and not in_journey:
         raise RuleError("Fields about this journey's messages and steps can only be checked inside the journey, not at entry.")
     if prefix == "customer" and rest not in CUSTOMER_FIELDS:
         raise RuleError(f"There is no customer field '{rest}'.")
@@ -419,6 +420,8 @@ def _predicate(condition: dict, p: _Params, in_journey: bool) -> str:
         return _message(rest, op, p)
     if prefix == "step":
         return _step(rest, op, p)
+    if prefix == "goal":
+        return "e.converted_at IS NOT NULL" if op == "reached" else "e.converted_at IS NULL"
     if prefix == "event":
         return _event(rest, condition, p, in_journey)
     return _membership(prefix, rest, op, p)

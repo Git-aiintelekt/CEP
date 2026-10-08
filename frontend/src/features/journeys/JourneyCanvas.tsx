@@ -203,8 +203,8 @@ function JourneyEdge({ sourceX, sourceY, targetX, targetY, label, data }: EdgePr
       <BaseEdge path={path} style={{ stroke: 'var(--color-line)', strokeWidth: 1, ...(dashed ? { strokeDasharray: '4 4' } : {}) }} />
       {label && (
         // the fork's YES / NO tag, on the branch's own vertical just above its first "+"
-        <foreignObject x={targetX - 20} y={targetY - 28} width={40} height={20} className="overflow-visible">
-          <span className="flex h-5 items-center justify-center rounded-sm bg-surface px-1.5 text-xs font-medium text-ink-800 ring-1 ring-line">{String(label)}</span>
+        <foreignObject x={targetX - 32} y={targetY - 28} width={64} height={20} className="overflow-visible">
+          <span className="flex h-5 items-center justify-center rounded-sm bg-surface px-1.5 text-xs font-medium whitespace-nowrap text-ink-800 ring-1 ring-line">{String(label)}</span>
         </foreignObject>
       )}
     </>

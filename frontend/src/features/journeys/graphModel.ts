@@ -10,14 +10,25 @@
 import type { ConditionRule, JourneyGraph, JourneyGraphConnection, JourneyGraphNode, JourneyNodeType } from '@/lib/types'
 
 import { isRuleComplete } from './conditions/conditionModel'
+import { goalContinues, isGoalConfigured } from './GoalFields'
 import { isWaitConfigured } from './WaitFields'
 
 export interface EditorNode {
   key: string
   type: JourneyNodeType
   config: Record<string, unknown>
-  /** only on a CONDITION node */
+  /** on a CONDITION node (Yes / No), and on a GOAL that continues (YES = Reached, NO = Not Yet) */
   branches?: { YES: EditorNode[]; NO: EditorNode[] }
+}
+
+/** A step that opens two branches: a Condition, or a Goal set to continue on the Reached path. */
+export function isFork(node: Pick<EditorNode, 'type' | 'config'>): boolean {
+  return node.type === 'CONDITION' || (node.type === 'GOAL' && goalContinues(node.config ?? {}))
+}
+
+/** The two branch labels the canvas shows at a fork. */
+export function forkLabels(node: Pick<EditorNode, 'type' | 'config'>): { YES: string; NO: string } {
+  return node.type === 'GOAL' ? { YES: 'REACHED', NO: 'NOT YET' } : { YES: 'YES', NO: 'NO' }
 }
 
 let counter = 0
@@ -44,7 +55,7 @@ function buildChain(chain: EditorNode[], incoming: Pending[], x: number, y: numb
     for (const inc of pending) connections.push({ from: inc.key, to: node.key, branch_key: inc.branch, label: null })
     maxY = Math.max(maxY, curY)
     curY += Y_STEP
-    if (node.type === 'CONDITION') {
+    if (isFork(node)) {
       const yes = buildChain(node.branches?.YES ?? [], [{ key: node.key, branch: 'YES' }], x - X_STEP, curY, nodes, connections)
       const no = buildChain(node.branches?.NO ?? [], [{ key: node.key, branch: 'NO' }], x + X_STEP, curY, nodes, connections)
       pending = [...yes.ends, ...no.ends]
@@ -98,12 +109,12 @@ function walkInclusive(key: string, byFrom: EdgeIndex, byKey: NodeIndex, incomin
   const node = byKey.get(key)
   if (!node) return []
   if (node.type === 'EXIT') return [{ key: node.key, type: node.type, config: node.config }]
-  if (node.type === 'CONDITION') {
+  if (isFork(node)) {
     const yesOut = outs(node.key, byFrom).find((edge) => edge.branch_key === 'YES')
     const noOut = outs(node.key, byFrom).find((edge) => edge.branch_key === 'NO')
     const yes = yesOut ? traceBranch(yesOut.to, byFrom, byKey, incomingCount) : { nodes: [], rejoin: null }
     const no = noOut ? traceBranch(noOut.to, byFrom, byKey, incomingCount) : { nodes: [], rejoin: null }
-    const parsed: EditorNode = { key: node.key, type: 'CONDITION', config: node.config, branches: { YES: yes.nodes, NO: no.nodes } }
+    const parsed: EditorNode = { key: node.key, type: node.type, config: node.config, branches: { YES: yes.nodes, NO: no.nodes } }
     const rejoin = yes.rejoin ?? no.rejoin
     return [parsed, ...(rejoin ? walkInclusive(rejoin, byFrom, byKey, incomingCount) : [])]
   }
@@ -161,6 +172,8 @@ export function isNodeConfigured(node: EditorNode): boolean {
       return Boolean(config.tier_id)
     case 'SEGMENT_UPDATE':
       return Boolean(config.segment_id) && Boolean(config.action)
+    case 'GOAL':
+      return isGoalConfigured(config)
     case 'EXIT':
     case 'SPLIT':
     case 'START':

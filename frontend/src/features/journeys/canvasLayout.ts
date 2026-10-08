@@ -5,7 +5,7 @@
  * Read-only (a template's preview): the same cards and connectors, with no "+" points, so cards sit closer. */
 import type { Edge, Node } from '@xyflow/react'
 
-import { isNodeConfigured, type EditorNode, type Path } from './graphModel'
+import { type EditorNode, type Path, forkLabels, isFork, isNodeConfigured } from './graphModel'
 import { hasEmailPreview } from './nodeDefs'
 
 /** the tag a card shows under its description: a starter's unconfigured steps "Needs Setup" */
@@ -114,8 +114,9 @@ function layoutFork(node: EditorNode, containerPath: Path, i: number, x: number,
   const middle = out.edges.length
   const no = layoutChain(node.branches?.NO ?? [], noPath, true, x + BRANCH_X, branchY, [{ id: node.key }], options, out)
   const firstNo = out.edges.slice(middle).find((edge) => edge.source === node.key)
-  if (firstYes) firstYes.label = 'YES'
-  if (firstNo) firstNo.label = 'NO'
+  const labels = forkLabels(node)
+  if (firstYes) firstYes.label = labels.YES
+  if (firstNo) firstNo.label = labels.NO
   return { ends: [...yes.ends, ...no.ends], bottom: Math.max(yes.bottom, no.bottom) + REJOIN_GAP }
 }
 
@@ -140,7 +141,7 @@ function layoutChain(chain: EditorNode[], containerPath: Path, insideBranch: boo
     for (const from of pending) connect(out, from.id, node.key)
     curY += height
 
-    if (node.type === 'CONDITION') {
+    if (isFork(node)) {
       const fork = layoutFork(node, containerPath, i, x, curY, options, out)
       pending = fork.ends
       curY = fork.bottom

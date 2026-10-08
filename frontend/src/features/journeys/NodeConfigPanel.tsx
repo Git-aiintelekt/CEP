@@ -17,6 +17,7 @@ import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneySte
 import type { EditorNode } from './graphModel'
 import { categoryLine, describeStep, type AddableType } from './nodeDefs'
 import { SidePanel } from './SidePanel'
+import { GoalFields, goalProblem, normalizeGoal } from './GoalFields'
 import { WaitFields, waitMode, waitProblem } from './WaitFields'
 
 /** The closest existing read pattern for a cached C360 reference (customers.Coupon / customers.LoyaltyTier, the
@@ -46,11 +47,13 @@ function conditionConfig(config: Record<string, unknown>): Record<string, unknow
   return { ...rest, rule: converted }
 }
 
-export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], journeyId }: {
+export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], journeyId, insideBranch = false }: {
   node: EditorNode; onClose: () => void; onSave: (update: { type: JourneyNodeType; config: Record<string, unknown> }) => void; onDelete: () => void
   /** the journey's other message and Condition steps, for a Condition's "This Journey" fields */
   steps?: JourneyStepOption[]
   journeyId?: string
+  /** the step sits inside another step's branch: a Goal there cannot open paths of its own */
+  insideBranch?: boolean
 }) {
   const [type, setType] = useState<JourneyNodeType>(node.type)
   const [config, setConfig] = useState<Record<string, unknown>>(() => (node.type === 'CONDITION' ? conditionConfig(node.config) : node.config))
@@ -61,7 +64,10 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
   const outOfRange = (name: string, min: number, max: number) => rangeError(config[name], Number(rule(name)?.min_value ?? min), Number(rule(name)?.max_value ?? max)) !== undefined
   const tooLong = (name: string, max: number) => String(config[name] ?? '').length > (rule(name)?.max ?? max)
   const conditionRule = type === 'CONDITION' && config.rule && typeof config.rule === 'object' ? (config.rule as ConditionRule) : null
-  const invalid = (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
+  const hasBranchSteps = Boolean(node.branches && (node.branches.YES.length > 0 || node.branches.NO.length > 0))
+  const goalRefused = type === 'GOAL' && (goalProblem(config) !== null || String(config.event_type ?? '') === '__other'
+    || (String(config.when_reached ?? 'EXIT').toUpperCase() === 'CONTINUE' ? insideBranch : hasBranchSteps))
+  const invalid = goalRefused || (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
     || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
   const switchChannel = (channel: 'EMAIL' | 'SMS') => {
@@ -86,7 +92,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
           <button type="button" onClick={onDelete} className={buttonDanger}>
             <Trash2 size={16} strokeWidth={1.5} aria-hidden /> Delete Step
           </button>
-          <button type="button" disabled={invalid} onClick={() => onSave({ type, config })} className={`${buttonPrimary} flex-1`}>Save Step</button>
+          <button type="button" disabled={invalid} onClick={() => onSave({ type, config: type === 'GOAL' ? normalizeGoal(config) : config })} className={`${buttonPrimary} flex-1`}>Save Step</button>
         </div>
       }
     >
@@ -106,6 +112,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
       {type === 'COUPON_ISSUE' && <CouponFields config={config} set={set} />}
       {type === 'LOYALTY_CHANGE' && <TierFields config={config} set={set} />}
       {type === 'SEGMENT_UPDATE' && <SegmentFields config={config} set={set} />}
+      {type === 'GOAL' && <GoalFields config={config} set={set} insideBranch={insideBranch} hasBranchSteps={hasBranchSteps} />}
       {type === 'EXIT' && <p className="text-sm text-ink-800">Nothing to configure — this ends the journey for the customer.</p>}
     </SidePanel>
   )

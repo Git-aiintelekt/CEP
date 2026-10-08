@@ -23,6 +23,8 @@ Step configuration (journey_node.config), by node_type:
     COUPON_ISSUE     {coupon_id}  ->  a coupon_issuance request C360 fulfils (GET /coupon-issuances/) and a COUPON_ISSUED event
     LOYALTY_CHANGE   {tier_id}    ->  confirms an apps.customers.LoyaltyTier reference, sets customer_master.custom_attributes.loyalty_tier
     SEGMENT_UPDATE   {segment_id, action: ADD | REMOVE}
+    GOAL             {event_type, props, window_days, when_reached: EXIT | CONTINUE}  ->  reached: converted, then out or the YES
+                     branch; not yet: the NO branch (apps.journeys.goals)
     EXIT             -
 """
 import hashlib
@@ -34,7 +36,7 @@ from django.utils import timezone
 from apps.customers.models import Coupon, CustomerMaster, LoyaltyTier, Segment
 from apps.delivery.engine import session
 
-from .. import conditions, schedule, waits
+from .. import conditions, goals, schedule, waits
 from ..models import JourneyGeneratedCampaign, JourneyNode
 from . import messages
 from .outcome import Done, Finish, Hold
@@ -241,6 +243,7 @@ HANDLERS = {
     "COUPON_ISSUE": _coupon,
     "LOYALTY_CHANGE": _loyalty,
     "SEGMENT_UPDATE": _segment,
+    "GOAL": goals.run,
     "EXIT": lambda node, state, enrollment: Finish("COMPLETED"),
 }
 

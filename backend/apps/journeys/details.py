@@ -28,7 +28,7 @@ from apps.tenants import context
 
 from .engine import enroll as enroll_engine
 from .models import (
-    Journey, JourneyEntryRule, JourneyEnrollment, JourneyGeneratedCampaign, JourneyVersion,
+    Journey, JourneyEntryRule, JourneyEnrollment, JourneyGeneratedCampaign, JourneyNode, JourneyVersion,
 )
 
 WEEKS = 6
@@ -41,10 +41,16 @@ def _conn():
 
 # ---------------------------------------------------------------------------------------------------- metrics
 
+def has_goal(journey: Journey) -> bool:
+    """Whether any version of the journey has a Goal step: then Goal Converted counts conversions, not Exit arrivals."""
+    return JourneyNode.objects.filter(journey_version__journey=journey, node_type="GOAL", deleted_at__isnull=True).exists()
+
+
 def metrics(journey: Journey) -> dict:
+    empty = {"enrolled": None, "in_journey": None, "goal_converted": None, "goal_converted_pct": None, "exited_early": None, "exited_early_pct": None,
+             "has_goal": has_goal(journey), "attributed_revenue": None, "revenue_per_conversion": None}
     if journey.status == Journey.Status.DRAFT:
-        return {"enrolled": None, "in_journey": None, "goal_converted": None, "goal_converted_pct": None,
-                "exited_early": None, "exited_early_pct": None}
+        return empty
     counts = JourneyEnrollment.objects.filter(tenant_id=journey.tenant_id, journey_id=journey.id).values("status").order_by().annotate(n=Count("id"))
     by_status = {row["status"]: row["n"] for row in counts}
     active, completed, exited = by_status.get("ACTIVE", 0), by_status.get("COMPLETED", 0), by_status.get("EXITED", 0)
@@ -53,8 +59,75 @@ def metrics(journey: Journey) -> dict:
     def pct(n: int) -> float | None:
         return round(n * 100 / enrolled, 1) if enrolled else None
 
-    return {"enrolled": enrolled, "in_journey": active, "goal_converted": completed, "goal_converted_pct": pct(completed),
-            "exited_early": exited, "exited_early_pct": pct(exited)}
+    converted, revenue = completed, None
+    if empty["has_goal"]:
+        with _conn().cursor() as cursor:
+            cursor.execute("SELECT count(*), COALESCE(sum(attributed_revenue), 0) FROM journey_enrollment WHERE tenant_id = %s AND journey_id = %s AND converted_at IS NOT NULL",
+                           [str(journey.tenant_id), str(journey.id)])
+            converted, revenue = cursor.fetchone()
+            revenue = float(revenue)
+    return {**empty, "enrolled": enrolled, "in_journey": active, "goal_converted": converted, "goal_converted_pct": pct(converted),
+            "exited_early": exited, "exited_early_pct": pct(exited), "attributed_revenue": revenue,
+            "revenue_per_conversion": round(revenue / converted, 2) if revenue is not None and converted else None}
+
+
+MESSAGES_SQL = """
+SELECT count(*) FILTER (WHERE x.sent), count(*) FILTER (WHERE x.delivered), count(*) FILTER (WHERE x.opened), count(*) FILTER (WHERE x.clicked),
+       count(*) FILTER (WHERE x.bounced), count(*) FILTER (WHERE x.complained)
+  FROM journey_generated_campaign g
+  JOIN (SELECT tenant_id, campaign_id, created_at,
+               (submitted_at IS NOT NULL OR status IN ('SUBMITTED', 'DELIVERED', 'OPENED', 'CLICKED', 'BOUNCED', 'COMPLAINED')) AS sent,
+               (delivered_at IS NOT NULL OR status IN ('DELIVERED', 'OPENED', 'CLICKED')) AS delivered,
+               (opened_at IS NOT NULL OR status IN ('OPENED', 'CLICKED')) AS opened, (clicked_at IS NOT NULL OR status = 'CLICKED') AS clicked,
+               (bounced_at IS NOT NULL OR status = 'BOUNCED') AS bounced, (complained_at IS NOT NULL OR status = 'COMPLAINED') AS complained
+          FROM mailer_execution WHERE tenant_id = %(tenant)s AND created_at >= %(start)s AND created_at < %(end)s
+        UNION ALL
+        SELECT tenant_id, campaign_id, created_at,
+               (submitted_at IS NOT NULL OR status IN ('SUBMITTED', 'DELIVERED', 'RESPONDED')), (delivered_at IS NOT NULL OR status IN ('DELIVERED', 'RESPONDED')),
+               FALSE, FALSE, status = 'FAILED', FALSE
+          FROM sms_execution WHERE tenant_id = %(tenant)s AND created_at >= %(start)s AND created_at < %(end)s) x
+    ON x.tenant_id = g.tenant_id AND x.campaign_id = g.campaign_id
+ WHERE g.tenant_id = %(tenant)s AND g.journey_id = %(journey)s"""
+HELD_SQL = """
+SELECT x.execution_status, x.result_data ->> 'reason', count(*)
+  FROM journey_node_execution x JOIN journey_node n ON n.id = x.journey_node_id
+  JOIN journey_enrollment e ON e.id = x.journey_enrollment_id AND e.tenant_id = x.tenant_id
+ WHERE x.tenant_id = %(tenant)s AND e.journey_id = %(journey)s AND n.node_family = 'COMMUNICATION' AND x.execution_status IN ('SKIPPED', 'FAILED')
+   AND x.executed_at >= %(start)s AND x.executed_at < %(end)s
+ GROUP BY 1, 2 ORDER BY 3 DESC"""
+UNSUBSCRIBED_SQL = """
+SELECT count(*) FROM consent_record c JOIN journey_generated_campaign g ON g.tenant_id = c.tenant_id AND g.campaign_id = c.campaign_id
+ WHERE c.tenant_id = %(tenant)s AND g.journey_id = %(journey)s AND c.action = 'OPT_OUT'
+   AND c.occurred_at >= %(start)s AND c.occurred_at < %(end)s"""
+
+
+def message_metrics(journey: Journey, start, end) -> dict:
+    """The journey's messages across every step within the window: the figures each step's generated campaign keeps, added up,
+    plus what governance held back and what failed (from the message steps' own records)."""
+    args = {"tenant": str(journey.tenant_id), "journey": str(journey.id), "start": start, "end": end}
+    with _conn().cursor() as cursor:
+        cursor.execute(MESSAGES_SQL, args)
+        sent, delivered, opened, clicked, bounced, complained = cursor.fetchone()
+        cursor.execute(HELD_SQL, args)
+        held, failed, reasons = 0, 0, []
+        for status, reason, count in cursor.fetchall():
+            if status == "SKIPPED":
+                held += count
+                reasons.append({"reason": reason or "held back", "count": count})
+            else:
+                failed += count
+        try:
+            cursor.execute(UNSUBSCRIBED_SQL, args)
+            unsubscribed = cursor.fetchone()[0]
+        except Exception:                                  # noqa: BLE001  a consent record shape this build does not know: no figure rather than no page
+            unsubscribed = None
+
+    def pct(n: int) -> float | None:
+        return round(n * 100 / sent, 1) if sent else None
+
+    return {"sent": sent, "delivered": delivered, "delivered_pct": pct(delivered), "opened": opened, "opened_pct": pct(opened), "clicked": clicked,
+            "clicked_pct": pct(clicked), "bounced": bounced, "complained": complained, "unsubscribed": unsubscribed, "held_back": held,
+            "held_back_reasons": reasons[:5], "failed": failed}
 
 
 # ---------------------------------------------------------------------------------------------------- audience & enrollment
@@ -103,9 +176,13 @@ def enrollment_trend(journey: Journey) -> list[dict]:
               FROM journey_enrollment WHERE tenant_id = %(tenant)s AND journey_id = %(journey)s AND enrolled_at >= %(since)s
              GROUP BY 1
             UNION ALL
-            SELECT date_trunc('week', exited_at)::date, 0, count(*) FILTER (WHERE status = 'COMPLETED'), count(*) FILTER (WHERE status = 'EXITED')
+            SELECT date_trunc('week', exited_at)::date, 0, count(*) FILTER (WHERE status = 'COMPLETED' AND NOT %(goal)s), count(*) FILTER (WHERE status = 'EXITED')
               FROM journey_enrollment WHERE tenant_id = %(tenant)s AND journey_id = %(journey)s AND exited_at >= %(since)s
-             GROUP BY 1""", {"tenant": str(journey.tenant_id), "journey": str(journey.id), "since": starts[0]})
+             GROUP BY 1
+            UNION ALL
+            SELECT date_trunc('week', converted_at)::date, 0, count(*), 0
+              FROM journey_enrollment WHERE tenant_id = %(tenant)s AND journey_id = %(journey)s AND converted_at >= %(since)s AND %(goal)s
+             GROUP BY 1""", {"tenant": str(journey.tenant_id), "journey": str(journey.id), "since": starts[0], "goal": has_goal(journey)})
         by_week: dict = {}
         for wk, enrolled, converted, exited in cursor.fetchall():
             row = by_week.setdefault(wk, {"enrolled": 0, "goal_converted": 0, "exited_early": 0})

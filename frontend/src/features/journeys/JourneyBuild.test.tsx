@@ -250,3 +250,32 @@ test('a Wait can wait until a time of day in the customer’s time zone, on chos
   const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
   expect(graph.graph.nodes.find((node) => node.type === 'WAIT')?.config).toEqual({ mode: 'TIME_OF_DAY', time: '18:30', zone: 'CUSTOMER', weekdays: ['MON', 'FRI'] })
 })
+
+test('a Goal names its event, filters and window; set to continue it opens Reached and Not Yet paths, and is saved with its branches', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Goal' }))
+  const panel = await screen.findByRole('dialog', { name: 'No goal event chosen' })
+  await user.selectOptions(await within(panel).findByLabelText(/^Counts as Reached When/), 'PURCHASE')
+  await user.click(within(panel).getByRole('button', { name: 'Add Filter' }))
+  await user.type(within(panel).getByLabelText('Property'), 'amount')
+  await user.selectOptions(within(panel).getByLabelText('Property Operator'), 'gte')
+  await user.type(within(panel).getByLabelText('Property Value'), '25')
+  await user.selectOptions(within(panel).getByLabelText(/^Attribution Window/), '14')
+  await user.click(within(panel).getByRole('radio', { name: /Mark converted and continue/ }))
+  await user.click(within(panel).getByRole('button', { name: 'Save Step' }))
+
+  expect(await within(canvas).findByText('Purchase with 1 filter within 14 days of entering')).toBeTruthy()
+  // a Goal that continues forks like a Condition: one "+" becomes four
+  await vi.waitFor(() => expect(within(canvas).getAllByRole('button', { name: 'Add a Step' })).toHaveLength(4))
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { key: string; type: string; config: Record<string, unknown> }[]; connections: { from: string }[] } }
+  const goal = graph.graph.nodes.find((node) => node.type === 'GOAL')!
+  expect(goal.config).toEqual({ event_type: 'PURCHASE', window_days: 14, when_reached: 'CONTINUE', props: [{ key: 'amount', op: 'gte', value: 25 }] })
+  expect(graph.graph.connections.some((edge) => edge.from === goal.key)).toBe(false) // nothing follows the goal yet: its paths open on the canvas, the graph gets edges once steps are added
+})

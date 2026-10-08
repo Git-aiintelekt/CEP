@@ -1382,7 +1382,7 @@ export interface JourneyStats {
 /** journey_node.node_type (apps/journeys/engine/steps.py documents each config shape) */
 export type JourneyNodeType =
   | 'START' | 'WAIT' | 'CONDITION' | 'SPLIT' | 'EMAIL' | 'SMS' | 'MMS'
-  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'EXIT'
+  | 'COUPON_ISSUE' | 'LOYALTY_CHANGE' | 'SEGMENT_UPDATE' | 'GOAL' | 'EXIT'
 
 /** GET /journeys/{id}/versions/ : one row, no graph */
 export interface JourneyVersion {
@@ -1524,10 +1524,32 @@ export interface JourneyTestResult {
 export interface JourneyMetrics {
   enrolled: number | null
   in_journey: number | null
+  /** with a Goal step: customers converted (apps/journeys/goals.py); without one: customers who reached an Exit step */
   goal_converted: number | null
   goal_converted_pct: number | null
   exited_early: number | null
   exited_early_pct: number | null
+  has_goal?: boolean
+  /** the converted customers' revenue within the goal's window; null without a Goal step */
+  attributed_revenue?: number | null
+  revenue_per_conversion?: number | null
+}
+
+/** GET /journeys/{id}/performance/ "messages": the journey's messages across every step within the window */
+export interface JourneyMessageMetrics {
+  sent: number
+  delivered: number
+  delivered_pct: number | null
+  opened: number
+  opened_pct: number | null
+  clicked: number
+  clicked_pct: number | null
+  bounced: number
+  complained: number
+  unsubscribed: number | null
+  held_back: number
+  held_back_reasons: { reason: string; count: number }[]
+  failed: number
 }
 
 /** GET /journeys/{id}/audience/ : Journey Details' Setup card, Audience & enrollment */
