@@ -215,6 +215,7 @@ export function ContactListsPage() {
         description="Reusable audiences. A campaign freezes its own copy at send time, so changing a list never changes a send that was already built."
         actions={
           <span className="flex flex-wrap gap-2">
+            <Link to="/customers" className={buttonSecondary}>Find a Customer</Link>
             <Link to="/contact-lists/uploads" className={buttonSecondary}>Uploads</Link>
             {editable && (
               <button type="button" className={buttonPrimary} onClick={() => setWizard(true)}>

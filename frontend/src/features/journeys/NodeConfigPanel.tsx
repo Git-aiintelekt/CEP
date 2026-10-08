@@ -10,7 +10,7 @@ import { useFieldRules } from '@/lib/fieldRules'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { api } from '@/lib/api'
-import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Page, Template } from '@/lib/types'
+import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Page, SenderProfile, Template } from '@/lib/types'
 
 import { ConditionBuilder, MatchCount, useConditionFields } from './conditions/ConditionBuilder'
 import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneyStepOption } from './conditions/conditionModel'
@@ -20,6 +20,7 @@ import { SidePanel } from './SidePanel'
 import { ListFields, ProfileFields, SplitFields, extraProblem, normalizeExtra, splitMode } from './ExtraStepFields'
 import { GoalFields, goalProblem, normalizeGoal } from './GoalFields'
 import { WaitFields, waitMode, waitProblem } from './WaitFields'
+import { WebhookFields, webhookProblem } from './WebhookFields'
 
 /** The closest existing read pattern for a cached C360 reference (customers.Coupon / customers.LoyaltyTier, the
  * same treatment as customers.Segment, which is exposed to the frontend via GET /contact-lists/audiences/). No such
@@ -71,7 +72,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
   // a Split's paths that hold steps cannot be removed; the keys in use are those branches
   const usedKeys = Object.entries(node.branches ?? {}).filter(([, chain]) => chain.length > 0).map(([key]) => key)
   const splitRefused = type === 'SPLIT' && (extraProblem('SPLIT', config) !== null || (splitMode(config) === 'ATTRIBUTE' && String(config.attribute ?? '').trim() === '' && false))
-  const invalid = goalRefused || splitRefused || (type === 'PROFILE_UPDATE' && extraProblem('PROFILE_UPDATE', config) !== null)
+  const invalid = goalRefused || splitRefused || (type === 'PROFILE_UPDATE' && extraProblem('PROFILE_UPDATE', config) !== null) || (type === 'WEBHOOK' && webhookProblem(config) !== null)
     || (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
     || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
@@ -121,6 +122,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
       {type === 'SPLIT' && <SplitFields config={config} set={set} usedKeys={usedKeys} />}
       {type === 'PROFILE_UPDATE' && <ProfileFields config={config} set={set} />}
       {(type === 'LIST_ADD' || type === 'LIST_REMOVE') && <ListFields type={type} config={config} set={set} />}
+      {type === 'WEBHOOK' && <WebhookFields config={config} set={set} journeyId={journeyId} />}
       {type === 'EXIT' && <p className="text-sm text-ink-800">Nothing to configure — this ends the journey for the customer.</p>}
     </SidePanel>
   )
@@ -157,10 +159,15 @@ function ConditionFields({ config, set, steps, journeyId }: { config: Record<str
   )
 }
 
+const SENDER_CHANNELS: Record<MessageType, string[]> = { EMAIL: ['EMAIL'], SMS: ['SMS'], MMS: ['MMS', 'SMS'] }
+
 function MessageFields({ type, config, set }: { type: MessageType; config: Record<string, unknown>; set: SetFn }) {
   const templates = useQuery({ queryKey: ['templates', 'options', type], queryFn: ({ signal }) => api.get<Page<Template>>('/templates/', { page_size: 200, channel: type }, signal) })
+  const senders = useQuery({ queryKey: ['sender-profiles', 'options'], queryFn: ({ signal }) => api.get<SenderProfile[]>('/sender-profiles/', undefined, signal) })
+  const usable = (senders.data ?? []).filter((item) => SENDER_CHANNELS[type].includes(item.channel))
+  const fallback = usable.find((item) => item.is_default && item.channel === SENDER_CHANNELS[type][0]) ?? usable.find((item) => item.is_default) ?? usable[0]
   return (
-    <div>
+    <div className="space-y-4">
       <Field label="Template" required hint="Opens in Template Studio to edit design.">
         {(ids) =>
           templates.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading templates</p>
@@ -172,6 +179,15 @@ function MessageFields({ type, config, set }: { type: MessageType; config: Recor
               {(templates.data?.results ?? []).filter((item) => item.status !== 'ARCHIVED').map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           )}
+      </Field>
+      <Field label="Sender" hint={fallback ? `Leave as the default to send from ${fallback.display_name}.` : 'Set up a sender under Settings → Sending Engines.'}>
+        {(ids) => (
+          <Select {...ids} value={String(config.sender_profile_id ?? '')} disabled={senders.isPending}
+            onChange={(event) => { const chosen = usable.find((item) => item.id === event.target.value); set({ sender_profile_id: chosen?.id ?? null, sender_name: chosen?.display_name ?? null }) }}>
+            <option value="">{fallback ? `Workspace default (${fallback.display_name})` : 'Workspace default'}</option>
+            {usable.map((item) => <option key={item.id} value={item.id}>{item.display_name}{item.from_address ? ` · ${item.from_address}` : item.sender_id ? ` · ${item.sender_id}` : ''}{item.verification_status === 'VERIFIED' ? '' : ' (not verified)'}</option>)}
+          </Select>
+        )}
       </Field>
     </div>
   )

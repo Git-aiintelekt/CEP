@@ -4,9 +4,9 @@
  * preview popover and its own "View Details" link, which this replaces (both used to open a not-built-yet dialog).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, CalendarX, ChevronLeft, Copy, Lock, Pencil } from 'lucide-react'
+import { Archive, Bookmark, CalendarX, ChevronLeft, Copy, Lock, Pencil } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/Button'
@@ -33,6 +33,8 @@ import { CHANNEL_META } from './channelMeta'
 import { CustomersCard } from './CustomersCard'
 import { NeedsAttentionCard } from './NeedsAttentionCard'
 import { SuppressionsCard } from './SuppressionsCard'
+import { SaveAsTemplateModal } from './templates/SaveAsTemplateModal'
+import { WebhookCallsCard } from './WebhookCallsCard'
 import { EnrollmentTrendChart } from './EnrollmentTrendChart'
 import { activityLine } from './JourneyPreviewPopover'
 import { entrySummary } from './SettingsSidebar'
@@ -155,6 +157,8 @@ export function JourneyDetailsPage() {
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState<unknown>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [searchParams] = useSearchParams()
   const rule = useFieldRules('journey')
 
   const journeyQuery = useQuery({ queryKey: ['journeys', 'detail', id], queryFn: ({ signal }) => api.get<Journey>(`/journeys/${id}/`, undefined, signal) })
@@ -288,6 +292,7 @@ export function JourneyDetailsPage() {
         </div>
         <div className="flex flex-wrap items-start gap-3">
           {editable && <Button iconStart={Copy} disabled={busy} loading={duplicate.isPending} onClick={() => duplicate.mutate()}>Duplicate</Button>}
+          {editable && journey.status !== 'ARCHIVED' && <Button iconStart={Bookmark} disabled={busy} onClick={() => setSavingTemplate(true)}>Save as Template</Button>}
           {journey.status === 'DRAFT' && editable && (
             <Link to={`/journeys/${journey.id}/build`} className={buttonSecondary}>{LIFECYCLE_LABEL.DRAFT}</Link>
           )}
@@ -380,9 +385,11 @@ export function JourneyDetailsPage() {
 
         <NeedsAttentionCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
 
-        <CustomersCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
+        <CustomersCard journeyId={journey.id} published={journey.status !== 'DRAFT'} initialOpen={searchParams.get('customer')} />
 
         <SuppressionsCard journeyId={journey.id} />
+
+        {journey.step_types.includes('WEBHOOK') && <WebhookCallsCard journeyId={journey.id} />}
 
         <DetailCard title="Versions" flush>
           {versionsQuery.isPending ? (
@@ -446,6 +453,7 @@ export function JourneyDetailsPage() {
         </DetailCard>
       </section>
 
+      {savingTemplate && <SaveAsTemplateModal journey={journey} versionNumber={version?.version_number ?? journey.latest_version ?? 1} onClose={() => setSavingTemplate(false)} />}
       {confirmArchive && (
         <Modal title="Archive This Journey?" onClose={() => setConfirmArchive(false)} footer={(
           <>

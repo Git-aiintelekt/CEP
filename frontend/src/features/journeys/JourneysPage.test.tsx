@@ -31,7 +31,7 @@ test('the stat cards are gone, and the page no longer asks for the stats', async
   expect(calls.some((call) => call.url.includes('/journeys/stats/'))).toBe(false)
 })
 
-test('Your Journeys, with its count, comes straight after the Journey Templates panel, and Your Templates is gone', async () => {
+test('Your Journeys, with its count, comes straight after the Journey Templates panel; Your Templates shows only when one was saved', async () => {
   const calls = installMockApi()
   await renderAppAt('/journeys')
   await screen.findByRole('table', { name: 'Journeys' })
@@ -43,7 +43,7 @@ test('Your Journeys, with its count, comes straight after the Journey Templates 
   expect(panel.compareDocumentPosition(yours) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(within(yours).getByRole('heading', { name: /Your Journeys/ }).textContent).toBe('Your Journeys5')
   expect(screen.queryByText('Your Templates')).toBeNull()
-  expect(calls.some((call) => call.url.includes('/journey-templates/'))).toBe(false)
+  expect(calls.some((call) => call.url.includes('/journey-templates/'))).toBe(true)
   expect(within(yours).getByText('5 journeys shown')).toBeTruthy()
 })
 

@@ -13,6 +13,7 @@ import { isRuleComplete } from './conditions/conditionModel'
 import { isExtraConfigured, splitBranchKeys, splitBranchLabels } from './ExtraStepFields'
 import { goalContinues, isGoalConfigured } from './GoalFields'
 import { isWaitConfigured } from './WaitFields'
+import { isWebhookConfigured } from './WebhookFields'
 
 export interface EditorNode {
   key: string
@@ -187,6 +188,8 @@ export function isNodeConfigured(node: EditorNode): boolean {
       return Boolean(config.segment_id) && Boolean(config.action)
     case 'GOAL':
       return isGoalConfigured(config)
+    case 'WEBHOOK':
+      return isWebhookConfigured(config)
     case 'SPLIT':
     case 'PROFILE_UPDATE':
     case 'LIST_ADD':

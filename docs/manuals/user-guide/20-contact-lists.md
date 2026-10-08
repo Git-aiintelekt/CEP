@@ -89,3 +89,25 @@ The upload button in the header shows the uploads running on every page and rais
 - Lists are never deleted while a campaign uses them; archive instead. People are never deleted from CEP by a list action.
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
+
+## The customer page
+
+**Where:** **Find a Customer** on the Contact Lists page (`/customers`); a customer's name on a journey's Customers card, on Settings → Events and on a list's members opens their page directly.
+
+One customer across the workspace, read from the records C360 syncs (or an upload added). Nothing is edited here: the record is C360's.
+
+| Part | What it shows |
+|---|---|
+| Header | The name, the customer id, where the record came from and when it was last updated, and a tag per channel saying whether they can receive marketing (Email: Can receive; SMS: No consent). |
+| Record | Email addresses, phone numbers and the address, as the record holds them. |
+| Consent | Per channel: the consent status, whether they can receive and why not, when they opted in or out and how, and any suppression. This is the verdict the send engine uses. |
+| Custom Attributes | Every field C360 sent with the record (loyalty tier, home store, time zone, dates), which conditions, splits, date entries and time-of-day waits read. |
+| Journeys | Every journey they entered, with where they are now, whether they converted and **View Timeline**, which opens their timeline on the journey's page; and the journeys they are kept out of by a suppression. |
+| Events | The last 50 events received for them, with their data. |
+| Orders | The last 20 orders Attribution received, and the campaign each was credited to. |
+| Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
+| Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
+
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before CEP can reach them.
+
+Who may see it: anyone who may see contact lists, campaigns or journeys.

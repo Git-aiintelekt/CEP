@@ -4,8 +4,9 @@ import type { JourneyEntryRule, JourneyStarter } from '@/lib/types'
 import { triggerFromRule } from '../entryTriggers'
 
 export interface SetupPrefill {
-  /** what POST /journeys/ is told the journey is made from; absent when nothing but a name and description is carried over */
-  source?: { starter: string }
+  /** what POST /journeys/ is told the journey is made from: a CEP starter's key or a saved template's id; absent when nothing
+   * but a name and description is carried over */
+  source?: { starter: string } | { template: string }
   sourceName?: string
   name: string
   description?: string
@@ -28,7 +29,7 @@ export function prefillFor(source: JourneyStarter): SetupPrefill {
   const rule = source.graph.entry_rules[0]
   const trigger = triggerFromRule(rule)
   return {
-    source: { starter: source.key },
+    source: source.template_id ? { template: source.template_id } : { starter: source.key },
     sourceName: source.name,
     name: `${source.name} (copy)`,
     entryType: trigger.entryType,

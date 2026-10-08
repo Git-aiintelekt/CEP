@@ -19,7 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from api.exceptions import Conflict
 
-from . import conditions, extras, goals, waits
+from . import conditions, extras, goals, waits, webhooks
 from .models import Journey, JourneyConnection, JourneyEntryRule, JourneyNode, JourneyVersion
 
 # block -> node_type -> node_family. Issue Coupon (COUPON_ISSUE) and Change Loyalty Tier (LOYALTY_CHANGE) invoke the
@@ -39,6 +39,7 @@ NODE_FAMILY = {
     "PROFILE_UPDATE": JourneyNode.NodeFamily.ACTION,   # sets any customer attribute (apps.journeys.extras)
     "LIST_ADD": JourneyNode.NodeFamily.ACTION,
     "LIST_REMOVE": JourneyNode.NodeFamily.ACTION,
+    "WEBHOOK": JourneyNode.NodeFamily.ACTION,          # a signed POST with the customer and journey context (apps.journeys.webhooks)
     "GOAL": JourneyNode.NodeFamily.CONTROL,            # the outcome the journey is for (apps.journeys.goals)
     "EXIT": JourneyNode.NodeFamily.CONTROL,            # End
 }
@@ -165,6 +166,12 @@ def clean(graph) -> dict:
         if not isinstance(config, dict) or len(json.dumps(config).encode()) > MAX_CONFIG_BYTES:
             problem("nodes", index, "config must be an object of at most 64 KB.")
             continue
+        if node_type == "WEBHOOK":
+            config = webhooks.clean_config(config)         # the secret is kept encrypted, never plain
+            webhook_problem = webhooks.problem(config) if config.get("url") else None
+            if webhook_problem:
+                problem("nodes", index, f"{key}: {webhook_problem}")
+                continue
         step_problem = _step_problem(config)
         if step_problem:
             problem("nodes", index, f"{key}: {step_problem}")

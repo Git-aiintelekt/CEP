@@ -1,8 +1,11 @@
 /** The journey page's Customers card: everyone enrolled, newest first, with where they are now; opening one shows their
  * timeline in a drawer — entry, every step with its outcome and delivery record, the current position, conversion, exit.
- * GET /journeys/{id}/customers/ and GET /journeys/{id}/customers/{enrollment}/ (apps/journeys/timeline.py). */
+ * The reason filter keeps the customers a step held back for one reason (GET .../customers/reasons/ lists them). The drawer
+ * links to the customer's record. GET /journeys/{id}/customers/ and GET /journeys/{id}/customers/{enrollment}/
+ * (apps/journeys/timeline.py). */
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 
@@ -13,7 +16,7 @@ import { StatusBadge, Tag } from '@/components/StatusBadge'
 import { DetailCard } from '@/features/campaigns/parts'
 import { api } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
-import type { JourneyCustomerRow, JourneyCustomersPage, JourneyTimeline, JourneyTimelineStep } from '@/lib/types'
+import type { JourneyCustomerRow, JourneyCustomersPage, JourneyHeldBackReason, JourneyTimeline, JourneyTimelineStep } from '@/lib/types'
 
 const PAGE_SIZE = 25
 const STATUS_FILTERS = [{ value: '', label: 'Everyone' }, { value: 'ACTIVE', label: 'In Journey' }, { value: 'COMPLETED', label: 'Completed' }, { value: 'EXITED', label: 'Exited Early' }]
@@ -76,7 +79,8 @@ function TimelineDrawer({ journeyId, enrollmentId, onClose }: { journeyId: strin
     ? `Entered ${formatDateTime(found.enrolled_at)} · version ${found.version_number} · ${found.converted_at ? 'Converted' : STATUS_LABEL[found.status] ?? found.status}`
     : undefined
   return (
-    <Drawer title={found?.name ?? 'Customer'} eyebrow={found?.email ?? undefined} onClose={onClose}>
+    <Drawer title={found?.name ?? 'Customer'} eyebrow={found?.email ?? undefined} onClose={onClose}
+      footer={found ? <Link to={`/customers/${encodeURIComponent(found.party_id)}`} className={buttonSecondary}>View Customer Record</Link> : undefined}>
       {query.isPending ? <div className="p-6"><Spinner /></div>
         : query.isError ? <div className="p-6"><ErrorState error={query.error} onRetry={() => void query.refetch()} /></div>
         : (
@@ -113,12 +117,12 @@ function TimelineDrawer({ journeyId, enrollmentId, onClose }: { journeyId: strin
   )
 }
 
-export function CustomersCard({ journeyId, published }: { journeyId: string; published: boolean }) {
+export function CustomersCard({ journeyId, published, initialOpen = null }: { journeyId: string; published: boolean; initialOpen?: string | null }) {
   const { can } = useAuth()
   const [exportProblem, setExportProblem] = useState<string | null>(null)
   const exportCsv = async () => {
     try {
-      const blob = await api.download(`/journeys/${journeyId}/customers/export/`, { q: search.trim() || undefined, status: status || undefined })
+      const blob = await api.download(`/journeys/${journeyId}/customers/export/`, { q: search.trim() || undefined, status: status || undefined, reason: reason || undefined })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -132,14 +136,21 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
   }
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [reason, setReason] = useState('')
   const [page, setPage] = useState(1)
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(initialOpen)
   const query = useQuery({
-    queryKey: ['journeys', journeyId, 'customers', { q: search.trim(), status, page }],
-    queryFn: ({ signal }) => api.get<JourneyCustomersPage>(`/journeys/${journeyId}/customers/`, { q: search.trim() || undefined, status: status || undefined, page, page_size: PAGE_SIZE }, signal),
+    queryKey: ['journeys', journeyId, 'customers', { q: search.trim(), status, reason, page }],
+    queryFn: ({ signal }) => api.get<JourneyCustomersPage>(`/journeys/${journeyId}/customers/`, { q: search.trim() || undefined, status: status || undefined, reason: reason || undefined, page, page_size: PAGE_SIZE }, signal),
     enabled: published,
     placeholderData: (previous) => previous,
   })
+  const reasons = useQuery({
+    queryKey: ['journeys', journeyId, 'customers', 'reasons'],
+    queryFn: ({ signal }) => api.get<{ results: JourneyHeldBackReason[] }>(`/journeys/${journeyId}/customers/reasons/`, undefined, signal),
+    enabled: published,
+  })
+  const reasonOptions = reasons.data?.results ?? []
   const rows: JourneyCustomerRow[] = query.data?.results ?? []
   const total = query.data?.count ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -156,10 +167,17 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
               className="h-9 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
               {STATUS_FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
+            {reasonOptions.length > 0 && (
+              <select aria-label="Held Back Reason" value={reason} onChange={(event) => { setReason(event.target.value); setPage(1) }}
+                className="h-9 rounded-control-lg border border-line-control bg-surface px-3 text-sm text-ink-900">
+                <option value="">Any Reason</option>
+                {reasonOptions.map((item) => <option key={item.reason} value={item.reason}>Held back: {item.label} ({formatNumber(item.customers)})</option>)}
+              </select>
+            )}
           </div>
           {query.isPending ? <div className="p-6"><Spinner /></div>
             : query.isError ? <div className="p-6"><ErrorState error={query.error} onRetry={() => void query.refetch()} /></div>
-            : rows.length === 0 ? <div className="p-6"><EmptyState title="No customers" hint={search || status ? 'Nobody matches this search.' : 'Nobody has entered yet.'} /></div>
+            : rows.length === 0 ? <div className="p-6"><EmptyState title="No customers" hint={search || status || reason ? 'Nobody matches this search.' : 'Nobody has entered yet.'} /></div>
             : (
               <table className="w-full text-sm" aria-label="Customers in the journey">
                 <thead>

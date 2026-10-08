@@ -1,17 +1,18 @@
-/** View More: every CEP starter, by category, with a search. A card opens the starter's preview over this pop-up. */
-import { LayoutGrid, Search } from 'lucide-react'
+/** View More: every CEP starter and every template the workspace saved, by category, with a search. A card opens the
+ * template's preview over this pop-up. */
+import { Bookmark, LayoutGrid, Search } from 'lucide-react'
 import { useState } from 'react'
 
 import { Modal } from '@/components/Modal'
 import { ErrorState, Spinner } from '@/components/States'
 import type { JourneyStarter, JourneyTemplateCategory } from '@/lib/types'
 
-import { useStarters } from './templateApi'
+import { useSavedTemplates, useStarters } from './templateApi'
 import { CATEGORIES, CATEGORY_META, itemCategoryLabel, triggerSentence } from './templateMeta'
 import { GalleryStarterCard } from './TemplateCards'
 import { StarterTag } from './TemplateParts'
 
-type Filter = JourneyTemplateCategory | 'ALL'
+type Filter = JourneyTemplateCategory | 'ALL' | 'SAVED'
 
 function matches(starter: JourneyStarter, needle: string): boolean {
   if (needle === '') return true
@@ -20,22 +21,26 @@ function matches(starter: JourneyStarter, needle: string): boolean {
 
 export function StarterGalleryModal({ onClose, onPreview }: { onClose: () => void; onPreview: (starter: JourneyStarter) => void }) {
   const starters = useStarters()
+  const saved = useSavedTemplates()
   const [filter, setFilter] = useState<Filter>('ALL')
   const [search, setSearch] = useState('')
   const needle = search.trim().toLowerCase()
-  const all = starters.data ?? []
-  const inCategory = filter === 'ALL' ? all : all.filter((starter) => starter.category === filter)
+  const yours = saved.data ?? []
+  const all = [...yours, ...(starters.data ?? [])]
+  const inCategory = filter === 'ALL' ? all : filter === 'SAVED' ? yours : all.filter((starter) => starter.category === filter)
   const shown = inCategory.filter((starter) => matches(starter, needle))
   const categories: { key: Filter; label: string; icon: typeof LayoutGrid; count: number }[] = [
     { key: 'ALL', label: 'All', icon: LayoutGrid, count: all.length },
+    ...(yours.length > 0 ? [{ key: 'SAVED' as const, label: 'Your Templates', icon: Bookmark, count: yours.length }] : []),
     ...CATEGORIES.map((key) => ({ key, label: CATEGORY_META[key].label, icon: CATEGORY_META[key].icon, count: all.filter((starter) => starter.category === key).length })),
   ]
-  const heading = filter === 'ALL' ? 'All' : CATEGORY_META[filter].label
+  const heading = filter === 'ALL' ? 'All' : filter === 'SAVED' ? 'Your Templates' : CATEGORY_META[filter].label
 
   return (
     <Modal
       title="Starter Templates"
-      subtitle="10 ready-made retail journeys from CEP. Using one creates a copy; the original never changes."
+      subtitle={yours.length > 0 ? '10 ready-made retail journeys from CEP, and the templates saved from your own journeys. Using one creates a copy; the original never changes.'
+                                 : '10 ready-made retail journeys from CEP. Using one creates a copy; the original never changes.'}
       headerExtra={<StarterTag />}
       onClose={onClose}
       size="screen"
