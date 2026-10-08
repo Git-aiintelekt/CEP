@@ -17,6 +17,7 @@ import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneySte
 import type { EditorNode } from './graphModel'
 import { categoryLine, describeStep, type AddableType } from './nodeDefs'
 import { SidePanel } from './SidePanel'
+import { ListFields, ProfileFields, SplitFields, extraProblem, normalizeExtra, splitMode } from './ExtraStepFields'
 import { GoalFields, goalProblem, normalizeGoal } from './GoalFields'
 import { WaitFields, waitMode, waitProblem } from './WaitFields'
 
@@ -64,10 +65,14 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
   const outOfRange = (name: string, min: number, max: number) => rangeError(config[name], Number(rule(name)?.min_value ?? min), Number(rule(name)?.max_value ?? max)) !== undefined
   const tooLong = (name: string, max: number) => String(config[name] ?? '').length > (rule(name)?.max ?? max)
   const conditionRule = type === 'CONDITION' && config.rule && typeof config.rule === 'object' ? (config.rule as ConditionRule) : null
-  const hasBranchSteps = Boolean(node.branches && (node.branches.YES.length > 0 || node.branches.NO.length > 0))
+  const hasBranchSteps = Boolean(node.branches && Object.values(node.branches).some((chain) => chain.length > 0))
   const goalRefused = type === 'GOAL' && (goalProblem(config) !== null || String(config.event_type ?? '') === '__other'
     || (String(config.when_reached ?? 'EXIT').toUpperCase() === 'CONTINUE' ? insideBranch : hasBranchSteps))
-  const invalid = goalRefused || (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
+  // a Split's paths that hold steps cannot be removed; the keys in use are those branches
+  const usedKeys = Object.entries(node.branches ?? {}).filter(([, chain]) => chain.length > 0).map(([key]) => key)
+  const splitRefused = type === 'SPLIT' && (extraProblem('SPLIT', config) !== null || (splitMode(config) === 'ATTRIBUTE' && String(config.attribute ?? '').trim() === '' && false))
+  const invalid = goalRefused || splitRefused || (type === 'PROFILE_UPDATE' && extraProblem('PROFILE_UPDATE', config) !== null)
+    || (type === 'WAIT' && (waitMode(config) === 'DURATION' ? outOfRange('duration', 0, 999) : waitProblem(config) !== null))
     || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
   const switchChannel = (channel: 'EMAIL' | 'SMS') => {
@@ -85,14 +90,14 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
     <SidePanel
       title={describeStep({ ...node, type, config }).title}
       subtitle={categoryLine(type as AddableType)}
-      wide={type === 'CONDITION' || (type === 'WAIT' && waitMode(config) !== 'DURATION')}
+      wide={type === 'CONDITION' || type === 'SPLIT' || (type === 'WAIT' && waitMode(config) !== 'DURATION')}
       onClose={onClose}
       footer={
         <div className="flex w-full gap-2">
           <button type="button" onClick={onDelete} className={buttonDanger}>
             <Trash2 size={16} strokeWidth={1.5} aria-hidden /> Delete Step
           </button>
-          <button type="button" disabled={invalid} onClick={() => onSave({ type, config: type === 'GOAL' ? normalizeGoal(config) : config })} className={`${buttonPrimary} flex-1`}>Save Step</button>
+          <button type="button" disabled={invalid} onClick={() => onSave({ type, config: type === 'GOAL' ? normalizeGoal(config) : normalizeExtra(type, config) })} className={`${buttonPrimary} flex-1`}>Save Step</button>
         </div>
       }
     >
@@ -113,6 +118,9 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], j
       {type === 'LOYALTY_CHANGE' && <TierFields config={config} set={set} />}
       {type === 'SEGMENT_UPDATE' && <SegmentFields config={config} set={set} />}
       {type === 'GOAL' && <GoalFields config={config} set={set} insideBranch={insideBranch} hasBranchSteps={hasBranchSteps} />}
+      {type === 'SPLIT' && <SplitFields config={config} set={set} usedKeys={usedKeys} />}
+      {type === 'PROFILE_UPDATE' && <ProfileFields config={config} set={set} />}
+      {(type === 'LIST_ADD' || type === 'LIST_REMOVE') && <ListFields type={type} config={config} set={set} />}
       {type === 'EXIT' && <p className="text-sm text-ink-800">Nothing to configure — this ends the journey for the customer.</p>}
     </SidePanel>
   )

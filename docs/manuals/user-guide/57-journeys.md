@@ -17,7 +17,7 @@ Typical retail journeys: Welcome Series, Abandoned Cart Recovery, Post-Purchase 
 | Entry | What makes a customer enter: membership of a **customer list**, an **event** (a purchase, an abandoned cart, No Response …), a **date or time** (a schedule, or a date on the customer's record such as a birthday), joining or leaving a **segment**, or an **attribute change** (loyalty tier, preferences, address). |
 | Population | **Fixed** (who qualifies at launch, then closed), **Continuously Qualifying** or **Event Triggered** (keeps letting newcomers in). |
 | Re-entry | Whether the same customer can go through again: **Never**, **After X Days**, or **Every Qualifying Event**. Nobody is ever in the same journey twice at once. |
-| Steps | Wait, Condition (Yes / No), Email, SMS / MMS, Issue Coupon, Update Loyalty Tier, Update Segment, Exit Journey. |
+| Steps | Wait, Condition (Yes / No), Split, Email, SMS / MMS, Issue Coupon, Update Loyalty Tier, Update Profile, Update Segment, Add to List, Remove from List, Goal, Exit Journey. |
 | Goal | A customer who reaches an **Exit Journey** step counts as **Goal Converted**. |
 | Version | Every change to a published journey is a new version; one version is live at a time. |
 
@@ -105,6 +105,9 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
 | Update Segment | Adds the customer to a segment, or removes them. |
+| Split | Several paths. **By an Attribute**: each customer takes the first path whose values hold their attribute's value (Home Store is Lakeside Mall → Path 1; Downtown or Airport → Path 2), everyone else the last path. **At Random**: percentages that add up to 100, chosen once per customer and kept on retry. Name each path; the names show on the canvas. |
+| Update Profile | Sets any attribute on the customer's record to a value (Customer Status to Welcomed). Update Loyalty Tier stays the step for the tier. |
+| Add to List, Remove from List | Changes the customer's membership of a contact list, as Update Segment does for segments. |
 | Goal | The outcome the journey is for: an event (Purchase, Coupon Redemption, or any type you name), optional filters on its data (order total is at least 25), and an attribution window from entering (14 days). A customer is **converted** when the event arrives within the window: when they reach the step, or at once wherever they are in the journey. **Mark converted and exit** takes them out; **Mark converted and continue on the Reached path** opens Reached and Not Yet paths under the step (a thank-you can follow). Revenue is the matching events' amounts, as Attribution sends them. |
 | Exit Journey | Ends the path. Without a Goal step, reaching an Exit counts as Goal Converted. End every path with one. |
 
@@ -184,6 +187,8 @@ Only customers in the customer records enter, since a message to someone unknown
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
 - The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- The journey page's **Suppressions** card lists customers this one journey never enters or messages; add one by email address, mobile number or customer id (a customer inside leaves at once, exited early as "Suppressed for this journey"), with a note, and remove them later. Adding and removing need the Journeys · Suppress permission; workspace suppressions and consent apply before these.
+- **Export CSV** on the Customers card (Journeys · Export permission) saves the list as shown, with each customer's entry, status, where they are, conversion and exit.
 - The journey page's **Customers** card lists everyone who entered, newest first, with where they are now; search by name or email, filter by status, and open a customer to see their timeline: when they entered, every step with its outcome (an email's delivered, opened and clicked moments; a held-back message's reason; a Condition's answer; the Goal), where they are waiting now, and how they left.
 - **Preview Route** (top right of the builder) walks the saved draft as one customer without sending or recording anything: whether they would enter, when each wait would continue, whether each message would send under today's consent and suppressions, which way each Condition on their record answers, and where the path ends. A Condition that depends on something that has not happened yet (this journey's messages, an earlier step, the goal) asks which way to assume. Test Publish still sends real messages; Preview Route is the no-send check before it.
 - A live or paused version's canvas shows on each card how many customers passed it, are waiting at it, answered Yes or No, or reached the goal, refreshed every minute.

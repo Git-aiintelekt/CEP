@@ -244,6 +244,22 @@ class JourneyEnrollment(models.Model):
         return str(self.party_id)
 
 
+class JourneySuppression(models.Model):
+    """A customer one journey must never enter or message (apps.journeys.suppressions); patch 0046."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.PROTECT, db_column='tenant_id', related_name='+')
+    journey = models.ForeignKey('journeys.Journey', on_delete=models.CASCADE, db_column='journey_id', related_name='suppressions')
+    party_id = models.CharField(max_length=60)
+    given = models.CharField(max_length=200, null=True, blank=True)
+    note = models.CharField(max_length=200, null=True, blank=True)
+    created_by = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'journey_suppression'
+
+
 class JourneyCustomerState(models.Model):
     """Current node/status for an active enrollment"""
     journey_enrollment = models.OneToOneField('journeys.JourneyEnrollment', on_delete=models.CASCADE, db_column='journey_enrollment_id', related_name='journey_customer_states', primary_key=True)

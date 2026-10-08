@@ -17,7 +17,7 @@ import type { Journey, JourneyEntryRule, JourneyNodeType, JourneyVersionCounts, 
 import { AddStepPanel } from './AddStepPanel'
 import { Footer, ReadinessPill } from './Footer'
 import {
-  conditionStepOptions,
+  conditionStepOptions, emptyBranches, isFork,
   checkValidity, cloneWithNewKeys, flatten, fromWireGraph, insertAt, isNodeConfigured, newKey, removeAt, updateAt, type EditorNode, type Path,
 } from './graphModel'
 import { JourneyCanvas } from './JourneyCanvas'
@@ -26,7 +26,7 @@ import { describeStep, type AddableType } from './nodeDefs'
 import { NodeConfigPanel } from './NodeConfigPanel'
 import { entrySummary, populationLabel, reentryLabel, SettingsSidebar } from './SettingsSidebar'
 import { StageBar } from './StageBar'
-import { goalContinues } from './GoalFields'
+import { emptySplit } from './ExtraStepFields'
 import { PreviewRoutePanel } from './PreviewRoutePanel'
 import { stepName } from './templates/templateMeta'
 
@@ -147,7 +147,8 @@ export function JourneyBuildWorkspace({
 
   const handleAdd = (type: AddableType) => {
     if (!addRequest) return
-    const node: EditorNode = { key: newKey(type), type, config: {}, ...(type === 'CONDITION' ? { branches: { YES: [], NO: [] } } : {}) }
+    const node: EditorNode = { key: newKey(type), type, config: type === 'SPLIT' ? emptySplit() : {} }
+    if (isFork(node)) node.branches = emptyBranches(node)
     setRoot((current) => insertAt(current, addRequest.path, addRequest.index, node))
     setAddRequest(null)
     setSelected([...addRequest.path, { index: addRequest.index }])
@@ -155,10 +156,12 @@ export function JourneyBuildWorkspace({
 
   const handleConfigSave = ({ type, config }: { type: JourneyNodeType; config: Record<string, unknown> }) => {
     if (!selected) return
-    // a Goal set to continue opens its Reached / Not Yet paths; set back to exit, it closes them (the panel refuses while they hold steps)
+    // a fork's branches follow its settings: a Goal set to continue opens Reached / Not Yet, a Split's paths open one each; a path
+    // that goes loses its branch (the panel refuses while it holds steps)
     const node = nodeAt(root, selected)
-    const branches = type === 'GOAL' && goalContinues(config) ? node?.branches ?? { YES: [], NO: [] } : type === 'GOAL' ? undefined : node?.branches
-    setRoot((current) => updateAt(current, selected, branches ? { type, config, branches } : { type, config, branches: undefined }))
+    const next = { type, config }
+    const branches = isFork(next) ? emptyBranches(next, node?.branches) : undefined
+    setRoot((current) => updateAt(current, selected, { type, config, branches }))
     setSelected(null)
   }
 

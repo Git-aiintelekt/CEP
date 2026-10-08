@@ -226,3 +226,28 @@ test('the Customers card lists everyone enrolled with where they are, and openin
   expect(within(timeline).getByText(/delivered .* · opened/)).toBeTruthy()
   expect(within(timeline).getByText(/waiting until/)).toBeTruthy()
 })
+
+test('the Suppressions card adds a customer by email, says they left the journey, and removes them again', async () => {
+  installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+  await screen.findByRole('heading', { name: 'New Loyalty Member Welcome', level: 1 })
+
+  expect(await screen.findByText('Nobody is suppressed for this journey.')).toBeTruthy()
+  await user.type(screen.getByLabelText('Customer to suppress'), 'nobody')
+  await user.click(screen.getByRole('button', { name: 'Suppress' }))
+  expect((await screen.findByRole('alert')).textContent).toContain('No customer has that email address')
+
+  await user.clear(screen.getByLabelText('Customer to suppress'))
+  await user.type(screen.getByLabelText('Customer to suppress'), 'dolores@example.com')
+  await user.type(screen.getByLabelText('Suppression note'), 'asked to be left out')
+  await user.click(screen.getByRole('button', { name: 'Suppress' }))
+  const list = await screen.findByRole('list', { name: 'Suppressed customers' })
+  expect(within(list).getByText('Dolores Alvarez')).toBeTruthy()
+  expect(within(list).getByText(/asked to be left out/)).toBeTruthy()
+  expect(screen.getByText('Taken out of the journey now.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy()
+
+  await user.click(within(list).getByRole('button', { name: 'Remove' }))
+  expect(await screen.findByText('Nobody is suppressed for this journey.')).toBeTruthy()
+})
