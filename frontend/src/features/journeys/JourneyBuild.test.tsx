@@ -226,3 +226,27 @@ test('a Condition is written with the builder: field, comparison and value, read
   const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
   expect(graph.graph.nodes.find((node) => node.type === 'CONDITION')?.config).toEqual({ rule: { all: true, conditions: [{ field: 'attr:loyalty_tier', op: 'in', value: ['Gold', 'Platinum'] }] } })
 })
+
+test('a Wait can wait until a time of day in the customer’s time zone, on chosen days, and is saved with its mode', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Wait' }))
+  const panel = await screen.findByRole('dialog', { name: 'No duration set' })
+  await user.click(within(panel).getByRole('radio', { name: 'Until a Time of Day' }))
+  await user.selectOptions(within(panel).getByLabelText(/^Time\*?$/), '18:30')
+  await user.click(within(panel).getByRole('button', { name: 'Monday' }))
+  await user.click(within(panel).getByRole('button', { name: 'Friday' }))
+  expect(within(panel).getByText(/11,980 customers have one/)).toBeTruthy()
+  expect(within(panel).getByText(/waits until 6:30 PM on the next Monday, Friday, their time/)).toBeTruthy()
+  await user.click(within(panel).getByRole('button', { name: 'Save Step' }))
+
+  expect(await within(canvas).findByText('Wait until 6:30 PM on Mon, Fri, their time')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
+  expect(graph.graph.nodes.find((node) => node.type === 'WAIT')?.config).toEqual({ mode: 'TIME_OF_DAY', time: '18:30', zone: 'CUSTOMER', weekdays: ['MON', 'FRI'] })
+})

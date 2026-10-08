@@ -22,7 +22,7 @@ from apps.delivery.models import MailerExecution, SmsExecution
 from apps.governance.models import CommunicationGovernancePolicy
 from apps.templates.models import TemplateMaster
 
-from . import conditions, graph, schedule
+from . import conditions, graph, schedule, waits
 from .engine import enroll as enroll_engine
 from .engine import steps as steps_engine
 from .engine.outcome import Done, Finish, Hold
@@ -78,7 +78,7 @@ def _entry_summary(version: JourneyVersion) -> str:
 def _step_configured(node: JourneyNode) -> bool:
     config = node.config or {}
     if node.node_type == "WAIT":
-        return config.get("duration") not in (None, "")
+        return waits.configured(config)
     if node.node_type == "CONDITION":
         if "rule" in config:
             return conditions.is_complete(config["rule"])

@@ -7,6 +7,9 @@ import type { ConditionRule, JourneyNodeType } from '@/lib/types'
 
 import { summarizeRule } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
+import { summarizeWait } from './WaitFields'
+
+export { WAIT_UNITS } from './WaitFields'
 
 export type AddableType = Exclude<JourneyNodeType, 'START'>
 
@@ -40,7 +43,7 @@ interface NodeMeta {
 // but deliberately not offered here: the canvas only exposes binary Condition, matching the prototype's own MVP choice
 // to keep branching to one shape. Revisit only as a deliberate scope decision, not a bug to "complete".
 export const NODE_META: Record<AddableType, NodeMeta> = {
-  WAIT: { label: 'Wait', icon: Clock, category: 'LOGIC', kind: 'Wait', pickerTitle: 'Wait', pickerDescription: 'Pause for a fixed duration before continuing' },
+  WAIT: { label: 'Wait', icon: Clock, category: 'LOGIC', kind: 'Wait', pickerTitle: 'Wait', pickerDescription: 'Pause for a duration, until a time of day, or until a date on the record' },
   CONDITION: { label: 'Condition', icon: GitBranch, category: 'LOGIC', kind: 'Condition', pickerTitle: 'Condition / Split', pickerDescription: 'Branch the flow based on a rule' },
   SPLIT: { label: 'Split', icon: GitBranch, category: 'LOGIC', kind: 'Split', pickerTitle: 'Split', pickerDescription: 'Branch the flow based on a rule' },
   EMAIL: { label: 'Send Email', icon: Mail, category: 'COMMUNICATION', kind: 'Email', pickerTitle: 'Email', pickerDescription: 'Send via Mailer Master → Postal' },
@@ -80,21 +83,12 @@ export const CHECK_OPTIONS = [
   { value: 'IN_SEGMENT', label: 'Is in a Segment' },
 ]
 
-export const WAIT_UNITS = [
-  { value: 'MINUTES', label: 'Minutes' },
-  { value: 'HOURS', label: 'Hours' },
-  { value: 'DAYS', label: 'Days' },
-  { value: 'WEEKS', label: 'Weeks' },
-]
 
 /** One line summarising a node's config: the card's title. */
 export function summarize(type: JourneyNodeType, config: Record<string, unknown>): string {
   switch (type) {
-    case 'WAIT': {
-      if (config.duration === undefined || config.duration === null || config.duration === '') return 'No duration set'
-      const unit = String(config.unit ?? 'DAYS').toLowerCase()
-      return `Wait ${config.duration} ${Number(config.duration) === 1 ? unit.replace(/s$/, '') : unit}`
-    }
+    case 'WAIT':
+      return summarizeWait(config)
     case 'CONDITION': {
       if (config.rule && typeof config.rule === 'object') return summarizeRule(config.rule as ConditionRule, undefined, [])
       if (!config.check) return 'No condition set'
@@ -119,7 +113,7 @@ export function summarize(type: JourneyNodeType, config: Record<string, unknown>
 }
 
 const DESCRIPTION: Partial<Record<JourneyNodeType, string>> = {
-  WAIT: 'Give the entry event time to settle before sending.',
+  WAIT: 'Pause for a duration, until a time of day, or until a date on the record.',
   CONDITION: 'Branch the flow based on a rule',
   EMAIL: 'Mailer Master · Postal',
   SMS: 'SMS Master · Digivize',

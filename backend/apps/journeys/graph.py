@@ -19,7 +19,7 @@ from rest_framework.exceptions import ValidationError
 
 from api.exceptions import Conflict
 
-from . import conditions
+from . import conditions, waits
 from .models import Journey, JourneyConnection, JourneyEntryRule, JourneyNode, JourneyVersion
 
 # block -> node_type -> node_family. Issue Coupon (COUPON_ISSUE) and Change Loyalty Tier (LOYALTY_CHANGE) invoke the
@@ -176,6 +176,10 @@ def clean(graph) -> dict:
     if raw_nodes and len(starts) != 1:
         problem("nodes", None, "A journey has exactly one Start step.")
     for index, node in enumerate(nodes):
+        if node["type"] == "WAIT" and node["config"].get("mode"):
+            wait_problem = waits.problem(node["config"])
+            if wait_problem:
+                problem("nodes", index, f"{node['key']}: {wait_problem}")
         if node["type"] == "CONDITION" and "rule" in node["config"]:
             rule_problem = conditions.problem(node["config"]["rule"], in_journey=True) or _reference_problem(node["config"]["rule"], types)
             if rule_problem:

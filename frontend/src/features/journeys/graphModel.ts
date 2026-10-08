@@ -10,6 +10,7 @@
 import type { ConditionRule, JourneyGraph, JourneyGraphConnection, JourneyGraphNode, JourneyNodeType } from '@/lib/types'
 
 import { isRuleComplete } from './conditions/conditionModel'
+import { isWaitConfigured } from './WaitFields'
 
 export interface EditorNode {
   key: string
@@ -146,7 +147,7 @@ export function isNodeConfigured(node: EditorNode): boolean {
   const config = node.config ?? {}
   switch (node.type) {
     case 'WAIT':
-      return config.duration !== undefined && config.duration !== null && config.duration !== ''
+      return isWaitConfigured(config)
     case 'CONDITION':
       if (config.rule && typeof config.rule === 'object') return isRuleComplete(config.rule as ConditionRule, undefined, false)
       return Boolean(config.check)

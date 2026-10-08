@@ -99,7 +99,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 
 | Step | What it does |
 |---|---|
-| Wait | Pauses for minutes, hours, days or weeks. |
+| Wait | **For a Duration**: minutes, hours, days or weeks. **Until a Time of Day**: the customer continues at that time, in their own time zone (the `timezone` attribute on their record, from C360 or the upload's Time zone column) or the workspace's, on any day or only on the days you pick. **Until a Date on the Record**: a date on the customer's record (a renewal date, a birthday) with an offset ("3 days before") and a time; choose whether a customer whose date has passed, or who has none, continues at once or leaves the journey (exited early, with the reason). |
 | Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Email, SMS / MMS | Sends a published template. |
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
@@ -183,6 +183,7 @@ Only customers in the customer records enter, since a message to someone unknown
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
 - The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name CEP does not know, waits in the workspace's time zone. Test Publish skips every wait.
 - A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - The Split step (more than two paths) is not offered; use Conditions.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.

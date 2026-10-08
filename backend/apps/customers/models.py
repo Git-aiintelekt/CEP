@@ -20,7 +20,7 @@ class CustomerMaster(models.Model):
     emails = models.JSONField(default=list)  # [{address, is_primary, is_valid}]
     phones = models.JSONField(default=list)  # [{number, type, is_primary}]
     primary_address = models.JSONField(null=True, blank=True)
-    custom_attributes = models.JSONField(default=dict)  # loyalty tier, RFM/CLV, etc.
+    custom_attributes = models.JSONField(default=dict)  # loyalty tier, RFM/CLV, etc.; `timezone` (an IANA name) is the customer's own time zone, read by journey waits
     source_system = models.CharField(max_length=40, default='C360')
     is_synced_copy = models.BooleanField(default=True)  # always TRUE per TD-02; kept explicit
     synced_at = models.DateTimeField(db_default=Now())

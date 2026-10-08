@@ -31,6 +31,7 @@ export function uploadColumns(channel: ListChannel | string = 'EMAIL'): UploadCo
     { header: 'Loyalty ID', required: false, examples: ['NWA700001', 'NWA700002'], note: 'Used first to recognise people CEP already knows.' },
     { header: 'Loyalty tier', required: false, examples: ['GOLD', 'SILVER'], note: '' },
     { header: 'Last order date', required: false, examples: ['2026-08-24', '2026-07-15'], note: 'Dates as YYYY-MM-DD.' },
+    { header: 'Time zone', required: false, examples: ['America/New_York', 'America/Chicago'], note: 'The customer’s own time zone, an IANA name such as America/Chicago. Journeys that wait until a time of day use it.' },
     { header: 'Email consent date', required: false, examples: ['2026-01-10', '2026-03-02'], note: 'Recorded as an email opt-in for people with no consent answer yet. Never overrides an unsubscribe.' },
     { header: 'Text consent date', required: false, examples: ['2026-01-10', ''], note: 'Recorded as a text (SMS) opt-in for people with no consent answer yet. Never overrides a STOP. Marketing texts need it.' },
   ]

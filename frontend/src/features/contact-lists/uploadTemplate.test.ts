@@ -7,8 +7,8 @@ test('the sample CSV has every recognised column as its header, the email column
   expect(text.startsWith('﻿')).toBe(true)                                                           // Excel reads accents from the BOM
   const lines = text.replace('﻿', '').split('\r\n').filter(Boolean)
   expect(lines).toHaveLength(3)
-  expect(lines[0]).toBe('Email,First name,Last name,Mobile number,Postal code,Loyalty ID,Loyalty tier,Last order date,Email consent date,Text consent date')
-  expect(lines[1]).toBe('dolores.alvarez@example.com,Dolores,Alvarez,+14045550101,30303,NWA700001,GOLD,2026-08-24,2026-01-10,2026-01-10')
+  expect(lines[0]).toBe('Email,First name,Last name,Mobile number,Postal code,Loyalty ID,Loyalty tier,Last order date,Time zone,Email consent date,Text consent date')
+  expect(lines[1]).toBe('dolores.alvarez@example.com,Dolores,Alvarez,+14045550101,30303,NWA700001,GOLD,2026-08-24,America/New_York,2026-01-10,2026-01-10')
   expect(UPLOAD_COLUMNS.filter((column) => column.required).map((column) => column.header)).toEqual(['Email'])
   expect(FORMAT_LINE).toContain('Email is the only column that must be there')
 })

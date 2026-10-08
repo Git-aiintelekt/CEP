@@ -53,6 +53,8 @@ PROPERTIES = {
                    ("loyaltyid", "loyaltynumber", "loyaltyno", "memberid", "membernumber", "membershipid", "cardnumber")),
     "loyalty_tier": ("Loyalty tier", False, "", ("loyaltytier", "tier", "memberlevel", "level")),
     "last_order_date": ("Last order date", False, "", ("lastorderdate", "lastorder", "lastpurchase", "lastpurchasedate", "lastpurchaseat")),
+    "timezone": ("Time zone", False, "An IANA name such as America/Chicago. Journeys that wait until a time of day use it; a name that is not recognised is left out.",
+                 ("timezone", "tz", "tzid", "zone", "ianatimezone", "customertimezone", "localtimezone")),
     "consent_date": ("Email consent date", False, "Recorded as an email opt-in for people CEP has no consent answer for. It never overrides an unsubscribe.",
                      ("consentdate", "optindate", "optin", "consent", "subscribedat", "subscribedate", "optindatetime", "emailconsentdate", "emailconsent", "emailoptin", "emailoptindate")),
     "sms_consent_date": ("Text consent date", False, "Recorded as a text (SMS) opt-in for people CEP has no consent answer for. It never overrides a STOP.",
@@ -342,6 +344,7 @@ def _expressions(mapping: dict, channel: str = "EMAIL") -> tuple[dict, dict]:
                                     ELSE NULL END"""
     for key in ("last_order_date", "consent_date", "sms_consent_date"):
         value[f"{key}_ok"] = f"({value[key]} IS NOT NULL AND pg_input_is_valid({value[key]}, 'date'))"
+    value["timezone_ok"] = f"({value['timezone']} IS NOT NULL AND {value['timezone']} IN (SELECT name FROM pg_timezone_names))"
     params["email_re"] = EMAIL_RE
     value["email_ok"] = f"({value['email']} IS NOT NULL AND length({value['email']}) <= 254 AND lower({value['email']}) ~ %(email_re)s)"
     value["email_use"] = f"CASE WHEN {value['email_ok']} THEN lower({value['email']}) END"
@@ -466,6 +469,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                                             CASE WHEN {v['sms_consent_date']} IS NOT NULL AND NOT {v['sms_consent_date_ok']} THEN 'Text consent date not recognised: no consent recorded'
                                                  WHEN {v['sms_consent_date_ok']} AND ({v['sms_consent_date']})::date > current_date THEN 'Text consent date is in the future: no consent recorded' END,
                                             CASE WHEN {v['last_order_date']} IS NOT NULL AND NOT {v['last_order_date_ok']} THEN 'Last order date not recognised: left out' END,
+                                            CASE WHEN {v['timezone']} IS NOT NULL AND NOT {v['timezone_ok']} THEN 'Time zone not recognised: left out' END,
                                             CASE WHEN {v['consent_date']} IS NOT NULL AND NOT {v['consent_date_ok']} THEN 'Consent date not recognised: no consent recorded'
                                                  WHEN {v['consent_date_ok']} AND ({v['consent_date']})::date > current_date THEN 'Consent date is in the future: no consent recorded' END), '')
                                     WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')""", params)
@@ -580,15 +584,20 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
                                       CASE WHEN {v['postal_code']} IS NULL THEN NULL ELSE jsonb_build_object('postal_code', {v['postal_code']}) END,
                                       jsonb_strip_nulls(jsonb_build_object('loyalty_id', {v['loyalty_id']}, 'loyalty_tier', {v['loyalty_tier']},
                                             'last_purchase_at', CASE WHEN {v['last_order_date_ok']} THEN ({v['last_order_date']})::date END,
+                                            'timezone', CASE WHEN {v['timezone_ok']} THEN {v['timezone']} END,
                                             'first_seen_in', %(file)s)),
                                       'CEP_UPLOAD', FALSE
                                  FROM contact_list_import_row r WHERE {span} AND r.match_status = 'UNMATCHED'
                                ON CONFLICT (party_id) DO NOTHING""", params)
             created += cursor.rowcount
+            if "timezone" in record.column_mapping:          # someone known gets the file's time zone when their record has none
+                cursor.execute(f"""UPDATE customer_master cm SET custom_attributes = COALESCE(cm.custom_attributes, '{{}}'::jsonb) || jsonb_build_object('timezone', {v['timezone']})
+                                     FROM contact_list_import_row r WHERE {span} AND r.match_status = 'MATCHED' AND {v['timezone_ok']}
+                                       AND cm.tenant_id = r.tenant_id AND cm.party_id = r.matched_party_id AND COALESCE(cm.custom_attributes ->> 'timezone', '') = ''""", params)
             cursor.execute(f"""INSERT INTO contact_list_member (contact_list_id, tenant_id, party_id, custom_attributes, membership_source, matched_by, import_id)
                                SELECT DISTINCT ON (r.matched_party_id) %(list)s, r.tenant_id, r.matched_party_id,
                                       jsonb_strip_nulls(jsonb_build_object('first_name', {v['first_name']}, 'last_name', {v['last_name']}, 'postal_code', {v['postal_code']},
-                                            'loyalty_tier', {v['loyalty_tier']},
+                                            'loyalty_tier', {v['loyalty_tier']}, 'timezone', CASE WHEN {v['timezone_ok']} THEN {v['timezone']} END,
                                             'last_order_date', CASE WHEN {v['last_order_date_ok']} THEN ({v['last_order_date']})::date END)),
                                       'UPLOAD', r.match_method, r.import_id
                                  FROM contact_list_import_row r WHERE {span} AND r.match_status IN ('MATCHED', 'UNMATCHED')
