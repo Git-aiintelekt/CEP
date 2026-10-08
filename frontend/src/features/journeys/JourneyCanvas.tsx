@@ -16,6 +16,8 @@ import { IconButton } from '@/components/Button'
 import { MenuRow } from '@/components/MenuRow'
 import { Popover } from '@/components/Popover'
 import { Tag } from '@/components/StatusBadge'
+import { formatNumber } from '@/lib/format'
+import type { JourneyStepCounts } from '@/lib/types'
 import { useSingleDropdown, type SingleDropdown } from '@/lib/useSingleDropdown'
 
 import type { AddNodeData, CanvasNode, CardTag, EntryNodeData, StepNodeData } from './canvasLayout'
@@ -69,6 +71,18 @@ function EntryNode({ data }: NodeProps & { data: EntryNodeData }) {
   )
 }
 
+/** "3,180 passed · 212 waiting", "Yes 1,284 · No 1,896", "621 reached": a live version's figures on the card. */
+export function countsLine(node: EditorNode, counts: JourneyStepCounts): string {
+  const parts: string[] = []
+  if (node.type === 'CONDITION') parts.push(`Yes ${formatNumber(counts.yes)} · No ${formatNumber(counts.no)}`)
+  else if (node.type === 'GOAL') parts.push(`${formatNumber(counts.yes)} reached`)
+  else parts.push(`${formatNumber(counts.passed)} passed`)
+  if (counts.waiting > 0) parts.push(`${formatNumber(counts.waiting)} waiting`)
+  if (counts.held_back > 0) parts.push(`${formatNumber(counts.held_back)} held back`)
+  if (counts.failed > 0) parts.push(`${formatNumber(counts.failed)} failed`)
+  return parts.join(' · ')
+}
+
 interface StepHandlers {
   readOnly?: boolean
   selectedKey?: string | null
@@ -113,12 +127,13 @@ function StepMenu({ node, path, menus, onDelete, onDuplicate }: { node: EditorNo
 }
 
 function StepNode({ data }: NodeProps & { data: StepNodeData }) {
-  const { node, path, tag, selectedKey, onSelect, readOnly } = data as StepNodeData & StepHandlers
+  const { node, path, tag, selectedKey, onSelect, readOnly, counts } = data as StepNodeData & StepHandlers & { counts?: JourneyStepCounts }
   const meta = NODE_META[node.type as AddableType]
   const category = CATEGORY[meta?.category ?? 'CONTROL']
   const configured = isNodeConfigured(node)
   const selected = !readOnly && selectedKey === node.key
-  const { title, description } = describeStep(node)
+  const { title, description: words } = describeStep(node)
+  const description = counts ? countsLine(node, counts) : words
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return
     if (event.key === 'Enter' || event.key === ' ') {
@@ -227,10 +242,13 @@ export function JourneyCanvas({
   onDelete,
   onDuplicate,
   onAdd,
+  counts,
 }: {
   root: EditorNode[]
   entryTrigger: string
   entryDetail: string
+  /** a live version's per-step figures, shown on the cards instead of their description */
+  counts?: Record<string, JourneyStepCounts>
   selectedKey: string | null
   onSelect: (path: Path) => void
   onDelete: (path: Path) => void
@@ -240,7 +258,7 @@ export function JourneyCanvas({
   const menus = useSingleDropdown<string>()
   const { nodes, edges, width } = layoutCanvas(root)
   const withHandlers: CanvasNode[] = nodes.map((node) =>
-    node.type === 'step' ? { ...node, zIndex: menus.open === node.id ? 10 : undefined, data: { ...node.data, selectedKey, menus, onSelect, onDelete, onDuplicate } }
+    node.type === 'step' ? { ...node, zIndex: menus.open === node.id ? 10 : undefined, data: { ...node.data, selectedKey, menus, onSelect, onDelete, onDuplicate, counts: counts?.[node.id] } }
     : node.type === 'add' ? { ...node, data: { ...node.data, onAdd } }
     : node.type === 'entry' ? { ...node, data: { trigger: entryTrigger, detail: entryDetail } }
     : node,

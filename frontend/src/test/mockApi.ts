@@ -1117,6 +1117,39 @@ export function installMockApi(options: MockOptions = {}) {
     if (/\/journeys\/[^/]+\/enrollment-trend\/$/.test(path) && method === 'GET') return json(journeyTrendNow)
     if (/\/journeys\/[^/]+\/campaigns\/$/.test(path) && method === 'GET') return json(journeyGeneratedCampaignsNow)
     if (/\/journeys\/[^/]+\/activity\/$/.test(path) && method === 'GET') return json(journeyActivityNow)
+    if (path.endsWith('/journeys/preview-customers/')) {
+      const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
+      return json([{ party_id: 'p-devon', name: 'Devon Okafor', email: 'devon@example.com', summary: 'Gold · Lakeside Mall' }].filter((item) => item.name.toLowerCase().includes(q) || item.email.includes(q)))
+    }
+    const journeyCountsMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/counts\/$/.exec(path)
+    if (journeyCountsMatch && method === 'GET') return json({ entered: 3412, in_journey: 212, steps: {} })
+    const journeyPreviewMatch = /\/journeys\/([^/]+)\/versions\/(\d+)\/preview\/$/.exec(path)
+    if (journeyPreviewMatch && method === 'POST') {
+      const assumed = ((body?.assumptions as Record<string, string> | undefined)?.['cond-1'] ?? 'NO') as 'YES' | 'NO'
+      return json({ customer: { party_id: body?.party_id, name: 'Devon Okafor', email: 'devon@example.com', summary: 'Gold · Lakeside Mall', attributes: {} },
+                    entry: { outcome: 'Enters when a Welcome event arrives for them. The entry filters pass.', enters: true },
+                    steps: [{ node_key: 'wait-1', node_type: 'WAIT', label: 'Wait 1 day', outcome: 'Continues Tue 13 Oct, 11:02', at: '2026-10-13T15:02:00Z', depends: false, assumed: null, branch: null },
+                            { node_key: 'cond-1', node_type: 'CONDITION', label: 'Worth a second email?', outcome: `Depends on what has not happened yet in this journey: assuming ${assumed === 'YES' ? 'Yes' : 'No'}`, at: '2026-10-13T15:02:00Z', depends: true, assumed, branch: assumed },
+                            { node_key: null, node_type: 'END', label: 'End of the path', outcome: 'Would exit Tue 13 Oct as not converted: nothing follows', at: '2026-10-13T15:02:00Z', depends: false, assumed: null, branch: null }] })
+    }
+    const journeyCustomerMatch = /\/journeys\/([^/]+)\/customers\/([^/]+)\/$/.exec(path)
+    if (journeyCustomerMatch && method === 'GET') {
+      return json({ id: journeyCustomerMatch[2], party_id: 'p-aaliyah', name: 'Aaliyah Brooks', email: 'aaliyah@example.com', attributes: {}, enrolled_at: '2026-10-12T14:14:00Z', entry: 'EVENT', version_number: 1,
+                    status: 'ACTIVE', converted_at: null, attributed_revenue: null, exited_at: null, exit_reason: null,
+                    now: { node_key: 'wait-2', node_type: 'WAIT', label: 'Wait 3 days', entered_node_at: '2026-10-13T14:15:00Z', next_scheduled_at: '2026-10-16T14:15:00Z', pending: null },
+                    steps: [{ at: '2026-10-12T14:14:00Z', node_key: 'start', node_type: 'START', label: 'Start', status: 'SUCCESS', result: { entry: 'EVENT' }, delivery: null },
+                            { at: '2026-10-13T14:14:00Z', node_key: 'wait-1', node_type: 'WAIT', label: 'Wait 1 day', status: 'SUCCESS', result: { waited_seconds: 86400 }, delivery: null },
+                            { at: '2026-10-13T14:15:00Z', node_key: 'email-1', node_type: 'EMAIL', label: 'Email: Welcome', status: 'SUCCESS', result: {},
+                              delivery: { channel: 'EMAIL', status: 'OPENED', status_reason: null, submitted_at: '2026-10-13T14:15:00Z', delivered_at: '2026-10-13T14:15:30Z', opened_at: '2026-10-13T22:02:00Z', clicked_at: null, bounced_at: null, responded_at: null, failed_at: null } }] })
+    }
+    if (/\/journeys\/[^/]+\/customers\/$/.test(path) && method === 'GET') {
+      const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
+      const rows = [{ id: 'enr-1', party_id: 'p-aaliyah', name: 'Aaliyah Brooks', email: 'aaliyah@example.com', enrolled_at: '2026-10-12T14:14:00Z', version_number: 1, status: 'ACTIVE', converted_at: null, attributed_revenue: null,
+                      exited_at: null, exit_reason: null, where: { node_key: 'wait-2', node_type: 'WAIT', label: 'Wait 3 days', entered_node_at: '2026-10-13T14:15:00Z', next_scheduled_at: '2026-10-16T14:15:00Z' } },
+                    { id: 'enr-2', party_id: 'p-marcus', name: 'Marcus Hale', email: 'marcus@example.com', enrolled_at: '2026-10-11T09:00:00Z', version_number: 1, status: 'COMPLETED', converted_at: '2026-10-18T18:40:00Z', attributed_revenue: 86.4,
+                      exited_at: '2026-10-18T18:40:00Z', exit_reason: 'Goal reached', where: null }].filter((row) => !q || row.name.toLowerCase().includes(q) || row.email.includes(q))
+      return json({ count: rows.length, page: 1, page_size: 25, results: rows })
+    }
     if (/\/journeys\/[^/]+\/pause\/$/.test(path) && method === 'POST') {
       journeyNow = { ...journeyNow, status: 'PAUSED' }
       return json(journeyNow)

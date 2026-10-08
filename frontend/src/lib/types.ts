@@ -1581,6 +1581,103 @@ export interface JourneyGeneratedCampaignRow {
 }
 
 /** GET /journeys/{id}/activity/ : one entry of the derived Activity log, newest first */
+/** GET /journeys/{id}/customers/ : one enrolled customer, with where they are now (apps/journeys/timeline.py) */
+export interface JourneyCustomerRow {
+  id: string
+  party_id: string
+  name: string
+  email: string | null
+  enrolled_at: string
+  version_number: number
+  status: 'ACTIVE' | 'COMPLETED' | 'EXITED' | string
+  converted_at: string | null
+  attributed_revenue: number | null
+  exited_at: string | null
+  exit_reason: string | null
+  where: { node_key: string; node_type: string; label: string; entered_node_at: string | null; next_scheduled_at: string | null } | null
+}
+
+export interface JourneyCustomersPage {
+  count: number
+  page: number
+  page_size: number
+  results: JourneyCustomerRow[]
+}
+
+export interface JourneyTimelineStep {
+  at: string
+  node_key: string
+  node_type: JourneyNodeType | string
+  label: string
+  status: 'SUCCESS' | 'FAILED' | 'SKIPPED' | string
+  result: Record<string, unknown>
+  /** a message step's mailer / SMS execution for this customer, when its run reached them */
+  delivery: { channel: string; status: string; status_reason: string | null; submitted_at: string | null; delivered_at: string | null; opened_at: string | null
+    clicked_at: string | null; bounced_at: string | null; responded_at: string | null; failed_at: string | null } | null
+}
+
+/** GET /journeys/{id}/customers/{enrollment}/ : one customer's path through the journey */
+export interface JourneyTimeline {
+  id: string
+  party_id: string
+  name: string
+  email: string | null
+  attributes: Record<string, unknown>
+  enrolled_at: string
+  entry: string | null
+  version_number: number
+  status: string
+  converted_at: string | null
+  attributed_revenue: number | null
+  exited_at: string | null
+  exit_reason: string | null
+  now: { node_key: string; node_type: string; label: string; entered_node_at: string | null; next_scheduled_at: string | null; pending: Record<string, unknown> | null } | null
+  steps: JourneyTimelineStep[]
+}
+
+/** GET /journeys/{id}/versions/{n}/counts/ : the live canvas's figures per step */
+export interface JourneyStepCounts {
+  passed: number
+  held_back: number
+  failed: number
+  yes: number
+  no: number
+  waiting: number
+}
+
+export interface JourneyVersionCounts {
+  entered: number
+  in_journey: number
+  steps: Record<string, JourneyStepCounts>
+}
+
+/** GET /journeys/preview-customers/?q= : who Preview Route can walk as */
+export interface JourneyPreviewCustomer {
+  party_id: string
+  name: string
+  email: string | null
+  summary: string
+}
+
+/** POST /journeys/{id}/versions/{n}/preview/ : the dry run, one entry per step reached */
+export interface JourneyPreviewStep {
+  node_key: string | null
+  node_type: JourneyNodeType | 'END' | string
+  label: string
+  outcome: string
+  at: string | null
+  /** the step depends on what has not happened yet: the viewer chooses what to assume */
+  depends: boolean
+  assumed: 'YES' | 'NO' | null
+  branch: 'YES' | 'NO' | null
+}
+
+export interface JourneyPreviewRoute {
+  customer: JourneyPreviewCustomer & { attributes: Record<string, unknown> } | null
+  entry: { outcome: string; enters: boolean | null } | null
+  steps: JourneyPreviewStep[]
+}
+
 export interface JourneyActivityEntry {
   event_type: 'CREATED' | 'PUBLISHED' | 'PAUSED' | string
   message: string

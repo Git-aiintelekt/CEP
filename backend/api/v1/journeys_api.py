@@ -59,7 +59,7 @@ from rest_framework.response import Response
 
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode, SameTenant
-from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters
+from apps.journeys import conditions, details, graph, lifecycle, listing, publish, schedule, starters, timeline
 from apps.journeys.models import Journey, JourneyNode, JourneyTemplate, JourneyVersion
 from apps.platform_ops import params
 from apps.reporting.models import JourneyExecutionMasterAnalytical, JourneyMasterAnalytical
@@ -473,6 +473,53 @@ class JourneyViewSet(views.JourneyViewSet):
             return Response(conditions.count_in_journey(journey.tenant_id, journey.pk, body.get("rule")))
         except conditions.RuleError as error:
             raise ValidationError({"rule": str(error)}) from None
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=False, methods=["get"], url_path="preview-customers")
+    def preview_customers(self, request, version=None):
+        """Who Preview Route can walk as: up to ten customers matching ?q= by name, email or id (apps.journeys.timeline)."""
+        return Response(timeline.search_customers(context.require().tenant_id, request.query_params.get("q", "")))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"])
+    def customers(self, request, pk=None, version=None):
+        """The journey page's Customers card: everyone enrolled, newest first, with where they are now
+        (?q= name, email or id; ?status= ACTIVE | COMPLETED | EXITED; ?page= ?page_size=)."""
+        params = request.query_params
+        try:
+            page, size = int(params.get("page", 1)), int(params.get("page_size", timeline.PAGE_SIZE))
+        except ValueError:
+            raise ValidationError({"page": "A whole number."}) from None
+        return Response(timeline.customers(self.get_object(), q=params.get("q", ""), status=params.get("status", ""), page=page, page_size=size))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)")
+    def customer_timeline(self, request, pk=None, enrollment=None, version=None):
+        """One customer's timeline through this journey: entry, every step with its outcome and delivery record, where they
+        are now, conversion, exit (apps.journeys.timeline)."""
+        found = timeline.timeline(self.get_object(), enrollment)
+        if found is None:
+            raise NotFound("This customer is not in the journey.")
+        return Response(found)
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"], url_path=r"versions/(?P<number>\d+)/counts")
+    def version_counts(self, request, pk=None, number=None, version=None):
+        """Per step of the version: how many customers passed, are waiting, answered Yes / No, reached the goal — the
+        live canvas's figures, read live."""
+        return Response(timeline.counts(self._version(self.get_object(), number)))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path=r"versions/(?P<number>\d+)/preview")
+    def version_preview(self, request, pk=None, number=None, version=None):
+        """Preview Route: walks the version's graph as one customer ({party_id}), with the record as it is now, sending and
+        recording nothing. {assumptions: {node_key: "YES" | "NO"}} answers the steps that depend on what has not happened."""
+        body = request.data if isinstance(request.data, dict) else {}
+        party_id = str(body.get("party_id") or "").strip()
+        if not party_id:
+            raise ValidationError({"party_id": "Choose a customer to preview as."})
+        assumptions = body.get("assumptions") if isinstance(body.get("assumptions"), dict) else {}
+        return Response(timeline.preview(self._version(self.get_object(), number), party_id, assumptions))
 
     # ------------------------------------------------------------ lifecycle (phase 6d, Journey Details)
     @extend_schema(request=None, responses=JourneySerializer)
