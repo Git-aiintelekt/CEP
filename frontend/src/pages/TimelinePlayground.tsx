@@ -59,6 +59,7 @@ const DEVON: JourneyPreviewCustomer = { party_id: 'p-devon', name: 'Devon Okafor
 export default function TimelinePlayground() {
   const [params] = useSearchParams()
   const sample = params.get('case') ?? 'customers'
+  const opened = params.get('open') === '1'
   const [client] = useState(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
     seeded.setQueryData(['journeys', 'j-sample', 'customers', { q: '', status: '', page: 1 }], ROWS)
@@ -72,7 +73,7 @@ export default function TimelinePlayground() {
     <QueryClientProvider client={client}>
       {sample === 'preview' ? (
         <div className="flex h-screen justify-end bg-surface-subtle">
-          <PreviewRoutePanel journeyId="j-sample" versionNumber={3} dirty={false} onClose={() => undefined} />
+          <PreviewRoutePanel journeyId="j-sample" versionNumber={3} dirty={false} onClose={() => undefined} initialCustomer={opened ? DEVON : null} />
         </div>
       ) : sample === 'attention' ? (
         <div className="mx-auto max-w-4xl p-6">
@@ -80,7 +81,7 @@ export default function TimelinePlayground() {
         </div>
       ) : (
         <div className="mx-auto max-w-4xl p-6">
-          <CustomersCard journeyId="j-sample" published />
+          <CustomersCard journeyId="j-sample" published initialOpen={opened ? 'enr-2' : null} />
         </div>
       )}
     </QueryClientProvider>

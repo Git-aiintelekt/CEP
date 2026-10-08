@@ -113,7 +113,7 @@ function TimelineDrawer({ journeyId, enrollmentId, onClose }: { journeyId: strin
   )
 }
 
-export function CustomersCard({ journeyId, published }: { journeyId: string; published: boolean }) {
+export function CustomersCard({ journeyId, published, initialOpen = null }: { journeyId: string; published: boolean; initialOpen?: string | null }) {
   const { can } = useAuth()
   const [exportProblem, setExportProblem] = useState<string | null>(null)
   const exportCsv = async () => {
@@ -133,7 +133,7 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(initialOpen)
   const query = useQuery({
     queryKey: ['journeys', journeyId, 'customers', { q: search.trim(), status, page }],
     queryFn: ({ signal }) => api.get<JourneyCustomersPage>(`/journeys/${journeyId}/customers/`, { q: search.trim() || undefined, status: status || undefined, page, page_size: PAGE_SIZE }, signal),

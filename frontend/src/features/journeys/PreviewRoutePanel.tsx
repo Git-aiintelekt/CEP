@@ -22,10 +22,10 @@ function useDebounced(value: string, ms: number): string {
   return debounced
 }
 
-export function PreviewRoutePanel({ journeyId, versionNumber, dirty, onClose }: { journeyId: string; versionNumber: number; dirty: boolean; onClose: () => void }) {
+export function PreviewRoutePanel({ journeyId, versionNumber, dirty, onClose, initialCustomer = null }: { journeyId: string; versionNumber: number; dirty: boolean; onClose: () => void; initialCustomer?: JourneyPreviewCustomer | null }) {
   const [search, setSearch] = useState('')
   const settled = useDebounced(search, 300)
-  const [customer, setCustomer] = useState<JourneyPreviewCustomer | null>(null)
+  const [customer, setCustomer] = useState<JourneyPreviewCustomer | null>(initialCustomer)
   const [assumptions, setAssumptions] = useState<Record<string, 'YES' | 'NO'>>({})
   const found = useQuery({
     queryKey: ['journeys', 'preview-customers', settled.trim()],
