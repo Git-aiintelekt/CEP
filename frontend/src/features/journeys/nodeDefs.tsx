@@ -3,8 +3,9 @@
 import { Clock, Gift, GitBranch, LogIn, LogOut, Mail, MessageSquare, Sparkles, Tags } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import type { JourneyNodeType } from '@/lib/types'
+import type { ConditionRule, JourneyNodeType } from '@/lib/types'
 
+import { summarizeRule } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
 
 export type AddableType = Exclude<JourneyNodeType, 'START'>
@@ -95,6 +96,7 @@ export function summarize(type: JourneyNodeType, config: Record<string, unknown>
       return `Wait ${config.duration} ${Number(config.duration) === 1 ? unit.replace(/s$/, '') : unit}`
     }
     case 'CONDITION': {
+      if (config.rule && typeof config.rule === 'object') return summarizeRule(config.rule as ConditionRule, undefined, [])
       if (!config.check) return 'No condition set'
       const label = CHECK_OPTIONS.find((item) => item.value === config.check)?.label ?? String(config.check)
       return config.days ? `${label}, within ${config.days} days` : label

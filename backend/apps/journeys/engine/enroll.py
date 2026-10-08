@@ -10,6 +10,9 @@ Every entry rule of the live version names candidates, each with the moment they
                                                            joined or left: journey_event SEGMENT_CHANGE rows naming the segment
                      {change_trigger: LOYALTY_TIER | PREFERENCE_UPDATE | ADDRESS_CHANGE}: that attribute's change event
                                                            (events.ATTRIBUTE_EVENTS), read like an EVENT rule
+                     {change_trigger: ATTRIBUTE_MATCH, rule}  the customers whose record matches the rule now
+                                                           (apps.journeys.conditions), qualified when the record last changed
+    any rule         {filters}                              a condition rule every candidate's record must also match
     DATE_TIME        {schedule, time, ...} (apps.journeys.schedule): when its latest moment has passed since the version went
                                                            live or last fired (journey_version.last_fired_at), the list's or segment's
                                                            members, or the customers whose date matches, enter at that moment
@@ -35,7 +38,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 
-from .. import events, schedule
+from .. import conditions, events, schedule
 from ..models import Journey, JourneyEntryRule, JourneyNode, JourneyVersion
 from . import tenants
 
@@ -64,6 +67,9 @@ CANDIDATES = {
     "EVENT": """
         SELECT party_id, ingested_at AS qualified_at FROM journey_event
          WHERE tenant_id = %(tenant)s AND event_type = %(event_type)s AND occurred_at >= %(since)s AND ingested_at >= %(since)s""",
+    "ATTRIBUTE_MATCH": """
+        SELECT cm.party_id, cm.synced_at AS qualified_at FROM customer_master cm
+         WHERE cm.tenant_id = %(tenant)s AND {where}""",
     "SEGMENT_CHANGE": """
         SELECT party_id, qualified_at FROM customer_segment_membership
          WHERE tenant_id = %(tenant)s AND segment_id::text = %(segment)s AND qualified_at >= %(since)s AND %(change)s = 'JOINED'
@@ -77,7 +83,7 @@ ENROLL = """
 WITH candidates AS ({candidates}),
 best AS (
     SELECT c.party_id, max(c.qualified_at) AS qualified_at FROM candidates c
-      JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id
+      JOIN customer_master cm ON cm.tenant_id = %(tenant)s AND cm.party_id = c.party_id{filters}
      GROUP BY c.party_id
 ), previous AS (
     SELECT e.party_id, max(e.enrolled_at) AS last_at, bool_or(e.status = 'ACTIVE') AS inside FROM journey_enrollment e
@@ -111,8 +117,22 @@ def live_version(journey: Journey) -> JourneyVersion | None:
     return versions.order_by("-version_number").first()
 
 
+def is_attribute_match(rule: JourneyEntryRule) -> bool:
+    return rule.entry_type == "SEGMENT_CHANGE" and str((rule.rule_definition or {}).get("change_trigger") or "").upper() == conditions.ATTRIBUTE_MATCH
+
+
+def entry_filters(rule: JourneyEntryRule, args: dict) -> str:
+    """The rule's Only Customers Where filters as " AND (...)" over cm, their parameters added to `args`; "" without any."""
+    filters = (rule.rule_definition or {}).get("filters")
+    where = conditions.compile_where(filters, args, in_journey=False, prefix="f") if isinstance(filters, dict) else None
+    return f" AND {where}" if where else ""
+
+
 def _sources(rule: JourneyEntryRule, args: dict) -> str | None:
     definition = rule.rule_definition or {}
+    if is_attribute_match(rule):
+        where = conditions.compile_where(definition.get("rule"), args, in_journey=False)
+        return CANDIDATES["ATTRIBUTE_MATCH"].format(where=where) if where else None
     if rule.entry_type == "CUSTOMER_LIST" and definition.get("contact_list_id"):
         args["list"] = str(definition["contact_list_id"])
     elif rule.entry_type == "EVENT" and definition.get("event_type"):
@@ -157,13 +177,13 @@ def enroll_journey(tenant_id: str, journey: Journey) -> int:
         whole_segment = fixed and rule.entry_type == "SEGMENT_CHANGE" and bool((rule.rule_definition or {}).get("segment_id"))
         segment_since = timezone.datetime(2000, 1, 1, tzinfo=timezone.get_current_timezone()) if whole_segment else since
         args = {"tenant": str(tenant_id), "journey": str(journey.pk), "version": str(version.pk), "start": str(start.pk), "since": segment_since,
-                "policy": journey.reentry_policy, "days": journey.reentry_after_days or 0, "is_list": rule.entry_type == "CUSTOMER_LIST",
+                "policy": journey.reentry_policy, "days": journey.reentry_after_days or 0, "is_list": rule.entry_type == "CUSTOMER_LIST" or is_attribute_match(rule),
                 "limit": PER_PASS, "entry": rule.entry_type, "moment": moment}
         candidates = _sources(rule, args)
         if candidates is None:
             continue
         with session.tx(), session.connection().cursor() as cursor:
-            cursor.execute(ENROLL.format(candidates=candidates), args)
+            cursor.execute(ENROLL.format(candidates=candidates, filters=entry_filters(rule, args)), args)
             entered += cursor.rowcount
             if moment is not None and cursor.rowcount < PER_PASS:   # a full pass leaves the rest of the audience for the next one
                 fired = max(fired or moment, moment)

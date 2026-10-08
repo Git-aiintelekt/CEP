@@ -1415,6 +1415,57 @@ export interface JourneyGraphConnection {
   label: string | null
 }
 
+/** apps/journeys/conditions.py: one rule, read by a Condition step, by an entry rule's Only Customers Where filters
+ * (rule_definition.filters) and by the Customer Attribute Matches trigger (rule_definition.rule). Fields are
+ * "customer:<name>", "attr:<custom attribute>", "message:<node key or *>", "step:<node key>", "event:<TYPE>",
+ * "list:<id>" and "segment:<id>"; the operators each allows are in features/journeys/conditions/conditionModel.ts. */
+export interface ConditionItem {
+  field: string
+  op: string
+  value?: string | number | (string | number)[]
+  /** event fields: look back this many days (blank: since the customer entered, or ever at entry) */
+  days?: number | ''
+  /** event fields: filters on the event's own data */
+  props?: { key: string; op: string; value?: string | number | (string | number)[] }[]
+}
+
+export interface ConditionRule {
+  /** every condition must hold (All); false: any one (Any) */
+  all: boolean
+  conditions: (ConditionItem | ConditionRule)[]
+}
+
+/** GET /journeys/condition-fields/ : what the builder offers in this workspace */
+export interface ConditionField {
+  key: string
+  label: string
+  type?: 'text' | 'number' | 'date'
+  /** custom attributes: how many customer records have it */
+  customers?: number
+  /** custom attributes with few distinct values: those values, for a picker */
+  values?: string[] | null
+  /** events: how many arrived in the last 90 days */
+  seen?: number
+  /** events: the keys seen in their data */
+  properties?: string[]
+}
+
+export interface ConditionFieldCatalogue {
+  customer: ConditionField[]
+  attributes: ConditionField[]
+  events: ConditionField[]
+  lists: ConditionField[]
+  segments: ConditionField[]
+}
+
+/** POST /journeys/condition-count/ and POST /journeys/{id}/condition-count/ */
+export interface ConditionCount {
+  matching: number
+  total: number
+  /** the journey count looked at its newest 10,000 customers only */
+  sampled: boolean
+}
+
 export interface JourneyEntryRule {
   id?: string
   entry_type: 'CUSTOMER_LIST' | 'EVENT' | 'DATE_TIME' | 'SEGMENT_CHANGE' | string

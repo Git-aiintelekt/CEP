@@ -27,6 +27,7 @@ export function entrySummary(rule: JourneyEntryRule | undefined): string {
   if (definition?.event_type) detail = titleize(definition.event_type)
   else if (rule.entry_type === 'DATE_TIME') detail = `${describeSchedule(rule.rule_definition as Record<string, unknown>, reference).when}${reference ? ` · ${reference}` : ''}`
   else if (rule.entry_type === 'SEGMENT_CHANGE' && reference) detail = `${definition?.change === 'LEFT' ? 'Exits' : 'Enters'} ${reference}`
+  else if (rule.entry_type === 'SEGMENT_CHANGE' && String((rule.rule_definition as { change_trigger?: string }).change_trigger ?? '').toUpperCase() === 'ATTRIBUTE_MATCH') detail = 'Customer Attribute Matches'
   else detail = reference
   return detail ? `${label} · ${detail}` : label
 }

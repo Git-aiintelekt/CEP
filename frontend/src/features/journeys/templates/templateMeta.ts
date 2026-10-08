@@ -57,6 +57,7 @@ export function triggerSentence(rule: JourneyEntryRule | undefined): string {
     case 'SEGMENT_CHANGE':
       if (definition.change === 'JOINED') return `When a customer enters ${referenceLabel(rule) ?? 'a segment'}`
       if (definition.change === 'LEFT') return `When a customer leaves ${referenceLabel(rule) ?? 'a segment'}`
+      if (String(definition.change_trigger ?? '').toUpperCase() === 'ATTRIBUTE_MATCH') return 'When a customer’s record matches the conditions'
       if (definition.change_trigger) return ATTRIBUTE_SENTENCE[definition.change_trigger.toUpperCase()] ?? `When a customer’s ${titleize(definition.change_trigger).toLowerCase()} changes`
       return 'When a customer changes'
     case 'CUSTOMER_LIST':

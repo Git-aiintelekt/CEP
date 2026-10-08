@@ -195,3 +195,34 @@ test('a Wait longer than 999 is refused in the step panel before it reaches the 
   await user.type(duration, '30')
   expect((within(panel).getByRole('button', { name: 'Save Step' }) as HTMLButtonElement).disabled).toBe(false)
 })
+
+test('a Condition is written with the builder: field, comparison and value, read back, counted, and saved as a rule', async () => {
+  const calls = installMockApi({ journey: makeJourney() })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1/build')
+  const canvas = await screen.findByTestId('journey-canvas')
+
+  await user.click(within(canvas).getAllByRole('button', { name: 'Add a Step' })[0])
+  await user.click(await screen.findByRole('button', { name: 'Condition / Split' }))
+  const panel = await screen.findByRole('dialog', { name: 'No condition set' })
+  const save = within(panel).getByRole('button', { name: 'Save Step' }) as HTMLButtonElement
+  expect(save.disabled).toBe(false) // an empty rule saves as a step still to set up
+
+  await user.click(within(panel).getByRole('button', { name: 'Add Condition' }))
+  expect(save.disabled).toBe(true) // a half-written row does not
+  await user.click(within(panel).getByRole('button', { name: 'Field' }))
+  await user.type(screen.getByLabelText('Search Fields'), 'loyal')
+  await user.click(screen.getByRole('button', { name: /Loyalty Tier/ }))
+  await user.selectOptions(within(panel).getByLabelText('Operator'), 'in')
+  await user.type(within(panel).getByLabelText('Values'), 'Gold{Enter}Platinum{Enter}')
+  expect(within(panel).getByText('Yes when their Loyalty Tier is any of Gold or Platinum.')).toBeTruthy()
+  expect(await within(panel).findByText('1,284 of the 3,412 customers in this journey would answer Yes right now.', {}, { timeout: 3000 })).toBeTruthy()
+  expect(save.disabled).toBe(false)
+  await user.click(save)
+
+  expect(await within(canvas).findByText('Their Loyalty Tier is any of Gold or Platinum')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Save Draft' }))
+  await vi.waitFor(() => expect(putGraphCalls(calls)).toHaveLength(1))
+  const graph = putGraphCalls(calls)[0].body as { graph: { nodes: { type: string; config: Record<string, unknown> }[] } }
+  expect(graph.graph.nodes.find((node) => node.type === 'CONDITION')?.config).toEqual({ rule: { all: true, conditions: [{ field: 'attr:loyalty_tier', op: 'in', value: ['Gold', 'Platinum'] }] } })
+})

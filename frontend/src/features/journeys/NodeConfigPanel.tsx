@@ -1,6 +1,6 @@
-/** The per-step panel: Wait's duration, Condition's own real settings (what to check, within how many days), a
- * channel switch + template picker for Email/SMS/MMS, and a coupon/tier/segment picker for the three Action types.
- * Delete is here and on the card's ⋮ menu; × (or Escape) cancels. */
+/** The per-step panel: Wait's duration, Condition's rule (the condition builder, with a step name and the Match on Entry
+ * count), a channel switch + template picker for Email/SMS/MMS, and a coupon/tier/segment picker for the three Action
+ * types. Delete is here and on the card's ⋮ menu; × (or Escape) cancels. */
 import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
@@ -10,10 +10,12 @@ import { useFieldRules } from '@/lib/fieldRules'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
 import { api } from '@/lib/api'
-import type { Audience, Coupon, JourneyNodeType, LoyaltyTier, Page, Template } from '@/lib/types'
+import type { Audience, ConditionRule, Coupon, JourneyNodeType, LoyaltyTier, Page, Template } from '@/lib/types'
 
+import { ConditionBuilder, MatchCount, useConditionFields } from './conditions/ConditionBuilder'
+import { emptyRule, ruleFromLegacy, ruleProblem, isRuleComplete, type JourneyStepOption } from './conditions/conditionModel'
 import type { EditorNode } from './graphModel'
-import { categoryLine, CHECK_OPTIONS, describeStep, WAIT_UNITS, type AddableType } from './nodeDefs'
+import { categoryLine, describeStep, WAIT_UNITS, type AddableType } from './nodeDefs'
 import { SidePanel } from './SidePanel'
 
 /** The closest existing read pattern for a cached C360 reference (customers.Coupon / customers.LoyaltyTier, the
@@ -33,18 +35,33 @@ const CHANNELS: { value: 'EMAIL' | 'SMS'; label: string }[] = [
   { value: 'SMS', label: 'SMS / MMS' },
 ]
 
-export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: EditorNode; onClose: () => void; onSave: (update: { type: JourneyNodeType; config: Record<string, unknown> }) => void; onDelete: () => void }) {
+/** A Condition saved before the builder opens as the rule it meant (conditionModel.ruleFromLegacy); saving writes the rule
+ * and drops the old keys, which the engine still honours until then. */
+function conditionConfig(config: Record<string, unknown>): Record<string, unknown> {
+  if (config.rule && typeof config.rule === 'object') return config
+  const converted = ruleFromLegacy(config)
+  if (!converted) return config
+  const { check: _check, days: _days, event_type: _event, segment_id: _segment, segment_name: _segmentName, message_step: _step, category: _category, expr: _expr, ...rest } = config
+  return { ...rest, rule: converted }
+}
+
+export function NodeConfigPanel({ node, onClose, onSave, onDelete, steps = [], journeyId }: {
+  node: EditorNode; onClose: () => void; onSave: (update: { type: JourneyNodeType; config: Record<string, unknown> }) => void; onDelete: () => void
+  /** the journey's other message and Condition steps, for a Condition's "This Journey" fields */
+  steps?: JourneyStepOption[]
+  journeyId?: string
+}) {
   const [type, setType] = useState<JourneyNodeType>(node.type)
-  const [config, setConfig] = useState<Record<string, unknown>>(node.config)
+  const [config, setConfig] = useState<Record<string, unknown>>(() => (node.type === 'CONDITION' ? conditionConfig(node.config) : node.config))
   const set = (patch: Record<string, unknown>) => setConfig((prev) => ({ ...prev, ...patch }))
   const isMessage = type === 'EMAIL' || type === 'SMS' || type === 'MMS'
   const rule = useFieldRules('journey_step')
+  const fields = useConditionFields()
   const outOfRange = (name: string, min: number, max: number) => rangeError(config[name], Number(rule(name)?.min_value ?? min), Number(rule(name)?.max_value ?? max)) !== undefined
   const tooLong = (name: string, max: number) => String(config[name] ?? '').length > (rule(name)?.max ?? max)
-  const eventType = String(config.event_type ?? '')
+  const conditionRule = type === 'CONDITION' && config.rule && typeof config.rule === 'object' ? (config.rule as ConditionRule) : null
   const invalid = (type === 'WAIT' && outOfRange('duration', 0, 999))
-    || (type === 'CONDITION' && (outOfRange('days', 0, 365) || tooLong('event_type', 60) || tooLong('message_step', 100)
-                                 || (config.check === 'EVENT' && eventType !== '' && !/^[A-Z][A-Z0-9_]{1,59}$/.test(eventType))))
+    || (type === 'CONDITION' && (tooLong('label', 120) || (conditionRule !== null && ruleProblem(conditionRule, fields.data, false) !== null)))
 
   const switchChannel = (channel: 'EMAIL' | 'SMS') => {
     if (channel === (type === 'EMAIL' ? 'EMAIL' : 'SMS')) return
@@ -61,6 +78,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: Edi
     <SidePanel
       title={describeStep({ ...node, type, config }).title}
       subtitle={categoryLine(type as AddableType)}
+      wide={type === 'CONDITION'}
       onClose={onClose}
       footer={
         <div className="flex w-full gap-2">
@@ -72,7 +90,7 @@ export function NodeConfigPanel({ node, onClose, onSave, onDelete }: { node: Edi
       }
     >
       {type === 'WAIT' && <WaitFields config={config} set={set} />}
-      {type === 'CONDITION' && <ConditionFields config={config} set={set} />}
+      {type === 'CONDITION' && <ConditionFields config={config} set={set} steps={steps} journeyId={journeyId} />}
       {isMessage && (
         <div className="space-y-4">
           <div>
@@ -121,53 +139,24 @@ function WaitFields({ config, set }: { config: Record<string, unknown>; set: Set
   )
 }
 
-function ConditionFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
+function ConditionFields({ config, set, steps, journeyId }: { config: Record<string, unknown>; set: SetFn; steps: JourneyStepOption[]; journeyId?: string }) {
   const rule = useFieldRules('journey_step')
-  const daysMin = Number(rule('days')?.min_value ?? 0)
-  const daysMax = Number(rule('days')?.max_value ?? 365)
-  const eventMax = rule('event_type')?.max ?? 60
-  const messageMax = rule('message_step')?.max ?? 100
-  const eventType = String(config.event_type ?? '')
-  const messageStep = String(config.message_step ?? '')
-  const check = String(config.check ?? '')
-  const segments = useQuery({ queryKey: ['audiences', 'options'], queryFn: ({ signal }) => api.get<Audience[]>('/contact-lists/audiences/', undefined, signal) })
+  const fields = useConditionFields()
+  const labelMax = rule('label')?.max ?? 120
+  const label = String(config.label ?? '')
+  const conditionRule = config.rule && typeof config.rule === 'object' ? (config.rule as ConditionRule) : emptyRule()
+  const ready = isRuleComplete(conditionRule, fields.data, false)
   return (
     <div className="space-y-4">
-      <Field label="What to Check" required hint="Looks back to when the customer entered the journey, unless you give it a number of days below.">
-        {(ids) => (
-          <Select {...ids} value={check} onChange={(event) => set({ check: event.target.value })}>
-            <option value="">Choose What to Check</option>
-            {CHECK_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </Select>
-        )}
+      <Field label="Step Name" hint="Shown on the card, e.g. Worth a second email?" limit={{ used: label.length, max: labelMax }}>
+        {(ids) => <TextInput {...ids} value={label} maxLength={labelMax} onChange={(event) => set({ label: event.target.value })} placeholder="Optional" />}
       </Field>
-      <Field label="Within How Many Days" hint="Leave blank to look back to when the customer entered." error={rangeError(config.days, daysMin, daysMax)}>
-        {(ids) => <TextInput {...ids} type="number" min={daysMin} max={daysMax} step={1} value={String(config.days ?? '')} onChange={(event) => set({ days: event.target.value === '' ? '' : Number(event.target.value) })} />}
-      </Field>
-      {check === 'EVENT' && (
-        <Field label="Event Type" required hint="Capital letters, digits and underscores, as the event is sent." limit={{ used: eventType.length, max: eventMax }}
-          error={eventType && !/^[A-Z][A-Z0-9_]{1,59}$/.test(eventType) ? 'Start with a letter; use capital letters, digits and underscores.' : undefined}>
-          {(ids) => <TextInput {...ids} value={eventType} maxLength={eventMax} onChange={(event) => set({ event_type: event.target.value.toUpperCase().replace(/[\s-]+/g, '_') })} placeholder="e.g. CATEGORY_PURCHASE" />}
-        </Field>
-      )}
-      {(check === 'OPENED' || check === 'CLICKED') && (
-        <Field label="Which Message" hint="Leave blank to count any email sent earlier in this journey." limit={{ used: messageStep.length, max: messageMax }}>
-          {(ids) => <TextInput {...ids} value={messageStep} maxLength={messageMax} onChange={(event) => set({ message_step: event.target.value })} placeholder="step key, optional" />}
-        </Field>
-      )}
-      {check === 'IN_SEGMENT' && (
-        <Field label="Segment" required>
-          {(ids) =>
-            segments.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading segments</p>
-            : segments.isError ? <ErrorState error={segments.error} onRetry={() => void segments.refetch()} />
-            : (
-              <Select {...ids} value={String(config.segment_id ?? '')} onChange={(event) => set({ segment_id: event.target.value, segment_name: segments.data?.find((item) => item.id === event.target.value)?.name })}>
-                <option value="">Choose a Segment</option>
-                {(segments.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </Select>
-            )}
-        </Field>
-      )}
+      <div>
+        <p className="text-sm font-medium text-ink-800">Condition</p>
+        <p className="mt-1 mb-2 text-xs text-ink-800">Checked when the customer reaches this step. Yes follows the Yes branch, otherwise No.</p>
+        <ConditionBuilder rule={conditionRule} onChange={(next) => set({ rule: next })} lead="Yes when" readBackLead="Yes when" steps={steps} atEntry={false} />
+      </div>
+      <MatchCount rule={conditionRule} journeyId={journeyId} ready={ready && Boolean(journeyId)} wording="answer" />
     </div>
   )
 }

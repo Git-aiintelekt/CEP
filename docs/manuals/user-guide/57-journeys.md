@@ -65,7 +65,9 @@ On the Journeys page, choose **Create Journey**, or **Start from Scratch** in th
 |---|---|
 | Journey Name | A name unique in the workspace, for example *Welcome Series — New Loyalty Members*. |
 | What Qualifies a Customer to Enter This Journey? | **Customer List**, **Event**, **Date / Time** or **Segment or Customer Change**. |
-| Specific Trigger | The list, the event (Purchase, Abandoned Cart, Birthday, No Response …), the schedule, or the change (Enters Segment, Exits Segment, Loyalty Tier, Preference Update, Address Change). Enters / Exits Segment also asks which **Segment**. |
+| Specific Trigger | The list, the event (Purchase, Abandoned Cart, Birthday, No Response …), the schedule, or the change (Enters Segment, Exits Segment, Loyalty Tier, Preference Update, Address Change, Customer Attribute Matches). Enters / Exits Segment also asks which **Segment**. |
+| Customer Record Matches | For **Customer Attribute Matches**: the conditions a customer's record must meet to enter (see *Conditions* below), for example Customer Status is New. Everyone whose record matches enters, each once; with Every Qualifying Event, again when their record changes. A grey line says how many would enter now. |
+| Only Customers Where (Optional) | Conditions that narrow any trigger: a customer the trigger would admit enters only if their record matches, for example Country is United States and Email Consent is Opted In. |
 | Description (Optional) | What the journey is for; shown on its page. |
 
 **Date / Time entries** add their own fields under Specific Trigger, and a grey line reads the result back ("Every Monday at 9:00 AM, the members of VIP Customers enter"):
@@ -98,7 +100,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Step | What it does |
 |---|---|
 | Wait | Pauses for minutes, hours, days or weeks. |
-| Condition | Splits into Yes and No: made a purchase, opened an email, clicked a link, redeemed a coupon, a specific event happened (optionally within a number of days), or is in a segment. |
+| Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Email, SMS / MMS | Sends a published template. |
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
@@ -106,6 +108,17 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Exit Journey | Ends the path; the customer counts as Goal Converted. End every path with one. |
 
 **Save Draft** (top right) keeps your work; nothing saves on its own. When every step is set up, choose **Continue to Test Publish**.
+
+#### Conditions
+
+The same builder writes a Condition step, the Customer Attribute Matches trigger and the Only Customers Where filters. Each row is a field, how to compare it, and a value; **All** means every row must hold, **Any** that one is enough; **Add Group** nests one All / Any group inside the rule. A sentence under the builder reads the whole condition back. A rule holds at most 20 conditions.
+
+| Fields | Compared with |
+|---|---|
+| Customer: first name, last name, email address, phone number, country, state, city, postal code, source system, record updated, last purchase date, number of purchases, and every custom attribute on the records (with its values to pick from when there are few) | Text: is, is not, is any of, is none of, contains, does not contain, starts with, is set, is not set. Numbers: equals, does not equal, is at least, is at most, is between. Dates: is within the last N days, is more than N days ago, is before, is after, is between. A custom attribute is read as text, a number or a date by the comparison you choose. |
+| This Journey (Condition steps only): each Email or SMS step, any message of the journey, each other Condition | A message: was sent, was delivered, was opened, was clicked, bounced, was delivered and not opened, was not sent. A Condition: answered Yes, answered No. Only sends after the customer entered count. |
+| Events: the types seen in the last 90 days and the standard ones, or any type you name | Happened, did not happen; optionally within the last N days (otherwise since the customer entered the journey, or ever at entry), and filters on the event's own data (store is Lakeside, amount is at least 100). |
+| Lists and segments | Is in, is not in. |
 
 ### 5. Test publish
 
@@ -170,6 +183,7 @@ Only customers in the customer records enter, since a message to someone unknown
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
 - The dates for **On a Date Attribute** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
+- A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - The Split step (more than two paths) is not offered; use Conditions.
 - Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
 - Events are explained in **Events** (Settings → Events), purchases in **Attribution**.
