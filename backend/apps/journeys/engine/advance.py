@@ -17,7 +17,7 @@ from apps.delivery.engine import session
 
 from .. import goals
 from ..models import JourneyConnection, JourneyCustomerState, JourneyEnrollment, JourneyNodeExecution
-from . import steps, tenants
+from . import retries, steps, tenants
 from .outcome import Done, Finish, Hold
 
 log = logging.getLogger("cep.journeys")
@@ -70,10 +70,23 @@ def advance_one(enrollment_id) -> str:
                 _finish(state, enrollment, "EXITED", "Their step no longer exists.")
                 outcome_label = "finished"
                 break
-            outcome = steps.run(node, state, enrollment)
+            try:
+                with session.tx():                          # a savepoint: a step that blows up leaves the state writable
+                    outcome = steps.run(node, state, enrollment)
+            except Exception as error:                      # noqa: BLE001  an exception is a temporary failure: tried again (retries.py)
+                log.exception("step %s failed for enrollment %s", node.node_key, enrollment.pk)
+                outcome = Done("FAILED", {"reason": f"{type(error).__name__}: {str(error)[:200]}"}, retry=True)
             if isinstance(outcome, Hold):
                 state.next_scheduled_at = outcome.until
                 break
+            if isinstance(outcome, Done) and outcome.status == "FAILED" and outcome.retry:
+                entry = retries.note_failure(state, node.node_key, str(outcome.result.get("reason") or "failed"))
+                _record(node, enrollment, Done("FAILED", {**outcome.result, "attempt": entry["attempts"], "temporary": True,
+                                                           **({"gave_up": True} if entry["gave_up_at"] else {})}, run_id=outcome.run_id))
+                outcome_label = "gave_up" if entry["gave_up_at"] else "retrying"
+                break
+            if isinstance(outcome, Done) and outcome.status == "FAILED":
+                retries.clear(state)
             if isinstance(outcome, Finish):
                 _record(node, enrollment, Done("SUCCESS", {"finished": outcome.status}))
                 _finish(state, enrollment, outcome.status, outcome.reason)
@@ -81,6 +94,7 @@ def advance_one(enrollment_id) -> str:
                 break
             _record(node, enrollment, outcome)
             state.state_data.pop("pending", None)
+            retries.clear(state)
             following = _next(node, outcome.branch)
             if following is None:
                 _finish(state, enrollment, "EXITED", f"No step follows {node.node_key}" + (f" on the {outcome.branch} path." if outcome.branch else "."))
@@ -96,26 +110,30 @@ def advance_one(enrollment_id) -> str:
 
 
 def advance_tenant(tenant_id: str) -> dict:
-    counts = {"moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0}
+    counts = {"moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0, "retrying": 0, "gave_up": 0, "locked": 0}
     with session.tenant_scope(tenant_id):
-        try:                                               # goals first: a customer whose goal event arrived leaves before their next step
-            counts["converted"] = goals.check_tenant(tenant_id)["converted"]
-        except Exception:                                  # noqa: BLE001
-            log.exception("journey goals could not be checked for tenant %s", tenant_id)
-        with session.tx(), session.connection().cursor() as cursor:
-            cursor.execute(DUE, [str(tenant_id), PER_PASS])
-            due = [row[0] for row in cursor.fetchall()]
-        for enrollment_id in due:
-            try:
-                counts[advance_one(enrollment_id)] += 1
-            except Exception:                              # noqa: BLE001  one customer's trouble must not stop the others; they are tried again next pass
-                log.exception("journey enrollment %s could not advance", enrollment_id)
-                counts["failed"] += 1
+        with retries.lock(session.connection(), f"journeys:advance:{tenant_id}") as held:
+            if not held:                                   # another scheduler is on this workspace: skip it this pass
+                counts["locked"] = 1
+                return counts
+            try:                                           # goals first: a customer whose goal event arrived leaves before their next step
+                counts["converted"] = goals.check_tenant(tenant_id)["converted"]
+            except Exception:                              # noqa: BLE001
+                log.exception("journey goals could not be checked for tenant %s", tenant_id)
+            with session.tx(), session.connection().cursor() as cursor:
+                cursor.execute(DUE, [str(tenant_id), PER_PASS])
+                due = [row[0] for row in cursor.fetchall()]
+            for enrollment_id in due:
+                try:
+                    counts[advance_one(enrollment_id)] += 1
+                except Exception:                          # noqa: BLE001  one customer's trouble must not stop the others; they are tried again next pass
+                    log.exception("journey enrollment %s could not advance", enrollment_id)
+                    counts["failed"] += 1
     return counts
 
 
 def run() -> dict:
-    totals = {"tenants": 0, "moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0}
+    totals = {"tenants": 0, "moved": 0, "held": 0, "finished": 0, "busy": 0, "failed": 0, "converted": 0, "retrying": 0, "gave_up": 0, "locked": 0}
     for tenant_id in tenants("""SELECT DISTINCT e.tenant_id FROM journey_enrollment e
                                   JOIN journey j ON j.id = e.journey_id JOIN tenant t ON t.id = e.tenant_id
                                  WHERE e.status = 'ACTIVE' AND j.status = 'ACTIVE' AND j.deleted_at IS NULL AND t.status = 'ACTIVE'"""):
@@ -126,7 +144,6 @@ def run() -> dict:
             totals["failed"] += 1
             continue
         totals["tenants"] += 1
-        totals["converted"] += counts["converted"]
         for key, value in counts.items():
             totals[key] += value
     return totals

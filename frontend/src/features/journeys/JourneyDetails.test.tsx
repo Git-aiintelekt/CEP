@@ -251,3 +251,29 @@ test('the Suppressions card adds a customer by email, says they left the journey
   await user.click(within(list).getByRole('button', { name: 'Remove' }))
   expect(await screen.findByText('Nobody is suppressed for this journey.')).toBeTruthy()
 })
+
+test('Needs Attention lists a step that was given up on, with Retry Now and Skip Step', async () => {
+  installMockApi({
+    journey: makeJourney({ id: 'j1', status: 'ACTIVE' }), journeyVersions: [makeJourneyVersion({ status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })],
+    journeyAttention: [
+      { id: 'enr-9', party_id: 'p-kenji', name: 'Kenji Tanaka', email: 'kenji@example.com', node_key: 'email-1', node_type: 'EMAIL', label: 'Email: Welcome', reason: 'The email engine answered 503',
+        attempts: 2, max_attempts: 3, next_try_at: new Date(Date.now() + 48 * 60_000).toISOString(), gave_up_at: null, first_failed_at: '2026-10-09T10:00:00Z' },
+      { id: 'enr-10', party_id: 'p-sofia', name: 'Sofia Ramirez', email: 'sofia@example.com', node_key: 'sms-1', node_type: 'SMS', label: 'SMS: Welcome gift', reason: 'There is no sms sender to send from.',
+        attempts: 4, max_attempts: 3, next_try_at: null, gave_up_at: '2026-10-09T12:20:00Z', first_failed_at: '2026-10-09T11:00:00Z' },
+    ],
+  })
+  const user = userEvent.setup()
+  await renderAppAt('/journeys/j1')
+  const table = await screen.findByRole('table', { name: 'Customers needing attention' })
+  const kenji = within(table).getByText('Kenji Tanaka').closest('tr')!
+  expect(within(kenji).getByText('2 of 3')).toBeTruthy()
+  expect(within(kenji).getByText(/Retrying in 4[78] min/)).toBeTruthy()
+  const sofia = within(table).getByText('Sofia Ramirez').closest('tr')!
+  expect(within(sofia).getByText('3 of 3')).toBeTruthy()
+  expect(within(sofia).getByText(/^Gave up/)).toBeTruthy()
+
+  await user.click(within(sofia).getByRole('button', { name: 'Skip Step' }))
+  await vi.waitFor(() => expect(within(table).queryByText('Sofia Ramirez')).toBeNull())
+  await user.click(within(table).getByText('Kenji Tanaka').closest('tr')!.querySelector('button')!)   // Retry Now
+  await vi.waitFor(() => expect(within(screen.getByRole('table', { name: 'Customers needing attention' })).getByText('Retrying now')).toBeTruthy())
+})

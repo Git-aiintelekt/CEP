@@ -565,6 +565,30 @@ class JourneyViewSet(views.JourneyViewSet):
         return Response(found)
 
     @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["get"])
+    def attention(self, request, pk=None, version=None):
+        """The Needs Attention card: customers whose step is being retried or was given up on (apps.journeys.timeline.attention)."""
+        return Response(timeline.attention(self.get_object()))
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)/retry",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.edit")])
+    def customer_retry(self, request, pk=None, enrollment=None, version=None):
+        """Retry Now: the failing step runs again on the next pass."""
+        if not timeline.retry_now(self.get_object(), enrollment):
+            raise NotFound("This customer has nothing to retry.")
+        return Response({"retried": True})
+
+    @extend_schema(request=None, responses={200: None})
+    @action(detail=True, methods=["post"], url_path=r"customers/(?P<enrollment>[0-9a-f-]+)/skip",
+            permission_classes=[IsAuthenticated, SameTenant, params.RequiresFeature.for_("journeys"), HasPermissionCode.for_("journey.edit")])
+    def customer_skip(self, request, pk=None, enrollment=None, version=None):
+        """Skip Step: the step is recorded as skipped and the customer moves on."""
+        if not timeline.skip_step(self.get_object(), enrollment):
+            raise NotFound("This customer is not waiting at a step.")
+        return Response({"skipped": True})
+
+    @extend_schema(request=None, responses={200: None})
     @action(detail=True, methods=["get"], url_path=r"versions/(?P<number>\d+)/counts")
     def version_counts(self, request, pk=None, number=None, version=None):
         """Per step of the version: how many customers passed, are waiting, answered Yes / No, reached the goal — the

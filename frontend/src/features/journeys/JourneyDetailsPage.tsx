@@ -31,6 +31,7 @@ import type {
 
 import { CHANNEL_META } from './channelMeta'
 import { CustomersCard } from './CustomersCard'
+import { NeedsAttentionCard } from './NeedsAttentionCard'
 import { SuppressionsCard } from './SuppressionsCard'
 import { EnrollmentTrendChart } from './EnrollmentTrendChart'
 import { activityLine } from './JourneyPreviewPopover'
@@ -376,6 +377,8 @@ export function JourneyDetailsPage() {
             <EnrollmentTrendChart weeks={trendQuery.data} loading={trendQuery.isPending} error={trendQuery.error} onRetry={() => void trendQuery.refetch()} />
           </DetailCard>
         )}
+
+        <NeedsAttentionCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
 
         <CustomersCard journeyId={journey.id} published={journey.status !== 'DRAFT'} />
 

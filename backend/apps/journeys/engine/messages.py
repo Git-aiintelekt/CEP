@@ -47,7 +47,7 @@ def _campaign(node, enrollment, config) -> Campaign | Done:
     senders = SenderProfile.objects.filter(tenant_id=enrollment.tenant_id, deleted_at__isnull=True, channel__in=SENDER_CHANNEL[node.node_type])
     sender = senders.filter(pk=config["sender_profile_id"]).first() if config.get("sender_profile_id") else senders.order_by("-is_default", "created_at").first()
     if sender is None:
-        return Done("FAILED", {"reason": f"There is no {node.node_type.lower()} sender to send from."})
+        return Done("FAILED", {"reason": f"There is no {node.node_type.lower()} sender to send from."}, retry=True)
     journey = enrollment.journey
     solicitation = "TRANSACTIONAL" if str(config.get("solicitation_type") or "").upper() == "TRANSACTIONAL" else "MARKETING"
     try:
@@ -111,7 +111,7 @@ def _enqueue(node, state, enrollment) -> Hold | Done:
 def _verdict(pending: dict, enrollment) -> Hold | Done:
     run = CampaignRun.objects.filter(tenant_id=enrollment.tenant_id, pk=pending["run"]).first()
     if run is None:
-        return Done("FAILED", {"reason": "The send was removed."})
+        return Done("FAILED", {"reason": "The send was removed."}, retry=True)
     member = (CampaignListMember.objects.filter(tenant_id=enrollment.tenant_id, party_id=enrollment.party_id,
                                                 campaign_list__in=CampaignList.objects.filter(campaign_run=run))
               .values("status", "suppression_reason").first())
@@ -120,10 +120,11 @@ def _verdict(pending: dict, enrollment) -> Hold | Done:
             return Done("SKIPPED", {"reason": member["suppression_reason"], "campaign_run": str(run.pk)}, run_id=str(run.pk))
         return Done(result={"campaign_run": str(run.pk), "campaign": str(run.campaign_id)}, run_id=str(run.pk))
     if run.status in STARTED:
-        return Done("FAILED", {"reason": f"The send {run.get_status_display().lower()} without this customer.", "campaign_run": str(run.pk)}, run_id=str(run.pk))
+        return Done("FAILED", {"reason": f"The send {run.get_status_display().lower()} without this customer.", "campaign_run": str(run.pk)}, run_id=str(run.pk),
+                    retry=run.status in ("FAILED", "CANCELLED"))
     waiting_since = datetime.fromisoformat(pending["since"])
     if timezone.now() - waiting_since > GIVE_UP:
-        return Done("FAILED", {"reason": "The send did not start within a day.", "campaign_run": str(run.pk)}, run_id=str(run.pk))
+        return Done("FAILED", {"reason": "The send did not start within a day.", "campaign_run": str(run.pk)}, run_id=str(run.pk), retry=True)
     return Hold(timezone.now() + LOOK_AGAIN)
 
 

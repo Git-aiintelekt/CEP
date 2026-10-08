@@ -1678,6 +1678,23 @@ export interface JourneyPreviewRoute {
   steps: JourneyPreviewStep[]
 }
 
+/** GET /journeys/{id}/attention/ : a customer whose step is being retried or was given up on (apps/journeys/engine/retries.py) */
+export interface JourneyAttentionRow {
+  id: string
+  party_id: string
+  name: string
+  email: string | null
+  node_key: string | null
+  node_type: string | null
+  label: string
+  reason: string | null
+  attempts: number
+  max_attempts: number
+  next_try_at: string | null
+  gave_up_at: string | null
+  first_failed_at: string | null
+}
+
 /** GET /journeys/{id}/suppressions/ : a customer this journey never enters or messages (apps/journeys/suppressions.py) */
 export interface JourneySuppression {
   id: string
