@@ -37,7 +37,7 @@ function Insight({ insight }: { insight: RevenueInsight }) {
   return (
     <div data-revenue-insight={insight.behind ? 'behind' : 'on-track'}
       className={`flex items-start gap-3 rounded-lg border px-3.5 py-3 ${insight.behind ? 'cep-home-insight border-high-bg' : 'cep-home-strip border-line-subtle'}`}>
-      <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md ${insight.behind ? 'cep-home-insight-badge text-white' : 'cep-home-badge text-plum-700'}`}>
+      <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md ${insight.behind ? 'cep-home-insight-badge text-on-brand' : 'cep-home-badge text-plum-700'}`}>
         <Lightbulb size={15} strokeWidth={1.5} />
       </span>
       <p className={`min-w-0 text-helper ${insight.behind ? 'text-warning-text' : 'text-ink-800'}`}>

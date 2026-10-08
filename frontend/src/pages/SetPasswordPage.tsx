@@ -54,7 +54,7 @@ export function SetPasswordPage() {
       {done ? (
         <AuthStep>
           <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-success">
-            <Check size={20} strokeWidth={1.5} className="text-white" />
+            <Check size={20} strokeWidth={1.5} className="text-on-brand" />
           </span>
           <AuthHeading title="Password Updated">Log in with your new password to continue.</AuthHeading>
           <button type="button" onClick={() => navigate('/login')} className={authButtonPrimary}>

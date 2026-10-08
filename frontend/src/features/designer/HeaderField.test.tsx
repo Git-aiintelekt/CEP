@@ -63,7 +63,7 @@ test('the field is filled and transparent-bordered at rest, and shows focus on t
   const input = field('')
   expect(shell(input).className).toContain('bg-fill-subtle')
   expect(shell(input).className).toContain('border-transparent')
-  expect(shell(input).className).toContain('focus-within:border-brand-600')
+  expect(shell(input).className).toContain('focus-within:border-focus')
   expect(shell(input).className).toContain('focus-within:shadow-focus')
   expect(input.className).toContain('cep-input-bare')
 })

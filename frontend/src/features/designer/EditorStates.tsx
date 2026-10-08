@@ -24,7 +24,7 @@ export function EditorFailure({ title, detail, onRetry, footer }: { title: strin
       <button
         type="button"
         onClick={onRetry}
-        className="mt-1 inline-flex h-9 items-center rounded-sm bg-brand-600 px-4 text-[13px] font-semibold text-white transition-colors duration-base ease-standard hover:bg-brand-800"
+        className="mt-1 inline-flex h-9 items-center rounded-sm bg-brand-600 px-4 text-[13px] font-semibold text-on-brand transition-colors duration-base ease-standard hover:bg-brand-fill-hover"
       >
         Retry
       </button>

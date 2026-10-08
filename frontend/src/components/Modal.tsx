@@ -51,7 +51,7 @@ export function Modal({ title, subtitle, onClose, children, footer, size = 'md',
   const editorType = useEditorTypeClass()
   return createPortal(
     <div className={`${editorType} fixed inset-0 z-50 flex animate-fade-in justify-center motion-reduce:animate-none overflow-y-auto bg-scrim p-4 ${size === 'screen' ? 'items-center' : 'items-start md:p-10'}`} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface ${WIDTH[size]} ${scrollBody ? `flex max-h-[calc(100dvh-2rem)] flex-col ${size === 'screen' ? '' : 'md:max-h-[calc(100dvh-5rem)]'}` : ''}`}>
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} className={`w-full rounded-lg bg-surface-overlay ${WIDTH[size]} ${scrollBody ? `flex max-h-[calc(100dvh-2rem)] flex-col ${size === 'screen' ? '' : 'md:max-h-[calc(100dvh-5rem)]'}` : ''}`}>
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-3 py-1">
             {leading}

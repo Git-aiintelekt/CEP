@@ -68,7 +68,7 @@ function Row({ row, attributed }: { row: RecentCampaignRow; attributed: boolean 
       <td className="px-3 text-right text-sm text-ink-900 cep-num"><RevenueCell row={row} attributed={attributed} /></td>
       <td className={`${WIDE} px-3 text-sm text-ink-900`}>
         <span className="flex min-w-0 items-center gap-2">
-          {row.owner && <span aria-hidden className="cep-home-journey flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white">{initials(row.owner)}</span>}
+          {row.owner && <span aria-hidden className="cep-home-journey flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-on-brand">{initials(row.owner)}</span>}
           <TruncatedText text={row.owner ?? '—'} />
         </span>
       </td>

@@ -282,7 +282,7 @@ export function CampaignWizardPage() {
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-initial">
             <Link to={back} aria-label={backLabel} title={backLabel}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md border border-line text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control-md border border-line text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-hover">
               <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
             </Link>
             <span className="min-w-0 truncate text-card-title font-semibold text-ink-900" title={loaded.name} data-testid="flow-campaign-name">{loaded.name}</span>

@@ -305,7 +305,7 @@ function Blocked({ campaign, zone }: { campaign: Campaign; zone: string }) {
             {data.summary.groups.map((group) => (
               <li key={group.key}>
                 <button type="button" aria-pressed={reason === group.key} onClick={() => { setReason(reason === group.key ? '' : group.key); setPage(1) }}
-                  className={`rounded-sm border px-3 py-1 text-sm ${reason === group.key ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-subtle'}`}>
+                  className={`rounded-sm border px-3 py-1 text-sm ${reason === group.key ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-700 hover:bg-surface-hover'}`}>
                   {group.label} <span className="cep-num font-semibold">{formatNumber(group.count)}</span>
                 </button>
               </li>

@@ -28,7 +28,7 @@ export interface HeaderFieldProps {
 }
 
 const FIELD_SHELL =
-  'flex h-8 min-w-0 items-center gap-[2px] rounded-sm border bg-fill-subtle pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:bg-surface focus-within:shadow-focus'
+  'flex h-8 min-w-0 items-center gap-[2px] rounded-sm border bg-fill-subtle pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-focus focus-within:bg-surface focus-within:shadow-focus'
 
 export function HeaderField({ id, label, inputRef, value, placeholder, readOnly, advisory, max, note, hint = null, onChange, picker, onPickEmoji }: HeaderFieldProps) {
   const noteId = `${id}-note`

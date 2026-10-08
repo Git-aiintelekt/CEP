@@ -394,7 +394,7 @@ test('Drip: the hint under the types, Multiple Channels unavailable with its rea
   await user.click(radio('Campaign Type', /^Drip/))
   const hint = dialog().querySelector<HTMLElement>('[data-drip-hint]')!
   expect(hint.textContent).toContain('Use a drip when everyone on a list gets the same messages on the same schedule. Use a journey when messages depend on what each customer does.')
-  expect(within(hint).getByRole('button', { name: 'Create a Journey Instead' }).className).toContain('text-brand-600')
+  expect(within(hint).getByRole('button', { name: 'Create a Journey Instead' }).className).toContain('text-link')
 
   const multi = radio('Channel', /Multiple Channels/)
   expect(multi.getAttribute('aria-checked')).toBe('false')                                         // picked before Drip: cleared, to choose again

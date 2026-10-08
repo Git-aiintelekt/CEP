@@ -36,8 +36,8 @@ Neutrals:
 | Token | Hex | Role |
 |---|---|---|
 | `--white` | `#FFFFFF` | card/panel surfaces |
-| `--gray-75` | `#F9FAFB` | subtle / alternating surfaces, row hover |
-| `--gray-100` | `#EEEFF5` | subtle borders, icon-button hover |
+| `--gray-75` | `#F9FAFB` | table header, alternating rows |
+| `--gray-100` | `#EEEFF5` | row and menu-item hover, icon-button hover, sunken fields |
 | `--gray-150` | `#E7E8EF` | default borders, hairlines |
 | `--gray-400` | `#9EA2AD` | emphasis borders, placeholders, disabled text |
 | `--gray-700` | `#6B6F7B` | no text role in the app (kept for the template editors' exact copy and the Archived tag) |
@@ -132,7 +132,7 @@ Derived convenience roles also exist for links, focus, icons and legacy surface 
 | Failed (also Cancelled) | `#FADCE1` | `#9C1C33` | `#D9485F` | rose: stopped |
 | Archived | `#FFFFFF`, 1px dashed `#9EA2AD` | `#6B6F7B` | `#CFD2DC` | the only unfilled tag: out of use |
 
-- **The 6px dot shows only on live statuses:** Active, Sending and Preparing, always in the Active dot colour. No other status has a dot; the other `-dot` tokens are for charts and legends.
+- **The 6px dot shows only on live statuses:** Active, Sending and Preparing, always in the Active dot colour. No other status has a dot. Only the Active dot exists in the app (`--color-tag-active-dot`); the other `-dot` values here are kept for the specimens.
 - Sending and Preparing use the Active colours; the label tells them apart. Cancelled uses the Failed colours.
 - Contact list types: Production uses Production Published, Test uses Test Published.
 - An unknown status falls back to neutral grey (`Gray 100` / `Gray 800`). The blue brand tag is for merge-field tokens only, never a status.
@@ -154,6 +154,18 @@ Only Journey and Campaign are built (`components/CategoryTag.tsx`); the other fo
 - Use for: journey markers; icon badges (a `plum-700` icon on a `plum-100` square) on KPI tiles, the Create New buttons and section headers; at most one `plum-50` header strip per section; small highlight marks.
 - Never for: buttons, links, status, large fills, body text, or more than two plum elements in one small component. Blue 600 stays the only action colour.
 - Keep plum at least 8px away from a violet Test Published tag so the two don't read as one.
+
+### Themes: light and dark
+
+One token set, two themes (token map revision 2, 2026-10-08). Components use only the `--color-*` names in `frontend/src/index.css` and never know the theme; `<html data-theme="light|dark">` picks the values. `index.css` is the source of truth for both: its `[data-theme="light"]` and `[data-theme="dark"]` blocks must list the same tokens (`src/lib/theme.test.ts` checks it, and also fails on Tailwind palette classes or arbitrary hex in components). Either block can sit on any element to scope a panel: the Home hero cards and the inbox-row preview set `data-theme="light"` so they look the same in a dark page.
+
+- **The switch:** Light / Dark / System in the account menu (Appearance). Light is the default; the choice is kept per browser.
+- **Dark is built on the neutral shell:** rail and top bar Neutral 0 `#18191A`, page Neutral 100 `#1F1F21`, cards Neutral 200 `#242528` always with the 1px `line` (`#3D3F43`), overlays Neutral 250 `#2B2C2F`. Depth comes from lighter surfaces; Home drops its plum wash.
+- **Role tokens that let dark differ** (light keeps one value): `surface-overlay` (menus, popovers, modals, drawers), `surface-hover` (rows and menu items: Gray 100 / Neutral 350, one step above the surface), `link` and `link-hover` (links, outline buttons, selected tabs: Blue 600 / Blue 800), `focus` (borders, outlines, rings), `brand-fill-hover` and `brand-fill-pressed` (Blue 600 fills: dark darkens to Blue 500 / 400 so white text stays above 4.5:1), `on-brand` (text on strong fills), `ink-700` (the editors' Gray 700).
+- **`brand-800` is text only:** brand tag text and text on selected fills (Blue 900 in dark). Hover and press on blue fills use the fill tokens.
+- **Always-dark chips** (tooltips, the support banner button, hover labels) use `bg-toast`, never `bg-ink-900`, which turns light in dark.
+- **Dark shadows** are black at 40% (menu), 45% (drawer) and 50% (toast); the focus ring is Blue 800 at 35%.
+- **Light changes that came with it:** row and menu hover moved from Gray 75 to Gray 100 (Gray 75 matched the table header and was 1.05:1 on white menus); `line-control` darkened to `#81858F` so field borders pass 3:1 on Gray 100 fields; the four Plum 700 fills moved to Plum 500.
 
 ### Typography
 
@@ -258,7 +270,7 @@ Every chart, now and later, uses the shared kit in `frontend/src/components/char
 **Design**
 - **No chart border.** The card is the frame. Gridlines are 1px `Gray 100` (`line-subtle`), horizontal only, on round steps from 0.
 - **Axis labels** are 12px `Gray 800` with tabular figures. The x axis shows only as many labels as fit.
-- **Palette**, fixed and ordered, defined once as tokens (`--chart-1`…`6` here, `--color-chart-1`…`6` in `index.css`): Blue 600, Green 500, Amber 500, Gray 400, wordmark teal, Periwinkle 500. Series n takes chart-n unless it names one. Blue is only ever the first or primary series. When a chart has exactly two series, the second is Plum 500 (`--chart-pair`, `--color-chart-pair` in `index.css`); three or more follow the fixed order. Blue stays first. "Two" counts every series the chart is given, so hiding one with the legend never recolours the rest; a colour a series names still wins. A status colour never stands for something with a different meaning. **Neutral parts:** when a whole splits into parts that are neither good nor bad (the reasons customers were held back: frequency cap, no consent, suppression list), use Blue 600, wordmark teal and Periwinkle 500 (`--chart-1`, `--chart-5`, `--chart-6`), skipping green and amber so no part reads as a success or a warning.
+- **Palette**, fixed and ordered, defined once as tokens (`--chart-1`…`6` here, `--color-chart-1`…`6` in `index.css`): Blue 600, Plum 500, wordmark teal, Gray 400, Taupe 500 (`#B08A6E`), Periwinkle 500 (2026-10-08: green and amber left the palette, so no series can read as success or warning). Dark uses Blue 700, Plum 600, Teal 600, Neutral 600, Taupe 600, Periwinkle 700. Series n takes chart-n unless it names one. Blue is only ever the first or primary series. When a chart has exactly two series, the second is Plum (`--chart-pair`, the same colour as chart-2); three or more follow the fixed order. "Two" counts every series the chart is given, so hiding one with the legend never recolours the rest; a colour a series names still wins. A status colour never stands for something with a different meaning. **Neutral parts:** when a whole splits into parts that are neither good nor bad (the reasons customers were held back: frequency cap, no consent, suppression list), use Blue 600, wordmark teal and Periwinkle 500 (`--chart-1`, `--chart-3`, `--chart-6`).
 - **Lines** are 2px with no dots, except the hovered point: a 6px dot with a 2px white ring. **Areas** sit under their line at no more than 12% opacity, the one alpha fill allowed besides the scrim and shadows. **Bars** are grouped per category, 4px apart, with a 2px radius on the top corners only.
 - **Mixed marks:** a series may set `mark: 'bar' | 'line'` over the chart's type, so one chart draws bars and a line together (revenue as bars, cost as a line). Bars are drawn first, lines on top; colours still follow the palette rules.
 - **Reference line** (`reference`: a target pace, a benchmark): a 1.5px dashed line (4 4) in Gray 400 (`--chart-4`). It is not a series: it takes no colour slot (revenue + cost + target pace is two series, so cost is Plum), it can't be hidden, and the y axis always includes it. It is in the legend (a dashed swatch, as a plain label), the tooltip and the numbers table.

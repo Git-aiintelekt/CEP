@@ -54,7 +54,7 @@ export function DateTimeFields({ schedule, value, onChange }: { schedule: string
                 <button key={day.value} type="button" aria-pressed={on} aria-label={day.long}
                   onClick={() => set({ weekdays: on ? value.weekdays.filter((item) => item !== day.value) : [...value.weekdays, day.value] })}
                   className={`h-9 w-11 rounded-lg border text-sm font-medium transition-colors duration-fast ease-standard ${
-                    on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-subtle'}`}>
+                    on ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
                   {day.short}
                 </button>
               )
@@ -98,7 +98,7 @@ export function DateTimeFields({ schedule, value, onChange }: { schedule: string
             <div role="radiogroup" aria-labelledby="date-time-repeat" className="mt-1.5 inline-flex overflow-hidden rounded-lg border border-line-control">
               {([[true, 'Every Year'], [false, 'Once']] as const).map(([yearly, label]) => (
                 <button key={label} type="button" role="radio" aria-checked={value.yearly === yearly} onClick={() => set({ yearly })}
-                  className={`h-10 border-r border-line-subtle px-3.5 text-sm last:border-r-0 ${value.yearly === yearly ? 'bg-brand-100 font-semibold text-brand-800' : 'bg-surface text-ink-900 hover:bg-surface-subtle'}`}>
+                  className={`h-10 border-r border-line-subtle px-3.5 text-sm last:border-r-0 ${value.yearly === yearly ? 'bg-brand-100 font-semibold text-brand-800' : 'bg-surface text-ink-900 hover:bg-surface-hover'}`}>
                   {label}
                 </button>
               ))}
@@ -200,7 +200,7 @@ function AudienceDropdown({ value, optional = false, onPick }: { value: Audience
 function Option({ label, selected, onPick }: { label: string; selected: boolean; onPick: () => void }) {
   return (
     <button type="button" data-dropdown-item onClick={onPick}
-      className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-subtle'}`}>
+      className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
       {label}
     </button>
   )

@@ -42,7 +42,7 @@ function runningReturn(series: RevenueCostSeries): number[] {
 /** the admin's way to attribution, or a sentence for everyone else (Settings is admin-only) */
 function SetUp({ canSetUp }: { canSetUp: boolean }) {
   return canSetUp
-    ? <Link to="/settings/attribution" className="self-start text-sm font-semibold text-white underline underline-offset-2 hover:no-underline">Set Up Attribution</Link>
+    ? <Link to="/settings/attribution" className="self-start text-sm font-semibold text-on-brand underline underline-offset-2 hover:no-underline">Set Up Attribution</Link>
     : <p className="text-helper text-plum-100">Ask an admin to set up attribution.</p>
 }
 

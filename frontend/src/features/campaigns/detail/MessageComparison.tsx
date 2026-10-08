@@ -52,7 +52,7 @@ export function MessageComparison({ campaign, zone, onSkipped }: { campaign: Cam
     // queued but never sent (stopped early): its own column, never inside a failure
     ...(list.some((step) => step.run?.not_sent) ? [{ key: 'not-sent', header: 'Not Sent', align: 'right' as const, render: (step: DripStep) => figure(step, (run) => formatNumber(run.not_sent ?? 0)) }] : []),
     { key: 'skipped', header: 'Skipped', align: 'right', render: (step) => figure(step, (run) => (run.skipped.total > 0
-      ? <button type="button" onClick={() => onSkipped(step)} className="cep-num font-semibold text-brand-600 hover:underline">{formatNumber(run.skipped.total)}</button>
+      ? <button type="button" onClick={() => onSkipped(step)} className="cep-num font-semibold text-link hover:underline">{formatNumber(run.skipped.total)}</button>
       : '0')) },
   ]
 

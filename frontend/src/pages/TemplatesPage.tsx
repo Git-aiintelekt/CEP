@@ -13,15 +13,16 @@ import { PageHelp } from '@/help/HelpPanel'
 export function TemplatesPage() {
   const { can, has } = useAuth()
   const canEdit = can('template.edit')
-  const channels = TEMPLATE_CHANNELS.filter((channel) => channelAllowed(has, channel))
+  // E-Receipt is always offered, as on Create Campaign (2026-10-08); the other channels follow the workspace switches
+  const channels = TEMPLATE_CHANNELS.filter((channel) => channel === 'E_RECEIPT' || channelAllowed(has, channel))
   const [creating, setCreating] = useState<TemplateChannel | null>(null)
 
   return (
     // the shell's <main> already gives the page its white ground and padding
     <div className="flex flex-col gap-8">
-      <section className="rounded-lg bg-brand-600 px-[clamp(20px,2vw,32px)] pt-7 pb-8">
-        <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-white">Templates</h1><PageHelp chapter="templates" onBrand /></span>
-        <p className="mt-1 text-sm leading-normal text-brand-100">Start a new message from a channel, or pick up a template from your library below.</p>
+      <section className="rounded-lg bg-band px-[clamp(20px,2vw,32px)] pt-7 pb-8">
+        <span className="flex items-center gap-1.5"><h1 className="font-display text-page-title font-semibold text-on-brand">Templates</h1><PageHelp chapter="templates" onBrand /></span>
+        <p className="mt-1 text-sm leading-normal text-on-brand-soft">Start a new message from a channel, or pick up a template from your library below.</p>
         {canEdit && channels.length > 0 && <QuickCreateCards channels={channels} onPick={setCreating} />}
       </section>
 

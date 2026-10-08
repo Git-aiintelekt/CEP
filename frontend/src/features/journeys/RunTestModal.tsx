@@ -46,7 +46,7 @@ export function RunTestModal({ sending, populationText, channelsText, governance
 
 /** a 40px coloured icon tile above a pop-up's title */
 export function IconTile({ tone, children }: { tone: 'warning' | 'brand'; children: ReactNode }) {
-  const look = tone === 'warning' ? 'bg-warning-bg text-warning-text' : 'bg-callout-bg text-brand-600'
+  const look = tone === 'warning' ? 'bg-warning-bg text-warning-text' : 'bg-callout-bg text-link'
   return <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${look}`}>{children}</span>
 }
 

@@ -14,7 +14,7 @@ import type { Governance, HomeFilters } from '../data/types'
 /** neutral parts of one whole: Blue, Teal, Periwinkle (not green or amber, since no reason is good or bad) */
 const REASONS: { key: keyof Governance['reasons']; label: string; colour: string }[] = [
   { key: 'frequencyCap', label: 'Frequency Cap', colour: 'bg-chart-1' },
-  { key: 'noConsent', label: 'No Consent', colour: 'bg-chart-5' },
+  { key: 'noConsent', label: 'No Consent', colour: 'bg-chart-3' },
   { key: 'suppression', label: 'Suppression List', colour: 'bg-chart-6' },
 ]
 

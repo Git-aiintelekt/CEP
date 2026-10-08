@@ -19,6 +19,68 @@
         "frontend"
       ],
       "port": 5173
+    },
+    {
+      "name": "cep-frontend-5174",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174,
+      "autoPort": false,
+      "env": {
+        "VITE_DEV_BACKEND": "http://localhost:8001"
+      }
+    },
+    {
+      "name": "cep-frontend-5175",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "port": 5175,
+      "autoPort": false
+    },
+    {
+      "name": "cep-backend-8001",
+      "runtimeExecutable": "backend/.venv/bin/python",
+      "runtimeArgs": [
+        "backend/manage.py",
+        "runserver",
+        "8001",
+        "--noreload"
+      ],
+      "port": 8001
+    },
+    {
+      "name": "cep-frontend-5176",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend",
+        "--",
+        "--port",
+        "5176",
+        "--strictPort"
+      ],
+      "port": 5176,
+      "autoPort": false
     }
   ]
 }

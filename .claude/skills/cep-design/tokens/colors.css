@@ -18,7 +18,7 @@
 --bg-page:var(--white);--bg-surface:var(--white);--bg-surface-subtle:var(--gray-75);--bg-sidebar:var(--color-sidebar);
 
 /* ---- Semantic: border ---- */
---border-subtle:var(--gray-100);--border-default:var(--gray-150);--border-emphasis:var(--gray-400);
+--border-subtle:#E2E4EB;--border-default:#CFD2DC;--border-control:#81858F;--border-emphasis:var(--gray-400); /* darkened 2026-09-29 and 2026-10-08, as in index.css */
 
 /* ---- Semantic: text ---- */
 --text-primary:var(--gray-900);--text-secondary:var(--gray-800);--text-label:var(--gray-800);--text-on-dark:var(--white);
@@ -63,7 +63,7 @@
 --row-flagged-bg:var(--yellow-50);
 
 /* ---- Chart palette, in order: series n takes chart-n (see README "Charts"). With exactly two series, the second is chart-pair (Plum 500); three or more follow the fixed order. Blue stays first ---- */
---chart-1:var(--brand-600);--chart-2:var(--green-500);--chart-3:var(--amber-500);--chart-4:var(--gray-400);--chart-5:var(--color-wordmark-teal);--chart-6:var(--periwinkle-500);--chart-pair:var(--plum-500);
+--chart-1:var(--brand-600);--chart-2:var(--plum-500);--chart-3:var(--color-wordmark-teal);--chart-4:var(--gray-400);--chart-5:#B08A6E;--chart-6:var(--periwinkle-500);--chart-pair:var(--chart-2);
 
 /* ---- Derived roles (kept for existing specimens) ---- */
 --surface-page:var(--bg-page);--surface-card:var(--bg-surface);--surface-subtle:var(--bg-surface-subtle);--surface-hover:var(--gray-75);--surface-selected:var(--brand-100);--surface-inverse:var(--color-sidebar);

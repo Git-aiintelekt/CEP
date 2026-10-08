@@ -17,17 +17,30 @@
   /* ---- brand action ramp: only real numbered ramps are named brand-* ---- */
   --color-brand-100: #dee9fc; /* brand tag background, selected rows */
   --color-brand-600: #3863db; /* action: primary buttons, links, focus ring */
-  --color-brand-700: #4e47dd; /* pill / large-CTA variant only */
-  --color-brand-800: #2b4dd0; /* brand tag text, hover and pressed on brand fills */
+  --color-brand-700: #4e47dd; /* indigo: the Journey Entry tile, journey link hover, Home's first funnel step (dark: Periwinkle 800 so it reads as text) */
+  --color-brand-800: #2b4dd0; /* brand tag text and text on selected fills (dark: Blue 900) */
+  /* fills and text split so dark can differ (token map revision 2): light keeps one value for each pair */
+  --color-brand-fill-hover: #2b4dd0; /* hover on Blue 600 fills. Dark darkens too: lightening fails white text */
+  --color-brand-fill-pressed: #2b4dd0;
+  --color-link: #3863db; /* links, outline buttons, selected tabs */
+  --color-link-hover: #2b4dd0;
+  --color-focus: #3863db; /* focus borders, outlines and rings */
+  --color-on-brand: #ffffff; /* text on Blue 600 and other strong fills */
+  --color-on-brand-soft: #e8effd; /* secondary text and icons on Blue 600 bands (4.6:1) and the navy brand panel, both themes */
+  --color-band: #3863db; /* the Templates and Journey Templates bands: Blue 600 in light, Dark Neutral 200 in dark (the cards in it step up to the overlay shade) */
+  --color-on-warning: #17181c; /* text on an Amber 500 fill (the support banner), both themes */
 
   /* ---- text greys (2026-09-30), one role each ---- */
   --color-ink-900: #17181c; /* Gray 900 — text, values, column headers */
   --color-ink-800: #4b4f5b; /* Gray 800 — labels, helper text, notes, icons (7.1:1 even on Gray 100 fills) */
+  --color-ink-700: #6b6f7b; /* Gray 700 — secondary text in the template editors */
   --color-ink-300: #9ea2ad; /* Gray 400 — placeholder and disabled only */
 
   /* ---- surfaces and borders ---- */
   --color-surface: #ffffff;
-  --color-surface-subtle: #f9fafb; /* Gray 75 — alternating rows, row hover */
+  --color-surface-overlay: #ffffff; /* menus, popovers, modals, drawers */
+  --color-surface-subtle: #f9fafb; /* Gray 75 — table header, alternating rows */
+  --color-surface-hover: #eeeff5; /* Gray 100 — row and menu-item hover, one step above the surface it sits on */
   --color-surface-sunken: #eeeff5; /* Gray 100 — search and header fields at rest */
   --color-canvas: #ffffff; /* page background is White (design.md overrides Gray 50) */
   --color-scrim: rgb(19 21 27 / 0.45); /* modal and drawer scrim, the only alpha surface */
@@ -49,7 +62,7 @@
   /* borders darkened 2026-09-29 so they read on white; fills keep Gray 100 / 150 */
   --color-line: #cfd2dc; /* default hairline: cards, tables, dividers */
   --color-line-subtle: #e2e4eb; /* subtle border: row dividers, chart gridlines */
-  --color-line-control: #8b8f9a; /* text fields, selects, checkboxes at rest (3:1 on white) */
+  --color-line-control: #81858f; /* text fields, selects, checkboxes at rest (3.2:1 on Gray 100 fields, 3.7:1 on white) */
   --color-fill-subtle: #eeeff5; /* Gray 100 — icon-button hover, disabled fill, tag and track fills */
   --color-fill-muted: #e7e8ef; /* Gray 150 — pressed fill, skeleton bars */
 
@@ -65,39 +78,30 @@
   --color-danger-bg: #fae2e2;
   --color-danger-text: #a92e26;
   --color-danger-plain: #c93a32; /* error text with no background */
-  --color-danger-dark: #b44b23;
   --color-high: #d96129;
   --color-high-bg: #f6d5a4;
   --color-row-flagged: #fefdf2;
 
-  /* ---- status tags (2026-09-30): one hue per lifecycle status. bg / text / dot; the dot shows on live statuses only ---- */
+  /* ---- status tags (2026-09-30): one hue per lifecycle status. bg / text; the dot shows on live statuses only, in the Active dot ---- */
   --color-tag-draft-bg: #f2ebe4;
   --color-tag-draft-text: #5d4535;
-  --color-tag-draft-dot: #b08a6e;
   --color-tag-test-published-bg: #ebe6fa;
   --color-tag-test-published-text: #48309a;
-  --color-tag-test-published-dot: #8068da;
   --color-tag-production-published-bg: #d5eef3;
   --color-tag-production-published-text: #0c5664;
-  --color-tag-production-published-dot: #2b9aae;
   --color-tag-scheduled-bg: #fce4d8;
   --color-tag-scheduled-text: #8f3a12;
-  --color-tag-scheduled-dot: #e4703e;
   --color-tag-active-bg: #d8f1e7;
   --color-tag-active-text: #0c5f43;
   --color-tag-active-dot: #2fa57a;
   --color-tag-completed-bg: #ddedfb;
   --color-tag-completed-text: #1a5486;
-  --color-tag-completed-dot: #3c8ad1;
   --color-tag-paused-bg: #faf0c6;
   --color-tag-paused-text: #6f5300;
-  --color-tag-paused-dot: #d4a91c;
   --color-tag-failed-bg: #fadce1;
   --color-tag-failed-text: #9c1c33;
-  --color-tag-failed-dot: #d9485f;
   --color-tag-archived-bg: #ffffff;
   --color-tag-archived-text: #6b6f7b;
-  --color-tag-archived-dot: #cfd2dc;
   --color-tag-archived-border: #9ea2ad; /* 1px dashed: the only unfilled tag */
 
   /* ---- category tags: what a thing is, never its state. Only journey and campaign are in use ---- */
@@ -149,14 +153,15 @@
   --color-wordmark-teal: #418eae;
   --color-wordmark-navy: #273fa8;
 
-  /* ---- chart palette, in order: series n takes chart-n. Blue only ever leads; no status colour means anything else ---- */
+  /* ---- chart palette, in order: series n takes chart-n. Blue only ever leads; no status colour is in the palette (2026-10-08) ---- */
   --color-chart-1: #3863db; /* Blue 600 */
-  --color-chart-2: #5ec16a; /* Green 500 */
-  --color-chart-3: #e8a13b; /* Amber 500 */
-  --color-chart-4: #9ea2ad; /* Gray 400 */
-  --color-chart-5: #418eae; /* wordmark teal */
+  --color-chart-2: #a8488f; /* Plum 500 */
+  --color-chart-3: #418eae; /* wordmark teal */
+  --color-chart-4: #9ea2ad; /* Gray 400, also the reference line */
+  --color-chart-5: #b08a6e; /* Taupe 500 */
   --color-chart-6: #7570d4; /* Periwinkle 500 */
-  --color-chart-pair: #a8488f; /* Plum 500: the second series when a chart has exactly two */
+  --color-chart-pair: var(--color-chart-2); /* the second series when a chart has exactly two: the same Plum */
+  --color-chart-soft: #dee9fc; /* quiet bars that sit behind a highlight (Integrations' call volume) */
 
   /* ---- radii. Nothing is more rounded than 8px; pill is for switch tracks and progress fills ---- */
   --radius-xs: 2px; /* checkbox */
@@ -219,7 +224,7 @@
   --shadow-drawer: -12px 0 32px rgb(20 23 31 / 0.14); /* cast leftward, right-edge drawers */
   --shadow-toast: 0 8px 24px rgb(20 23 31 / 0.16);
   /* the focus ring, for wrappers that show focus on behalf of a bare input inside them */
-  --shadow-focus: 0 0 0 3px rgb(56 99 219 / 0.24);
+  --shadow-focus: 0 0 0 3px rgb(56 99 219 / 0.24); /* follows --color-focus */
 
   /* ---- layout ---- */
   --spacing-sidenav: 256px;
@@ -319,6 +324,279 @@
   --text-home-hero--letter-spacing: -0.01em;
 }
 
+/*
+ * Themes (token map revision 2, 2026-10-08). One token set: components use the --color-* names above and never know the
+ * theme. <html data-theme="light|dark"> picks the values; either block can also sit on any element to scope a panel,
+ * so the Home hero cards and other always-light surfaces set data-theme="light" inside a dark page. The two blocks must
+ * list the same tokens: src/lib/theme.test.ts checks it. The light block repeats the @theme values so a nested
+ * light panel gets them back. Dark is built on the neutral shell.
+ */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-sidebar: #20265d;
+  --color-canvas: #ffffff;
+  --color-home-canvas: #f4f5f9;
+  --color-surface: #ffffff;
+  --color-surface-overlay: #ffffff;
+  --color-surface-subtle: #f9fafb;
+  --color-surface-hover: #eeeff5;
+  --color-fill-subtle: #eeeff5;
+  --color-fill-muted: #e7e8ef;
+  --color-surface-sunken: #eeeff5;
+  --color-brand-100: #dee9fc;
+  --color-scrim: rgb(19 21 27 / 0.45);
+  --color-toast: #17181c;
+  --color-toast-action: #9fb0ff;
+  --color-row-flagged: #fefdf2;
+  --color-line-subtle: #e2e4eb;
+  --color-line: #cfd2dc;
+  --color-line-control: #81858f;
+  --color-focus: #3863db;
+  --color-ink-900: #17181c;
+  --color-ink-800: #4b4f5b;
+  --color-ink-700: #6b6f7b;
+  --color-ink-300: #9ea2ad;
+  --color-on-brand: #ffffff;
+  --color-on-brand-soft: #e8effd;
+  --color-band: #3863db;
+  --color-on-warning: #17181c;
+  --color-brand-600: #3863db;
+  --color-brand-fill-hover: #2b4dd0;
+  --color-brand-fill-pressed: #2b4dd0;
+  --color-brand-800: #2b4dd0;
+  --color-brand-700: #4e47dd;
+  --color-link: #3863db;
+  --color-link-hover: #2b4dd0;
+  --color-wordmark-navy: #273fa8;
+  --color-wordmark-teal: #418eae;
+  --color-plum-50: #fbf4f9;
+  --color-plum-100: #f4e4f1;
+  --color-plum-200: #e8c6e0;
+  --color-plum-500: #a8488f;
+  --color-plum-700: #8a3375;
+  --color-plum-800: #6e2a5e;
+  --color-success: #5ec16a;
+  --color-success-bg: #e3f4e5;
+  --color-success-text: #0e6027;
+  --color-warning: #e8a13b;
+  --color-warning-bg: #fcf4cb;
+  --color-warning-text: #87451d;
+  --color-danger: #dd514c;
+  --color-danger-bg: #fae2e2;
+  --color-danger-text: #a92e26;
+  --color-danger-plain: #c93a32;
+  --color-high: #d96129;
+  --color-high-bg: #f6d5a4;
+  --color-callout-bg: #eef2fe;
+  --color-callout-text: #312e7c;
+  --color-callout-icon: #7570d4;
+  --color-callout-link: #4139c2;
+  --color-tag-draft-bg: #f2ebe4;
+  --color-tag-draft-text: #5d4535;
+  --color-tag-test-published-bg: #ebe6fa;
+  --color-tag-test-published-text: #48309a;
+  --color-tag-production-published-bg: #d5eef3;
+  --color-tag-production-published-text: #0c5664;
+  --color-tag-scheduled-bg: #fce4d8;
+  --color-tag-scheduled-text: #8f3a12;
+  --color-tag-active-bg: #d8f1e7;
+  --color-tag-active-text: #0c5f43;
+  --color-tag-active-dot: #2fa57a;
+  --color-tag-paused-bg: #faf0c6;
+  --color-tag-paused-text: #6f5300;
+  --color-tag-completed-bg: #ddedfb;
+  --color-tag-completed-text: #1a5486;
+  --color-tag-failed-bg: #fadce1;
+  --color-tag-failed-text: #9c1c33;
+  --color-tag-archived-bg: #ffffff;
+  --color-tag-archived-text: #6b6f7b;
+  --color-tag-archived-border: #9ea2ad;
+  --color-cat-journey-bg: #f4e4f1;
+  --color-cat-journey-text: #6e2a5e;
+  --color-cat-campaign-bg: #e6e7fb;
+  --color-cat-campaign-text: #393e9e;
+  --color-cat-seasonal-bg: #e5efd9;
+  --color-cat-seasonal-text: #3e5a1c;
+  --color-cat-loyalty-bg: #f7e3ec;
+  --color-cat-loyalty-text: #86264f;
+  --color-cat-promotional-bg: #fde7da;
+  --color-cat-promotional-text: #8a3e14;
+  --color-cat-transactional-bg: #eeeff5;
+  --color-cat-transactional-text: #4a4e5a;
+  --color-channel-email-tint: #e8effd;
+  --color-channel-email-halo: #f7f9fe;
+  --color-channel-email-icon: #3863db;
+  --color-channel-sms-tint: #e4f5e8;
+  --color-channel-sms-halo: #f6fcf7;
+  --color-channel-sms-icon: #1d8043;
+  --color-channel-mms-tint: #efebfd;
+  --color-channel-mms-halo: #f9f8fe;
+  --color-channel-mms-icon: #6a4fd4;
+  --color-channel-receipt-tint: #fdf1e1;
+  --color-channel-receipt-halo: #fefaf5;
+  --color-channel-receipt-icon: #b3621b;
+  --color-chart-1: #3863db;
+  --color-chart-2: #a8488f;
+  --color-chart-3: #418eae;
+  --color-chart-4: #9ea2ad;
+  --color-chart-5: #b08a6e;
+  --color-chart-6: #7570d4;
+  --color-chart-pair: #a8488f;
+  --color-chart-soft: #dee9fc;
+  --color-sidebar-text: #e7e8ef;
+  --color-sidebar-icon: #a9afd0;
+  --color-sidebar-hover: #2c336f;
+  --color-sidebar-pressed: #363e82;
+  --color-sidebar-selected: #313c8e;
+  --color-sidebar-selected-hover: #3a46a0;
+  --color-sidebar-accent: #9fb0ff;
+  --color-sidebar-divider: #3a4178;
+  --shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
+  --shadow-drawer: -12px 0 32px rgb(20 23 31 / 0.14);
+  --shadow-toast: 0 8px 24px rgb(20 23 31 / 0.16);
+  --shadow-focus: 0 0 0 3px rgb(56 99 219 / 0.24);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-sidebar: #18191a;
+  --color-canvas: #1f1f21;
+  --color-home-canvas: #1f1f21;
+  --color-surface: #242528;
+  --color-surface-overlay: #2b2c2f;
+  --color-surface-subtle: #1f1f21;
+  --color-surface-hover: #3d3f43;
+  --color-fill-subtle: #303134;
+  --color-fill-muted: #4b4d51;
+  --color-surface-sunken: #18191a;
+  --color-brand-100: #152447;
+  --color-scrim: rgb(1 4 4 / 0.65);
+  --color-toast: #2b2c2f;
+  --color-toast-action: #7a9df0;
+  --color-row-flagged: #241f08;
+  --color-line-subtle: #303134;
+  --color-line: #3d3f43;
+  --color-line-control: #7e8188;
+  --color-focus: #7a9df0;
+  --color-ink-900: #e2e3e4;
+  --color-ink-800: #bfc1c4;
+  --color-ink-700: #a9abaf;
+  --color-ink-300: #96999e;
+  --color-on-brand: #ffffff;
+  --color-on-brand-soft: #e8effd;
+  --color-band: #242528;
+  --color-on-warning: #17181c;
+  --color-brand-600: #3863db;
+  --color-brand-fill-hover: #2e52b8;
+  --color-brand-fill-pressed: #24408a;
+  --color-brand-800: #a9c1f7;
+  --color-brand-700: #b7b4fa;
+  --color-link: #8faef3;
+  --color-link-hover: #a9c1f7;
+  --color-wordmark-navy: #7a9df0;
+  --color-wordmark-teal: #6fb6d4;
+  --color-plum-50: #2a1424;
+  --color-plum-100: #3d1c34;
+  --color-plum-200: #56264a;
+  --color-plum-500: #a8488f;
+  --color-plum-700: #e3aad3;
+  --color-plum-800: #efcce6;
+  --color-success: #5ec16a;
+  --color-success-bg: #15351d;
+  --color-success-text: #a3dfaa;
+  --color-warning: #e8a13b;
+  --color-warning-bg: #3f2e0c;
+  --color-warning-text: #f2cb7f;
+  --color-danger: #e5625d;
+  --color-danger-bg: #471915;
+  --color-danger-text: #f5a8a3;
+  --color-danger-plain: #f5a8a3;
+  --color-high: #e8823f;
+  --color-high-bg: #3f1f0e;
+  --color-callout-bg: #23234a;
+  --color-callout-text: #d3d1fb;
+  --color-callout-icon: #9c98f0;
+  --color-callout-link: #b7b4fa;
+  --color-tag-draft-bg: #2e251e;
+  --color-tag-draft-text: #e3cbb6;
+  --color-tag-test-published-bg: #312f66;
+  --color-tag-test-published-text: #d3d1fb;
+  --color-tag-production-published-bg: #112e39;
+  --color-tag-production-published-text: #9acde2;
+  --color-tag-scheduled-bg: #3f1f0e;
+  --color-tag-scheduled-text: #f5b98a;
+  --color-tag-active-bg: #15351d;
+  --color-tag-active-text: #a3dfaa;
+  --color-tag-active-dot: #5ec16a;
+  --color-tag-paused-bg: #352b08;
+  --color-tag-paused-text: #f0d67a;
+  --color-tag-completed-bg: #123c5a;
+  --color-tag-completed-text: #cbe6f8;
+  --color-tag-failed-bg: #471915;
+  --color-tag-failed-text: #f5a8a3;
+  --color-tag-archived-bg: #242528;
+  --color-tag-archived-text: #a9abaf;
+  --color-tag-archived-border: #7e8188;
+  --color-cat-journey-bg: #3d1c34;
+  --color-cat-journey-text: #efcce6;
+  --color-cat-campaign-bg: #24264d;
+  --color-cat-campaign-text: #c9cbfa;
+  --color-cat-seasonal-bg: #222c16;
+  --color-cat-seasonal-text: #c8dea6;
+  --color-cat-loyalty-bg: #381a27;
+  --color-cat-loyalty-text: #f2bad0;
+  --color-cat-promotional-bg: #3a2111;
+  --color-cat-promotional-text: #f5be97;
+  --color-cat-transactional-bg: #2b2c2f;
+  --color-cat-transactional-text: #bfc1c4;
+  --color-channel-email-tint: #24408a;
+  --color-channel-email-halo: #152447;
+  --color-channel-email-icon: #a9c1f7;
+  --color-channel-sms-tint: #2a6b39;
+  --color-channel-sms-halo: #15351d;
+  --color-channel-sms-icon: #a3dfaa;
+  --color-channel-mms-tint: #45418f;
+  --color-channel-mms-halo: #23234a;
+  --color-channel-mms-icon: #b7b4fa;
+  --color-channel-receipt-tint: #8a421d;
+  --color-channel-receipt-halo: #3f1f0e;
+  --color-channel-receipt-icon: #f5b98a;
+  --color-chart-1: #5a80e6;
+  --color-chart-2: #c266aa;
+  --color-chart-3: #4f9dbe;
+  --color-chart-4: #7e8188;
+  --color-chart-5: #b08a6e;
+  --color-chart-6: #9c98f0;
+  --color-chart-pair: #c266aa;
+  --color-chart-soft: #24408a;
+  --color-sidebar-text: #e2e3e4;
+  --color-sidebar-icon: #a9abaf;
+  --color-sidebar-hover: #2b2c2f;
+  --color-sidebar-pressed: #3d3f43;
+  --color-sidebar-selected: #303134;
+  --color-sidebar-selected-hover: #3d3f43;
+  --color-sidebar-accent: #7a9df0;
+  --color-sidebar-divider: #303134;
+  --shadow-menu: 0 4px 16px rgb(0 0 0 / 0.4);
+  --shadow-drawer: -12px 0 32px rgb(0 0 0 / 0.45);
+  --shadow-toast: 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-focus: 0 0 0 3px rgb(122 157 240 / 0.35);
+}
+
+@layer base {
+  /* a scoped panel takes its own text colour, not the one inherited from the page around it */
+  [data-theme] { color: var(--color-ink-900); }
+}
+
+/* Dark Home: no plum wash (the neutral shell's flat canvas), and gradients that end in a light Plum step move to a deep one */
+[data-theme="dark"] {
+  .cep-home-wash { background: var(--color-canvas); }
+  .cep-home-journey { background: linear-gradient(135deg, var(--color-plum-500) 0%, #7a3468 100%); }
+  .cep-home-journey-down { background: linear-gradient(180deg, var(--color-plum-500) 0%, #7a3468 100%); }
+  .cep-home-rank-1 { background: linear-gradient(135deg, #7a3468 0%, var(--color-plum-500) 100%); }
+  .cep-home-step-4 { background: linear-gradient(90deg, var(--color-plum-500) 0%, #7a3468 100%); }
+}
+
 @layer components {
   /* navy outside a 12px quarter circle: the shell's sheet corner, pinned under the top bar */
   .cep-sheet-corner { background: radial-gradient(circle at 100% 100%, transparent 11.5px, var(--color-sidebar) 12px); }
@@ -394,7 +672,7 @@
  */
 @layer components {
   .cep-auth-panel {
-    background: linear-gradient(158deg, var(--color-sidebar) 0%, #1b2154 48%, #141943 100%);
+    background: linear-gradient(158deg, #20265d 0%, #1b2154 48%, #141943 100%); /* Navy 900: the brand panel is navy in both themes */
   }
 
   /* drifting colour wash behind the brand panel */
@@ -558,7 +836,7 @@ h4 {
 /* The template editors keep their own rules: every button and control stays at 4px. */
 .editor-radii {
   /* and their approved exact copy keeps its Gray 700 secondary text */
-  --color-ink-800: #6b6f7b;
+  --color-ink-800: var(--color-ink-700);
   --radius-control-lg: 4px;
   --radius-control-md: 4px;
   --radius-control-sm: 4px;
@@ -576,9 +854,9 @@ h4 {
   font-variant-numeric: tabular-nums;
 }
 
-/* The focus ring is never removed: Blue 600 outline plus the 3px translucent ring. */
+/* The focus ring is never removed: the focus colour (Blue 600, Blue 800 on dark) plus the 3px translucent ring. */
 :focus-visible {
-  outline: 2px solid var(--color-brand-600);
+  outline: 2px solid var(--color-focus);
   outline-offset: 1px;
   box-shadow: var(--shadow-focus);
 }
@@ -628,6 +906,10 @@ select:not([multiple]):not([size]) {
   background-position: right 10px center;
   background-size: 16px 16px;
   padding-right: 34px;
+}
+[data-theme="dark"] select:not([multiple]):not([size]) {
+  /* #bfc1c4 is the dark --color-ink-800 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23bfc1c4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 select:not([multiple]):not([size]):disabled {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ea2ad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

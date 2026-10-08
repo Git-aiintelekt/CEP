@@ -217,7 +217,7 @@ export function MessagePreview({ campaignId, templateId, stepId, subject: subjec
           // over the message: a click anywhere on it opens the large view (the frame itself swallows clicks)
           <button type="button" aria-label="Open a Larger Preview" onClick={() => setLarge(true)}
             className="absolute inset-0 flex cursor-zoom-in items-end justify-center rounded-lg pb-4 transition-colors duration-fast ease-standard hover:bg-ink-900/5 focus-visible:bg-ink-900/5">
-            <span aria-hidden className="rounded-sm bg-ink-900 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-within:opacity-100">Click to see it large</span>
+            <span aria-hidden className="rounded-sm bg-toast px-2.5 py-1 text-xs font-medium text-on-brand opacity-0 transition-opacity duration-fast group-hover:opacity-100 group-focus-within:opacity-100">Click to see it large</span>
           </button>
         )}
       </div>

@@ -30,7 +30,7 @@ export function InputGroup({ start, end, suffix, controlSize = 'sm', tone = 'def
     : `${borderClass(invalid, warning)} bg-surface`
   return (
     <div
-      className={`flex w-full items-center gap-1 border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}
+      className={`flex w-full items-center gap-1 border pr-1 pl-2 transition-colors duration-base ease-standard focus-within:border-focus focus-within:shadow-focus ${HEIGHT[controlSize]} ${fill} ${className}`}
     >
       {start && <span className="flex shrink-0 items-center text-ink-800">{start}</span>}
       <input

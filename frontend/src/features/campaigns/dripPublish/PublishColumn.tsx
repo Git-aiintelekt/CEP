@@ -104,7 +104,7 @@ export function ChecklistCard({ campaign, checklist, error, onRetry }: { campaig
         : (
           <ChecklistItems items={checklist.items.map((item) => ({ ...item, advisory: false }))}
             after={(item) => item.key === 'start_date' && (
-              <Link to={setupHref(campaign.id, { step: 'sequence' })} className="mt-1 inline-block text-helper font-semibold text-brand-600 hover:underline">Change Start Date</Link>
+              <Link to={setupHref(campaign.id, { step: 'sequence' })} className="mt-1 inline-block text-helper font-semibold text-link hover:underline">Change Start Date</Link>
             )} />
         )}
     </DetailCard>

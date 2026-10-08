@@ -12,8 +12,8 @@ import type { Feature } from '@/lib/types'
 import { RECENT_SHOWN, findPages, pageAt, readFolded, readPanelFolded, readRecent, rememberVisit, visibleGroups, writeFolded, writePanelFolded, type SettingsPage } from './settingsCatalogue'
 
 const ITEM = 'flex h-9 items-center gap-2.5 rounded-control-md px-2.5 text-sm font-medium transition-colors duration-fast ease-standard'
-const ITEM_STATE = { rest: 'text-ink-900 hover:bg-surface-subtle', current: 'bg-brand-100 text-brand-800' }
-const GROUP_HEAD = 'flex h-9 w-full items-center gap-2 rounded-control-md px-2.5 text-xs font-semibold tracking-wide text-ink-800 uppercase transition-colors duration-fast ease-standard hover:bg-surface-subtle'
+const ITEM_STATE = { rest: 'text-ink-900 hover:bg-surface-hover', current: 'bg-brand-100 text-brand-800' }
+const GROUP_HEAD = 'flex h-9 w-full items-center gap-2 rounded-control-md px-2.5 text-xs font-semibold tracking-wide text-ink-800 uppercase transition-colors duration-fast ease-standard hover:bg-surface-hover'
 
 function PageLink({ page, folded, base }: { page: SettingsPage; folded: boolean; base: string }) {
   const Icon = page.icon
@@ -79,7 +79,7 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
             <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
             <input type="search" value={needle} onChange={(event) => setNeedle(event.target.value)} aria-labelledby={searchId} placeholder="Find a setting"
               onKeyDown={(event) => { if (event.key === 'Escape') setNeedle('') }}
-              className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-8 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600" />
+              className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-8 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-focus" />
             {searching && (
               <button type="button" aria-label="Clear the search" onClick={() => setNeedle('')} className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-ink-800 hover:text-ink-900">
                 <X size={14} strokeWidth={1.5} aria-hidden />

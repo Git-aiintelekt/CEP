@@ -94,14 +94,14 @@ export function UploadsIndicator() {
         className={`${iconButtonClass({ variant: 'onNavy', pressed: open })} relative`}>
         <UploadCloud size={20} strokeWidth={1.5} aria-hidden />
         {(running > 0 || waiting > 0) && (
-          <span aria-hidden className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-semibold text-white ${running > 0 ? 'bg-brand-600' : 'bg-warning'}`}>
+          <span aria-hidden className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-xs font-semibold text-on-brand ${running > 0 ? 'bg-brand-600' : 'bg-warning'}`}>
             {running || waiting}
           </span>
         )}
       </button>
 
       {open && (
-        <div role="dialog" aria-label="List Uploads" className="absolute right-0 z-30 mt-2 w-80 rounded-md border border-line bg-surface shadow-menu">
+        <div role="dialog" aria-label="List Uploads" className="absolute right-0 z-30 mt-2 w-80 rounded-md border border-line bg-surface-overlay shadow-menu">
           <p className="border-b border-line px-3 py-2 text-sm font-semibold text-ink-900">List Uploads</p>
           {all.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-ink-800">No file has been uploaded yet.</p>
@@ -117,13 +117,13 @@ export function UploadsIndicator() {
               ))}
             </ul>
           )}
-          <Link to="/contact-lists/uploads" onClick={() => setOpen(false)} className="block border-t border-line px-3 py-2 text-center text-sm font-medium text-brand-800 hover:bg-surface-subtle">See All Uploads</Link>
+          <Link to="/contact-lists/uploads" onClick={() => setOpen(false)} className="block border-t border-line px-3 py-2 text-center text-sm font-medium text-brand-800 hover:bg-surface-hover">See All Uploads</Link>
         </div>
       )}
 
       <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-40 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((toast) => (
-          <div key={toast.id} role="status" className="pointer-events-auto flex items-start gap-2 rounded-lg border border-line bg-surface p-3 shadow-toast">
+          <div key={toast.id} role="status" className="pointer-events-auto flex items-start gap-2 rounded-lg border border-line bg-surface-overlay p-3 shadow-toast">
             <span className={`mt-0.5 ${toast.tone === 'danger' ? 'text-danger-text' : toast.tone === 'success' ? 'text-success-text' : 'text-callout-icon'}`}>
               {toast.tone === 'danger' ? <CircleAlert size={18} strokeWidth={1.5} aria-hidden /> : <CheckCircle2 size={18} strokeWidth={1.5} aria-hidden />}
             </span>

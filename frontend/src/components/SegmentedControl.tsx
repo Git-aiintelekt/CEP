@@ -45,12 +45,12 @@ function segmentClass(variant: SegmentedVariant, selected: boolean, disabled: bo
   if (variant === 'solid') {
     const shape = 'h-full border-0 px-3 text-button'
     if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'bg-fill-muted text-ink-800' : 'bg-fill-subtle text-ink-300'}`
-    return `${base} ${shape} ${selected ? 'bg-brand-600 text-white' : 'bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`
+    return `${base} ${shape} ${selected ? 'bg-brand-600 text-on-brand' : 'bg-surface text-ink-800 hover:bg-surface-hover active:bg-fill-subtle'}`
   }
   const shape = `h-8 rounded-control-md ${iconOnly ? 'w-8' : 'min-w-8 px-2'}`
   // disabled keeps the choice readable: the selected segment stays a step darker than the rest
   if (disabled) return `${base} ${shape} cursor-not-allowed ${selected ? 'border-ink-300 bg-fill-muted text-ink-800' : 'border-line bg-fill-subtle text-ink-300'}`
-  return `${base} ${shape} ${selected ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle active:bg-fill-subtle'}`
+  return `${base} ${shape} ${selected ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover active:bg-fill-subtle'}`
 }
 
 /** A radio group: one tab stop, arrow keys move and select, Home and End jump to the ends. */

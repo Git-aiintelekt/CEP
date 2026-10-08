@@ -85,7 +85,7 @@ export function Tooltip({ content, children, disabled = false, className = '' }:
             role="tooltip"
             data-tooltip
             style={position ?? { left: 0, top: 0, visibility: 'hidden' }}
-            className="pointer-events-none fixed z-50 max-w-[280px] rounded-sm bg-ink-900 px-2 py-1 text-xs font-medium text-white shadow-toast"
+            className="pointer-events-none fixed z-50 max-w-[280px] rounded-sm bg-toast px-2 py-1 text-xs font-medium text-on-brand shadow-toast"
           >
             {content}
           </div>,

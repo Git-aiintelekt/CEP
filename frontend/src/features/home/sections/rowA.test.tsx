@@ -188,6 +188,6 @@ test('the revenue axis reads whole ("$80K") while the tooltip keeps a decimal ("
   for (const [card, name, picked] of [[revenueCard(), 'Revenue View', 'Total'], [funnelCard(), 'Funnel Channel', 'Email']] as const) {
     const selected = within(within(card).getByRole('radiogroup', { name })).getByRole('radio', { name: picked })
     expect(selected.getAttribute('aria-checked')).toBe('true')
-    expect(selected.className).toContain('border-brand-600 bg-brand-100 text-brand-800')
+    expect(selected.className).toContain('border-link bg-brand-100 text-brand-800')
   }
 })

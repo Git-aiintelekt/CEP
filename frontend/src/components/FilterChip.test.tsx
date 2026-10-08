@@ -27,7 +27,7 @@ test('a chip is 40px with a chevron; its active look is Blue 600 / Blue 100 / Bl
   const chip = screen.getByRole('button', { name: 'All Channels' })
   expect(chip.className).toContain('h-10')
   expect(chip.className).toContain('rounded-control-lg')
-  expect(chip.className).toContain('border-line bg-surface text-ink-900 hover:bg-surface-subtle')
+  expect(chip.className).toContain('border-line bg-surface text-ink-900 hover:bg-surface-hover')
   expect(chip.getAttribute('aria-haspopup')).toBe('listbox')
   expect(chip.querySelector('.lucide-chevron-down')).toBeTruthy()
 
@@ -40,7 +40,7 @@ test('a chip is 40px with a chevron; its active look is Blue 600 / Blue 100 / Bl
   await user.click(options[1])
   expect(screen.queryByRole('listbox')).toBeNull()                          // a single choice closes the menu
   const active = screen.getByRole('button', { name: 'SMS' })
-  expect(active.className).toContain('border-brand-600 bg-brand-100 text-brand-800')
+  expect(active.className).toContain('border-link bg-brand-100 text-brand-800')
   expect(document.activeElement).toBe(active)                                // focus goes back to the chip
 })
 

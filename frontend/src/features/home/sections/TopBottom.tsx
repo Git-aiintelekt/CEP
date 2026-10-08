@@ -21,7 +21,7 @@ function context(row: TopBottomRow, mode: TopBottomData['mode']): string {
   return [CHANNEL_LABEL[row.channel], row.progress, figure, change].filter(Boolean).join(' · ')
 }
 
-const RANK = ['cep-home-rank-1 text-white', 'cep-home-rank-2 text-white', 'cep-home-rank-3 text-plum-800']
+const RANK = ['cep-home-rank-1 text-on-brand', 'cep-home-rank-2 text-on-brand', 'cep-home-rank-3 text-plum-800']
 
 /** the bar: how much of its target a campaign reached (capped at the full bar), or its click rate against the best shown */
 function share(row: TopBottomRow, mode: TopBottomData['mode'], best: number): number {

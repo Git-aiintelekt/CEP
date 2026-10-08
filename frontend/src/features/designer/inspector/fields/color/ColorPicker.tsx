@@ -160,7 +160,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
         }
         panelProps.onKeyDown(event)
       }}
-      className={`absolute right-0 z-20 w-[248px] overflow-hidden rounded-lg border border-line bg-surface p-3 shadow-menu ${flip ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+      className={`absolute right-0 z-20 w-[248px] overflow-hidden rounded-lg border border-line bg-surface-overlay p-3 shadow-menu ${flip ? 'bottom-full mb-1' : 'top-full mt-1'}`}
     >
       {SWATCH_GROUPS.map((group, groupIndex) => (
         <div key={group.id} className={groupIndex === 0 ? '' : 'mt-2'}>
@@ -177,7 +177,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
                 onClick={() => choose(swatch.hex)}
                 style={{ backgroundColor: swatch.hex }}
                 className={`h-6 w-6 rounded-sm border transition-colors duration-base ease-standard ${
-                  normaliseHex(value ?? '') === swatch.hex.toLowerCase() ? 'border-brand-600' : 'border-line hover:border-ink-300'
+                  normaliseHex(value ?? '') === swatch.hex.toLowerCase() ? 'border-link' : 'border-line hover:border-ink-300'
                 }`}
               />
             ))}
@@ -263,7 +263,7 @@ export function ColorPicker({ value, recent = [], onPreview, onCommit, onCancel,
             commitHex()
           }}
           onBlur={commitHex}
-          className={`cep-num h-8 min-w-0 flex-1 rounded-sm border px-2 text-sm text-ink-900 transition-colors duration-base ease-standard focus-visible:border-brand-600 ${hexError === null ? 'border-line-control' : 'border-danger'}`}
+          className={`cep-num h-8 min-w-0 flex-1 rounded-sm border px-2 text-sm text-ink-900 transition-colors duration-base ease-standard focus-visible:border-focus ${hexError === null ? 'border-line-control' : 'border-danger'}`}
         />
         <button
           type="button"

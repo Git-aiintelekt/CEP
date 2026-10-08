@@ -93,7 +93,7 @@ export function Tabs<T extends string>({ label, tabs, value, onChange, idPrefix,
             onClick={() => go(id)}
             onKeyDown={onKeyDown}
             className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 font-semibold whitespace-nowrap transition-colors duration-base ease-standard ${style.tab} ${
-              active ? 'border-brand-600 text-brand-800' : 'border-transparent text-ink-800 hover:text-ink-900'
+              active ? 'border-link text-brand-800' : 'border-transparent text-ink-800 hover:text-ink-900'
             }`}
           >
             {Icon && <Icon size={style.icon} strokeWidth={1.5} aria-hidden />}

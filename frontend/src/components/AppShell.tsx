@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bell, ChevronDown, Keyboard, LogOut, Menu, PanelLeft, Search, ShieldCheck, X, type LucideIcon } from 'lucide-react'
+import { Bell, ChevronDown, Keyboard, LogOut, Menu, Monitor, Moon, PanelLeft, Search, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
+import { useThemePreference, type ThemePreference } from '@/lib/theme'
 import type { SearchResults } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
@@ -15,6 +16,7 @@ import { MenuRow } from './MenuRow'
 import { Popover } from './Popover'
 import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
 import { RailGroup, RailMark } from './Rail'
+import { SegmentedControl, type SegmentOption } from './SegmentedControl'
 import { useToast } from './Toast'
 
 const SECURITY = '/account/security'
@@ -64,11 +66,11 @@ function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'RE
     onError: (error) => (error instanceof ApiError && error.status === 401 ? onEnded() : toast.failure(error, 'The support session was not ended')),
   })
   return (
-    <div role="status" className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2 text-sm font-medium text-ink-900 md:px-8">
+    <div role="status" className="flex flex-wrap items-center justify-between gap-3 bg-warning px-4 py-2 text-sm font-medium text-on-warning md:px-8">
       <p>
         Support session: {by} is acting as this user · {mode === 'WRITE' ? 'changes are allowed and recorded' : 'read-only'} · ends {formatDateTime(expiresAt)}
       </p>
-      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-ink-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-ink-800 disabled:bg-fill-subtle disabled:text-ink-300">
+      <button type="button" disabled={end.isPending} onClick={() => end.mutate()} className="h-8 rounded-control-md bg-toast px-3 text-xs font-semibold text-on-brand transition-colors hover:bg-toast/85 disabled:bg-fill-subtle disabled:text-ink-300">
         End session
       </button>
     </div>
@@ -112,7 +114,7 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   }, [onClose])
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" className="fixed inset-0 z-50 flex items-start justify-center bg-scrim p-4 pt-24" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-lg border border-line bg-surface p-5 shadow-menu" onClick={(event) => event.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-lg border border-line bg-surface-overlay p-5 shadow-menu" onClick={(event) => event.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between">
           <h2 id="shortcuts-title" className="font-display text-card-title font-semibold text-ink-900">Keyboard Shortcuts</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-control-md text-ink-800 hover:bg-fill-subtle"><X size={16} strokeWidth={1.5} aria-hidden /></button>
@@ -130,6 +132,12 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
     </div>
   )
 }
+
+const THEME_OPTIONS: SegmentOption<ThemePreference>[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
 
 /** Finds records and pages: campaigns, contact lists and templates by name, and the menu the person can already see. */
 function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.RefObject<HTMLInputElement | null> }) {
@@ -196,16 +204,16 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
         onKeyDown={(event) => {
           if (event.key === 'Escape') { setOpen(false); (event.target as HTMLInputElement).blur() }
         }}
-        className="h-8 w-full rounded-control-md border border-transparent bg-sidebar-hover pr-3 pl-8 text-sm text-white transition-colors placeholder:text-sidebar-text focus:bg-surface focus:text-ink-900 focus:placeholder:text-ink-300 focus-visible:border-brand-600"
+        className="h-8 w-full rounded-control-md border border-transparent bg-sidebar-hover pr-3 pl-8 text-sm text-on-brand transition-colors placeholder:text-sidebar-text focus:bg-surface focus:text-ink-900 focus:placeholder:text-ink-300 focus-visible:border-focus"
       />
       {open && term && (
-        <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-menu">
+        <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface-overlay py-1 shadow-menu">
           {rows.length === 0 ? (
             <li className="px-3 py-2 text-sm text-ink-800">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try a campaign, list or template name, or a page such as Settings.'}</li>
           ) : (
             rows.map((row) => (
               <li key={row.key}>
-                <button type="button" onClick={() => go(row.to)} className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors hover:bg-surface-subtle">
+                <button type="button" onClick={() => go(row.to)} className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors hover:bg-surface-hover">
                   {row.icon ? <row.icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" /> : <span className="w-16 shrink-0 text-xs text-ink-800">{row.kind}</span>}
                   <span className="min-w-0 flex-1 truncate">{row.label}</span>
                   {row.meta && <span className="shrink-0 truncate text-xs text-ink-800">{row.meta}</span>}
@@ -221,6 +229,7 @@ function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.R
 
 export function AppShell() {
   const { me, logout, can, has } = useAuth()
+  const [themePreference, setThemePreference] = useThemePreference()
   const location = useLocation()
   const isXl = useMinWidth(BREAKPOINT.xl)
   const isMd = useMinWidth(BREAKPOINT.md)
@@ -305,7 +314,7 @@ export function AppShell() {
       aria-label={toggleLabel}
       aria-expanded={isMd ? expanded : undefined}
       data-rail-toggle={expanded ? 'beside' : 'above'}
-      className={`flex items-center justify-center rounded-sm text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed ${expanded ? 'h-8 w-8' : 'h-6 w-6'}`}
+      className={`flex items-center justify-center rounded-sm text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-on-brand focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed ${expanded ? 'h-8 w-8' : 'h-6 w-6'}`}
     >
       <ToggleIcon size={expanded ? 20 : 16} strokeWidth={1.5} aria-hidden />
     </button>
@@ -353,7 +362,7 @@ export function AppShell() {
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 text-sm whitespace-nowrap md:flex">
               <span className="text-sidebar-text">Tenant</span>
-              <span className="font-semibold text-white">{me?.tenant.code}</span>
+              <span className="font-semibold text-on-brand">{me?.tenant.code}</span>
               <span className="hidden text-sidebar-text xl:inline">· {me?.tenant.timezone}</span>
             </span>
             <UploadsIndicator />
@@ -378,11 +387,11 @@ export function AppShell() {
                 aria-label={`Account: ${name ?? ''}`}
                 className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-sidebar-hover"
               >
-                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-700 text-xs font-semibold text-white">
+                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-500 text-xs font-semibold text-on-brand">
                   {initials(me?.principal.display_name)}
                 </span>
                 <span className="hidden min-w-0 flex-col text-left leading-tight lg:flex">
-                  <span className="truncate text-sm font-semibold text-white">{name}</span>
+                  <span className="truncate text-sm font-semibold text-on-brand">{name}</span>
                   <span data-role className="truncate text-xs text-sidebar-text">{role}</span>
                 </span>
                 <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-sidebar-icon lg:block" />
@@ -392,6 +401,9 @@ export function AppShell() {
                   <div className="border-b border-line-subtle px-3 py-2.5 leading-tight">
                     <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
                     <p className="truncate text-xs text-ink-800">{me?.principal.email}</p>
+                  </div>
+                  <div className="border-b border-line-subtle px-3 py-2.5">
+                    <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} stretch />
                   </div>
                   <MenuRow title="Account Security" leading={<ShieldCheck size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
                     onClick={() => { account.close({ restoreFocus: false }); navigate(SECURITY) }} />

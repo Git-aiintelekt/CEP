@@ -111,7 +111,7 @@ test('a disabled primary stays focusable, does nothing when clicked and explains
   expect(button.className).not.toContain('opacity')
   // no leftover primary utilities: two backgrounds or two text colours resolve by stylesheet order
   expect(button.className).not.toContain('bg-brand-600')
-  expect(button.className).not.toContain('text-white')
+  expect(button.className).not.toContain('text-on-brand')
 
   const described = document.getElementById(button.getAttribute('aria-describedby') ?? '')
   expect(described?.textContent).toBe('Save your changes first.')

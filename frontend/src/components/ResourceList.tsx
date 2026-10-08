@@ -114,7 +114,7 @@ function PagerButton({ children, disabled, onClick }: { children: ReactNode; dis
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="h-8 rounded-control-md border border-line bg-surface px-3 text-sm font-medium text-ink-800 transition-colors hover:bg-surface-subtle disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300"
+      className="h-8 rounded-control-md border border-line bg-surface px-3 text-sm font-medium text-ink-800 transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300"
     >
       {children}
     </button>

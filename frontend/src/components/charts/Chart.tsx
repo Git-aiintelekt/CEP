@@ -114,7 +114,7 @@ export function ChartLegend({ series, reference, hidden, onToggle }: ChartLegend
         const on = !hidden.has(item.key)
         return (
           <button key={item.key} type="button" aria-pressed={on} onClick={() => onToggle(item.key)}
-            className={`inline-flex h-6 items-center gap-2 rounded-control-sm px-1 text-helper transition-colors duration-fast ease-standard hover:bg-surface-subtle ${on ? 'text-ink-800' : 'text-ink-800'}`}>
+            className={`inline-flex h-6 items-center gap-2 rounded-control-sm px-1 text-helper transition-colors duration-fast ease-standard hover:bg-surface-hover ${on ? 'text-ink-800' : 'text-ink-800'}`}>
             <Swatch color={item.color} hollow={!on} shape={shapeOf(item)} />
             <span className={on ? '' : 'line-through'}>{item.label}</span>
           </button>
@@ -150,7 +150,7 @@ export function Chart(props: ChartProps) {
       <ChartMessage height={height}>
         <span role="alert" data-chart-state="error" className="flex flex-wrap items-center justify-center gap-2">
           The chart could not be loaded.{message}
-          {onRetry && <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>}
+          {onRetry && <button type="button" onClick={onRetry} className="font-semibold text-link hover:underline">Retry</button>}
         </span>
       </ChartMessage>
     )
@@ -276,7 +276,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
 
         {point && (
           <div ref={tip} role="presentation" data-chart-tooltip
-            className="pointer-events-none absolute z-10 flex min-w-40 flex-col gap-1.5 rounded-lg border border-line bg-surface px-3 py-2.5 shadow-toast"
+            className="pointer-events-none absolute z-10 flex min-w-40 flex-col gap-1.5 rounded-lg border border-line bg-surface-overlay px-3 py-2.5 shadow-toast"
             style={{ top: PAD.top, left: flip ? guideX - TOOLTIP_GAP : guideX + TOOLTIP_GAP, transform: flip ? 'translateX(-100%)' : undefined }}>
             <span className="cep-num text-xs whitespace-nowrap text-ink-800">{point.detail ?? point.label}</span>
             {readings(active!).map((item) => (

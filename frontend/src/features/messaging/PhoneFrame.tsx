@@ -4,9 +4,9 @@ import type { ReactNode } from 'react'
 /** A received text: grey, squared off at the bottom left where it points to the sender. */
 export const BUBBLE = 'max-w-[85%] rounded-lg rounded-bl-md bg-fill-subtle px-3.5 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900'
 
-/** The device outline alone: a width, a rounded dark rim and whatever is inside. */
+/** The device outline alone: a width, a rounded dark rim and whatever is inside. Always light: it shows what the customer gets. */
 export function DeviceFrame({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`mx-auto rounded-[2rem] border-4 border-ink-900 bg-surface ${className}`}>{children}</div>
+  return <div data-theme="light" className={`mx-auto rounded-[2rem] border-4 border-ink-900 bg-surface ${className}`}>{children}</div>
 }
 
 export function PhoneFrame({ sender, children }: { sender: string; children: ReactNode }) {

@@ -153,7 +153,7 @@ export function CustomersCard({ journeyId, published }: { journeyId: string; pub
                   {rows.map((row) => (
                     <tr key={row.id} className="border-b border-line-subtle last:border-0">
                       <td className="px-3 py-2">
-                        <button type="button" onClick={() => setOpen(row.id)} className="text-left font-medium text-brand-600 hover:text-brand-700">{row.name}</button>
+                        <button type="button" onClick={() => setOpen(row.id)} className="text-left font-medium text-link hover:text-brand-700">{row.name}</button>
                         {row.email && <span className="block text-xs text-ink-800">{row.email}</span>}
                       </td>
                       <td className="cep-num px-3 py-2 text-ink-800">{formatDateTime(row.enrolled_at)}<span className="block text-xs">version {row.version_number}</span></td>

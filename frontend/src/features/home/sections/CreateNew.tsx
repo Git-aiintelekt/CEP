@@ -14,7 +14,7 @@ import type { CreateTile } from '../createNewTiles'
 /** the design's order: the shortcuts, then Create Campaign as the page's one primary action */
 const ORDER: CreateTile['key'][] = ['list', 'template', 'journey', 'campaign']
 /** Home's neutral outline (the design's): a grey control border and dark text, so blue stays on Create Campaign */
-const NEUTRAL = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control-lg border border-line-control bg-surface px-4 text-sm font-semibold whitespace-nowrap text-ink-900 transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle'
+const NEUTRAL = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control-lg border border-line-control bg-surface px-4 text-sm font-semibold whitespace-nowrap text-ink-900 transition-colors duration-fast ease-standard hover:bg-surface-hover active:bg-fill-subtle'
 
 /**
  * The create shortcuts as buttons beside the greeting: the shortcuts outlined, Create Campaign filled. Each opens its

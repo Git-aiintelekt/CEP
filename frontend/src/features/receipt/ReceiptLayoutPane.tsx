@@ -126,7 +126,7 @@ function PresetCards({ value, disabled, onChange }: { value: ReceiptLayout['layo
             disabled={disabled}
             onClick={() => onChange(card.value)}
             className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors duration-base ease-standard disabled:cursor-not-allowed ${
-              checked ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:bg-surface-subtle'
+              checked ? 'border-link bg-brand-100' : 'border-line bg-surface hover:bg-surface-hover'
             }`}
           >
             <span className={`text-sm font-semibold ${checked ? 'text-brand-800' : 'text-ink-900'}`}>{card.title}</span>
@@ -160,7 +160,7 @@ function SectionRow({ section, selected, first, last, disabled, onSelect, onVisi
     <li
       data-section-row={section.key}
       data-hidden={hidden || undefined}
-      className={`flex items-center gap-1 rounded-sm pr-1 ${selected ? 'bg-brand-100' : 'hover:bg-surface-subtle'}`}
+      className={`flex items-center gap-1 rounded-sm pr-1 ${selected ? 'bg-brand-100' : 'hover:bg-surface-hover'}`}
     >
       <button
         type="button"

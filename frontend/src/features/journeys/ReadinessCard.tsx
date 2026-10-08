@@ -18,7 +18,7 @@ export function ReadinessCard({ readiness, loading }: { readiness: JourneyReadin
           {readiness.items.map((item) => (
             <li key={item.key} className="flex items-start gap-3">
               {item.ok ? (
-                <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
+                <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-success text-on-brand">
                   <Check size={12} strokeWidth={3} aria-hidden />
                   <span className="sr-only">Passed:</span>
                 </span>

@@ -82,11 +82,11 @@ export const MessageCard = forwardRef<HTMLButtonElement, CardProps>(function Mes
   const line = email
     ? subject || (step.problems.includes('NEEDS_SUBJECT') || !step.template ? 'No subject yet' : 'Uses the template’s subject line')
     : step.text_excerpt?.trim() || 'No message text yet'
-  const border = open ? 'border-brand-600 shadow-focus' : flagged ? 'border-danger hover:border-danger' : 'border-line hover:border-ink-300'
+  const border = open ? 'border-link shadow-focus' : flagged ? 'border-danger hover:border-danger' : 'border-line hover:border-ink-300'
   return (
     <button ref={ref} type="button" onClick={onOpen} aria-pressed={open} aria-label={`Open message ${step.position}, ${messageTitle(step)}`} data-step-card={step.position}
       data-flagged={flagged || undefined}
-      className={`grid w-full grid-cols-[minmax(0,1fr)_20px] items-center gap-4 rounded-lg border bg-surface p-4 text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle md:grid-cols-[56px_minmax(0,1fr)_20px] ${border}`}>
+      className={`grid w-full grid-cols-[minmax(0,1fr)_20px] items-center gap-4 rounded-lg border bg-surface p-4 text-left transition-colors duration-fast ease-standard hover:bg-surface-hover md:grid-cols-[56px_minmax(0,1fr)_20px] ${border}`}>
       <span className="hidden md:block"><Thumbnail step={step} email={email} /></span>
       <span className="flex min-w-0 flex-col gap-1">
         <span className="cep-num text-xs text-ink-800">{eyebrowOf(step, steps.length, series)}</span>
@@ -115,7 +115,7 @@ export function AddMessageButton({ full, onAdd }: { full: boolean; onAdd: () => 
   return (
     <div className="flex flex-col gap-2 pl-8">
       <button type="button" onClick={onAdd} disabled={full} aria-describedby={helpId}
-        className="flex h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-300 bg-surface text-sm font-semibold text-brand-600 transition-colors duration-fast ease-standard hover:border-brand-600 hover:bg-brand-100 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300">
+        className="flex h-12 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-300 bg-surface text-sm font-semibold text-link transition-colors duration-fast ease-standard hover:border-link hover:bg-brand-100 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300">
         <Plus size={16} strokeWidth={1.5} aria-hidden />Add Message
       </button>
       <p id={helpId} className="text-helper text-ink-800">

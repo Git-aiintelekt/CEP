@@ -227,7 +227,7 @@ test('stepper circles: a Blue 600 tick when done, the number ringed in blue when
 
   expect(circle(3).textContent).toBe('4')
   expect(circle(3).className).toContain('bg-brand-100')
-  expect(circle(3).className).toContain('border-brand-600')
+  expect(circle(3).className).toContain('border-link')
   expect(circle(3).className).toContain('text-brand-800')
   expect(label(3).className).toContain('font-semibold')
   expect(label(3).className).toContain('text-ink-900')

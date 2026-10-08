@@ -70,7 +70,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
           <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
             {roles.map((role) => (
               <li key={role.id}>
-                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-subtle">
+                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-hover">
                   <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={chosen.includes(role.id)}
                     onChange={() => setChosen(chosen.includes(role.id) ? chosen.filter((id) => id !== role.id) : [...chosen, role.id])} />
                   <span><span className="block text-sm font-medium text-ink-900">{role.name}</span>

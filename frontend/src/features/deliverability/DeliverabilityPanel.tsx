@@ -99,7 +99,7 @@ export function DeliverabilityPanel({ backend, active, savedVersion, dirty, read
               {tests.map((test) => (
                 <li key={test.id} className="border-b border-line-subtle last:border-b-0">
                   <button type="button" aria-current={test.id === currentId ? 'true' : undefined} onClick={() => setSelectedId(test.id)}
-                    className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-surface-subtle ${test.id === currentId ? 'bg-brand-100/60' : ''}`}>
+                    className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors hover:bg-surface-hover ${test.id === currentId ? 'bg-brand-100/60' : ''}`}>
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium text-ink-900">Inbox previews · v{test.template_version}</span>
                       <StatusBadge status={BADGE[test.status]} label={STATUS_LABEL[test.status]} />
@@ -240,7 +240,7 @@ function SlotCard({ icon: Icon, title, state, line, note }: { icon: typeof Eye; 
   const tone = state === 'failed' ? 'text-danger-text' : state === 'slot' ? 'text-ink-300' : 'text-ink-900'
   return (
     <div className={`rounded-lg border border-line p-4 ${state === 'slot' ? 'border-dashed bg-surface-subtle' : 'bg-surface'}`}>
-      <p className="flex items-center gap-2 text-sm font-semibold text-ink-900"><Icon size={16} strokeWidth={1.5} aria-hidden className={state === 'slot' ? 'text-ink-300' : 'text-brand-600'} />{title}</p>
+      <p className="flex items-center gap-2 text-sm font-semibold text-ink-900"><Icon size={16} strokeWidth={1.5} aria-hidden className={state === 'slot' ? 'text-ink-300' : 'text-link'} />{title}</p>
       <p className={`mt-2 text-sm font-medium ${tone}`}>{state === 'running' && <Spinner size="sm" className="mr-2 inline-block align-middle" />}{line}</p>
       <p className="mt-1 text-xs text-ink-800">{note}</p>
     </div>

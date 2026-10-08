@@ -11,8 +11,8 @@ import { Tooltip } from './Tooltip'
 
 const CHIP = 'inline-flex h-10 max-w-full items-center gap-2 rounded-control-lg border px-3 text-label font-medium whitespace-nowrap transition-colors duration-fast ease-standard'
 const CHIP_STATE = {
-  rest: 'border-line bg-surface text-ink-900 hover:bg-surface-subtle',
-  active: 'border-brand-600 bg-brand-100 text-brand-800',
+  rest: 'border-line bg-surface text-ink-900 hover:bg-surface-hover',
+  active: 'border-link bg-brand-100 text-brand-800',
 }
 
 interface FilterChipProps {
@@ -82,7 +82,7 @@ export function SingleSelectMenu<V extends string>({ label, options, value, onCh
             data-dropdown-item
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => pickOnKey(event, () => onChange(option.value))}
-            className={`${OPTION} ${isSelected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-subtle'}`}
+            className={`${OPTION} ${isSelected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}
           >
             {option.label}
           </li>
@@ -121,7 +121,7 @@ export function MultiSelectMenu({ label, options, value, onApply, searchLabel = 
           return (
             <li key={option.value} role="option" aria-selected={checked} tabIndex={-1} data-dropdown-item
               onClick={() => toggle(option.value)} onKeyDown={(event) => pickOnKey(event, () => toggle(option.value))}
-              className={`${OPTION} text-ink-900 hover:bg-surface-subtle`}>
+              className={`${OPTION} text-ink-900 hover:bg-surface-hover`}>
               <Checkbox label="" checked={checked} readOnly tabIndex={-1} aria-hidden className="pointer-events-none shrink-0" />
               <span className="min-w-0 truncate">{option.label}</span>
             </li>

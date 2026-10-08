@@ -58,7 +58,7 @@ export function DripContent({ campaign, zone, editable }: { campaign: Campaign; 
               return (
                 <li key={item.id}>
                   <button type="button" aria-current={active || undefined} onClick={() => setChosen(item.id)}
-                    className={`flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left transition-colors duration-fast ease-standard ${active ? 'bg-brand-100' : 'hover:bg-surface-subtle'}`}>
+                    className={`flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left transition-colors duration-fast ease-standard ${active ? 'bg-brand-100' : 'hover:bg-surface-hover'}`}>
                     <span className={`text-sm font-semibold ${active ? 'text-brand-800' : 'text-ink-900'}`}>{item.position}. {messageTitle(item)}</span>
                     <span className="cep-num text-helper text-ink-800">Day {item.day}{date ? ` · ${shortDay(date)}` : ''}</span>
                   </button>

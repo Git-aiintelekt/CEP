@@ -74,7 +74,7 @@ test('Status: Live includes sending now; Scheduled and Draft; the chip goes acti
   await pick(user, /^All Statuses$/, 'Live')
   expect(names()).toContain('VIP Early Access: Autumn Collection for Platinum and Gold Members')
   expect(rows().every((row) => /Production Published|Sending/.test(row.textContent!))).toBe(true)
-  expect(within(recentCard()).getByRole('button', { name: 'Live' }).className).toContain('border-brand-600 bg-brand-100 text-brand-800')
+  expect(within(recentCard()).getByRole('button', { name: 'Live' }).className).toContain('border-link bg-brand-100 text-brand-800')
   const viewAll = new URL(within(recentCard()).getByRole('link', { name: 'View All Campaigns' }).getAttribute('href')!, 'http://x')
   expect(viewAll.pathname).toBe('/campaigns')
   expect([viewAll.searchParams.get('status'), viewAll.searchParams.get('channel')]).toEqual(['PRODUCTION_PUBLISHED,ACTIVE', 'EMAIL'])

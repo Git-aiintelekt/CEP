@@ -23,7 +23,7 @@ export function ReceiptPreview({ sections, transaction, insideShell = false }: R
   const shown = inOrder(sections).filter((section) => showsSection(section, transaction))
 
   const receipt = (
-    <div data-testid="receipt" className="@container overflow-hidden rounded-lg border border-line bg-surface text-sm text-ink-900">
+    <div data-testid="receipt" data-theme="light" className="@container overflow-hidden rounded-lg border border-line bg-surface text-sm text-ink-900">
       {shown.map((section, index) => (
         <div
           key={section.key}
@@ -44,17 +44,17 @@ export function ReceiptPreview({ sections, transaction, insideShell = false }: R
 /** A stand-in for the outer design until the workspace holds both halves: a brand band, a few lines of copy. */
 function EmailShell({ children }: { children: ReactNode }) {
   return (
-    <div data-testid="email-shell" className="rounded-lg border border-line bg-surface-subtle p-4">
+    <div data-testid="email-shell" data-theme="light" className="rounded-lg border border-line bg-surface-subtle p-4">
       <div aria-hidden className="flex flex-col gap-2 opacity-40">
-        <div className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-white">YOUR BRAND</div>
+        <div className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-on-brand">YOUR BRAND</div>
         <div className="flex flex-col gap-1.5 px-1 py-2">
           <div className="h-3 w-2/3 rounded-sm bg-ink-300" />
           <div className="h-2 w-full rounded-sm bg-fill-muted" />
           <div className="h-2 w-5/6 rounded-sm bg-fill-muted" />
         </div>
       </div>
-      <div className="relative my-3 rounded-lg outline-2 outline-offset-4 outline-brand-600">
-        <span className="absolute -top-3 left-3 z-10 rounded-sm border border-brand-600 bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-800">Receipt Layout</span>
+      <div className="relative my-3 rounded-lg outline-2 outline-offset-4 outline-focus">
+        <span className="absolute -top-3 left-3 z-10 rounded-sm border border-link bg-brand-100 px-1.5 py-0.5 text-[11px] font-semibold text-brand-800">Receipt Layout</span>
         {children}
       </div>
       <div aria-hidden className="flex flex-col items-center gap-1.5 py-2 opacity-40">

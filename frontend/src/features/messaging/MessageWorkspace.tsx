@@ -360,7 +360,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
                         <li key={asset.id}>
                           <button type="button" aria-label={`Use ${asset.file_name}`} aria-pressed={media?.id === asset.id}
                             onClick={() => { setMedia(asMedia(asset)); setPickerOpen(false) }}
-                            className={`block w-full overflow-hidden rounded-lg border-2 ${media?.id === asset.id ? 'border-brand-600' : 'border-transparent hover:border-brand-600'}`}>
+                            className={`block w-full overflow-hidden rounded-lg border-2 ${media?.id === asset.id ? 'border-link' : 'border-transparent hover:border-link'}`}>
                             <img src={asset.url} alt="" className="aspect-square w-full object-cover" />
                           </button>
                         </li>

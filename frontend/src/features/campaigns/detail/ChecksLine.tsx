@@ -26,7 +26,7 @@ export function ChecksLine({ campaign }: { campaign: Campaign }) {
     return (
       <p className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
         Couldn’t load the checks
-        <button type="button" onClick={() => void checklist.refetch()} className="font-semibold text-brand-600 hover:underline">Retry</button>
+        <button type="button" onClick={() => void checklist.refetch()} className="font-semibold text-link hover:underline">Retry</button>
       </p>
     )
   }

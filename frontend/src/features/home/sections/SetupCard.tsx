@@ -16,7 +16,7 @@ export function SetupCard({ result }: { result: SectionResult<WorkspaceSetup | n
   const percent = data.total ? Math.round((data.done / data.total) * 100) : 0
   return (
     <section aria-label="Workspace set-up" data-setup-card className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-line bg-surface px-4 py-3.5">
-      <span aria-hidden className="cep-home-blend-diagonal flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"><ListChecks size={20} strokeWidth={1.5} /></span>
+      <span aria-hidden className="cep-home-blend-diagonal flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-on-brand"><ListChecks size={20} strokeWidth={1.5} /></span>
       <span className="flex min-w-0 flex-1 basis-60 flex-col gap-0.5">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-card-title font-semibold text-ink-900">Set Up Your Workspace</span>
@@ -27,7 +27,7 @@ export function SetupCard({ result }: { result: SectionResult<WorkspaceSetup | n
       <div role="progressbar" aria-label="Workspace set-up" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} className="hidden h-2 w-[220px] overflow-hidden rounded-pill bg-fill-subtle @min-[840px]:block">
         <IntroBar as="div" className="cep-home-blend rounded-pill" percent={percent} />
       </div>
-      <Link to="/settings/setup" className="inline-flex h-8 shrink-0 items-center gap-1 rounded-control-md border border-line-control bg-surface px-3 text-sm font-semibold whitespace-nowrap text-brand-600 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
+      <Link to="/settings/setup" className="inline-flex h-8 shrink-0 items-center gap-1 rounded-control-md border border-line-control bg-surface px-3 text-sm font-semibold whitespace-nowrap text-link transition-colors duration-fast ease-standard hover:bg-surface-hover">
         Continue Set-Up<ChevronRight size={14} strokeWidth={2} aria-hidden />
       </Link>
     </section>

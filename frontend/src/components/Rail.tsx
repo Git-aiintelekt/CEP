@@ -19,12 +19,12 @@ export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onN
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <Link to="/" aria-label="CEP home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
-          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-white">CEP</span>
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-on-brand">CEP</span>
         </Link>
         {end}
       </div>
       {expanded && (
-        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-white">Customer Engagement</Link>
+        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-on-brand">Customer Engagement</Link>
       )}
     </div>
   )
@@ -81,20 +81,20 @@ export function RailLink({ item, expanded, onNavigate }: { item: NavItem; expand
         {...tooltip.props}
         className={({ isActive }) =>
           `group relative flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-sm px-2.5 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${FOCUS} ${expanded ? 'w-full' : 'w-10'} ${
-            isActive ? 'bg-sidebar-selected font-semibold text-white hover:bg-sidebar-selected-hover' : 'font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-white active:bg-sidebar-pressed'
+            isActive ? 'bg-sidebar-selected font-semibold text-on-brand hover:bg-sidebar-selected-hover' : 'font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed'
           }`
         }
       >
         {({ isActive }) => (
           <>
             {isActive && <span aria-hidden data-current-bar className="absolute inset-y-0 left-0 w-[3px] bg-sidebar-accent" />}
-            <Icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-white' : 'text-sidebar-icon group-hover:text-white'}`} />
+            <Icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-on-brand' : 'text-sidebar-icon group-hover:text-on-brand'}`} />
             {expanded && <span>{item.label}</span>}
           </>
         )}
       </NavLink>
       {tooltip.shown && createPortal(
-        <span aria-hidden data-rail-tooltip className="pointer-events-none fixed z-50 -translate-y-1/2 rounded-sm bg-ink-900 px-2 py-1 text-xs font-medium whitespace-nowrap text-white"
+        <span aria-hidden data-rail-tooltip className="pointer-events-none fixed z-50 -translate-y-1/2 rounded-sm bg-toast px-2 py-1 text-xs font-medium whitespace-nowrap text-on-brand"
           style={{ left: tooltip.shown.left, top: tooltip.shown.top }}>
           {item.label}
         </span>,

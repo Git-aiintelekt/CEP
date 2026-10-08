@@ -19,7 +19,7 @@ const RADIO =
 export function RadioCard({ name, checked, onSelect, title, description, aside, children }: RadioCardProps) {
   // the fields in `aside` and `children` sit outside the <label>, so they don't become part of the radio's name
   return (
-    <div className={`rounded-lg border p-4 transition-colors duration-base ease-standard ${checked ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface hover:bg-surface-subtle'}`}>
+    <div className={`rounded-lg border p-4 transition-colors duration-base ease-standard ${checked ? 'border-link bg-callout-bg' : 'border-line bg-surface hover:bg-surface-hover'}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
           <input type="radio" name={name} className={RADIO} checked={checked} onChange={onSelect} />

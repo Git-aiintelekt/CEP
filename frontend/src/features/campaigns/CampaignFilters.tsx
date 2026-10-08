@@ -30,7 +30,7 @@ function FilterButton({ menus, id, label, value, width = 220, children }: { menu
         {...menus.triggerProps(id)}
         type="button"
         title={value || undefined}
-        className={`inline-flex h-10 items-center gap-1.5 rounded-control-lg border bg-surface pr-2.5 pl-3 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard ${open ? 'border-brand-600' : 'border-line hover:border-ink-300'} ${value ? 'text-brand-800' : 'text-ink-900'}`}
+        className={`inline-flex h-10 items-center gap-1.5 rounded-control-lg border bg-surface pr-2.5 pl-3 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard ${open ? 'border-link' : 'border-line hover:border-ink-300'} ${value ? 'text-brand-800' : 'text-ink-900'}`}
       >
         <span className="max-w-[200px] truncate">{value || label}</span>
         <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
@@ -51,7 +51,7 @@ function Option({ label, chosen, onPick, className }: { label: string; chosen: b
       className={className}
       aria-pressed={chosen}
       title={label}
-      leading={<Check size={16} strokeWidth={2} aria-hidden className={`text-brand-600 ${chosen ? '' : 'invisible'}`} />}
+      leading={<Check size={16} strokeWidth={2} aria-hidden className={`text-link ${chosen ? '' : 'invisible'}`} />}
       onClick={onPick}
     />
   )
@@ -179,7 +179,7 @@ export function CampaignFilters({ menus, filters, onChange, search, onSearch, on
         type="button"
         disabled={!active}
         onClick={onClear}
-        className="ml-auto h-10 rounded-control-lg px-3 text-sm font-semibold text-brand-600 transition-colors duration-fast ease-standard hover:bg-callout-bg disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300"
+        className="ml-auto h-10 rounded-control-lg px-3 text-sm font-semibold text-link transition-colors duration-fast ease-standard hover:bg-callout-bg disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-300"
       >
         Clear Filters
       </button>

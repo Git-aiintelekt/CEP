@@ -21,7 +21,7 @@ export function Detail({ label, ...detail }: { label: string } & DetailState) {
       : detail.state === 'error' ? (
         <span className="flex flex-wrap items-center gap-2 text-helper text-ink-800">
           Couldn’t load this
-          <button type="button" onClick={detail.onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
+          <button type="button" onClick={detail.onRetry} className="font-semibold text-link hover:underline">Retry</button>
         </span>
       ) : detail.state === 'missing' ? (
         <>
@@ -60,7 +60,7 @@ export function CampaignPreviewDetails({ campaign, channel, content, tags }: Det
         <div className="flex flex-col gap-2 border-b border-line-subtle pb-[18px]">
           <span className="flex items-center gap-2 text-helper text-ink-800"><Workflow size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />Journey-Generated · Read Only</span>
           <a href="/journeys" target="_blank" rel="noreferrer" aria-label="View Journey (opens in a new tab)"
-            className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-brand-600 hover:underline">
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-link hover:underline">
             View Journey
             <ExternalLink size={16} strokeWidth={1.5} aria-hidden />
           </a>

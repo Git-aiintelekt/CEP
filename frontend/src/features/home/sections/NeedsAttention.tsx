@@ -30,7 +30,7 @@ function ItemsCard({ group }: { group: AttentionGroup }) {
           <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
           <span data-severity={group.severity} className="line-clamp-2 text-helper text-ink-800">{items[0].text}</span>
         </span>
-        <Link to={items[0].href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{items[0].actionLabel}</Link>
+        <Link to={items[0].href} className="shrink-0 text-sm font-semibold text-link hover:underline">{items[0].actionLabel}</Link>
       </li>
     )
   }
@@ -43,7 +43,7 @@ function ItemsCard({ group }: { group: AttentionGroup }) {
           {items.map((item) => (
             <li key={item.id} className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 text-helper text-ink-800">{item.text}</span>
-              <Link to={item.href} aria-label={`${item.actionLabel}: ${item.text}`} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{item.actionLabel}</Link>
+              <Link to={item.href} aria-label={`${item.actionLabel}: ${item.text}`} className="shrink-0 text-sm font-semibold text-link hover:underline">{item.actionLabel}</Link>
             </li>
           ))}
         </ul>
@@ -61,7 +61,7 @@ function AlertCard({ group }: { group: AttentionGroup }) {
         <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
         <span data-severity={group.severity} className="truncate text-helper text-ink-800">{group.label}</span>
       </span>
-      <Link to={group.href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{group.actionLabel}</Link>
+      <Link to={group.href} className="shrink-0 text-sm font-semibold text-link hover:underline">{group.actionLabel}</Link>
     </li>
   )
 }
@@ -74,7 +74,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         <span className="text-sm font-semibold text-ink-900">{insight.title}</span>
         <span className="text-helper text-ink-800">{insight.detail}</span>
       </span>
-      <Link to={insight.href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">View Insight</Link>
+      <Link to={insight.href} className="shrink-0 text-sm font-semibold text-link hover:underline">View Insight</Link>
     </li>
   )
 }

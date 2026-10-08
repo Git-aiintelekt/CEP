@@ -148,7 +148,7 @@ export function DatePicker({ value, onChange, label, placeholder = 'Select Date'
           aria-modal="false"
           aria-labelledby={titleId}
           onKeyDown={onPanelKeyDown}
-          className="absolute top-full left-0 z-40 mt-1.5 w-[296px] max-w-[calc(100vw-32px)] rounded-md border border-line bg-surface p-3 shadow-menu animate-popover-in motion-reduce:animate-none"
+          className="absolute top-full left-0 z-40 mt-1.5 w-[296px] max-w-[calc(100vw-32px)] rounded-md border border-line bg-surface-overlay p-3 shadow-menu animate-popover-in motion-reduce:animate-none"
         >
           <div className="mb-2 flex items-center justify-between gap-2">
             <IconButton label="Previous Month" icon={ChevronLeft} size="sm" disabled={!canGoBack} onClick={() => setFocused(addMonths(focused, -1) < minDate ? minDate : addMonths(focused, -1))} />
@@ -176,9 +176,9 @@ export function DatePicker({ value, onChange, label, placeholder = 'Select Date'
                     const isToday = sameDay(day, today)
                     const isFocused = sameDay(day, focused)
                     const look =
-                      isSelected ? 'bg-brand-600 font-semibold text-white hover:bg-brand-800'
+                      isSelected ? 'bg-brand-600 font-semibold text-on-brand hover:bg-brand-fill-hover'
                       : past ? 'cursor-not-allowed text-ink-300'
-                      : `${outside ? 'text-ink-800' : 'text-ink-900'} hover:bg-brand-100 hover:text-brand-800`
+                      : `${outside ? 'text-ink-800' : 'text-ink-900'} hover:bg-brand-100 hover:text-link-hover`
                     return (
                       <td key={day.toISOString()} role="gridcell" aria-selected={isSelected} className="p-0.5 text-center">
                         <button
@@ -188,7 +188,7 @@ export function DatePicker({ value, onChange, label, placeholder = 'Select Date'
                           aria-label={dayName.format(day)}
                           aria-current={isToday ? 'date' : undefined}
                           onClick={() => choose(day)}
-                          className={`mx-auto flex h-8 w-8 items-center justify-center rounded-control-md text-sm tabular-nums transition-colors duration-fast ease-standard ${look} ${isToday && !isSelected ? 'ring-1 ring-brand-600 ring-inset' : ''}`}
+                          className={`mx-auto flex h-8 w-8 items-center justify-center rounded-control-md text-sm tabular-nums transition-colors duration-fast ease-standard ${look} ${isToday && !isSelected ? 'ring-1 ring-focus ring-inset' : ''}`}
                         >
                           {day.getDate()}
                         </button>

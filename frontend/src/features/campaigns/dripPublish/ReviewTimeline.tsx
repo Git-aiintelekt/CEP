@@ -45,7 +45,7 @@ export function ReviewTimeline({ campaignId, review, steps, series, error, onRet
       </ul>
     )) },
     { key: 'edit', header: 'Edit', align: 'right', render: (row) => (
-      <Link to={sequenceHref(campaignId, row.id)} aria-label={`Edit message ${row.position}, ${row.name || 'Untitled Message'}`} className="font-semibold text-brand-600 hover:underline">Edit</Link>
+      <Link to={sequenceHref(campaignId, row.id)} aria-label={`Edit message ${row.position}, ${row.name || 'Untitled Message'}`} className="font-semibold text-link hover:underline">Edit</Link>
     ) },
   ]
   return (

@@ -56,7 +56,7 @@ export function StarterGalleryModal({ onClose, onPreview }: { onClose: () => voi
                 return (
                   <li key={item.key}>
                     <button type="button" aria-pressed={selected} onClick={() => setFilter(item.key)}
-                      className={`flex h-9 w-full items-center gap-2 rounded-control-md px-3 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-subtle'}`}>
+                      className={`flex h-9 w-full items-center gap-2 rounded-control-md px-3 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
                       <Icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0" />
                       <span className="flex-1">{item.label}</span>{' '}
                       <span className="cep-num text-xs text-ink-800">{item.count}</span>
@@ -74,7 +74,7 @@ export function StarterGalleryModal({ onClose, onPreview }: { onClose: () => voi
                 <span className="sr-only">Search Starter Templates</span>
                 <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
                 <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Starter Templates"
-                  className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600" />
+                  className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-focus" />
               </label>
             </div>
             {shown.length === 0 ? (

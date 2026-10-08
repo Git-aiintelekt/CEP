@@ -28,7 +28,7 @@ export function AuthLoading({ label }: { label: string }) {
                 style={{
                   width: arc.size,
                   height: arc.size,
-                  background: arc.light ? 'var(--color-surface)' : 'var(--color-brand-100)',
+                  background: arc.light ? 'var(--color-on-brand)' : 'var(--color-on-brand-soft)',
                   animationDelay: arc.delay,
                 }}
               />

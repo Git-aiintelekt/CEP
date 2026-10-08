@@ -28,7 +28,7 @@ export const CATEGORIES_LABEL = 'Starter Categories'
 export const USE_STARTER_LABEL = 'Use This Starter'
 
 const CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg border text-left transition-colors duration-fast ease-standard'
-const state = (selected: boolean) => (selected ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:border-brand-600')
+const state = (selected: boolean) => (selected ? 'border-link bg-brand-100' : 'border-line bg-surface hover:border-link')
 
 /** A 600 px email shown at 40 %: the iframe keeps its real width so the layout is the desktop one, then is scaled down. */
 function EmailThumbnail({ html, title }: { html: string; title: string }) {
@@ -129,7 +129,7 @@ export function StarterGallery({ channel, value, onChange, bare = false }: Start
                       aria-label={`${row.name}, ${starterCount(row.count)}`}
                       onClick={() => setChosen({ channel, category: row.name })}
                       className={`flex h-9 w-full items-center justify-between gap-3 rounded-control-md px-2.5 text-sm transition-colors duration-fast ease-standard ${
-                        selected ? 'bg-brand-100 font-semibold text-brand-800' : 'font-medium text-ink-900 hover:bg-surface-subtle'
+                        selected ? 'bg-brand-100 font-semibold text-brand-800' : 'font-medium text-ink-900 hover:bg-surface-hover'
                       }`}
                     >
                       <span className="truncate">{row.name}</span>
@@ -146,7 +146,7 @@ export function StarterGallery({ channel, value, onChange, bare = false }: Start
             <span className="sr-only">Search Starter Templates</span>
             <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
             <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="e.g. welcome, receipt, sale"
-              className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard placeholder:text-ink-300 focus:bg-surface focus-visible:border-brand-600" />
+              className="h-10 w-full rounded-control-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard placeholder:text-ink-300 focus:bg-surface focus-visible:border-focus" />
           </label>
           <div role="radiogroup" aria-label="Starting Point" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <button type="button" role="radio" aria-checked={value === ''} onClick={() => onChange('', null)} className={`${CARD} ${state(value === '')}`}>
@@ -178,7 +178,7 @@ export function StarterGallery({ channel, value, onChange, bare = false }: Start
                   aria-label={`Preview ${starter.name}`}
                   title="Preview"
                   onClick={() => setPreview({ channel, starter })}
-                  className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-control-md border border-line bg-surface text-ink-800 transition-colors hover:bg-surface-subtle"
+                  className="absolute top-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-control-md border border-line bg-surface text-ink-800 transition-colors hover:bg-surface-hover"
                 >
                   <Eye size={16} strokeWidth={1.5} aria-hidden />
                 </button>

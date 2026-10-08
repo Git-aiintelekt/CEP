@@ -25,7 +25,7 @@ const STEP =
 export function Stepper({ value, onChange, onDecrement, onIncrement, unit, invalid = false, canDecrement = true, canIncrement = true, describedBy, disabled, className = '', ...props }: StepperProps) {
   const frame = disabled ? 'border-line bg-fill-subtle' : `${borderClass(invalid)} bg-surface`
   return (
-    <div className={`flex h-8 w-full items-center overflow-hidden rounded-sm border transition-colors duration-base ease-standard focus-within:border-brand-600 focus-within:shadow-focus ${frame} ${className}`}>
+    <div className={`flex h-8 w-full items-center overflow-hidden rounded-sm border transition-colors duration-base ease-standard focus-within:border-focus focus-within:shadow-focus ${frame} ${className}`}>
       <button type="button" tabIndex={-1} aria-label="Decrease" title="Decrease" disabled={disabled || !canDecrement} onClick={onDecrement} className={STEP}>
         <Minus size={14} strokeWidth={1.5} aria-hidden />
       </button>

@@ -18,7 +18,7 @@ interface SwatchProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'col
  */
 export function Swatch({ color, label, size = 'sm', selected = false, disabled, type = 'button', className = '', title, style, ...props }: SwatchProps) {
   const ring =
-    selected ? 'border-2 border-brand-600'
+    selected ? 'border-2 border-link'
     : disabled ? 'border border-line'
     : 'border border-line hover:border-ink-300'
   return (

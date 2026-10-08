@@ -76,7 +76,7 @@ export function TestPopulationCard({ value, onChange }: TestPopulationCardProps)
             ) : (
               <ul className="max-h-48 overflow-y-auto rounded-md border border-line bg-surface">
                 {rows.map((list) => (
-                  <li key={list.id} className="flex items-center justify-between gap-2 border-b border-line-subtle px-3 py-2 last:border-b-0 hover:bg-surface-subtle">
+                  <li key={list.id} className="flex items-center justify-between gap-2 border-b border-line-subtle px-3 py-2 last:border-b-0 hover:bg-surface-hover">
                     <div className="min-w-0">
                       <p className="truncate text-sm text-ink-900">{list.name}</p>
                       <p className="text-helper text-ink-800">{formatNumber(list.member_count)} contacts · Updated {formatRelative(list.last_refreshed_at ?? list.updated_at)}</p>

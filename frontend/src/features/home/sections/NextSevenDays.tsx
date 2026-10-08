@@ -45,7 +45,7 @@ function DayStrip({ days, picked, onPick, journeysShown }: { days: ScheduleDay[]
         return (
           <button key={day.day} ref={(node) => { tiles.current[index] = node }} type="button" role="radio" aria-checked={selected} tabIndex={selected ? 0 : -1}
             aria-label={dayLabel(day, index, journeysShown)} onClick={() => onPick(index)}
-            className={`flex min-h-[64px] flex-col items-center gap-1 rounded-control-md border px-1 py-2 text-center transition-colors duration-fast ease-standard ${selected ? 'cep-home-day border-plum-200' : 'border-line-subtle bg-surface hover:bg-surface-subtle'}`}>
+            className={`flex min-h-[64px] flex-col items-center gap-1 rounded-control-md border px-1 py-2 text-center transition-colors duration-fast ease-standard ${selected ? 'cep-home-day border-plum-200' : 'border-line-subtle bg-surface hover:bg-surface-hover'}`}>
             <span className={`text-xs font-semibold ${selected ? 'text-plum-800' : 'text-ink-900'}`}>{dayName(day, index, 'short')}</span>
             <span className={`text-xs ${selected ? 'text-plum-800' : 'text-ink-800'}`}>{formatShortDay(day.day)}</span>
             <span aria-hidden data-dots className="mt-1 flex h-1.5 items-center gap-1">

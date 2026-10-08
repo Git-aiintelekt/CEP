@@ -13,7 +13,7 @@ function Row({ row }: { row: SnapshotRow }) {
   const journey = row.key === 'JOURNEY'
   return (
     <li data-snapshot={row.key} className="flex items-center gap-3 py-3">
-      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${journey ? 'cep-home-journey text-white' : 'cep-home-badge text-plum-700'}`}><row.icon size={18} strokeWidth={1.5} /></span>
+      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${journey ? 'cep-home-journey text-on-brand' : 'cep-home-badge text-plum-700'}`}><row.icon size={18} strokeWidth={1.5} /></span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-semibold text-ink-900">{row.label}</span>

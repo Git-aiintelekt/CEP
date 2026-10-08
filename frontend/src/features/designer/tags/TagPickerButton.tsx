@@ -56,13 +56,13 @@ export function TagPickerButton({ tags, channel, recent, onPick, disabled = fals
           inset ?
             `inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-sm transition-colors duration-base ease-standard ${
               disabled ? 'cursor-not-allowed bg-fill-subtle text-ink-300'
-              : open ? 'bg-brand-100 text-brand-600'
+              : open ? 'bg-brand-100 text-link'
               : 'text-ink-800 hover:bg-fill-muted'
             }`
           : `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
               disabled ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300'
-              : open ? 'border-brand-600 bg-brand-100 text-brand-800'
-              : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'
+              : open ? 'border-link bg-brand-100 text-brand-800'
+              : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'
             }`
         }
       >

@@ -17,7 +17,7 @@ const STEP_LOOK = [
   { dot: 'bg-brand-600', bar: 'cep-home-step-1' },
   { dot: 'bg-callout-icon', bar: 'cep-home-step-2' },
   { dot: 'bg-plum-500', bar: 'cep-home-step-3' },
-  { dot: 'bg-plum-700', bar: 'cep-home-step-4' },
+  { dot: 'bg-plum-500', bar: 'cep-home-step-4' },
 ]
 
 function Step({ step, index, last }: { step: FunnelStep; index: number; last: boolean }) {

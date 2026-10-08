@@ -115,7 +115,7 @@ export function StepSchedule({ options, workspaceZone, onChangeType, campaignId 
                 <div role="group" aria-label="Days of the Week" className="mt-1 flex flex-wrap gap-2">
                   {WEEKDAYS.map((day) => (
                     <button key={day.value} type="button" aria-pressed={recurring.weekdays.includes(day.value)} onClick={() => toggleDay(day.value)}
-                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-brand-600 bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
+                      className={`h-10 min-w-12 rounded-control-lg border px-3 text-sm font-medium transition-colors ${recurring.weekdays.includes(day.value) ? 'border-link bg-callout-bg text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
                       {day.label}
                     </button>
                   ))}

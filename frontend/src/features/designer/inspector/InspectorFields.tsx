@@ -334,7 +334,7 @@ function ImageBlock({ src, disabled, onChoose }: { src: string | null; disabled:
             aria-disabled={disabled || undefined}
             onClick={disabled ? undefined : onChoose}
             className={`inline-flex h-8 items-center rounded-sm border px-3 text-sm font-medium transition-colors duration-base ease-standard ${
-              disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'
+              disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'
             }`}
           >
             {CHOOSE_IMAGE_LABEL}

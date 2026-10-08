@@ -33,7 +33,7 @@ export function Drawer({ title, eyebrow, onClose, children, footer, banner }: Dr
     <div className={`${editorType} fixed inset-0 z-50 flex justify-end`}>
       <div aria-hidden data-drawer-scrim className="absolute inset-0 animate-fade-in bg-scrim motion-reduce:animate-none" onMouseDown={onClose} />
       <aside ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className="relative flex h-full w-full animate-slide-in-right flex-col bg-surface shadow-drawer motion-reduce:animate-none md:w-[480px]">
+        className="relative flex h-full w-full animate-slide-in-right flex-col bg-surface-overlay shadow-drawer motion-reduce:animate-none md:w-[480px]">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="flex min-w-0 flex-col gap-0.5">
             {eyebrow && <span className="cep-num text-xs text-ink-800">{eyebrow}</span>}

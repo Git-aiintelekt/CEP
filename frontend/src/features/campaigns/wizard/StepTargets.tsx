@@ -63,7 +63,7 @@ function CostPicker({ name, label, hint, error }: { name: 'planned_cost' | 'plan
   const chip = number !== null && COST_CHIPS.includes(number) && !customAsked ? number : null
   const custom = customAsked || (value.trim() !== '' && chip === null)
   const set = (next: string) => setValue(`targets.${name}`, next, { shouldDirty: true, shouldValidate: true })
-  const chipClass = (on: boolean) => `h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`
+  const chipClass = (on: boolean) => `h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${on ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`
 
   return (
     <div data-cost={name}>

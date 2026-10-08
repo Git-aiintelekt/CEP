@@ -57,7 +57,7 @@ function SentBody({ campaign, step, texts, onSkipped }: { campaign: Campaign; st
       </dl>
       {skipped && (
         <p className="text-helper text-ink-800" data-step-skipped>
-          <button type="button" onClick={() => onSkipped(step)} className="font-semibold text-brand-600 hover:underline">Skipped {formatNumber(run.skipped.total)}</button>: {skipped}
+          <button type="button" onClick={() => onSkipped(step)} className="font-semibold text-link hover:underline">Skipped {formatNumber(run.skipped.total)}</button>: {skipped}
         </p>
       )}
       {winner && <p className="text-helper text-ink-800">A/B winner: Subject {winner.variant_key}{metricValue !== undefined ? `, ${metricValue}% ${metric}` : ''}.</p>}
@@ -130,7 +130,7 @@ function TodayMarker({ zone, now }: { zone: string; now: number }) {
   const today = whenInZone(new Date(now).toISOString(), zone)
   return (
     <div className="flex min-h-6 items-center gap-2" data-today-marker>
-      <span className="inline-flex h-6 items-center gap-1.5 rounded-sm bg-ink-900 px-2 text-xs font-semibold text-white"><Clock size={12} strokeWidth={1.5} aria-hidden />Today · {today?.day}</span>
+      <span className="inline-flex h-6 items-center gap-1.5 rounded-sm bg-toast px-2 text-xs font-semibold text-on-brand"><Clock size={12} strokeWidth={1.5} aria-hidden />Today · {today?.day}</span>
     </div>
   )
 }

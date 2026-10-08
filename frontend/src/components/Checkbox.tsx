@@ -16,7 +16,7 @@ export function Checkbox({ label, disabled, className = '', ...props }: Checkbox
           disabled={disabled}
           className="peer h-4 w-4 appearance-none rounded-xs border border-line-control bg-surface transition-colors duration-base ease-standard checked:border-brand-600 checked:bg-brand-600 hover:not-checked:border-ink-800 disabled:border-line disabled:bg-fill-subtle disabled:checked:bg-ink-300"
         />
-        <Check size={12} strokeWidth={2} aria-hidden className="pointer-events-none absolute hidden text-white peer-checked:block" />
+        <Check size={12} strokeWidth={2} aria-hidden className="pointer-events-none absolute hidden text-on-brand peer-checked:block" />
       </span>
       {label}
     </label>

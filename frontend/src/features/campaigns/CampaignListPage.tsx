@@ -126,7 +126,7 @@ function Upcoming({ workspaceZone, canEdit }: { workspaceZone: string; canEdit: 
           {rows.map((campaign) => {
             return (
               <li key={campaign.id} className="min-w-0">
-                <Link to={`/campaigns/${campaign.id}`} className="flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors duration-fast ease-standard hover:bg-surface-subtle">
+                <Link to={`/campaigns/${campaign.id}`} className="flex h-full flex-col gap-2 rounded-lg border border-line bg-surface p-4 transition-colors duration-fast ease-standard hover:bg-surface-hover">
                   <span className="flex min-w-0 items-center gap-2">
                     <ChannelIcon channel={campaign.channel} aria-label={channelLabel(campaign.channel)} className="shrink-0 text-ink-800" />
                     <span className="truncate text-sm font-semibold text-ink-900">{campaign.name}</span>
@@ -155,7 +155,7 @@ function EmptyDrawing() {
       <div className="absolute top-1.5 left-1.5 h-11 w-[120px] rounded-md border border-brand-100 bg-callout-bg" />
       <div className="absolute top-[18px] left-[18px] h-2 w-[52px] rounded-sm bg-brand-100" />
       <div className="absolute top-8 left-[18px] h-2 w-20 rounded-sm bg-brand-100" />
-      <div className="absolute top-0.5 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-white">
+      <div className="absolute top-0.5 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-on-brand">
         <Plus size={16} strokeWidth={2} />
       </div>
     </div>
@@ -191,7 +191,7 @@ function Footer({ page, pageSize, total, onPage, onPageSize, divided }: { page: 
           <span aria-hidden>Rows per Page</span>
           {PAGE_SIZES.map((size) => (
             <button key={size} type="button" aria-pressed={size === pageSize} onClick={() => onPageSize(size)}
-              className={`cep-num h-8 min-w-[38px] rounded-control-md border px-2 text-helper font-semibold transition-colors duration-fast ease-standard ${size === pageSize ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
+              className={`cep-num h-8 min-w-[38px] rounded-control-md border px-2 text-helper font-semibold transition-colors duration-fast ease-standard ${size === pageSize ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
               {size}
             </button>
           ))}
@@ -435,7 +435,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
     return (
       <div className="min-w-0">
         <button type="button" data-campaign-name={row.id} onClick={() => openPreview(row.id)}
-          className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-brand-600">
+          className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:text-link">
           {row.name}
         </button>
         {progress && <span data-drip-progress className="cep-num block truncate text-helper text-ink-800">{progress}</span>}
@@ -472,7 +472,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
         <div role="group" aria-label="Saved views" className="mb-3 flex flex-wrap gap-2">
           {SAVED_VIEWS.filter((item) => item.key !== 'approval' || canApprove || canPublish).map((item) => (
             <button key={item.key || 'all'} type="button" aria-pressed={saved === item.key} onClick={() => pickSaved(item.key)}
-              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
+              className={`h-8 rounded-pill border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${saved === item.key ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
               {item.label}
             </button>
           ))}
@@ -551,7 +551,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
               <tbody className="divide-y divide-line-subtle">
                 {rows.map((row) => {
                   const picked = selected.includes(row.id) || previewId === row.id
-                  const rest = row.is_journey_generated ? 'bg-surface-subtle' : 'hover:bg-surface-subtle'
+                  const rest = row.is_journey_generated ? 'bg-surface-subtle' : 'hover:bg-surface-hover'
                   return (
                     <tr key={row.id} onClick={openRow(row)} className={`h-[72px] cursor-pointer transition-colors duration-fast ease-standard ${picked ? 'bg-callout-bg' : rest}`}>
                       {canEdit && (
@@ -587,7 +587,7 @@ export function CampaignListPage({ creating = false }: { creating?: boolean }) {
           <ul aria-label="Campaigns" className="space-y-3">
             {rows.map((row) => (
               <li key={row.id} onClick={openRow(row)}
-                className={`cursor-pointer rounded-lg border border-line p-4 transition-colors duration-fast ease-standard ${row.is_journey_generated ? 'bg-surface-subtle' : 'bg-surface hover:bg-surface-subtle'}`}>
+                className={`cursor-pointer rounded-lg border border-line p-4 transition-colors duration-fast ease-standard ${row.is_journey_generated ? 'bg-surface-subtle' : 'bg-surface hover:bg-surface-hover'}`}>
                 <div className="flex items-start justify-between gap-3">
                   {nameCell(row)}
                   <span className="flex shrink-0 items-center"><RowAction campaign={row} rights={rowRights} onAct={(action) => run(row, action)} />{rowMenu(row)}</span>

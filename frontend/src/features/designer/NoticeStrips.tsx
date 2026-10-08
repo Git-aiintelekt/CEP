@@ -6,8 +6,8 @@ import { Notice } from '@/components/Notice'
 import { BACK_TO_LATEST, CONFLICT_NOTE, LOAD_LATEST, READ_ONLY_NOTE, oldVersionNote } from './versionNotes'
 
 const STRIP_BUTTON = 'inline-flex h-7 shrink-0 items-center rounded-sm border px-3 text-xs font-semibold transition-colors duration-base ease-standard'
-const WARNING_BUTTON = `${STRIP_BUTTON} border-warning bg-surface text-warning-text hover:bg-surface-subtle`
-const DANGER_BUTTON = `${STRIP_BUTTON} border-danger bg-surface text-danger-text hover:bg-surface-subtle`
+const WARNING_BUTTON = `${STRIP_BUTTON} border-warning bg-surface text-warning-text hover:bg-surface-hover`
+const DANGER_BUTTON = `${STRIP_BUTTON} border-danger bg-surface text-danger-text hover:bg-surface-hover`
 const DISABLED_BUTTON = `${STRIP_BUTTON} cursor-not-allowed border-line bg-fill-subtle text-ink-300`
 
 /** `note` replaces the wording, for an editor holding more than one versioned thing. */

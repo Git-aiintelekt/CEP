@@ -103,7 +103,7 @@ export function DripPreviewDetails({ campaign, steps, index, onIndex, series }: 
               return (
                 <li key={item.id}>
                   <button type="button" aria-current={at === index || undefined} onClick={() => onIndex(at)} data-preview-message={item.position}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors duration-fast ease-standard ${at === index ? 'bg-fill-subtle' : 'hover:bg-surface-subtle'}`}>
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors duration-fast ease-standard ${at === index ? 'bg-fill-subtle' : 'hover:bg-surface-hover'}`}>
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-sm font-medium text-ink-900">{item.position} · {messageTitle(item)}</span>
                       <span className="cep-num text-xs text-ink-800">{when ? when.day : `Day ${item.day}`}</span>

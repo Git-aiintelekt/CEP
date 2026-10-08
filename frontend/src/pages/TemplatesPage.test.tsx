@@ -111,13 +111,17 @@ test('a quick-create card shows for every channel the workspace can use', async 
   expect(screen.getByRole('button', { name: 'Create MMS template' }).textContent).not.toMatch(/video/i)
 })
 
-test('with e-receipts switched off there is no E-Receipt card or tab', async () => {
+test('E-Receipt is offered even with the e-receipt switch off, as on Create Campaign', async () => {
   await openLanding({ me: { features: { ereceipt: false } } })
   expect(screen.getByRole('button', { name: 'Create Email template' })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Create E-Receipt template' })).toBeNull()
-  expect(screen.queryByRole('tab', { name: 'E-Receipt' })).toBeNull()
-  // offered whatever the tags, but only where e-receipts are on
-  for (const name of RECEIPT_PRESET_NAMES) expect(screen.queryByText(name)).toBeNull()
+  expect(screen.getByRole('button', { name: 'Create E-Receipt template' })).toBeTruthy()
+  expect(screen.getByRole('tab', { name: 'E-Receipt' })).toBeTruthy()
+})
+
+test('a channel switched off loses its card and tab', async () => {
+  await openLanding({ me: { features: { mms: false } } })
+  expect(screen.queryByRole('button', { name: 'Create MMS template' })).toBeNull()
+  expect(screen.queryByRole('tab', { name: 'MMS' })).toBeNull()
 })
 
 test('without template.edit the cards are hidden and presets cannot be clicked', async () => {

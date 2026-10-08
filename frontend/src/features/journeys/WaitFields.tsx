@@ -218,7 +218,7 @@ export function WaitFields({ config, set }: { config: Record<string, unknown>; s
                 <button key={day.value} type="button" aria-pressed={on} aria-label={day.long}
                   onClick={() => set({ weekdays: on ? weekdays.filter((item) => item !== day.value) : WEEKDAYS.map((item) => item.value).filter((item) => item === day.value || weekdays.includes(item)) })}
                   className={`h-8 w-10 rounded-control-md border text-xs font-medium transition-colors duration-fast ease-standard ${
-                    on ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-subtle'}`}>
+                    on ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>
                   {day.short}
                 </button>
               )

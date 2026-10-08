@@ -79,7 +79,7 @@ function StackedCards<T>({ columns, rows, rowKey, onRowClick, caption, primary, 
           onClick={onRowClick ? () => onRowClick(row) : undefined}
           onKeyDown={onRowClick ? (event) => event.key === 'Enter' && onRowClick(row) : undefined}
           tabIndex={onRowClick ? 0 : undefined}
-          className={`rounded-lg border border-line bg-surface p-4 ${onRowClick ? 'cursor-pointer transition-colors hover:bg-surface-subtle' : ''} ${rowClassName?.(row) ?? ''}`}
+          className={`rounded-lg border border-line bg-surface p-4 ${onRowClick ? 'cursor-pointer transition-colors hover:bg-surface-hover' : ''} ${rowClassName?.(row) ?? ''}`}
         >
           {lead && <div className="mb-2 text-card-title font-semibold text-ink-900" data-primary>{lead.render(row)}</div>}
           <dl className="divide-y divide-line-subtle">
@@ -191,7 +191,7 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
                       : undefined
                   }
                   tabIndex={onRowClick ? 0 : undefined}
-                  className={`${onRowClick ? 'h-10 cursor-pointer transition-colors hover:bg-surface-subtle xl:h-12' : 'h-10 xl:h-12'} ${rowClassName?.(row) ?? ''}`}
+                  className={`${onRowClick ? 'h-10 cursor-pointer transition-colors hover:bg-surface-hover xl:h-12' : 'h-10 xl:h-12'} ${rowClassName?.(row) ?? ''}`}
                 >
                   {columns.map((column, index) => (
                     <td
