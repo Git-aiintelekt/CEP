@@ -28,7 +28,7 @@ A role is a named set of permissions. A user with the role may do what its permi
 | campaign.edit | Create, edit, clone and archive campaigns; send tests; ask for approval. |
 | campaign.publish | Publish to production, pause, resume, cancel a schedule, choose a subject test's winner. |
 | campaign.approve | Approve or send back a campaign when the workspace requires approvals. Never for the person who asked. |
-| journey.view, journey.edit, journey.activate | See, build and switch on journeys (with the journeys feature). |
+| journey.view, journey.edit, journey.activate, journey.export, journey.suppress | See journeys; build, test, retry or skip steps, duplicate and archive drafts; approve, schedule, pause, resume and archive live journeys; export a journey's customers; keep named customers out of a journey (all with the journeys feature). |
 | template.view, template.edit | See templates; create, edit, activate and delete them. |
 | list.view, list.edit, list.import | See lists and their people; create, edit, clone and archive lists; upload files. |
 | consent.edit | Approve or refuse a list that waits for approval; block and unblock addresses under Suppressions. |
