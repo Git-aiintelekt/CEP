@@ -123,7 +123,7 @@ function ChoiceCard({ selected, onSelect, title, text, icon, badge }: { selected
         {title}
       </span>
       <span className="text-xs text-ink-800">{text}</span>
-      {badge && <span className="mt-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] font-semibold text-ink-800">{badge}</span>}
+      {badge && <span className="mt-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{badge}</span>}
     </button>
   )
 }
@@ -490,7 +490,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <div className="flex flex-wrap items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-fill-subtle text-ink-800"><FileSpreadsheet size={20} strokeWidth={1.5} aria-hidden /></span>
                 <div className="min-w-0 grow">
-                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] font-semibold text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
+                  <p className="truncate text-sm font-semibold text-ink-900">{upload.file_name} <span className="ml-1 rounded-sm bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-success-text">{job?.status === 'FAILED' ? 'Failed' : 'Received'}</span></p>
                   <p className="text-xs text-ink-800">
                     {job && job.row_count > 0 ? `${formatNumber(job.row_count)} rows · ` : ''}{upload.columns.length} columns{upload.file_size ? ` · ${fileSize(upload.file_size)}` : ''}
                   </p>
@@ -649,7 +649,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             {([['New', review_.new, 'not in CEP yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
               ([label, value, hint]) => (
                 <div key={label} className="rounded-lg border border-line px-3 py-2">
-                  <dd className="cep-num text-lg font-semibold text-ink-900">{formatNumber(value)}</dd>
+                  <dd className="cep-num text-section-title font-semibold text-ink-900">{formatNumber(value)}</dd>
                   <dt className="text-xs font-semibold text-ink-800">{label}</dt>
                   <p className="text-xs text-ink-800">{hint}</p>
                 </div>
@@ -663,7 +663,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                 {(job.issues ?? []).map((issue) => (
                   <li key={`${issue.line}-${issue.kind}`} className="flex items-start gap-3 px-3 py-1.5">
                     <span className="cep-num w-14 shrink-0 text-xs text-ink-800">Line {issue.line}</span>
-                    <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-[11px] font-semibold ${issue.kind === 'error' ? 'bg-danger-bg text-danger-text' : 'bg-warning-bg text-warning-text'}`}>
+                    <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium ${issue.kind === 'error' ? 'bg-danger-bg text-danger-text' : 'bg-warning-bg text-warning-text'}`}>
                       {issue.kind === 'error' ? 'Held Back' : 'Warning'}
                     </span>
                     <span className="min-w-0 text-ink-800">{issue.message}{issue.value ? <span className="text-ink-800"> · {issue.value}</span> : null}</span>

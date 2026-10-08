@@ -137,7 +137,7 @@ export function SuppressionsPage() {
               onClick={() => { setReason(reason === group.key ? 'ALL' : group.key); setPage(1) }}
               className={`rounded-lg border p-4 text-left transition-colors duration-fast ease-standard ${reason === group.key ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:border-brand-600'}`}>
               <span className="block text-xs font-semibold tracking-wide text-ink-800 uppercase">{group.label}</span>
-              <span className="mt-1 block font-display text-3xl font-semibold text-ink-900 tabular-nums">{formatNumber(group.count)}</span>
+              <span className="mt-1 block font-display text-display font-semibold text-ink-900 tabular-nums">{formatNumber(group.count)}</span>
               <span className="mt-1 block text-helper text-ink-800">{GROUP_HINT[group.key]}</span>
             </button>
           ))}

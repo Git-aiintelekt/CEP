@@ -87,7 +87,7 @@ export function SetupDialog({ title, steps = [], step = 1, onClose, onBack, prim
         className={`flex w-full flex-col bg-surface max-md:h-dvh md:max-h-[calc(100dvh-48px)] md:rounded-lg ${wide ? 'md:max-w-[1040px]' : 'md:max-w-[768px]'}`}>
         <header className="flex shrink-0 flex-col gap-2.5 border-b border-line-subtle px-6 pt-5 pb-4">
           <div className="flex items-center justify-between gap-4">
-            <h2 id={titleId} className="font-display text-lg leading-tight font-semibold tracking-[-0.02em] text-ink-900">{title}</h2>
+            <h2 id={titleId} className="font-display text-card-heading font-semibold text-ink-900">{title}</h2>
             <IconButton label="Close" icon={X} onClick={close} disabled={locked} />
           </div>
           {steps.length > 1 && <StepLine steps={steps} step={step} />}

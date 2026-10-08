@@ -9,7 +9,7 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'link' | 'danger
 export type ButtonSize = 'sm' | 'md'
 
 const BASE =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard'
 
 // corners round with height: 32px → 6px, 40px → 8px
 const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3 rounded-control-md', md: 'h-10 px-4 rounded-control-lg' }

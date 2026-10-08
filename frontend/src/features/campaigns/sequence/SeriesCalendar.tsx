@@ -38,7 +38,7 @@ export function SeriesCalendar({ calendar, sentDays, today }: {
                 className={`cep-num flex h-10 flex-col items-center justify-center rounded-sm border text-xs whitespace-nowrap ${
                   send ? SEND[sent ? 'sent' : 'upcoming'] : cell.inSeries ? 'border-transparent bg-surface-subtle text-ink-900' : 'border-transparent text-ink-300'} ${isToday ? 'outline-2 outline-offset-1 outline-ink-900' : ''}`}>
                 <span aria-hidden>{cell.label}</span>
-                {send && <span aria-hidden className="text-xs font-bold">{cell.messages.map((number) => `M${number}`).join(' ')}</span>}
+                {send && <span aria-hidden className="text-xs font-semibold">{cell.messages.map((number) => `M${number}`).join(' ')}</span>}
               </span>
             )
           })}

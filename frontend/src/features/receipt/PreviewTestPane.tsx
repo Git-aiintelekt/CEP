@@ -164,7 +164,7 @@ function OuterEmailStandIn({ hasFooterBlock, children }: { hasFooterBlock: boole
   return (
     <div data-testid="outer-email" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
       <span className="self-start rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] text-ink-800">Outer design shown as a stand-in</span>
-      <div aria-hidden className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-bold tracking-wide text-white">
+      <div aria-hidden className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-white">
         YOUR BRAND
       </div>
       <div aria-hidden className="flex flex-col gap-1.5 px-1">

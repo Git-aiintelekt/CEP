@@ -115,7 +115,7 @@ function StepCard({ campaign, step, total, series, texts, reason, canPublish, no
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
           <span className="flex min-w-0 flex-col gap-1">
             <span className="cep-num text-xs text-ink-800">Message {step.position} of {total} · Day {step.day}{when ? ` · ${when.day}, ${when.time} ${series.zoneShort}` : ''}</span>
-            <span className="text-[15px] leading-snug font-semibold text-pretty break-words text-ink-900">{messageTitle(step)}</span>
+            <span className="text-card-title font-semibold text-pretty break-words text-ink-900">{messageTitle(step)}</span>
             <span className="truncate text-sm text-ink-800">{line}</span>
           </span>
           <StepTag state={state} />

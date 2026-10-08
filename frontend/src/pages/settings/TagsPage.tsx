@@ -200,7 +200,7 @@ export function TagsPage() {
   const rows = (list.data?.results ?? []).filter((tag) => channel === 'ALL' || tag.applies_to_channels.length === 0 || tag.applies_to_channels.includes(channel))
     .sort((a, b) => a.tag_key.localeCompare(b.tag_key))
   const columns: Column<PersonalizationTag>[] = [
-    { key: 'tag', header: 'Tag', render: (tag) => <div><p className="cep-num font-medium text-ink-900">{`{{${tag.tag_key}}}`}</p><p className="text-xs text-ink-800">{tag.label}</p></div> },
+    { key: 'tag', header: 'Tag', render: (tag) => <div><p className="font-mono text-ink-900">{`{{${tag.tag_key}}}`}</p><p className="text-xs text-ink-800">{tag.label}</p></div> },
     { key: 'source', header: 'Reads From', render: (tag) => tag.resolution_source === STATIC
       ? <span className="text-sm text-ink-900">Static: <span className="cep-num">{tag.static_value}</span></span>
       : <span className="text-sm text-ink-900">{SOURCE_WORD[tag.resolution_source ?? ''] ?? tag.resolution_source}{tag.source_path ? <span className="cep-num text-ink-800"> · {tag.source_path}</span> : null}</span> },

@@ -12,6 +12,7 @@ import type { ReceiptSection } from '@/lib/types'
 import { presetFromDefinition } from '../presetSource'
 import { BONUS_PRESETS, LAUNCH_PRESETS, PRESET_DEFINITIONS, RECEIPT_PRESETS } from '.'
 import { receiptBopis, receiptOnlineOrder, receiptSavingsPoints, receiptStandard } from './receiptPresets'
+import { EMAIL_FONT_STACK } from '@/features/designer/emailFonts'
 
 /** What both renderers round-trip (see backend/apps/templates/starters.py). */
 const ALLOWED = new Set(['mjml', 'mj-body', 'mj-section', 'mj-column', 'mj-group', 'mj-text', 'mj-button', 'mj-divider', 'mj-spacer'])
@@ -99,7 +100,7 @@ describe.each(emails)('$key email', ({ content }) => {
   // the designer's canvas ignores mj-attributes, so every element carries its own look
   test('every text, button and divider sets its own look, with no mj-head to lean on', () => {
     expect(content.mjml).not.toContain('<mj-head')
-    for (const tag of content.mjml.match(/<mj-(text|button)\b[^>]*>/g) ?? []) expect(tag).toContain('font-family="Helvetica, Arial, sans-serif"')
+    for (const tag of content.mjml.match(/<mj-(text|button)\b[^>]*>/g) ?? []) expect(tag).toContain(`font-family="${EMAIL_FONT_STACK}"`)
     for (const tag of content.mjml.match(/<mj-divider\b[^>]*>/g) ?? []) expect(tag).toContain('border-width="1px"')
   })
 

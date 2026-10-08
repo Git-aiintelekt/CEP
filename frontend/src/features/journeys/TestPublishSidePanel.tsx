@@ -96,7 +96,7 @@ function ReadinessRing({ checks }: { checks: { passed: number; total: number } |
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center" aria-hidden>
-        <span className="font-display text-2xl leading-none font-semibold text-ink-900 tabular-nums">{checks ? `${checks.passed}/${checks.total}` : '—'}</span>
+        <span className="font-display text-kpi font-semibold text-ink-900 tabular-nums">{checks ? `${checks.passed}/${checks.total}` : '—'}</span>
         <span className="mt-1 text-xs text-ink-800">checks passed</span>
       </div>
     </div>
@@ -158,7 +158,7 @@ function ResultTile({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-line p-3">
       <p className="text-helper text-ink-800">{label}</p>
-      <p className="mt-1 font-display text-2xl font-semibold text-ink-900 tabular-nums">{formatNumber(value)}</p>
+      <p className="mt-1 font-display text-kpi font-semibold text-ink-900 tabular-nums">{formatNumber(value)}</p>
     </div>
   )
 }

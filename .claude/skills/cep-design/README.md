@@ -157,27 +157,34 @@ Only Journey and Campaign are built (`components/CategoryTag.tsx`); the other fo
 
 ### Typography
 
-Families: `--font-display: 'Plus Jakarta Sans'` (headings), `--font-body: 'Inter'` (everything else). **No monospace font exists in the system** — numerals use `font-variant-numeric: tabular-nums` inside the two families.
+Families (since 2026-10-08): **IBM Plex Sans** for everything, titles and body alike (`--font-display` and `--font-body` both point at it), and **IBM Plex Mono** (`--font-mono`) for merge tags, IDs, API keys and code only. Numerals use `font-variant-numeric: tabular-nums` in Plex Sans; Mono is never used for figures.
 
-Weights: `--fw-regular 400`, `--fw-medium 500`, `--fw-semibold 600`, `--fw-bold 700`.
+Weights: `--fw-regular 400`, `--fw-medium 500`, `--fw-semibold 600`, plus Regular italic. **No 700**: Plex SemiBold is already heavy, and Bold is not loaded in the app.
 
-Sizes: `--fs-page-title 26px` · `--fs-section-title 19px` (`-sm 16px`) · `--fs-card-title 15px` · `--fs-body 14px` · `--fs-body-lg 16px` · `--fs-helper 13px` (`-sm 12px`) · `--fs-label 12px` · `--fs-stat 32px` (`-sm 24px`).
+Tracking: Plex is drawn for 0. Only the 24px and larger sizes tighten (`-0.01em`); 12px text opens up (`+0.01em`); the uppercase overline is `+0.06em`. Line heights are fixed pixel values.
 
-Line heights: `--lh-tight 1.2` · `--lh-heading 1.3` · `--lh-body 1.5` · `--lh-dense 1.4`. Letter spacing: `--ls-tight -0.02em` (display type), `--ls-label 0.02em`.
+| Role | Use case | Size / line height | Weight | Tracking |
+|---|---|---|---|---|
+| `--text-display` | Large Home numbers, big empty-state numbers | 32 / 40 | 600 | -0.01em |
+| `--text-page-title` | One per page | 24 / 32 | 600 | -0.01em |
+| `--text-kpi` | Metric tile numbers, tabular figures | 24 / 32 | 600 | -0.01em |
+| `--text-section-title` | A heading on the page itself | 18 / 24 | 600 | 0 |
+| `--text-card-heading` | A card's own heading, modal and drawer titles | 16 / 24 | 600 | 0 |
+| `--text-body-lg` | Modal intros, empty-state descriptions | 16 / 24 | 400 | 0 |
+| `--text-card-title` | A title inside a bordered box | 15 / 22 | 600 | 0 |
+| `--text-body-role` | Default text: table cells, paragraphs, field values | 15 / 22 | 400 | 0 |
+| `--text-body-emphasis` | Row names, inline links, the selected nav item | 15 / 22 | 500 | 0 |
+| `--text-button` | 40px and 32px buttons | 14 / 20 | 500 | 0 |
+| `--text-helper` | Helper text, metadata, notices | 13 / 18 | 400 | 0 |
+| `--text-label` | Form labels, table column headers, filter chips | 13 / 18 | 500 | 0 |
+| `--text-caption` | Timestamps, chart axis text | 12 / 16 | 400 | +0.01em |
+| `--text-tag` | Status and category tags, count badges; also 24px buttons | 12 / 16 | 500 | +0.01em |
+| `--text-mono` | IBM Plex Mono: merge tags, IDs, keys, code | 13 / 20 | 400 | 0 |
+| `--text-overline` | Uppercase category lines on the journey canvas only | 11 / 16 | 600 | +0.06em |
 
-Composite roles (CSS `font` shorthand):
+In the app these are Tailwind utilities (`text-page-title`, `text-label`, …); `text-sm` is Body (15/22), `text-xs` is Caption/Tag (12/16) and `text-base` is Body large (16/24). The template editors keep a 14px `text-sm`.
 
-| Token | Value |
-|---|---|
-| `--text-page-title` | 600 26px/1.25 Plus Jakarta Sans, -0.02em |
-| `--text-section-title` | 600 19px/1.3 Plus Jakarta Sans, -0.02em — a heading on the page itself |
-| `--text-card-title` | 600 15px/1.3 Inter — a title inside a bordered box |
-| `--text-body-role` | 400 14px/1.5 Inter |
-| `--text-helper` | 400 13px/1.4 Inter |
-| `--text-label` | 600 12px/1.4 Inter |
-| `--text-stat` | 600 32px/1.2 Plus Jakarta Sans |
-
-KPI numbers: Plus Jakarta Sans 600 at 24–32px. Table numerics: Inter 500 at 14–16px, **right-aligned** in numeric columns so decimals line up.
+KPI numbers: Plex Sans 600 at 24–32px; the one exception is Home's two hero figures, 40/48 at -0.01em (`text-home-hero`, Home only). Table numerics: Plex Sans 500 at 15px, **right-aligned** in numeric columns so decimals line up.
 
 ### Spacing & layout
 
@@ -356,9 +363,9 @@ These matter as much as the visuals; CEP writes like a competent colleague leavi
 
 **Three documented substitutions — please confirm or replace before production:**
 
-1. **Fonts.** Plus Jakarta Sans and Inter are the correct specified families, but no font binaries were supplied. `tokens/fonts.css` loads them from Google Fonts. **Replace with self-hosted `@font-face` rules pointing at licensed `.woff2` files.** Weights in use: Plus Jakarta Sans 600/700, Inter 400/500/600.
+1. **Fonts.** IBM Plex Sans and IBM Plex Mono (SIL Open Font License). The app self-hosts them through the `@fontsource/ibm-plex-sans` and `@fontsource/ibm-plex-mono` packages; `tokens/fonts.css` loads the same weights from Google Fonts for these specimen cards. Weights in use: Plex Sans 400/500/600 plus 400 italic, Plex Mono 400.
 2. **Icons.** The source spec defines no icon set. **Lucide 0.454.0** (outline, 24px grid, 1.5px stroke, round caps) is documented as the closest neutral match. Sizes: 16px in controls/table cells/menu rows, 20px in side nav and icon buttons, 24px in empty states, 12–14px in tags and sort indicators. Colour via `--icon-default` / `--icon-strong` / `--icon-brand` / `--icon-disabled`. Outline only, never multi-coloured, never larger than 24px. Render as a CSS `mask-image` on a sized `<span>` so the glyph inherits `currentColor`. **Never hand-roll SVG paths.**
-3. **Logo.** No logo or brand mark was supplied and none was drawn. Wherever a mark would sit, "CEP" is set in Plus Jakarta Sans 700 at `-0.03em`, in `--wordmark-teal` or `--wordmark-navy` on light surfaces and white on Navy 900. `assets/` contains no logo file.
+3. **Logo.** No logo or brand mark was supplied and none was drawn. Wherever a mark would sit, "CEP" is set in IBM Plex Sans 600 at `-0.02em`, in `--wordmark-teal` or `--wordmark-navy` on light surfaces and white on Navy 900. `assets/` contains no logo file.
 
 Commonly used Lucide glyphs: `search, filter, download, upload, plus, check, x, chevron-down/left/right, chevrons-up-down, arrow-up/down/right, ellipsis-vertical, trash-2, external-link, refresh-cw, settings, layout-dashboard, file-text, triangle-alert, circle-alert, circle-check, circle-help, info, bell, lock, inbox, search-x, building-2, user-plus, trending-up, trending-down, link, play, calendar, minus`.
 
@@ -372,7 +379,7 @@ README.md                this file
 DESIGN-SYSTEM.md         the full authored design-system reference (voice, visual rules, index)
 styles.css               single entry point; @imports the seven token files
 tokens/
-  fonts.css              webfont loading (currently Google Fonts — substitution)
+  fonts.css              webfont loading for the specimen cards (the app self-hosts)
   colors.css             named primitives + semantic tokens
   typography.css         families, weights, scale, composite roles
   spacing.css            8px scale, control/row heights, layout widths

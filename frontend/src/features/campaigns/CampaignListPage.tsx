@@ -167,7 +167,7 @@ function EmptyCampaigns({ filtered, canEdit, onClear, onCreate }: { filtered: bo
     <div className="flex flex-col items-center gap-5 px-8 py-[88px] text-center">
       <EmptyDrawing />
       <div className="flex flex-col items-center gap-1.5">
-        <h2 className="font-display text-xl font-semibold text-ink-900">{filtered ? 'No matching campaigns' : 'You haven’t created any campaigns yet'}</h2>
+        <h2 className="font-display text-section-title font-semibold text-ink-900">{filtered ? 'No matching campaigns' : 'You haven’t created any campaigns yet'}</h2>
         <p className="max-w-[380px] text-sm text-ink-800">{filtered ? 'Try widening the date range or clearing filters.' : 'Build an email, SMS or MMS campaign, or let a journey generate one for you.'}</p>
       </div>
       {filtered ? (

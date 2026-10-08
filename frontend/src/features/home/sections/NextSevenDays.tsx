@@ -89,7 +89,7 @@ function DayRuns({ schedule, index, journeysShown }: { schedule: Schedule; index
                   {index === 0 ? 'Today' : weekday(day.day, 'short')} · {formatClock(run.at, schedule.timezone)}{run.drip ? ` ${zoneShort(schedule.timezone)}` : ''}
                 </span>
                 <TruncatedText text={run.name} className="min-w-0 flex-1 text-helper font-semibold text-ink-900" />
-                <span className={`inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-[11px] font-semibold ${journey ? 'bg-cat-journey-bg text-cat-journey-text' : 'bg-cat-campaign-bg text-cat-campaign-text'}`}>
+                <span className={`inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-xs font-medium ${journey ? 'bg-cat-journey-bg text-cat-journey-text' : 'bg-cat-campaign-bg text-cat-campaign-text'}`}>
                   {kind} · {CHANNEL_LABEL[run.channel]}
                 </span>
               </li>

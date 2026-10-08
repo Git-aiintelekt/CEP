@@ -103,7 +103,7 @@ function PlanCard({ targets }: { targets: CampaignFormValues['targets'] }) {
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1" data-testid="cost-per-conversion">
             <span className="text-helper font-semibold text-ink-800">Projected Cost per Conversion</span>
-            <span className="cep-num font-display text-2xl font-semibold text-ink-900">{perConversion === null ? '—' : formatMoney(perConversion)}</span>
+            <span className="cep-num font-display text-kpi font-semibold text-ink-900">{perConversion === null ? '—' : formatMoney(perConversion)}</span>
             <span className="text-helper text-ink-800">{perConversion === null ? 'Add planned costs and a conversions target' : 'Planning estimate, not a guaranteed outcome'}</span>
           </div>
           <dl className="flex flex-col gap-4 border-t border-line-subtle pt-4">

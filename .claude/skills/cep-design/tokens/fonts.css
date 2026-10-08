@@ -1,4 +1,4 @@
-/* CEP webfonts. No binaries were supplied with the token spec; both families are the
-   real specified typefaces served from Google Fonts. Swap these @import lines for local
-   @font-face rules if self-hosted .woff2 files become available. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+/* CEP webfonts: IBM Plex Sans (everything) and IBM Plex Mono (merge tags, IDs, keys, code).
+   The app self-hosts them through the @fontsource/ibm-plex-sans and @fontsource/ibm-plex-mono packages
+   (imported in frontend/src/main.tsx). These specimen cards load the same weights from Google Fonts. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400&display=swap');

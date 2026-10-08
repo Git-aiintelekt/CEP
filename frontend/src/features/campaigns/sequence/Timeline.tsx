@@ -90,7 +90,7 @@ export const MessageCard = forwardRef<HTMLButtonElement, CardProps>(function Mes
       <span className="hidden md:block"><Thumbnail step={step} email={email} /></span>
       <span className="flex min-w-0 flex-col gap-1">
         <span className="cep-num text-xs text-ink-800">{eyebrowOf(step, steps.length, series)}</span>
-        <span className="text-[15px] leading-snug font-semibold text-pretty break-words text-ink-900">{messageTitle(step)}</span>
+        <span className="text-card-title font-semibold text-pretty break-words text-ink-900">{messageTitle(step)}</span>
         <span className="truncate text-sm text-ink-800">{line}</span>
         <span className="mt-1 flex flex-wrap gap-1.5">
           {tagsOf(steps, step, email).map((tag) => <CardTagChip key={tag.kind} tag={tag} />)}

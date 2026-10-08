@@ -75,7 +75,7 @@ test('a disabled secondary takes the standard disabled look with a visible grey 
 
 test('primary is unchanged: the only solid blue button', () => {
   expect(buttonClass({ variant: 'primary' })).toBe(
-    'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
+    'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
   )
   expect(buttonClass({ variant: 'primary', disabled: true })).toContain('cursor-not-allowed border-line bg-fill-subtle text-ink-300')
 })

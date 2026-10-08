@@ -85,7 +85,7 @@ function StackedCards<T>({ columns, rows, rowKey, onRowClick, caption, primary, 
           <dl className="divide-y divide-line-subtle">
             {rest.map((column) => (
               <div key={column.key} className="flex items-start justify-between gap-4 py-2 first:pt-0 last:pb-0">
-                <dt className="shrink-0 text-xs font-semibold text-ink-800">{column.header}</dt>
+                <dt className="shrink-0 text-label font-medium text-ink-800">{column.header}</dt>
                 <dd className={`min-w-0 text-right text-sm text-ink-900 ${column.align === 'right' ? 'cep-num' : ''}`}>{column.render(row)}</dd>
               </div>
             ))}
@@ -127,7 +127,7 @@ function CompactTable<T>({ columns, rows, rowKey, caption, inset = 'default' }: 
           <thead className="bg-surface-subtle">
             <tr>
               {shown.map((column) => (
-                <th key={column.key} scope="col" className={`h-9 px-1 ${edge} text-xs font-semibold text-ink-900 ${column.align === 'right' ? 'text-right' : 'text-left'}`}>{column.header}</th>
+                <th key={column.key} scope="col" className={`h-9 px-1 ${edge} text-label font-medium text-ink-900 ${column.align === 'right' ? 'text-right' : 'text-left'}`}>{column.header}</th>
               ))}
             </tr>
           </thead>
@@ -165,7 +165,7 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
               <th
                 key={column.key}
                 scope="col"
-                className={`h-10 px-4 ${edge} text-xs font-semibold text-ink-800 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                className={`h-10 px-4 ${edge} text-label font-medium text-ink-800 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
               >
                 {column.header}
               </th>

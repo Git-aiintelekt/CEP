@@ -100,7 +100,7 @@ export function CampaignPreview({ campaign, canEdit, canPublish = false, onClose
   const header = (
     <div className="flex items-start justify-between gap-4 border-b border-line-subtle px-5 py-4">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 pt-0.5">
-        <h2 id={titleId} className="w-full font-display text-[22px] leading-tight font-semibold tracking-[-0.02em] break-words text-ink-900 md:w-auto">{campaign.name}</h2>
+        <h2 id={titleId} className="w-full font-display text-page-title font-semibold break-words text-ink-900 md:w-auto">{campaign.name}</h2>
         <StatusBadge status={campaign.display_status} label={campaign.display_status_label} />
         <span role="img" aria-label={channelLabel(iconChannel)} title={channelLabel(iconChannel)} className="flex text-ink-800">
           <ChannelIcon channel={iconChannel} aria-hidden />

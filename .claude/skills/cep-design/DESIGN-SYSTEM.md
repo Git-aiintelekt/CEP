@@ -2,7 +2,7 @@
 
 > **designnew.md (the latest design.md) overrides this file** where they differ: page background is White (not Gray 50), and the invoice/audit vocabulary and "internal audit console" framing below do not apply to CEP, which is a campaign platform.
 
-A flat, data-dense enterprise design language built around a Navy 900 sidebar, a Blue 600 action colour, a cool blue-grey neutral ramp, and typography that pairs **Plus Jakarta Sans** headings with **Inter** body and tabular numerics.
+A flat, data-dense enterprise design language built around a Navy 900 sidebar, a Blue 600 action colour, a cool blue-grey neutral ramp, and typography set entirely in **IBM Plex Sans** (SemiBold titles over Regular body) with tabular numerics, plus **IBM Plex Mono** for merge tags and IDs.
 
 ## Sources supplied
 
@@ -20,9 +20,9 @@ Read together, those surfaces describe an **internal enterprise console for fina
 
 ### Flagged substitutions
 
-1. **Fonts** — Plus Jakarta Sans and Inter are the specified families, but **no font binaries were supplied**, so they load from Google Fonts (`tokens/fonts.css`). Send the licensed `.woff2` files and we'll self-host them with real `@font-face` rules.
+1. **Fonts** — IBM Plex Sans and IBM Plex Mono (since 2026-10-08, replacing Plus Jakarta Sans and Inter). The app self-hosts them via Fontsource; `tokens/fonts.css` loads them from Google Fonts for the specimen cards.
 2. **Icons** — the spec defines **no icon set**, so **Lucide** (1.5px outline, CDN) is documented as the closest neutral match for an enterprise UI. See ICONOGRAPHY.
-3. **Logo** — **no logo or brand mark was supplied, and none was drawn.** Wherever a mark would sit, "CEP" is set in Plus Jakarta Sans 700 at `-0.03em` (see the *Wordmark (type only)* card). `assets/` holds no logo file for this reason.
+3. **Logo** — **no logo or brand mark was supplied, and none was drawn.** Wherever a mark would sit, "CEP" is set in IBM Plex Sans 600 at `-0.02em` (see the *Wordmark (type only)* card). `assets/` holds no logo file for this reason.
 4. **Product copy** — no real CEP copy was supplied. The voice rules in CONTENT FUNDAMENTALS are derived from the spec's own register (terse, lowercase-after-first-word, numeric, no exclamation) and should be confirmed by a writer.
 
 ---
@@ -72,7 +72,7 @@ CEP writes like a competent colleague filing an audit note: **short, factual, nu
 
 No colour is used decoratively; if something is coloured, it means something.
 
-**Type.** Plus Jakarta Sans 600 for anything titular (32/28px page titles, 20px section titles, 16px card titles) with `-0.02em` tracking to keep the wide-ish display face compact. Inter for everything else: 14/400 body and table cells at 1.5 line-height, 13/400 `Gray 800` helper and metadata, 12/600 tag and label text. There is **no monospace font** — numerals get `font-variant-numeric: tabular-nums` inside the two families, Plus Jakarta Sans 600 at 24–32px for KPI numbers and Inter 500 at 14–16px for table numerics, always right-aligned in numeric columns so decimal points line up.
+**Type.** IBM Plex Sans throughout (since 2026-10-08): SemiBold 600 for anything titular (24px page titles, 18px section titles, 16px card headings, 15px card titles), Regular 400 at 15/22 for body and table cells, 13px for helper text (400) and labels (500), 12px for captions (400) and tags (500). Tracking stays at 0 except -0.01em at 24px and up and +0.01em at 12px. IBM Plex Mono 13px is for merge tags, IDs and keys only — numerals get `font-variant-numeric: tabular-nums` in Plex Sans: 600 at 24–32px for KPI numbers and 500 at 15px for table numerics, always right-aligned in numeric columns so decimal points line up. The full scale is in README.md.
 
 **Spacing & layout.** Strict 8px scale (4/8/12/16/24/32/40/48/64/80). 16px inside cards and fields, 12px under a card title, 24px between sibling sections, 32px page padding. Controls come in three heights only — 32 / 40 / 48px — and table rows in two: 40px compact, 48px default. Layout is a fixed 240px Navy 900 left rail (64px collapsed) with no border (see the nav rail spec, 2026-09-25), a fixed 56px top bar matching the rail's header height, and a single scrolling content column with the top bar's side padding and no width cap, so it lines up with the top bar. Drawers are 480px and pinned to the right edge; modals are 480px and centred. Dense two- and three-column grids inside content; nothing centres itself on the page except modals and empty states.
 

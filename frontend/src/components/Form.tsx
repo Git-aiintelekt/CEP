@@ -33,7 +33,7 @@ export function Field({ label, hint, help, error, required, strong = false, labe
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') || undefined
 
   const labelOnly = (
-    <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-sm font-medium text-ink-800'}>
+    <label htmlFor={id} className={strong ? 'block text-sm font-semibold text-ink-900' : 'block text-label font-medium text-ink-800'}>
       {label}
       {required && <span className="ml-0.5 text-danger-plain" aria-hidden>*</span>}
     </label>
@@ -47,12 +47,12 @@ export function Field({ label, hint, help, error, required, strong = false, labe
       {end ? <div className="flex items-baseline justify-between gap-3">{labelText}{end}</div> : labelText}
       {strong ? <div className="mt-1.5">{children({ id, describedBy, invalid: Boolean(error) })}</div> : children({ id, describedBy, invalid: Boolean(error) })}
       {hint && !error && (
-        <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-800' : 'mt-1 text-xs text-ink-800'}>
+        <p id={hintId} className={strong ? 'mt-1.5 text-helper text-ink-800' : 'mt-1 text-helper text-ink-800'}>
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} className={strong ? 'mt-1.5 flex items-start gap-1.5 text-helper font-medium text-danger-text' : 'mt-1 text-xs font-medium text-danger-text'}>
+        <p id={errorId} className={strong ? 'mt-1.5 flex items-start gap-1.5 text-helper font-medium text-danger-text' : 'mt-1 text-helper font-medium text-danger-text'}>
           {strong && <CircleAlert size={16} strokeWidth={1.5} aria-hidden className="mt-px shrink-0" />}
           {error}
         </p>
@@ -127,8 +127,8 @@ export function FormSection({ title, description, children }: { title: string; d
 // Class-string aliases for pages that style a link or plain button; new code uses <Button>.
 // Literals so fast refresh keeps working; a test holds them equal to buttonClass().
 export const buttonPrimary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonDanger =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-sm font-semibold whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'

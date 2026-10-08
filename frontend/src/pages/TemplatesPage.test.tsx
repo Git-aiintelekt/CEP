@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { promotion } from '@/features/templates/presets/promotion'
 import { smsPromotion } from '@/features/templates/presets/smsPromotion'
 import { installMockApi, me, presetTags, problem, signIn, tags as fewTags } from '@/test/mockApi'
+import { withEmailFont } from '@/features/designer/emailFonts'
 
 // the editors themselves are tested on their own; here only where each template leads
 vi.mock('@/pages/TemplateDesignerPage', () => ({ default: () => <p>designer opened</p> }))
@@ -147,7 +148,7 @@ test('an email preset is created empty, then filled with its design, and opens w
   const content = promotion.content.kind === 'design' ? promotion.content : null
   expect(posts).toEqual([
     ['/templates/', { name: 'Announce a sale', channel: 'EMAIL' }],
-    ['/templates/tpl-new/design/', { editor_state: { kind: 'preset', key: 'promotion' }, mjml_source: content?.mjml, subject_line: content?.subject_line, preheader: content?.preheader, base_version: 0 }],
+    ['/templates/tpl-new/design/', { editor_state: { kind: 'preset', key: 'promotion' }, mjml_source: withEmailFont(content?.mjml ?? ''), subject_line: content?.subject_line, preheader: content?.preheader, base_version: 0 }],
   ])
 })
 

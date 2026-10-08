@@ -84,7 +84,7 @@ function StatusBadgeDot({ configured }: { configured: boolean }) {
       <Check size={12} strokeWidth={2.5} aria-hidden />
     </span>
   ) : (
-    <span role="img" aria-label="Needs Setup" title="Needs setup" className="flex h-5 w-5 items-center justify-center rounded-full bg-warning-bg text-xs font-bold text-warning-text">
+    <span role="img" aria-label="Needs Setup" title="Needs setup" className="flex h-5 w-5 items-center justify-center rounded-full bg-warning-bg text-xs font-semibold text-warning-text">
       <span aria-hidden>!</span>
     </span>
   )
@@ -204,7 +204,7 @@ function JourneyEdge({ sourceX, sourceY, targetX, targetY, label, data }: EdgePr
       {label && (
         // the fork's YES / NO tag, on the branch's own vertical just above its first "+"
         <foreignObject x={targetX - 20} y={targetY - 28} width={40} height={20} className="overflow-visible">
-          <span className="flex h-5 items-center justify-center rounded-sm bg-surface px-1.5 text-[10px] font-semibold text-ink-800 ring-1 ring-line">{String(label)}</span>
+          <span className="flex h-5 items-center justify-center rounded-sm bg-surface px-1.5 text-xs font-medium text-ink-800 ring-1 ring-line">{String(label)}</span>
         </foreignObject>
       )}
     </>

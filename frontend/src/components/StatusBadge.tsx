@@ -23,7 +23,7 @@ const LIVE = new Set(['ACTIVE', 'SENDING', 'PREPARING'])
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   return (
-    <span className={`inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${statusColours(status)}`}>
+    <span className={`inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-sm px-2 text-xs font-medium whitespace-nowrap ${statusColours(status)}`}>
       {LIVE.has(status) && <span aria-hidden data-live-dot className="h-1.5 w-1.5 shrink-0 rounded-full bg-tag-active-dot" />}
       {labelFor(status, label)}
     </span>
@@ -43,7 +43,7 @@ const TAG_TONE: Record<TagTone, string> = {
 
 export function Tag({ children, tone = 'neutral', icon: Icon }: { children: string; tone?: TagTone; icon?: LucideIcon }) {
   return (
-    <span className={`inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-semibold whitespace-nowrap ${TAG_TONE[tone]}`}>
+    <span className={`inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 text-xs font-medium whitespace-nowrap ${TAG_TONE[tone]}`}>
       {Icon && <Icon size={12} strokeWidth={1.5} aria-hidden />}
       {children}
     </span>

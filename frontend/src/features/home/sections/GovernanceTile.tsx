@@ -22,7 +22,7 @@ export function Figure({ value, label, muted = false, icon: Icon }: { value: str
   return (
     <div data-figure className="cep-home-tile flex min-w-0 items-center justify-between gap-2 rounded-lg border border-line-subtle px-3.5 py-3.5">
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className={`font-display leading-tight font-semibold cep-num ${muted ? 'text-xl text-ink-800' : 'text-2xl text-ink-900'}`}>{muted ? value : <CountUp value={value} />}</span>
+        <span className={`font-display font-semibold cep-num ${muted ? 'text-section-title text-ink-800' : 'text-kpi text-ink-900'}`}>{muted ? value : <CountUp value={value} />}</span>
         <span className="text-helper text-ink-800">{label}</span>
       </span>
       {Icon && <span aria-hidden className="cep-home-badge-strong flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-plum-700"><Icon size={15} strokeWidth={1.5} /></span>}

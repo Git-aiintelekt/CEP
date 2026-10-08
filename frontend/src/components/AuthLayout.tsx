@@ -32,9 +32,9 @@ function BrandPanel() {
       <div aria-hidden className="cep-auth-vignette absolute inset-0 z-0" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <span className="font-display text-[22px] font-bold tracking-[-0.03em] text-white">CEP</span>
+        <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white">CEP</span>
         <span aria-hidden className="h-4 w-px bg-brand-100/30" />
-        <span className="text-[13px] text-brand-100">Customer Engagement Platform</span>
+        <span className="text-helper text-brand-100">Customer Engagement Platform</span>
       </div>
 
       <div className="relative z-10 flex max-w-[clamp(440px,26vw,640px)] flex-col gap-5">
@@ -58,9 +58,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col px-6 py-8">
         {/* the wordmark only has to stand in for the panel once the panel is gone */}
         <div className="flex items-center gap-2.5 pb-10 min-[860px]:hidden">
-          <span className="font-display text-xl font-bold tracking-[-0.03em] text-wordmark-navy">CEP</span>
+          <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">CEP</span>
           <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
-          <span className="text-[13px] text-ink-800">Customer Engagement Platform</span>
+          <span className="text-helper text-ink-800">Customer Engagement Platform</span>
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center">
@@ -68,7 +68,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex justify-center">
-          <footer className="flex w-full max-w-[400px] flex-wrap gap-4 text-[13px] text-ink-800">
+          <footer className="flex w-full max-w-[400px] flex-wrap gap-4 text-helper text-ink-800">
             <span>© 2026 CEP</span>
             {/* plain text until these pages exist — a link to nowhere is worse than no link */}
             <span>Privacy</span>
@@ -88,7 +88,7 @@ export function AuthStep({ children }: { children: ReactNode }) {
 export function AuthHeading({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-[28px] leading-[1.2] font-semibold text-ink-900">{title}</h2>
+      <h2 className="text-page-title font-semibold text-ink-900">{title}</h2>
       {children && <p className="text-sm leading-normal text-ink-800">{children}</p>}
     </div>
   )
@@ -100,7 +100,7 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="self-start rounded-sm text-[13px] font-medium text-brand-600 transition-colors hover:text-brand-800"
+      className="self-start rounded-sm text-helper font-medium text-brand-600 transition-colors hover:text-brand-800"
     >
       {children}
     </button>
@@ -129,7 +129,7 @@ export function AuthField({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[13px] font-medium text-ink-900">
+        <label htmlFor={id} className="text-helper font-medium text-ink-900">
           {label}
         </label>
         {action}
@@ -142,7 +142,7 @@ export function AuthField({
         className={`${CONTROL} ${bad ? 'border-danger' : 'border-transparent'}`}
       />
       {error && (
-        <span id={errorId} className="text-[13px] text-danger-plain">
+        <span id={errorId} className="text-helper text-danger-plain">
           {error}
         </span>
       )}
@@ -166,7 +166,7 @@ export function AuthPasswordField({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[13px] font-medium text-ink-900">
+        <label htmlFor={id} className="text-helper font-medium text-ink-900">
           {label}
         </label>
         {action}
@@ -190,7 +190,7 @@ export function AuthPasswordField({
         </button>
       </div>
       {error && (
-        <span id={errorId} className="text-[13px] text-danger-plain">
+        <span id={errorId} className="text-helper text-danger-plain">
           {error}
         </span>
       )}
@@ -203,7 +203,7 @@ export function AuthAlert({ children }: { children: ReactNode }) {
   return (
     <div role="alert" className="flex items-start gap-2 rounded-sm bg-danger-bg p-3">
       <CircleAlert size={16} strokeWidth={1.5} aria-hidden className="mt-px flex-none text-danger-plain" />
-      <span className="text-[13px] leading-normal text-danger-plain">{children}</span>
+      <span className="text-helper text-danger-plain">{children}</span>
     </div>
   )
 }
@@ -213,7 +213,7 @@ export function AuthNotice({ children }: { children: ReactNode }) {
   return (
     <div role="status" className="flex items-start gap-2 rounded-sm bg-warning-bg p-3">
       <Clock size={16} strokeWidth={1.5} aria-hidden className="mt-px flex-none text-warning-text" />
-      <span className="text-[13px] leading-normal text-warning-text">{children}</span>
+      <span className="text-helper text-warning-text">{children}</span>
     </div>
   )
 }

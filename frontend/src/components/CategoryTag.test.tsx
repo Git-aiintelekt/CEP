@@ -10,7 +10,7 @@ test('a category tag has the status tag shape with a 12px icon and never a dot',
   const journey = screen.getByText('Journey')
   const campaign = screen.getByText('Campaign')
   expect(journey.className).toContain('h-[22px]')
-  expect(journey.className).toContain('rounded-sm px-2 text-xs font-semibold')
+  expect(journey.className).toContain('rounded-sm px-2 text-xs font-medium')
   expect(journey.className).toContain('bg-cat-journey-bg text-cat-journey-text')
   expect(campaign.className).toContain('bg-cat-campaign-bg text-cat-campaign-text')
   expect(journey.querySelector('svg.lucide-route')).toBeTruthy()
