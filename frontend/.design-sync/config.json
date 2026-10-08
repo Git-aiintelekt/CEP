@@ -1,0 +1,80 @@
+{
+  "projectId": "6edf7de1-0e01-45e5-9e28-fd9851fafc13",
+  "shape": "package",
+  "pkg": "cep-frontend",
+  "globalName": "CEP",
+  "buildCmd": "node .design-sync/build-css.mjs && npx tsc -p .design-sync/tsconfig.dts.json",
+  "srcDir": "src/components",
+  "tsconfig": ".design-sync/tsconfig.paths.json",
+  "cssEntry": ".design-sync/.cache/cep.css",
+  "extraFonts": [
+    "node_modules/@fontsource/ibm-plex-sans/400.css",
+    "node_modules/@fontsource/ibm-plex-sans/400-italic.css",
+    "node_modules/@fontsource/ibm-plex-sans/500.css",
+    "node_modules/@fontsource/ibm-plex-sans/600.css",
+    "node_modules/@fontsource/ibm-plex-mono/400.css"
+  ],
+  "provider": {
+    "component": "ToastProvider"
+  },
+  "componentSrcMap": {
+    "Button": "src/components/Button.tsx",
+    "IconButton": "src/components/Button.tsx",
+    "CategoryTag": "src/components/CategoryTag.tsx",
+    "Checkbox": "src/components/Checkbox.tsx",
+    "DataTable": "src/components/DataTable.tsx",
+    "DatePicker": "src/components/DatePicker.tsx",
+    "Drawer": "src/components/Drawer.tsx",
+    "FilterChip": "src/components/FilterChip.tsx",
+    "SingleSelectMenu": "src/components/FilterChip.tsx",
+    "MultiSelectMenu": "src/components/FilterChip.tsx",
+    "ClearFiltersLink": "src/components/FilterChip.tsx",
+    "FloatingDialog": "src/components/FloatingDialog.tsx",
+    "Field": "src/components/Form.tsx",
+    "Counter": "src/components/Form.tsx",
+    "TextInput": "src/components/Form.tsx",
+    "TextArea": "src/components/Form.tsx",
+    "Select": "src/components/Form.tsx",
+    "FormSection": "src/components/Form.tsx",
+    "InputGroup": "src/components/InputGroup.tsx",
+    "MenuRow": "src/components/MenuRow.tsx",
+    "Modal": "src/components/Modal.tsx",
+    "Notice": "src/components/Notice.tsx",
+    "Pill": "src/components/Pill.tsx",
+    "Popover": "src/components/Popover.tsx",
+    "PopoverHeading": "src/components/Popover.tsx",
+    "ProgressBar": "src/components/ProgressBar.tsx",
+    "PageHeader": "src/components/ResourceList.tsx",
+    "ResourceList": null,
+    "SegmentedControl": "src/components/SegmentedControl.tsx",
+    "SelectMenu": "src/components/SelectMenu.tsx",
+    "SetupDialog": "src/components/SetupDialog.tsx",
+    "Spinner": "src/components/States.tsx",
+    "SkeletonLine": "src/components/States.tsx",
+    "EmptyState": "src/components/States.tsx",
+    "ErrorState": "src/components/States.tsx",
+    "StatusBadge": "src/components/StatusBadge.tsx",
+    "Tag": "src/components/StatusBadge.tsx",
+    "Switch": "src/components/Switch.tsx",
+    "Tabs": "src/components/Tabs.tsx",
+    "TimePicker": "src/components/TimePicker.tsx",
+    "Tooltip": "src/components/Tooltip.tsx",
+    "TruncatedText": "src/components/Tooltip.tsx",
+    "BarList": "src/components/charts/BarList.tsx",
+    "Swatch": "src/components/charts/Chart.tsx",
+    "ChartLegend": "src/components/charts/Chart.tsx",
+    "Chart": "src/components/charts/Chart.tsx"
+  },
+  "overrides": {
+    "PageHeader": {
+      "cardMode": "column"
+    },
+    "StatusBadge": {
+      "cardMode": "column"
+    }
+  },
+  "extraEntries": [
+    "./.design-sync/icons.ts"
+  ],
+  "readmeHeader": ".design-sync/conventions.md"
+}
