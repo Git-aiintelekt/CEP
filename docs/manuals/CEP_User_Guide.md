@@ -2156,6 +2156,8 @@ A journey reads and writes the customer's record and reacts to what happens to t
 
 **From scratch.** **Create Journey** (or **Start from Scratch** in the panel) opens the two-step set-up with nothing filled in.
 
+**From one of your own templates.** **Save as Template** on a journey's page keeps the journey as a template of the workspace: its entry, steps, settings and goal, as the live version has them (or the newest version, on a journey that has not gone live). Give it a name, a category (Lifecycle, Commerce, Loyalty, Engagement) and a description. Saved templates sit under **Your Templates** on the Journey Templates panel and in **View More**, tagged *Saved Template* beside CEP's *CEP Starter*; clicking one previews it like a starter, **Use This Template** copies it into a new draft, and **Delete Template** in the preview removes it (journeys made from it keep working). The template never changes after it is saved; the message steps keep their templates and senders, which the copy can change.
+
 **From one of yours.** **Duplicate** on a journey's page makes a new draft copy of it, steps included, to start again or try a variant. The journeys already set up in the workspace are on the Journeys page, with their status, trigger, channels and steps; open one to see how it is built and how it is doing.
 
 ## How to build a new journey
@@ -2213,7 +2215,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Wait | **For a Duration**: minutes, hours, days or weeks. **Until a Time of Day**: the customer continues at that time, in their own time zone (the `timezone` attribute on their record) or the workspace's, on any day or only on the days you pick. **Until a Date on the Record**: a date on the customer's record (a renewal date, a birthday) with an offset ("3 days before") and a time; choose whether a customer whose date has passed, or who has none, continues at once or leaves the journey (exited early, with the reason). |
 | Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments, the goal. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Split | Several paths. **By an Attribute**: each customer takes the first path whose values hold their attribute's value (Home Store is Lakeside Mall → Path 1; Downtown or Airport → Path 2), everyone else the last path. **At Random**: percentages that add up to 100, chosen once per customer and kept on retry. Name each path; the names show on the canvas. |
-| Email, SMS / MMS | Sends a published template through the normal send engine, as a campaign of its own (one per step per day), so consent, suppressions, caps and quiet hours apply. |
+| Email, SMS / MMS | Sends a published template through the normal send engine, as a campaign of its own (one per step per day), so consent, suppressions, caps and quiet hours apply. **Sender** chooses which of the workspace's senders the message goes from; left as *Workspace default*, it is the engine's default sender for the channel. An SMS step offers texting senders only. |
 | Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
 | Update Profile | Sets any attribute on the customer's record to a value (Customer Status to Welcomed). |
@@ -2274,17 +2276,18 @@ The **Versions** card lists every version with its status; the running one is ta
 - **Pause Journey**: nobody new enters and nobody moves; **Resume Journey** carries on where everyone was.
 - **Archive Journey**, then confirm: nobody new enters, everyone still inside leaves (counted as exited), its versions are retired and any scheduled start is dropped. It can't be undone. Archiving a live, paused or scheduled journey needs Activate.
 - **Duplicate**: a new draft copy of the journey, to start again or try a variant.
+- **Save as Template**: the journey kept as a template of the workspace, under Your Templates on the Journeys page (see *The ways to start a journey*). Needs Create and Edit.
 
 ## Running a journey: the journey's page
 
 | Part | What it shows |
 |---|---|
-| Header | Status, trigger, channels, and the actions your rights allow. |
+| Header | Status, trigger, channels, and the actions your rights allow: Duplicate, Save as Template, Edit Journey, Pause or Resume, Test Publish of a new version, Cancel Schedule, Archive Journey. |
 | Notices | Draft, paused, scheduled, or a new version waiting for its test or approval. |
 | Performance | Enrolled, In Journey, Converted (with a Goal: conversions, their attributed revenue and the average per conversion; without one: Exit arrivals) and Exited Early, with the weekly Enrollment Over Time and **Messages, All Steps**: every message step's sent, delivered, opened, clicked, bounced, complained, unsubscribed, held back (by reason) and failed figures for the last 30 days. A Draft shows dashes. |
 | Setup | The trigger, Goal, Exit Criteria, re-entry, and the audience: source lists, eligible pool, enrolment rate. |
 | Needs Attention | Customers whose step failed for a temporary reason and is being retried (after 5, 15 and 60 minutes) or was given up on, with the reason, the tries and the next try. **Retry Now** runs the step again on the next pass; **Skip Step** records it as skipped and moves the customer on. |
-| Customers | Everyone who entered, newest first, with where they are now; search by name or email, filter by status, **Export CSV**. Open a customer for their **timeline**: when they entered, every step with its outcome (an email's delivered, opened and clicked moments; a held-back message's reason; a Condition's answer; the Goal), where they are waiting now, and how they left. |
+| Customers | Everyone who entered, newest first, with where they are now; search by name or email, filter by status, and, once a step has held anyone back, filter by **Held Back Reason** (no consent, a suppression, a frequency cap, quiet hours, each with how many customers). **Export CSV** saves what the filters show. Open a customer for their **timeline**: when they entered, every step with its outcome (an email's delivered, opened and clicked moments; a held-back message's reason; a Condition's answer; the Goal), where they are waiting now, and how they left; **View Customer Record** at the foot of the timeline opens their page across the workspace (see *The customer page* in Contact Lists). A customer's page links back to each of their timelines. |
 | Suppressions | Customers this one journey never enters or messages: add by email address, mobile number or customer id with a note (a customer inside leaves at once), remove later. Workspace suppressions and consent apply before these. |
 | Webhook Calls | When the journey has a Webhook step: every call, test calls included, with the endpoint's answer, the try and the duration. |
 | Versions | Every version, newest first, with its status and when it went live. |
@@ -2308,7 +2311,8 @@ Only customers in the customer records enter, since a message to someone unknown
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
 - A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - A Webhook address must be https (http only for localhost), so customer data never travels in the clear. The signing secret is kept encrypted; the Webhook Calls card never shows it.
-- Saving your own journey as a template is not offered; Duplicate copies a journey within the workspace.
+- A saved template belongs to the workspace, not to the journey it came from: deleting the template leaves the journeys made from it as they are, and archiving the journey leaves the template. CEP's own starters cannot be changed or deleted.
+- The **Journeys** dataset in Reports adds up every journey's entries, conversions, revenue and messages per day over a period, with a CSV (see *Reports*).
 - Events are explained in **Events** (Settings → Events), purchases in **Attribution**, keys in **API Keys**, who may do what in **Roles**.
 
 ---
