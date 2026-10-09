@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { LegalFooter } from '@/components/LegalFooter'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
@@ -423,8 +424,9 @@ export function AppShell() {
         </div>
 
         {/* same side padding as the header and no width cap, so content lines up with the search bar and Sign out */}
-        <main className="w-full min-w-0 flex-1 rounded-tl-xl bg-canvas px-4 py-5 md:px-8 md:py-6">
-          <Outlet />
+        <main className="flex w-full min-w-0 flex-1 flex-col rounded-tl-xl bg-canvas px-4 py-5 md:px-8 md:py-6">
+          <div className="flex-1"><Outlet /></div>
+          <LegalFooter variant="bar" />
         </main>
       </div>
       {helpOpen && <ShortcutsHelp onClose={() => setHelpOpen(false)} />}

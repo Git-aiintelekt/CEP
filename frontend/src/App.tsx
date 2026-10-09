@@ -56,6 +56,7 @@ import { TokenLandingPage } from '@/pages/TokenLandingPage'
 const TemplateDesignerPage = lazy(() => import('@/pages/TemplateDesignerPage'))
 // @xyflow/react is loaded only when someone opens the journey canvas.
 const JourneyBuildPage = lazy(() => import('@/pages/JourneyBuildPage'))
+const TermsPage = lazy(() => import('@/pages/TermsPage'))
 const JourneyTestPublishPage = lazy(() => import('@/pages/JourneyTestPublishPage'))
 const ReceiptEditorPage = lazy(() => import('@/pages/ReceiptEditorPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/DesignerPlayground')) : null
@@ -109,6 +110,7 @@ export default function App() {
           <ToastProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/terms" element={<Suspense fallback={<FullPageSpinner label="Loading the terms" />}><TermsPage /></Suspense>} />
             <Route path="/set-password" element={<SetPasswordPage />} />
             <Route path="/sso/complete" element={<TokenLandingPage kind="sso" />} />
             <Route path="/support-session" element={<TokenLandingPage kind="support" />} />

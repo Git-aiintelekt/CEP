@@ -235,6 +235,7 @@ Every page of the app has a chapter, and every chapter has the same shape:
 - **The help icon** beside a page's title opens that page's chapter in a panel, so the guide is one click away from the page it describes. Close it with the cross or the Escape key.
 - **The small information icon** beside a field opens a note on that one field: what it is and what it affects.
 - **The keyboard icon** in the header lists the keyboard shortcuts. Pressing `?` on any page does the same.
+- **The foot of every page** carries the platform's copyright line and a link to the Terms of Use, which also opens from the sign-in page without signing in.
 
 ## Three ideas that run through everything
 
@@ -1531,6 +1532,7 @@ The issuer's configuration is fetched when you save, so a wrong address is refus
 
 - Keep one administrator with a password while single sign-on is required: it is the way in when the provider is down.
 - Multi-factor authentication for yourself is under the account menu → Account Security; this page only sets the rule for the workspace.
+- The **Terms of Use** every page's footer and the sign-in page link to are the platform's, kept by the platform team; the footer's copyright year is always the current year.
 
 ---
 

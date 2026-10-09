@@ -1,6 +1,8 @@
 import { CircleAlert, Clock, Eye, EyeOff } from 'lucide-react'
 import { useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 
+import { LegalFooter } from './LegalFooter'
+
 /**
  * The shell both unauthenticated screens sit in: a navy brand panel beside a 400px form column.
  * The design splits at 860px, which is between Tailwind's md and lg, so the breakpoint is written out.
@@ -68,12 +70,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex justify-center">
-          <footer className="flex w-full max-w-[400px] flex-wrap gap-4 text-helper text-ink-800">
-            <span>© 2026 CEP</span>
-            {/* plain text until these pages exist — a link to nowhere is worse than no link */}
-            <span>Privacy</span>
-            <span>Terms</span>
-          </footer>
+          <LegalFooter className="w-full max-w-[400px]" />
         </div>
       </div>
     </div>
