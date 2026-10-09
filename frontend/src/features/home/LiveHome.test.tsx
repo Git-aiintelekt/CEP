@@ -68,7 +68,8 @@ test('"/" is the new Home: the greeting, every live section, and no request made
   await waitFor(() => expect(region('Next 7 Days')).toBeTruthy())
   for (const name of ['Key Figures', 'Create New']) expect(region(name)).toBeTruthy()
   await waitFor(() => expect(region('Needs Attention')).toBeTruthy())                                                                 // the mock overview has alerts
-  for (const name of ['Marketing Performance', 'Governance & Audience Health']) await waitFor(() => expect(region(name)).toBeTruthy())   // from GET /home/overview/
+  expect(screen.getByRole('heading', { level: 2, name: 'Marketing Performance' })).toBeTruthy()
+  for (const name of ['Attributed Revenue vs. Campaign Cost', 'Governance']) await waitFor(() => expect(region(name)).toBeTruthy())   // from GET /home/overview/
   expect(screen.getByRole('button', { name: 'All Campaigns' })).toBeTruthy()                                                          // the Campaign filter, live
   await new Promise((resolve) => setTimeout(resolve, 50))
   const requests = apiPaths(calls).filter((path) => path.startsWith('GET') && path !== 'GET /contact-lists/imports/')                  // the shell's upload poll repeats by design
@@ -82,7 +83,7 @@ test('without report.view: no report is asked for, the KPI access line shows, an
   await renderAppAt('/')
   expect(await screen.findByText('You don’t have access to performance reports.')).toBeTruthy()
   await waitFor(() => expect(region('Recent Campaigns')).toBeTruthy())
-  for (const name of ['Top Campaigns', 'Engagement Funnel', 'Channel Snapshot', 'E-Receipts']) expect(region(name)).toBeNull()
+  for (const name of ['Top and Bottom Campaigns', 'Engagement Funnel', 'Channel Snapshot', 'E-Receipts']) expect(region(name)).toBeNull()
   expect(apiPaths(calls).some((path) => path.includes('/reports/summary/'))).toBe(false)
   expect(within(region('Recent Campaigns')!).getAllByRole('row').length).toBeGreaterThan(1)
 })

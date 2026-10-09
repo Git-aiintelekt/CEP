@@ -45,7 +45,7 @@ test('benchmark tags have no dot; severity tags carry their icon and colours', (
   expect(governance.querySelector('svg')!.getAttribute('class')).toContain('text-callout-icon')
 })
 
-test('section headers: page level at 19px, card level at 16px with a divider; one plum badge; the title labels the section', () => {
+test('section headers: page and card levels both at the section-title size, the card without a divider; one plum badge; the title labels the section', () => {
   render(<SectionHeader level="page" title="Needs Attention" titleId="t1" icon={CalendarClock} count={6} helper="Showing 6 of 15" actions={<button type="button">View All</button>} />)
   const title = screen.getByRole('heading', { name: 'Needs Attention' })
   expect(title.id).toBe('t1')
@@ -59,8 +59,9 @@ test('section headers: page level at 19px, card level at 16px with a divider; on
   const card = screen.getByRole('region', { name: 'Recent Campaigns' })
   expect(card.className).toContain('rounded-lg border border-line bg-surface')
   expect(card.className).not.toContain('shadow')
-  expect(screen.getByRole('heading', { name: 'Recent Campaigns' }).className).toContain('text-card-heading')
-  expect(card.querySelector('[data-section-header="card"]')!.className).toContain('border-b border-line-subtle')
+  expect(screen.getByRole('heading', { name: 'Recent Campaigns' }).className).toContain('text-section-title')
+  expect(card.querySelector('[data-section-header="card"]')!.className).not.toContain('border-b')
+  expect(card.querySelector('[data-plum-icon]')).toBeNull()
   expect(screen.getByRole('link', { name: 'View All Campaigns' }).parentElement!.className).toContain('border-t')
 })
 
@@ -92,11 +93,11 @@ test('ring KPIs: the figure, its supporting line and chips, the ring filled to i
   expect(document.querySelector('[data-kpi="Loading"] [data-kpi-loading]')).toBeTruthy()
 })
 
-test('hero cards: the label in capitals, the chip, the figure and its line, the goal in amber when behind', () => {
+test('hero cards: the label in white semibold, the chip, the figure and its line, the goal in amber when behind', () => {
   render(<HeroCard tone="navy" label="Attributed Revenue" chip="Last 30 Days" value="$4.3K" sub="from $127 spent" footLeft="Attributed to campaigns" footRight="35% of $12.5K goal" footWarning />)
   const hero = document.querySelector('[data-kpi="Attributed Revenue"]')!
   expect(hero.className).toContain('cep-home-hero-navy')
-  expect(screen.getByText('Attributed Revenue').className).toContain('uppercase')
+  expect(screen.getByText('Attributed Revenue').className).toContain('text-sm font-semibold text-on-brand')
   expect(hero.textContent).toContain('Last 30 Days')
   expect(screen.getByText('$4.3K').className).toContain('text-home-hero')
   expect(hero.querySelector('[data-hero-goal]')!.className).toContain('text-warning')

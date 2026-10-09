@@ -22,8 +22,9 @@ const tiles = () => within(within(scheduleCard()).getByRole('radiogroup', { name
 const note = () => scheduleCard().querySelector('[data-week-note]')!
 const summary = () => scheduleCard().querySelector('[data-day-summary]')?.textContent
 /** the picked day's sends as listed: name only */
-const runs = () => [...scheduleCard().querySelectorAll('[data-run]')].map((run) => run.querySelector('.flex-1')!.textContent)
-const dots = (tile: HTMLElement) => [...tile.querySelectorAll('[data-dot]')].map((dot) => dot.getAttribute('data-dot'))
+const runs = () => [...scheduleCard().querySelectorAll('[data-run]')].map((run) => run.querySelector('.flex-1')!.firstElementChild!.textContent)
+const mixParts = (tile: HTMLElement) => [...tile.querySelectorAll('[data-mix-part]')].map((part) => part.getAttribute('data-mix-part'))
+const tileTexts = (tile: HTMLElement) => [...tile.children].filter((child) => !child.hasAttribute('data-mix')).map((child) => child.textContent)
 
 /** a schedule with `count` runs today, for the summary */
 function busyDay(count: number): Schedule {
@@ -41,10 +42,12 @@ test('seven day tiles as one radio group: Today picked first, the arrow keys mov
   renderHome()
   expect(tiles()).toHaveLength(7)
   expect(tiles()[0].getAttribute('aria-checked')).toBe('true')
-  expect(tiles()[0].textContent).toMatch(/^Today\d{1,2} [A-Z][a-z]{2}$/)
-  expect(tiles()[1].textContent).toMatch(/^[A-Z][a-z]{2}\d{1,2} [A-Z][a-z]{2}$/)
+  expect(tileTexts(tiles()[0])).toEqual(['Today', String(Number(todayIn(ZONE).slice(8))), '6 runs'])
+  expect(tileTexts(tiles()[1])[0]).toMatch(/^[A-Z][a-z]{2}$/)
+  expect(tileTexts(tiles()[1])[2]).toMatch(/^\d+ runs?$/)
   expect(tiles().map((tile) => tile.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1', '-1', '-1', '-1'])
-  expect(tiles()[0].className).toContain('cep-home-day border-plum-200')
+  expect(tiles()[0].className).toContain('border-brand-600 bg-brand-600')
+  expect(tiles()[1].className).not.toContain('bg-brand-600')
   tiles()[0].focus()
   await user.keyboard('{ArrowRight}')
   expect(tiles()[1].getAttribute('aria-checked')).toBe('true')
@@ -55,12 +58,16 @@ test('seven day tiles as one radio group: Today picked first, the arrow keys mov
   expect(tiles()[0].getAttribute('aria-checked')).toBe('true')
 })
 
-test('each tile shows a Blue dot for campaign runs and a Plum dot for journey runs, none on an empty day; the dots are hidden from screen readers', () => {
+test('each tile ends in a mix bar: Blue for campaign runs and a chart colour for journey runs, sized by share, none on an empty day; the bar is hidden from screen readers', () => {
   renderHome()
-  expect(tiles().map(dots)).toEqual([['campaign', 'journey'], ['campaign', 'journey'], [], ['campaign', 'journey'], ['campaign'], [], ['campaign']])
-  expect(tiles()[0].querySelector('[data-dot="campaign"]')!.className).toContain('bg-brand-600')
-  expect(tiles()[0].querySelector('[data-dot="journey"]')!.className).toContain('bg-plum-500')
-  expect(tiles()[0].querySelector('[data-dots]')!.getAttribute('aria-hidden')).toBe('true')
+  expect(tiles().map(mixParts)).toEqual([['campaign', 'journey'], ['campaign', 'journey'], [], ['campaign', 'journey'], ['campaign'], [], ['campaign']])
+  expect(tiles()[0].querySelector('[data-mix-part="campaign"]')!.className).toContain('bg-on-brand-soft')
+  expect(tiles()[1].querySelector('[data-mix-part="campaign"]')!.className).toContain('bg-brand-600')
+  expect(tiles()[1].querySelector('[data-mix-part="journey"]')!.className).toContain('bg-chart-2')
+  expect(parseFloat((tiles()[0].querySelector('[data-mix-part="campaign"]') as HTMLElement).style.width)).toBeCloseTo(66.67, 1)
+  expect(parseFloat((tiles()[0].querySelector('[data-mix-part="journey"]') as HTMLElement).style.width)).toBeCloseTo(33.33, 1)
+  expect(tiles()[0].querySelector('[data-mix]')!.getAttribute('aria-hidden')).toBe('true')
+  expect(tiles()[2].querySelector('[data-mix]')!.children).toHaveLength(0)
 })
 
 test('each day’s accessible name carries its campaign / journey split', () => {
@@ -79,8 +86,8 @@ test('the picked day’s sends listed in time order, four by name with their kin
   expect(note().textContent).toBe('2 more today. 12 campaign sends and 5 journey touchpoints this week.')
   expect(runs()).toEqual(['October Newsletter Preview', 'Welcome Series, Step 2', 'Flash Sale Reminder', 'Fall Boots Launch'])
   const first = scheduleCard().querySelector('[data-run]')!
-  expect(first.textContent).toContain('Today · 08:00')
-  expect(first.textContent).toContain('Campaign · Email')
+  expect(first.textContent).toContain('08:00')
+  expect(first.textContent).toContain('Today · Campaign · Email')
   expect(scheduleCard().querySelector('[data-run="journey"]')!.textContent).toContain('Journey ·')
   await user.click(tiles()[3])
   expect(runs().slice(0, 3)).toEqual(['Win-Back 90 Days, Step 1', 'Weekend Flash Deal', 'Loyalty Points Statement'])
@@ -110,11 +117,11 @@ test('Open Schedule in the header goes to the Campaigns calendar, with the page�
   expect(within(scheduleCard()).getByRole('link', { name: 'Open Schedule' }).getAttribute('href')).toBe('/campaigns?view=calendar&mode=week&channel=SMS')
 })
 
-test('a campaign filter shows only its runs and hides journey runs and dots', () => {
+test('a campaign filter shows only its runs and hides journey runs and the journey part of the mix bars', () => {
   renderHome({ url: '/?campaigns=c06,c04' })
   expect(runs()).toEqual(['Flash Sale Reminder', 'Fall Boots Launch'])
   expect(note().textContent).not.toContain('journey')
-  expect(scheduleCard().querySelector('[data-dot="journey"]')).toBeNull()
+  expect(scheduleCard().querySelector('[data-mix-part="journey"]')).toBeNull()
 })
 
 test('loading shows the seven placeholders; an error offers Try Again', () => {
@@ -140,7 +147,8 @@ test('one row per channel with its engagement and open rate (click rate where op
     ['JOURNEY', 'Journey', '5 upcoming touchpoints', '5'],
   ])
   expect(snapshot().querySelector('[data-section-header="card"]')!.textContent).toContain('Last 30 Days')
-  expect(snapshotRows()[0].querySelector('[aria-hidden]')!.className).toContain('cep-home-badge text-plum-700')
+  expect(snapshotRows()[0].querySelector('[aria-hidden]')!.className).toContain('cep-home-badge')
+  expect(snapshotRows()[0].querySelector('[aria-hidden]')!.className).toContain('text-plum-700')
 })
 
 test('a channel with nothing delivered says so with a grey dash; the rows follow the workspace’s channels, the page’s channel, and the features', () => {
@@ -158,7 +166,7 @@ test('a channel with nothing delivered says so with a grey dash; the rows follow
   expect(snapshotRows().map((row) => row.getAttribute('data-snapshot'))).toEqual(['EMAIL', 'SMS', 'MMS', 'JOURNEY'])
 })
 
-test('no snapshot for one campaign, or when the funnel can’t be read; Row C holds it with Governance and E-Receipts in thirds', () => {
+test('no snapshot for one campaign, or when the funnel can’t be read; the last row holds it beside E-Receipts, two thirds and one third', () => {
   renderHome({ url: '/?campaigns=c06' })
   expect(screen.queryByRole('region', { name: 'Channel Snapshot' })).toBeNull()
   cleanup()
@@ -167,14 +175,14 @@ test('no snapshot for one campaign, or when the funnel can’t be read; Row C ho
   cleanup()
   renderHome()
   const row = snapshot().closest('[data-row]')!
-  expect(row.getAttribute('data-layout')).toBe('thirds')
-  expect(row.contains(screen.getByRole('region', { name: 'Governance & Audience Health' }))).toBe(true)
+  expect(row.getAttribute('data-layout')).toBe('2:1')
   expect(row.contains(screen.getByRole('region', { name: 'E-Receipts' }))).toBe(true)
+  expect(row.contains(screen.getByRole('region', { name: 'Governance' }))).toBe(false)
 })
 
 test('one campaign: Next 7 Days beside Governance', () => {
   renderHome({ url: '/?campaigns=c06' })
   const row = scheduleCard().closest('[data-row]')!
-  expect(row.contains(screen.getByRole('region', { name: 'Governance & Audience Health' }))).toBe(true)
+  expect(row.contains(screen.getByRole('region', { name: 'Governance' }))).toBe(true)
   expect(row.getAttribute('data-layout')).toBe('1:1')
 })

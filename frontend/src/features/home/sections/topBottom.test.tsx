@@ -12,28 +12,36 @@ afterEach(cleanup)
 
 const renderHome = ({ url = '/', state = 'busy', source }: { url?: string; state?: SampleState; source?: HomeDataSource } = {}) =>
   render(<MemoryRouter initialEntries={[url]}><HomeDataProvider source={source ?? createSampleSource(state)} viewer={SAMPLE_VIEWER}><HomePage /></HomeDataProvider></MemoryRouter>)
-const card = () => screen.getByRole('region', { name: 'Top Campaigns' })
+const card = () => screen.getByRole('region', { name: 'Top and Bottom Campaigns' })
 const rows = () => [...card().querySelectorAll('li[data-campaign]')] as HTMLElement[]
+const listRows = (name: string) => [...within(card()).getByRole('list', { name }).querySelectorAll('li[data-campaign]')] as HTMLElement[]
+const context = (row: HTMLElement) => row.querySelector('[data-context]')!.textContent
+const figure = (row: HTMLElement) => row.querySelector('[data-figure]')!.textContent
 const withTopBottom = (result: SectionResult<TopBottom>): HomeDataSource => ({ ...createSampleSource('busy'), useTopBottom: () => result })
 
-test('the three campaigns furthest over target: name, channel, the share of target and the change, the revenue at the right; View All in the header', () => {
+test('the three campaigns furthest over target and the three furthest under: name, channel, revenue and change, the share of target at the right; View All in the header', () => {
   renderHome()
-  const link = within(card()).getByRole('link', { name: 'View All' })
-  expect(link.getAttribute('href')).toBe('/campaigns')
-  expect(card().querySelector('[data-section-header="card"]')!.contains(link)).toBe(true)
+  const header = card().querySelector('[data-section-header="card"]') as HTMLElement
+  expect(within(header).getByRole('link', { name: 'View All' }).getAttribute('href')).toBe('/campaigns')
+  expect(within(card()).getAllByRole('link', { name: 'View All' })).toHaveLength(2)                          // the header's, and the one on the line between the lists
   expect(within(card()).getByRole('list', { name: 'Top campaigns by revenue against target' })).toBeTruthy()
-  expect(rows()).toHaveLength(3)
-  expect(rows().map((row) => row.querySelector('[data-context]')!.textContent)).toEqual(['Email · 118% of target · +22.0%', 'Email · 112% of target · +9.8%', 'Email · 109% of target · +4.6%'])
-  expect(rows().map((row) => row.querySelector('[data-figure]')!.textContent)).toEqual(['$41.2K', '$312.8K', '$98.4K'])
-  expect(within(rows()[0]).getByRole('link', { name: 'Store Opening, Austin Domain Northside' }).getAttribute('href')).toBe('/campaigns/c10')
-  expect(rows()[0].querySelector('[data-figure]')!.className).toContain('text-ink-900')
-  expect(card().textContent).not.toMatch(/Under Target|Bottom/)
+  const top = listRows('Top campaigns by revenue against target')
+  const bottom = listRows('Bottom campaigns by revenue against target')
+  expect(top).toHaveLength(3)
+  expect(bottom).toHaveLength(3)
+  expect(top.map(context)).toEqual(['Email · $41.2K · +22.0%', 'Email · $312.8K · +9.8%', 'Email · $98.4K · +4.6%'])
+  expect(top.map(figure)).toEqual(['118%', '112%', '109%'])
+  expect(bottom.map(context)).toEqual(['MMS · $38.4K · −12.4%', 'SMS · $24.9K · −18.7%', 'Email · $21.3K · −31.0%'])
+  expect(within(top[0]).getByRole('link', { name: 'Store Opening, Austin Domain Northside' }).getAttribute('href')).toBe('/campaigns/c10')
+  expect(top[0].querySelector('[data-figure]')!.className).toContain('text-ink-900')
+  expect(bottom.every((row) => row.querySelector('[data-figure]')!.className.includes('text-danger-text'))).toBe(true)   // under target in red
 })
 
-test('light: two ranked campaigns, so only the better one is a top campaign', () => {
+test('light: two ranked campaigns, one in each list', () => {
   renderHome({ state: 'light' })
-  expect(rows()).toHaveLength(1)
-  expect(rows()[0].querySelector('[data-context]')!.textContent).toBe('Email · 2 of 4 messages sent · 92% of target · +4.1%')                  // a drip says how far it has got
+  expect(rows()).toHaveLength(2)
+  expect(listRows('Top campaigns by revenue against target').map(context)).toEqual(['Email · 2 of 4 messages sent · $7.4K · +4.1%'])      // a drip says how far it has got
+  expect(listRows('Bottom campaigns by revenue against target').map(context)).toEqual(['SMS · $2.9K · −6.3%'])
 })
 
 test('no ranked campaigns: one quiet line', () => {
@@ -46,7 +54,7 @@ test('without attribution: the highest click rates against the account average, 
   renderHome({ state: 'noAttribution' })
   expect(within(card()).getByRole('list', { name: 'Top campaigns by click rate' })).toBeTruthy()
   expect(rows()[0].querySelector('[data-context]')!.textContent).toMatch(/^(Email|SMS|MMS) · [\d.]+% click rate · [+−][\d.]+ pt$/)
-  expect(rows()[0].querySelector('[data-figure]')!.textContent).toMatch(/^[\d.]+% clicks$/)
+  expect(rows()[0].querySelector('[data-figure]')!.textContent).toMatch(/^[\d.]+%$/)
   expect(document.body.textContent).not.toContain('$0')
 })
 
@@ -58,5 +66,5 @@ test('loading shows three placeholder rows; an error offers Try Again; one campa
   expect(within(card()).getByRole('alert').textContent).toContain('Try Again')
   cleanup()
   renderHome({ url: '/?campaigns=c06' })
-  expect(screen.queryByRole('region', { name: 'Top Campaigns' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Top and Bottom Campaigns' })).toBeNull()
 })
