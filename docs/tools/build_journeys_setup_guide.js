@@ -472,16 +472,17 @@ add(h1('11. Integration Guide'),
 
 // 12
 add(h1('12. Gaps to Fill Before Journeys Are Used in Production'),
-  p('The engine, the builder and the measurement are complete and deployed (PRs #98 to #106). What remains is partly in the app and mostly in the systems around it. Each item says what is missing, what it blocks, and what fills it.'),
-  h2('12.1 Gaps in the App'),
-  table(['Gap', 'What it blocks', 'Fills it'], [
-    ['No customer record page', 'A customer\'s journey timeline is reached only from the journey\'s Customers card; there is no single page showing one customer across journeys, campaigns and events.', 'A customer page under Audiences with the record, consent, the events received and every journey timeline.'],
-    ['No report engine and no Journeys dataset', 'The nightly roll-up fills `journey_master_analytical` but nothing in the app reads it beyond the Performance card; no cross-journey report, no export of the roll-up.', 'A Journeys dataset in Reports (per journey per day: entered, converted, revenue, messages) with the usual filters and CSV.'],
-    ['No save-as-template', 'A well-built journey cannot be reused as a starter; Duplicate copies it within the workspace only.', 'A Save as Template action writing to the workspace\'s template catalogue, and a platform catalogue for shared starters.'],
-    ['Message steps have no sender choice', 'Every journey message goes from the engine\'s default sender.', 'A sender field on the message step, as on a campaign.'],
-    ['Test Publish skips waits only', 'A test cannot exercise a Condition on a message outcome or a Goal, because nothing has happened yet; Preview Route asks for assumptions instead.', 'Acceptable for now; document it in training.'],
-    ['Journey timelines are not searchable by event', 'Finding every customer who was held back for a given reason means opening each timeline.', 'A reason filter on the Customers card.'],
-  ], [2, 3, 3]),
+  p('The engine, the builder, the measurement and the app-side gaps below are complete and deployed (PRs #98 to #109). What remains is in the systems around the app. Each item says what is missing, what it blocks, and what fills it.'),
+  h2('12.1 Gaps in the App, Now Closed'),
+  p('The app-side gaps found while writing this guide were built and deployed in PR #109 on 8 October 2026. They are kept here so a reader of an earlier copy knows what changed.'),
+  table(['Was', 'Now'], [
+    ['No customer record page', 'Contact Lists → **Find a Customer** searches by name, email, mobile or id. A customer\'s page shows the record, consent per channel, custom attributes, every journey entered with a link to the timeline, events, orders, messages and lists. A journey\'s timeline drawer, a list\'s members and Settings → Events link to it.'],
+    ['No report engine and no Journeys dataset', 'Reports has a **Dataset** switch. The Journeys dataset is per journey per day: entered, converted with revenue, sent, delivered, opened, clicked, held back, failed; tiles, the day curve, a row per journey, a journey filter and a CSV of every journey\'s every day.'],
+    ['No save-as-template', '**Save as Template** on a journey\'s page keeps the live version as a template of the workspace; **Your Templates** on the Journey Templates panel and in the gallery previews, copies and deletes them. A platform catalogue of shared starters is still not offered: CEP\'s starters stay in code.'],
+    ['Message steps have no sender choice', 'A **Sender** field on Email and SMS / MMS steps, the workspace default unless another is picked.'],
+    ['Test Publish skips waits only', 'Unchanged, by design: Preview Route asks which way to assume a step that depends on what has not happened yet.'],
+    ['Journey timelines are not searchable by event', 'The Customers card filters by **Held Back Reason**, with how many customers each, and the export follows the filter.'],
+  ], [2, 6]),
   spacer(),
   h2('12.2 Gaps in Data and Integrations'),
   table(['Gap', 'What it blocks', 'Fills it'], [
@@ -503,7 +504,7 @@ add(h1('12. Gaps to Fill Before Journeys Are Used in Production'),
     'The shop\'s events (unblocks Abandoned Cart, Customer Creation).',
     'Email engine callbacks verified on every workspace; Digivize production keys and callback.',
     'Segments and coupons from C360, then coupon fulfilment.',
-    'In the app: the Journeys report dataset, then the customer page, then save-as-template.',
+    'In the app: a dark-theme pass over the customer page, the Journeys report and Save as Template; a platform catalogue of shared starters if workspaces are to share them.',
   ]),
 )
 
