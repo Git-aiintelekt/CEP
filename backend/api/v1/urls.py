@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import (attribution_api, auth_api, campaigns_api, client_errors, events_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
+from . import (attribution_api, auth_api, campaigns_api, client_errors, customers_api, events_api, codes_api, consent_api, contact_lists_api, deliverability_api, delivery_api, delivery_public, field_rules, integrations_api, journeys_api, pos_api, preferences_api,
                preferences_public,
                home_api, recipients_api, reports_api, search_api, settings_api, setup_api, suppressions_api, views, workspace_api)
 
@@ -109,6 +109,10 @@ urlpatterns = [
     path("reports/campaigns.csv", reports_api.ReportCsvView.as_view(), name="report-csv"),
     path("reports/compare/", reports_api.ReportCompareView.as_view(), name="report-compare"),
     path("reports/schedule/", reports_api.ReportScheduleView.as_view(), name="report-schedule"),
+    path("reports/journeys/", reports_api.JourneysReportView.as_view(), name="report-journeys"),
+    path("reports/journeys.csv", reports_api.JourneysReportCsvView.as_view(), name="report-journeys-csv"),
+    path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
+    path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),

@@ -1,6 +1,6 @@
 /** /dev/journey-condition (dev builds only): the Condition step's panel on sample data, nothing from the API.
  * ?case=busy (default) — the mixed condition with a nested group | sparse — one empty row | wait-time — a Wait until a
- * time of day | wait-date — a Wait until a date on the record | goal — a Goal step | split — a Split by an attribute | profile — Update Profile. */
+ * time of day | wait-date — a Wait until a date on the record | goal — a Goal step | split — a Split by an attribute | profile — Update Profile | webhook — a Webhook step. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -56,8 +56,9 @@ export default function ConditionPlayground() {
     : sample === 'goal' ? { label: 'First purchase', event_type: 'PURCHASE', window_days: 14, when_reached: 'CONTINUE', props: [{ key: 'amount', op: 'gte', value: 25 }] }
     : sample === 'split' ? { by: 'ATTRIBUTE', attribute: 'home_store', paths: [{ key: 'P1', label: 'Lakeside Mall', values: ['Lakeside Mall'] }, { key: 'P2', label: 'Downtown or Airport', values: ['Downtown', 'Airport'] }] }
     : sample === 'profile' ? { attribute: 'customer_status', value: 'Welcomed' }
+    : sample === 'webhook' ? { label: 'Tell the CRM', url: 'https://hooks.example.com/cep', secret_enc: 'stored', include_attributes: true }
     : { label: 'Worth a second email?', rule: BUSY }
-  const type = sample.startsWith('wait') ? 'WAIT' as const : sample === 'goal' ? 'GOAL' as const : sample === 'split' ? 'SPLIT' as const : sample === 'profile' ? 'PROFILE_UPDATE' as const : 'CONDITION' as const
+  const type = sample.startsWith('wait') ? 'WAIT' as const : sample === 'goal' ? 'GOAL' as const : sample === 'split' ? 'SPLIT' as const : sample === 'profile' ? 'PROFILE_UPDATE' as const : sample === 'webhook' ? 'WEBHOOK' as const : 'CONDITION' as const
   const [client] = useState(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
     seeded.setQueryData(CONDITION_FIELDS_KEY, SAMPLE_CATALOGUE)

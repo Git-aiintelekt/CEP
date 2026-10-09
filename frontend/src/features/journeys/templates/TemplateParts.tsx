@@ -1,10 +1,10 @@
 /** Small pieces shared by the template and journey cards and the preview: the category and trigger-family chips, the plum
  * "CEP Starter" tag, the step-icon strip in the canvas's category colours (an approved exception, as on the canvas)
  * and the channel icons. */
-import { BadgeCheck } from 'lucide-react'
+import { BadgeCheck, Bookmark } from 'lucide-react'
 
 import { titleize } from '@/lib/format'
-import type { JourneyGraph, JourneyTemplateCategory, JourneyTriggerFamily } from '@/lib/types'
+import type { JourneyGraph, JourneyStarter, JourneyTemplateCategory, JourneyTriggerFamily } from '@/lib/types'
 
 import { CHANNEL_META } from '../channelMeta'
 import { CATEGORY, ENTRY_ICON, NODE_META, type AddableType } from '../nodeDefs'
@@ -44,6 +44,25 @@ export function StarterTag() {
       CEP Starter
     </span>
   )
+}
+
+/** A template the workspace saved from one of its own journeys. */
+export function SavedTag() {
+  return (
+    <span className={`${CHIP} bg-fill-subtle text-ink-800`}>
+      <Bookmark size={12} strokeWidth={1.5} aria-hidden />
+      Saved Template
+    </span>
+  )
+}
+
+/** CEP Starter or Saved Template, whichever the card is. */
+export function TemplateKindTag({ starter }: { starter: JourneyStarter }) {
+  return starter.template_id ? <SavedTag /> : <StarterTag />
+}
+
+export function templateKind(starter: JourneyStarter): string {
+  return starter.template_id ? 'Saved Template' : 'CEP Starter'
 }
 
 /** The entry trigger and then every step, as icon tiles joined by dashes: up to `max` icons (the entry's included),
