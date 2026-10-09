@@ -32,7 +32,7 @@ test('240px expanded: the brand, Home and the everyday pages, then Settings belo
   expect(within(rail()).getByText('Customer Engagement')).toBeTruthy()                            // the wordmark sits under the mark, outside the link
 
   const [pages, admin] = within(nav()).getAllByRole('list')
-  expect(within(pages).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Reports', 'Journeys', 'Templates', 'Contact lists'])
+  expect(within(pages).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
   expect(within(admin).getAllByRole('link').map((link) => link.textContent)).toEqual(['Settings'])
   expect(within(rail()).queryByText(/^engage$/i)).toBeNull()
   expect(within(rail()).queryByText(/^manage$/i)).toBeNull()
