@@ -155,7 +155,7 @@ export function RevenueCost({ filters, singleCampaign }: RevenueCostProps) {
             />
           )}
           {insight && <div className="mt-auto"><Insight insight={insight} /></div>}
-          {data && <div className={insight ? '' : 'mt-auto'}><Totals summary={data.summary} /></div>}
+          {data && data.points.length > 0 && <div className={insight ? '' : 'mt-auto'}><Totals summary={data.summary} /></div>}
         </div>
       )}
     </HomeCard>

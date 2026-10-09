@@ -13,7 +13,7 @@ const one = { ...DEFAULT_FILTERS, campaignIds: ['c06'] }
 test('everything there: the design, unchanged', () => {
   const layout = homeLayout({ filters: DEFAULT_FILTERS, availability: every('ready') })
   expect(layout.mode).toBe('design')
-  expect(shape(layout.rows)).toEqual(['2:1 revenueCost | funnel', '1:1 topBottom | schedule', 'thirds snapshot | governance | eReceipts', 'full recent'])
+  expect(shape(layout.rows)).toEqual(['2:1 revenueCost | funnel', '1:2 topBottom | schedule', '2:1 recent | governance', '2:1 snapshot | eReceipts'])
   expect(layout.rows.map((row) => row.name)).toEqual(['a', 'b', 'c', 'd'])
 })
 

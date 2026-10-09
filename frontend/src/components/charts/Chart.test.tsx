@@ -154,11 +154,11 @@ test('palette: the legend swatch and the tooltip swatch match the line and the b
   expect(legendSwatch('Opened')).toBe('var(--color-chart-pair)')
 })
 
-test('bars: grouped per category, rounded 2px on top', () => {
+test('bars: grouped per category, each a pill with both ends fully rounded', () => {
   renderChart({ type: 'bar' })
   const bars = document.querySelectorAll('[data-series="sent"] path')
   expect(bars).toHaveLength(3)
-  expect(bars[0].getAttribute('d')).toContain('Q')
+  expect(bars[0].getAttribute('d')).toContain('A')
   expect(document.querySelectorAll('[data-series="opened"] path')).toHaveLength(3)
 })
 
@@ -167,12 +167,12 @@ test('areas sit under the line at 12% at most', () => {
   expect(document.querySelector('[data-series="sent"] path')!.getAttribute('fill-opacity')).toBe('0.12')
 })
 
-test('gridlines are horizontal only; axis labels are 12px', () => {
+test('gridlines are horizontal only; axis labels are 13px', () => {
   renderChart()
   const lines = [...document.querySelectorAll('svg line')]
   expect(lines.length).toBeGreaterThan(0)
   expect(lines.every((line) => line.getAttribute('y1') === line.getAttribute('y2'))).toBe(true)
-  expect([...document.querySelectorAll('svg text')].every((text) => text.getAttribute('font-size') === '12')).toBe(true)
+  expect([...document.querySelectorAll('svg text')].every((text) => text.getAttribute('font-size') === '13')).toBe(true)
 })
 
 test('the same loading, empty and error states for every chart', async () => {
@@ -212,7 +212,7 @@ test('mixed marks: bars and a line in one chart, the line drawn over the bars', 
   renderChart({ series: revenue, type: 'bar' })
   const bars = document.querySelectorAll('[data-series="revenue"] path')
   expect(bars).toHaveLength(3)
-  expect(bars[0].getAttribute('d')).toContain('Q')                                                       // a bar, rounded on top
+  expect(bars[0].getAttribute('d')).toContain('A')                                                       // a bar, rounded on top
   const line = document.querySelector('[data-series="cost"] path')!
   expect(line.getAttribute('fill')).toBe('none')
   expect(line.getAttribute('stroke')).toBe('var(--color-chart-pair)')                                     // the second of two series is Plum
@@ -220,13 +220,13 @@ test('mixed marks: bars and a line in one chart, the line drawn over the bars', 
   expect(order).toEqual(['revenue', 'cost'])
 })
 
-test('a reference line is dashed Gray 400, takes no colour slot, stretches the scale, and is in the legend, tooltip and table', async () => {
+test('a reference line is dashed Gray 700, takes no colour slot, stretches the scale, and is in the legend, tooltip and table', async () => {
   const user = userEvent.setup()
   renderChart({ series: revenue, type: 'bar', reference: target })
   const dashed = document.querySelector('[data-reference="target"] path')!
-  expect(dashed.getAttribute('stroke-dasharray')).toBe('4 4')
+  expect(dashed.getAttribute('stroke-dasharray')).toBe('5 4')
   expect(dashed.getAttribute('stroke-width')).toBe('1.5')
-  expect(dashed.getAttribute('stroke')).toBe('var(--color-chart-4)')
+  expect(dashed.getAttribute('stroke')).toBe('var(--color-ink-700)')
   expect(document.querySelector('[data-series="cost"] path')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
   expect([...document.querySelectorAll('svg text')].map((text) => text.textContent)).toContain('80')        // the axis reaches past 70
   const legend = screen.getByRole('group', { name: 'Series' })
