@@ -88,7 +88,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
         </button>
       </div>
       {open && (
-        <div role="region" aria-label="Choose the owner" className="absolute top-full right-0 left-0 z-20 mt-2 overflow-hidden rounded-md border border-line bg-surface shadow-menu"
+        <div role="region" aria-label="Choose the owner" className="absolute top-full right-0 left-0 z-20 mt-2 overflow-hidden rounded-md border border-line bg-surface-overlay shadow-menu"
           onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) close(false) }}>
           <div className="border-b border-line-subtle p-2">
             <label className="flex h-9 items-center gap-2 rounded-control-md bg-surface-sunken px-2.5 focus-within:bg-surface focus-within:shadow-focus">
@@ -110,7 +110,7 @@ export function OwnerPicker({ value, onChange, people, meId, autoAssigned, disab
                   <span className="truncate text-sm font-semibold text-ink-900">{person.name}</span>
                   <span className="truncate text-helper text-ink-800">{person.email}</span>
                 </span>
-                {person.id === value && <Check size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-brand-600" />}
+                {person.id === value && <Check size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-link" />}
               </li>
             ))}
           </ul>

@@ -37,7 +37,7 @@ test('every pill answers the pointer: the neutral one on its fill, the tinted on
       <Pill tone="warning">2 warnings</Pill>
     </>,
   )
-  expect(pill('Links · 2').className).toContain('hover:bg-surface-subtle')
+  expect(pill('Links · 2').className).toContain('hover:bg-surface-hover')
   expect(pill('Links · 2').className).toContain('active:bg-fill-subtle')
   expect(pill('Review errors · 2').className).toContain('hover:border-danger-text')
   expect(pill('2 warnings').className).toContain('hover:border-warning-text')

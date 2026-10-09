@@ -20,7 +20,7 @@ export type CategoryKey = 'ENTRY' | 'LOGIC' | 'COMMUNICATION' | 'ACTION' | 'CONT
 
 /** Approved design-system exception, Journey canvas only: each step category has its own colour. */
 export const CATEGORY: Record<CategoryKey, { label: string; tile: string; text: string; dot: string }> = {
-  ENTRY: { label: 'Entry', tile: 'bg-brand-100 text-brand-700', text: 'text-brand-600', dot: 'bg-brand-600' },
+  ENTRY: { label: 'Entry', tile: 'bg-brand-100 text-brand-700', text: 'text-link', dot: 'bg-brand-600' },
   LOGIC: { label: 'Logic', tile: 'bg-plum-100 text-plum-700', text: 'text-plum-700', dot: 'bg-plum-500' },
   COMMUNICATION: { label: 'Communication', tile: 'bg-success-bg text-success-text', text: 'text-success-text', dot: 'bg-success' },
   ACTION: { label: 'Existing Business Action', tile: 'bg-warning-bg text-warning-text', text: 'text-warning-text', dot: 'bg-warning' },

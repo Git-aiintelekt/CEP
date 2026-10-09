@@ -41,7 +41,7 @@ export function JourneyOutcome({ journeyId, outcome }: { journeyId: string; outc
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-12 md:px-8">
       <div className="flex w-full max-w-xl flex-col items-center text-center">
-        <span className={`flex h-16 w-16 items-center justify-center rounded-full ${live && !paused ? 'bg-success text-white' : 'bg-warning-bg text-warning-text'}`}>
+        <span className={`flex h-16 w-16 items-center justify-center rounded-full ${live && !paused ? 'bg-success text-on-brand' : 'bg-warning-bg text-warning-text'}`}>
           {live && !paused ? <Check size={32} strokeWidth={2.5} aria-hidden /> : <Clock size={32} strokeWidth={2} aria-hidden />}
         </span>
         <h1 className="mt-6 font-display text-page-title font-semibold text-ink-900">{title}</h1>

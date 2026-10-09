@@ -141,7 +141,7 @@ export function GoalFields({ config, set, insideBranch, hasBranchSteps }: { conf
             })}
             {chosen?.properties?.length ? <datalist id={keysId}>{chosen.properties.map((key) => <option key={key} value={key} />)}</datalist> : null}
             {props.length < 10 && (
-              <button type="button" onClick={() => set({ props: [...props, { key: '', op: 'is' }] })} className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700">
+              <button type="button" onClick={() => set({ props: [...props, { key: '', op: 'is' }] })} className="inline-flex items-center gap-1 text-sm font-medium text-link hover:text-brand-700">
                 <Plus size={14} strokeWidth={1.5} aria-hidden /> Add Filter
               </button>
             )}

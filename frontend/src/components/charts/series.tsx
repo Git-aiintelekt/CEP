@@ -42,21 +42,21 @@ export function LineSeries({ plot, series, area = false, active }: { plot: Plot;
 }
 
 const BAR_GAP = 4
-const RADIUS = 2
 
-/** a bar with its top corners rounded 2px, standing on the axis */
+/** a bar standing on the axis with both ends fully rounded: a pill as wide as the bar */
 function barPath(x: number, y: number, width: number, bottom: number): string {
-  const r = Math.min(RADIUS, width / 2, bottom - y)
-  if (r <= 0) return `M${x} ${bottom}H${x + width}V${y}H${x}Z`
-  return `M${x} ${bottom}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + width - r}Q${x + width} ${y} ${x + width} ${y + r}V${bottom}Z`
+  const height = bottom - y
+  if (height <= 0) return ''
+  const r = Math.min(width / 2, height / 2)
+  return `M${x} ${bottom - r}V${y + r}A${r} ${r} 0 0 1 ${x + width} ${y + r}V${bottom - r}A${r} ${r} 0 0 1 ${x} ${bottom - r}Z`
 }
 
-/** each category's bars side by side, 4px apart, the group taking about 70% of its band; while a category is active the others fade to 40% */
+/** each category's bars side by side, 4px apart, the group taking about 78% of its band; while a category is active the others fade to 40% */
 export function BarSeries({ plot, series, active = null }: { plot: Plot; series: DrawnSeries[]; active?: number | null }) {
   // useId's colons don't survive inside url(#…)
   const gradientId = `bar${useId().replace(/[^\w-]/g, '')}`
   if (series.length === 0) return null
-  const group = Math.max(series.length * 2, plot.band * 0.7)
+  const group = Math.max(series.length * 2, plot.band * 0.78)
   const width = Math.max(2, (group - BAR_GAP * (series.length - 1)) / series.length)
   const bottom = plot.top + plot.height
   return (
@@ -82,10 +82,10 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
   )
 }
 
-/** a dashed Gray 400 line through a reference such as target pace: drawn over the series, never faded */
+/** a dashed grey line through a reference such as target pace: drawn over the series, never faded */
 export function ReferenceLine({ plot, keyName, values, color }: { plot: Plot; keyName: string; values: number[]; color: string }) {
   if (values.length === 0) return null
   const points = values.map((value, index) => `${index ? 'L' : 'M'}${plot.x(index).toFixed(1)} ${plot.y(value).toFixed(1)}`)
   const line = values.length === 1 ? `M${plot.left} ${plot.y(values[0])} H${plot.left + plot.width}` : points.join(' ')
-  return <g data-reference={keyName}><path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 4" /></g>
+  return <g data-reference={keyName}><path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="5 4" /></g>
 }

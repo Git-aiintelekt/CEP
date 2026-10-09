@@ -14,7 +14,7 @@ interface SwitchProps {
 export function Switch({ checked, onChange, label, ariaLabel, labelledBy, describedBy, id, disabled = false }: SwitchProps) {
   const track =
     disabled ? (checked ? 'bg-ink-300' : 'bg-fill-muted')
-    : checked ? 'bg-brand-600 group-hover:bg-brand-800'
+    : checked ? 'bg-brand-600 group-hover:bg-brand-fill-hover'
     : 'bg-ink-300'
   return (
     <button

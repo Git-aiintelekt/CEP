@@ -176,7 +176,7 @@ export function CampaignCalendar({ filters, zone, canEdit }: { filters: Record<s
                     return (
                       <div key={key} role="gridcell" aria-label={`${dayTitle(key)}: ${onDay(key).length} campaign${onDay(key).length === 1 ? '' : 's'}`}
                         className={`flex min-h-28 flex-col justify-between border-l border-line px-2 pb-1 pt-1.5 first:border-l-0 ${inMonth(key) ? '' : 'bg-surface-subtle'}`}>
-                        <span className={`cep-num inline-flex h-6 w-6 items-center justify-center text-sm font-medium ${key === today ? 'rounded-full bg-brand-600 text-white' : inMonth(key) ? 'text-ink-900' : 'text-ink-300'}`}>
+                        <span className={`cep-num inline-flex h-6 w-6 items-center justify-center text-sm font-medium ${key === today ? 'rounded-full bg-brand-600 text-on-brand' : inMonth(key) ? 'text-ink-900' : 'text-ink-300'}`}>
                           {Number(key.slice(8))}
                         </span>
                       </div>

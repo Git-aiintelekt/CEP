@@ -14,27 +14,34 @@ afterEach(cleanup)
 
 const renderHome = ({ url = '/', state = 'busy', source, viewer = SAMPLE_VIEWER }: { url?: string; state?: SampleState; source?: HomeDataSource; viewer?: HomeViewer } = {}) =>
   render(<MemoryRouter initialEntries={[url]}><HomeDataProvider source={source ?? createSampleSource(state)} viewer={viewer}><HomePage /></HomeDataProvider></MemoryRouter>)
-const revenueCard = () => screen.getByRole('region', { name: 'Marketing Performance' })
+const REVENUE_TITLE = 'Attributed Revenue vs. Campaign Cost'
+const revenueCard = () => screen.getByRole('region', { name: REVENUE_TITLE })
 const funnelCard = () => screen.getByRole('region', { name: 'Engagement Funnel' })
 const plot = () => within(revenueCard()).getByRole('group', { name: /^Attributed revenue and campaign cost per/ })
 
 // ---------------------------------------------------------------- Marketing Performance
-test('Total: plum-into-blue revenue bars, the cost line in Plum over its area, the dashed target pace; the legend over the chart; the tooltip reads all three', async () => {
+test('Total: solid blue pill revenue bars, the cost line in Plum, the dashed target pace; the legend in the card header; the tooltip reads all three', async () => {
   const user = userEvent.setup()
   renderHome()
   const card = revenueCard()
   expect(card.querySelectorAll('[data-series="revenue"] path')).toHaveLength(30)
-  expect(card.querySelector('[data-series="revenue"] path')!.getAttribute('fill')).toMatch(/^url\(#bar[\w-]+-0\)$/)
-  expect(card.querySelector('linearGradient stop')!.getAttribute('stop-color')).toBe('var(--color-plum-500)')
-  expect(card.querySelector('[data-series="cost"] path:not([stroke="none"])')!.getAttribute('stroke')).toBe('var(--color-chart-pair)')
-  expect(card.querySelector('[data-series="cost"] path[stroke="none"]')!.getAttribute('fill-opacity')).toBe('0.12')
-  expect(card.querySelector('[data-section-header="card"]')!.className).toContain('cep-home-strip')
-  expect(card.querySelector('[data-reference="target"] path')!.getAttribute('stroke-dasharray')).toBe('4 4')
+  const bar = card.querySelector('[data-series="revenue"] path')!
+  expect(bar.getAttribute('d')).toContain('A')
+  expect(bar.getAttribute('fill')).toBe('var(--color-chart-1)')
+  expect(card.querySelector('linearGradient')).toBeNull()
+  const costLine = card.querySelector('[data-series="cost"] path')!
+  expect(costLine.getAttribute('fill')).toBe('none')
+  expect(costLine.getAttribute('stroke')).toBe('var(--color-chart-pair)')
+  expect(card.querySelectorAll('[data-series="cost"] path')).toHaveLength(1)
+  expect(card.querySelector('[data-section-header="card"]')!.className).not.toContain('cep-home-strip')
+  const reference = card.querySelector('[data-reference="target"] path')!
+  expect(reference.getAttribute('stroke-dasharray')).toBe('5 4')
+  expect(reference.getAttribute('stroke')).toBe('var(--color-ink-700)')
   const legend = within(card).getByRole('group', { name: 'Series' })
-  expect(card.querySelector('[data-section-header="card"]')!.contains(legend)).toBe(false)
+  expect(card.querySelector('[data-section-header="card"]')!.contains(legend)).toBe(true)
   expect(plot().compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   expect(within(legend).getByRole('button', { name: 'Revenue' }).querySelector('[data-swatch="square"]')).toBeTruthy()
-  expect(within(legend).getByRole('button', { name: 'Cost' }).querySelector('[data-swatch="line"]')).toBeTruthy()
+  expect(within(legend).getByRole('button', { name: 'Campaign Cost' }).querySelector('[data-swatch="line"]')).toBeTruthy()
   expect(legend.querySelector('[data-legend-reference] [data-swatch="dashed"]')).toBeTruthy()
   expect(plot().getAttribute('aria-label')).toBe('Attributed revenue and campaign cost per day, with target pace')
   expect(card.querySelector('[data-revenue-summary]')).toBeNull()                                           // the figures live in the key figures now
@@ -42,7 +49,7 @@ test('Total: plum-into-blue revenue bars, the cost line in Plum over its area, t
   plot().focus()
   await user.keyboard('{ArrowRight}')
   const tip = card.querySelector('[data-chart-tooltip]')!
-  expect(tip.textContent).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}Revenue\$[\d.]+KCost\$[\d.]+KTarget Pace\$49\.0K$/)
+  expect(tip.textContent).toMatch(/^\d{1,2} [A-Z][a-z]{2} \d{4}Revenue\$[\d.]+KCampaign Cost\$[\d.]+KTarget Pace\$49\.0K$/)
 })
 
 test('the insight line: behind or ahead of the target pace with the figures, or against cost without a target; nothing without revenue', () => {
@@ -120,19 +127,21 @@ test('no attribution: the message and the period’s cost; a button for admins, 
 
 test('revenue unavailable: the card is gone and the funnel pairs with Top Campaigns, half and half', () => {
   renderHome({ source: { ...createSampleSource('busy'), useRevenueCost: () => ({ status: 'unavailable' }) } })
-  expect(screen.queryByRole('region', { name: 'Marketing Performance' })).toBeNull()
+  expect(screen.queryByRole('region', { name: REVENUE_TITLE })).toBeNull()
   const row = funnelCard().closest('[data-row]')!
   expect(row.getAttribute('data-layout')).toBe('1:1')
-  expect(row.contains(screen.getByRole('region', { name: 'Top Campaigns' }))).toBe(true)
+  expect(row.contains(screen.getByRole('region', { name: 'Top and Bottom Campaigns' }))).toBe(true)
 })
 
 // ---------------------------------------------------------------- Engagement Funnel
 const steps = () => within(within(funnelCard()).getByRole('list')).getAllByRole('listitem')
 const step = (key: string) => funnelCard().querySelector(`[data-step="${key}"]`) as HTMLElement
 const barWidth = (key: string) => (step(key).querySelector('[aria-hidden] > div') as HTMLElement | null)?.style.width
-const chips = () => [...funnelCard().querySelectorAll('[data-plum-chip]')].map((node) => node.textContent)
+const noteRow = (key: string) => step(key).lastElementChild as HTMLElement
+const chip = (key: string) => noteRow(key).firstElementChild!.textContent
+const chips = () => ['delivered', 'opened', 'clicked', 'converted'].map(chip)
 
-test('email: the four steps as cards against Delivered, each with its note, the drop-off to the next, and the end-to-end share last', () => {
+test('email: the four steps as thin bars against Delivered, each with its note, the drop-off to the next, and the end-to-end share last', () => {
   renderHome()
   expect(within(funnelCard()).getByRole('list', { name: 'Email engagement funnel' })).toBeTruthy()
   expect(steps().map((item) => `${item.querySelector('span')!.textContent} ${item.querySelector('[data-value]')!.textContent}`)).toEqual(['Delivered 1,142,300', 'Opened 427,821', 'Clicked 49,447', 'Converted 11,130'])
@@ -141,18 +150,18 @@ test('email: the four steps as cards against Delivered, each with its note, the 
   expect(step('opened').textContent).toContain('37.5% open rate')
   expect(step('converted').textContent).toContain('22.5% of clickers converted')
   expect(chips()).toEqual(['Drop-off 62.5%', 'Drop-off 88.4%', 'Drop-off 77.5%', '1.0% of Delivered'])
-  expect(step('converted').className).toContain('cep-home-strip border-plum-200')
+  expect(funnelCard().querySelector('[data-funnel-total]')!.textContent).toBe('Delivered to converted: 0.97%')
 })
 
-test('SMS: Opened is Not Tracked with no bar and no chip; the drop-off from Delivered runs to Clicked', async () => {
+test('SMS: Opened is Not Tracked with no bar and no drop-off; the drop-off from Delivered runs to Clicked', async () => {
   const user = userEvent.setup()
   renderHome()
   await user.click(within(within(funnelCard()).getByRole('radiogroup', { name: 'Funnel Channel' })).getByRole('radio', { name: 'SMS' }))
   expect(step('opened').textContent).toContain('Not Tracked')
   expect(step('opened').textContent).toContain('SMS does not report opens')
   expect(barWidth('opened')).toBeUndefined()
-  expect(step('opened').querySelector('[data-plum-chip]')).toBeNull()
-  expect(step('delivered').querySelector('[data-plum-chip]')!.textContent).toBe('Drop-off 97.4% to Clicked')
+  expect(chip('opened')).toBe('')
+  expect(chip('delivered')).toBe('Drop-off 97.4% to Clicked')
 })
 
 test('the channel toggle sits in the header, and hides when the page is filtered to a channel or only one channel has data', () => {
@@ -177,7 +186,7 @@ test('Row A: the two cards share the row 2:1 and stretch to the same height', ()
   expect(funnelCard().querySelector('[data-funnel-body]')!.className).toContain('h-full')
 })
 
-test('the revenue axis reads whole ("$80K") while the tooltip keeps a decimal ("$64.0K"); both toggles are the outline kind', async () => {
+test('the revenue axis reads whole ("$80K") while the tooltip keeps a decimal ("$64.0K"); the revenue toggle is the outline kind and the funnel toggle the joined kind', async () => {
   const user = userEvent.setup()
   renderHome()
   const ticks = [...revenueCard().querySelectorAll('svg text')].map((text) => text.textContent)
@@ -185,9 +194,13 @@ test('the revenue axis reads whole ("$80K") while the tooltip keeps a decimal ("
   plot().focus()
   await user.keyboard('{ArrowRight}')
   expect(revenueCard().querySelector('[data-chart-tooltip]')!.textContent).toMatch(/Revenue\$\d+\.\dK/)
-  for (const [card, name, picked] of [[revenueCard(), 'Revenue View', 'Total'], [funnelCard(), 'Funnel Channel', 'Email']] as const) {
-    const selected = within(within(card).getByRole('radiogroup', { name })).getByRole('radio', { name: picked })
+  for (const [card, name, picked, tint] of [
+    [revenueCard(), 'Revenue View', 'Total', 'border-link bg-brand-100 text-brand-800'],
+    [funnelCard(), 'Funnel Channel', 'Email', 'border-0 px-3.5 text-sm font-semibold bg-brand-100 text-brand-800'],
+  ] as const) {
+    const group = within(card).getByRole('radiogroup', { name })
+    const selected = within(group).getByRole('radio', { name: picked })
     expect(selected.getAttribute('aria-checked')).toBe('true')
-    expect(selected.className).toContain('border-brand-600 bg-brand-100 text-brand-800')
+    expect(selected.className).toContain(tint)
   }
 })

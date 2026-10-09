@@ -46,7 +46,7 @@ export function RingKpi({ label, icon: Icon, note, value, quiet = false, support
     <div data-kpi={label} className="flex min-w-0 items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5">
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex items-center gap-1.5 text-helper font-semibold text-ink-800">
-          <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-plum-700" />
+          <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-plum-500" />
           <span className="truncate">{label}</span>
           {note && <span className="ml-auto shrink-0 text-xs font-normal">{note}</span>}
         </span>

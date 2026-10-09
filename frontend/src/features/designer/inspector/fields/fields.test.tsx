@@ -58,7 +58,7 @@ test('the arrows move along the group and wrap at both ends', async () => {
 test('the selected choice is an outline over a tint, never a filled blue', () => {
   render(<AlignField label="Alignment" value="center" onCommit={vi.fn()} />)
   const chosen = screen.getByRole('radio', { name: 'Center' })
-  expect(chosen.className).toContain('border-brand-600')
+  expect(chosen.className).toContain('border-link')
   expect(chosen.className).toContain('bg-brand-100')
   expect(chosen.className).not.toContain('bg-brand-600')
 })

@@ -50,7 +50,7 @@ export function BarList({ title, rows, max, formatValue = formatNumber, loading,
     return (
       <p role="alert" data-chart-state="error" className="flex flex-wrap items-center gap-2 text-sm text-ink-800">
         The chart could not be loaded.{message}
-        {onRetry && <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>}
+        {onRetry && <button type="button" onClick={onRetry} className="font-semibold text-link hover:underline">Retry</button>}
       </p>
     )
   }

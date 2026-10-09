@@ -97,7 +97,7 @@ function DayChart({ integrationId, name }: { integrationId: string; name: string
         aria-label={`${name}: calls per 15 minutes over the last 24 hours, up to ${formatNumber(peak)} at the busiest`}>
         {slots.map((slot, index) => slot.calls > 0 && (
           <g key={index}>
-            <rect x={index * BAR + 1} y={y(slot.calls)} width={BAR - 2} height={CHART_H - y(slot.calls)} className="fill-brand-100" />
+            <rect x={index * BAR + 1} y={y(slot.calls)} width={BAR - 2} height={CHART_H - y(slot.calls)} className="fill-chart-soft" />
             {slot.throttled > 0 && <rect x={index * BAR + 1} y={y(slot.throttled)} width={BAR - 2} height={CHART_H - y(slot.throttled)} className="fill-warning" />}
             {slot.failed > 0 && <rect x={index * BAR + 1} y={y(slot.failed)} width={BAR - 2} height={CHART_H - y(slot.failed)} className="fill-danger-plain" />}
           </g>

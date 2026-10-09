@@ -11,11 +11,13 @@ import { triggerSentence, stepsText } from './templateMeta'
 import { CategoryChip, ChannelIcons, FamilyChip, StepStrip, StepTypeStrip, TemplateKindTag, templateKind } from './TemplateParts'
 
 const CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard'
-const ROUND_ARROW = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800'
+/** a card on the Journey Templates band: one shade lighter than the band in dark, white on blue in light */
+const BAND_CARD = 'group flex h-full w-full flex-col overflow-hidden rounded-lg bg-surface-overlay text-left transition-colors duration-fast ease-standard'
+const ROUND_ARROW = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-on-brand group-active:border-brand-800 group-active:bg-brand-fill-pressed'
 
 export function ScratchCard({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`${CARD} hover:bg-surface-subtle active:bg-fill-subtle`}>
+    <button type="button" onClick={onClick} className={`${BAND_CARD} hover:bg-surface-hover active:bg-fill-subtle`}>
       <span aria-hidden className="flex h-[88px] w-full shrink-0 items-center justify-center bg-plum-50">
         <span className="flex h-10 w-10 items-center justify-center rounded-md bg-plum-100 text-plum-700">
           <Plus size={20} strokeWidth={1.5} />
@@ -36,7 +38,7 @@ export function ScratchCard({ onClick }: { onClick: () => void }) {
 export function PanelStarterCard({ starter, onClick }: { starter: JourneyStarter; onClick: () => void }) {
   const sentence = triggerSentence(starter.graph.entry_rules[0])
   return (
-    <button type="button" onClick={onClick} aria-label={`${starter.name}, ${templateKind(starter)}`} className={`${CARD} hover:bg-surface-subtle active:bg-fill-subtle`}>
+    <button type="button" onClick={onClick} aria-label={`${starter.name}, ${templateKind(starter)}`} className={`${BAND_CARD} hover:bg-surface-hover active:bg-fill-subtle`}>
       <span className="flex h-[88px] w-full shrink-0 flex-col justify-between bg-surface-subtle px-4 py-3">
         <span className="flex"><CategoryChip category={starter.category} /></span>
         <StepStrip graph={starter.graph} max={5} />
@@ -52,7 +54,7 @@ export function PanelStarterCard({ starter, onClick }: { starter: JourneyStarter
   )
 }
 
-const BORDERED = 'border border-line hover:border-brand-600 active:border-brand-800'
+const BORDERED = 'border border-line hover:border-link active:border-brand-800'
 
 function TriggerLine({ text }: { text: string }) {
   return (

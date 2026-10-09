@@ -70,7 +70,7 @@ function UserForm({ editing, roles, onClose }: { editing: NonNullable<Editing>; 
           <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
             {roles.map((role) => (
               <li key={role.id}>
-                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-subtle">
+                <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-surface-hover">
                   <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" checked={chosen.includes(role.id)}
                     onChange={() => setChosen(chosen.includes(role.id) ? chosen.filter((id) => id !== role.id) : [...chosen, role.id])} />
                   <span><span className="block text-sm font-medium text-ink-900">{role.name}</span>
@@ -145,8 +145,8 @@ export function UsersPage() {
 
   const columns: Column<SettingsUser>[] = [
     { key: 'name', header: 'User', render: (user) => (
-      <div><p className="font-medium text-ink-900">{user.display_name}{user.is_self && <span className="ml-2 text-xs font-normal text-ink-800">you</span>}</p>
-        <p className="text-xs text-ink-800">{user.email}</p></div>) },
+      <div><p className="text-card-title font-semibold text-ink-900">{user.display_name}{user.is_self && <span className="ml-2 text-xs font-normal text-ink-800">you</span>}</p>
+        <p className="text-helper text-ink-800">{user.email}</p></div>) },
     { key: 'roles', header: 'Roles', render: (user) => user.role_names.length ? <span className="flex flex-wrap gap-1">{user.role_names.map((role) => <Tag key={role}>{role}</Tag>)}</span> : <span className="text-ink-800">No role</span> },
     { key: 'status', header: 'Status', render: (user) => <StatusBadge status={user.is_active ? 'ACTIVE' : 'ARCHIVED'} label={user.is_active ? 'Active' : 'Deactivated'} /> },
     { key: 'signin', header: 'Sign-In', render: (user) => user.auth_provider !== 'LOCAL' ? <Tag>{user.auth_provider}</Tag> : user.has_password ? formatDateTime(user.last_login).replace('—', 'Never signed in') : <span className="text-warning-text">No password yet</span> },

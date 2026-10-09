@@ -146,7 +146,7 @@ function ExclusionsCard({ numbers, audience, zone }: { numbers: AudienceSummaryN
     <section className="rounded-lg border border-line bg-surface" aria-label="Exclusions">
       <h2>
         <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(!open)}
-          className={`flex w-full items-center gap-3 px-6 py-4 text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle ${open ? 'rounded-t-lg' : 'rounded-lg'}`}>
+          className={`flex w-full items-center gap-3 px-6 py-4 text-left transition-colors duration-fast ease-standard hover:bg-surface-hover ${open ? 'rounded-t-lg' : 'rounded-lg'}`}>
           <Chevron size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
           <span className="cep-num min-w-0 flex-1 text-sm font-semibold text-ink-900">{formatNumber(numbers.excluded)} excluded of {formatNumber(numbers.total)} in your lists</span>
           <span className="shrink-0 text-helper font-semibold text-brand-800">{open ? 'Hide Breakdown' : 'View Breakdown'}</span>

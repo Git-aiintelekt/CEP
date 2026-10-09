@@ -31,10 +31,10 @@ export class ErrorBoundary extends Component<Props, State> {
         <p className="mt-2 text-sm text-ink-800">{this.state.error.message}</p>
         <p className="mt-1 text-sm text-ink-800">Reload the page. If it fails again, go back to the overview.</p>
         <div className="mt-5 flex justify-center gap-3">
-          <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-800">
+          <button type="button" onClick={() => window.location.reload()} className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-fill-hover">
             Reload
           </button>
-          <a href="/" className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-800">
+          <a href="/" className="inline-flex h-10 items-center rounded-control-lg bg-brand-600 px-4 text-sm font-medium text-on-brand hover:bg-brand-fill-hover">
             Go to Home
           </a>
         </div>

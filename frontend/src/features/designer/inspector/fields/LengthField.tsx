@@ -197,7 +197,7 @@ export function LengthField({
                     className={`h-8 rounded-sm border px-1.5 text-xs transition-colors duration-base ease-standard ${
                       disabled && unit === option ? 'border-ink-300 bg-fill-muted text-ink-800'
                       : disabled ? 'border-line bg-fill-subtle text-ink-300'
-                      : unit === option ? 'border-brand-600 bg-brand-100 text-brand-800'
+                      : unit === option ? 'border-link bg-brand-100 text-brand-800'
                       : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
                     }`}
                   >

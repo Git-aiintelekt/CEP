@@ -9,9 +9,9 @@ import type { summarise } from './issues'
 type Summary = ReturnType<typeof summarise>
 
 const BUTTON = 'inline-flex h-9 shrink-0 items-center gap-2 rounded-sm text-[13px] font-semibold whitespace-nowrap transition-colors duration-base ease-standard'
-const SECONDARY = `${BUTTON} bg-brand-600 px-[14px] text-white hover:bg-brand-800`
+const SECONDARY = `${BUTTON} bg-brand-600 px-[14px] text-on-brand hover:bg-brand-fill-hover`
 const SECONDARY_BUSY = `${BUTTON} cursor-not-allowed bg-fill-subtle px-[14px] text-ink-300`
-const PRIMARY = `${BUTTON} bg-brand-600 px-4 text-white hover:bg-brand-800`
+const PRIMARY = `${BUTTON} bg-brand-600 px-4 text-on-brand hover:bg-brand-fill-hover`
 const PRIMARY_DISABLED = `${BUTTON} cursor-not-allowed bg-fill-muted px-4 text-ink-300`
 
 export interface FooterAction {

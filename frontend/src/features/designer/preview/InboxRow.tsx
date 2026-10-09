@@ -43,17 +43,17 @@ export function InboxRow({ subject, preheader, catalogue, profile, time, client 
   const cut = preheader.trim().length > room
   const shownPreheader = cut ? preheader.trim().slice(0, Math.max(0, room)).trimEnd() : preheader
   return (
-    <div aria-label="Inbox Row" role="group" data-client={client.id} data-appearance={dark ? 'dark' : 'light'}
-      className={`flex gap-3 border-b px-4 py-3 ${dark ? 'border-ink-800 bg-ink-900 text-white' : 'border-line bg-surface'}`}>
-      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center text-sm font-semibold ${client.avatar === 'square' ? 'rounded-sm' : 'rounded-pill'} ${dark ? 'bg-ink-800 text-white' : 'bg-fill-muted text-ink-800'}`}>
+    <div aria-label="Inbox Row" role="group" data-client={client.id} data-appearance={dark ? 'dark' : 'light'} data-theme="light"
+      className={`flex gap-3 border-b px-4 py-3 ${dark ? 'border-ink-800 bg-ink-900 text-on-brand' : 'border-line bg-surface'}`}>
+      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center text-sm font-semibold ${client.avatar === 'square' ? 'rounded-sm' : 'rounded-pill'} ${dark ? 'bg-ink-800 text-on-brand' : 'bg-fill-muted text-ink-800'}`}>
         {SENDER_PLACEHOLDER.charAt(0)}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-900'}`}>{SENDER_PLACEHOLDER}</span>
+          <span className={`truncate text-sm font-semibold ${dark ? 'text-on-brand' : 'text-ink-900'}`}>{SENDER_PLACEHOLDER}</span>
           <span className={`cep-num shrink-0 text-xs ${dark ? 'text-ink-300' : 'text-ink-800'}`}>{time}</span>
         </div>
-        <p className={`truncate text-sm font-semibold ${dark ? 'text-white' : 'text-ink-900'}`}>
+        <p className={`truncate text-sm font-semibold ${dark ? 'text-on-brand' : 'text-ink-900'}`}>
           {subject.trim() === '' ? NO_SUBJECT : <Filled text={subject} catalogue={catalogue} profile={profile} />}
         </p>
         <p className={`truncate text-xs ${dark ? 'text-ink-300' : 'text-ink-800'}`} data-preheader-cut={cut ? client.inboxChars : undefined}>

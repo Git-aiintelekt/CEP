@@ -153,7 +153,7 @@ export function LinksPill({ links, tags, controller, onJump }: { links: LinkEntr
                     type="button"
                     data-dropdown-item
                     onClick={() => choose(link)}
-                    className="cep-focus-inset grid w-full grid-cols-[16px_minmax(0,1fr)_96px] items-center gap-2.5 border-b border-line-subtle p-3 text-left transition-colors duration-base ease-standard last:border-b-0 hover:bg-surface-subtle"
+                    className="cep-focus-inset grid w-full grid-cols-[16px_minmax(0,1fr)_96px] items-center gap-2.5 border-b border-line-subtle p-3 text-left transition-colors duration-base ease-standard last:border-b-0 hover:bg-surface-hover"
                   >
                     {flaggedLink ?
                       <TriangleAlert size={16} strokeWidth={1.5} aria-hidden className="text-warning" />

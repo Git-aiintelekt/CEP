@@ -101,7 +101,7 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
                 data-sample={sample.id}
                 onClick={() => setSelectedId(sample.id)}
                 className={`flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors duration-base ease-standard ${
-                  checked ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:bg-surface-subtle'
+                  checked ? 'border-link bg-brand-100' : 'border-line bg-surface hover:bg-surface-hover'
                 }`}
               >
                 <span className={`text-sm font-semibold ${checked ? 'text-brand-800' : 'text-ink-900'}`}>{sample.label}</span>
@@ -162,9 +162,9 @@ export function PreviewTestPane({ sections, hasFooterBlock, tags, onChecksChange
  */
 function OuterEmailStandIn({ hasFooterBlock, children }: { hasFooterBlock: boolean; children: ReactNode }) {
   return (
-    <div data-testid="outer-email" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
+    <div data-testid="outer-email" data-theme="light" className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
       <span className="self-start rounded-sm bg-fill-subtle px-1.5 py-0.5 text-[11px] text-ink-800">Outer design shown as a stand-in</span>
-      <div aria-hidden className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-white">
+      <div aria-hidden className="flex h-14 items-center rounded-sm bg-sidebar px-4 text-sm font-semibold tracking-wide text-on-brand">
         YOUR BRAND
       </div>
       <div aria-hidden className="flex flex-col gap-1.5 px-1">

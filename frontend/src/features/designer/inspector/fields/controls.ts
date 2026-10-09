@@ -1,5 +1,5 @@
 /** The 32px control look, shared so every field lines up. Form.tsx's own is 40px and carries its own margin. */
-const CONTROL_SHAPE = 'h-8 w-full rounded-sm border px-2 text-sm transition-colors duration-base ease-standard focus-visible:border-brand-600'
+const CONTROL_SHAPE = 'h-8 w-full rounded-sm border px-2 text-sm transition-colors duration-base ease-standard focus-visible:border-focus'
 
 const CONTROL_32 = `${CONTROL_SHAPE} bg-surface text-ink-900`
 

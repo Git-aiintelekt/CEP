@@ -20,22 +20,23 @@ const tile = (label: string) => document.querySelector(`[data-kpi="${label}"]`) 
 const member = (denied: string[]): HomeViewer => ({ ...SAMPLE_VIEWER, can: (permission) => !denied.includes(permission) })
 
 // ---------------------------------------------------------------- Needs Attention
-test('alert cards: red, then amber, then periwinkle, larger counts first; three cards until View All; each card one link', async () => {
+test('alert cards: critical, then blocking, then governance, larger counts first; three alerts beside the opportunity until View All; each card one link', async () => {
   const user = userEvent.setup()
   renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [
     group('gov', 'governance', 900), group('block-small', 'blocking', 1), group('crit-small', 'critical', 2), group('block-big', 'blocking', 7), group('crit-big', 'critical', 5),
   ] } }) })
   const cards = () => [...attention().querySelectorAll('[data-alert]')] as HTMLElement[]
-  expect(cards().map((card) => card.getAttribute('data-alert'))).toEqual(['crit-big', 'crit-small'])                     // the opportunity card takes the third slot
+  expect(cards().map((card) => card.getAttribute('data-alert'))).toEqual(['crit-big', 'crit-small', 'block-big'])      // the opportunity card takes the fourth slot
   const first = cards()[0]
   expect(first.tagName).toBe('LI')
-  expect(first.className).toContain('rounded-lg border border-line bg-surface')
-  expect(first.querySelector('[data-severity-icon="critical"]')).toBeTruthy()                                   // the icon on its tint, the count and category in words beside it
-  expect(first.textContent).toContain('5 critical')
+  expect(first.className).toContain('rounded-md bg-surface-subtle')                                             // a grey box inside the section card
+  expect(first.querySelector('[data-severity="critical"] svg')).toBeTruthy()                                    // the severity tag: icon and category in words
+  expect(first.querySelector('[data-severity="critical"]')!.textContent).toBe('critical')
+  expect(first.querySelector('[data-count]')!.textContent).toBe('5')
   expect(first.textContent).toContain('crit-big label')
   expect(within(first).getByRole('link', { name: 'crit-big action' }).getAttribute('href')).toBe('/go/crit-big')
   expect(within(first).getAllByRole('link')).toHaveLength(1)
-  expect(first.closest('ul')!.className).toContain('@min-[1100px]:grid-cols-3')                                 // three cards across on a wide page
+  expect(first.closest('ul')!.className).toContain('@min-[960px]:grid-cols-4')                                  // four cards across on a wide page
   expect(within(attention()).getByText('Updated today at 6:00 AM')).toBeTruthy()
 
   const toggle = within(attention()).getByRole('button', { name: 'View All (5)' })
@@ -45,10 +46,10 @@ test('alert cards: red, then amber, then periwinkle, larger counts first; three 
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
   expect(toggle.textContent).toBe('Show Fewer')
   await user.click(toggle)
-  expect(cards()).toHaveLength(2)
+  expect(cards()).toHaveLength(3)
   cleanup()
   renderHome({ source: { ...withAttention({ status: 'ready', data: { freshness: 'x', groups: [group('a', 'critical', 1), group('b', 'blocking', 1), group('c', 'governance', 1)] } }), useFunnel: () => ({ status: 'ready', data: [] }) } })
-  expect(cards()).toHaveLength(3)                                                                                 // no opportunity: three alerts
+  expect(cards()).toHaveLength(3)                                                                                 // no opportunity: all three alerts fit in the four slots
   expect(within(attention()).queryByRole('button', { name: /View All/ })).toBeNull()
 })
 
@@ -76,9 +77,9 @@ test('no alerts, unavailable or forbidden: no Needs Attention at all, not even i
   expect(screen.queryByRole('region', { name: 'Needs Attention' })).toBeNull()
 })
 
-test('alerts loading show three placeholder cards; an error keeps the section and shows Try Again', () => {
+test('alerts loading show four placeholder cards; an error keeps the section and shows Try Again', () => {
   renderHome({ source: withAttention({ status: 'loading' }) })
-  expect(document.querySelector('[data-attention="loading"]')!.children).toHaveLength(3)
+  expect(document.querySelector('[data-attention="loading"]')!.children).toHaveLength(4)
   cleanup()
   renderHome({ source: withAttention({ status: 'error', error: new Error('Down'), retry: () => undefined }) })
   expect(within(attention()).getByRole('alert').textContent).toContain('Try Again')
@@ -160,22 +161,22 @@ test('without report.view the strip is one line; the filters stay', () => {
 })
 
 // ---------------------------------------------------------------- Create New
-test('Create New: Contact List, Template and Journey outlined, Create Campaign filled, each by permission; each a button for its pop-up, never a link', () => {
+test('Create New: Journey, Template and Contact List outlined, Create Campaign filled, each by permission; each a button for its pop-up, never a link', () => {
   renderHome()
   const tiles = () => within(screen.getByRole('region', { name: 'Create New' })).getAllByRole('button')
-  expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Template', 'Journey', 'Create Campaign'])
+  expect(tiles().map((button) => button.textContent)).toEqual(['Journey', 'Template', 'Contact List', 'Create Campaign'])
   expect(within(screen.getByRole('region', { name: 'Create New' })).queryAllByRole('link')).toHaveLength(0)
   expect(tiles().every((button) => button.getAttribute('aria-haspopup') === 'dialog')).toBe(true)
   expect(tiles()[3].className).toContain('bg-brand-600')
   expect(tiles()[0].className).not.toContain('bg-brand-600')
-  expect(tiles()[0].className).toContain('border-line-control')                                                // Home's neutral outline
+  expect(tiles()[0].className).toContain('border-link')                                                        // the blue outline
   expect(tiles()[0].querySelector('svg')).toBeTruthy()
   cleanup()
   renderHome({ viewer: member(['template.edit', 'journey.edit']) })
   expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Create Campaign'])
   cleanup()
   renderHome({ viewer: { ...SAMPLE_VIEWER, has: (feature) => feature !== 'journeys' } })
-  expect(tiles().map((button) => button.textContent)).toEqual(['Contact List', 'Template', 'Create Campaign'])
+  expect(tiles().map((button) => button.textContent)).toEqual(['Template', 'Contact List', 'Create Campaign'])
 })
 
 test('a viewer with no create permission gets no Create New section at all', () => {
@@ -192,15 +193,16 @@ test('Drip Problems: one grouped card with each problem’s sentence and its own
   const drips: AttentionGroup = { id: 'drip-problems', severity: 'critical', category: 'Drip Problems', count: 2, label: items[0].text, actionLabel: 'Review', href: '/campaigns/d1', items }
   renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [drips] } }) })
   const card = attention().querySelector('[data-alert="drip-problems"]') as HTMLElement
-  expect(card.className).toContain('rounded-lg border border-line bg-surface')
-  expect(card.textContent).toContain('2 Drip Problems')
+  expect(card.className).toContain('rounded-md bg-surface-subtle')
+  expect(card.textContent).toContain('Drip Problems')
+  expect(card.querySelector('[data-count]')!.textContent).toBe('2')
   expect(within(card).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([['Review', '/campaigns/d1'], ['Open', '/campaigns/d2']])
   expect(within(card).getByText(items[1].text)).toBeTruthy()
 
   cleanup()
   renderHome({ source: withAttention({ status: 'ready', data: { freshness: 'Updated today at 6:00 AM', groups: [{ ...drips, category: 'Drip Problem', count: 1, items: [items[1]] }] } }) })
   const one = attention().querySelector('[data-alert="drip-problems"]') as HTMLElement
-  expect(one.textContent).toBe(`1 Drip Problem${items[1].text}Open`)
+  expect(one.textContent).toBe(`Drip Problem1${items[1].text}Open`)
 })
 
 test('the sample Home shows the drip states: Drip Problems, a drip message in Next 7 Days, and Recent’s progress line', async () => {
@@ -210,8 +212,8 @@ test('the sample Home shows the drip states: Drip Problems, a drip message in Ne
   expect(attention().querySelector('[data-alert="drip-problems"]')!.textContent).toContain('Message 3 of Back to School Bundles failed. No one received it.')
   await user.click(within(screen.getByRole('radiogroup', { name: 'Pick a day' })).getAllByRole('radio')[1])
   const run = [...document.querySelectorAll('[data-run]')].find((row) => row.textContent?.includes('Back to School Bundles · Message 4 of 5'))!
-  expect(run.textContent).toMatch(/· 08:00 E[DS]?T/)
-  expect(run.textContent).toContain('Drip · Email')
+  expect(run.textContent).toMatch(/^08:00 E[DS]?T/)
+  expect(run.textContent).toContain('Sat · Drip · Email')
   const recent = createSampleSource('busy').useRecentCampaigns({ campaignIds: [], channel: 'ALL', period: '30d' })
   expect(recent.status === 'ready' && recent.data.rows.find((row) => row.id === 'c09')?.contextLine).toBe('Drip · 3 of 5 messages sent')
 })

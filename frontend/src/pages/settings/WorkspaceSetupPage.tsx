@@ -33,7 +33,7 @@ function Mark({ step, number, current }: { step: SetupStep; number: number; curr
       </span>
     )
   }
-  const tone = current ? 'bg-brand-600 text-white' : step.state === 'warn' ? 'bg-warning-bg text-warning-text' : 'border border-line bg-fill-subtle text-ink-800'
+  const tone = current ? 'bg-brand-600 text-on-brand' : step.state === 'warn' ? 'bg-warning-bg text-warning-text' : 'border border-line bg-fill-subtle text-ink-800'
   return <span aria-hidden className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${tone}`}>{number}</span>
 }
 

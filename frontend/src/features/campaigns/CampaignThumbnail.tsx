@@ -35,7 +35,7 @@ function Failed({ onRetry }: { onRetry: () => void }) {
   return (
     <p className="flex min-h-60 flex-wrap items-center justify-center gap-2 text-sm text-ink-800">
       Couldn’t load the preview
-      <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
+      <button type="button" onClick={onRetry} className="font-semibold text-link hover:underline">Retry</button>
     </p>
   )
 }

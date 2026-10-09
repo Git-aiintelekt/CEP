@@ -5,7 +5,7 @@ const LOOK = {
   /** the quick view's footer */
   plain: { button: 'h-8 gap-1.5 rounded-control-md px-2 text-helper font-medium hover:bg-fill-subtle', icon: 16 },
   /** among the campaign page's header chips */
-  chip: { button: 'h-6 gap-1 rounded-control-sm border border-line px-2 text-xs font-semibold hover:bg-surface-subtle', icon: 12 },
+  chip: { button: 'h-6 gap-1 rounded-control-sm border border-line px-2 text-xs font-semibold hover:bg-surface-hover', icon: 12 },
 }
 
 /** "ID {code}": copies the campaign code, shows a check for a moment and says so to screen readers */

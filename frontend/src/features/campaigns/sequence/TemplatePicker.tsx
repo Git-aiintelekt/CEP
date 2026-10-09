@@ -36,7 +36,7 @@ interface TemplatePickerProps {
   onClose: () => void
 }
 
-const CARD = 'group flex w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition-colors duration-fast ease-standard hover:border-brand-600'
+const CARD = 'group flex w-full flex-col overflow-hidden rounded-lg border border-line bg-surface text-left transition-colors duration-fast ease-standard hover:border-link'
 
 export function TemplatePicker({ channel, campaignId, onPick, takesStarter = false, onClose }: TemplatePickerProps) {
   const { can } = useAuth()

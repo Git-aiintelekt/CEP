@@ -32,17 +32,17 @@ function BrandPanel() {
       <div aria-hidden className="cep-auth-vignette absolute inset-0 z-0" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-white">CEP</span>
-        <span aria-hidden className="h-4 w-px bg-brand-100/30" />
-        <span className="text-helper text-brand-100">Customer Engagement Platform</span>
+        <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-on-brand">CEP</span>
+        <span aria-hidden className="h-4 w-px bg-on-brand-soft/30" />
+        <span className="text-helper text-on-brand-soft">Customer Engagement Platform</span>
       </div>
 
       <div className="relative z-10 flex max-w-[clamp(440px,26vw,640px)] flex-col gap-5">
         <span aria-hidden className="h-0.5 w-10 bg-brand-600" />
-        <h1 className="text-[clamp(2.5rem,2.2vw,3.5rem)] leading-[1.16] font-semibold text-white text-pretty">
+        <h1 className="text-[clamp(2.5rem,2.2vw,3.5rem)] leading-[1.16] font-semibold text-on-brand text-pretty">
           Every customer signal, orchestrated into action.
         </h1>
-        <p className="text-[clamp(0.9375rem,0.85vw,1.125rem)] leading-relaxed text-brand-100 text-pretty">
+        <p className="text-[clamp(0.9375rem,0.85vw,1.125rem)] leading-relaxed text-on-brand-soft text-pretty">
           Plan, launch and measure engagement across email, SMS, MMS and e-receipts from one workspace.
         </p>
       </div>
@@ -100,7 +100,7 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="self-start rounded-sm text-helper font-medium text-brand-600 transition-colors hover:text-brand-800"
+      className="self-start rounded-sm text-helper font-medium text-link transition-colors hover:text-link-hover"
     >
       {children}
     </button>
@@ -108,12 +108,12 @@ export function AuthLink({ children, onClick }: { children: ReactNode; onClick: 
 }
 
 export const authButtonPrimary =
-  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 active:bg-wordmark-navy disabled:bg-fill-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-fill-hover active:bg-brand-fill-pressed disabled:bg-fill-subtle disabled:text-ink-300'
 export const authButtonSecondary =
-  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-white transition-colors hover:bg-brand-800 disabled:bg-fill-subtle disabled:text-ink-300'
+  'flex h-10 w-full items-center justify-center rounded-control-lg bg-brand-600 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-fill-hover disabled:bg-fill-subtle disabled:text-ink-300'
 
 const CONTROL =
-  'h-10 w-full rounded-control-lg border bg-surface-sunken px-3 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-brand-600'
+  'h-10 w-full rounded-control-lg border bg-surface-sunken px-3 text-sm text-ink-900 transition-colors focus:bg-surface focus-visible:border-focus'
 
 /** A labelled control in the design's language: 13px label, sunken field, red border while the value is refused. */
 export function AuthField({

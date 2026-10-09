@@ -124,7 +124,7 @@ export function PaddingField({ label, value, effective, onPreview, onCommit, onC
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
               disabled && linked ? 'border-ink-300 bg-fill-muted text-ink-800'
               : disabled ? 'border-line bg-fill-subtle text-ink-300'
-              : linked ? 'border-brand-600 bg-brand-100 text-brand-800'
+              : linked ? 'border-link bg-brand-100 text-brand-800'
               : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
             }`}
           >

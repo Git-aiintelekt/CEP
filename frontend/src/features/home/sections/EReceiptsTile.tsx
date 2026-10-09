@@ -1,4 +1,3 @@
-import { Receipt } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { ErrorState, SkeletonLine } from '@/components/States'
@@ -16,13 +15,13 @@ export function EReceiptsTile({ filters }: { filters: HomeFilters }) {
   const result = source.useEReceipts(filters)
   if (result.status === 'unavailable' || (result.status === 'ready' && result.data === null)) return null
   return (
-    <HomeCard title="E-Receipts" icon={Receipt}
-      actions={<Link to="/campaigns?type=E_RECEIPT" className={`${buttonClass({ variant: 'link', size: 'sm' })} -mr-3`}>View E-Receipts</Link>}>
+    <HomeCard title="E-Receipts"
+      actions={<Link to="/campaigns?type=E_RECEIPT" className={buttonClass({ variant: 'secondary', size: 'sm' })}>View E-Receipts</Link>}>
       {result.status === 'loading' ? <div className="flex flex-col gap-3"><SkeletonLine width="60%" height={28} /><SkeletonLine width="60%" height={28} /></div>
         : result.status === 'error' ? <ErrorState error={result.error} onRetry={result.retry} title="E-receipt figures could not be loaded" />
         : (
           <div className="flex h-full flex-col gap-3">
-            <div data-receipts className="grid grid-cols-2 gap-3">
+            <div data-receipts className="grid grid-cols-2 gap-x-4 gap-y-5">
               <Figure label="Receipts Sent" value={formatNumber(result.data!.sent)} />
               <Figure label="Open Rate" value={formatPercent(result.data!.openRate)} />
               <Figure label="Offer Clicks" value={formatNumber(result.data!.offerClicks)} />

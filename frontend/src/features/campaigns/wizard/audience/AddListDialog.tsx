@@ -29,7 +29,7 @@ const fromSource = (list: ContactList, source: Source) =>
 function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: string }) {
   return (
     <button type="button" aria-pressed={pressed} onClick={onClick}
-      className={`h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${pressed ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`}>
+      className={`h-8 rounded-control-md border px-3 text-helper font-semibold transition-colors duration-fast ease-standard ${pressed ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`}>
       {children}
     </button>
   )
@@ -115,7 +115,7 @@ export function AddListDialog({ purpose, lists, sendTo, leftOut, canMake, onAdd,
                   const elsewhere = other.includes(list.id)
                   return (
                     <li key={list.id}>
-                      <label className={`flex items-start gap-3 px-4 py-3 ${already || elsewhere ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-surface-subtle'}`}>
+                      <label className={`flex items-start gap-3 px-4 py-3 ${already || elsewhere ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-surface-hover'}`}>
                         <input type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-600" aria-label={list.name}
                           checked={already || picked.includes(list.id)} disabled={already || elsewhere} onChange={(event) => toggle(list.id, event.target.checked)} />
                         <span className="flex min-w-0 flex-1 flex-col gap-1">

@@ -37,7 +37,7 @@ export function Popover({ label, title, onClose, width, placement = 'bottom-star
       role="region"
       aria-label={label}
       style={{ ...(width ? { width, maxWidth: 'calc(100vw - 32px)' } : {}), ...style }}
-      className={`${placement === 'none' ? '' : `absolute ${PLACEMENT[placement]}`} z-40 overflow-hidden rounded-md border border-line bg-surface shadow-menu animate-popover-in motion-reduce:animate-none ${className}`}
+      className={`${placement === 'none' ? '' : `absolute ${PLACEMENT[placement]}`} z-40 overflow-hidden rounded-md border border-line bg-surface-overlay shadow-menu animate-popover-in motion-reduce:animate-none ${className}`}
     >
       {title !== undefined && (
         <PopoverHeading sticky={stickyHeader} end={onClose && <IconButton label="Close" icon={X} size="xs" onClick={onClose} className="-my-1 -mr-1" />}>

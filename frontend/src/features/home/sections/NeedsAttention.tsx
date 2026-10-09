@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react'
+import { ArrowRight, TrendingUp } from 'lucide-react'
 import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -6,82 +6,79 @@ import { ErrorState } from '@/components/States'
 import { buttonClass } from '@/components/buttonStyles'
 import { formatNumber } from '@/lib/format'
 
-import { SeverityIcon } from '../components/HomeTags'
+import { SeverityTag } from '../components/HomeTags'
+import { SectionHeader } from '../components/SectionHeader'
 import type { Attention, AttentionGroup, FunnelChannel, SectionResult } from '../data/types'
 import { insightFrom, type Insight } from '../insightFrom'
 import { rankGroups } from '../rankGroups'
 
-const SHOWN = 3
-const CARD = 'flex min-h-[88px] items-center gap-4 rounded-lg border border-line bg-surface px-4 py-3'
+const SHOWN = 4
+const BOX = 'flex min-h-[176px] min-w-0 flex-col items-start gap-2 rounded-md bg-surface-subtle px-5 py-4'
+const ACTION = 'inline-flex items-center gap-1.5 self-start text-sm font-semibold text-link hover:text-link-hover hover:underline'
 
-/** "1 Delivery Failure", "4 Campaigns Awaiting Production Publish": the count with the group's category */
-function title(group: AttentionGroup): string {
-  return `${formatNumber(group.count)}${group.atLeast ? '+' : ''} ${group.category}`
+function Action({ href, label, describedAs }: { href: string; label: string; describedAs?: string }) {
+  return (
+    <Link to={href} aria-label={describedAs ? `${label}: ${describedAs}` : undefined} className={ACTION}>
+      {label}<ArrowRight size={16} strokeWidth={1.5} aria-hidden />
+    </Link>
+  )
 }
 
-/** a group of separate problems (Drip Problems): each sentence with its own link; one problem reads like any other card */
-function ItemsCard({ group }: { group: AttentionGroup }) {
-  const items = group.items ?? []
-  if (items.length === 1) {
-    return (
-      <li className={CARD} data-alert={group.id}>
-        <SeverityIcon severity={group.severity} />
-        <span className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
-          <span data-severity={group.severity} className="line-clamp-2 text-helper text-ink-800">{items[0].text}</span>
-        </span>
-        <Link to={items[0].href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{items[0].actionLabel}</Link>
-      </li>
-    )
-  }
+/** The count, large, with "+" when it is a floor */
+function Count({ group }: { group: AttentionGroup }) {
+  return <span data-count className="font-display text-kpi font-semibold text-ink-900 cep-num">{formatNumber(group.count)}{group.atLeast ? '+' : ''}</span>
+}
+
+/** One alert group as a grey box: its severity tag, the count, the sentence, and the way to fix it. A group of separate problems (Drip Problems) lists each with its own link. */
+function AlertBox({ group }: { group: AttentionGroup }) {
+  const items = group.items ?? null
   return (
-    <li className={`${CARD} items-start`} data-alert={group.id}>
-      <SeverityIcon severity={group.severity} />
-      <span className="flex min-w-0 flex-1 flex-col gap-1.5 leading-tight">
-        <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
-        <ul data-severity={group.severity} className="flex flex-col gap-1.5">
+    <li className={BOX} data-alert={group.id}>
+      <SeverityTag severity={group.severity} label={group.category} />
+      <Count group={group} />
+      {items === null ? (
+        <>
+          <span data-severity={group.severity} className="text-sm text-ink-800">{group.label}</span>
+          <span className="mt-auto pt-2"><Action href={group.href} label={group.actionLabel} /></span>
+        </>
+      ) : items.length === 1 ? (
+        <>
+          <span data-severity={group.severity} className="line-clamp-3 text-sm text-ink-800">{items[0].text}</span>
+          <span className="mt-auto pt-2"><Action href={items[0].href} label={items[0].actionLabel} /></span>
+        </>
+      ) : (
+        <ul data-severity={group.severity} className="flex flex-col gap-2">
           {items.map((item) => (
-            <li key={item.id} className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 text-helper text-ink-800">{item.text}</span>
-              <Link to={item.href} aria-label={`${item.actionLabel}: ${item.text}`} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{item.actionLabel}</Link>
+            <li key={item.id} className="flex flex-col gap-0.5">
+              <span className="text-sm text-ink-800">{item.text}</span>
+              <Action href={item.href} label={item.actionLabel} describedAs={item.text} />
             </li>
           ))}
         </ul>
-      </span>
+      )}
     </li>
   )
 }
 
-function AlertCard({ group }: { group: AttentionGroup }) {
-  if (group.items) return <ItemsCard group={group} />
+function InsightBox({ insight }: { insight: Insight }) {
   return (
-    <li className={CARD} data-alert={group.id}>
-      <SeverityIcon severity={group.severity} />
-      <span className="flex min-w-0 flex-1 flex-col leading-tight">
-        <span className="truncate text-sm font-semibold text-ink-900">{title(group)}</span>
-        <span data-severity={group.severity} className="truncate text-helper text-ink-800">{group.label}</span>
+    <li className={BOX} data-insight>
+      <span className="inline-flex h-[22px] shrink-0 items-center gap-1 self-start rounded-sm bg-brand-100 px-2 text-xs font-semibold whitespace-nowrap text-brand-800">
+        <TrendingUp size={12} strokeWidth={1.5} aria-hidden />Opportunity
       </span>
-      <Link to={group.href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">{group.actionLabel}</Link>
+      <span className="text-card-title font-semibold text-ink-900">{insight.title}</span>
+      <span className="text-sm text-ink-800">{insight.detail}</span>
+      <span className="mt-auto pt-2"><Action href={insight.href} label="View Insight" /></span>
     </li>
   )
 }
 
-function InsightCard({ insight }: { insight: Insight }) {
-  return (
-    <li className={CARD} data-insight>
-      <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md bg-brand-100 text-brand-800"><TrendingUp size={16} strokeWidth={1.5} /></span>
-      <span className="flex min-w-0 flex-1 flex-col leading-tight">
-        <span className="text-sm font-semibold text-ink-900">{insight.title}</span>
-        <span className="text-helper text-ink-800">{insight.detail}</span>
-      </span>
-      <Link to={insight.href} className="shrink-0 text-sm font-semibold text-brand-600 hover:underline">View Insight</Link>
-    </li>
-  )
-}
+const GRID = 'grid grid-cols-1 gap-4 @min-[640px]:grid-cols-2 @min-[960px]:grid-cols-4'
 
 /**
- * The alert groups as cards under the greeting, most severe first, with the opportunity card after them; three cards show
- * until View All. The page leaves the section out when there are no groups (see homeLayout).
+ * One card under the greeting: the alert groups as grey boxes, most severe first, with the opportunity after them; four
+ * show until View All. When the alerts were last checked sits in the header. The page leaves the section out when there
+ * are no groups (see homeLayout).
  */
 export function NeedsAttention({ result, funnel }: { result: SectionResult<Attention>; funnel?: SectionResult<FunnelChannel[]> }) {
   const [all, setAll] = useState(false)
@@ -89,35 +86,33 @@ export function NeedsAttention({ result, funnel }: { result: SectionResult<Atten
   const gridId = useId()
   const groups = result.status === 'ready' ? rankGroups(result.data.groups) : []
   const insight = funnel?.status === 'ready' ? insightFrom(funnel.data) : null
-  // the opportunity card takes one of the three slots when there is one
+  // the opportunity takes one of the four slots when there is one
   const room = insight ? SHOWN - 1 : SHOWN
   const more = groups.length > room
   const shown = all ? groups : groups.slice(0, room)
 
   return (
-    <section aria-labelledby={titleId} className="flex min-w-0 flex-col gap-3">
-      <h2 id={titleId} className="sr-only">Needs Attention</h2>
-      {result.status === 'error' ? <ErrorState error={result.error} onRetry={result.retry} title="Alerts could not be loaded" />
-        : result.status === 'loading' ? (
-          <div data-attention="loading" className="grid grid-cols-1 gap-4 @min-[768px]:grid-cols-2 @min-[1100px]:grid-cols-3">
-            {Array.from({ length: SHOWN }, (_, index) => <div key={index} aria-hidden className={`${CARD} animate-pulse`}><span className="h-8 w-8 rounded-control-md bg-surface-sunken" /><span className="h-4 flex-1 rounded-sm bg-surface-sunken" /></div>)}
-          </div>
-        ) : (
-          <ul id={gridId} className="grid grid-cols-1 gap-4 @min-[768px]:grid-cols-2 @min-[1100px]:grid-cols-3">
-            {shown.map((group) => <AlertCard key={group.id} group={group} />)}
-            {insight && <InsightCard insight={insight} />}
-          </ul>
-        )}
-      {result.status === 'ready' && (
-        <p className="flex items-center gap-3 text-helper text-ink-800">
-          <span className="inline-flex items-center gap-2"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />{result.data.freshness}</span>
-          {more && (
-            <button type="button" aria-expanded={all} aria-controls={gridId} className={`${buttonClass({ variant: 'link', size: 'sm' })} -ml-1`} onClick={() => setAll(!all)}>
-              {all ? 'Show Fewer' : `View All (${groups.length})`}
-            </button>
+    <section aria-labelledby={titleId} className="@container flex min-w-0 flex-col rounded-lg border border-line bg-surface">
+      <SectionHeader level="card" title="Needs Attention" titleId={titleId} count={result.status === 'ready' ? groups.length : undefined} countTone="danger"
+        actions={result.status === 'ready' ? <span className="text-helper text-ink-800">{result.data.freshness}</span> : undefined} />
+      <div className="px-6 pt-1 pb-6">
+        {result.status === 'error' ? <ErrorState error={result.error} onRetry={result.retry} title="Alerts could not be loaded" />
+          : result.status === 'loading' ? (
+            <div data-attention="loading" className={GRID}>
+              {Array.from({ length: SHOWN }, (_, index) => <div key={index} aria-hidden className={`${BOX} animate-pulse`}><span className="h-5 w-20 rounded-sm bg-fill-muted" /><span className="h-7 w-12 rounded-sm bg-fill-muted" /><span className="h-4 w-3/4 rounded-sm bg-fill-muted" /></div>)}
+            </div>
+          ) : (
+            <ul id={gridId} className={GRID}>
+              {shown.map((group) => <AlertBox key={group.id} group={group} />)}
+              {insight && <InsightBox insight={insight} />}
+            </ul>
           )}
-        </p>
-      )}
+        {more && (
+          <button type="button" aria-expanded={all} aria-controls={gridId} className={`${buttonClass({ variant: 'secondary', size: 'sm' })} mt-4`} onClick={() => setAll(!all)}>
+            {all ? 'Show Fewer' : `View All (${groups.length})`}
+          </button>
+        )}
+      </div>
     </section>
   )
 }

@@ -96,7 +96,7 @@ export function TextArea({ invalid = false, warning = false, describedBy, tone, 
       {...props}
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
-      className={`${CONTROL_BASE} mt-1 rounded-control-lg px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
+      className={`${CONTROL_BASE} mt-1 rounded-md px-3 py-2 ${FILL[tone ?? 'default']} ${borderClass(invalid, warning)} ${className}`}
     />
   )
 }
@@ -127,8 +127,8 @@ export function FormSection({ title, description, children }: { title: string; d
 // Class-string aliases for pages that style a link or plain button; new code uses <Button>.
 // Literals so fast refresh keeps working; a test holds them equal to buttonClass().
 export const buttonPrimary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonSecondary =
-  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800 disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
+  'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-link bg-surface text-link hover:border-brand-800 hover:bg-brand-100 hover:text-link-hover active:border-brand-800 active:bg-brand-100 active:text-link-hover disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'
 export const buttonDanger =
   'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300'

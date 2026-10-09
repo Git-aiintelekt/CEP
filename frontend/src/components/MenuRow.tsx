@@ -31,7 +31,7 @@ export function MenuRow({ title, detail, leading, trailing, tone = 'default', se
   const state =
     disabled ? 'cursor-not-allowed text-ink-300'
     : selected ? 'bg-surface-subtle'
-    : 'hover:bg-surface-subtle active:bg-fill-subtle'
+    : 'hover:bg-surface-hover active:bg-fill-subtle'
   return (
     <button
       {...props}

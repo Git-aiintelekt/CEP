@@ -156,7 +156,7 @@ function PanelRow({ tag, onPick, disabled }: Omit<RowsProps, 'tags' | 'layout'> 
       aria-disabled={disabled || undefined}
       title={[tag.label, tag.sample_value ? `e.g. ${tag.sample_value}` : '', fallback].filter(Boolean).join(' — ')}
       onClick={disabled ? undefined : () => onPick(tag.tag_key)}
-      className={`flex w-full flex-col items-start gap-px px-3 py-1.5 text-left ${disabled ? 'bg-fill-subtle' : 'hover:bg-surface-subtle'}`}
+      className={`flex w-full flex-col items-start gap-px px-3 py-1.5 text-left ${disabled ? 'bg-fill-subtle' : 'hover:bg-surface-hover'}`}
     >
       <span className={`w-full truncate text-xs font-semibold ${disabled ? 'text-ink-300' : 'text-ink-900'}`}>{tag.label}</span>
       <span className={`w-full truncate font-mono text-[11px] ${disabled ? 'text-ink-300' : 'text-brand-800'}`}>{asToken(tag.tag_key)}</span>

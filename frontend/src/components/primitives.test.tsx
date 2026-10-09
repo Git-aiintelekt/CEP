@@ -53,10 +53,10 @@ test('the class-string aliases stay identical to the Button looks', () => {
 test('secondary is a white outline in Blue 600, Blue 100 with Blue 800 on hover and press, and the default variant', () => {
   render(<Button>Cancel</Button>)
   const secondary = screen.getByRole('button', { name: 'Cancel' }).className
-  expect(secondary).toContain('border border-brand-600 bg-surface text-brand-600')
-  expect(secondary).toContain('hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800')
-  expect(secondary).toContain('active:border-brand-800 active:bg-brand-100 active:text-brand-800')
-  expect(secondary).not.toMatch(/(^| )bg-brand-600|text-white|opacity|scale/)
+  expect(secondary).toContain('border border-link bg-surface text-link')
+  expect(secondary).toContain('hover:border-brand-800 hover:bg-brand-100 hover:text-link-hover')
+  expect(secondary).toContain('active:border-brand-800 active:bg-brand-100 active:text-link-hover')
+  expect(secondary).not.toMatch(/(^| )bg-brand-600|text-on-brand|opacity|scale/)
   expect(buttonClass()).toBe(buttonClass({ variant: 'secondary' }))
   expect(buttonClass({ size: 'sm' })).toContain('h-8 px-3 rounded-control-md')
   expect(secondary).toContain('h-10 px-4 rounded-control-lg')
@@ -66,7 +66,7 @@ test('a disabled secondary takes the standard disabled look with a visible grey 
   render(<><Button softDisabled>Soft</Button><Button disabled>Native</Button></>)
   const soft = screen.getByRole('button', { name: 'Soft' }).className
   expect(soft).toContain('cursor-not-allowed border border-line bg-fill-subtle text-ink-300')
-  expect(soft).not.toContain('border-brand-600')
+  expect(soft).not.toContain('border-link')
   expect(soft).not.toContain('hover:')
   const native = screen.getByRole('button', { name: 'Native' }).className
   expect(native).toContain('disabled:cursor-not-allowed disabled:border-line disabled:bg-fill-subtle disabled:text-ink-300')
@@ -75,7 +75,7 @@ test('a disabled secondary takes the standard disabled look with a visible grey 
 
 test('primary is unchanged: the only solid blue button', () => {
   expect(buttonClass({ variant: 'primary' })).toBe(
-    'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800 disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
+    'inline-flex shrink-0 items-center justify-center gap-2 text-button font-medium whitespace-nowrap transition-colors duration-fast ease-standard h-10 px-4 rounded-control-lg bg-brand-600 text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed disabled:cursor-not-allowed disabled:bg-fill-subtle disabled:text-ink-300',
   )
   expect(buttonClass({ variant: 'primary', disabled: true })).toContain('cursor-not-allowed border-line bg-fill-subtle text-ink-300')
 })

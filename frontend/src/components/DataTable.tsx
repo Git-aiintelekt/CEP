@@ -31,6 +31,9 @@ interface DataTableProps<T> {
   phone?: 'cards' | 'table'
   /** extra classes for one row: a tint for a row that needs attention */
   rowClassName?: (row: T) => string
+  /** 'relaxed' (default) is the Campaigns list: 72px rows, a 48px header with no fill, 24px at the outer edges.
+      'compact' is for numeric grids (the default with phone="table"): 44px rows and a 40px header */
+  density?: 'relaxed' | 'compact'
 }
 
 export interface RowExpansion<T> {
@@ -79,7 +82,7 @@ function StackedCards<T>({ columns, rows, rowKey, onRowClick, caption, primary, 
           onClick={onRowClick ? () => onRowClick(row) : undefined}
           onKeyDown={onRowClick ? (event) => event.key === 'Enter' && onRowClick(row) : undefined}
           tabIndex={onRowClick ? 0 : undefined}
-          className={`rounded-lg border border-line bg-surface p-4 ${onRowClick ? 'cursor-pointer transition-colors hover:bg-surface-subtle' : ''} ${rowClassName?.(row) ?? ''}`}
+          className={`rounded-lg border border-line bg-surface p-4 ${onRowClick ? 'cursor-pointer transition-colors hover:bg-surface-hover' : ''} ${rowClassName?.(row) ?? ''}`}
         >
           {lead && <div className="mb-2 text-card-title font-semibold text-ink-900" data-primary>{lead.render(row)}</div>}
           <dl className="divide-y divide-line-subtle">
@@ -151,28 +154,31 @@ function CompactTable<T>({ columns, rows, rowKey, caption, inset = 'default' }: 
   )
 }
 
-function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, inset = 'default', expand, rowClassName }: DataTableProps<T>) {
+function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, inset = 'default', expand, rowClassName, phone, density = phone === 'table' ? 'compact' : 'relaxed' }: DataTableProps<T>) {
   const [open, toggle] = useOpenRows(expand?.initiallyOpen)
   const baseId = useId()
-  const edge = inset === 'card' ? 'first:pl-6 last:pr-6' : ''
+  const relaxed = density === 'relaxed'
+  // relaxed always keeps 24px at the outer edges, as the Campaigns list does; compact only inside a card
+  const edge = relaxed || inset === 'card' ? 'first:pl-6 last:pr-6' : ''
+  const gap = relaxed ? 'px-2' : 'px-4'
   return (
     <div className={`overflow-x-auto bg-surface ${framed ? 'rounded-lg border border-line' : 'rounded-b-lg'}`}>
-      <table className="min-w-full divide-y divide-line text-sm">
+      <table className="min-w-full text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="bg-surface-subtle">
-          <tr>
+        <thead>
+          <tr className={`border-b border-line ${relaxed ? 'h-12' : 'h-10'}`}>
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
-                className={`h-10 px-4 ${edge} text-label font-medium text-ink-800 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
+                className={`${gap} ${edge} text-sm font-semibold whitespace-nowrap text-ink-900 ${column.align === 'right' ? 'text-right' : 'text-left'}`}
               >
                 {column.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className="divide-y divide-line-subtle">
           {rows.map((row) => {
             const key = rowKey(row)
             const expandable = Boolean(expand) && (expand?.canExpand?.(row) ?? true)
@@ -191,12 +197,12 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
                       : undefined
                   }
                   tabIndex={onRowClick ? 0 : undefined}
-                  className={`${onRowClick ? 'h-10 cursor-pointer transition-colors hover:bg-surface-subtle xl:h-12' : 'h-10 xl:h-12'} ${rowClassName?.(row) ?? ''}`}
+                  className={`${relaxed ? 'h-[72px]' : 'h-11'} ${onRowClick ? 'cursor-pointer transition-colors duration-fast ease-standard hover:bg-surface-hover' : ''} ${rowClassName?.(row) ?? ''}`}
                 >
                   {columns.map((column, index) => (
                     <td
                       key={column.key}
-                      className={`px-4 ${edge} align-middle text-ink-800 ${column.align === 'right' ? 'cep-num text-right' : ''} ${column.className ?? ''}`}
+                      className={`${gap} ${relaxed ? 'py-3' : 'py-2'} ${edge} align-middle text-ink-800 ${column.align === 'right' ? 'cep-num text-right' : ''} ${column.className ?? ''}`}
                     >
                       {expand && index === 0 ? (
                         <span className="flex items-center gap-2">
@@ -209,7 +215,7 @@ function Table<T>({ columns, rows, rowKey, onRowClick, caption, framed = true, i
                 </tr>
                 {isOpen && (
                   <tr id={detailId} data-expanded-row>
-                    <td colSpan={columns.length} className={`bg-surface-subtle px-4 py-5 ${inset === 'card' ? 'pl-6 pr-6' : ''}`}>{expand!.render(row)}</td>
+                    <td colSpan={columns.length} className={`bg-surface-subtle px-4 py-5 ${relaxed || inset === 'card' ? 'pl-6 pr-6' : ''}`}>{expand!.render(row)}</td>
                   </tr>
                 )}
               </Fragment>

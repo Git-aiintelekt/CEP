@@ -26,8 +26,8 @@ type StepState = 'done' | 'current' | 'ahead'
 const stateOf = (index: number, current: number, completed: number): StepState => (index === current ? 'current' : index < completed ? 'done' : 'ahead')
 
 const CIRCLE: Record<StepState, string> = {
-  done: 'border-brand-600 bg-brand-600 text-white',
-  current: 'border-brand-600 bg-brand-100 text-brand-800',
+  done: 'border-brand-600 bg-brand-600 text-on-brand',
+  current: 'border-link bg-brand-100 text-brand-800',
   ahead: 'border-line bg-surface text-ink-300',
 }
 
@@ -44,7 +44,7 @@ function StepCircle({ state, number, small = false }: { state: StepState; number
 export function HoverTip({ label, show }: { label: string; show: string }) {
   return (
     <span aria-hidden data-tooltip
-      className={`pointer-events-none absolute top-full left-1/2 z-30 mt-2 hidden -translate-x-1/2 rounded-sm bg-ink-900 px-2 py-1 text-xs font-medium whitespace-nowrap text-white ${show}`}>
+      className={`pointer-events-none absolute top-full left-1/2 z-30 mt-2 hidden -translate-x-1/2 rounded-sm bg-toast px-2 py-1 text-xs font-medium whitespace-nowrap text-on-brand ${show}`}>
       {label}
     </span>
   )
@@ -63,7 +63,7 @@ export function FlowStepper({ steps, current, reached, completed, onGo }: Steppe
             <li key={label} className="flex shrink-0 items-center">
               {index > 0 && <span aria-hidden data-connector className="mx-4 h-px w-14 shrink-0 bg-fill-subtle @max-[1339px]:mx-2 @max-[1339px]:w-5" />}
               <button type="button" disabled={index > reached} aria-current={state === 'current' ? 'step' : undefined} onClick={() => onGo(index)}
-                className="group relative flex items-center gap-3 rounded-control-md px-2 py-1 whitespace-nowrap transition-colors duration-fast ease-standard enabled:hover:bg-surface-subtle disabled:cursor-default @max-[1339px]:gap-2 @max-[1339px]:px-1">
+                className="group relative flex items-center gap-3 rounded-control-md px-2 py-1 whitespace-nowrap transition-colors duration-fast ease-standard enabled:hover:bg-surface-hover disabled:cursor-default @max-[1339px]:gap-2 @max-[1339px]:px-1">
                 <StepCircle state={state} number={index + 1} />
                 <span data-step-label className={`text-card-title @max-[1339px]:text-sm ${LABEL[state]}`}>{label}</span>
                 {done && <span className="sr-only">, completed</span>}
@@ -90,7 +90,7 @@ export function FlowStepMenu({ steps, current, reached, completed, onGo }: Stepp
     <div className="relative">
       <button ref={trigger} type="button" aria-expanded={open} aria-controls={open ? menuId : undefined} onClick={() => setOpen(!open)}
         onKeyDown={(event) => { if (event.key === 'Escape' && open) { event.preventDefault(); setOpen(false) } }}
-        className="flex items-center gap-1.5 rounded-control-sm px-1.5 py-1 text-helper font-semibold text-ink-900 hover:bg-surface-subtle">
+        className="flex items-center gap-1.5 rounded-control-sm px-1.5 py-1 text-helper font-semibold text-ink-900 hover:bg-surface-hover">
         Step {current + 1} of {steps.length} · {steps[current]}
         <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" />
       </button>

@@ -7,6 +7,7 @@ import { Fragment, type ReactNode } from 'react'
 
 import { greetingFor } from '@/lib/format'
 
+import { HomeFilterBar } from './components/HomeFilterBar'
 import { createNewTiles } from './createNewTiles'
 import { useHomeData } from './data/homeDataContext'
 import type { HomeFilters, SectionResult } from './data/types'
@@ -36,14 +37,12 @@ function availabilityOf<T>(result: SectionResult<T>, isEmpty: (data: T) => boole
 interface CardProps {
   card: CardKey
   filters: HomeFilters
-  onChange: (next: Partial<HomeFilters>) => void
-  onClear: () => void
   singleCampaign: boolean
 }
 
-function Card({ card, filters, onChange, onClear, singleCampaign }: CardProps) {
+function Card({ card, filters, singleCampaign }: CardProps) {
   switch (card) {
-    case 'revenueCost': return <RevenueCost filters={filters} onChange={onChange} onClear={onClear} singleCampaign={singleCampaign} />
+    case 'revenueCost': return <RevenueCost filters={filters} singleCampaign={singleCampaign} />
     case 'funnel': return <EngagementFunnel filters={filters} />
     case 'topBottom': return <TopCampaigns filters={filters} />
     case 'schedule': return <NextSevenDays filters={filters} />
@@ -56,8 +55,8 @@ function Card({ card, filters, onChange, onClear, singleCampaign }: CardProps) {
 
 /** by the page's own width (the rail takes some of the window), as the design measures it */
 const COLUMNS: Record<Exclude<LayoutRow['layout'], 'full'>, string> = {
-  '2:1': '@min-[1100px]:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]',
-  '1:2': '@min-[1100px]:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)]',
+  '2:1': '@min-[960px]:grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)]',
+  '1:2': '@min-[960px]:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)]',
   '1:1': '@min-[840px]:grid-cols-2',
   thirds: '@min-[840px]:grid-cols-2 @min-[1100px]:grid-cols-3',
 }
@@ -101,20 +100,23 @@ export function HomePage() {
       eReceipts: availabilityOf(eReceipts, (data) => data === null),
     },
   })
-  const render = (card: CardKey) => <Card card={card} filters={filters} onChange={setFilters} onClear={clearFilters} singleCampaign={layout.singleCampaign} />
+  const render = (card: CardKey) => <Card card={card} filters={filters} singleCampaign={layout.singleCampaign} />
   const greeting = greetingFor(new Date(), viewer.timezone)
 
   return (
     <HomeIntro>
-      {/* the plum wash fills the sheet edge to edge, under the shell's own padding */}
-      <div data-home className="cep-home-wash @container -mx-4 -my-5 flex min-h-full min-w-0 flex-col gap-5 rounded-tl-xl px-4 pt-6 pb-12 md:-mx-8 md:-my-6 md:px-8 md:pt-7">
+      <div data-home className="cep-home-wash @container flex min-h-full min-w-0 flex-col gap-5 pb-6">
         <div data-greeting-row className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <span className="flex min-w-0 items-center gap-1.5"><h1 className="min-w-0 truncate font-display text-page-title font-semibold text-ink-900">{viewer.firstName ? `${greeting}, ${viewer.firstName}` : greeting}</h1><PageHelp chapter="home" /></span>
           {layout.createNew && <CreateNew tiles={tiles} />}
         </div>
-        {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}
         <SetupCard result={setup} />
+        <div data-performance-row className="mt-1 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <h2 className="font-display text-section-title font-semibold text-ink-900">Marketing Performance</h2>
+          <HomeFilterBar filters={filters} onChange={setFilters} onClear={clearFilters} />
+        </div>
         <KeyFigures filters={filters} revenueCost={revenueCost} />
+        {layout.attention && <NeedsAttention result={attention} funnel={funnel} />}
         {layout.rows.map((row) => <CardRow key={row.name} row={row} render={render} />)}
       </div>
     </HomeIntro>

@@ -42,8 +42,8 @@ function runningReturn(series: RevenueCostSeries): number[] {
 /** the admin's way to attribution, or a sentence for everyone else (Settings is admin-only) */
 function SetUp({ canSetUp }: { canSetUp: boolean }) {
   return canSetUp
-    ? <Link to="/settings/attribution" className="self-start text-sm font-semibold text-white underline underline-offset-2 hover:no-underline">Set Up Attribution</Link>
-    : <p className="text-helper text-plum-100">Ask an admin to set up attribution.</p>
+    ? <Link to="/settings/attribution" className="self-start text-sm font-semibold underline underline-offset-2 hover:no-underline">Set Up Attribution</Link>
+    : <p className="text-helper">Ask an admin to set up attribution.</p>
 }
 
 function Heroes({ kpis, revenueCost, period, canSetUp }: { kpis: Kpis; revenueCost: SectionResult<RevenueCostSeries>; period: string; canSetUp: boolean }) {

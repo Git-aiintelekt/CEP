@@ -20,7 +20,8 @@ export default defineConfig(({ mode }) => {
     },
     // The email designer (GrapesJS + the MJML compiler) is one lazily loaded ~2.4 MB chunk by design.
     build: { chunkSizeWarningLimit: 2600 },
-    test: { environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA', VITE_LOADING_HOLD_MS: '0' }, testTimeout: 20_000, setupFiles: ['./src/test/setup.ts'] },
+    // css.include: src/lib/theme.test.ts reads index.css?raw to check the theme blocks (Vitest empties CSS otherwise)
+    test: { css: { include: [/index\.css/] }, environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA', VITE_LOADING_HOLD_MS: '0' }, testTimeout: 20_000, setupFiles: ['./src/test/setup.ts'] },
     server: {
       port: 5173,
       ...(allowedHosts.length ? { allowedHosts } : {}),

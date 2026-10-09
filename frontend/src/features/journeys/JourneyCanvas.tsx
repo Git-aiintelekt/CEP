@@ -154,7 +154,7 @@ function StepNode({ data }: NodeProps & { data: StepNodeData }) {
       {...interactive}
       aria-label={`${meta?.label ?? node.type} step`}
       className={`relative h-full w-full rounded-lg border bg-surface p-4 text-left transition-colors duration-base ease-standard ${
-        readOnly ? 'border-line' : `cursor-pointer ${selected ? 'border-brand-600 ring-4 ring-brand-100' : 'border-line hover:border-brand-600'}`}`}
+        readOnly ? 'border-line' : `cursor-pointer ${selected ? 'border-link ring-4 ring-brand-100' : 'border-line hover:border-link'}`}`}
     >
       <CardBody
         icon={meta?.icon ?? ENTRY_ICON}
@@ -173,7 +173,7 @@ function StepNode({ data }: NodeProps & { data: StepNodeData }) {
       />
       {hasEmailPreview(node) && (
         <div className="mt-3 flex h-[58px] items-center justify-center rounded-md border border-line bg-channel-email-tint px-3" data-testid="email-preview">
-          <span className="truncate text-xs font-medium text-brand-600">{String(node.config.template_name ?? 'Template')}</span>
+          <span className="truncate text-xs font-medium text-link">{String(node.config.template_name ?? 'Template')}</span>
         </div>
       )}
       <Handles />
@@ -191,7 +191,7 @@ function AddNode({ data }: NodeProps & { data: AddNodeData }) {
         title="Add a step"
         onClick={() => onAdd?.(data.path, data.index, data.insideBranch)}
         style={{ pointerEvents: 'auto' }}
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line-control bg-surface text-ink-800 transition-colors duration-fast ease-standard hover:border-solid hover:border-brand-600 hover:bg-brand-600 hover:text-white"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-line-control bg-surface text-ink-800 transition-colors duration-fast ease-standard hover:border-solid hover:border-brand-600 hover:bg-brand-600 hover:text-on-brand"
       >
         <Plus size={14} strokeWidth={2} aria-hidden />
       </button>

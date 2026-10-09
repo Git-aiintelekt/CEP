@@ -38,9 +38,9 @@ interface TestCardProps {
 
 function StatusIcon({ status }: { status: string }) {
   if (status === 'SENDING') return <Spinner size="sm" />
-  if (status === 'SENT') return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-white"><Check size={12} strokeWidth={2} /></span>
+  if (status === 'SENT') return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-on-brand"><Check size={12} strokeWidth={2} /></span>
   if (status === 'CHANGED') return <span className="flex h-5 w-5 items-center justify-center rounded-full border border-warning bg-warning-bg text-warning-text"><Pencil size={11} strokeWidth={2} /></span>
-  if (status === 'FAILED') return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white"><X size={12} strokeWidth={2} /></span>
+  if (status === 'FAILED') return <span className="flex h-5 w-5 items-center justify-center rounded-full bg-danger text-on-brand"><X size={12} strokeWidth={2} /></span>
   return <span className="h-[18px] w-[18px] rounded-full border-[1.5px] border-ink-300" />
 }
 
@@ -97,7 +97,7 @@ export function TestCard({ campaign, steps, series, subjects, people, defaultTo,
           const label = email ? `[Test ${step.position} of ${total} · would send Day ${step.day}] ${subject}` : `[Test ${step.position}/${total} · Day ${step.day}] ${subject}`
           const sentAt = whenInZone(step.test?.sent_at, series.zone)
           const resend = (
-            <button type="button" disabled={!ready} onClick={() => test.mutate(step.id)} className="font-semibold text-brand-600 hover:underline disabled:text-ink-300 disabled:no-underline">Resend</button>
+            <button type="button" disabled={!ready} onClick={() => test.mutate(step.id)} className="font-semibold text-link hover:underline disabled:text-ink-300 disabled:no-underline">Resend</button>
           )
           return (
             <li key={step.id} data-test-row={step.position} data-status={status}

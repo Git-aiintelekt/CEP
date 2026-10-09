@@ -48,21 +48,21 @@ export function NeedsAttentionCard({ journeyId, published }: { journeyId: string
         : (
           <table className="w-full text-sm" aria-label="Customers needing attention">
             <thead>
-              <tr className="border-b border-line text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
-                <th className="px-3 py-2">Customer</th><th className="px-3 py-2">Step</th><th className="px-3 py-2">What Happened</th><th className="px-3 py-2">Tries</th><th className="px-3 py-2">Next</th>
-                {editable && <th className="px-3 py-2"><span className="sr-only">Actions</span></th>}
+              <tr className="h-12 border-b border-line text-left text-sm font-semibold whitespace-nowrap text-ink-900">
+                <th className="px-2 first:pl-6 last:pr-6">Customer</th><th className="px-2 first:pl-6 last:pr-6">Step</th><th className="px-2 first:pl-6 last:pr-6">What Happened</th><th className="px-2 first:pl-6 last:pr-6">Tries</th><th className="px-2 first:pl-6 last:pr-6">Next</th>
+                {editable && <th className="px-2 first:pl-6 last:pr-6"><span className="sr-only">Actions</span></th>}
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-line-subtle last:border-0">
-                  <td className="px-3 py-2"><span className="font-medium text-ink-900">{row.name}</span>{row.email && <span className="block text-xs text-ink-800">{row.email}</span>}</td>
-                  <td className="px-3 py-2 text-ink-900">{row.label}</td>
-                  <td className="px-3 py-2 text-ink-800">{row.reason}<span className="block text-xs">Temporary</span></td>
-                  <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-800">{Math.min(row.attempts, row.max_attempts)} of {row.max_attempts}</td>
-                  <td className="px-3 py-2 text-ink-800">{nextWords(row)}</td>
+                <tr key={row.id} className="h-[72px] border-b border-line-subtle last:border-0">
+                  <td className="px-2 py-3 first:pl-6 last:pr-6"><span className="text-card-title font-semibold text-ink-900">{row.name}</span>{row.email && <span className="block text-helper text-ink-800">{row.email}</span>}</td>
+                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-900">{row.label}</td>
+                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-800">{row.reason}<span className="block text-xs">Temporary</span></td>
+                  <td className="cep-num px-2 py-3 first:pl-6 last:pr-6 whitespace-nowrap text-ink-800">{Math.min(row.attempts, row.max_attempts)} of {row.max_attempts}</td>
+                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-800">{nextWords(row)}</td>
                   {editable && (
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-3 first:pl-6 last:pr-6">
                       <span className="flex justify-end gap-2">
                         <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'retry' })}>Retry Now</button>
                         <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'skip' })}>Skip Step</button>

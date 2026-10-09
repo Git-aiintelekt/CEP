@@ -16,7 +16,7 @@ export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disab
   selected: boolean; onSelect: () => void; title: string; text: string; icon?: ReactNode; badge?: string; disabled?: boolean; tile?: boolean; unavailable?: string
 }) {
   const off = Boolean(unavailable)
-  const state = off ? 'cursor-not-allowed border-line bg-fill-subtle' : selected ? 'border-brand-600 bg-brand-100' : tile ? 'border-line bg-surface hover:border-brand-600' : 'border-line bg-surface hover:bg-surface-subtle'
+  const state = off ? 'cursor-not-allowed border-line bg-fill-subtle' : selected ? 'border-link bg-brand-100' : tile ? 'border-line bg-surface hover:border-link' : 'border-line bg-surface hover:bg-surface-hover'
   const titleTone = off ? 'text-ink-300' : selected ? 'text-brand-800' : 'text-ink-900'
   const id = useId()
   const card = (
@@ -37,7 +37,7 @@ export function ChoiceCard({ selected, onSelect, title, text, icon, badge, disab
         // the set-up pop-ups' card (the "Setup Dialog" design): the icon with any tag on one row, then the title and its line
         <>
           <span className="flex w-full items-center justify-between gap-2">
-            {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${off ? 'text-ink-300' : selected ? 'text-brand-600' : 'text-ink-800'}`}>{icon}</span> : <span />}
+            {icon ? <span aria-hidden className={`flex shrink-0 [&>svg]:h-5 [&>svg]:w-5 ${off ? 'text-ink-300' : selected ? 'text-link' : 'text-ink-800'}`}>{icon}</span> : <span />}
             {badge && <span className="inline-flex h-5 shrink-0 items-center rounded-sm bg-plum-100 px-1.5 text-xs font-medium whitespace-nowrap text-plum-800">{badge}</span>}
           </span>
           <span id={`${id}-title`} className={`text-sm font-semibold ${off ? 'text-ink-300' : 'text-ink-900'}`}>{title}</span>
@@ -151,7 +151,7 @@ export function CardError({ what = 'this', error, onRetry }: { what?: string; er
   return (
     <p role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-helper text-ink-800">
       <span>Couldn’t load {what}.{reason}</span>
-      <button type="button" onClick={onRetry} className="font-semibold text-brand-600 hover:underline">Retry</button>
+      <button type="button" onClick={onRetry} className="font-semibold text-link hover:underline">Retry</button>
     </p>
   )
 }

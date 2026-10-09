@@ -19,7 +19,7 @@ export function UploadButton({ disabled = false, onUpload }: { disabled?: boolea
           input.current?.click()
         }}
         className={`inline-flex h-8 w-full items-center justify-center gap-2 rounded-sm border px-3 text-sm font-medium transition-colors ${
-          disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'
+          disabled ? 'border-line bg-fill-subtle text-ink-300' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'
         }`}
       >
         <Upload size={16} strokeWidth={1.5} aria-hidden />

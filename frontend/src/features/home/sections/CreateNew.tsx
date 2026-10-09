@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { FileText, GitBranch, Plus, Users, type LucideIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 
 import { buttonClass } from '@/components/buttonStyles'
@@ -11,10 +11,10 @@ import { CreateTemplateModal } from '@/features/templates/CreateTemplateModal'
 
 import type { CreateTile } from '../createNewTiles'
 
-/** the design's order: the shortcuts, then Create Campaign as the page's one primary action */
-const ORDER: CreateTile['key'][] = ['list', 'template', 'journey', 'campaign']
-/** Home's neutral outline (the design's): a grey control border and dark text, so blue stays on Create Campaign */
-const NEUTRAL = 'inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control-lg border border-line-control bg-surface px-4 text-sm font-semibold whitespace-nowrap text-ink-900 transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle'
+/** the design's order: the shortcuts outlined in blue, then Create Campaign as the page's one primary action */
+const ORDER: CreateTile['key'][] = ['journey', 'template', 'list', 'campaign']
+/** each shortcut wears its page's rail icon; Create Campaign keeps the plus */
+const ICON: Record<CreateTile['key'], LucideIcon> = { journey: GitBranch, template: FileText, list: Users, campaign: Plus }
 
 /**
  * The create shortcuts as buttons beside the greeting: the shortcuts outlined, Create Campaign filled. Each opens its
@@ -30,12 +30,15 @@ export function CreateNew({ tiles }: { tiles: CreateTile[] }) {
   return (
     <section aria-labelledby={titleId} className="flex min-w-0 flex-wrap items-center gap-2">
       <h2 id={titleId} className="sr-only">Create New</h2>
-      {shown.map(({ key, label }) => (
-        <button key={key} type="button" data-create={key} aria-haspopup="dialog" className={key === 'campaign' ? buttonClass({ variant: 'primary' }) : NEUTRAL} onClick={() => setOpen(key)}>
-          <Plus size={16} strokeWidth={2} aria-hidden />
+      {shown.map(({ key, label }) => {
+        const Icon = ICON[key]
+        return (
+        <button key={key} type="button" data-create={key} aria-haspopup="dialog" className={buttonClass({ variant: key === 'campaign' ? 'primary' : 'secondary' })} onClick={() => setOpen(key)}>
+          <Icon size={16} strokeWidth={key === 'campaign' ? 2 : 1.5} aria-hidden />
           {key === 'campaign' ? 'Create Campaign' : label}
         </button>
-      ))}
+        )
+      })}
       {open === 'campaign' && (
         <CampaignSetupDialog onClose={close} onCreateJourney={({ name, description }) => { setJourneyFrom(prefillNamed(name, description)); setOpen('journey') }} />
       )}

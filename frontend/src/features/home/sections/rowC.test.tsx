@@ -25,14 +25,15 @@ async function pick(user: ReturnType<typeof userEvent.setup>, chip: RegExp, opti
 }
 
 // ---------------------------------------------------------------- Recent Campaigns
-test('a full-width table of the six most recent: campaign, status, channel, delivered, open rate, revenue, owner', () => {
+test('a table of the six most recent, two thirds wide beside Governance: campaign, status, channel, delivered, open rate, revenue vs. target, owner', () => {
   renderHome()
   const table = within(recentCard()).getByRole('table')
   expect(table.querySelector('caption')!.textContent).toBe('Recent campaigns')
-  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Campaign', 'Status', 'Channel', 'Delivered', 'Open Rate', 'Revenue', 'Owner'])
+  expect(within(table).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual(['Campaign', 'Status', 'Channel', 'Delivered', 'Open Rate', 'Revenue vs. Target', 'Owner'])
   expect(table.querySelector('thead')!.className).toContain('bg-surface-subtle')
   expect(within(recentCard()).getByText('Showing 6 of 15')).toBeTruthy()
-  expect(recentCard().closest('[data-row]')!.getAttribute('data-layout')).toBe('full')
+  expect(recentCard().closest('[data-row]')!.getAttribute('data-layout')).toBe('2:1')
+  expect(recentCard().closest('[data-row]')!.contains(governance())).toBe(true)
   expect(names()).toEqual(['October Newsletter', 'Holiday Preview', 'Gift Guide 2026', 'Weekend Flash Deal', 'Black Friday Early Access', 'Fall Boots Launch'])
   expect(rows()[0].className).toContain('h-16')
 
@@ -74,7 +75,7 @@ test('Status: Live includes sending now; Scheduled and Draft; the chip goes acti
   await pick(user, /^All Statuses$/, 'Live')
   expect(names()).toContain('VIP Early Access: Autumn Collection for Platinum and Gold Members')
   expect(rows().every((row) => /Production Published|Sending/.test(row.textContent!))).toBe(true)
-  expect(within(recentCard()).getByRole('button', { name: 'Live' }).className).toContain('border-brand-600 bg-brand-100 text-brand-800')
+  expect(within(recentCard()).getByRole('button', { name: 'Live' }).className).toContain('border-link bg-brand-100 text-brand-800')
   const viewAll = new URL(within(recentCard()).getByRole('link', { name: 'View All Campaigns' }).getAttribute('href')!, 'http://x')
   expect(viewAll.pathname).toBe('/campaigns')
   expect([viewAll.searchParams.get('status'), viewAll.searchParams.get('channel')]).toEqual(['PRODUCTION_PUBLISHED,ACTIVE', 'EMAIL'])
@@ -108,13 +109,13 @@ test('no attribution: Revenue says Not Set Up; nothing matching: one line; narro
   expect(within(recentCard()).getAllByRole('button', { name: 'Clear Filters' }).length).toBeGreaterThan(0)
 })
 
-// ---------------------------------------------------------------- Governance & Audience Health
-const governance = () => screen.getByRole('region', { name: 'Governance & Audience Health' })
+// ---------------------------------------------------------------- Governance
+const governance = () => screen.getByRole('region', { name: 'Governance' })
 const figures = (card: HTMLElement) => [...card.querySelectorAll('[data-figure]')].map((figure) => figure.textContent)
 
 test('Governance: contacted and held back as figures, the frequency cap compliance bar, and the reasons when consent or suppression held people back; the link is for admins', () => {
   renderHome()
-  expect(figures(governance())).toEqual(['412,380Customers Contacted', '38,940Held Back · 8.6%'])
+  expect(figures(governance())).toEqual(['Customers Contacted412,380', 'Held Back38,9408.6%'])
   expect(governance().querySelector('[data-compliance]')!.textContent).toBe('95.3%')
   const bar = within(governance()).getByRole('progressbar', { name: 'Frequency cap compliance' })
   expect(bar.getAttribute('aria-valuenow')).toBe('95')
@@ -128,12 +129,12 @@ test('Governance: contacted and held back as figures, the frequency cap complian
   expect(within(governance()).queryByRole('link')).toBeNull()
   cleanup()
   renderHome({ source: { ...createSampleSource('busy'), useGovernance: () => ({ status: 'unavailable' }) } })
-  expect(screen.queryByRole('region', { name: 'Governance & Audience Health' })).toBeNull()
+  expect(screen.queryByRole('region', { name: 'Governance' })).toBeNull()
 })
 
 test('nobody held back for consent or suppression: the all-clear sentence instead of the reasons; compliance reads 100% whole', () => {
   renderHome({ source: { ...createSampleSource('busy'), useGovernance: () => ({ status: 'ready', data: { contacted: 106, heldBack: 0, reasons: { frequencyCap: 0, noConsent: 0, suppression: 0 } } }) } })
-  expect(figures(governance())).toEqual(['106Customers Contacted', '0Held Back'])
+  expect(figures(governance())).toEqual(['Customers Contacted106', 'Held Back0'])
   expect(governance().querySelector('[data-compliance]')!.textContent).toBe('100%')
   expect(governance().textContent).toContain('No consent or suppression issues detected in the selected period.')
   expect(within(governance()).queryByRole('list')).toBeNull()
@@ -144,14 +145,14 @@ test('nobody held back for consent or suppression: the all-clear sentence instea
 // ---------------------------------------------------------------- E-Receipts
 const receipts = () => screen.queryByRole('region', { name: 'E-Receipts' })
 
-test('E-Receipts: four figures and the note; Not Set Up without attribution; the link to e-receipt campaigns; beside Governance', () => {
+test('E-Receipts: four figures and the note; Not Set Up without attribution; the link to e-receipt campaigns; beside the Channel Snapshot', () => {
   renderHome()
-  expect(figures(receipts()!)).toEqual(['214,600Receipts Sent', '61.2%Open Rate', '8,940Offer Clicks', '$48.2KRevenue from Receipt Offers'])
+  expect(figures(receipts()!)).toEqual(['Receipts Sent214,600', 'Open Rate61.2%', 'Offer Clicks8,940', 'Revenue from Receipt Offers$48.2K'])
   expect(receipts()!.querySelector('[data-receipts]')!.className).toContain('grid-cols-2')
   expect(receipts()!.textContent).toContain('Excluded from marketing metrics and frequency caps.')
   expect(within(receipts()!).getByRole('link', { name: 'View E-Receipts' }).getAttribute('href')).toBe('/campaigns?type=E_RECEIPT')
-  expect(governance().closest('[data-row]')).toBe(receipts()!.closest('[data-row]'))
-  expect(governance().closest('[data-row]')!.getAttribute('data-layout')).toBe('thirds')
+  expect(screen.getByRole('region', { name: 'Channel Snapshot' }).closest('[data-row]')).toBe(receipts()!.closest('[data-row]'))
+  expect(receipts()!.closest('[data-row]')!.getAttribute('data-layout')).toBe('2:1')
   cleanup()
   renderHome({ state: 'noAttribution' })
   expect(within(receipts()!).getByText('Not Set Up').className).toContain('text-section-title text-ink-800')

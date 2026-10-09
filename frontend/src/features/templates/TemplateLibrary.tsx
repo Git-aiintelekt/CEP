@@ -136,7 +136,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search templates"
-            className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-brand-600"
+            className="h-9 w-full rounded-lg border border-transparent bg-surface-sunken pr-3 pl-9 text-sm text-ink-900 transition-colors duration-base ease-standard focus:bg-surface focus-visible:border-focus"
           />
         </label>
       </div>
@@ -153,7 +153,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
                 aria-selected={selected}
                 aria-controls={resultsId}
                 onClick={() => setTab(item.key)}
-                className={`h-10 shrink-0 border-b-2 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${selected ? 'border-brand-600 font-semibold text-brand-600' : 'border-transparent font-medium text-ink-800 hover:text-ink-900'}`}
+                className={`h-10 shrink-0 border-b-2 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${selected ? 'border-link font-semibold text-link' : 'border-transparent font-medium text-ink-800 hover:text-ink-900'}`}
               >
                 {item.label}
               </button>
@@ -166,7 +166,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
             aria-label="Status"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-8 rounded-lg border border-line-control bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-subtle focus-visible:border-brand-600"
+            className="h-8 rounded-lg border border-line-control bg-surface px-2.5 text-sm text-ink-900 transition-colors duration-base ease-standard hover:bg-surface-hover focus-visible:border-focus"
           >
             <option value="">All Statuses</option>
             {STATUSES.map((value) => <option key={value} value={value}>{titleize(value)}</option>)}
@@ -312,7 +312,7 @@ function ViewButton({ icon: Icon, label, pressed, onClick }: { icon: LucideIcon;
       title={label}
       aria-pressed={pressed}
       onClick={onClick}
-      className={`flex h-8 w-9 items-center justify-center transition-colors duration-fast ease-standard ${pressed ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-800 hover:bg-surface-subtle hover:text-ink-900'}`}
+      className={`flex h-8 w-9 items-center justify-center transition-colors duration-fast ease-standard ${pressed ? 'bg-brand-100 text-brand-800' : 'bg-surface text-ink-800 hover:bg-surface-hover hover:text-ink-900'}`}
     >
       <Icon size={16} strokeWidth={1.5} aria-hidden />
     </button>
@@ -328,7 +328,7 @@ interface ItemsProps {
 }
 
 const CARD = 'flex flex-col overflow-hidden rounded-lg border border-line bg-surface text-left'
-const CARD_ACTIVE = 'transition-colors duration-fast ease-standard hover:border-brand-600 active:border-brand-800'
+const CARD_ACTIVE = 'transition-colors duration-fast ease-standard hover:border-link active:border-brand-800'
 
 function CardBody({ name, meta, usage, tags }: { name: string; meta: string; usage?: string; tags: ReactNode }) {
   return (
@@ -423,19 +423,19 @@ function RowMenu({ menus, id, name, children }: { menus: SingleDropdown<string>;
   )
 }
 
-// the same header as DataTable: 12px, title case
-const HEAD = 'h-10 px-4 text-left text-xs font-semibold text-ink-900'
-const CELL = 'h-14 px-4 align-middle'
+// the same table as DataTable and the Campaigns list: a 48px header with no fill, 72px rows, 24px at the outer edges
+const HEAD = 'h-12 px-2 text-left text-sm font-semibold whitespace-nowrap text-ink-900 first:pl-6 last:pr-6'
+const CELL = 'h-[72px] px-2 py-3 align-middle first:pl-6 last:pr-6'
 
 function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
   const navigate = useNavigate()
   const menus = useSingleDropdown<string>()
 
   return (
-    <div className="relative overflow-x-auto rounded-lg border border-line">
+    <div className="relative overflow-x-auto rounded-lg border border-line bg-surface">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <caption className="sr-only">Templates</caption>
-        <thead className="bg-surface-subtle">
+        <thead>
           <tr className="border-b border-line">
             <th scope="col" className={HEAD}>Template</th>
             <th scope="col" className={HEAD}>Channel</th>
@@ -450,11 +450,11 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
             if (item.kind === 'template') {
               const { template } = item
               return (
-                <tr key={template.id} onClick={() => onPreview(item)} className="cursor-pointer border-b border-line-subtle last:border-b-0 hover:bg-surface-subtle">
+                <tr key={template.id} onClick={() => onPreview(item)} className="cursor-pointer border-b border-line-subtle transition-colors duration-fast ease-standard last:border-b-0 hover:bg-surface-hover">
                   <td className={CELL}>
                     <span className="block min-w-0">
-                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{template.name}</button>
-                      {template.description && <span className="block truncate text-xs text-ink-800">{template.description}</span>}
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 hover:underline">{template.name}</button>
+                      {template.description && <span className="block truncate text-helper text-ink-800">{template.description}</span>}
                     </span>
                   </td>
                   <td className={CELL}><Tag>{lookOf(template.channel).label}</Tag></td>
@@ -476,16 +476,16 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
               <tr
                 key={`preset-${preset.key}`}
                 onClick={canEdit ? () => onPreview(item) : undefined}
-                className={`border-b border-line-subtle last:border-b-0 ${canEdit ? 'cursor-pointer hover:bg-surface-subtle' : ''}`}
+                className={`border-b border-line-subtle last:border-b-0 ${canEdit ? 'cursor-pointer hover:bg-surface-hover' : ''}`}
               >
                 <td className={CELL}>
                   <span className="block min-w-0">
                     {canEdit ? (
-                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left font-semibold text-ink-900 hover:underline">{preset.name}</button>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); onPreview(item) }} className="block max-w-full truncate text-left text-card-title font-semibold text-ink-900 hover:underline">{preset.name}</button>
                     ) : (
                       <span className="block truncate font-semibold text-ink-900">{preset.name}</span>
                     )}
-                    {preset.description && <span className="block truncate text-xs text-ink-800">{preset.description}</span>}
+                    {preset.description && <span className="block truncate text-helper text-ink-800">{preset.description}</span>}
                   </span>
                 </td>
                 <td className={CELL}><Tag>{lookOf(preset.channel).label}</Tag></td>

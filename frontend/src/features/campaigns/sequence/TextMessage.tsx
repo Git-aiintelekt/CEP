@@ -79,7 +79,7 @@ export function TextView({ campaignId, templateId, mms, onEdit }: { campaignId: 
             </div>
           ) : (
             <button type="button" onClick={() => file.current?.click()} disabled={uploading || !message.data}
-              className="flex h-12 items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-300 bg-surface text-sm font-semibold text-brand-600 hover:bg-brand-100 disabled:cursor-not-allowed disabled:text-ink-300">
+              className="flex h-12 items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-300 bg-surface text-sm font-semibold text-link hover:bg-brand-100 disabled:cursor-not-allowed disabled:text-ink-300">
               {uploading ? <Spinner size="sm" /> : <Plus size={16} strokeWidth={1.5} aria-hidden />}Add Image
             </button>
           )}
@@ -90,7 +90,7 @@ export function TextView({ campaignId, templateId, mms, onEdit }: { campaignId: 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-ink-800">Message Text</span>
-          <button type="button" onClick={onEdit} disabled={!message.data} className="text-sm font-semibold text-brand-600 hover:underline disabled:text-ink-300">Edit Text</button>
+          <button type="button" onClick={onEdit} disabled={!message.data} className="text-sm font-semibold text-link hover:underline disabled:text-ink-300">Edit Text</button>
         </div>
         <div data-message-text className={`rounded-lg border border-line-subtle bg-surface-subtle px-3.5 py-3 text-sm break-words whitespace-pre-wrap ${body ? 'text-ink-900' : 'text-ink-800'}`}>
           {message.isPending ? 'Loading the text' : body || 'No message text yet.'}
@@ -142,7 +142,7 @@ export function TextComposer({ draft, onDraft, mms, sender, imageUrl, when }: { 
           <div className="flex flex-wrap gap-2">
             {chips.map((tag) => (
               <button key={tag.id} type="button" onClick={() => insert(asToken(tag.tag_key))}
-                className="flex h-8 items-center gap-1.5 rounded-control-md border border-line-control bg-surface pr-3 pl-2.5 text-sm font-medium text-ink-900 hover:border-brand-600 hover:bg-surface-subtle">
+                className="flex h-8 items-center gap-1.5 rounded-control-md border border-line-control bg-surface pr-3 pl-2.5 text-sm font-medium text-ink-900 hover:border-link hover:bg-surface-hover">
                 <Plus size={14} strokeWidth={1.5} aria-hidden className="text-ink-800" />{tag.label}
               </button>
             ))}

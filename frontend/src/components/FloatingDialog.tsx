@@ -50,7 +50,7 @@ export function FloatingDialog({ labelledBy, onClose, header, children, footer, 
           aria-modal="true"
           aria-labelledby={labelledBy}
           style={{ width, maxHeight }}
-          className="flex max-w-full animate-fade-in flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-toast motion-reduce:animate-none"
+          className="flex max-w-full animate-fade-in flex-col overflow-hidden rounded-lg border border-line bg-surface-overlay shadow-toast motion-reduce:animate-none"
         >
           <div className="shrink-0">{header}</div>
           <div className={bodyScroll === 'columns' ? 'flex min-h-0 flex-1 overflow-hidden' : 'min-h-0 flex-1 overflow-y-auto overscroll-contain'}>{children}</div>

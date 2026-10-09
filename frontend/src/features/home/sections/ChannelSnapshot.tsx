@@ -1,4 +1,3 @@
-import { RadioTower } from 'lucide-react'
 
 import { ErrorState, SkeletonLine } from '@/components/States'
 
@@ -10,10 +9,9 @@ import type { HomeFilters } from '../data/types'
 import { snapshotRows, type SnapshotRow } from '../snapshotRows'
 
 function Row({ row }: { row: SnapshotRow }) {
-  const journey = row.key === 'JOURNEY'
   return (
     <li data-snapshot={row.key} className="flex items-center gap-3 py-3">
-      <span aria-hidden className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${journey ? 'cep-home-journey text-white' : 'cep-home-badge text-plum-700'}`}><row.icon size={18} strokeWidth={1.5} /></span>
+      <span aria-hidden className="cep-home-badge flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-plum-700"><row.icon size={18} strokeWidth={1.5} /></span>
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-semibold text-ink-900">{row.label}</span>
@@ -40,7 +38,7 @@ export function ChannelSnapshot({ filters }: { filters: HomeFilters }) {
   const workspace = (['EMAIL', 'SMS', 'MMS'] as const).filter((channel) => viewer.has(channel.toLowerCase() as 'email' | 'sms' | 'mms') && (filters.channel === 'ALL' || filters.channel === channel))
   const period = PERIOD_OPTIONS.find((option) => option.value === filters.period)!.label
   return (
-    <HomeCard title="Channel Snapshot" icon={RadioTower} actions={<span className="text-helper text-ink-800">{period}</span>}>
+    <HomeCard title="Channel Snapshot" actions={<span className="text-helper text-ink-800">{period}</span>}>
       {funnel.status === 'loading' ? (
         <div data-snapshot="loading" className="flex flex-col gap-4">{[70, 60, 65, 55].map((width) => <SkeletonLine key={width} width={`${width}%`} />)}</div>
       ) : funnel.status === 'error' ? (

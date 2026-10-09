@@ -104,7 +104,7 @@ const REENTRY_OPTIONS: { value: ReentryPolicy; icon: LucideIcon; title: string; 
 function DropdownOption({ label, selected, onPick }: { label: string; selected: boolean; onPick: () => void }) {
   return (
     <button type="button" data-dropdown-item onClick={onPick}
-      className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-subtle'}`}>
+      className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors duration-fast ease-standard ${selected ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
       {label}
     </button>
   )

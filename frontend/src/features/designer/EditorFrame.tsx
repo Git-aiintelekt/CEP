@@ -99,7 +99,7 @@ export function EditorFrame<T extends string>({
   const backLink = backText ? (
     <>
       <Link to={backTo} onClick={onBack}
-        className="-ml-2 inline-flex h-10 shrink-0 items-center gap-2 rounded-control-lg pr-3 pl-2 text-sm font-semibold whitespace-nowrap text-brand-600 transition-colors duration-fast ease-standard hover:bg-brand-100">
+        className="-ml-2 inline-flex h-10 shrink-0 items-center gap-2 rounded-control-lg pr-3 pl-2 text-sm font-semibold whitespace-nowrap text-link transition-colors duration-fast ease-standard hover:bg-brand-100">
         <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />{backText}
       </Link>
       <span aria-hidden className="h-6 w-px shrink-0 bg-line" />
@@ -167,7 +167,7 @@ export function EditorFrame<T extends string>({
                 onClick={() => go(id)}
                 onKeyDown={onTabKeyDown}
                 className={`-mb-px inline-flex h-11 items-center gap-2 border-b-2 text-sm font-semibold transition-colors duration-base ease-standard ${
-                  active ? 'border-brand-600 text-brand-600' : 'border-transparent text-ink-800 hover:text-ink-900'
+                  active ? 'border-link text-link' : 'border-transparent text-ink-800 hover:text-ink-900'
                 }`}
               >
                 <Icon size={16} strokeWidth={1.5} aria-hidden />

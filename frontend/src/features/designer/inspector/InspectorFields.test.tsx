@@ -500,7 +500,7 @@ test('the brand bar colour is four named swatches, the chosen one marked', () =>
   const options = [...swatches().querySelectorAll('[role=radio]')]
   expect(options.map((option) => option.getAttribute('aria-label'))).toEqual(['Navy 700', 'Navy 900', 'Teal 600', 'Gray 900'])
   expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false'])
-  expect(screen.getByRole('radio', { name: 'Navy 900' }).className).toContain('ring-brand-600')
+  expect(screen.getByRole('radio', { name: 'Navy 900' }).className).toContain('ring-focus')
   expect(screen.getByRole('radio', { name: 'Teal 600' }).className).not.toContain('ring-2')
 })
 

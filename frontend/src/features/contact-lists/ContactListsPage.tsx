@@ -66,7 +66,7 @@ function RowMenu({ list, onAction }: { list: ContactList; onAction: (action: 'op
         <MoreVertical size={18} strokeWidth={1.5} aria-hidden />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-line bg-surface shadow-menu">
+        <div role="menu" className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-line bg-surface-overlay shadow-menu">
           <MenuRow role="menuitem" divider={false} title="Open" onClick={pick('open')} />
           <MenuRow role="menuitem" divider={false} title="Clone" onClick={pick('clone')} />
           <MenuRow role="menuitem" divider={false} title={list.status === 'ARCHIVED' ? 'Restore' : 'Archive'} onClick={pick(list.status === 'ARCHIVED' ? 'restore' : 'archive')} />
@@ -136,7 +136,7 @@ export function ContactListsPage() {
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
   const [source, setSource] = useState('')
-  // ?new=1 (Home's Create New) opens the wizard straight away
+  // ?new=1 opens the wizard straight away (a deep link to creating a list)
   const [params, setParams] = useSearchParams()
   const [wizard, setWizard] = useState(() => params.get('new') === '1')
   const [cloning, setCloning] = useState<ContactList | null>(null)
@@ -177,8 +177,8 @@ export function ContactListsPage() {
       key: 'name', header: 'Name', className: 'max-w-sm',
       render: (row) => (
         <div className="min-w-0">
-          <p className="truncate font-medium text-ink-900">{row.name}{row.status === 'ARCHIVED' && <span className="ml-2 align-middle"><Tag>Archived</Tag></span>}</p>
-          {row.description && <p className="truncate text-xs text-ink-800">{row.description}</p>}
+          <p className="truncate text-card-title font-semibold text-ink-900">{row.name}{row.status === 'ARCHIVED' && <span className="ml-2 align-middle"><Tag>Archived</Tag></span>}</p>
+          {row.description && <p className="truncate text-helper text-ink-800">{row.description}</p>}
         </div>
       ),
     },

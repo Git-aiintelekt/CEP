@@ -84,7 +84,7 @@ export function SetupDialog({ title, steps = [], step = 1, onClose, onBack, prim
     <div className="fixed inset-0 z-50 flex animate-fade-in items-stretch justify-center bg-scrim motion-reduce:animate-none md:items-center md:p-6"
       onMouseDown={(event) => event.target === event.currentTarget && close()}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} data-setup-dialog
-        className={`flex w-full flex-col bg-surface max-md:h-dvh md:max-h-[calc(100dvh-48px)] md:rounded-lg ${wide ? 'md:max-w-[1040px]' : 'md:max-w-[768px]'}`}>
+        className={`flex w-full flex-col bg-surface-overlay max-md:h-dvh md:max-h-[calc(100dvh-48px)] md:rounded-lg ${wide ? 'md:max-w-[1040px]' : 'md:max-w-[768px]'}`}>
         <header className="flex shrink-0 flex-col gap-2.5 border-b border-line-subtle px-6 pt-5 pb-4">
           <div className="flex items-center justify-between gap-4">
             <h2 id={titleId} className="font-display text-card-heading font-semibold text-ink-900">{title}</h2>

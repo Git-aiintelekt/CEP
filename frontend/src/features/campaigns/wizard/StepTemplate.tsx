@@ -91,7 +91,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
               <div role="radiogroup" aria-label="Template" className="grid max-h-[26rem] gap-3 overflow-y-auto sm:grid-cols-2">
                 {shown.map((item) => (
                   <button key={item.id} type="button" role="radio" aria-checked={chosen === item.id} onClick={() => setValue('template', chosen === item.id ? '' : item.id, { shouldDirty: true, shouldValidate: true })}
-                    className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors ${chosen === item.id ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface hover:bg-surface-subtle'}`}>
+                    className={`flex flex-col items-start gap-1.5 rounded-lg border p-3 text-left transition-colors ${chosen === item.id ? 'border-link bg-callout-bg' : 'border-line bg-surface hover:bg-surface-hover'}`}>
                     <span className="w-full truncate text-sm font-semibold text-ink-900">{item.name}</span>
                     <span className="flex flex-wrap items-center gap-1.5"><Tag>{item.channel}</Tag><StatusBadge status={item.status} /></span>
                     <span className="text-xs text-ink-800">Edited {formatDate(item.updated_at)}{item.latest_version ? ` · version ${item.latest_version}` : ''}</span>

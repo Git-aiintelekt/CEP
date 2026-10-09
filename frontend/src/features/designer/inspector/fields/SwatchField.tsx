@@ -58,7 +58,7 @@ export function SwatchField({ label, value, effective, onCommit, disabled = fals
                 // the colour is the email's, not the app's: it is data, so it is the one inline style here
                 style={{ backgroundColor: swatch.value }}
                 className={`h-7 w-7 shrink-0 rounded-sm border border-line ring-offset-2 ring-offset-surface transition-shadow duration-base ease-standard ${
-                  selected ? `ring-2 ${disabled ? 'ring-ink-300' : 'ring-brand-600'}` : ''
+                  selected ? `ring-2 ${disabled ? 'ring-ink-300' : 'ring-focus'}` : ''
                 } ${disabled ? 'cursor-not-allowed' : ''}`}
               />
             )

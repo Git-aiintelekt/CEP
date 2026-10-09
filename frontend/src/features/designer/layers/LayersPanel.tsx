@@ -296,7 +296,7 @@ function RenameField({ name, onCommit, onCancel }: { name: string; onCommit: (va
       ref={input}
       autoFocus
       aria-label={`Rename ${name}`}
-      className="h-6 min-w-0 flex-1 rounded-sm border border-brand-600 bg-surface px-1.5 text-xs text-ink-900"
+      className="h-6 min-w-0 flex-1 rounded-sm border border-link bg-surface px-1.5 text-xs text-ink-900"
       value={value}
       onClick={(event) => event.stopPropagation()}
       onChange={(event) => setValue(event.target.value)}

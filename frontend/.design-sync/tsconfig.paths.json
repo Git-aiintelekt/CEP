@@ -1,0 +1,1 @@
+{"compilerOptions":{"baseUrl":"..","jsx":"react-jsx","paths":{"@\u002fhelp\u002fHelpPanel":[".design-sync\u002fstubs\u002fHelpPanel.tsx"],"@\u002f*":["src\u002f*"]}}}

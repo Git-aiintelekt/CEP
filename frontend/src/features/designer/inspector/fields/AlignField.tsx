@@ -68,7 +68,7 @@ export function AlignField({
                 className={`flex h-8 flex-1 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
                   disabled && selected ? 'border-ink-300 bg-fill-muted text-ink-800'
                   : disabled ? 'border-line bg-fill-subtle text-ink-300'
-                  : selected ? 'border-brand-600 bg-brand-100 text-brand-800'
+                  : selected ? 'border-link bg-brand-100 text-brand-800'
                   : 'border-line bg-surface text-ink-800 hover:bg-fill-subtle'
                 }`}
               >

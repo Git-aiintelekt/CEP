@@ -161,7 +161,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       ) : (
         <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${DOT[tone]}`} />
       )}
-      <p className="truncate text-sm font-semibold text-white">{toast.title}</p>
+      <p className="truncate text-sm font-semibold text-on-brand">{toast.title}</p>
       {toast.detail && (
         <>
           <span aria-hidden className="h-4 w-px shrink-0 bg-white/[0.22]" />
@@ -169,7 +169,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         </>
       )}
       {toast.reference && (
-        <span className="shrink-0 rounded-sm bg-white/[0.18] px-1.5 py-0.5 font-mono text-xs font-semibold text-white" aria-label={`Reference ${toast.reference}`}>{toast.reference}</span>
+        <span className="shrink-0 rounded-sm bg-white/[0.18] px-1.5 py-0.5 font-mono text-xs font-semibold text-on-brand" aria-label={`Reference ${toast.reference}`}>{toast.reference}</span>
       )}
       {toast.action && (
         <button
@@ -187,7 +187,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         type="button"
         aria-label="Dismiss"
         onClick={leave}
-        className="ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-white/[0.72] transition-colors duration-fast ease-standard hover:bg-white/[0.12] hover:text-white"
+        className="ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-white/[0.72] transition-colors duration-fast ease-standard hover:bg-white/[0.12] hover:text-on-brand"
       >
         <X size={15} strokeWidth={1.5} aria-hidden />
       </button>

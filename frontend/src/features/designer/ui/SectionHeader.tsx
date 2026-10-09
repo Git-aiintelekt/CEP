@@ -19,7 +19,7 @@ export function SectionHeader({ title, open = true, onToggle, controls }: Sectio
         aria-expanded={open}
         aria-controls={controls}
         onClick={onToggle}
-        className="cep-focus-inset flex h-8 w-full items-center justify-between gap-2 px-3 text-left text-xs font-semibold text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-subtle hover:text-ink-900"
+        className="cep-focus-inset flex h-8 w-full items-center justify-between gap-2 px-3 text-left text-xs font-semibold text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-hover hover:text-ink-900"
       >
         {title}
         <ChevronDown

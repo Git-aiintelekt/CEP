@@ -4,8 +4,8 @@ import type { ButtonHTMLAttributes, Ref } from 'react'
 export type PillTone = 'neutral' | 'error' | 'warning' | 'success'
 
 const TONE: Record<PillTone, { frame: string; open: string; icon: string }> = {
-  neutral: { frame: 'border-line bg-surface text-ink-800 hover:bg-surface-subtle', open: 'bg-surface-subtle', icon: '' },
-  success: { frame: 'border-line bg-surface text-ink-800 hover:bg-surface-subtle', open: 'bg-surface-subtle', icon: 'text-success' },
+  neutral: { frame: 'border-line bg-surface text-ink-800 hover:bg-surface-hover', open: 'bg-surface-subtle', icon: '' },
+  success: { frame: 'border-line bg-surface text-ink-800 hover:bg-surface-hover', open: 'bg-surface-subtle', icon: 'text-success' },
   error: { frame: 'border-danger bg-danger-bg text-danger-text hover:border-danger-plain', open: 'border-danger-plain', icon: '' },
   warning: { frame: 'border-warning bg-warning-bg text-warning-text hover:border-warning-text', open: 'border-warning-text', icon: '' },
 }

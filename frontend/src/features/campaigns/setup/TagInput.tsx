@@ -54,7 +54,7 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
         <span className="cep-num text-helper text-ink-800">{formatNumber(value.length)} of {MAX_TAGS}</span>
       </div>
       <div className="relative mt-1.5">
-        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-control-lg border bg-surface px-2 py-1 focus-within:border-brand-600 focus-within:shadow-focus ${message ? 'border-danger' : 'border-line-control'}`}>
+        <div className={`flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border bg-surface px-2 py-1 focus-within:border-focus focus-within:shadow-focus ${message ? 'border-danger' : 'border-line-control'}`}>
           {value.map((tag) => (
             <span key={tag} className="inline-flex h-6 items-center gap-1 rounded-sm bg-fill-subtle pr-0.5 pl-2 text-xs font-semibold text-ink-800">
               {tag}
@@ -69,11 +69,11 @@ export function TagInput({ value, onChange, suggestions, error, disabled = false
             placeholder={value.length === 0 ? 'e.g. Loyalty' : ''} className="h-7 min-w-32 flex-1 bg-transparent px-1 text-sm text-ink-900 outline-none placeholder:text-ink-300" />
         </div>
         {open && (
-          <ul id={listId} role="listbox" aria-label="Tags in this workspace" className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden rounded-md border border-line bg-surface py-1 shadow-menu">
+          <ul id={listId} role="listbox" aria-label="Tags in this workspace" className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden rounded-md border border-line bg-surface-overlay py-1 shadow-menu">
             {matches.map((tag, index) => (
               <li key={tag} id={`${listId}-${index}`} role="option" aria-selected={index === active}
                 onMouseDown={(event) => { event.preventDefault(); add(tag) }}
-                className={`cursor-pointer px-3 py-2 text-sm text-ink-900 ${index === active ? 'bg-surface-subtle' : 'hover:bg-surface-subtle'}`}>{tag}</li>
+                className={`cursor-pointer px-3 py-2 text-sm text-ink-900 ${index === active ? 'bg-surface-subtle' : 'hover:bg-surface-hover'}`}>{tag}</li>
             ))}
           </ul>
         )}

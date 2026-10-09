@@ -98,7 +98,7 @@ export function SettingsSidebar({ journey, entryRules, onEditSetup }: { journey:
     <aside aria-label="Journey Settings" className="flex w-72 shrink-0 flex-col border-r border-line bg-surface">
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <h2 className="text-sm font-semibold text-ink-900">Journey Settings</h2>
-        <button type="button" onClick={() => setOpen(false)} aria-label="Hide Journey Settings" className="text-sm font-medium text-brand-600 hover:text-brand-800 hover:underline">
+        <button type="button" onClick={() => setOpen(false)} aria-label="Hide Journey Settings" className="text-sm font-medium text-link hover:text-link-hover hover:underline">
           Hide
         </button>
       </div>

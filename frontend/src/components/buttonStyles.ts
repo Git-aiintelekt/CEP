@@ -15,9 +15,9 @@ const BASE =
 const SIZE: Record<ButtonSize, string> = { sm: 'h-8 px-3 rounded-control-md', md: 'h-10 px-4 rounded-control-lg' }
 
 const ENABLED: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
+  primary: 'bg-brand-600 text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed',
   secondary:
-    'border border-brand-600 bg-surface text-brand-600 hover:border-brand-800 hover:bg-brand-100 hover:text-brand-800 active:border-brand-800 active:bg-brand-100 active:text-brand-800',
+    'border border-link bg-surface text-link hover:border-brand-800 hover:bg-brand-100 hover:text-link-hover active:border-brand-800 active:bg-brand-100 active:text-link-hover',
   ghost: 'text-ink-800 hover:bg-fill-subtle hover:text-ink-900 active:bg-fill-muted',
   link: 'text-brand-800 hover:bg-fill-subtle active:bg-fill-muted',
   danger: 'border border-danger bg-surface text-danger-text hover:bg-danger-bg active:bg-danger-bg',
@@ -65,19 +65,19 @@ const ICON_STATE: Record<IconButtonVariant, { enabled: string; pressed: string; 
     disabled: 'cursor-not-allowed text-ink-300',
   },
   outline: {
-    enabled: 'bg-brand-600 text-white hover:bg-brand-800 active:bg-brand-800',
-    pressed: 'bg-brand-800 text-white',
+    enabled: 'bg-brand-600 text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed',
+    pressed: 'bg-brand-fill-pressed text-on-brand',
     disabled: 'cursor-not-allowed bg-fill-subtle text-ink-300',
   },
   onBrand: {
-    enabled: 'text-white hover:bg-brand-800 active:bg-brand-800',
-    pressed: 'bg-brand-800 text-white',
-    disabled: 'cursor-not-allowed text-brand-100',
+    enabled: 'text-on-brand hover:bg-brand-fill-hover active:bg-brand-fill-pressed',
+    pressed: 'bg-brand-fill-pressed text-on-brand',
+    disabled: 'cursor-not-allowed text-on-brand-soft',
   },
   /** on the navy top bar: the rail's icon colours */
   onNavy: {
-    enabled: 'text-sidebar-icon hover:bg-sidebar-hover hover:text-white active:bg-sidebar-pressed',
-    pressed: 'bg-sidebar-selected text-white',
+    enabled: 'text-sidebar-icon hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed',
+    pressed: 'bg-sidebar-selected text-on-brand',
     disabled: 'cursor-not-allowed text-sidebar-icon',
   },
 }

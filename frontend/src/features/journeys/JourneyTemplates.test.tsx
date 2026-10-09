@@ -111,7 +111,7 @@ test("a starter's preview lists the steps that need setup", async () => {
   expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Cart reminderSend Email', 'Issue CouponIssue Coupon', 'SMS with codeSend SMS'])
 
   // the flow: the canvas's own cards, read-only, with Needs Setup on the empty ones
-  const flow = await within(preview).findByTestId('journey-flow-preview')
+  const flow = await within(preview).findByTestId('journey-flow-preview', {}, { timeout: 10_000 })   // the canvas chunk loads lazily
   await vi.waitFor(() => expect(within(flow).getAllByText('Needs Setup')).toHaveLength(3))
   expect(within(flow).queryByRole('button', { name: 'Add a Step' })).toBeNull()
   expect(within(flow).queryByRole('button', { name: /Actions for/ })).toBeNull()
@@ -150,7 +150,7 @@ test('Use This Template pre-fills Setup, creates from the starter, keeps its ste
   expect(graph.entry_rules).toEqual([{ entry_type: 'EVENT', rule_definition: { event_type: 'CART_ABANDON' } }])
 
   // Build: the banner naming the steps that still need content
-  const banner = await screen.findByText(/steps need your content before you can test publish/)
+  const banner = await screen.findByText(/steps need your content before you can test publish/, {}, { timeout: 10_000 })
   expect(banner.textContent).toBe('Created from Abandoned Cart Recovery. 3 steps need your content before you can test publish: Cart reminder, Issue Coupon, SMS with code. Select a step to set it up.')
 })
 
@@ -159,7 +159,7 @@ test('the canvas banner goes away when dismissed, and stays away for the session
   const user = userEvent.setup()
   await renderAppAt('/journeys/j1/build')
 
-  const canvas = await screen.findByTestId('journey-canvas')
+  const canvas = await screen.findByTestId('journey-canvas', {}, { timeout: 10_000 })
   await vi.waitFor(() => expect(within(canvas).getAllByText('Needs Setup')).toHaveLength(3))
   // the top bar shows just the journey's name: no "Journey · Draft · From …" subheading
   expect(screen.queryByText(/Journey · Draft/)).toBeNull()
@@ -170,7 +170,7 @@ test('the canvas banner goes away when dismissed, and stays away for the session
   cleanup()
   installMockApi({ journey: makeJourney({ source_name: 'Abandoned Cart Recovery' }), journeyGraph: abandonedCartGraph })
   await renderAppAt('/journeys/j1/build')
-  await screen.findByTestId('journey-canvas')
+  await screen.findByTestId('journey-canvas', {}, { timeout: 10_000 })
   expect(screen.queryByText(/need your content/)).toBeNull()
 })
 
@@ -196,7 +196,7 @@ test('the Build canvas has no Save as Template; the journey page does, and it sn
   const calls = installMockApi({ journey: makeJourney({ id: 'j1', status: 'ACTIVE', current_version: 'v1' }), journeyVersions: [makeJourneyVersion({ id: 'v1', status: 'ACTIVE', published_at: '2026-08-27T09:00:00Z' })] })
   const user = userEvent.setup()
   await renderAppAt('/journeys/j1/build')
-  await screen.findByTestId('journey-canvas')
+  await screen.findByTestId('journey-canvas', {}, { timeout: 10_000 })
   expect(screen.queryByText('Save as Template')).toBeNull()
 
   await renderAppAt('/journeys/j1')

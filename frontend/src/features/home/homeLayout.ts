@@ -44,12 +44,13 @@ const SIZE: Record<CardKey, 'wide' | 'half' | 'small'> = {
 /** with an odd count, the first of these present goes full width; Governance and E-Receipts only when alone */
 const FULL_WIDTH_PREFERENCE: CardKey[] = ['recent', 'revenueCost', 'topBottom', 'schedule', 'funnel', 'snapshot']
 
-/** CEP Dashboard v2: the chart beside the funnel, two rows of the rest (E-Receipts beside Governance), then Recent Campaigns */
+/** trial layout (new-theme-style): the chart beside the funnel, the ranking beside Next 7 Days, Recent Campaigns beside
+    Governance, then the channel snapshot beside E-Receipts. Every row is two thirds and one third */
 const DESIGN: LayoutRow[] = [
   { name: 'a', layout: '2:1', cards: ['revenueCost', 'funnel'] },
-  { name: 'b', layout: '1:1', cards: ['topBottom', 'schedule'] },
-  { name: 'c', layout: 'thirds', cards: ['snapshot', 'governance', 'eReceipts'] },
-  { name: 'd', layout: 'full', cards: ['recent'] },
+  { name: 'b', layout: '1:2', cards: ['topBottom', 'schedule'] },
+  { name: 'c', layout: '2:1', cards: ['recent', 'governance'] },
+  { name: 'd', layout: '2:1', cards: ['snapshot', 'eReceipts'] },
 ]
 /** one campaign: no ranking, snapshot, recent list or e-receipts by design; Governance moves beside Next 7 Days */
 const SINGLE_CAMPAIGN_DESIGN: LayoutRow[] = [

@@ -26,8 +26,8 @@ export function Inline({ text }: { text: string }) {
           const [, label, href] = link
           const inside = href.startsWith('/')
           return inside
-            ? <Link key={index} to={href} className="font-medium text-brand-600 hover:underline">{label}</Link>
-            : <a key={index} href={href} target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:underline">{label}</a>
+            ? <Link key={index} to={href} className="font-medium text-link hover:underline">{label}</Link>
+            : <a key={index} href={href} target="_blank" rel="noreferrer" className="font-medium text-link hover:underline">{label}</a>
         }
         return <Fragment key={index}>{part}</Fragment>
       })}

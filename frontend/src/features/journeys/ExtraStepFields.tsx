@@ -241,7 +241,7 @@ export function SplitFields({ config, set, usedKeys }: { config: Record<string, 
           {mode === 'ATTRIBUTE' && <p className="rounded-control-lg border border-line-subtle bg-surface-subtle px-2 py-1.5 text-sm text-ink-800">Everyone else · the last path, always there</p>}
           {paths.length < MAX_PATHS && (
             <button type="button" onClick={() => set({ paths: [...paths, mode === 'RANDOM' ? { key: nextKey(), label: '', share: '' } : { key: nextKey(), label: '', values: [] }] })}
-              className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700">
+              className="inline-flex items-center gap-1 text-sm font-medium text-link hover:text-brand-700">
               <Plus size={14} strokeWidth={1.5} aria-hidden /> Add Path
             </button>
           )}

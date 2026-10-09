@@ -6,7 +6,7 @@
 import type { CalendarCell } from '../dripSequence'
 
 const SEND = {
-  upcoming: 'border-brand-600 bg-brand-100 font-semibold text-brand-800',
+  upcoming: 'border-link bg-brand-100 font-semibold text-brand-800',
   sent: 'border-transparent bg-tag-completed-bg font-semibold text-tag-completed-text',
 }
 
@@ -47,7 +47,7 @@ export function SeriesCalendar({ calendar, sentDays, today }: {
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         <span className="flex items-center gap-1.5 text-xs text-ink-800"><span aria-hidden className="h-2.5 w-2.5 rounded-xs border border-line-subtle bg-surface-subtle" />In the Series</span>
         {showsSent && <span className="flex items-center gap-1.5 text-xs text-ink-800"><span aria-hidden className="h-2.5 w-2.5 rounded-xs bg-tag-completed-bg" />Sent</span>}
-        <span className="flex items-center gap-1.5 text-xs text-ink-800"><span aria-hidden className="h-2.5 w-2.5 rounded-xs border border-brand-600 bg-brand-100" />{showsSent ? 'To Send, with Message Number' : 'Send Day, with Message Number'}</span>
+        <span className="flex items-center gap-1.5 text-xs text-ink-800"><span aria-hidden className="h-2.5 w-2.5 rounded-xs border border-link bg-brand-100" />{showsSent ? 'To Send, with Message Number' : 'Send Day, with Message Number'}</span>
         {today && <span className="flex items-center gap-1.5 text-xs text-ink-800"><span aria-hidden className="h-2.5 w-2.5 rounded-xs outline-1 outline-ink-900" />Today</span>}
       </div>
     </div>

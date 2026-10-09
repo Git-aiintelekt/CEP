@@ -45,7 +45,7 @@ export function EmojiPickerPopover<K extends string>({ dropdown, id, anchor, onP
         event.stopPropagation()
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault()
       }}
-      className="editor-radii editor-type fixed z-50 rounded-md border border-line bg-surface shadow-menu">
+      className="editor-radii editor-type fixed z-50 rounded-md border border-line bg-surface-overlay shadow-menu">
       <EmojiPicker onPick={onPick} onClose={() => dropdown.close({ restoreFocus: false })} />
     </div>,
     document.body,
@@ -92,9 +92,9 @@ export function EmojiPickerButton({ onPick, disabled = false, onOpen, variant = 
         className={
           inset ?
             `inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-sm transition-colors duration-base ease-standard ${
-              disabled ? 'cursor-not-allowed bg-fill-subtle text-ink-300' : open ? 'bg-brand-100 text-brand-600' : 'text-ink-800 hover:bg-fill-muted'}`
+              disabled ? 'cursor-not-allowed bg-fill-subtle text-ink-300' : open ? 'bg-brand-100 text-link' : 'text-ink-800 hover:bg-fill-muted'}`
           : `inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border transition-colors duration-base ease-standard ${
-              disabled ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300' : open ? 'border-brand-600 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-subtle'}`
+              disabled ? 'cursor-not-allowed border-line bg-fill-subtle text-ink-300' : open ? 'border-link bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-800 hover:bg-surface-hover'}`
         }
       >
         <Smile size={inset ? 15 : 16} strokeWidth={1.5} aria-hidden />

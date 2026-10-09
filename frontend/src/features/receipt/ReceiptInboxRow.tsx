@@ -9,7 +9,7 @@ interface ReceiptInboxRowProps {
 
 export function ReceiptInboxRow({ senderName, senderAddress, time, subject, preheader }: ReceiptInboxRowProps) {
   return (
-    <div aria-label="Inbox Row" role="group" className="flex gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+    <div aria-label="Inbox Row" role="group" data-theme="light" className="flex gap-3 rounded-lg border border-line bg-surface px-4 py-3">
       <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-fill-muted text-sm font-semibold text-ink-800">
         {senderName.charAt(0)}
       </span>

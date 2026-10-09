@@ -16,7 +16,7 @@ import { Markdown } from './markdown'
 import { titleOf } from './markdownParse'
 
 const ICON = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900'
-const ICON_ON_BRAND = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-brand-100 transition-colors duration-fast ease-standard hover:bg-brand-800 hover:text-white'
+const ICON_ON_BRAND = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-control-md text-on-brand-soft transition-colors duration-fast ease-standard hover:bg-brand-fill-hover hover:text-on-brand'
 
 function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => void }) {
   const titleId = useId()
@@ -46,7 +46,7 @@ function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => 
   const title = (source && titleOf(source)) || entry.title
   return (
     <aside role="complementary" aria-labelledby={titleId} data-help-panel={chapter}
-      className="fixed inset-y-0 right-0 z-[60] flex w-full flex-col border-l border-line bg-surface shadow-lg sm:w-[min(640px,80vw)]">
+      className="fixed inset-y-0 right-0 z-[60] flex w-full flex-col border-l border-line bg-surface-overlay shadow-lg sm:w-[min(640px,80vw)]">
       <div className="flex items-start gap-3 border-b border-line px-5 py-4">
         <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md bg-brand-100 text-brand-800"><CircleHelp size={16} strokeWidth={1.5} /></span>
         <div className="min-w-0 flex-1">

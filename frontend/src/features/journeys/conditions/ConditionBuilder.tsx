@@ -37,7 +37,7 @@ function Sized({ width, children }: { width: string; children: ReactNode }) {
   return <span className={`inline-block shrink-0 ${width}`}>{children}</span>
 }
 
-const linkButton = 'inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700 disabled:text-ink-300'
+const linkButton = 'inline-flex items-center gap-1 text-sm font-medium text-link hover:text-brand-700 disabled:text-ink-300'
 const small = controlClass({ size: 'sm' })
 
 // ------------------------------------------------------------------------------------------------ the field picker
@@ -123,7 +123,7 @@ function FieldPicker({ value, onPick, catalogue, loading, steps, atEntry }: {
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-ink-800 uppercase">{group.label}</p>
                 {group.options.map((option) => (
                   <button key={option.key} type="button" data-dropdown-item onClick={() => { onPick(option.key); dropdown.close() }}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm transition-colors duration-fast ease-standard ${value === option.key ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-subtle'}`}>
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-sm transition-colors duration-fast ease-standard ${value === option.key ? 'bg-brand-100 font-semibold text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
                     <span className="truncate">{option.label}</span>
                     {option.note && <span className="shrink-0 text-xs text-ink-800">{option.note}</span>}
                   </button>
@@ -135,13 +135,13 @@ function FieldPicker({ value, onPick, catalogue, loading, steps, atEntry }: {
                 <p className="px-3 pt-2 pb-1 text-xs font-semibold tracking-wide text-ink-800 uppercase">Not Listed</p>
                 {asAttribute && (
                   <button type="button" data-dropdown-item onClick={() => { onPick(`attr:${search.trim()}`); dropdown.close() }}
-                    className="flex w-full items-center px-3 py-1.5 text-left text-sm text-ink-900 hover:bg-surface-subtle">
+                    className="flex w-full items-center px-3 py-1.5 text-left text-sm text-ink-900 hover:bg-surface-hover">
                     Custom attribute “{search.trim()}”
                   </button>
                 )}
                 {asEvent && (
                   <button type="button" data-dropdown-item onClick={() => { onPick(`event:${typed}`); dropdown.close() }}
-                    className="flex w-full items-center px-3 py-1.5 text-left text-sm text-ink-900 hover:bg-surface-subtle">
+                    className="flex w-full items-center px-3 py-1.5 text-left text-sm text-ink-900 hover:bg-surface-hover">
                     Event type {typed}
                   </button>
                 )}
@@ -171,7 +171,7 @@ function ValuesInput({ values, onChange, type, suggestions, label }: { values: S
   }
   return (
     <div className="min-w-[180px] flex-1">
-      <div className="flex min-h-8 flex-wrap items-center gap-1 rounded-control-md border border-line-control bg-surface px-1.5 py-1 focus-within:border-brand-600">
+      <div className="flex min-h-8 flex-wrap items-center gap-1 rounded-md border border-line-control bg-surface px-1.5 py-1 focus-within:border-focus">
         {values.map((value) => (
           <span key={String(value)} className="inline-flex h-6 items-center gap-1 rounded-sm bg-fill-subtle px-1.5 text-xs text-ink-900">
             {String(value)}

@@ -40,7 +40,7 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
     <div data-stage-bar className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-5 py-3">
       <div className="flex min-w-0 items-center gap-2">
         <Link to="/journeys" aria-label="Back to Journeys" title="Back to Journeys"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 hover:bg-surface-subtle hover:text-ink-900">
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 hover:bg-surface-hover hover:text-ink-900">
           <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
         </Link>
         <p className="min-w-0 truncate text-sm font-semibold text-ink-900" title={journeyName}>{journeyName}</p>
@@ -66,14 +66,14 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
 
 function StageStep({ number, label, state, live }: { number: number; label: string; state: StageState; live: boolean }) {
   const circle =
-    state === 'done' ? (live ? 'border-success bg-success text-white' : 'border-brand-600 bg-brand-600 text-white')
-    : state === 'current' ? 'border-brand-600 bg-brand-100 text-brand-800'
+    state === 'done' ? (live ? 'border-success bg-success text-on-brand' : 'border-brand-600 bg-brand-600 text-on-brand')
+    : state === 'current' ? 'border-link bg-brand-100 text-brand-800'
     : state === 'scheduled' ? 'border-warning bg-warning-bg text-warning-text'
     : 'border-line bg-surface text-ink-300'
   const text = state === 'current' ? 'font-semibold text-ink-900' : state === 'locked' ? 'text-ink-300' : 'text-ink-800'
   return (
     <span className="flex items-center gap-2" aria-current={state === 'current' ? 'step' : undefined}>
-      <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${state === 'current' ? 'ring-1 ring-brand-600' : ''} ${circle}`} aria-hidden>
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold ${state === 'current' ? 'ring-1 ring-focus' : ''} ${circle}`} aria-hidden>
         {state === 'done' ? <Check size={14} strokeWidth={2} /> : state === 'scheduled' ? <Clock size={12} strokeWidth={1.5} /> : number}
       </span>
       <span className={`text-sm whitespace-nowrap ${text}`}>{label}</span>

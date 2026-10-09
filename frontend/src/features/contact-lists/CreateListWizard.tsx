@@ -94,7 +94,7 @@ function TemplateNote({ channel }: { channel: ListChannel }) {
       <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Columns the import recognises">
         {uploadColumns(channel).map((column) => (
           <li key={column.header} title={column.note || undefined}
-            className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-brand-600 bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-800'}`}>
+            className={`rounded-sm border px-2 py-0.5 text-xs ${column.required ? 'border-link bg-brand-100 font-semibold text-brand-800' : 'border-line bg-surface-subtle text-ink-800'}`}>
             {column.header}{column.required ? ' · required' : ''}
           </li>
         ))}
@@ -116,10 +116,10 @@ function ChoiceCard({ selected, onSelect, title, text, icon, badge }: { selected
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
-      className={`flex h-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-brand-600 bg-brand-100' : 'border-line bg-surface hover:border-brand-600'}`}
+      className={`flex h-full flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${selected ? 'border-link bg-brand-100' : 'border-line bg-surface hover:border-link'}`}
     >
       <span className="flex items-center gap-2 text-sm font-semibold text-ink-900">
-        {icon && <span className={selected ? 'text-brand-600' : 'text-ink-800'}>{icon}</span>}
+        {icon && <span className={selected ? 'text-link' : 'text-ink-800'}>{icon}</span>}
         {title}
       </span>
       <span className="text-xs text-ink-800">{text}</span>
@@ -511,7 +511,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               onDragOver={(event) => { event.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
-              className={`flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center ${dragging ? 'border-brand-600 bg-callout-bg' : 'border-line bg-surface-subtle'}`}
+              className={`flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-10 text-center ${dragging ? 'border-link bg-callout-bg' : 'border-line bg-surface-subtle'}`}
             >
               <span className="flex h-10 w-10 items-center justify-center rounded-sm bg-surface text-ink-800"><Upload size={20} strokeWidth={1.5} aria-hidden /></span>
               <p className="text-sm font-semibold text-ink-900">Drag and drop your file here, or browse</p>

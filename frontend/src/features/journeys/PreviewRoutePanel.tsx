@@ -47,7 +47,7 @@ export function PreviewRoutePanel({ journeyId, versionNumber, dirty, onClose, in
           {customer ? (
             <div className="mt-1 flex items-center justify-between gap-3 rounded-control-lg border border-line px-3 py-2 text-sm">
               <span className="min-w-0 truncate"><span className="font-medium text-ink-900">{customer.name}</span>{customer.email && <span className="text-ink-800"> · {customer.email}</span>}{customer.summary && <span className="text-ink-800"> · {customer.summary}</span>}</span>
-              <button type="button" onClick={() => { setCustomer(null); setAssumptions({}) }} className="shrink-0 text-sm font-medium text-brand-600 hover:text-brand-700">Change</button>
+              <button type="button" onClick={() => { setCustomer(null); setAssumptions({}) }} className="shrink-0 text-sm font-medium text-link hover:text-brand-700">Change</button>
             </div>
           ) : (
             <>
@@ -58,7 +58,7 @@ export function PreviewRoutePanel({ journeyId, versionNumber, dirty, onClose, in
                 <ul className="mt-2 divide-y divide-line-subtle rounded-control-lg border border-line" aria-label="Matching customers">
                   {found.data.map((item) => (
                     <li key={item.party_id}>
-                      <button type="button" onClick={() => setCustomer(item)} className="flex w-full flex-col px-3 py-2 text-left hover:bg-surface-subtle">
+                      <button type="button" onClick={() => setCustomer(item)} className="flex w-full flex-col px-3 py-2 text-left hover:bg-surface-hover">
                         <span className="text-sm font-medium text-ink-900">{item.name}</span>
                         <span className="text-xs text-ink-800">{[item.email, item.summary].filter(Boolean).join(' · ')}</span>
                       </button>

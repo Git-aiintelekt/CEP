@@ -63,8 +63,8 @@ function JourneyCell({ journey }: { journey: Journey }) {
         {Icon && <Icon size={16} strokeWidth={1.5} />}
       </span>
       <div className="min-w-0">
-        <p className="truncate font-medium text-ink-900">{journey.name}</p>
-        <p className="truncate text-xs text-ink-800">{family?.label ?? 'No trigger set'}</p>
+        <p className="truncate text-card-title font-semibold text-ink-900">{journey.name}</p>
+        <p className="truncate text-helper text-ink-800">{family?.label ?? 'No trigger set'}</p>
       </div>
       {journey.needs_attention && (
         <span title="Needs attention: a recent campaign run failed">

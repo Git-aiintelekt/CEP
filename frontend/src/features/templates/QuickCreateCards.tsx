@@ -24,7 +24,7 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
             type="button"
             onClick={() => onPick(channel)}
             aria-label={`Create ${look.label} template`}
-            className="group flex flex-col overflow-hidden rounded-lg bg-surface text-left transition-colors duration-fast ease-standard hover:bg-surface-subtle active:bg-fill-subtle"
+            className="group flex flex-col overflow-hidden rounded-lg bg-surface-overlay text-left transition-colors duration-fast ease-standard hover:bg-surface-hover active:bg-fill-subtle"
           >
             <span aria-hidden className={`flex h-[88px] w-full items-center justify-center ${look.tint}`}>
               <span className={`flex h-14 w-14 items-center justify-center rounded-full ${look.halo} ${look.iconColor}`}>
@@ -36,7 +36,7 @@ export function QuickCreateCards({ channels, onPick }: { channels: TemplateChann
                 <span className="text-card-title font-semibold text-ink-900">{look.label}</span>
                 <span
                   aria-hidden
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-white group-active:border-brand-800 group-active:bg-brand-800"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line text-ink-800 transition-colors duration-fast ease-standard group-hover:border-brand-600 group-hover:bg-brand-600 group-hover:text-on-brand group-active:border-brand-800 group-active:bg-brand-fill-pressed"
                 >
                   <ArrowRight size={14} strokeWidth={1.5} />
                 </span>

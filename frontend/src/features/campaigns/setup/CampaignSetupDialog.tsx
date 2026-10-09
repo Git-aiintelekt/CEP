@@ -308,7 +308,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
                       <Notice tone="info" layout="banner">
                         <p>{DRIP_HINT}</p>
                         {journeysOffered && (
-                          <button type="button" className="mt-1.5 rounded-control-sm text-sm font-semibold text-brand-600 hover:underline"
+                          <button type="button" className="mt-1.5 rounded-control-sm text-sm font-semibold text-link hover:underline"
                             onClick={() => onCreateJourney?.({ name: form.getValues('name').trim(), description: form.getValues('description').trim() })}>
                             Create a Journey Instead
                           </button>
@@ -364,7 +364,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
               </div>
             <div>
               <button type="button" aria-expanded={moreOpen} aria-controls={`${titleId}-more`} onClick={() => setMoreOpen(!moreOpen)}
-                className="flex items-center gap-1.5 rounded-control-sm text-sm font-semibold text-brand-600 hover:underline">
+                className="flex items-center gap-1.5 rounded-control-sm text-sm font-semibold text-link hover:underline">
                 {moreOpen ? <ChevronDown size={16} strokeWidth={1.5} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.5} aria-hidden />}
                 More Options <span className="font-normal text-ink-800">· Code and tags</span>
               </button>

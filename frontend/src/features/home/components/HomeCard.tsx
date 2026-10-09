@@ -23,7 +23,7 @@ interface HomeCardProps<T> {
   children: ReactNode | ((data: T) => ReactNode)
 }
 
-/** A Home section as a card: white, 1px hairline, 8px corners, no shadow. */
+/** A Home section as a card: white, 1px hairline, 16px corners, no shadow; the header runs straight into the body. */
 export function HomeCard<T>({ title, icon, count, helper, actions, footer, flush = false, strip = false, result, children }: HomeCardProps<T>) {
   const titleId = useId()
   if (result?.status === 'unavailable') return null
@@ -35,8 +35,8 @@ export function HomeCard<T>({ title, icon, count, helper, actions, footer, flush
   return (
     <section aria-labelledby={titleId} className="flex min-w-0 flex-col rounded-lg border border-line bg-surface">
       <SectionHeader level="card" title={title} titleId={titleId} icon={icon} count={count} helper={helper} actions={actions} strip={strip} />
-      <div className={`flex-1 ${flush && result?.status !== 'loading' && result?.status !== 'error' ? '' : 'p-4'}`}>{body}</div>
-      {footer && <div className="border-t border-line-subtle px-4 py-3">{footer}</div>}
+      <div className={`flex-1 ${flush && result?.status !== 'loading' && result?.status !== 'error' ? '' : 'px-6 pt-1 pb-6'}`}>{body}</div>
+      {footer && <div className="border-t border-line-subtle px-6 py-3">{footer}</div>}
     </section>
   )
 }
