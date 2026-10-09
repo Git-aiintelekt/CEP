@@ -32,10 +32,10 @@ test('the bar carries the six destinations, with the editor’s own section mark
     'CEP home',
     'Home',
     'Campaigns',
-    'Reports',
     'Journeys',
     'Templates',
     'Contact lists',
+    'Reports',
   ])
 
   const templates = screen.getByRole('link', { name: 'Templates' })
