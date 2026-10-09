@@ -13,14 +13,14 @@ export interface NavItem {
   permission?: string
 }
 
-/** The first group of the rail: everyone's everyday pages, in the nav rail spec's order */
+/** The first group of the rail: everyone's everyday pages; Reports last, after the things it reports on (2026-10-09) */
 export const MAIN_NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'report.view' },
   { to: '/journeys', label: 'Journeys', icon: GitBranch, feature: 'journeys' },
   { to: '/templates', label: 'Templates', icon: FileText },
   { to: '/contact-lists', label: 'Contact lists', icon: Users },
+  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'report.view' },
 ]
 
 /** The second group, below the divider: for workspace admins only */
