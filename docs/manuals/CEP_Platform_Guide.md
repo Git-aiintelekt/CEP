@@ -551,6 +551,8 @@ Platform administrators.
 | integrations.log_body_max_bytes | number | 65536 | How much of a request or answer body the call log keeps. |
 | integrations.log_retention_days, integrations.metric_retention_months | number | 90, 13 | How long the call log and its roll-up are kept. |
 | platform.api_public_url | text | empty | The public address callback addresses and links are built from. |
+| legal.copyright_holder | text | Transaction Tree | Whose copyright the footer of every page carries, after the current year (the year itself is never typed: the app and the back-office take it from the clock). |
+| legal.terms_of_use | text | the sample terms | The Terms of Use page the sign-in page and every footer link to, in Markdown: `##` for a heading, a blank line between paragraphs, `-` for a list. The page shows the date it was last changed. |
 
 ## The fields and controls
 

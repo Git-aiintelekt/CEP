@@ -54,3 +54,4 @@ The issuer's configuration is fetched when you save, so a wrong address is refus
 
 - Keep one administrator with a password while single sign-on is required: it is the way in when the provider is down.
 - Multi-factor authentication for yourself is under the account menu → Account Security; this page only sets the rule for the workspace.
+- The **Terms of Use** every page's footer and the sign-in page link to are the platform's, kept by the platform team; the footer's copyright year is always the current year.

@@ -153,7 +153,7 @@ test('set password (public): mismatch is caught locally, an expired link is expl
   await user.type(screen.getByLabelText(/^Confirm Password/), 'a different passphrase')
   await user.click(screen.getByRole('button', { name: 'Update Password' }))
   expect(screen.getByText("Passwords don't match")).toBeTruthy()
-  expect(calls.length).toBe(0)
+  expect(calls.filter((call) => !call.url.includes('/legal/')).length).toBe(0)         // the sign-in frame's footer asks for the legal line
 
   await user.clear(screen.getByLabelText(/^Confirm Password/))
   await user.type(screen.getByLabelText(/^Confirm Password/), 'a long enough passphrase')

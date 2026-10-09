@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { SIGNED_OUT_REASON_KEY } from '@/auth/SessionIdleGuard'
@@ -244,7 +244,7 @@ export function LoginPage() {
           </form>
 
           <p className="text-helper text-ink-800">
-            By continuing you agree to CEP's Terms of Service and Privacy Policy.
+            By continuing you agree to the <Link to="/terms" className="font-medium text-link hover:underline">Terms of Use</Link>.
           </p>
         </AuthStep>
       )}

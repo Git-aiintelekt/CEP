@@ -253,6 +253,9 @@ def typed_field(kind: str, value, label: str) -> forms.Field:
 def value_fields(setting) -> dict[str, forms.Field]:
     """The fields the change form shows for one parameter: one for a plain value, one per key for an object plus room for a new key."""
     kind, value = setting.value_type, setting.value
+    if kind == "STRING" and (setting.key.endswith(".terms_of_use") or "\n" in str(value or "")):      # long text, such as the Terms of Use in Markdown
+        return {"typed_value": forms.CharField(label="Value", required=False, initial="" if value is None else str(value),
+                                               widget=UnfoldAdminTextareaWidget(attrs={"rows": 24}), help_text="Markdown: ## for a heading, a blank line between paragraphs, - for a list.")}
     if kind != "OBJECT":
         return {"typed_value": typed_field(kind, value, "Value")}
     fields = {f"{MEMBER}{key}": typed_field(typed_values.kind_of(item), item, key) for key, item in (value or {}).items()}

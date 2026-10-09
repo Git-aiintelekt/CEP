@@ -1,0 +1,11 @@
+{% extends "admin/base.html" %}
+{# Django's recursive extends: this reaches Unfold's admin/base.html (the next loader) and only adds the legal line that
+   admin.js puts at the foot of every back-office page. Unfold's change list and change form take the footer block for
+   their own action bars, so the values travel in the head and the script places the line. #}
+{% load cep_legal %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {% cep_legal as legal %}
+    <template id="cep-legal" data-year="{{ legal.year }}" data-holder="{{ legal.holder }}" data-terms="{{ legal.terms_url }}"></template>
+{% endblock %}

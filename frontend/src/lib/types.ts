@@ -2741,3 +2741,11 @@ export interface JourneysReport {
   by_journey: (JourneysReportCounts & { id: string; name: string; status: string; population_mode: string; rates: JourneysReportRates })[]
   rows: (JourneysReportCounts & { journey_id: string; journey_name: string; day: string })[]
 }
+
+/** GET /legal/ : the copyright line and the Terms of Use, from the back-office's Legal parameters; no sign-in needed */
+export interface Legal {
+  copyright_holder: string
+  /** the server's current year; the footer uses the browser's own */
+  year: number
+  terms: { title: string; body: string; updated_at: string | null }
+}

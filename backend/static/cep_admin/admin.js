@@ -73,3 +73,24 @@ document.addEventListener('DOMContentLoaded', function () {
     keepTyping();
     window.addEventListener('load', keepTyping);          // the theme's own start-up may have moved the focus since
 });
+
+/* The legal line at the foot of every page: the year, the holder and the terms address come from templates/admin/base.html
+   (the Legal global parameters); Unfold's list and form pages own the footer block, so the line is placed here instead. */
+document.addEventListener('DOMContentLoaded', function () {
+  var legal = document.getElementById('cep-legal')
+  var main = document.getElementById('main')
+  if (!legal || !main || document.querySelector('.cep-footer')) return
+  var footer = document.createElement('footer')
+  footer.className = 'cep-footer'
+  footer.setAttribute('aria-label', 'Legal')
+  var line = document.createElement('span')
+  line.textContent = '\u00A9 ' + legal.dataset.year + ' ' + legal.dataset.holder
+  var terms = document.createElement('a')
+  terms.href = legal.dataset.terms
+  terms.target = '_blank'
+  terms.rel = 'noreferrer'
+  terms.textContent = 'Terms of use'
+  footer.appendChild(line)
+  footer.appendChild(terms)
+  main.appendChild(footer)
+})

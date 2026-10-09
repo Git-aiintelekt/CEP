@@ -220,3 +220,9 @@ div.cep-card.cep-kpi { padding: 1rem 1.125rem; display: flex; flex-direction: co
 .cep-context dd { margin: 0; color: var(--cep-text-strong); word-break: break-word; }
 .cep-stack { margin: 0.75rem 0 0; padding: 0.75rem; max-height: 24rem; overflow: auto; border-radius: var(--border-radius, 8px); background: var(--cep-surface-soft);
     border: 1px solid var(--cep-line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.5; white-space: pre; color: var(--cep-text-strong); }
+
+/* ---- the legal line at the foot of every back-office page (templates/admin/base_site.html) ---- */
+.cep-footer { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; padding: 1rem; border-top: 1px solid var(--cep-line);
+              font-size: 0.75rem; color: var(--cep-text-subtle); }
+.cep-footer a { color: inherit; text-decoration: none; }
+.cep-footer a:hover { color: var(--cep-text-strong); text-decoration: underline; }
