@@ -56,10 +56,15 @@ const found = (selector: string) => vi.waitFor(() => {
 })
 const posts = (calls: Call[], part: string) => calls.filter((call) => call.method === 'POST' && call.url.includes(part))
 
-beforeEach(() => window.localStorage.clear())
+/** the fixtures are dated around Mon 12 Oct 2026 and read the clock for "today"; only Date is faked so waits and timers stay real */
+beforeEach(() => {
+  window.localStorage.clear()
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-09T16:00:00Z') })
+})
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 test('the Series Timeline: sent with its figures, skips and A/B winner; sending with progress; next up; scheduled; the calendar; and the Skipped drawer', async () => {
