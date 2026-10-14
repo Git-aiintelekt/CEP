@@ -1,5 +1,5 @@
 /** The Build page's right-hand column, docked beside the canvas (no scrim: the canvas stays visible and usable),
- * used for both the Add-a-step picker and a step's panel. A non-modal dialog: focus moves in on open, Escape and ×
+ * used for both the Add-a-step picker and a step's panel. Below 768px it takes the whole screen instead, over the canvas. A non-modal dialog: focus moves in on open, Escape and ×
  * close it, and focus goes back to whatever opened it. */
 import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
@@ -32,7 +32,7 @@ export function SidePanel({ title, subtitle, onClose, children, footer, wide = f
   }, [])
 
   return (
-    <section ref={panel} role="dialog" aria-label={title} className={`flex h-full shrink-0 flex-col border-l border-line bg-surface ${wide ? 'w-[520px]' : 'w-[360px]'}`}>
+    <section ref={panel} role="dialog" aria-label={title} className={`fixed inset-0 z-40 flex w-full flex-col bg-surface md:static md:inset-auto md:z-auto md:h-full md:shrink-0 md:border-l md:border-line ${wide ? 'md:w-[520px]' : 'md:w-[360px]'}`}>
       <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4">
         <div className="min-w-0">
           <h2 className="truncate font-display text-base font-semibold text-ink-900" title={title}>{title}</h2>

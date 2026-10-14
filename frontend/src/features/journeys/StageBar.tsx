@@ -37,8 +37,8 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
   const found = stages.findIndex((item) => item.state === 'current' || item.state === 'scheduled')
   const currentIndex = found === -1 ? stages.length - 1 : found
   return (
-    <div data-stage-bar className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-b border-line bg-surface px-5 py-3">
-      <div className="flex min-w-0 items-center gap-2">
+    <div data-stage-bar className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:px-5">
+      <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none">
         <Link to="/journeys" aria-label="Back to Journeys" title="Back to Journeys"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 hover:bg-surface-hover hover:text-ink-900">
           <ArrowLeft size={16} strokeWidth={1.5} aria-hidden />
@@ -46,7 +46,7 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
         <p className="min-w-0 truncate text-sm font-semibold text-ink-900" title={journeyName}>{journeyName}</p>
       </div>
       {/* below 1100px the full stepper runs under the right-hand actions: show where you are instead */}
-      <p className="text-sm whitespace-nowrap text-ink-800 min-[1100px]:hidden">
+      <p className="text-sm whitespace-nowrap text-ink-800 max-sm:hidden min-[1100px]:hidden">
         Step {currentIndex + 1} of {stages.length} · <span className="font-semibold text-ink-900">{stages[currentIndex].label}</span>
       </p>
       <nav aria-label="Journey Stages" className="hidden min-[1100px]:block">
@@ -59,7 +59,7 @@ export function StageBar({ journeyName, stage, testDone = false, approveState, l
           ))}
         </ol>
       </nav>
-      <div className="flex min-w-0 items-center justify-end gap-3">{actions}</div>
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 md:w-auto md:flex-nowrap md:gap-3">{actions}</div>
     </div>
   )
 }
