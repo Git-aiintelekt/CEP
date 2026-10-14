@@ -84,7 +84,8 @@ function SettingValue({ value, note }: { value: string; note?: string }) {
 }
 
 export function SettingsSidebar({ journey, entryRules, onEditSetup }: { journey: Journey; entryRules: JourneyEntryRule[]; onEditSetup: () => void }) {
-  const [open, setOpen] = useState(true)
+  // a phone starts with the settings folded: the canvas is what the page is for
+  const [open, setOpen] = useState(() => typeof window === 'undefined' || typeof window.matchMedia !== 'function' || window.matchMedia('(min-width: 768px)').matches)
 
   if (!open) {
     return (
@@ -95,7 +96,7 @@ export function SettingsSidebar({ journey, entryRules, onEditSetup }: { journey:
   }
 
   return (
-    <aside aria-label="Journey Settings" className="flex w-72 shrink-0 flex-col border-r border-line bg-surface">
+    <aside aria-label="Journey Settings" className="flex w-72 shrink-0 flex-col border-r border-line bg-surface max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-20 max-md:shadow-drawer">
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <h2 className="text-sm font-semibold text-ink-900">Journey Settings</h2>
         <button type="button" onClick={() => setOpen(false)} aria-label="Hide Journey Settings" className="text-sm font-medium text-link hover:text-link-hover hover:underline">

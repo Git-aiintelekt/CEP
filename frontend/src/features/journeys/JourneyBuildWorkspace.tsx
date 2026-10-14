@@ -217,7 +217,7 @@ export function JourneyBuildWorkspace({
           </>
         }
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <SettingsSidebar journey={journey} entryRules={entryRules} onEditSetup={() => setSetupOpen(true)} />
         <main className="flex min-w-0 flex-1 flex-col">
           {version.status !== 'DRAFT' && (

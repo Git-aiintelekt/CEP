@@ -35,7 +35,7 @@ export function SkippedDrawer({ step, channel, onClose }: { step: DripStep; chan
       {people && step.run ? <SkippedPeople runId={step.run.id} position={step.position} channel={channel} /> : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-pretty text-ink-800">Skipped people stay in the drip and get later messages if they're eligible then. Unsubscribed people get nothing more.</p>
-          <table className="w-full text-sm" aria-label={`Skipped for message ${step.position}`}>
+          <div className="overflow-x-auto"><table className="w-full text-sm" aria-label={`Skipped for message ${step.position}`}>
             <thead>
               <tr className="border-b border-line text-left text-xs font-semibold text-ink-900">
                 <th scope="col" className="py-2 pr-4 font-semibold">Reason</th>
@@ -56,7 +56,7 @@ export function SkippedDrawer({ step, channel, onClose }: { step: DripStep; chan
                 <td className="cep-num py-2.5 text-right font-semibold text-ink-900">{formatNumber(skipped.total)}</td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
         </div>
       )}
     </Drawer>

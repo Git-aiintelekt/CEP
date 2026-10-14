@@ -2,6 +2,7 @@
  * (GET /journeys/{id}/webhook-calls/). Shown only when the journey has a Webhook step. */
 import { useQuery } from '@tanstack/react-query'
 
+import { DataTable } from '@/components/DataTable'
 import { ErrorState, Spinner } from '@/components/States'
 import { StatusBadge } from '@/components/StatusBadge'
 import { DetailCard } from '@/features/campaigns/parts'
@@ -24,29 +25,18 @@ export function WebhookCallsCard({ journeyId }: { journeyId: string }) {
         : query.isError ? <div className="p-6"><ErrorState error={query.error} onRetry={() => void query.refetch()} /></div>
         : rows.length === 0 ? <p className="p-6 text-sm text-ink-800">No calls yet. Each call a Webhook step makes, and every test call, is listed here with the endpoint’s answer.</p>
         : (
-          <table className="w-full text-sm" aria-label="Webhook calls">
-            <thead>
-              <tr className="border-b border-line text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
-                <th className="px-3 py-2">When</th><th className="px-3 py-2">Address</th><th className="px-3 py-2">Answer</th><th className="px-3 py-2">Step</th><th className="px-3 py-2">Took</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-line-subtle last:border-0">
-                  <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-800">{formatDateTime(row.called_at)}</td>
-                  <td className="max-w-[16rem] truncate px-3 py-2 text-ink-900" title={row.url}>{row.url}</td>
-                  <td className="px-3 py-2">
-                    <span className="flex items-center gap-2">
-                      <StatusBadge status={row.outcome === 'OK' ? 'COMPLETED' : row.outcome === 'RETRY' ? 'PAUSED' : 'FAILED'} label={OUTCOME_LABEL[row.outcome] ?? row.outcome} />
-                      <span className="cep-num text-xs text-ink-800">{row.status ?? row.error ?? ''}{row.attempt > 1 ? ` · try ${row.attempt}` : ''}</span>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-ink-800">{row.test ? 'Test call' : row.node_key ?? '—'}</td>
-                  <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-800">{row.duration_ms === null ? '—' : `${row.duration_ms} ms`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable rows={rows} rowKey={(row) => String(row.id)} caption="Webhook calls" inset="card" framed={false} primary="when" columns={[
+            { key: 'when', header: 'When', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{formatDateTime(row.called_at)}</span> },
+            { key: 'url', header: 'Address', render: (row) => <span className="block max-w-[16rem] truncate text-ink-900" title={row.url}>{row.url}</span> },
+            { key: 'answer', header: 'Answer', render: (row) => (
+              <span className="flex items-center gap-2">
+                <StatusBadge status={row.outcome === 'OK' ? 'COMPLETED' : row.outcome === 'RETRY' ? 'PAUSED' : 'FAILED'} label={OUTCOME_LABEL[row.outcome] ?? row.outcome} />
+                <span className="cep-num text-xs text-ink-800">{row.status ?? row.error ?? ''}{row.attempt > 1 ? ` · try ${row.attempt}` : ''}</span>
+              </span>
+            ) },
+            { key: 'step', header: 'Step', render: (row) => <span className="text-ink-800">{row.test ? 'Test call' : row.node_key ?? '—'}</span> },
+            { key: 'took', header: 'Took', align: 'right', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{row.duration_ms === null ? '—' : `${row.duration_ms} ms`}</span> },
+          ]} />
         )}
     </DetailCard>
   )

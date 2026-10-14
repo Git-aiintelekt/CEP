@@ -62,7 +62,8 @@ export default function TimelinePlayground() {
   const opened = params.get('open') === '1'
   const [client] = useState(() => {
     const seeded = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
-    seeded.setQueryData(['journeys', 'j-sample', 'customers', { q: '', status: '', page: 1 }], ROWS)
+    seeded.setQueryData(['journeys', 'j-sample', 'customers', { q: '', status: '', reason: '', page: 1 }], ROWS)
+    seeded.setQueryData(['journeys', 'j-sample', 'customers', 'reasons'], { results: [{ reason: 'QUIET_HOURS', label: 'Quiet hours', customers: 1 }] })
     seeded.setQueryData(['journeys', 'j-sample', 'customers', 'enr-2'], TIMELINE)
     seeded.setQueryData(['journeys', 'preview-customers', 'dev'], [DEVON])
     seeded.setQueryData(['journeys', 'j-sample', 'preview', 3, 'p-devon', {}], ROUTE)

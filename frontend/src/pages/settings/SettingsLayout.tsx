@@ -42,7 +42,7 @@ export function SettingsLayout() {
         <h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-800">Who can sign in to this workspace, what they may do, and which systems may call the API.</p>
       </div>
-      <div className="flex min-w-0 items-start gap-5">
+      <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
         <SettingsMenu />
         <section aria-label="Settings page" className="flex min-w-0 flex-1 flex-col gap-4">
           <Trail path={pathname} />

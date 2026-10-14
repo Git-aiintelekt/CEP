@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuth } from '@/auth/AuthContext'
+import { DataTable } from '@/components/DataTable'
 import { buttonSecondary } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { DetailCard } from '@/features/campaigns/parts'
@@ -46,33 +47,19 @@ export function NeedsAttentionCard({ journeyId, published }: { journeyId: string
         : query.isError ? <div className="p-6"><ErrorState error={query.error} onRetry={() => void query.refetch()} /></div>
         : rows.length === 0 ? <p className="p-6 text-sm text-ink-800">Nothing needs attention. A step that fails for a temporary reason is retried after 5, 15 and 60 minutes; what still fails lands here.</p>
         : (
-          <table className="w-full text-sm" aria-label="Customers needing attention">
-            <thead>
-              <tr className="h-12 border-b border-line text-left text-sm font-semibold whitespace-nowrap text-ink-900">
-                <th className="px-2 first:pl-6 last:pr-6">Customer</th><th className="px-2 first:pl-6 last:pr-6">Step</th><th className="px-2 first:pl-6 last:pr-6">What Happened</th><th className="px-2 first:pl-6 last:pr-6">Tries</th><th className="px-2 first:pl-6 last:pr-6">Next</th>
-                {editable && <th className="px-2 first:pl-6 last:pr-6"><span className="sr-only">Actions</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="h-[72px] border-b border-line-subtle last:border-0">
-                  <td className="px-2 py-3 first:pl-6 last:pr-6"><span className="text-card-title font-semibold text-ink-900">{row.name}</span>{row.email && <span className="block text-helper text-ink-800">{row.email}</span>}</td>
-                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-900">{row.label}</td>
-                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-800">{row.reason}<span className="block text-xs">Temporary</span></td>
-                  <td className="cep-num px-2 py-3 first:pl-6 last:pr-6 whitespace-nowrap text-ink-800">{Math.min(row.attempts, row.max_attempts)} of {row.max_attempts}</td>
-                  <td className="px-2 py-3 first:pl-6 last:pr-6 text-ink-800">{nextWords(row)}</td>
-                  {editable && (
-                    <td className="px-2 py-3 first:pl-6 last:pr-6">
-                      <span className="flex justify-end gap-2">
-                        <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'retry' })}>Retry Now</button>
-                        <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'skip' })}>Skip Step</button>
-                      </span>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable rows={rows} rowKey={(row) => row.id} caption="Customers needing attention" inset="card" framed={false} primary="customer" columns={[
+            { key: 'customer', header: 'Customer', render: (row) => <span className="flex flex-col"><span className="text-card-title font-semibold text-ink-900">{row.name}</span>{row.email && <span className="text-helper text-ink-800">{row.email}</span>}</span> },
+            { key: 'step', header: 'Step', render: (row) => <span className="text-ink-900">{row.label}</span> },
+            { key: 'reason', header: 'What Happened', render: (row) => <span className="text-ink-800">{row.reason}<span className="block text-xs">Temporary</span></span> },
+            { key: 'tries', header: 'Tries', render: (row) => <span className="cep-num whitespace-nowrap text-ink-800">{Math.min(row.attempts, row.max_attempts)} of {row.max_attempts}</span> },
+            { key: 'next', header: 'Next Try', render: (row) => <span className="text-ink-800">{nextWords(row)}</span> },
+            ...(editable ? [{ key: 'actions', header: 'Actions', align: 'right' as const, render: (row: JourneyAttentionRow) => (
+              <span className="flex flex-wrap justify-end gap-2">
+                <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'retry' })}>Retry Now</button>
+                <button type="button" className={buttonSecondary} disabled={act.isPending} onClick={() => act.mutate({ id: row.id, what: 'skip' })}>Skip Step</button>
+              </span>
+            ) }] : []),
+          ]} />
         )}
     </DetailCard>
   )

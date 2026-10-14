@@ -7,6 +7,7 @@ import { useEffect, useId, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
 import type { Feature } from '@/lib/types'
 
 import { RECENT_SHOWN, findPages, pageAt, readFolded, readPanelFolded, readRecent, rememberVisit, visibleGroups, writeFolded, writePanelFolded, type SettingsPage } from './settingsCatalogue'
@@ -43,6 +44,10 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
   const [needle, setNeedle] = useState('')
   const [folded, setFolded] = useState<string[]>(readFolded)
   const [panelFolded, setPanelFolded] = useState(readPanelFolded)
+  // below 768px the menu sits above the page at full width, never folded to icons, and one group opens at a time
+  const isMd = useMinWidth(BREAKPOINT.md)
+  const foldedPanel = panelFolded && isMd
+  const [phoneGroup, setPhoneGroup] = useState<string | null>(null)
   const groups = visibleGroups(has)
 
   const settingsPath = pathname.replace(base, '/settings')
@@ -70,10 +75,10 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
   const recentPages = recent.map(pageAt).filter((page): page is SettingsPage => Boolean(page) && groups.some((group) => group.pages.some((item) => item.to === page!.to))).slice(0, RECENT_SHOWN)
 
   return (
-    <nav aria-label="Settings sections" data-settings-menu={panelFolded ? 'folded' : 'open'}
-      className={`flex shrink-0 flex-col self-start rounded-lg border border-line bg-surface ${panelFolded ? 'w-14 p-2' : 'w-60 p-3'}`}>
-      <div className={`flex items-center gap-2 ${panelFolded ? 'justify-center' : ''}`}>
-        {!panelFolded && (
+    <nav aria-label="Settings sections" data-settings-menu={foldedPanel ? 'folded' : 'open'}
+      className={`flex w-full shrink-0 flex-col rounded-lg border border-line bg-surface md:self-start ${foldedPanel ? 'md:w-14 p-2' : 'md:w-60 p-3'}`}>
+      <div className={`flex items-center gap-2 ${foldedPanel ? 'justify-center' : ''}`}>
+        {!foldedPanel && (
           <label className="relative block min-w-0 flex-1">
             <span className="sr-only" id={searchId}>Find a setting</span>
             <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-800" />
@@ -87,20 +92,20 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
             )}
           </label>
         )}
-        <button type="button" aria-label={panelFolded ? 'Expand the settings menu' : 'Collapse the settings menu'} aria-expanded={!panelFolded} onClick={togglePanel}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
-          {panelFolded ? <ChevronsRight size={16} strokeWidth={1.5} aria-hidden /> : <ChevronsLeft size={16} strokeWidth={1.5} aria-hidden />}
+        <button type="button" aria-label={foldedPanel ? 'Expand the settings menu' : 'Collapse the settings menu'} aria-expanded={!foldedPanel} onClick={togglePanel}
+          className="max-md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-control-md text-ink-800 transition-colors duration-fast ease-standard hover:bg-fill-subtle hover:text-ink-900">
+          {foldedPanel ? <ChevronsRight size={16} strokeWidth={1.5} aria-hidden /> : <ChevronsLeft size={16} strokeWidth={1.5} aria-hidden />}
         </button>
       </div>
 
-      {searching && !panelFolded ? (
+      {searching && !foldedPanel ? (
         <ul aria-label="Matching settings" className="mt-3 flex flex-col gap-0.5">
           {found.length === 0 && <li className="px-2.5 py-2 text-helper text-ink-800">Nothing matches. Try a page name such as Users or Sending Engines.</li>}
           {found.map((page) => <li key={page.to}><PageLink page={page} folded={false} base={base} /></li>)}
         </ul>
       ) : (
-        <div className={`flex flex-col ${panelFolded ? 'mt-2 gap-1' : 'mt-3 gap-3'}`}>
-          {recentPages.length > 0 && !panelFolded && (
+        <div className={`flex flex-col ${foldedPanel ? 'mt-2 gap-1' : 'mt-3 gap-3'}`}>
+          {recentPages.length > 0 && !foldedPanel && (
             <section aria-labelledby={`${searchId}-recent`} className="flex flex-col gap-0.5">
               <h3 id={`${searchId}-recent`} className="flex h-9 items-center gap-2 px-2.5 text-xs font-semibold tracking-wide text-ink-800 uppercase"><Clock size={14} strokeWidth={1.5} aria-hidden />Recent</h3>
               {recentPages.map((page) => <PageLink key={page.to} page={page} folded={false} base={base} />)}
@@ -108,20 +113,21 @@ export function SettingsMenuPanel({ has, base = '/settings' }: { has: (feature: 
           )}
           {groups.map((group) => {
             const GroupIcon = group.icon
-            const open = panelFolded || !folded.includes(group.key)
+            const current = group.pages.some((page) => page.to === settingsPath)
+            const open = foldedPanel || (isMd ? !folded.includes(group.key) : (phoneGroup ?? (current ? group.key : null)) === group.key)
             const bodyId = `${searchId}-${group.key}`
             return (
               <section key={group.key} aria-label={group.label} className="flex flex-col gap-0.5">
-                {panelFolded
+                {foldedPanel
                   ? <span aria-hidden className="mx-auto my-1 h-px w-6 bg-line-subtle" />
                   : (
-                    <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => toggleGroup(group.key)} className={GROUP_HEAD}>
+                    <button type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => (isMd ? toggleGroup(group.key) : setPhoneGroup(open ? '' : group.key))} className={GROUP_HEAD}>
                       <GroupIcon size={14} strokeWidth={1.5} aria-hidden />
                       <span className="min-w-0 flex-1 truncate text-left">{group.label}</span>
                       <ChevronDown size={14} strokeWidth={1.5} aria-hidden className={`transition-transform duration-fast ${open ? '' : '-rotate-90'}`} />
                     </button>
                   )}
-                {open && <div id={bodyId} className="flex flex-col gap-0.5">{group.pages.map((page) => <PageLink key={page.to} page={page} folded={panelFolded} base={base} />)}</div>}
+                {open && <div id={bodyId} className="flex flex-col gap-0.5">{group.pages.map((page) => <PageLink key={page.to} page={page} folded={foldedPanel} base={base} />)}</div>}
               </section>
             )
           })}

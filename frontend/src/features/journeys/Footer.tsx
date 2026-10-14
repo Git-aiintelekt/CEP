@@ -23,7 +23,7 @@ export function ReadinessPill({ validity }: { validity: Validity }) {
 
 export function Footer({ journeyId, validity, onBackToSetup }: { journeyId: string; validity: Validity; onBackToSetup: () => void }) {
   return (
-    <div className="flex shrink-0 items-center gap-4 border-t border-line bg-surface px-5 py-3">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-surface px-4 py-3 md:px-5">
       <ul aria-label="Step Categories" className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
         {CATEGORY_ORDER.map((key) => (
           <li key={key} className="flex items-center gap-1.5 text-helper whitespace-nowrap text-ink-800">
@@ -32,7 +32,7 @@ export function Footer({ journeyId, validity, onBackToSetup }: { journeyId: stri
           </li>
         ))}
       </ul>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <button type="button" onClick={onBackToSetup} className={buttonSecondary}>
           <ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Back to Setup
         </button>

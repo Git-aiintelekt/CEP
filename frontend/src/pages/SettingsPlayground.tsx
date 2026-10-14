@@ -77,7 +77,7 @@ export default function SettingsPlayground() {
   return (
     <div className="flex min-w-0 flex-col gap-5">
       <div><h1 className="font-display text-page-title font-semibold text-ink-900">Settings</h1><p className="mt-1 text-sm text-ink-800">The menu on sample data: every feature on.</p></div>
-      <div className="flex min-w-0 items-start gap-5">
+      <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
         <SettingsMenuPanel has={() => true} base="/dev/settings" />
         <section aria-label="Settings page" className="min-w-0 flex-1">
           <Routes>
