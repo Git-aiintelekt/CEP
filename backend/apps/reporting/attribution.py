@@ -95,10 +95,13 @@ def save_settings(tenant, data: dict) -> dict:
 
 
 def _set_flag(tenant_id, needs_full: bool):
+    """In its own short transaction: the job calls it between transactions, where the row-level setting has lapsed and the
+    tenant row is out of sight (inside a request this is a savepoint)."""
     from apps.tenants.models import Tenant
-    tenant = Tenant.objects.get(pk=tenant_id)
-    tenant.settings = {**(tenant.settings or {}), KEY: {**((tenant.settings or {}).get(KEY) or {}), "needs_full": needs_full}}
-    tenant.save(update_fields=["settings"])
+    with session.tx():
+        tenant = Tenant.objects.get(pk=tenant_id)
+        tenant.settings = {**(tenant.settings or {}), KEY: {**((tenant.settings or {}).get(KEY) or {}), "needs_full": needs_full}}
+        tenant.save(update_fields=["settings"])
 
 
 # ---------------------------------------------------------------------------------------------------- orders in

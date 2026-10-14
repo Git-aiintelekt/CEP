@@ -255,3 +255,18 @@ def test_attribution(check):
             cursor.execute("SELECT count(*) FROM attributed_order")
             print("orders left after rollback:", cursor.fetchone()[0])
     check.done()
+
+
+def test_job_flag_between_transactions(check):
+    """The job clears the flag after its transaction has closed, when the row-level setting has lapsed: the write must bring
+    its own. Nothing here sets the tenant beforehand, which is how the job found the tenant row out of sight."""
+    T = "a0000000-0000-4000-8000-000000000001"
+    flags = []
+    with session.tenant_scope(T):
+        for wanted in (False, True):
+            attribution._set_flag(T, wanted)
+            with session.tx(), session.connection().cursor() as cursor:
+                cursor.execute("SELECT settings -> 'attribution' ->> 'needs_full' FROM tenant WHERE id = %s", [T])
+                flags.append(cursor.fetchone()[0])
+    check("the job clears and raises a workspace's full-recalculation flag between its transactions", flags == ["false", "true"], str(flags))
+    check.done()
