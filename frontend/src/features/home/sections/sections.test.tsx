@@ -207,13 +207,14 @@ test('Drip Problems: one grouped card with each problem’s sentence and its own
 
 test('the sample Home shows the drip states: Drip Problems, a drip message in Next 7 Days, and Recent’s progress line', async () => {
   const user = userEvent.setup()
-  renderHome()
+  const friday = () => new Date('2026-10-09T16:00:00Z')                                                    // the second day tile is Saturday
+  renderHome({ source: createSampleSource('busy', friday) })
   await user.click(within(attention()).getByRole('button', { name: /^View All/ }))
   expect(attention().querySelector('[data-alert="drip-problems"]')!.textContent).toContain('Message 3 of Back to School Bundles failed. No one received it.')
   await user.click(within(screen.getByRole('radiogroup', { name: 'Pick a day' })).getAllByRole('radio')[1])
   const run = [...document.querySelectorAll('[data-run]')].find((row) => row.textContent?.includes('Back to School Bundles · Message 4 of 5'))!
   expect(run.textContent).toMatch(/^08:00 E[DS]?T/)
   expect(run.textContent).toContain('Sat · Drip · Email')
-  const recent = createSampleSource('busy').useRecentCampaigns({ campaignIds: [], channel: 'ALL', period: '30d' })
+  const recent = createSampleSource('busy', friday).useRecentCampaigns({ campaignIds: [], channel: 'ALL', period: '30d' })
   expect(recent.status === 'ready' && recent.data.rows.find((row) => row.id === 'c09')?.contextLine).toBe('Drip · 3 of 5 messages sent')
 })
