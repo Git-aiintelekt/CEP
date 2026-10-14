@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, expect, test } from 'vitest'
 
+import { addDays, todayIn } from '@/features/reports/period'
+
 import { HomePage } from '../HomePage'
 import { HomeDataProvider } from '../data/HomeDataProvider'
 import { createSampleSource, type SampleState } from '../data/sampleSource'
@@ -213,7 +215,9 @@ test('the sample Home shows the drip states: Drip Problems, a drip message in Ne
   await user.click(within(screen.getByRole('radiogroup', { name: 'Pick a day' })).getAllByRole('radio')[1])
   const run = [...document.querySelectorAll('[data-run]')].find((row) => row.textContent?.includes('Back to School Bundles · Message 4 of 5'))!
   expect(run.textContent).toMatch(/^08:00 E[DS]?T/)
-  expect(run.textContent).toContain('Sat · Drip · Email')
+  // the sample puts this run on tomorrow, whatever day that is: the chip and the row name its weekday the way NextSevenDays does
+  const tomorrow = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${addDays(todayIn('America/New_York'), 1)}T12:00:00Z`))
+  expect(run.textContent).toContain(`${tomorrow} · Drip · Email`)
   const recent = createSampleSource('busy').useRecentCampaigns({ campaignIds: [], channel: 'ALL', period: '30d' })
   expect(recent.status === 'ready' && recent.data.rows.find((row) => row.id === 'c09')?.contextLine).toBe('Drip · 3 of 5 messages sent')
 })
