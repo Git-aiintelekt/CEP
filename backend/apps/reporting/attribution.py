@@ -15,6 +15,7 @@ the sending engine is counted. Nothing about the basket is kept: the amount, the
 """
 import re
 from datetime import datetime, timedelta, timezone as dt_timezone
+import json
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -427,7 +428,15 @@ def enabled_tenants() -> list[tuple[str, dict]]:
     with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
         cursor.execute("""SELECT id::text, settings -> 'attribution' FROM tenant
                            WHERE status = 'ACTIVE' AND deleted_at IS NULL AND (settings -> 'attribution' ->> 'enabled') = 'true'""")
-        return [(tid, {**DEFAULTS, **(stored or {})}) for tid, stored in cursor.fetchall()]
+        rows = cursor.fetchall()
+    return [(tid, stored_config(stored)) for tid, stored in rows]
+
+
+def stored_config(stored) -> dict:
+    """A tenant's attribution settings as the job reads them, over the defaults; a raw cursor hands jsonb back as text."""
+    if isinstance(stored, (str, bytes)):
+        stored = json.loads(stored) if stored else None
+    return {**DEFAULTS, **(stored or {})}
 
 
 def run_for(tenant_id, config: dict, *, settle_seconds: int = SETTLE_SECONDS) -> dict:
