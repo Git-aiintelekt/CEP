@@ -44,6 +44,10 @@ def test_attribution(check):
                 # ---- settings
                 config = attribution.save_settings(tenant, {"enabled": True, "click_days": 7, "open_days": 1, "text_days": 1})
                 check("turning attribution on stamps when, and asks for every campaign's figures", config["enabled"] and config["enabled_at"] and config["needs_full"])
+                as_text = attribution.stored_config(json.dumps({"enabled": True, "click_days": 7}))
+                check("the job reads a workspace's settings over the defaults whether the cursor hands jsonb back as a mapping or as text",
+                      as_text["enabled"] is True and as_text["click_days"] == 7 and as_text["open_days"] == attribution.DEFAULTS["open_days"]
+                      and attribution.stored_config({"enabled": True})["enabled"] is True and attribution.stored_config(None)["enabled"] is False, str(as_text)[:200])
                 for bad in ({"click_days": 5}, {"open_days": "x"}, {"email_cost_per_1000": "-1"}, {"text_cost_per_1000": "abc"}):
                     try:
                         attribution.save_settings(tenant, bad)
