@@ -5,7 +5,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { LegalFooter } from '@/components/LegalFooter'
-import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
+import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'

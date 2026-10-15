@@ -1,7 +1,7 @@
 /** The navigation beside the template editors: the app's rail, always collapsed to 64px, with the same items, states and tooltips. */
 import { useAuth } from '@/auth/AuthContext'
 
-import { MAIN_NAV } from './navItems'
+import { MAIN_NAV } from '@/apps/cep/manifest'
 import { RailGroup, RailMark } from './Rail'
 
 export const NAV_BAR_WIDTH = 64

@@ -55,8 +55,10 @@ Sizes: S = a PR or two, M = a week of PRs, L = several weeks.
 The mockup, built. Top bar with the app launcher, the left navigation by component (levels 1 to 3, collapsed
 rail with flyouts), manifests, the `/cep/...` routes with redirects from today's addresses, `GET /me/` returning
 the person's components, Tenant Administration → Components and the Component Registry in the back-office,
-plans with their component sets. Today's CEP moves into `components/cep/` with `git mv`, the design system and
-the API client into `platform/`, one lazily loaded chunk per component with a size budget in the build.
+plans with their component sets. Today's CEP moves into `apps/cep/` with `git mv` (features, pages, help, its manifest and its routes); the design system,
+the API client and auth stay as the platform layer where they are (`components/`, `lib/`, `auth/`, `shell/`). The shell
+lazy-loads each component's routes module, so a component is one chunk of its own, held to a size budget by
+`frontend/scripts/check-budgets.mjs` after every build.
 Insights appears in the launcher and in each menu as soon as Phase B gives it a first page.
 
 Exit: the same product, under the suite shell, with no page slower than today; NWA sees CEP and Insights.

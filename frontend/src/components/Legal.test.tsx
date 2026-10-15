@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, signIn } from '@/test/mockApi'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -18,7 +18,7 @@ test('the sign-in page ends with the copyright for this year and a link to the T
   installMockApi()
   window.history.pushState({}, '', '/login')
   vi.resetModules()
-  const { default: App } = await import('@/App')
+  const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
 
   const footer = await screen.findByRole('contentinfo', { name: 'Legal' })
@@ -31,7 +31,7 @@ test('the Terms of Use page renders the platform text, its date, and leads back 
   installMockApi()
   window.history.pushState({}, '', '/terms')
   vi.resetModules()
-  const { default: App } = await import('@/App')
+  const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
 
   expect(await screen.findByRole('heading', { name: 'Terms of Use', level: 1 })).toBeTruthy()
@@ -46,7 +46,7 @@ test('every signed-in page ends with the same line', async () => {
   installMockApi()
   signIn('/campaigns')
   vi.resetModules()
-  const { default: App } = await import('@/App')
+  const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
   const user = userEvent.setup()
 

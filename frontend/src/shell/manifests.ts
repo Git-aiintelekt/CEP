@@ -1,46 +1,14 @@
 /**
- * The suite's components as the shell knows them: each one's identity (name, tagline, icon, tile colour), its home and
- * its menu. GET /me/ says which of them a workspace can open; the manifest says how to draw it. A component that is not
- * built yet has no manifest and only appears in the launcher's "coming" line.
+ * The suite's components as the shell knows them: GET /me/ says which of them a workspace can open; the registry
+ * (apps/registry.ts) says how to draw each one and where its pages are. A component that is not built yet has no
+ * manifest and only appears in the launcher's "coming" line.
  */
-import { ChartColumn, Contact, Megaphone, Package, ShoppingCart, Tags, TrendingUp, type LucideIcon } from 'lucide-react'
-
-import { MAIN_NAV, type NavItem } from '@/components/navItems'
+import { COMING, MANIFESTS } from '@/apps/registry'
 import type { Me, SuiteComponent } from '@/lib/types'
+import type { ComponentManifest } from './componentTypes'
 
-export interface ComponentManifest {
-  key: string
-  name: string
-  tagline: string
-  icon: LucideIcon
-  /** the tile behind the icon: identity only, never an action colour */
-  tile: string
-  /** the component's Home */
-  home: string
-  menu: NavItem[]
-}
-
-export const ENGAGEMENT: ComponentManifest = {
-  key: 'cep',
-  name: 'Engagement',
-  tagline: 'Customer Engagement',
-  icon: Megaphone,
-  tile: 'bg-brand-100 text-brand-800',
-  home: '/',
-  menu: MAIN_NAV,
-}
-
-export const MANIFESTS: Record<string, ComponentManifest> = { cep: ENGAGEMENT }
-
-/** what exists but is not released: the launcher says it is coming */
-export const COMING: { key: string; name: string; icon: LucideIcon }[] = [
-  { key: 'insights', name: 'Insights', icon: ChartColumn },
-  { key: 'crm', name: 'CRM', icon: Contact },
-  { key: 'sales', name: 'Sales', icon: TrendingUp },
-  { key: 'pur', name: 'Purchasing', icon: ShoppingCart },
-  { key: 'inv', name: 'Inventory', icon: Package },
-  { key: 'pim', name: 'PIM', icon: Tags },
-]
+export type { ComponentManifest }
+export { COMING, MANIFESTS }
 
 export interface EntitledComponent extends ComponentManifest {
   access: SuiteComponent['access']

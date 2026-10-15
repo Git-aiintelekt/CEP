@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { useState } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 
-import { useLeaveGuard } from '@/features/designer/useLeaveGuard'
+import { useLeaveGuard } from '@/apps/cep/features/designer/useLeaveGuard'
 
 import { NavBar } from './NavBar'
 

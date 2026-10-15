@@ -1,5 +1,5 @@
 /** The state the fake Outer design canvas keeps, which the tests read and steer. */
-import { RECEIPT_SLOT_MARKER_END, RECEIPT_SLOT_MARKER_START } from '@/features/designer/blocks/receiptSlot'
+import { RECEIPT_SLOT_MARKER_END, RECEIPT_SLOT_MARKER_START } from '@/apps/cep/features/designer/blocks/receiptSlot'
 
 /** What the tests read and steer: how often the canvas mounted, and the MJML it holds. */
 export const fakeCanvas = { mounts: 0, mjml: '', loaded: [] as unknown[] }

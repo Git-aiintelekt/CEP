@@ -3,12 +3,12 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { installMockApi, me, signIn } from '@/test/mockApi'
+import { cepReady, installMockApi, me, signIn } from '@/test/mockApi'
 
 async function renderAppAt(path: string) {
   signIn(path)
   vi.resetModules()
-  const { default: App } = await import('@/App')
+  const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
 }
 
