@@ -302,6 +302,8 @@ class ScheduleStateView(APIView):
 
     @extend_schema(responses={200: None})
     def post(self, request, version=None, schedule_id=None, action=None):
+        if action not in ("pause", "resume"):
+            raise NotFound("Pause or resume.")
         row = _schedule_row(schedule_id, request)
         if not _may_change(request, row):
             raise PermissionDenied("Only whoever scheduled it, or a report administrator, can pause or resume it.")
