@@ -57,6 +57,10 @@ def test_definition_and_compiler(check):
     check("a bucket on a string is refused", refused({"columns": [{"field": "campaign_name", "bucket": "month"}]}, "columns[0].bucket"))
     check("sorting by a column the report does not have is refused", refused({"columns": [{"field": "campaign_name"}], "orderBy": [{"field": "sent"}]}, "orderBy[0].field"))
     check("groups nest two levels at most", refused({"columns": [{"field": "campaign_name"}], "filters": {"rules": [{"rules": [{"rules": [{"rules": []}]}]}]}}, "filters.rules[0].rules[0].rules[0]"))
+    shown = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "pivot", "across": "submitted_at"}})
+    check("the view saves with the definition: its type, and the dimension spread across", shown["view"] == {"type": "pivot", "across": "submitted_at"})
+    check("spreading a measure, or a field the report does not have, is refused at the view", refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "across": "sent"}}, "view.across")
+          and refused({"columns": [{"field": "channel"}], "view": {"type": "tree"}}, "view.type"))
     check("the limit is capped to what the engine allows", definition.validate(DATASET, {"columns": [{"field": "channel"}], "limit": 10**9}, max_limit=200)["limit"] == 200)
     check("the signature is one hash for one normalised definition", definition.signature(d) == definition.signature(definition.validate(DATASET, raw)) and len(definition.signature(d)) == 64)
 
@@ -120,7 +124,8 @@ def test_api(check, world):
     run = world.api("post", f"/api/v1/insights/reports/{rid}/run/", {"limit": 10})
     check("a saved report runs and is stamped", run.status_code == 200 and run.json()["limit"] == 10 and world.api("get", f"/api/v1/insights/reports/{rid}/").json()["last_run_at"], run.content[:200])
     changed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Sends by campaign and channel", "visibility": "WORKSPACE",
-                                                                   "definition": {**draft["definition"], "limit": 100}, "note": "Shared with the workspace"})
+                                                                   "definition": {**draft["definition"], "limit": 100, "view": {"type": "pivot", "across": "channel"}}, "note": "Shared with the workspace"})
+    check("the report's view follows the definition", changed.status_code == 200 and changed.json()["view_type"] == "pivot" and changed.json()["definition"]["view"] == {"type": "pivot", "across": "channel"}, changed.content[:200])
     check("a change makes version 2 and keeps the history", changed.status_code == 200 and changed.json()["version"] == 2 and changed.json()["visibility"] == "WORKSPACE"
           and [v["version"] for v in world.api("get", f"/api/v1/insights/reports/{rid}/versions/").json()["versions"]] == [2, 1], changed.content[:200])
     stale = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Too late"})

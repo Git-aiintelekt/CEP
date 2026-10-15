@@ -9,7 +9,7 @@ import { useState, type DragEvent, type ReactNode } from 'react'
 
 import { Select } from '@/components/Form'
 import type { CatalogDataset, CatalogField, ReportDefinition } from '../types'
-import { addField, AGGREGATE_LABEL, BUCKET_LABEL, dimensions, fieldOf, inUse, measures, moveField, removeField, rules, setAggregate, setBucket, setLimit, setRules, setSort } from './definition'
+import { addField, AGGREGATE_LABEL, BUCKET_LABEL, dimensions, fieldOf, inUse, measures, moveField, removeField, rules, setAcross, setAggregate, setBucket, setLimit, setRules, setSort, viewOf } from './definition'
 import { FilterBuilder } from './FilterBuilder'
 
 const TYPE_ICON = { string: Type, number: Hash, date: Calendar, datetime: Calendar, boolean: ToggleLeft } as const
@@ -45,7 +45,7 @@ function Well({ title, hint, children, onDrop, empty }: { title: string; hint: s
       onDragLeave={() => setOver(false)}
       onDrop={onDrop ? (event) => { event.preventDefault(); setOver(false); const key = event.dataTransfer.getData('text/x-field'); if (key) onDrop(key) } : undefined}
       className={`rounded-md border p-2.5 transition-colors ${over ? 'border-brand-600 bg-brand-100/30' : 'border-line bg-surface'}`}>
-      <h3 className="mb-1.5 flex items-baseline justify-between text-xs font-semibold tracking-wide text-ink-800 uppercase"><span>{title}</span>{!onDrop && <span className="text-[10px] font-medium normal-case text-ink-700">Pivot view, coming</span>}</h3>
+      <h3 className="mb-1.5 text-xs font-semibold tracking-wide text-ink-800 uppercase">{title}</h3>
       {empty ? <p className="text-xs text-ink-700">{hint}</p> : <ul className="flex flex-col gap-1">{children}</ul>}
     </section>
   )
@@ -74,7 +74,25 @@ export function FieldWells({ dataset, definition, onChange, result }: EditorLayo
   const meas = measures(definition)
   const current = rules(definition)
   const add = (key: string) => { const field = fieldOf(dataset, key); if (field) onChange(addField(definition, field)) }
+  const across = viewOf(definition).across
+  const spread = dims.find((column) => column.field === across)
+  const rowDims = dims.filter((column) => column.field !== across)
+  const addAcross = (key: string) => { const field = fieldOf(dataset, key); if (field?.role === 'dimension') onChange(setAcross(addField(definition, field), key)) }
   const sort = definition.orderBy?.[0]
+  const dimChip = (column: (typeof dims)[number], movable: boolean) => {
+    const field = fieldOf(dataset, column.field)
+    return (
+      <Chip key={column.field} label={field?.label ?? column.field} onRemove={() => onChange(removeField(definition, column.field))}
+        onUp={movable ? () => onChange(moveField(definition, column.field, -1)) : undefined} onDown={movable ? () => onChange(moveField(definition, column.field, 1)) : undefined}
+        control={field && field.buckets.length > 0 ? (
+          <Select aria-label={`${field.label} bucket`} controlSize="sm" value={column.bucket ?? ''} onChange={(event) => onChange(setBucket(definition, column.field, (event.target.value || null) as never))}>
+            <option value="">as is</option>{field.buckets.map((bucket) => <option key={bucket} value={bucket}>{BUCKET_LABEL[bucket]}</option>)}
+          </Select>
+        ) : undefined}>
+        {field?.label}
+      </Chip>
+    )
+  }
   return (
     <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[220px_minmax(0,1fr)_300px]">
       <aside aria-label="Fields" className="flex min-h-0 flex-col gap-2 rounded-md border border-line bg-surface p-2.5">
@@ -99,23 +117,12 @@ export function FieldWells({ dataset, definition, onChange, result }: EditorLayo
       </div>
 
       <aside aria-label="Wells" className="flex flex-col gap-2.5">
-        <Well title="Rows" hint="One line per value" empty={dims.length === 0} onDrop={add}>
-          {dims.map((column) => {
-            const field = fieldOf(dataset, column.field)
-            return (
-              <Chip key={column.field} label={field?.label ?? column.field} onRemove={() => onChange(removeField(definition, column.field))}
-                onUp={() => onChange(moveField(definition, column.field, -1))} onDown={() => onChange(moveField(definition, column.field, 1))}
-                control={field && field.buckets.length > 0 ? (
-                  <Select aria-label={`${field.label} bucket`} controlSize="sm" value={column.bucket ?? ''} onChange={(event) => onChange(setBucket(definition, column.field, (event.target.value || null) as never))}>
-                    <option value="">as is</option>{field.buckets.map((bucket) => <option key={bucket} value={bucket}>{BUCKET_LABEL[bucket]}</option>)}
-                  </Select>
-                ) : undefined}>
-                {field?.label}
-              </Chip>
-            )
-          })}
+        <Well title="Rows" hint="One line per value" empty={rowDims.length === 0} onDrop={add}>
+          {rowDims.map((column) => dimChip(column, true))}
         </Well>
-        <Well title="Columns" hint="Spread values across (pivot)" empty>{null}</Well>
+        <Well title="Columns" hint="Spread one dimension across: the pivot's columns, the chart's series" empty={!spread} onDrop={addAcross}>
+          {spread && dimChip(spread, false)}
+        </Well>
         <Well title="Values" hint="Numbers to add up" empty={meas.length === 0} onDrop={add}>
           {meas.map((column) => {
             const field = fieldOf(dataset, column.field)

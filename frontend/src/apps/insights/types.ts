@@ -3,6 +3,14 @@
 export type FieldType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'
 export type Aggregate = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max'
 export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot'
+
+/** how the report is shown: the view, the chart's kind, and for a chart or a pivot which dimension goes across */
+export interface ReportView {
+  type: ViewType
+  chart?: 'bar' | 'line' | 'area'
+  across?: string
+}
 
 export interface CatalogField {
   key: string
@@ -64,6 +72,7 @@ export interface ReportDefinition {
   filters?: FilterGroup
   orderBy?: { field: string; direction: 'asc' | 'desc' }[]
   limit?: number
+  view?: ReportView
 }
 
 export interface ReportSummary {
@@ -73,7 +82,7 @@ export interface ReportSummary {
   dataset: string
   dataset_label: string
   component: { key: string; name: string }
-  view_type: 'grid' | 'chart' | 'pivot' | 'hierarchy'
+  view_type: ViewType
   visibility: 'PRIVATE' | 'WORKSPACE'
   version: number
   owner_user_id: string | null

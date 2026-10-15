@@ -55,6 +55,17 @@ come, and no code reads it yet.
 A workspace sees Insights at all only when Tenant Administration → Components has it on (every plan includes it since
 patch 0048; it is released as Beta in patch 0049).
 
+## The four views
+
+A report is one definition shown four ways; the choice saves with the definition (`view`: the type, the chart's kind,
+and for a chart or a pivot the dimension spread across) and `report.view_type` follows it. The grid is the rows as the
+engine returned them (AG Grid Community). The other three are reshaped in the browser from the same grouped rows: the
+**chart** (the app's chart kit) puts the first dimension along the bottom with one series per value of the dimension
+across, else one per measure; the **hierarchy** folds the dimensions in their order with a subtotal per group; the
+**pivot** spreads the dimension across as columns with one measure in the cells and totals on both edges. Subtotals
+add sums and counts and compare minimums and maximums; an average or a distinct count cannot be combined and reads as
+an em dash. They come from the rows shown, so a truncated run totals what is on the page.
+
 ## The catalogue
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049

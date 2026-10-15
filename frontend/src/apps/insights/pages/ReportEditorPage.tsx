@@ -12,14 +12,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
 import { ErrorState, Spinner } from '@/components/States'
-import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
-import { ResultGrid } from '../components/ResultGrid'
+import { ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
-import { EMPTY, isComplete } from '../editor/definition'
+import { dimensions, EMPTY, fieldOf, isComplete, setView, viewOf } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
 import type { ReportDefinition, RunResult } from '../types'
@@ -100,13 +99,14 @@ export function ReportEditorPage() {
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
-        <div className="flex items-center gap-2"><Tag tone="brand">Grid</Tag><span className="text-ink-700">Chart, Hierarchy and Pivot come next</span></div>
+        <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data?.columns}
+          dimensions={dimensions(definition).map((column) => ({ key: column.field, label: fieldOf(dataset, column.field)?.label ?? column.field }))} />
         <span>{preview.data ? runWords(preview.data) : preview.isFetching ? 'Running…' : complete ? '' : 'Finish the filters to run'}</span>
       </div>
       {refused ? (
         <ErrorState title={refused.problem?.title ?? 'The preview did not run'} detail={refused.problem?.detail} shownFields={Object.keys(refused.problem?.errors ?? {})} onRetry={() => preview.refetch()} />
       ) : preview.data ? (
-        <ResultGrid result={preview.data as RunResult} label="Preview rows" minHeight={280} />
+        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} />
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}

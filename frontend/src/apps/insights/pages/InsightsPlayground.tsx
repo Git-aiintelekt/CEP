@@ -1,19 +1,18 @@
 /**
  * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
- * reader without the right to personal data.
+ * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views.
  * For design review and screenshots; the real editor is ReportEditorPage.
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
-import { Tag } from '@/components/StatusBadge'
-import { ResultGrid } from '../components/ResultGrid'
+import { ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
-import { EMPTY } from '../editor/definition'
+import { EMPTY, setView, viewOf } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
-import type { CatalogDataset, ReportDefinition, RunResult } from '../types'
+import type { CatalogDataset, ReportDefinition, RunResult, ViewType } from '../types'
 
 const DATASET: CatalogDataset = {
   key: 'messages', label: 'Messages', description: 'Every email and text a campaign sent: who, when, and what became of it', component: { key: 'cep', name: 'Engagement' },
@@ -53,17 +52,21 @@ const LAYOUTS: SegmentOption<Layout>[] = [{ value: 'wells', label: 'Field Wells'
 export default function InsightsPlayground() {
   const [params, setParams] = useSearchParams()
   const layout = (params.get('layout') === 'steps' ? 'steps' : 'wells') as Layout
-  const [definition, setDefinition] = useState<ReportDefinition>(params.get('state') === 'sparse' ? EMPTY : BUSY)
+  const [definition, setDefinition] = useState<ReportDefinition>(() => {
+    const base = params.get('state') === 'sparse' ? EMPTY : BUSY
+    const type = (params.get('view') ?? 'grid') as ViewType
+    return type === 'grid' ? base : setView(base, { type, chart: 'bar', across: params.get('across') ?? undefined })
+  })
   const shown: RunResult = params.get('masked')
     ? { ...RESULT, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...RESULT.columns.slice(1)], rows: RESULT.rows.map((row) => ['•••••', ...row.slice(1)]) }
     : RESULT
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
-        <div className="flex items-center gap-2"><Tag tone="brand">Grid</Tag><span className="text-ink-700">Chart, Hierarchy and Pivot come next</span></div>
+        <ViewBar view={viewOf(definition)} onChange={(view) => setDefinition(setView(definition, view))} columns={shown.columns} dimensions={[]} />
         <span>{runWords(shown)}</span>
       </div>
-      <ResultGrid result={shown} label="Preview rows" minHeight={280} />
+      <ReportResult result={shown} view={viewOf(definition)} label="Preview rows" minHeight={280} />
     </div>
   )
   return (

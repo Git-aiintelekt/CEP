@@ -125,6 +125,30 @@ def _filters(dataset: dict, node, where: str, depth: int, count: list[int]) -> d
     return {"combinator": combinator, "rules": out}
 
 
+VIEW_TYPES = ("grid", "chart", "hierarchy", "pivot")
+CHART_KINDS = ("bar", "line", "area")
+
+
+def _view(raw, out_columns: list[dict]) -> dict | None:
+    """How the report is shown: the view, the chart's kind, and the dimension spread across (one of the report's own)."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or raw.get("type") not in VIEW_TYPES:
+        raise DefinitionError("view.type", "Use grid, chart, hierarchy or pivot.")
+    out = {"type": raw["type"]}
+    chart = raw.get("chart")
+    if chart is not None:
+        if chart not in CHART_KINDS:
+            raise DefinitionError("view.chart", "Use bar, line or area.")
+        out["chart"] = chart
+    across = raw.get("across")
+    if across is not None:
+        if not any(c["field"] == across and "aggregate" not in c for c in out_columns):
+            raise DefinitionError("view.across", "Spread one of the report's dimensions across.")
+        out["across"] = across
+    return out
+
+
 def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
     """The definition, normalised, or DefinitionError naming the part at fault."""
     if not isinstance(raw, dict):
@@ -183,7 +207,9 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
             raise DefinitionError("limit", "The limit is a whole number of rows.")
         limit = min(limit, max_limit)
-    return {"dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {})}
+    view = _view(raw.get("view"), out_columns)
+    return {"dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
+            **({"view": view} if view else {})}
 
 
 def signature(definition: dict) -> str:

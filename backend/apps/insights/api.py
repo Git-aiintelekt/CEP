@@ -160,15 +160,13 @@ class ReportListView(APIView):
         errors = {}
         if not name or len(name) > 200:
             errors["name"] = "Give the report a name of up to 200 characters."
-        view_type = str(body.get("view_type") or "grid")
-        if view_type not in ("grid",):
-            errors["view_type"] = "Only the grid view is available yet."
         visibility = str(body.get("visibility") or "PRIVATE").upper()
         if visibility not in ("PRIVATE", "WORKSPACE"):
             errors["visibility"] = "PRIVATE or WORKSPACE."
         if errors:
             raise ValidationError(errors)
         dataset, definition = _validated(request, body, max_limit=catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"])
+        view_type = (definition.get("view") or {}).get("type", "grid")
         import json
         tenant_id = context.require().tenant_id
         with session.tx():
@@ -213,14 +211,15 @@ class ReportView(APIView):
         else:
             definition = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
         new_version = row["version"] + (1 if definition_body is not None else 0)
+        view_type = (definition.get("view") or {}).get("type", row["view_type"])
         tenant_id = context.require().tenant_id
         with session.tx():
-            _q("""UPDATE report SET name = %s, description = %s, visibility = %s, definition = %s, version = %s, updated_by = %s, updated_at = now(),
+            _q("""UPDATE report SET name = %s, description = %s, visibility = %s, definition = %s, version = %s, view_type = %s, updated_by = %s, updated_at = now(),
                                     row_version = row_version + 1 WHERE id = %s AND row_version = %s""",
-               [name, body.get("description", row["description"]) or None, visibility, json.dumps(definition), new_version, str(request.user.pk), str(report_id), row["row_version"]])
+               [name, body.get("description", row["description"]) or None, visibility, json.dumps(definition), new_version, view_type, str(request.user.pk), str(report_id), row["row_version"]])
             if definition_body is not None:
                 _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                   [tenant_id, str(report_id), new_version, json.dumps(definition), row["view_type"], (str(body.get("note") or "")[:300] or None), str(request.user.pk)])
+                   [tenant_id, str(report_id), new_version, json.dumps(definition), view_type, (str(body.get("note") or "")[:300] or None), str(request.user.pk)])
         return Response(_serialize(_report_row(report_id, request)))
 
     @extend_schema(responses={204: None})

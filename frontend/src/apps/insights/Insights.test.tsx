@@ -86,6 +86,29 @@ test('the viewer runs a saved report in the grid, with Edit and Export', async (
   expect(screen.getByText(/3 rows · 42 ms · live data/)).toBeTruthy()
 })
 
+test('the viewer switches the views: a pivot with totals on both edges, a hierarchy that folds, a chart', async () => {
+  const user = userEvent.setup()
+  await renderAppAt('/insights/reports/rep-1')
+  await screen.findByRole('heading', { name: 'Sends by campaign' })
+  await screen.findByRole('region', { name: 'Report rows' })
+  await user.click(screen.getByRole('radio', { name: 'Pivot' }))
+  expect(screen.getByText('A pivot needs a dimension to spread across the columns: put one in Columns, such as Sent by Month.')).toBeTruthy()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Across' }), 'channel')
+  const pivot = screen.getByRole('region', { name: 'Report rows' })
+  expect(within(pivot).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Campaign', 'EMAIL', 'SMS', 'Total'])
+  const total = within(pivot).getAllByRole('row').at(-1) as HTMLElement
+  expect(within(total).getAllByRole('cell').map((td) => td.textContent)).toEqual(['Total', '343,800', '25,100', '368,900'])
+  await user.click(screen.getByRole('radio', { name: 'Hierarchy' }))
+  const tree = screen.getByRole('region', { name: 'Report rows' })
+  const fall = within(tree).getByRole('button', { name: /Fall Launch/ })
+  expect(fall.getAttribute('aria-expanded')).toBe('true')
+  expect(within(tree).getAllByRole('row').length).toBe(1 + 6 + 1)                   // the header, three campaigns each with one channel, the total
+  await user.click(fall)
+  expect(within(tree).getAllByRole('row').length).toBe(1 + 5 + 1)
+  await user.click(screen.getByRole('radio', { name: 'Chart' }))
+  expect(screen.getByRole('group', { name: 'Sent Count by Campaign' })).toBeTruthy()
+})
+
 test('a reader without the right to personal data sees the PII column masked, named above the grid', async () => {
   const reader = { ...withInsights, principal: { ...withInsights.principal, permissions: withInsights.principal.permissions.filter((p) => p !== 'user.admin') } }
   await renderAppAt('/insights/reports/rep-1', reader)
