@@ -12,7 +12,7 @@ from django.utils import timezone
 
 OK, WARN, FAIL, OFF = "ok", "warn", "fail", "off"
 LABEL = {OK: "success", WARN: "warning", FAIL: "danger", OFF: "info"}
-WORD = {OK: "Healthy", WARN: "Attention", FAIL: "Failing", OFF: "Not running"}
+WORD = {OK: "Healthy", WARN: "Attention", FAIL: "Failing", OFF: "Not Running"}
 P = settings.PLATFORM_ALIAS
 
 
@@ -235,12 +235,12 @@ def numbers() -> list[dict]:
     def one(sql):
         return _rows(sql)[0][0]
     return [
-        {"title": "Active tenants", "value": one("SELECT count(*) FROM tenant WHERE status = 'ACTIVE' AND deleted_at IS NULL"), "link": "admin:tenants_tenant_changelist"},
-        {"title": "Suspended tenants", "value": one("SELECT count(*) FROM tenant WHERE status = 'SUSPENDED' AND deleted_at IS NULL"), "link": "admin:tenants_tenant_changelist"},
-        {"title": "Active users", "value": one("SELECT count(*) FROM app_user WHERE is_active AND deleted_at IS NULL"), "link": "admin:identity_appuser_changelist"},
-        {"title": "Active API keys", "value": one("SELECT count(*) FROM api_client WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())"), "link": "admin:identity_apiclient_changelist"},
-        {"title": "Campaigns live", "value": one("SELECT count(*) FROM campaign WHERE status IN ('ACTIVE', 'PRODUCTION_PUBLISHED') AND deleted_at IS NULL"), "link": "admin:campaigns_campaign_changelist"},
-        {"title": "Definition changes, 24 h", "value": one("SELECT count(*) FROM definition_audit_log WHERE changed_at > now() - interval '24 hours'"), "link": "admin:audit_definitionauditlog_changelist"},
+        {"title": "Active Tenants", "value": one("SELECT count(*) FROM tenant WHERE status = 'ACTIVE' AND deleted_at IS NULL"), "link": "admin:tenants_tenant_changelist"},
+        {"title": "Suspended Tenants", "value": one("SELECT count(*) FROM tenant WHERE status = 'SUSPENDED' AND deleted_at IS NULL"), "link": "admin:tenants_tenant_changelist"},
+        {"title": "Active Users", "value": one("SELECT count(*) FROM app_user WHERE is_active AND deleted_at IS NULL"), "link": "admin:identity_appuser_changelist"},
+        {"title": "Active API Keys", "value": one("SELECT count(*) FROM api_client WHERE revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())"), "link": "admin:identity_apiclient_changelist"},
+        {"title": "Campaigns Live", "value": one("SELECT count(*) FROM campaign WHERE status IN ('ACTIVE', 'PRODUCTION_PUBLISHED') AND deleted_at IS NULL"), "link": "admin:campaigns_campaign_changelist"},
+        {"title": "Definition Changes, 24 h", "value": one("SELECT count(*) FROM definition_audit_log WHERE changed_at > now() - interval '24 hours'"), "link": "admin:audit_definitionauditlog_changelist"},
     ]
 
 

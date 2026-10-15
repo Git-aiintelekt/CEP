@@ -34,7 +34,7 @@ from .models import SubscriptionPlan, Tenant, TenantSubscription
 
 P = settings.PLATFORM_ALIAS
 SESSION_KEY = "tenant_onboarding"
-STEPS = (("workspace", "Workspace"), ("plan", "Plan and features"), ("admin", "First administrator"), ("policies", "Policies"), ("handoff", "Hand-off"), ("review", "Review and onboard"))
+STEPS = (("workspace", "Workspace"), ("plan", "Plan and Features"), ("admin", "First Administrator"), ("policies", "Policies"), ("handoff", "Hand-Off"), ("review", "Review and Onboard"))
 STEP_KEYS = [key for key, _ in STEPS]
 SKIPPABLE = {"policies", "handoff"}
 CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,19}$")
@@ -52,16 +52,16 @@ HANDOFF_CHECKLIST = (
 
 # ------------------------------------------------------------------------------------------------------------ the forms
 class WorkspaceForm(forms.Form):
-    name = forms.CharField(label="Workspace name", max_length=200, widget=UnfoldAdminTextInputWidget)
+    name = forms.CharField(label="Workspace Name", max_length=200, widget=UnfoldAdminTextInputWidget)
     code = forms.CharField(label="Code", max_length=20, widget=UnfoldAdminTextInputWidget,
                            help_text="Short, upper case, fixed once created. The API's X-Tenant header, the callback addresses and the partition names carry it.")
     subdomain = forms.CharField(label="Subdomain", max_length=63, required=False, widget=UnfoldAdminTextInputWidget, help_text="Host-based sign-in: <subdomain>.your-domain. Optional.")
-    custom_app_domain = forms.CharField(label="Custom app domain", max_length=253, required=False, widget=UnfoldAdminTextInputWidget,
+    custom_app_domain = forms.CharField(label="Custom App Domain", max_length=253, required=False, widget=UnfoldAdminTextInputWidget,
                                         help_text="Optional. Needs the DNS record and a certificate; the subdomain works meanwhile.")
-    timezone = forms.ChoiceField(label="Time zone", choices=[(zone, zone) for zone in COMMON_ZONES], initial="UTC", widget=UnfoldAdminSelectWidget,
+    timezone = forms.ChoiceField(label="Time Zone", choices=[(zone, zone) for zone in COMMON_ZONES], initial="UTC", widget=UnfoldAdminSelectWidget,
                                  help_text="Schedules, quiet hours for texts and the reports read in this zone. Any IANA zone can be typed on the tenant's page afterwards.")
     region = forms.CharField(label="Region", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. us-east. Optional.")
-    data_residency = forms.CharField(label="Data residency", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. US, EU. Optional.")
+    data_residency = forms.CharField(label="Data Residency", max_length=40, required=False, widget=UnfoldAdminTextInputWidget, help_text="e.g. US, EU. Optional.")
     isolation_mode = forms.ChoiceField(label="Hosting", choices=(("SHARED", "Shared database: the pool, its own partitions and row-level security (the usual choice)"),
                                                                  ("DEDICATED", "Dedicated database: provisioned by a tenant operation after this flow (Enterprise plans)")),
                                        initial="SHARED", widget=UnfoldAdminSelectWidget)
@@ -104,12 +104,12 @@ class WorkspaceForm(forms.Form):
 
 
 class PlanForm(forms.Form):
-    plan = forms.ChoiceField(label="Subscription plan", widget=UnfoldAdminSelectWidget)
-    trial_days = forms.IntegerField(label="Trial days", initial=30, min_value=0, max_value=365, widget=UnfoldAdminTextInputWidget,
+    plan = forms.ChoiceField(label="Subscription Plan", widget=UnfoldAdminSelectWidget)
+    trial_days = forms.IntegerField(label="Trial Days", initial=30, min_value=0, max_value=365, widget=UnfoldAdminTextInputWidget,
                                     help_text="0 with a billing reference starts the subscription active; otherwise it starts as a trial.")
-    billing_customer_ref = forms.CharField(label="Billing reference", max_length=100, required=False, widget=UnfoldAdminTextInputWidget,
+    billing_customer_ref = forms.CharField(label="Billing Reference", max_length=100, required=False, widget=UnfoldAdminTextInputWidget,
                                            help_text="The customer at the billing provider (e.g. a Stripe customer id). No invoice is raised without it.")
-    industry = forms.ChoiceField(label="Industry profile", required=False, widget=UnfoldAdminSelectWidget,
+    industry = forms.ChoiceField(label="Industry Profile", required=False, widget=UnfoldAdminSelectWidget,
                                  help_text="Sets the starting features and what the workspace calls customers, locations and transactions.")
 
     def __init__(self, *args, **kwargs):
@@ -126,9 +126,9 @@ class PlanForm(forms.Form):
 
 
 class AdminForm(forms.Form):
-    display_name = forms.CharField(label="Full name", max_length=200, widget=UnfoldAdminTextInputWidget)
+    display_name = forms.CharField(label="Full Name", max_length=200, widget=UnfoldAdminTextInputWidget)
     email = forms.EmailField(label="Email", widget=UnfoldAdminTextInputWidget, help_text="Their sign-in. Must not exist in another workspace.")
-    also_invite = forms.CharField(label="Also invite", required=False, widget=UnfoldAdminTextareaWidget(attrs={"rows": 3}),
+    also_invite = forms.CharField(label="Also Invite", required=False, widget=UnfoldAdminTextareaWidget(attrs={"rows": 3}),
                                   help_text="More administrators, one email per line. Optional. Each gets the Workspace Admin role and a password link.")
 
     def clean_email(self):
@@ -158,16 +158,16 @@ class AdminForm(forms.Form):
 
 
 class PoliciesForm(forms.Form):
-    without_consent = forms.ChoiceField(label="People without consent", choices=((consent_policy.HOLD_BACK, "Import and hold back until they confirm"), (consent_policy.REFUSE, "Refuse the row")),
+    without_consent = forms.ChoiceField(label="People Without Consent", choices=((consent_policy.HOLD_BACK, "Import and hold back until they confirm"), (consent_policy.REFUSE, "Refuse the row")),
                                         initial=consent_policy.HOLD_BACK, widget=UnfoldAdminSelectWidget, help_text="What an upload does with a new person who has no consent date in the file.")
-    texts_need_date = forms.BooleanField(label="Texts need a consent date", required=False, help_text="A Texts list cannot import a number without a text consent date.")
-    approval_before_send = forms.BooleanField(label="Approval before first send", required=False, help_text="A new upload must be approved by someone with Consent · Edit before any campaign sends to it.")
-    lifetime_months = forms.ChoiceField(label="Consent lifetime", choices=[(str(m), f"{m // 12} year{'s' if m != 12 else ''}" if m % 12 == 0 else f"{m} months") for m in consent_policy.LIFETIMES],
+    texts_need_date = forms.BooleanField(label="Texts Need a Consent Date", required=False, help_text="A Texts list cannot import a number without a text consent date.")
+    approval_before_send = forms.BooleanField(label="Approval Before First Send", required=False, help_text="A new upload must be approved by someone with Consent · Edit before any campaign sends to it.")
+    lifetime_months = forms.ChoiceField(label="Consent Lifetime", choices=[(str(m), f"{m // 12} year{'s' if m != 12 else ''}" if m % 12 == 0 else f"{m} months") for m in consent_policy.LIFETIMES],
                                         initial="24", widget=UnfoldAdminSelectWidget)
 
 
 class HandoffForm(forms.Form):
-    note = forms.CharField(label="A line from you", max_length=500, required=False, widget=UnfoldAdminTextareaWidget(attrs={"rows": 3}),
+    note = forms.CharField(label="A Line from You", max_length=500, required=False, widget=UnfoldAdminTextareaWidget(attrs={"rows": 3}),
                            help_text="Goes into the password-link email under the set-up list. Optional.")
 
 
@@ -245,15 +245,15 @@ def policies_summary(data: dict | None) -> list[dict]:
     policy = {**consent_policy.DEFAULTS, **(data or {})}
     quiet = params.get("messaging.sms_quiet_hours", {}) or {}
     return [
-        {"label": "Consent policy", "text": f"People without consent: {'refuse' if policy['without_consent'] == consent_policy.REFUSE else 'hold back'} · "
+        {"label": "Consent Policy", "text": f"People without consent: {'refuse' if policy['without_consent'] == consent_policy.REFUSE else 'hold back'} · "
                                             f"texts need a consent date: {'on' if policy['texts_need_date'] else 'off'} · approval before first send: {'on' if policy['approval_before_send'] else 'off'} · "
                                             f"lifetime {int(policy['lifetime_months'])} months" + ("" if data else " (platform defaults; the administrator can change it in Settings)")},
-        {"label": "Quiet hours for marketing texts", "text": (f"{quiet.get('start', '21:00')}–{quiet.get('end', '08:00')} in the workspace's time zone (global parameter messaging.sms_quiet_hours)"
+        {"label": "Quiet Hours for Marketing Texts", "text": (f"{quiet.get('start', '21:00')}–{quiet.get('end', '08:00')} in the workspace's time zone (global parameter messaging.sms_quiet_hours)"
                                                               if quiet else "Off (global parameter messaging.sms_quiet_hours is empty)")},
         {"label": "Security", "text": f"Idle timeout {params.get('security.idle_timeout_minutes', 120)} min with a {params.get('security.idle_warning_seconds', 60)} s warning · "
                                       f"password links valid {links.hours()} hours · support access {'notifies' if params.get('security.notify_user_on_support_access', True) else 'does not notify'} the user"},
-        {"label": "Personalization tags", "text": "Every active platform tag is copied into the workspace at onboarding; the three coupon tags are added for barcodes and QR codes."},
-        {"label": "Single sign-on", "text": "No identity provider yet: users sign in with a password. One can be registered later under Tenant identity providers."},
+        {"label": "Personalization Tags", "text": "Every active platform tag is copied into the workspace at onboarding; the three coupon tags are added for barcodes and QR codes."},
+        {"label": "Single Sign-On", "text": "No identity provider yet: users sign in with a password. One can be registered later under Tenant identity providers."},
     ]
 
 

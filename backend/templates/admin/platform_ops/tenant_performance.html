@@ -8,7 +8,7 @@
         <div>
             <p><a class="cep-link" href="{% url 'admin:tenants_tenant_performance' %}?window={{ window }}">← Tenant performance</a></p>
             <h1>{{ tenant.name }} <small>{{ tenant.code }}</small></h1>
-            <p>{{ window_label }} · <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Open the tenant</a></p>
+            <p>{{ window_label }} · <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Open the Tenant</a></p>
         </div>
         <nav class="cep-chips" aria-label="Period">
             {% for key, label in windows %}<a href="?window={{ key }}"{% if key == window %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}

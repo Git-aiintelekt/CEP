@@ -21,7 +21,7 @@ from .models import Tenant
 
 class TenantForm(FeatureChoicesMixin):
     """The industry profile and the per-tenant feature switches live in tenant.settings ({"industry": ..., "features": {...}})."""
-    industry = forms.ChoiceField(required=False, widget=UnfoldAdminSelectWidget, label="Industry profile",
+    industry = forms.ChoiceField(required=False, widget=UnfoldAdminSelectWidget, label="Industry Profile",
                                  help_text="Sets which features this workspace starts with and what it calls customers, locations and transactions.")
 
     class Meta:
@@ -71,7 +71,7 @@ class TenantAdmin(BaseAdmin):
         ("Access", {"fields": ("subdomain", "custom_app_domain"), "description": "Users reach the app at <subdomain>.your-domain; the API also accepts the code in the X-Tenant header."}),
         ("Hosting", {"fields": ("isolation_mode", "region", "data_residency", "onboarded_at"),
                      "description": "SHARED tenants live in the pool database in their own partitions. Moving to DEDICATED is a migration, not a field change."}),
-        ("Industry and features", {"fields": ("industry", *(f"feature_{code}" for code in params.FEATURES)),
+        ("Industry and Features", {"fields": ("industry", *(f"feature_{code}" for code in params.FEATURES)),
                                    "description": "“Default” follows the industry profile. The subscription plan always has the last word: a feature the plan excludes stays off."}),
         ("Settings", {"fields": ("settings",), "classes": ("collapse",)}),
         ("System", {"fields": ("id", "partition_seq", "created_at", "updated_at", "row_version"), "classes": ("collapse",)}),
@@ -104,7 +104,7 @@ class TenantAdmin(BaseAdmin):
         extra = {**(extra_context or {}), "onboarding_draft": draft if draft.get("data") else None}
         return super().changelist_view(request, extra)
 
-    @action(description="Onboard a tenant", url_path="onboard", icon="rocket_launch")
+    @action(description="Onboard a Tenant", url_path="onboard", icon="rocket_launch")
     def onboard_flow(self, request):
         """The guided set-up: six steps kept as a draft in the session, written at Review (apps/tenants/onboarding.py)."""
         draft = onboarding.draft_of(request)
@@ -162,7 +162,7 @@ class TenantAdmin(BaseAdmin):
         plan_data = draft["data"].get("plan") or {}
         if step == "plan" and form is not None and form.is_bound and form.is_valid():
             plan_data = {"plan": form.cleaned_data["plan"], "industry": form.cleaned_data["industry"], "features": form.feature_overrides()}
-        context = {**self.admin_site.each_context(request), "title": "Onboard a tenant", "draft": draft, "step": step, "steps": onboarding.STEPS, "form": form,
+        context = {**self.admin_site.each_context(request), "title": "Onboard a Tenant", "draft": draft, "step": step, "steps": onboarding.STEPS, "form": form,
                    "skippable": onboarding.SKIPPABLE,
                    "step_rows": [{"key": key, "label": label, "number": index + 1, "state": onboarding.step_state(draft, key, step), "reachable": onboarding.reachable(draft, key)}
                                  for index, (key, label) in enumerate(onboarding.STEPS)],
@@ -184,7 +184,7 @@ class TenantAdmin(BaseAdmin):
         from apps.platform_ops.admin_observe import performance_urls
         return [*performance_urls(self.admin_site), *tenant_urls(self.admin_site), *super().get_urls()]
 
-    @display(description="Active users")
+    @display(description="Active Users")
     def show_users(self, obj):
         return AppUser.objects.using(settings.PLATFORM_ALIAS).filter(tenant=obj, is_active=True, deleted_at__isnull=True).count()
 
@@ -213,7 +213,7 @@ class TenantAdmin(BaseAdmin):
             self.set_fields(request, tenant, status="ACTIVE")
         messages.success(request, "Reactivated.")
 
-    @action(description="Request a data export (runs with the tenant-operations job)")
+    @action(description="Request a Data Export (runs with the tenant-operations job)")
     def request_export(self, request, queryset):
         for tenant in queryset:
             if TenantOperation.objects.using(settings.PLATFORM_ALIAS).filter(tenant=tenant, status__in=["REQUESTED", "RUNNING"]).exists():
@@ -222,7 +222,7 @@ class TenantAdmin(BaseAdmin):
             TenantOperation.objects.using(settings.PLATFORM_ALIAS).create(tenant=tenant, operation="EXPORT", requested_by_id=request.user.pk)
             messages.success(request, f"{tenant.code}: export requested. See Operations, Tenant operations.")
 
-    @action(description="Repair onboarding (partitions, routing row, default roles)")
+    @action(description="Repair Onboarding (partitions, routing row, default roles)")
     def provision(self, request, queryset):
         for tenant in queryset:
             result = services.onboard_tenant(tenant, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)

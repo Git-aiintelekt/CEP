@@ -31,9 +31,9 @@ def test_onboarding(check):
         with transaction.atomic(using=P), transaction.atomic(using="default"):
             page = client.get(URL)
             body = page.content.decode()
-            check("the flow opens on Workspace with the six steps", page.status_code == 200 and 'data-step="workspace" data-state="on"' in body and "Review and onboard" in body, f"{page.status_code}")
+            check("the flow opens on Workspace with the six steps", page.status_code == 200 and 'data-step="workspace" data-state="on"' in body and "Review and Onboard" in body, f"{page.status_code}")
             listing = client.get("/admin/tenants/tenant/")
-            check("the Tenants list offers Onboard a tenant", listing.status_code == 200 and "Onboard a tenant" in listing.content.decode())
+            check("the Tenants list offers Onboard a Tenant", listing.status_code == 200 and "Onboard a Tenant" in listing.content.decode())
 
             bad = client.post(URL, {"step": "workspace", "continue": "1", "name": "Onboarding Test", "code": "nwa", "timezone": "UTC", "isolation_mode": "SHARED"})
             check("a taken code is refused on the step", bad.status_code == 200 and "This code is taken." in bad.content.decode())

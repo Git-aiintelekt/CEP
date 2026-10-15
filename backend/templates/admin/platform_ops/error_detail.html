@@ -28,7 +28,7 @@
 
     {% if days %}
     <section class="cep-section" aria-labelledby="cep-days">
-        <div class="cep-section-head"><h2 id="cep-days">Last 14 days</h2><span>occurrences stored per day (at most ten a minute are kept)</span></div>
+        <div class="cep-section-head"><h2 id="cep-days">Last 14 Days</h2><span>occurrences stored per day (at most ten a minute are kept)</span></div>
         <div class="cep-card cep-bars-card">
             <div class="cep-bars cep-bars-wide" role="img" aria-label="Occurrences per day">
                 {% for d in days %}<span title="{{ d.day|date:'D j M' }}: {{ d.count }}" style="height: {{ d.height }}%" data-state="fail"></span>{% endfor %}
@@ -47,7 +47,7 @@
     </section>
 
     <section class="cep-section" aria-labelledby="cep-events">
-        <div class="cep-section-head"><h2 id="cep-events">Recent occurrences</h2><span>newest first, the last 20 kept</span></div>
+        <div class="cep-section-head"><h2 id="cep-events">Recent Occurrences</h2><span>newest first, the last 20 kept</span></div>
         <div class="cep-card"><div class="cep-list">
             {% for e in events %}
                 <details class="cep-row cep-event"{% if forloop.first %} open{% endif %}>

@@ -7,10 +7,10 @@
         <span><a class="cep-link" href="{% url 'admin:tenants_tenant_deliverability_tests' original.pk %}">Add Tests →</a></span>
     </div>
     <div class="cep-card" style="padding:1rem 1.125rem">
-        <p style="margin:0;font-size:1.5rem;font-weight:600;color:var(--cep-text-strong)">{{ deliverability.used|intcomma }}
-            <small style="font-size:0.875rem;font-weight:500;color:var(--cep-text-subtle)">{% if deliverability.limit is not None %}of {{ deliverability.limit|intcomma }} used this month{% else %}used this month · not limited{% endif %}</small></p>
+        <p class="cep-figure">{{ deliverability.used|intcomma }}
+            <small style="font-size:15px;font-weight:500;color:var(--cep-text-subtle)">{% if deliverability.limit is not None %}of {{ deliverability.limit|intcomma }} used this month{% else %}used this month · not limited{% endif %}</small></p>
         {% if deliverability.limit %}<div class="cep-meter" data-state="{% if deliverability.left == 0 %}blocked{% elif deliverability.percent >= 90 %}warning{% else %}ok{% endif %}" role="img" aria-label="{{ deliverability.percent }}% used" style="margin-top:0.5rem"><i style="width:{{ deliverability.percent }}%"></i></div>{% endif %}
-        <p class="cep-muted" style="margin:0.5rem 0 0;font-size:0.8125rem">{{ deliverability.note }}{% if deliverability.left is not None %} · {{ deliverability.left|intcomma }} left{% endif %}</p>
+        <p class="cep-muted" style="margin:0.5rem 0 0;font-size:13px">{{ deliverability.note }}{% if deliverability.left is not None %} · {{ deliverability.left|intcomma }} left{% endif %}</p>
     </div>
 </section>
 {% endif %}

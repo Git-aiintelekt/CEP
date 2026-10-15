@@ -3,6 +3,8 @@
 The home page answers, in this order: is anything wrong, what do I usually come here to do, how big is the platform, and
 what happened recently. Nothing here may raise: the home page has to open when a dependency is down, that is when it is needed.
 """
+from collections import Counter
+
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connections
@@ -10,7 +12,7 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 P = settings.PLATFORM_ALIAS
-SEVERITY = {"fail": ("danger", "Failing", 0), "warn": ("warning", "Attention", 1), "info": ("info", "To do", 2)}
+SEVERITY = {"fail": ("danger", "Failing", 0), "warn": ("warning", "Attention", 1), "info": ("info", "To Do", 2)}
 
 
 def environment(request):
@@ -94,34 +96,44 @@ def attention(health, jobs, alerts):
     items = []
     for check in health.get("checks", []):
         if check["status"] in ("fail", "warn") and check["name"] != "Scheduled jobs":      # jobs are listed one by one below
-            items.append({"kind": check["status"], "icon": "monitor_heart", "title": check["name"], "text": check["summary"], "link": "#checks", "action": "See the check"})
+            items.append({"kind": check["status"], "icon": "monitor_heart", "title": check["name"], "text": check["summary"], "link": "#checks", "action": "See the Check"})
     never = [job for job in jobs if job["state"] == "never"]
     for job in jobs:
         if job["state"] == "failed":
             items.append({"kind": "fail", "icon": "error", "title": f"Job failed: {job['name']}", "text": job["last_error"] or job["purpose"],
-                          "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the runs"})
+                          "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the Runs"})
         elif job["state"] == "overdue":
             items.append({"kind": "warn", "icon": "schedule", "title": f"Job overdue: {job['name']}", "text": job["purpose"],
-                          "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the runs"})
+                          "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the Runs"})
     if never:
         every = len(never) == len(jobs)
         items.append({"kind": "info" if every else "warn", "icon": "schedule",
                       "title": "The scheduler is not running" if every else f"{len(never)} scheduled job{'s have' if len(never) > 1 else ' has'} never run",
                       "text": "No scheduled job has reported yet: start the Celery worker and beat." if every else ", ".join(job["name"] for job in never),
-                      "link": "#jobs", "action": "See the jobs"})
+                      "link": "#jobs", "action": "See the Jobs"})
     by_title = {item["title"]: item for item in items}
     for alert in alerts:                                   # an alert is the record of a problem: whoever is shown the problem gets the link to it
         since = f"open since {timezone.localtime(alert.opened_at):%d %b %H:%M}" + (" · acknowledged" if alert.acknowledged_at else "")
         link = _url("admin:platform_ops_platformalert_change", alert.pk)
         item = by_title.get(alert.check_name)
         if item:
-            item.update({"text": f"{item['text']} · {since}", "link": link, "action": "Open the alert"})
+            item.update({"text": f"{item['text']} · {since}", "link": link, "action": "Open the Alert"})
         else:
             items.append({"kind": "fail" if alert.severity == "FAIL" else "warn", "icon": "notifications_active", "title": alert.check_name,
-                          "text": f"{alert.summary} · {since}", "link": link, "action": "Open the alert"})
+                          "text": f"{alert.summary} · {since}", "link": link, "action": "Open the Alert"})
     for item in items:
         item["label"], item["word"], item["order"] = SEVERITY[item["kind"]]
     return sorted(items, key=lambda item: item["order"])
+
+
+def attention_status(items):
+    """The pill in the Needs Your Attention header, read off the same items listed under it."""
+    kinds = {item["kind"] for item in items}
+    if "fail" in kinds:
+        return {"state": "fail", "label": "danger", "word": "Action needed"}
+    if kinds:
+        return {"state": "warn", "label": "warning", "word": "Needs attention"}
+    return {"state": "ok", "label": "success", "word": "All healthy"}
 
 
 def business_attention():
@@ -139,7 +151,7 @@ def business_attention():
     drafts = _rows("SELECT count(*) FROM tenant_invoice WHERE status = 'DRAFT'")[0][0]
     if drafts:
         items.append({"kind": "info", "icon": "request_quote", "title": f"{drafts} draft invoice{'s' if drafts > 1 else ''} to issue", "text": "Drafts are not visible to the workspace until issued.",
-                      "link": _url("admin:platform_ops_tenantinvoice_changelist") + "?status__exact=DRAFT", "action": "Open invoices"})
+                      "link": _url("admin:platform_ops_tenantinvoice_changelist") + "?status__exact=DRAFT", "action": "Open Invoices"})
     for item in items:
         item["label"], item["word"], item["order"] = SEVERITY[item["kind"]]
     return items
@@ -147,20 +159,20 @@ def business_attention():
 
 def quick_actions():
     actions = [
-        ("New tenant", "Create a workspace and its first administrator", "add_business", _url("admin:tenants_tenant_add")),
-        ("Find a user", "Reset a password, unlock, open a support session", "person_search", _url("admin:identity_appuser_changelist")),
-        ("Usage against limits", "Every tenant's month so far, worst first", "monitoring", _url("admin:platform_ops_usage")),
+        ("New Tenant", "Create a workspace and its first administrator", "add_business", _url("admin:tenants_tenant_add")),
+        ("Find a User", "Reset a password, unlock, open a support session", "person_search", _url("admin:identity_appuser_changelist")),
+        ("Usage Against Limits", "Every tenant's month so far, worst first", "monitoring", _url("admin:platform_ops_usage")),
         ("Invoices", "Draft, issue and mark as paid", "request_quote", _url("admin:platform_ops_tenantinvoice_changelist")),
-        ("Global parameters", "Defaults and limits for every tenant", "tune", _url("admin:platform_ops_platformsetting_changelist")),
-        ("Mail server", "The platform's SMTP and who shares it", "outgoing_mail", _url("admin:platform_ops_mailserver_changelist")),
-        ("Move or offboard", "Export, move, suspend or erase a tenant", "move_up", _url("admin:platform_ops_tenantoperation_changelist")),
-        ("Audit trail", "Who changed which definition, and when", "history", _url("admin:audit_definitionauditlog_changelist")),
+        ("Global Parameters", "Defaults and limits for every tenant", "tune", _url("admin:platform_ops_platformsetting_changelist")),
+        ("Mail Server", "The platform's SMTP and who shares it", "outgoing_mail", _url("admin:platform_ops_mailserver_changelist")),
+        ("Move or Offboard", "Export, move, suspend or erase a tenant", "move_up", _url("admin:platform_ops_tenantoperation_changelist")),
+        ("Audit Trail", "Who changed which definition, and when", "history", _url("admin:audit_definitionauditlog_changelist")),
     ]
     return [{"title": t, "text": d, "icon": i, "link": link} for t, d, i, link in actions if link]
 
 
-KPI = {"Active tenants": ("apartment", "workspaces in use"), "Suspended tenants": ("block", "access switched off"), "Active users": ("group", "people who can sign in"),
-       "Active API keys": ("vpn_key", "integrations connected"), "Campaigns live": ("campaign", "sending or scheduled"), "Definition changes, 24 h": ("history", "edits in the last day")}
+KPI = {"Active Tenants": ("apartment", "workspaces in use"), "Suspended Tenants": ("block", "access switched off"), "Active Users": ("group", "people who can sign in"),
+       "Active API Keys": ("vpn_key", "integrations connected"), "Campaigns Live": ("campaign", "sending or scheduled"), "Definition Changes, 24 h": ("history", "edits in the last day")}
 
 
 def kpis(numbers):
@@ -203,29 +215,79 @@ def recent_changes(limit=8):
     return out
 
 
+def _plural(word, n):
+    return word if n == 1 or word.endswith("s") else f"{word}s"
+
+
+def _initials(who):
+    if "@" in who:
+        return who[0].upper()
+    return "".join(part[0] for part in who.split()[:2]).upper() or "?"
+
+
+def change_groups(changes):
+    """The latest changes as one line per person, tenant and day, with what they touched, most first."""
+    groups = {}
+    for change in changes:
+        day = timezone.localtime(change["at"]).date()
+        group = groups.setdefault((change["who"], change["tenant"], day), {
+            "who": change["who"], "tenant": change["tenant"], "day": day, "ago": change["ago"], "initials": _initials(change["who"]),
+            "lines": [], "total": 0, "kinds": Counter()})
+        group["lines"].append(change)
+        group["total"] += change["count"]
+        group["kinds"][change["what"]] += change["count"]
+    for group in groups.values():
+        group["breakdown"] = ", ".join(f"{_plural(what, n)} ({n})" if n > 1 else what for what, n in group.pop("kinds").most_common())
+    return list(groups.values())
+
+
+def check_summary(checks, shown=5, limit=6):
+    """Checks that need a look get a row, failing first; the fine ones become chips, folded after `shown` when there are many."""
+    order = {"fail": 0, "warn": 1}
+    problems = sorted((check for check in checks if check["status"] in order), key=lambda check: order[check["status"]])
+    fine = sorted((check for check in checks if check["status"] not in order), key=lambda check: check["status"] != "off")
+    visible, hidden = (fine[:shown], fine[shown:]) if len(fine) > limit else (fine, [])
+    return {"problems": problems, "chips": visible, "more": hidden, "more_healthy": all(check["status"] == "ok" for check in hidden)}
+
+
+def job_summary(jobs, limit=4):
+    """Late and failed jobs first, then the ones that never ran, then the ones on time; the first few, with the total."""
+    order = {"failed": 0, "overdue": 0, "never": 1, "ok": 2}
+    rows = sorted(jobs, key=lambda job: order.get(job["state"], 1))[:limit]
+    for job in rows:
+        job["last_run_ago"] = _ago(job["last_run"]) if job["last_run"] else "Never"
+    return {"rows": rows, "total": len(jobs), "none_ran": bool(jobs) and all(job["state"] == "never" for job in jobs)}
+
+
 def recent_tenants(limit=5):
-    rows = _rows("""SELECT t.id, t.name, t.code, t.status, t.created_at, p.name, s.status
+    rows = _rows("""SELECT t.id, t.name, t.code, t.status, t.created_at, p.name, s.status, count(*) OVER ()
                       FROM tenant t
                       LEFT JOIN LATERAL (SELECT plan_id, status FROM tenant_subscription s WHERE s.tenant_id = t.id ORDER BY started_at DESC LIMIT 1) s ON true
                       LEFT JOIN subscription_plan p ON p.id = s.plan_id
                      WHERE t.deleted_at IS NULL ORDER BY t.created_at DESC LIMIT %s""", [limit])
-    return [{"name": name, "code": code, "active": status == "ACTIVE", "status": status.title(), "created_at": created, "plan": plan,
-             "subscription": (sub or "").replace("_", " ").title(), "link": _url("admin:tenants_tenant_change", pk)} for pk, name, code, status, created, plan, sub in rows]
+    tenants = [{"name": name, "code": code, "active": status == "ACTIVE", "status": status.title(), "created_at": created, "plan": plan,
+                "subscription": (sub or "").replace("_", " ").title(), "link": _url("admin:tenants_tenant_change", pk)}
+               for pk, name, code, status, created, plan, sub, _total in rows]
+    return {"rows": tenants, "total": rows[0][-1] if rows else 0}
 
 
 def home(request, health, numbers, jobs, alerts):
     problems = _safe(lambda: attention(health, jobs, alerts), [])
     follow_ups = _safe(business_attention, [])
+    items = problems + follow_ups
     return {
         "greeting": _safe(lambda: greeting(request), "Welcome"),
         "first_name": _safe(lambda: first_name(request), ""),
         "today": timezone.localtime(),
-        "attention": problems + follow_ups,
+        "attention": items,
+        "attention_status": attention_status(items),
         "problem_count": sum(1 for item in problems if item["kind"] != "info"),
         "quick_actions": _safe(quick_actions, []),
         "kpis": _safe(lambda: kpis(numbers), []),
-        "recent_changes": _safe(recent_changes, []),
-        "recent_tenants": _safe(recent_tenants, []),
+        "change_groups": _safe(lambda: change_groups(recent_changes()), []),
+        "recent_tenants": _safe(recent_tenants, {"rows": [], "total": 0}),
+        "check_summary": _safe(lambda: check_summary(health.get("checks", [])), {"problems": [], "chips": [], "more": [], "more_healthy": True}),
+        "job_summary": _safe(lambda: job_summary(jobs), {"rows": [], "total": 0, "none_ran": False}),
         "checks_ok": sum(1 for check in health.get("checks", []) if check["status"] in ("ok", "off")),
         "jobs_ok": sum(1 for job in jobs if job["state"] == "ok"),
     }
