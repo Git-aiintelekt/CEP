@@ -1,5 +1,6 @@
 from apps.insights import api as insights_api
 from apps.insights import dashboards as insights_dashboards
+from apps.insights import audit as insights_audit
 from apps.insights import library as insights_library
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
@@ -132,6 +133,7 @@ urlpatterns = [
     path("insights/favourites/<slug:kind>/<uuid:item_id>/", insights_library.FavouriteView.as_view(), name="insights-favourite"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
+    path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),
     path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
     path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

@@ -203,6 +203,12 @@ def test_api(check, world):
 
     audit = world.sql("SELECT kind, outcome FROM report_run_audit WHERE report_id = %s OR (report_id IS NULL AND dataset_key = 'messages') ORDER BY id", [rid], fetch=True)
     check("every preview, run and export is audited with its outcome", ("preview", "OK") in audit and ("run", "OK") in audit and ("export", "OK") in audit, str(audit))
+    log = world.api("get", "/api/v1/insights/runs/?days=7&q=Sends by campaign")
+    body_log = log.json() if log.status_code == 200 else {}
+    check("the run log lists the runs of this report with who, the outcome, the rows and the time, and sums them up", log.status_code == 200
+          and any(r["report_id"] == rid and r["kind"] == "run" and r["outcome"] == "OK" and r["user_name"] and r["duration_ms"] is not None for r in body_log.get("runs", []))
+          and body_log["summary"]["runs"] >= 3 and body_log["summary"]["median_ms"] is not None and any(p["name"] for p in body_log["people"]), log.content[:300])
+    check("the run log narrows by outcome", all(r["outcome"] == "TIMEOUT" for r in world.api("get", "/api/v1/insights/runs/?outcome=TIMEOUT").json()["runs"]))
 
     gone = world.api("delete", f"/api/v1/insights/reports/{rid}/")
     check("a deleted report is gone from the list", gone.status_code == 204 and not any(r["id"] == rid for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))

@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, RunResult, TileResult } from './types'
+import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, RunLog, RunResult, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -43,10 +43,13 @@ export const libraryApi = {
   createFolder: (name: string) => api.post<Folder>('/insights/folders/', { name }),
   renameFolder: (id: string, name: string) => api.put<Folder>(`/insights/folders/${id}/`, { name }),
   deleteFolder: (id: string) => api.delete(`/insights/folders/${id}/`),
+  runs: (query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }, signal?: AbortSignal) =>
+    api.get<RunLog>('/insights/runs/', Object.fromEntries(Object.entries(query).filter(([, v]) => v)), signal),
 }
 
 export const keys = {
   folders: ['insights', 'folders'] as const,
+  runs: (query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) => ['insights', 'runs', query] as const,
   catalog: ['insights', 'catalog'] as const,
   dashboards: ['insights', 'dashboards'] as const,
   dashboard: (id: string) => ['insights', 'dashboard', id] as const,
@@ -59,6 +62,10 @@ export const keys = {
 
 export function useCatalog() {
   return useQuery({ queryKey: keys.catalog, queryFn: ({ signal }) => insightsApi.catalog(signal), staleTime: 60_000 })
+}
+
+export function useRunLog(query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) {
+  return useQuery({ queryKey: keys.runs(query), queryFn: ({ signal }) => libraryApi.runs(query, signal), placeholderData: (previous) => previous })
 }
 
 export function useFolders() {
