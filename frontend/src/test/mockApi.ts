@@ -1169,6 +1169,17 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
           .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
+      if (/\/insights\/reports\/[\w-]+\/versions\/$/.test(path)) {
+        return json({ versions: [
+          { version: 2, view_type: 'grid', note: 'Shared with the workspace', changed_at: '2026-10-15T08:00:00Z', changed_by_name: 'Aby John', definition: insightsReport.definition },
+          { version: 1, view_type: 'grid', note: 'Created', changed_at: '2026-10-14T08:00:00Z', changed_by_name: 'Aby John', definition: { ...insightsReport.definition, columns: insightsReport.definition.columns.slice(0, 3) } },
+        ] })
+      }
+      const restoring = /\/insights\/reports\/([\w-]+)\/versions\/(\d+)\/restore\/$/.exec(path)
+      if (restoring && method === 'POST') {
+        if (restoring[2] !== '1') return json({ detail: 'No such version.' }, 404)
+        return json({ ...insightsReport, id: restoring[1], version: 3, row_version: insightsReport.row_version + 1, definition: { ...insightsReport.definition, columns: insightsReport.definition.columns.slice(0, 3) } })
+      }
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
         return json(permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult)

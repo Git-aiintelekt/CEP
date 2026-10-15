@@ -85,6 +85,13 @@ anyone with `report.edit` makes one, its maker or a report administrator renames
 filed nowhere), and the report's owner moves it from the viewer's Folder select. The Reports list filters by folder,
 or by no folder, and shows the folder under the name.
 
+## Versions
+
+Every save of a report's definition is a version (`report_version`), listed in the viewer's Versions drawer with who,
+when and the note. Open shows a version's rows in the viewer, read-only, through a preview of its definition; Restore
+(`POST /insights/reports/<id>/versions/<n>/restore/`, the owner or a report administrator) makes it the current version
+again as a new version noted "Restored from version n", checked against today's catalogue like any save.
+
 ## The catalogue
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049
