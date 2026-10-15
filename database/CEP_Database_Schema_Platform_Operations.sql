@@ -2091,6 +2091,30 @@ BEGIN
 END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard, dashboard_version TO cep_app;
 GRANT ALL ON dashboard, dashboard_version TO cep_admin;
+
+-- ---- favourites (Phase C): a person's starred reports and dashboards, first in their lists (apps/insights/library.py)
+CREATE TABLE IF NOT EXISTS report_favourite (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    user_id             UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    kind                VARCHAR(10) NOT NULL,                             -- report, dashboard
+    item_id             UUID NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, user_id, kind, item_id),
+    CONSTRAINT ck_report_favourite_kind CHECK (kind IN ('report', 'dashboard'))
+);
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_favourite'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, DELETE ON report_favourite TO cep_app;
+GRANT ALL ON report_favourite TO cep_admin;
 GRANT ALL ON SEQUENCE report_run_audit_id_seq TO cep_admin;
 
 -- ---- the first datasets: what Reports already shows, as catalogue entries

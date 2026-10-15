@@ -110,8 +110,9 @@ Dashboards, `/dev/dashboard`). The chart views came with Phase B on the app's ow
   owner, favourites, a version per saved layout. Tiles run through the same engine and cache as reports.
   Layout: Option 1, a free 12-column grid (react-grid-layout); Option 2, rows of tiles with width presets and no
   new library (recommended for the Beta). Tables `dashboard`, `dashboard_tile`, `dashboard_version`.
-- **Favourites** on reports and dashboards (`report_favourite`), first in the lists and on the Insights Overview.
-- **Folders**: a workspace's reports grouped (`report_folder`, already in 0049), a filter and the group rows.
+- **Favourites** on reports and dashboards (`report_favourite`, patch 0051), first in the lists. Done 2026-10-15.
+- **Folders**: a workspace's reports filed (`report_folder` from 0049; `apps/insights/library.py`), a filter on the list
+  and the Folder select on the viewer. Done 2026-10-15.
 - **Version history**: a Versions drawer on the viewer, Open (read-only) and Restore (a new version).
 - **Run log**: Insights → Run Log for `report.admin`, from `report_run_audit`; the back-office keeps the view across
   workspaces.
