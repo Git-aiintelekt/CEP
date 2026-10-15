@@ -66,6 +66,17 @@ across, else one per measure; the **hierarchy** folds the dimensions in their or
 add sums and counts and compare minimums and maximums; an average or a distinct count cannot be combined and reads as
 an em dash. They come from the rows shown, so a truncated run totals what is on the page.
 
+## Dashboards
+
+A dashboard (`dashboard`, `dashboard_version`, patch 0050; `apps/insights/dashboards.py`) is rows of tiles over a
+workspace's reports, the layout of docs/mockups/insights-dashboards.html option 2: a row holds one to four tiles of equal
+width or a wide and a narrow one, so nothing overlaps or leaves a gap. A tile is a saved report in one of its views, or
+one of its totalled columns as a figure. One period at the top (7 days, 30 days, this month, the quarter, or custom)
+applies to every tile as one more rule on its dataset's time field; a report with its own rule on that field keeps it
+and the tile says "Own dates". Compare With Previous Period runs each figure twice and shows the change. Tiles run
+through the same engine, limits, masking, cache and audit as reports (`POST /insights/dashboards/<id>/tiles/<tile>/run/`;
+the editor previews a tile before it is saved through `tiles/preview/run/`). The layout and the period save as a version.
+
 ## The catalogue
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049

@@ -98,10 +98,24 @@ Columns well live. Phase B is complete; Phase C follows.
 Exit: an authorised person creates, saves, shares and runs a grid report on NWA's data in both modes; a
 runaway report times out in the engine while campaigns keep sending.
 
-### Phase C, charts and dashboards (M; spec Phase 2)
+### Phase C, dashboards (M; spec Phase 2)
 
-Apache ECharts views, dashboards on react-grid-layout with a shared date filter, folders, favourites, version
-history, run audit views, aggregate tables refreshed by the engine's worker.
+Started 2026-10-15 with `docs/mockups/insights-dashboards.html`, two layout options; the user chose **Option 2, rows
+of tiles**, built first (patch 0050, `apps/insights/dashboards.py`, `apps/insights/dashboards/` in the front end, Insights →
+Dashboards, `/dev/dashboard`). The chart views came with Phase B on the app's own chart kit, so ECharts is not needed.
+
+- **Dashboards**: a page of tiles, each a saved report in one of its views or one of its figures (a measure totalled
+  over the period, with the change against the previous period). One period at the top, applied to every tile
+  through its dataset's time field; a report with its own date filter keeps it and says so. Private or shared, an
+  owner, favourites, a version per saved layout. Tiles run through the same engine and cache as reports.
+  Layout: Option 1, a free 12-column grid (react-grid-layout); Option 2, rows of tiles with width presets and no
+  new library (recommended for the Beta). Tables `dashboard`, `dashboard_tile`, `dashboard_version`.
+- **Favourites** on reports and dashboards (`report_favourite`), first in the lists and on the Insights Overview.
+- **Folders**: a workspace's reports grouped (`report_folder`, already in 0049), a filter and the group rows.
+- **Version history**: a Versions drawer on the viewer, Open (read-only) and Restore (a new version).
+- **Run log**: Insights → Run Log for `report.admin`, from `report_run_audit`; the back-office keeps the view across
+  workspaces.
+- **Aggregate tables** refreshed by the engine's worker stay for a later slice, once the figures above show a need.
 
 ### Phase D, pivot, hierarchy, XLSX (M; spec Phase 3)
 

@@ -41,6 +41,7 @@ const ConditionPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/
 const TimelinePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/TimelinePlayground')) : null
 const JourneyBuildPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/JourneyBuildPlayground')) : null
 const InsightsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/InsightsPlayground')) : null
+const DashboardPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DashboardPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +94,7 @@ export default function App() {
                 {TimelinePlayground && <Route path="/dev/journey-timeline" element={<Suspense fallback={<FullPageSpinner label="Loading the timeline" />}><TimelinePlayground /></Suspense>} />}
                 {JourneyBuildPlayground && <Route path="/dev/journey-build" element={<Suspense fallback={<FullPageSpinner label="Loading the builder" />}><JourneyBuildPlayground /></Suspense>} />}
                 {InsightsPlayground && <Route path="/dev/insights" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><InsightsPlayground /></Suspense>} />}
+                {DashboardPlayground && <Route path="/dev/dashboard" element={<Suspense fallback={<FullPageSpinner label="Loading the dashboard" />}><DashboardPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>

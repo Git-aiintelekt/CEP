@@ -2,9 +2,24 @@
 import { formatDate, formatDateTime, formatMoney, formatNumber } from '@/lib/format'
 import type { ResultColumn, RunResult } from '../types'
 
+const monthYear = new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric', timeZone: 'UTC' })
+
+/** a bucketed date reads as its bucket: Sep 2026, Q3 2026, 2026; a day or a week as the day it starts */
+function bucketWords(bucket: ResultColumn['bucket'], value: string): string {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return value
+  switch (bucket) {
+    case 'month': return monthYear.format(date)
+    case 'quarter': return `Q${Math.floor(date.getUTCMonth() / 3) + 1} ${date.getUTCFullYear()}`
+    case 'year': return String(date.getUTCFullYear())
+    default: return formatDate(value)
+  }
+}
+
 export function formatCell(column: ResultColumn, value: unknown): string {
   if (value === null || value === undefined) return '—'
   if (column.masked) return String(value)
+  if (column.bucket) return bucketWords(column.bucket, String(value))
   switch (column.format) {
     case 'integer': return formatNumber(Number(value))
     case 'decimal': return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })

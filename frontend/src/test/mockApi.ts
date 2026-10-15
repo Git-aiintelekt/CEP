@@ -1,4 +1,5 @@
 /** In-memory stand-in for the C360 API used by the component tests. */
+import type { Dashboard as InsightsDashboard } from '@/apps/insights/types'
 import { vi } from 'vitest'
 
 import { derived, handleCampaigns, listCampaigns, makeStep, moduleDefaults } from './mockCampaigns'
@@ -63,6 +64,16 @@ export const insightsResult = {
   rows: [['Fall Launch', 'EMAIL', 142300, 139104], ['Weekend Flash Sale', 'SMS', 25100, 24871], ['Weekly Newsletter', 'EMAIL', 201500, 198002]],
   row_count: 3, duration_ms: 42, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false,
 }
+/** a dashboard (apps/insights/dashboards): rows of tiles over the saved report */
+export const insightsDashboard: InsightsDashboard = {
+  id: 'dash-1', name: 'Marketing Weekly', description: 'Sends, revenue and the top campaigns, by week', visibility: 'WORKSPACE' as const, period: { preset: '30d' as const }, compare: true,
+  layout: { rows: [{ width: '2-1' as const, tiles: [{ id: 't1', report_id: 'rep-1', show: 'chart' as const, title: 'Sends by Campaign' }, { id: 't2', report_id: 'rep-1', show: 'figure' as const, measure: 'sent' }] }] },
+  version: 2, row_version: 2, owner_user_id: 'u1', owner_name: 'Aby John', created_at: '2026-10-14T08:00:00Z', updated_at: '2026-10-15T09:12:00Z', can_edit: true,
+  bounds: { from: '2026-09-16', to: '2026-10-15', previous_from: '2026-08-17', previous_to: '2026-09-15' },
+}
+export const insightsDashboardsNow: InsightsDashboard[] = [insightsDashboard]
+const BOUNDS_7D = { from: '2026-10-09', to: '2026-10-15', previous_from: '2026-10-02', previous_to: '2026-10-08' }
+
 /** the same saved report run by a reader without the right to personal data: the Customer column comes back masked */
 export const insightsMaskedResult = {
   ...insightsResult,
@@ -717,6 +728,7 @@ export const MFA_CODE = '123456'
 export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   insightsReportsNow.splice(0, insightsReportsNow.length, { ...insightsSummary })      // every test starts with the one saved report
+  insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate, steps: options.dripSteps, dripTestFails: options.dripTestFails, dripWarnings: options.dripWarnings, resumePlan: options.resumePlan }
@@ -1077,6 +1089,47 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (path.endsWith('/insights/dashboards/') && method === 'POST') {
+        const posted = body as { name?: string }
+        const made = { ...structuredClone(insightsDashboard), id: `dash-${insightsDashboardsNow.length + 1}`, name: posted.name ?? 'Untitled Dashboard', description: null, visibility: 'PRIVATE' as const,
+                       period: { preset: '30d' as const }, compare: false, layout: { rows: [] }, version: 1, row_version: 1 }
+        insightsDashboardsNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/dashboards/')) {
+        return json({ dashboards: insightsDashboardsNow.map((d) => ({ id: d.id, name: d.name, description: d.description, visibility: d.visibility, tiles: d.layout.rows.reduce((n, row) => n + row.tiles.length, 0),
+                                                                     version: d.version, owner_user_id: d.owner_user_id, owner_name: d.owner_name, updated_at: d.updated_at, can_edit: d.can_edit })) })
+      }
+      const tileRun = /\/insights\/dashboards\/([\w-]+)\/tiles\/([\w-]+)\/run\/$/.exec(path)
+      if (tileRun && method === 'POST') {
+        const found = insightsDashboardsNow.find((d) => d.id === tileRun[1])
+        const asked = body as { tile?: InsightsDashboard['layout']['rows'][number]['tiles'][number]; period?: { preset: string }; compare?: boolean }
+        const tile = tileRun[2] === 'preview' ? asked.tile : found?.layout.rows.flatMap((row) => row.tiles).find((t) => t.id === tileRun[2])
+        if (!found || !tile) return json({ detail: 'No such tile.' }, 404)
+        const bounds = asked.period?.preset === '7d' ? BOUNDS_7D : found.bounds
+        const about = { id: 'rep-1', name: insightsSummary.name, version: 2 }
+        if (tile.show === 'figure') return json({ kind: 'figure', value: 391520, previous: 361180, compared: asked.compare ?? found.compare, column: insightsResult.columns[2], own_dates: false, bounds, report: about, cached: false })
+        return json({ kind: 'view', view: { type: tile.show }, result: insightsResult, own_dates: false, bounds, report: about })
+      }
+      const oneDashboard = /\/insights\/dashboards\/([\w-]+)\/$/.exec(path)
+      if (oneDashboard && method === 'PUT') {
+        const found = insightsDashboardsNow.find((d) => d.id === oneDashboard[1])
+        if (!found) return json({ detail: 'No such dashboard.' }, 404)
+        const put = body as Partial<InsightsDashboard> & { row_version: number }
+        if (put.row_version !== found.row_version) return json({ type: 'about:blank', title: 'The dashboard changed since you opened it', status: 409 }, 409)
+        Object.assign(found, { name: put.name ?? found.name, visibility: put.visibility ?? found.visibility, layout: put.layout ?? found.layout, period: put.period ?? found.period, compare: put.compare ?? found.compare,
+                               version: found.version + (put.layout || put.period ? 1 : 0), row_version: found.row_version + 1 })
+        return json(found)
+      }
+      if (oneDashboard && method === 'DELETE') {
+        const at = insightsDashboardsNow.findIndex((d) => d.id === oneDashboard[1])
+        if (at >= 0) insightsDashboardsNow.splice(at, 1)
+        return new Response(null, { status: 204 })
+      }
+      if (oneDashboard) {
+        const found = insightsDashboardsNow.find((d) => d.id === oneDashboard[1])
+        return found ? json(found) : json({ detail: 'No such dashboard.' }, 404)
+      }
       if (/\/insights\/catalog\/[a-z_]+\/$/.test(path)) return json(insightsCatalog.datasets.find((d) => path.endsWith(`/${d.key}/`)) ?? { detail: 'No such dataset.' })
       if (path.endsWith('/insights/reports/preview/') && method === 'POST') {
         const draft = body as { definition: { columns: { field: string; aggregate?: string }[] } }

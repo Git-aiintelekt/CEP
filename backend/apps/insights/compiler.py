@@ -51,7 +51,7 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: list) -> str:
         op, value = rule["operator"], rule["value"]
         temporal = field["type"] in ("date", "datetime")
         if temporal and field["type"] == "datetime" and op not in ("is_null", "is_not_null", "last_days"):
-            # a day given for a timestamp means that day in the workspace's zone
+            # a day given for a timestamp means that day in the workspace's zone; the zone binds once per use of the column
             col = f"({col} AT TIME ZONE %s)"
             params.append(zone)
         if op == "is_null":
@@ -65,8 +65,12 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: list) -> str:
             params.append(list(value))
             parts.append(f"{col} = ANY(%s)")
         elif op == "between":
-            params.extend([value[0], value[1]])
-            parts.append(f"{col} BETWEEN %s AND %s" if not temporal else f"{col} >= %s::timestamp AND {col} < (%s::timestamp + interval '1 day')")
+            if temporal:
+                params.extend([value[0], *([zone] if "AT TIME ZONE" in col else []), value[1]])
+                parts.append(f"{col} >= %s::timestamp AND {col} < (%s::timestamp + interval '1 day')")
+            else:
+                params.extend([value[0], value[1]])
+                parts.append(f"{col} BETWEEN %s AND %s")
         elif op == "contains":
             params.append(f"%{_escape_like(value)}%")
             parts.append(f"{col} ILIKE %s ESCAPE '\\'")
@@ -74,7 +78,7 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: list) -> str:
             params.append(f"{_escape_like(value)}%")
             parts.append(f"{col} ILIKE %s ESCAPE '\\'")
         elif temporal and op in ("=", "!="):
-            params.extend([value[:10], value[:10]])
+            params.extend([value[:10], *([zone] if "AT TIME ZONE" in col else []), value[:10]])
             inside = f"{col} >= %s::timestamp AND {col} < (%s::timestamp + interval '1 day')"
             parts.append(inside if op == "=" else f"NOT ({inside})")
         else:
