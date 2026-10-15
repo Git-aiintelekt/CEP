@@ -89,7 +89,7 @@ test('the launcher lists the workspace’s components as tiles, marks the open o
   const tiles = within(within(apps).getByRole('list', { name: 'Your apps' })).getAllByRole('link')
   expect(tiles.map((tile) => tile.textContent)).toEqual(['Engagement'])
   expect(tiles[0].getAttribute('aria-current')).toBe('true')
-  expect(apps.textContent).toContain('Insights, CRM, Sales, Purchasing, Inventory and PIM are coming.')
+  expect(apps.textContent).toContain('CRM, Sales, Purchasing, Inventory and PIM are coming.')
 })
 
 test('with several components the navigation lists them first, and choosing one drills into its menu', async () => {

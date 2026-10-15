@@ -1,0 +1,23 @@
+/** How a result reads: a cell by its column's format, and the run in one line. */
+import { formatDate, formatDateTime, formatMoney, formatNumber } from '@/lib/format'
+import type { ResultColumn, RunResult } from '../types'
+
+export function formatCell(column: ResultColumn, value: unknown): string {
+  if (value === null || value === undefined) return '—'
+  switch (column.format) {
+    case 'integer': return formatNumber(Number(value))
+    case 'decimal': return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    case 'money': return formatMoney(value as number)
+    case 'percent': return `${Number(value).toFixed(1)}%`
+    case 'date': return formatDate(String(value))
+    case 'datetime': return column.type === 'date' || column.bucket ? formatDate(String(value)) : formatDateTime(String(value))
+    default: return column.type === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
+  }
+}
+
+/** what the run says, in one line: rows, time, freshness, cache */
+export function runWords(info: RunResult): string {
+  const rows = `${formatNumber(info.row_count)} row${info.row_count === 1 ? '' : 's'}${info.truncated ? ` of more, the first ${formatNumber(info.limit)} shown` : ''}`
+  const fresh = info.freshness === 'LIVE' ? 'live data' : `data as of the last ${info.freshness.toLowerCase().replace('_', ' ')}`
+  return `${rows} · ${info.duration_ms} ms · ${fresh}${info.cached ? ' · from the last minute' : ''}`
+}

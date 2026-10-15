@@ -1824,6 +1824,317 @@ ON CONFLICT (plan_id, component_key) DO NOTHING;
 GRANT SELECT ON suite_component, plan_component, tenant_component TO cep_app;          -- the API resolves; the back-office decides
 GRANT ALL ON suite_component, plan_component, tenant_component TO cep_admin;
 
+-- -------------------------------------------------------------------------------------
+-- 0049: Insights, the report engine's foundation (2026-10-16). The semantic catalogue (datasets, fields, sources),
+-- a workspace's reports (definitions, versions, folders, shares, run audit), the per-workspace engine setting, the
+-- reporting views the first datasets read, a read-only reporting role, the Insights global parameters, the report
+-- permissions, and Insights released as Beta. apps/insights on the backend; apps/insights in the front end.
+-- -------------------------------------------------------------------------------------
+
+-- ---- the catalogue: platform-owned, read by every workspace through the API
+CREATE TABLE IF NOT EXISTS report_dataset (
+    key                 VARCHAR(40) PRIMARY KEY,                          -- messages, attributed_orders, contacts, journey_enrollments
+    component_key       VARCHAR(20) NOT NULL REFERENCES suite_component(key),
+    label               VARCHAR(100) NOT NULL,
+    description         TEXT,
+    workspace_field     VARCHAR(60) NOT NULL DEFAULT 'tenant_id',        -- the column every query is restricted on
+    primary_key         VARCHAR(60) NOT NULL,
+    time_field          VARCHAR(60),                                      -- the field a period filter applies to by default
+    freshness_policy    VARCHAR(20) NOT NULL DEFAULT 'LIVE',              -- LIVE, MINUTES_5, HOURLY, DAILY
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, HIDDEN
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_report_dataset_key CHECK (key ~ '^[a-z][a-z0-9_]{1,39}$'),
+    CONSTRAINT ck_report_dataset_status CHECK (status IN ('ACTIVE', 'HIDDEN'))
+);
+
+CREATE TABLE IF NOT EXISTS report_field (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dataset_key         VARCHAR(40) NOT NULL REFERENCES report_dataset(key) ON DELETE CASCADE,
+    key                 VARCHAR(60) NOT NULL,                             -- what a report definition names
+    label               VARCHAR(100) NOT NULL,
+    column_name         VARCHAR(60) NOT NULL,                             -- the column of the dataset's source
+    type                VARCHAR(10) NOT NULL,                             -- string, number, date, datetime, boolean
+    role                VARCHAR(10) NOT NULL,                             -- dimension, measure
+    aggregates          JSONB NOT NULL DEFAULT '[]',                      -- a measure's allowed aggregates: sum, count, count_distinct, avg, min, max
+    display_format      VARCHAR(20),                                      -- integer, decimal, money, percent, date, datetime
+    sensitivity         VARCHAR(10) NOT NULL DEFAULT 'NORMAL',            -- NORMAL, PII (masked for roles without the right), CONFIDENTIAL (never offered)
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (dataset_key, key),
+    CONSTRAINT ck_report_field_type CHECK (type IN ('string', 'number', 'date', 'datetime', 'boolean')),
+    CONSTRAINT ck_report_field_role CHECK (role IN ('dimension', 'measure')),
+    CONSTRAINT ck_report_field_sensitivity CHECK (sensitivity IN ('NORMAL', 'PII', 'CONFIDENTIAL'))
+);
+
+CREATE TABLE IF NOT EXISTS report_dataset_source (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dataset_key         VARCHAR(40) NOT NULL REFERENCES report_dataset(key) ON DELETE CASCADE,
+    engine              VARCHAR(12) NOT NULL,                             -- postgresql, clickhouse
+    source_name         VARCHAR(120) NOT NULL,                            -- schema.view the compiler reads
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
+    UNIQUE (dataset_key, engine),
+    CONSTRAINT ck_report_dataset_source_engine CHECK (engine IN ('postgresql', 'clickhouse'))
+);
+
+-- ---- a workspace's engine: which analytics engine runs its reports, and its limits
+CREATE TABLE IF NOT EXISTS report_engine_setting (
+    tenant_id           UUID PRIMARY KEY REFERENCES tenant(id) ON DELETE CASCADE,
+    engine              VARCHAR(12) NOT NULL DEFAULT 'postgresql',
+    connection_profile  VARCHAR(60) NOT NULL DEFAULT 'pg-reporting-shared',
+    status              VARCHAR(12) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, MIGRATING, READ_ONLY
+    freshness_sla       VARCHAR(12) NOT NULL DEFAULT 'LIVE',              -- LIVE, MINUTES_5, HOURLY, DAILY
+    query_limits        JSONB NOT NULL DEFAULT '{}',                      -- statement_timeout_ms, preview_rows, run_rows, export_rows, concurrent
+    last_reconciled_at  TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_report_engine_setting_engine CHECK (engine IN ('postgresql', 'clickhouse')),
+    CONSTRAINT ck_report_engine_setting_status CHECK (status IN ('ACTIVE', 'MIGRATING', 'READ_ONLY'))
+);
+
+-- ---- a workspace's reports (row-level security, as every workspace table)
+CREATE TABLE IF NOT EXISTS report_folder (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(120) NOT NULL,
+    parent_id           UUID REFERENCES report_folder(id),
+    owner_user_id       UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_folder_name CHECK (btrim(name) <> '')
+);
+
+CREATE TABLE IF NOT EXISTS report (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    folder_id           UUID REFERENCES report_folder(id),
+    dataset_key         VARCHAR(40) NOT NULL REFERENCES report_dataset(key),
+    name                VARCHAR(200) NOT NULL,
+    description         TEXT,
+    view_type           VARCHAR(10) NOT NULL DEFAULT 'grid',              -- grid, chart, pivot, hierarchy
+    definition          JSONB NOT NULL,                                   -- apps/insights/definition.py: columns, filters, groupBy, orderBy, views
+    owner_user_id       UUID REFERENCES app_user(id),
+    visibility          VARCHAR(10) NOT NULL DEFAULT 'PRIVATE',           -- PRIVATE (owner and shares), WORKSPACE (everyone with report.view)
+    version             INTEGER NOT NULL DEFAULT 1,
+    last_run_at         TIMESTAMPTZ,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_name CHECK (btrim(name) <> ''),
+    CONSTRAINT ck_report_view_type CHECK (view_type IN ('grid', 'chart', 'pivot', 'hierarchy')),
+    CONSTRAINT ck_report_visibility CHECK (visibility IN ('PRIVATE', 'WORKSPACE'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_tenant_live ON report(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS report_version (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    report_id           UUID NOT NULL REFERENCES report(id) ON DELETE CASCADE,
+    version             INTEGER NOT NULL,
+    definition          JSONB NOT NULL,
+    view_type           VARCHAR(10) NOT NULL,
+    note                VARCHAR(300),
+    changed_by          UUID REFERENCES app_user(id),
+    changed_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (report_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS report_share (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    report_id           UUID NOT NULL REFERENCES report(id) ON DELETE CASCADE,
+    principal_kind      VARCHAR(10) NOT NULL,                             -- user, role
+    principal_id        UUID NOT NULL,
+    permission          VARCHAR(10) NOT NULL,                             -- view, edit, admin
+    created_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (report_id, principal_kind, principal_id),
+    CONSTRAINT ck_report_share_kind CHECK (principal_kind IN ('user', 'role')),
+    CONSTRAINT ck_report_share_permission CHECK (permission IN ('view', 'edit', 'admin'))
+);
+
+CREATE TABLE IF NOT EXISTS report_run_audit (
+    id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    report_id           UUID REFERENCES report(id) ON DELETE SET NULL,
+    report_version      INTEGER,
+    user_id             UUID REFERENCES app_user(id),
+    dataset_key         VARCHAR(40) NOT NULL,
+    kind                VARCHAR(10) NOT NULL,                             -- preview, run, export
+    filter_signature    VARCHAR(64) NOT NULL,                             -- sha256 of the normalised definition
+    duration_ms         INTEGER,
+    row_count           INTEGER,
+    outcome             VARCHAR(12) NOT NULL,                             -- OK, TIMEOUT, REFUSED, FAILED
+    detail              VARCHAR(300),
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_report_run_audit_tenant ON report_run_audit(tenant_id, started_at DESC);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_folder', 'report', 'report_version', 'report_share', 'report_run_audit'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+
+-- ---- the reporting views the first datasets read: one stable, documented shape per dataset, the workspace column first.
+-- security_invoker: the row-level security of the tables underneath applies to whoever runs the report.
+CREATE SCHEMA IF NOT EXISTS reporting;
+
+CREATE OR REPLACE VIEW reporting.rpt_messages WITH (security_invoker = true) AS
+SELECT x.tenant_id, 'EMAIL'::text AS channel, x.id AS message_id, x.campaign_id, c.name AS campaign_name, c.campaign_type, c.code AS campaign_code,
+       r.run_number, r.test_mode, x.party_id, x.status, x.status_reason, x.submitted_at, x.delivered_at, x.opened_at, x.clicked_at, x.bounced_at,
+       x.created_at,
+       (x.status NOT IN ('QUEUED', 'FAILED'))::int AS sent_n, (x.delivered_at IS NOT NULL)::int AS delivered_n, (x.opened_at IS NOT NULL)::int AS opened_n,
+       (x.clicked_at IS NOT NULL)::int AS clicked_n, (x.bounced_at IS NOT NULL)::int AS bounced_n, (x.complained_at IS NOT NULL)::int AS complained_n,
+       (x.status = 'FAILED')::int AS failed_n
+  FROM mailer_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id
+UNION ALL
+SELECT x.tenant_id, 'SMS'::text, x.id, x.campaign_id, c.name, c.campaign_type, c.code, r.run_number, r.test_mode, x.party_id, x.status, x.status_reason,
+       x.submitted_at, x.delivered_at, NULL::timestamptz, NULL::timestamptz, NULL::timestamptz, x.created_at,
+       (x.status NOT IN ('QUEUED', 'FAILED'))::int, (x.delivered_at IS NOT NULL)::int, 0, 0, 0, 0, (x.status = 'FAILED')::int
+  FROM sms_execution x JOIN campaign_run r ON r.id = x.campaign_run_id JOIN campaign c ON c.id = x.campaign_id;
+
+CREATE OR REPLACE VIEW reporting.rpt_attributed_orders WITH (security_invoker = true) AS
+SELECT o.tenant_id, o.id AS order_id, o.order_ref, o.kind, o.source, o.amount, o.currency, o.ordered_at, o.channel, o.store_number, o.status,
+       o.campaign_id, c.name AS campaign_name, o.touch_type, o.touch_at, o.attributed_at, o.received_at, o.items,
+       (o.status = 'ATTRIBUTED')::int AS attributed_n
+  FROM attributed_order o LEFT JOIN campaign c ON c.id = o.campaign_id;
+
+CREATE OR REPLACE VIEW reporting.rpt_contacts WITH (security_invoker = true) AS
+SELECT m.tenant_id, m.party_id, m.first_name, m.last_name, m.emails ->> 0 AS email, m.phones ->> 0 AS phone, m.source_system, m.is_synced_copy, m.synced_at,
+       m.primary_address ->> 'city' AS city, m.primary_address ->> 'region' AS region, m.primary_address ->> 'country' AS country,
+       (SELECT count(*) FROM contact_list_member lm WHERE lm.tenant_id = m.tenant_id AND lm.party_id = m.party_id) AS list_count
+  FROM customer_master m;
+
+CREATE OR REPLACE VIEW reporting.rpt_journey_enrollments WITH (security_invoker = true) AS
+SELECT e.tenant_id, e.id AS enrollment_id, e.journey_id, j.name AS journey_name, j.code AS journey_code, j.status AS journey_status, e.party_id,
+       e.status, e.enrolled_at, e.exited_at, e.exit_reason, e.converted_at, e.attributed_revenue,
+       (e.converted_at IS NOT NULL)::int AS converted_n, (e.status = 'ACTIVE')::int AS active_n
+  FROM journey_enrollment e JOIN journey j ON j.id = e.journey_id;
+
+-- ---- the reporting role: reads the views and the tables beneath them, nothing else; the engine runs every report as it
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cep_reporting') THEN CREATE ROLE cep_reporting NOLOGIN; END IF;
+END $$;
+GRANT USAGE ON SCHEMA reporting TO cep_reporting, cep_app, cep_admin;
+GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO cep_reporting, cep_app, cep_admin;
+GRANT SELECT ON mailer_execution, sms_execution, campaign_run, campaign, attributed_order, customer_master, contact_list_member, journey_enrollment, journey TO cep_reporting;
+GRANT cep_reporting TO cep_app;                                           -- the API's connection switches to it for the query (SET LOCAL ROLE)
+
+GRANT SELECT ON report_dataset, report_field, report_dataset_source, report_engine_setting TO cep_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_folder, report, report_version, report_share TO cep_app;
+GRANT SELECT, INSERT ON report_run_audit TO cep_app;
+GRANT USAGE, SELECT ON SEQUENCE report_run_audit_id_seq TO cep_app;
+GRANT ALL ON report_dataset, report_field, report_dataset_source, report_engine_setting, report_folder, report, report_version, report_share, report_run_audit TO cep_admin;
+GRANT ALL ON SEQUENCE report_run_audit_id_seq TO cep_admin;
+
+-- ---- the first datasets: what Reports already shows, as catalogue entries
+INSERT INTO report_dataset (key, component_key, label, description, primary_key, time_field, sort_order) VALUES
+    ('messages',            'cep', 'Messages',            'Every email and text a campaign sent: who, when, and what became of it',        'message_id',    'submitted_at', 10),
+    ('attributed_orders',   'cep', 'Attributed Orders',   'Orders the shop reported, and the campaign each was credited to',                'order_id',      'ordered_at',   20),
+    ('contacts',            'cep', 'Contacts',            'The customer records the workspace can reach',                                    'party_id',      NULL,           30),
+    ('journey_enrollments', 'cep', 'Journey Enrollments', 'Every customer a journey took in: where they are, how they left, what they bought', 'enrollment_id', 'enrolled_at',  40)
+ON CONFLICT (key) DO NOTHING;
+
+INSERT INTO report_dataset_source (dataset_key, engine, source_name) VALUES
+    ('messages', 'postgresql', 'reporting.rpt_messages'),
+    ('attributed_orders', 'postgresql', 'reporting.rpt_attributed_orders'),
+    ('contacts', 'postgresql', 'reporting.rpt_contacts'),
+    ('journey_enrollments', 'postgresql', 'reporting.rpt_journey_enrollments')
+ON CONFLICT (dataset_key, engine) DO NOTHING;
+
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order) VALUES
+    ('messages', 'channel',        'Channel',         'channel',        'string',   'dimension', '[]', NULL, 'NORMAL', 10),
+    ('messages', 'campaign_name',  'Campaign',        'campaign_name',  'string',   'dimension', '[]', NULL, 'NORMAL', 20),
+    ('messages', 'campaign_code',  'Campaign Code',   'campaign_code',  'string',   'dimension', '[]', NULL, 'NORMAL', 30),
+    ('messages', 'campaign_type',  'Campaign Type',   'campaign_type',  'string',   'dimension', '[]', NULL, 'NORMAL', 40),
+    ('messages', 'status',         'Status',          'status',         'string',   'dimension', '[]', NULL, 'NORMAL', 50),
+    ('messages', 'submitted_at',   'Sent',            'submitted_at',   'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 60),
+    ('messages', 'delivered_at',   'Delivered',       'delivered_at',   'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 70),
+    ('messages', 'party_id',       'Customer',        'party_id',       'string',   'dimension', '[]', NULL, 'PII', 80),
+    ('messages', 'test_mode',      'Test Send',       'test_mode',      'boolean',  'dimension', '[]', NULL, 'NORMAL', 90),
+    ('messages', 'messages',       'Messages',        'message_id',     'number',   'measure',   '["count"]', 'integer', 'NORMAL', 100),
+    ('messages', 'sent',           'Sent Count',      'sent_n',         'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 110),
+    ('messages', 'delivered',      'Delivered Count', 'delivered_n',    'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 120),
+    ('messages', 'opened',         'Opened',          'opened_n',       'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 130),
+    ('messages', 'clicked',        'Clicked',         'clicked_n',      'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 140),
+    ('messages', 'bounced',        'Bounced',         'bounced_n',      'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 150),
+    ('messages', 'complained',     'Complaints',      'complained_n',   'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 160),
+    ('messages', 'failed',         'Failed',          'failed_n',       'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 170),
+    ('attributed_orders', 'order_ref',     'Order',          'order_ref',     'string',   'dimension', '[]', NULL, 'NORMAL', 10),
+    ('attributed_orders', 'kind',          'Kind',           'kind',          'string',   'dimension', '[]', NULL, 'NORMAL', 20),
+    ('attributed_orders', 'status',        'Status',         'status',        'string',   'dimension', '[]', NULL, 'NORMAL', 30),
+    ('attributed_orders', 'channel',       'Channel',        'channel',       'string',   'dimension', '[]', NULL, 'NORMAL', 40),
+    ('attributed_orders', 'store_number',  'Store',          'store_number',  'string',   'dimension', '[]', NULL, 'NORMAL', 50),
+    ('attributed_orders', 'campaign_name', 'Credited To',    'campaign_name', 'string',   'dimension', '[]', NULL, 'NORMAL', 60),
+    ('attributed_orders', 'touch_type',    'Touch',          'touch_type',    'string',   'dimension', '[]', NULL, 'NORMAL', 70),
+    ('attributed_orders', 'ordered_at',    'Placed',         'ordered_at',    'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 80),
+    ('attributed_orders', 'currency',      'Currency',       'currency',      'string',   'dimension', '[]', NULL, 'NORMAL', 90),
+    ('attributed_orders', 'orders',        'Orders',         'order_id',      'number',   'measure',   '["count"]', 'integer', 'NORMAL', 100),
+    ('attributed_orders', 'amount',        'Amount',         'amount',        'number',   'measure',   '["sum", "avg", "min", "max"]', 'money', 'NORMAL', 110),
+    ('attributed_orders', 'items',         'Items',          'items',         'number',   'measure',   '["sum", "avg"]', 'integer', 'NORMAL', 120),
+    ('attributed_orders', 'attributed',    'Attributed',     'attributed_n',  'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 130),
+    ('contacts', 'party_id',      'Customer ID',  'party_id',      'string',   'dimension', '[]', NULL, 'PII', 10),
+    ('contacts', 'first_name',    'First Name',   'first_name',    'string',   'dimension', '[]', NULL, 'PII', 20),
+    ('contacts', 'last_name',     'Last Name',    'last_name',     'string',   'dimension', '[]', NULL, 'PII', 30),
+    ('contacts', 'email',         'Email',        'email',         'string',   'dimension', '[]', NULL, 'PII', 40),
+    ('contacts', 'phone',         'Phone',        'phone',         'string',   'dimension', '[]', NULL, 'PII', 50),
+    ('contacts', 'city',          'City',         'city',          'string',   'dimension', '[]', NULL, 'NORMAL', 60),
+    ('contacts', 'region',        'Region',       'region',        'string',   'dimension', '[]', NULL, 'NORMAL', 70),
+    ('contacts', 'country',       'Country',      'country',       'string',   'dimension', '[]', NULL, 'NORMAL', 80),
+    ('contacts', 'source_system', 'Source',       'source_system', 'string',   'dimension', '[]', NULL, 'NORMAL', 90),
+    ('contacts', 'synced_at',     'Synced',       'synced_at',     'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 100),
+    ('contacts', 'contacts',      'Contacts',     'party_id',      'number',   'measure',   '["count"]', 'integer', 'NORMAL', 110),
+    ('contacts', 'list_count',    'Lists',        'list_count',    'number',   'measure',   '["sum", "avg", "max"]', 'integer', 'NORMAL', 120),
+    ('journey_enrollments', 'journey_name',   'Journey',        'journey_name',       'string',   'dimension', '[]', NULL, 'NORMAL', 10),
+    ('journey_enrollments', 'journey_code',   'Journey Code',   'journey_code',       'string',   'dimension', '[]', NULL, 'NORMAL', 20),
+    ('journey_enrollments', 'journey_status', 'Journey Status', 'journey_status',     'string',   'dimension', '[]', NULL, 'NORMAL', 30),
+    ('journey_enrollments', 'status',         'Status',         'status',             'string',   'dimension', '[]', NULL, 'NORMAL', 40),
+    ('journey_enrollments', 'exit_reason',    'Exit Reason',    'exit_reason',        'string',   'dimension', '[]', NULL, 'NORMAL', 50),
+    ('journey_enrollments', 'enrolled_at',    'Entered',        'enrolled_at',        'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 60),
+    ('journey_enrollments', 'exited_at',      'Left',           'exited_at',          'datetime', 'dimension', '[]', 'datetime', 'NORMAL', 70),
+    ('journey_enrollments', 'party_id',       'Customer',       'party_id',           'string',   'dimension', '[]', NULL, 'PII', 80),
+    ('journey_enrollments', 'enrollments',    'Enrollments',    'enrollment_id',      'number',   'measure',   '["count"]', 'integer', 'NORMAL', 90),
+    ('journey_enrollments', 'active',         'Active',         'active_n',           'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 100),
+    ('journey_enrollments', 'converted',      'Converted',      'converted_n',        'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 110),
+    ('journey_enrollments', 'revenue',        'Revenue',        'attributed_revenue', 'number',   'measure',   '["sum", "avg"]', 'money', 'NORMAL', 120)
+ON CONFLICT (dataset_key, key) DO NOTHING;
+
+-- ---- the Insights global parameters (Platform admin -> Global Parameters)
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('insights.mode',            'integrated', 'STRING',  'Insights', 'How Insights is offered: integrated (an Insights item in each component''s menu), standalone (its own app in the launcher), or both'),
+    ('insights.standalone_path', '/insights',  'STRING',  'Insights', 'Where the standalone Insights app answers: a path on this host'),
+    ('insights.engine_url',      '',           'STRING',  'Insights', 'The internal address of the report engine service; empty means this backend runs reports itself')
+ON CONFLICT (key) DO NOTHING;
+
+-- ---- the report permissions: view and run (report.view, since 2026-09), build (report.edit), share and administer (report.admin)
+INSERT INTO permission (id, code, description) VALUES
+    ('a3000000-0000-4000-8000-00000000001a', 'report.edit', 'Report edit'),
+    ('a3000000-0000-4000-8000-00000000001b', 'report.admin', 'Report admin')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO role_permission (role_id, permission_id)
+SELECT rp.role_id, p.id FROM role_permission rp JOIN permission v ON v.id = rp.permission_id AND v.code = 'report.view'
+  CROSS JOIN permission p WHERE p.code IN ('report.edit', 'report.admin')
+ON CONFLICT DO NOTHING;
+
+-- ---- Insights is released as Beta: every plan already includes it (0048), so workspaces see it from today
+UPDATE suite_component SET release = 'BETA', updated_at = now() WHERE key = 'insights' AND release = 'PLANNED';
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

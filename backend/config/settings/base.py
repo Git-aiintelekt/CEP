@@ -21,7 +21,7 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 DOMAIN_APPS = [
     "apps.tenants", "apps.identity", "apps.customers", "apps.contact_lists", "apps.templates", "apps.campaigns",
     "apps.journeys", "apps.governance", "apps.delivery", "apps.media", "apps.reporting", "apps.audit",
-    "apps.integrations", "apps.tracking", "apps.scoring", "apps.platform_ops", "apps.pos",
+    "apps.integrations", "apps.tracking", "apps.scoring", "apps.platform_ops", "apps.pos", "apps.insights",
     "apps.database",                                    # owns the RunSQL migration that applies the DDL
 ]
 INSTALLED_APPS = [
@@ -115,7 +115,8 @@ CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenan
                         "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "tenant_identity_provider",
                         "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
                         "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "tenant_quota_grant",
-                        "suite_component", "plan_component", "tenant_component"}
+                        "suite_component", "plan_component", "tenant_component",
+                        "report_dataset", "report_field", "report_dataset_source", "report_engine_setting"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth

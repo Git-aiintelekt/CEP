@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report builder: custom reports, two editor layouts, the four views, filters and dataset mapping</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --danger-bg:#fae2e2; --danger-text:#a92e26; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --success-bg:#e3f5e5; --success-text:#1f6b2d;
+    --callout-bg:#eef2fe; --callout-text:#312e7c;
+    --plum-100:#f4e4f1; --plum-700:#8a3375; --sidebar:#1b2a5a; --teal-100:#dff1f5; --teal-700:#1f6c80;
+    --chart-1:#3863db; --chart-5:#418eae; --chart-6:#7570d4;
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3,h4 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .part { max-width:1440px; margin:40px auto 4px; padding:0 16px; font:700 18px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label { max-width:1440px; margin:18px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.45 var(--font-sans); color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:start } .row.one { grid-template-columns:1fr }
+  @media (max-width:1000px) { .row { grid-template-columns:1fr } }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .frame .cap { font-size:12px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .scroll { overflow-x:auto }
+  .app { display:grid; grid-template-columns:168px minmax(0,1fr); min-height:440px }
+  .rail { background:var(--sidebar); color:#fff; padding:16px 12px; font-size:13px } .rail b { display:block; margin:0 6px 14px; font-family:var(--font-display) }
+  .rail a { display:block; padding:7px 10px; border-radius:6px; color:#c9d3f2 } .rail a.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600 } .rail hr { border:0; border-top:1px solid rgba(255,255,255,.14); margin:10px 4px }
+  .page { padding:20px 24px; min-width:0 }
+  .pagehead { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:10px 16px; margin-bottom:12px } .pagehead h1 { font-size:22px } .pagehead p { color:var(--ink-800); font-size:13px; margin-top:4px }
+  .btn { height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 13px var(--font-sans); display:inline-flex; align-items:center; gap:6px; color:var(--ink-900); white-space:nowrap }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:28px; padding:0 9px; font-size:12px } .btn.link { border:0; background:none; color:var(--brand-800); padding:0; height:auto } .btn.ghost { border-color:transparent }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap }
+  .tag.grey { background:var(--fill-subtle); color:var(--ink-800) } .tag.brand { background:var(--brand-100); color:var(--brand-800) } .tag.plum { background:var(--plum-100); color:var(--plum-700) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) }
+  table { width:100%; border-collapse:collapse; font-size:13px } th { text-align:left; font-size:12px; font-weight:600; color:var(--ink-800); padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap } td { padding:8px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top } td small { display:block; color:var(--ink-800); font-size:12px }
+  .num { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap }
+  .tabs { display:flex; gap:22px; border-bottom:1px solid var(--line); font-size:13px; font-weight:600; margin-bottom:14px } .tabs span { padding:8px 0; color:var(--ink-800) } .tabs span.on { color:var(--brand-800); box-shadow:inset 0 -2px 0 var(--brand-600) }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px } .chip { height:28px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font-size:12px; font-weight:600; display:inline-flex; align-items:center; background:#fff } .chip.on { background:var(--brand-100); border-color:var(--brand-100); color:var(--brand-800) }
+  .search { height:32px; border-radius:6px; background:var(--surface-sunken); padding:0 10px; display:flex; align-items:center; color:var(--ink-700); font-size:12px; min-width:200px }
+  .vi { width:22px; height:22px; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex:none; background:var(--brand-100); color:var(--brand-800) }
+  .empty { text-align:center; padding:36px 16px 28px; border:1px solid var(--line-subtle); border-radius:8px }
+  .empty h3 { font-size:16px } .empty p { font-size:13px; color:var(--ink-800); margin:4px auto 14px; max-width:460px }
+  .starters { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:14px; text-align:left }
+  .starter { border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:4px } .starter b { font-size:13px } .starter small { font-size:12px; color:var(--ink-800) }
+  /* the editor */
+  .editor { display:grid; grid-template-rows:auto 1fr; min-height:660px; background:var(--surface-subtle) }
+  .topbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding:10px 18px; background:#fff; border-bottom:1px solid var(--line) } .topbar h1 { font:600 15px var(--font-sans); letter-spacing:0 } .topbar .back { color:var(--brand-800); font-size:13px; font-weight:600 } .topbar .end { margin-left:auto; display:flex; gap:8px; align-items:center } .topbar .saved { font-size:12px; color:var(--ink-800) }
+  .work { display:grid; grid-template-columns:232px minmax(0,1fr) 288px; min-height:0 }
+  .work.two { grid-template-columns:minmax(0,1fr) }
+  .data { background:#fff; border-right:1px solid var(--line); padding:12px; font-size:13px }
+  .data h4, .build h4 { margin:12px 0 6px; font:600 11px var(--font-sans); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-800) }
+  .data .ds { border:1px solid var(--line); border-radius:6px; padding:7px 9px; display:flex; justify-content:space-between; align-items:center; font-weight:600 }
+  .fld { display:flex; align-items:center; gap:8px; padding:5px 6px; border-radius:6px } .fld.used { background:var(--brand-100); color:var(--brand-800); font-weight:600 } .fld small { margin-left:auto; color:var(--ink-700); font-size:11px }
+  .ft { width:20px; height:18px; border-radius:4px; font:700 10px/18px var(--font-sans); text-align:center; flex:none; background:var(--fill-subtle); color:var(--ink-800) } .ft.n { background:var(--teal-100); color:var(--teal-700) } .ft.d { background:var(--plum-100); color:var(--plum-700) }
+  .build { background:#fff; border-left:1px solid var(--line); padding:12px 14px; font-size:13px }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:8px; overflow:hidden } .seg span { padding:5px 11px; font-size:12px; font-weight:600; border-right:1px solid var(--line) } .seg span:last-child { border-right:0 } .seg span.on { background:var(--brand-100); color:var(--brand-800) }
+  .well { border:1px solid var(--line); border-radius:8px; padding:6px; min-height:40px; display:flex; flex-direction:column; gap:4px; background:var(--surface-subtle) }
+  .well.drop { border-style:dashed; justify-content:center; color:var(--ink-700); font-size:12px; text-align:center }
+  .pill { display:flex; align-items:center; gap:7px; background:#fff; border:1px solid var(--line); border-radius:6px; padding:4px 7px; font-size:12px } .pill b { font-weight:600 } .pill .x { margin-left:auto; color:var(--ink-700) } .pill .agg { color:var(--ink-800) }
+  .center { padding:14px 16px; min-width:0; display:flex; flex-direction:column; gap:12px }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px } .toolbar .end { margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12px; color:var(--ink-800) }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; min-width:0 }
+  .card .head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line-subtle) } .card .head h3 { font-size:15px } .card .head small { font-size:12px; color:var(--ink-800) }
+  .card .body { padding:12px 14px }
+  .fchips { display:flex; flex-wrap:wrap; gap:6px } .fchip { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 8px; border-radius:6px; background:var(--callout-bg); color:var(--callout-text); font-size:12px; font-weight:600 }
+  /* pivot and hierarchy */
+  .pv th, .pv td { padding:7px 10px } .pv thead th { background:var(--surface-subtle) } .pv th.grp { text-align:center; border-left:1px solid var(--line-subtle) } .pv .bl { border-left:1px solid var(--line-subtle) }
+  .pv tr.sub td { background:var(--surface-subtle); font-weight:600 } .pv tr.grand td { font-weight:600; border-top:1px solid var(--line); border-bottom:0 }
+  .tw { color:var(--ink-800); display:inline-block; width:14px } .l2 { padding-left:30px !important }
+  /* option 2: steps */
+  .steps { display:flex; flex-direction:column; gap:0; background:#fff; border:1px solid var(--line); border-radius:8px }
+  .step { display:grid; grid-template-columns:120px minmax(0,1fr); gap:12px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line-subtle) } .step:last-child { border-bottom:0 }
+  .step .k { font:600 12px var(--font-sans); color:var(--ink-800); display:flex; align-items:center; gap:7px } .step .k i { font-style:normal; width:18px; height:18px; border-radius:50%; background:var(--fill-subtle); color:var(--ink-800); font-size:11px; display:inline-flex; align-items:center; justify-content:center }
+  .step .v { display:flex; flex-wrap:wrap; gap:6px; align-items:center } .tok { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 9px; border:1px solid var(--line); border-radius:6px; background:#fff; font-size:12px; font-weight:600 } .tok.ds { background:var(--brand-100); border-color:var(--brand-100); color:var(--brand-800) } .tok.add { border-style:dashed; color:var(--ink-800); font-weight:600 }
+  .bignum { padding:40px 16px; text-align:center } .bignum b { display:block; font:600 32px var(--font-display); font-variant-numeric:tabular-nums } .bignum small { font-size:13px; color:var(--ink-800) }
+  /* chart */
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:13px } .legend span { display:inline-flex; align-items:center; gap:6px } .legend i { width:10px; height:10px; border-radius:2px; display:inline-block }
+  svg text { font:400 12px var(--font-sans); fill:var(--ink-800); font-variant-numeric:tabular-nums }
+  .chartbox { width:100%; height:auto; display:block }
+  /* small view gallery */
+  .views { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px } @media (max-width:1000px) { .views { grid-template-columns:1fr } }
+  /* filter builder */
+  .qb { border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:8px; font-size:13px }
+  .qrow { display:grid; grid-template-columns:150px 140px minmax(0,1fr) 30px; gap:8px; align-items:center }
+  .ctl { min-height:32px; border:1px solid var(--line-control); border-radius:6px; padding:5px 9px; display:flex; align-items:center; justify-content:space-between; gap:6px; background:#fff; font-size:13px; flex-wrap:wrap } .ctl .chev { color:var(--ink-800) }
+  .vchip { display:inline-flex; align-items:center; gap:4px; height:22px; padding:0 6px; border-radius:4px; background:var(--fill-subtle); font-size:12px; font-weight:600 }
+  .qgroup { border:1px solid var(--line-subtle); border-radius:8px; padding:10px; background:var(--surface-subtle); display:flex; flex-direction:column; gap:8px }
+  .trash { width:30px; height:30px; border:1px solid var(--line); border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--ink-800); background:#fff; font-size:12px }
+  /* dialog */
+  .modal { max-width:768px; margin:20px auto; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 12px 32px rgba(23,24,28,.14) }
+  .modal .mh { padding:16px 24px 12px; border-bottom:1px solid var(--line) } .modal .mh h2 { font-size:18px } .modal .mh small { font-size:12px; color:var(--ink-800) }
+  .bar { display:flex; gap:4px; margin-top:8px } .bar i { flex:1; height:4px; border-radius:2px; background:var(--fill-subtle) } .bar i.on { background:var(--brand-600) }
+  .modal .mb { padding:24px; display:flex; flex-direction:column; gap:20px; font-size:13px } .modal .mf { padding:12px 24px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px }
+  .flabel { font-weight:600; font-size:14px; margin-bottom:6px } .flabel .req { color:var(--danger-text) }
+  .cards3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px } @media (max-width:700px) { .cards3, .starters { grid-template-columns:1fr } }
+  .choice { border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:3px } .choice.on { border-color:var(--brand-600); background:var(--brand-100) } .choice b { font-size:13px } .choice small { font-size:12px; color:var(--ink-800) } .choice.on small { color:var(--callout-text) }
+  /* back-office */
+  .bo { display:grid; grid-template-columns:200px minmax(0,1fr); min-height:420px }
+  .boside { background:var(--surface-subtle); border-right:1px solid var(--line); padding:14px 10px; font-size:13px } .boside b { display:block; margin:0 8px 12px; font-family:var(--font-display) } .boside a { display:block; padding:6px 10px; border-radius:6px; color:var(--ink-800) } .boside a.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 } .boside small { display:block; margin:12px 10px 4px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-700) }
+  .yes { color:var(--success-text); font-weight:600 } .mask { color:var(--warning-text); font-weight:600 }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+  .built { font-size:12px; color:var(--ink-800); padding:8px 16px; border-top:1px solid var(--line-subtle); background:var(--surface-subtle) } .built b { color:var(--ink-900) }
+  .rules { max-width:1440px; margin:36px auto 56px; padding:0 16px } .rules .frame { padding:18px 20px }
+  .rules h3 { font-size:15px; margin:18px 0 8px } .rules h3:first-child { margin-top:0 } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--ink-800) } .rules li { margin-bottom:5px } .rules p { font-size:13px; color:var(--ink-800) }
+  .compare td:first-child { font-weight:600; width:200px }
+  /* AI */
+  .ask, .draft, .explain { border:1px solid var(--line); border-radius:8px; padding:12px 14px; background:#fff; display:flex; flex-direction:column; gap:10px }
+  .explain { background:var(--surface) }
+  .askhead { display:flex; align-items:center; gap:8px; flex-wrap:wrap } .askhead b { font-size:14px } .askhead small { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .ai { display:inline-flex; align-items:center; justify-content:center; height:20px; padding:0 6px; border-radius:4px; background:var(--plum-100); color:var(--plum-700); font:700 11px var(--font-sans); letter-spacing:.04em; flex:none }
+  .prompt { min-height:64px; border:1px solid var(--line-control); border-radius:8px; padding:10px 12px; font-size:14px; background:#fff } .prompt.muted { color:var(--ink-700) } .prompt.one { min-height:0; height:34px; padding:6px 10px; flex:1; display:flex; align-items:center; font-size:13px }
+  .askbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center } .askbar.slim { background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 10px }
+  .prov { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:4px; font:700 10px var(--font-sans); margin-right:7px; vertical-align:-3px; background:var(--fill-subtle); color:var(--ink-900); border:1px solid var(--line) } .prov.big { width:32px; height:32px; font-size:14px; margin:0 }
+  .pick { position:relative }
+  .menu { position:absolute; top:40px; left:0; width:280px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(23,24,28,.12); padding:6px; z-index:2 }
+  .mgroup { font:600 11px var(--font-sans); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-800); padding:8px 8px 4px }
+  .mitem { display:flex; align-items:center; padding:7px 8px; border-radius:6px; font-size:13px } .mitem small { margin-left:auto; font-size:12px; color:var(--ink-800) } .mitem.on { background:var(--brand-100); color:var(--brand-800); font-weight:600 }
+  h4.small { margin:16px 0 6px; font:600 11px var(--font-sans); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-800) }
+  .examples { display:flex; flex-direction:column; gap:6px } .ex { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; background:#fff }
+  .you { font-size:13px; color:var(--ink-800); font-style:italic }
+  .acts { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end }
+  .answers { display:flex; flex-direction:column; gap:6px; align-items:flex-start }
+  dl.facts { display:grid; grid-template-columns:72px 1fr; gap:5px 10px; margin:0; font-size:13px } dl.facts dt { color:var(--ink-800) } dl.facts dd { margin:0 }
+  .explain ul { margin:0; padding-left:18px; font-size:13px } .explain li { margin-bottom:4px }
+  .row.three { grid-template-columns:repeat(3, minmax(0,1fr)) } @media (max-width:1100px) { .row.three { grid-template-columns:1fr } }
+  .provs { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px } @media (max-width:900px) { .provs, .grid3 { grid-template-columns:1fr } }
+  .provcard { border:1px solid var(--line); border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px }
+  .ph { display:flex; align-items:center; gap:10px } .ph b { display:block; font-size:14px } .ph small { font-size:12px; color:var(--ink-800) } .pill-on { margin-left:auto; height:22px; padding:0 8px; border-radius:4px; background:var(--success-bg); color:var(--success-text); font-size:12px; font-weight:600; display:inline-flex; align-items:center }
+  .field label { display:block; font-size:12px; font-weight:600; color:var(--ink-800); margin-bottom:4px }
+  .status { font-size:12px } .status.ok { color:var(--success-text) }
+  .grid3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; margin-top:14px }
+  .hint { font-size:12px; color:var(--ink-800); margin-top:4px }
+  .setrow { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 0; border-bottom:1px solid var(--line-subtle) } .setrow b { display:block; font-size:14px } .setrow small { font-size:12px; color:var(--ink-800) } .setrow.off b, .setrow.off small { color:var(--ink-300) }
+  .sw { width:36px; height:20px; border-radius:10px; background:var(--line); position:relative; flex:none } .sw::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff } .sw.on { background:var(--brand-600) } .sw.on::after { left:18px }
+  .meter { margin-top:14px } .track { height:6px; border-radius:3px; background:var(--fill-subtle); margin-top:6px } .track i { display:block; height:6px; border-radius:3px; background:var(--chart-1) }
+  /* report sources */
+  .srcs { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-bottom:14px } @media (max-width:1000px) { .srcs { grid-template-columns:1fr 1fr } }
+  .src { border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--ink-800) } .src b { font-size:13px; color:var(--ink-900) }
+  .src.on { border-color:var(--brand-600); background:var(--brand-100) } .src.on b { color:var(--brand-800) } .src.off { background:var(--surface-subtle) } .src.off b { color:var(--ink-700) }
+  .radio { display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid var(--line-control); background:#fff; vertical-align:-2px; margin-right:6px } .src.on .radio { border:4px solid var(--brand-600) }
+  .stag { display:inline-flex; align-items:center; height:20px; padding:0 7px; border-radius:4px; font-size:11px; font-weight:600; white-space:nowrap; background:var(--fill-subtle); color:var(--ink-800) }
+  .stag.main { background:var(--brand-100); color:var(--brand-800) } .stag.sum { background:var(--teal-100); color:var(--teal-700) } .stag.rep { background:var(--callout-bg); color:var(--callout-text) } .stag.ana { background:var(--plum-100); color:var(--plum-700) }
+  .fresh { font-size:12px; color:var(--ink-800) }
+  .tag.okk { background:var(--success-bg); color:var(--success-text) }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>The report builder, mocked up.</strong> Reports gains a Custom Reports tab next to today's Performance page. A custom report is built from datasets the platform team maps in the back-office, viewed as a Grid, a Chart, a Hierarchy or a Pivot, filtered with a condition builder, saved, shared, exported and scheduled. Shared by both options: the list, the four views, the filter builder, Create Report and the back-office mapping. <strong>The choice to make is the editor:</strong> <strong>Option 1</strong>, field wells (drag fields into Rows, Columns, Values and Filters, like a spreadsheet pivot), or <strong>Option 2</strong>, steps above the result (Data, Filter, Summarize, Group By, Sort, read top to bottom). Each is shown busy and sparse. <strong>AI · Ask for a Report</strong> (after the shared screens) turns a prompt into a report, through Claude or OpenAI, whichever the person picks. Figures are NWA's sample data and add up across every screen.</p>
+
+<!-- ===================================================================== shared: the list -->
+<div class="part">Shared</div>
+<div class="label">Reports → Custom Reports<span>Today's Reports page becomes the Performance tab, unchanged. Custom Reports lists saved reports with their view, dataset, owner and schedule. Busy: six reports across three people. Sparse: nothing saved yet, with three starter reports to copy.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Busy: six reports, three scheduled</div>
+    <div class="app">
+      <nav class="rail"><b>CEP</b><a>Home</a><a>Campaigns</a><a class="on">Reports</a><a>Journeys</a><a>Templates</a><a>Contact lists</a><hr><a>Settings</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Reports</h1><p>Northwind Apparel · times in America/New_York</p></div><span class="btn primary">+ Create Report</span></div>
+        <div class="tabs"><span>Performance</span><span class="on">Custom Reports</span></div>
+        <div class="chips"><span class="search">Search reports</span><span class="chip on">All</span><span class="chip">Mine</span><span class="chip">Shared with Me</span><span class="chip">Scheduled</span></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Report</th><th>View</th><th>Dataset</th><th>Owner</th><th>Schedule</th><th>Last Run</th></tr></thead>
+          <tbody>
+            <tr><td><b>Monthly Revenue by Channel and Campaign</b><small>Finance</small></td><td><span class="tag brand">Pivot</span></td><td>Messages + Attributed Orders</td><td>Aby John</td><td>Monthly, 1st, 08:00</td><td>1 Oct 2026, 08:00 EDT</td></tr>
+            <tr><td><b>Weekly Revenue by Channel</b><small>Finance</small></td><td><span class="tag brand">Chart</span></td><td>Attributed Orders</td><td>Aby John</td><td>Mondays, 08:00</td><td>5 Oct 2026, 08:00 EDT</td></tr>
+            <tr><td><b>E-Receipts by Store</b><small>Stores</small></td><td><span class="tag brand">Pivot</span></td><td>E-Receipts</td><td>Devon Okafor</td><td>Daily, 07:00</td><td>6 Oct 2026, 07:00 EDT</td></tr>
+            <tr><td><b>Contacts by Store and Consent</b><small>Stores</small></td><td><span class="tag brand">Hierarchy</span></td><td>Contacts</td><td>Devon Okafor</td><td>—</td><td>2 Oct 2026, 16:20 EDT</td></tr>
+            <tr><td><b>Delivery Health by Engine</b><small>Operations</small></td><td><span class="tag brand">Grid</span></td><td>Messages</td><td>Pat Lee</td><td>—</td><td>30 Sep 2026, 11:05 EDT</td></tr>
+            <tr><td><b>VIP Early Access Results</b><small>Campaigns</small></td><td><span class="tag brand">Grid</span></td><td>Messages</td><td>Pat Lee</td><td>—</td><td>28 Sep 2026, 09:42 EDT</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row one" style="margin-top:16px">
+  <div class="frame"><div class="cap">Sparse: no custom reports yet</div>
+    <div class="app">
+      <nav class="rail"><b>CEP</b><a>Home</a><a>Campaigns</a><a class="on">Reports</a><a>Journeys</a><a>Templates</a><a>Contact lists</a><hr><a>Settings</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Reports</h1><p>Northwind Apparel · times in America/New_York</p></div><span class="btn primary">+ Create Report</span></div>
+        <div class="tabs"><span>Performance</span><span class="on">Custom Reports</span></div>
+        <div class="empty">
+          <h3>No custom reports yet</h3>
+          <p>Build a report from your messages, campaigns, contacts and revenue, and view it as a grid, a chart, a hierarchy or a pivot.</p>
+          <span class="btn primary">+ Create Report</span>
+          <div class="starters">
+            <div class="starter"><span class="tag brand" style="align-self:flex-start">Pivot</span><b>Revenue by Channel and Month</b><small>Attributed revenue, channels down, months across.</small><span class="btn sm" style="align-self:flex-start;margin-top:4px">Copy This Report</span></div>
+            <div class="starter"><span class="tag brand" style="align-self:flex-start">Grid</span><b>Delivery Health by Engine</b><small>Sent, delivered, bounced and failed per sending engine.</small><span class="btn sm" style="align-self:flex-start;margin-top:4px">Copy This Report</span></div>
+            <div class="starter"><span class="tag brand" style="align-self:flex-start">Hierarchy</span><b>Contacts by Store and Consent</b><small>Stores, then email and text consent, with subtotals.</small><span class="btn sm" style="align-self:flex-start;margin-top:4px">Copy This Report</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== option 1 -->
+<div class="part">Option 1 · Field Wells</div>
+<div class="label">Busy: Monthly Revenue by Channel and Campaign, as a pivot<span>Three columns, like a spreadsheet pivot. Left, the dataset's fields (and the datasets joined to it), searchable, grouped by dataset; a field in use is highlighted. Middle, the result, live as you change it, with the view switch above it. Right, the wells: drag a field into Rows, Columns, Values or Filters, reorder by dragging, pick the calculation on a value (Sum, Count, Average, Min, Max, Distinct Count). Two fields in Rows make the hierarchy: Channel, then Campaign, with subtotals that fold.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Option 1, busy · the editor opens full-screen from Custom Reports</div>
+    <div class="editor">
+      <div class="topbar"><span class="back">← Reports</span><h1>Monthly Revenue by Channel and Campaign</h1><span class="tag grey">Finance</span><span class="end"><span class="saved">Saved 6 Oct 2026, 14:12 EDT</span><span class="btn">Share</span><span class="btn">Schedule</span><span class="btn">Export</span><span class="btn primary">Save</span></span></div>
+      <div class="work">
+        <aside class="data">
+          <span class="search" style="min-width:0">Search fields</span>
+          <h4>Messages</h4>
+          <div class="fld used"><span class="ft">Aa</span>Channel<small>Rows</small></div>
+          <div class="fld"><span class="ft">Aa</span>Status</div>
+          <div class="fld"><span class="ft">Aa</span>Sending Engine</div>
+          <div class="fld used"><span class="ft d">D</span>Sent At<small>Columns</small></div>
+          <div class="fld used"><span class="ft n">#</span>Messages Sent<small>Values</small></div>
+          <div class="fld"><span class="ft n">#</span>Delivered</div>
+          <div class="fld"><span class="ft n">#</span>Opened</div>
+          <div class="fld"><span class="ft n">#</span>Clicked</div>
+          <h4>Campaign</h4>
+          <div class="fld used"><span class="ft">Aa</span>Campaign Name<small>Rows</small></div>
+          <div class="fld"><span class="ft">Aa</span>Campaign Tag</div>
+          <div class="fld"><span class="ft">Aa</span>Message Purpose</div>
+          <h4>Attributed Orders</h4>
+          <div class="fld used"><span class="ft n">$</span>Revenue<small>Values</small></div>
+          <div class="fld"><span class="ft n">#</span>Orders</div>
+          <h4>Contact</h4>
+          <div class="fld"><span class="ft">Aa</span>Home Store</div>
+          <div class="fld"><span class="ft">Aa</span>Email<small>Masked</small></div>
+        </aside>
+        <div class="center">
+          <div class="toolbar">
+            <span class="seg"><span>Grid</span><span>Chart</span><span>Hierarchy</span><span class="on">Pivot</span></span>
+            <span class="fchips"><span class="fchip">Sent At: Aug–Sep 2026</span><span class="fchip">Channel: Email, SMS, MMS</span></span>
+            <span class="end">9 rows shown · live data · ran in 0.8 s<span class="btn sm">Show the SQL</span></span>
+          </div>
+          <div class="card"><div class="scroll"><table class="pv">
+            <thead>
+              <tr><th rowspan="2">Channel / Campaign</th><th class="grp" colspan="2">Aug 2026</th><th class="grp" colspan="2">Sep 2026</th><th class="grp" colspan="2">Total</th></tr>
+              <tr><th class="num bl">Sent</th><th class="num">Revenue</th><th class="num bl">Sent</th><th class="num">Revenue</th><th class="num bl">Sent</th><th class="num">Revenue</th></tr>
+            </thead>
+            <tbody>
+              <tr class="sub"><td><span class="tw">▾</span>Email</td><td class="num bl">247,250</td><td class="num">31,170.00</td><td class="num bl">356,920</td><td class="num">73,240.00</td><td class="num bl">604,170</td><td class="num">104,410.00</td></tr>
+              <tr><td class="l2">Fall Collection Launch</td><td class="num bl">38,400</td><td class="num">9,120.00</td><td class="num bl">142,300</td><td class="num">48,210.00</td><td class="num bl">180,700</td><td class="num">57,330.00</td></tr>
+              <tr><td class="l2">VIP Early Access</td><td class="num bl">12,850</td><td class="num">15,640.00</td><td class="num bl">13,120</td><td class="num">17,980.00</td><td class="num bl">25,970</td><td class="num">33,620.00</td></tr>
+              <tr><td class="l2">Weekly Newsletter</td><td class="num bl">196,000</td><td class="num">6,410.00</td><td class="num bl">201,500</td><td class="num">7,050.00</td><td class="num bl">397,500</td><td class="num">13,460.00</td></tr>
+              <tr class="sub"><td><span class="tw">▾</span>SMS</td><td class="num bl">27,810</td><td class="num">15,400.00</td><td class="num bl">29,580</td><td class="num">18,250.00</td><td class="num bl">57,390</td><td class="num">33,650.00</td></tr>
+              <tr><td class="l2">Weekend Flash Sale</td><td class="num bl">24,600</td><td class="num">11,380.00</td><td class="num bl">25,100</td><td class="num">12,940.00</td><td class="num bl">49,700</td><td class="num">24,320.00</td></tr>
+              <tr><td class="l2">Back in Stock Alerts</td><td class="num bl">3,210</td><td class="num">4,020.00</td><td class="num bl">4,480</td><td class="num">5,310.00</td><td class="num bl">7,690</td><td class="num">9,330.00</td></tr>
+              <tr class="sub"><td><span class="tw">▸</span>MMS</td><td class="num bl">4,100</td><td class="num">2,860.00</td><td class="num bl">5,020</td><td class="num">3,480.00</td><td class="num bl">9,120</td><td class="num">6,340.00</td></tr>
+              <tr class="grand"><td>Total</td><td class="num bl">279,160</td><td class="num">49,430.00</td><td class="num bl">391,520</td><td class="num">94,970.00</td><td class="num bl">670,680</td><td class="num">144,400.00</td></tr>
+            </tbody>
+          </table></div></div>
+        </div>
+        <aside class="build">
+          <h4 style="margin-top:0">Rows</h4>
+          <div class="well"><div class="pill"><span class="ft">Aa</span><b>Channel</b><span class="x">×</span></div><div class="pill"><span class="ft">Aa</span><b>Campaign Name</b><span class="x">×</span></div></div>
+          <h4>Columns</h4>
+          <div class="well"><div class="pill"><span class="ft d">D</span><b>Sent At</b><span class="agg">by Month</span><span class="x">×</span></div></div>
+          <h4>Values</h4>
+          <div class="well"><div class="pill"><span class="ft n">#</span><b>Messages Sent</b><span class="agg">Sum</span><span class="x">×</span></div><div class="pill"><span class="ft n">$</span><b>Revenue</b><span class="agg">Sum</span><span class="x">×</span></div></div>
+          <h4>Filters</h4>
+          <div class="well"><div class="pill"><span class="ft d">D</span><b>Sent At</b><span class="agg">Aug–Sep 2026</span><span class="x">×</span></div><div class="pill"><span class="ft">Aa</span><b>Channel</b><span class="agg">3 of 3</span><span class="x">×</span></div><span class="btn link" style="font-size:12px;padding:2px 4px">Edit Conditions</span></div>
+          <h4>Totals</h4>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:12px"><span>☑ Subtotals per channel</span><span>☑ Grand total row</span><span>☑ Total column</span></div>
+          <h4>Sort</h4>
+          <div class="ctl">Channel, A to Z <span class="chev">▾</span></div>
+        </aside>
+      </div>
+    </div>
+    <div class="built">Built with: <b>TanStack Table</b> (pivot columns, grouped and expanding rows), <b>dnd-kit</b> (the wells), the server's <code>GROUPING SETS</code> for the subtotals.</div>
+  </div>
+</div>
+<div class="label">Sparse: a new report on Messages, nothing placed yet<span>The canvas says what fills it. The wells say what each one does. Nothing runs until a field is placed.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Option 1, sparse</div>
+    <div class="editor" style="min-height:440px">
+      <div class="topbar"><span class="back">← Reports</span><h1>Untitled Report</h1><span class="end"><span class="saved">Not saved yet</span><span class="btn primary">Save</span></span></div>
+      <div class="work">
+        <aside class="data">
+          <span class="search" style="min-width:0">Search fields</span>
+          <h4>Messages</h4>
+          <div class="fld"><span class="ft">Aa</span>Channel</div><div class="fld"><span class="ft">Aa</span>Status</div><div class="fld"><span class="ft">Aa</span>Sending Engine</div><div class="fld"><span class="ft d">D</span>Sent At</div><div class="fld"><span class="ft n">#</span>Messages Sent</div><div class="fld"><span class="ft n">#</span>Delivered</div>
+          <h4>Campaign</h4>
+          <div class="fld"><span class="ft">Aa</span>Campaign Name</div><div class="fld"><span class="ft">Aa</span>Campaign Tag</div>
+        </aside>
+        <div class="center">
+          <div class="toolbar"><span class="seg"><span class="on">Grid</span><span>Chart</span><span>Hierarchy</span><span>Pivot</span></span></div>
+          <div class="card"><div class="empty" style="border:0">
+            <h3>Drag a field into Rows or Values to start</h3>
+            <p>Rows lists one line per value, such as each channel. Values adds up a number for each line, such as messages sent.</p>
+          </div></div>
+        </div>
+        <aside class="build">
+          <h4 style="margin-top:0">Rows</h4><div class="well drop">One line per value</div>
+          <h4>Columns</h4><div class="well drop">Spread values across (pivot)</div>
+          <h4>Values</h4><div class="well drop">Numbers to add up</div>
+          <h4>Filters</h4><div class="well drop">Keep only matching rows</div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== option 2 -->
+<div class="part">Option 2 · Steps above the Result</div>
+<div class="label">Busy: Weekly Revenue by Channel, as a chart with its numbers<span>No field list. The question reads top to bottom as numbered steps: Data, Filter, Summarize, Group By, Sort and Limit. Each token opens a picker of the dataset's fields. Under the steps, the view switch and the result. A chart always carries its grid below it, so every number on the chart can be read and exported.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Option 2, busy · the editor opens full-screen from Custom Reports</div>
+    <div class="editor">
+      <div class="topbar"><span class="back">← Reports</span><h1>Weekly Revenue by Channel</h1><span class="tag grey">Finance</span><span class="end"><span class="saved">Saved 6 Oct 2026, 14:12 EDT</span><span class="btn">Share</span><span class="btn">Schedule</span><span class="btn">Export</span><span class="btn primary">Save</span></span></div>
+      <div class="work two">
+        <div class="center">
+          <div class="steps">
+            <div class="step"><span class="k"><i>1</i>Data</span><span class="v"><span class="tok ds">Attributed Orders</span><span class="tok">+ Campaign</span><span class="tok add">+ Join Data</span></span></div>
+            <div class="step"><span class="k"><i>2</i>Filter</span><span class="v"><span class="fchip">Ordered At: Sep 2026</span><span class="fchip">Channel: Email, SMS, MMS</span><span class="tok add">+ Add Filter</span></span></div>
+            <div class="step"><span class="k"><i>3</i>Summarize</span><span class="v"><span class="tok">Sum of Revenue</span><span class="tok add">+ Add Value</span></span></div>
+            <div class="step"><span class="k"><i>4</i>Group By</span><span class="v"><span class="tok">Ordered At: by Week</span><span class="tok">Channel</span><span class="tok add">+ Add Grouping</span></span></div>
+            <div class="step"><span class="k"><i>5</i>Sort and Limit</span><span class="v"><span class="tok">Ordered At, oldest first</span><span class="tok">All rows</span></span></div>
+          </div>
+          <div class="toolbar"><span class="seg"><span>Grid</span><span class="on">Chart</span><span>Hierarchy</span><span>Pivot</span></span><span class="seg"><span class="on">Bars</span><span>Lines</span><span>Area</span><span>Ranking</span></span><span class="end">12 rows · data as of 14:00 EDT · ran in 0.4 s<span class="btn sm">Show the SQL</span></span></div>
+          <div class="card">
+            <div class="head"><h3>Revenue by Week, September 2026</h3><span class="legend"><span><i style="background:var(--chart-1)"></i>Email</span><span><i style="background:var(--chart-5)"></i>SMS</span><span><i style="background:var(--chart-6)"></i>MMS</span></span></div>
+            <div class="body">
+              <svg class="chartbox" viewBox="0 0 1340 250" role="img" aria-label="Revenue by week and channel, September 2026">
+  <g stroke="var(--line-subtle)" stroke-width="1"><line x1="56" x2="1330" y1="212.0" y2="212.0"/><line x1="56" x2="1330" y1="145.3" y2="145.3"/><line x1="56" x2="1330" y1="78.7" y2="78.7"/><line x1="56" x2="1330" y1="12.0" y2="12.0"/></g>
+  <g text-anchor="end"><text x="48" y="216.0">$0</text><text x="48" y="149.3">$10k</text><text x="48" y="82.7">$20k</text><text x="48" y="16.0">$30k</text></g>
+  <path d="M151.2,212.0 V119.3 Q151.2,117.3 153.2,117.3 H189.2 Q191.2,117.3 191.2,119.3 V212.0 Z" fill="var(--chart-1)"/>
+  <path d="M195.2,212.0 V188.0 Q195.2,186.0 197.2,186.0 H233.2 Q235.2,186.0 235.2,188.0 V212.0 Z" fill="var(--chart-5)"/>
+  <path d="M239.2,212.0 V209.3 Q239.2,207.3 241.2,207.3 H277.2 Q279.2,207.3 279.2,209.3 V212.0 Z" fill="var(--chart-6)"/>
+  <path d="M469.8,212.0 V82.0 Q469.8,80.0 471.8,80.0 H507.8 Q509.8,80.0 509.8,82.0 V212.0 Z" fill="var(--chart-1)"/>
+  <path d="M513.8,212.0 V183.3 Q513.8,181.3 515.8,181.3 H551.8 Q553.8,181.3 553.8,183.3 V212.0 Z" fill="var(--chart-5)"/>
+  <path d="M557.8,212.0 V208.0 Q557.8,206.0 559.8,206.0 H595.8 Q597.8,206.0 597.8,208.0 V212.0 Z" fill="var(--chart-6)"/>
+  <path d="M788.2,212.0 V64.7 Q788.2,62.7 790.2,62.7 H826.2 Q828.2,62.7 828.2,64.7 V212.0 Z" fill="var(--chart-1)"/>
+  <path d="M832.2,212.0 V180.0 Q832.2,178.0 834.2,178.0 H870.2 Q872.2,178.0 872.2,180.0 V212.0 Z" fill="var(--chart-5)"/>
+  <path d="M876.2,212.0 V207.3 Q876.2,205.3 878.2,205.3 H914.2 Q916.2,205.3 916.2,207.3 V212.0 Z" fill="var(--chart-6)"/>
+  <path d="M1106.8,212.0 V101.7 Q1106.8,99.7 1108.8,99.7 H1144.8 Q1146.8,99.7 1146.8,101.7 V212.0 Z" fill="var(--chart-1)"/>
+  <path d="M1150.8,212.0 V183.0 Q1150.8,181.0 1152.8,181.0 H1188.8 Q1190.8,181.0 1190.8,183.0 V212.0 Z" fill="var(--chart-5)"/>
+  <path d="M1194.8,212.0 V208.1 Q1194.8,206.1 1196.8,206.1 H1232.8 Q1234.8,206.1 1234.8,208.1 V212.0 Z" fill="var(--chart-6)"/>
+  <g text-anchor="middle"><text x="215.2" y="232">Sep 1–7</text><text x="533.8" y="232">Sep 8–14</text><text x="852.2" y="232">Sep 15–21</text><text x="1170.8" y="232">Sep 22–30</text></g>
+</svg>
+            </div>
+            <div class="scroll" style="border-top:1px solid var(--line-subtle)"><table>
+              <thead><tr><th>Week</th><th class="num">Email</th><th class="num">SMS</th><th class="num">MMS</th><th class="num">Total</th></tr></thead>
+              <tbody>
+                <tr><td>Sep 1–7</td><td class="num">14,200.00</td><td class="num">3,900.00</td><td class="num">700.00</td><td class="num">18,800.00</td></tr>
+                <tr><td>Sep 8–14</td><td class="num">19,800.00</td><td class="num">4,600.00</td><td class="num">900.00</td><td class="num">25,300.00</td></tr>
+                <tr><td>Sep 15–21</td><td class="num">22,400.00</td><td class="num">5,100.00</td><td class="num">1,000.00</td><td class="num">28,500.00</td></tr>
+                <tr><td>Sep 22–30</td><td class="num">16,840.00</td><td class="num">4,650.00</td><td class="num">880.00</td><td class="num">22,370.00</td></tr>
+                <tr><td><b>Total</b></td><td class="num"><b>73,240.00</b></td><td class="num"><b>18,250.00</b></td><td class="num"><b>3,480.00</b></td><td class="num"><b>94,970.00</b></td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="built">Built with: the <b>chart kit</b> (grouped bars, legend toggles, tooltip, Show the Numbers), <b>TanStack Table</b> (the grid under it), <b>react-querybuilder</b> behind + Add Filter.</div>
+  </div>
+</div>
+<div class="label">Sparse: a new report on Messages, nothing chosen past the data<span>With only the data chosen, the result is the row count, so there is an answer from the first second. Each step offers its + button.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Option 2, sparse</div>
+    <div class="editor" style="min-height:420px">
+      <div class="topbar"><span class="back">← Reports</span><h1>Untitled Report</h1><span class="end"><span class="saved">Not saved yet</span><span class="btn primary">Save</span></span></div>
+      <div class="work two">
+        <div class="center">
+          <div class="steps">
+            <div class="step"><span class="k"><i>1</i>Data</span><span class="v"><span class="tok ds">Messages</span><span class="tok add">+ Join Data</span></span></div>
+            <div class="step"><span class="k"><i>2</i>Filter</span><span class="v"><span class="tok add">+ Add Filter</span></span></div>
+            <div class="step"><span class="k"><i>3</i>Summarize</span><span class="v"><span class="tok">Count of Rows</span><span class="tok add">+ Add Value</span></span></div>
+            <div class="step"><span class="k"><i>4</i>Group By</span><span class="v"><span class="tok add">+ Add Grouping</span></span></div>
+          </div>
+          <div class="card"><div class="bignum"><b>670,680</b><small>messages, all time. Add a grouping to split them, for example by channel or by month.</small></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== shared: the four views -->
+<div class="part">Shared</div>
+<div class="label">The four views of one report<span>Any report switches between the views without losing its fields. Grid: one row per record or group, sortable, resizable, 50 rows a page. Chart: the chart kit's bars, lines, area and ranking, with the numbers table. Hierarchy: groups that fold, with subtotals. Pivot: one field spread across the columns. Shown on September 2026.</span></div>
+<div class="row one"><div class="views">
+  <div class="card"><div class="head"><h3>Grid</h3><small>Campaigns in September, by revenue</small></div><div class="scroll"><table>
+    <thead><tr><th>Campaign</th><th>Channel</th><th class="num">Sent</th><th class="num">Delivered</th><th class="num">Revenue ▾</th></tr></thead>
+    <tbody>
+      <tr><td>Fall Collection Launch</td><td>Email</td><td class="num">142,300</td><td class="num">97.8%</td><td class="num">48,210.00</td></tr>
+      <tr><td>VIP Early Access</td><td>Email</td><td class="num">13,120</td><td class="num">99.1%</td><td class="num">17,980.00</td></tr>
+      <tr><td>Weekend Flash Sale</td><td>SMS</td><td class="num">25,100</td><td class="num">98.6%</td><td class="num">12,940.00</td></tr>
+      <tr><td>Weekly Newsletter</td><td>Email</td><td class="num">201,500</td><td class="num">96.4%</td><td class="num">7,050.00</td></tr>
+      <tr><td>Back in Stock Alerts</td><td>SMS</td><td class="num">4,480</td><td class="num">99.0%</td><td class="num">5,310.00</td></tr>
+    </tbody></table></div></div>
+  <div class="card"><div class="head"><h3>Chart</h3><span class="legend"><span><i style="background:var(--chart-1)"></i>Email</span><span><i style="background:var(--chart-5)"></i>SMS</span><span><i style="background:var(--chart-6)"></i>MMS</span></span></div><div class="body">
+    <svg class="chartbox" viewBox="0 0 650 210" role="img" aria-label="Revenue by week and channel, September 2026">
+  <g stroke="var(--line-subtle)" stroke-width="1"><line x1="48" x2="642" y1="170.0" y2="170.0"/><line x1="48" x2="642" y1="116.7" y2="116.7"/><line x1="48" x2="642" y1="63.3" y2="63.3"/><line x1="48" x2="642" y1="10.0" y2="10.0"/></g>
+  <g text-anchor="end"><text x="40" y="174.0">$0</text><text x="40" y="120.7">$10k</text><text x="40" y="67.3">$20k</text><text x="40" y="14.0">$30k</text></g>
+  <path d="M79.2,170.0 V96.3 Q79.2,94.3 81.2,94.3 H103.2 Q105.2,94.3 105.2,96.3 V170.0 Z" fill="var(--chart-1)"/>
+  <path d="M109.2,170.0 V151.2 Q109.2,149.2 111.2,149.2 H133.2 Q135.2,149.2 135.2,151.2 V170.0 Z" fill="var(--chart-5)"/>
+  <path d="M139.2,170.0 V168.3 Q139.2,166.3 141.2,166.3 H163.2 Q165.2,166.3 165.2,168.3 V170.0 Z" fill="var(--chart-6)"/>
+  <path d="M227.8,170.0 V66.4 Q227.8,64.4 229.8,64.4 H251.8 Q253.8,64.4 253.8,66.4 V170.0 Z" fill="var(--chart-1)"/>
+  <path d="M257.8,170.0 V147.5 Q257.8,145.5 259.8,145.5 H281.8 Q283.8,145.5 283.8,147.5 V170.0 Z" fill="var(--chart-5)"/>
+  <path d="M287.8,170.0 V167.2 Q287.8,165.2 289.8,165.2 H311.8 Q313.8,165.2 313.8,167.2 V170.0 Z" fill="var(--chart-6)"/>
+  <path d="M376.2,170.0 V52.5 Q376.2,50.5 378.2,50.5 H400.2 Q402.2,50.5 402.2,52.5 V170.0 Z" fill="var(--chart-1)"/>
+  <path d="M406.2,170.0 V144.8 Q406.2,142.8 408.2,142.8 H430.2 Q432.2,142.8 432.2,144.8 V170.0 Z" fill="var(--chart-5)"/>
+  <path d="M436.2,170.0 V166.7 Q436.2,164.7 438.2,164.7 H460.2 Q462.2,164.7 462.2,166.7 V170.0 Z" fill="var(--chart-6)"/>
+  <path d="M524.8,170.0 V82.2 Q524.8,80.2 526.8,80.2 H548.8 Q550.8,80.2 550.8,82.2 V170.0 Z" fill="var(--chart-1)"/>
+  <path d="M554.8,170.0 V147.2 Q554.8,145.2 556.8,145.2 H578.8 Q580.8,145.2 580.8,147.2 V170.0 Z" fill="var(--chart-5)"/>
+  <path d="M584.8,170.0 V167.3 Q584.8,165.3 586.8,165.3 H608.8 Q610.8,165.3 610.8,167.3 V170.0 Z" fill="var(--chart-6)"/>
+  <g text-anchor="middle"><text x="122.2" y="190">Sep 1–7</text><text x="270.8" y="190">Sep 8–14</text><text x="419.2" y="190">Sep 15–21</text><text x="567.8" y="190">Sep 22–30</text></g>
+</svg>
+    <p style="font-size:12px;color:var(--ink-800);margin-top:6px">Revenue by week · <span class="btn link" style="font-size:12px">Show the Numbers</span></p>
+  </div></div>
+  <div class="card"><div class="head"><h3>Hierarchy</h3><small>Channel, then campaign · Expand All · Collapse All</small></div><div class="scroll"><table class="pv">
+    <thead><tr><th>Channel / Campaign</th><th class="num">Sent</th><th class="num">Revenue</th></tr></thead>
+    <tbody>
+      <tr class="sub"><td><span class="tw">▾</span>Email</td><td class="num">356,920</td><td class="num">73,240.00</td></tr>
+      <tr><td class="l2">Fall Collection Launch</td><td class="num">142,300</td><td class="num">48,210.00</td></tr>
+      <tr><td class="l2">VIP Early Access</td><td class="num">13,120</td><td class="num">17,980.00</td></tr>
+      <tr><td class="l2">Weekly Newsletter</td><td class="num">201,500</td><td class="num">7,050.00</td></tr>
+      <tr class="sub"><td><span class="tw">▸</span>SMS <small style="display:inline;margin-left:6px">2 campaigns</small></td><td class="num">29,580</td><td class="num">18,250.00</td></tr>
+      <tr class="sub"><td><span class="tw">▸</span>MMS <small style="display:inline;margin-left:6px">1 campaign</small></td><td class="num">5,020</td><td class="num">3,480.00</td></tr>
+      <tr class="grand"><td>Total</td><td class="num">391,520</td><td class="num">94,970.00</td></tr>
+    </tbody></table></div></div>
+  <div class="card"><div class="head"><h3>Pivot</h3><small>Revenue · channels down, months across</small></div><div class="scroll"><table class="pv">
+    <thead><tr><th>Channel</th><th class="num bl">Aug 2026</th><th class="num">Sep 2026</th><th class="num bl">Total</th></tr></thead>
+    <tbody>
+      <tr><td>Email</td><td class="num bl">31,170.00</td><td class="num">73,240.00</td><td class="num bl">104,410.00</td></tr>
+      <tr><td>SMS</td><td class="num bl">15,400.00</td><td class="num">18,250.00</td><td class="num bl">33,650.00</td></tr>
+      <tr><td>MMS</td><td class="num bl">2,860.00</td><td class="num">3,480.00</td><td class="num bl">6,340.00</td></tr>
+      <tr class="grand"><td>Total</td><td class="num bl">49,430.00</td><td class="num">94,970.00</td><td class="num bl">144,400.00</td></tr>
+    </tbody></table></div></div>
+</div></div>
+
+<!-- ===================================================================== shared: filters and create -->
+<div class="label">Filters: the condition builder, and Create Report<span>Left: Edit Conditions (Option 1) and + Add Filter (Option 2) open the same builder. Conditions join with All or Any, and a group nests one level. Each field offers only the operators its type allows, and values pick from the data (channels, tags, stores). Right: Create Report sits in the standard Setup Dialog. Step 1 picks the data; step 2 picks the starting view.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Filters · a drawer over the editor</div>
+    <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3 style="font-size:16px">Filters</h3><span style="font-size:12px;color:var(--ink-800)">412,180 of 670,680 rows match</span></div>
+      <div class="qb">
+        <div style="display:flex;gap:8px;align-items:center">Keep rows where <span class="ctl" style="width:auto">All <span class="chev">▾</span></span> of these are true</div>
+        <div class="qrow"><span class="ctl">Channel <span class="chev">▾</span></span><span class="ctl">is any of <span class="chev">▾</span></span><span class="ctl" style="justify-content:flex-start"><span class="vchip">Email ×</span><span class="vchip">SMS ×</span></span><span class="trash">×</span></div>
+        <div class="qrow"><span class="ctl">Sent At <span class="chev">▾</span></span><span class="ctl">is in <span class="chev">▾</span></span><span class="ctl">Last 90 Days <span class="chev">▾</span></span><span class="trash">×</span></div>
+        <div class="qgroup">
+          <div style="display:flex;gap:8px;align-items:center;font-size:13px"><span class="ctl" style="width:auto">Any <span class="chev">▾</span></span> of these are true</div>
+          <div class="qrow"><span class="ctl">Campaign Tag <span class="chev">▾</span></span><span class="ctl">is <span class="chev">▾</span></span><span class="ctl">VIP <span class="chev">▾</span></span><span class="trash">×</span></div>
+          <div class="qrow"><span class="ctl">Revenue <span class="chev">▾</span></span><span class="ctl">is at least <span class="chev">▾</span></span><span class="ctl">250.00</span><span class="trash">×</span></div>
+          <span class="btn link" style="font-size:12px;align-self:flex-start">+ Add Condition</span>
+        </div>
+        <div style="display:flex;gap:14px"><span class="btn link" style="font-size:12px">+ Add Condition</span><span class="btn link" style="font-size:12px">+ Add Group</span></div>
+      </div>
+      <p style="font-size:12px;color:var(--ink-800)">Email is masked in results for roles without contact.pii. Filtering on it still works.</p>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn">Clear All</span><span class="btn primary">Apply Filters</span></div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Create Report · Setup Dialog, step 1 of 2</div>
+    <div class="modal" style="margin:16px">
+      <div class="mh"><h2>Create Report</h2><small>Step 1 of 2 · Data</small><div class="bar"><i class="on"></i><i></i></div></div>
+      <div class="mb">
+        <div><div class="flabel">Report Name <span class="req">*</span></div><div class="ctl" style="color:var(--ink-700)">e.g. Weekly Revenue by Channel</div></div>
+        <div><div class="flabel">Data <span class="req">*</span></div>
+          <div class="cards3">
+            <div class="choice on"><b>Messages</b><small>Every email and text sent, with its status and campaign.</small></div>
+            <div class="choice"><b>Campaigns</b><small>One row per campaign, with its totals.</small></div>
+            <div class="choice"><b>Attributed Orders</b><small>Orders credited to a campaign, with revenue.</small></div>
+            <div class="choice"><b>Contacts</b><small>People, their store, consent and scores.</small></div>
+            <div class="choice"><b>E-Receipts</b><small>Receipts sent from the stores' tills.</small></div>
+            <div class="choice"><b>Journeys</b><small>Entries, completions and conversions.</small></div>
+          </div>
+        </div>
+        <div><div class="flabel">Folder</div><div class="ctl">Finance <span class="chev">▾</span></div></div>
+      </div>
+      <div class="mf"><span class="btn">Cancel</span><span class="btn primary">Next</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== shared: back-office mapping -->
+<div class="label">Back-office: Report Datasets (the database and table mapping)<span>The platform team maps each reporting view once, and every workspace inherits it, the same way as the tag catalogue. A dataset names its source (where its data is read from), its view, its plans and its joins. Each field has a label, a type, the calculations allowed, a format, and whether it is personal data (masked without contact.pii) or hidden. Workspaces never see table names, and isolation applies to every query.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Back-office · Configuration → Report Datasets · a later stage, with a read replica and an analytics store set up</div>
+    <div class="bo">
+      <nav class="boside"><b>CEP Platform</b><a>Home</a><a>Tenants</a><a>Plans and billing</a><small>Configuration</small><a>Global parameters</a><a>Mail server</a><a>Mailgun Inspect</a><a>Personalization tags</a><a class="on">Report Datasets</a><a>Report Sources</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Report Datasets</h1><p>7 datasets · every workspace inherits them · each reads from one source</p></div><span class="btn primary">+ Add Dataset</span></div>
+        <div class="chips"><span class="search">Search datasets</span><span class="chip on">All Sources</span><span class="chip">Main Database</span><span class="chip">Summary Tables</span><span class="chip">Read Replica</span><span class="chip">Analytics Store</span></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Dataset</th><th>Source</th><th>Freshness</th><th>View or Table</th><th>Plans</th><th class="num">Saved Reports</th></tr></thead>
+          <tbody>
+            <tr><td><b>Messages</b><small>Every email and text sent</small></td><td><span class="stag main">Main Database</span></td><td class="fresh">Live</td><td><code>rpt_messages</code></td><td>Growth, Enterprise</td><td class="num">4</td></tr>
+            <tr><td><b>Campaigns</b><small>One row per campaign</small></td><td><span class="stag main">Main Database</span></td><td class="fresh">Live</td><td><code>rpt_campaigns</code></td><td>All plans</td><td class="num">2</td></tr>
+            <tr><td><b>Attributed Orders</b><small>Orders credited to a campaign</small></td><td><span class="stag sum">Summary Tables</span></td><td class="fresh">Hourly · last 14:00 EDT</td><td><code>rpt.orders_daily</code></td><td>Growth, Enterprise</td><td class="num">3</td></tr>
+            <tr><td><b>Contacts</b><small>People, store, consent, scores</small></td><td><span class="stag rep">Read Replica</span></td><td class="fresh">About 3 s behind</td><td><code>rpt_contacts</code></td><td>All plans</td><td class="num">1</td></tr>
+            <tr><td><b>E-Receipts</b><small>Receipts sent from the tills</small></td><td><span class="stag rep">Read Replica</span></td><td class="fresh">About 3 s behind</td><td><code>rpt_receipts</code></td><td>Growth, Enterprise</td><td class="num">1</td></tr>
+            <tr><td><b>Journeys</b><small>Entries, completions, conversions</small></td><td><span class="stag main">Main Database</span></td><td class="fresh">Live</td><td><code>rpt_journeys</code></td><td>Growth, Enterprise</td><td class="num">0</td></tr>
+            <tr><td><b>Message Events</b><small>Every open, click and bounce</small></td><td><span class="stag ana">Analytics Store</span></td><td class="fresh">About 1 min behind</td><td><code>message_events</code></td><td>Enterprise</td><td class="num">0</td></tr>
+          </tbody>
+        </table></div>
+        <p class="hint" style="margin-top:10px">The main database, the summary tables and the read replica hold the same PostgreSQL tables, so their datasets join freely, and a joined report runs on the main database. The analytics store joins only within itself: Messages and Message Events are reported separately.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row one" style="margin-top:16px">
+  <div class="frame"><div class="cap">Back-office · Configuration → Report Datasets → Messages</div>
+    <div class="bo">
+      <nav class="boside"><b>CEP Platform</b><a>Home</a><a>Tenants</a><a>Plans and billing</a><small>Configuration</small><a>Global parameters</a><a>Mail server</a><a>Mailgun Inspect</a><a>Personalization tags</a><a class="on">Report Datasets</a><a>Report Sources</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>Messages</h1><p>View <code>rpt_messages</code> · 670,680 rows in NWA · on Growth and Enterprise · used by 4 saved reports</p></div><span style="display:flex;gap:8px"><span class="btn">Check the View</span><span class="btn primary">Save</span></span></div>
+        <p style="font-weight:600;font-size:14px;margin-bottom:6px">Source</p>
+        <div class="srcs">
+          <div class="src on"><b><span class="radio"></span>Main Database</b>Live. Reads the app's own tables, under each workspace's isolation.</div>
+          <div class="src"><b><span class="radio"></span>Summary Tables</b><span>Pre-computed totals in the <code>rpt</code> schema, refreshed by cep-jobs. Choose how often.</span></div>
+          <div class="src off"><b><span class="radio"></span>Read Replica</b>Not set up. Add one under Report Sources.</div>
+          <div class="src off"><b><span class="radio"></span>Analytics Store</b>Not set up. For event data at very large volumes.</div>
+        </div>
+        <p class="hint" style="margin:-4px 0 14px">Changing the source keeps every saved report: the fields stay the same, and Check the View confirms each one exists in the new source before saving. People see the freshness on each report.</p>
+        <div class="chips"><span class="chip on">Fields (14)</span><span class="chip">Joins (3)</span><span class="chip">Plans</span><span class="chip">History</span></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Column</th><th>Label</th><th>Type</th><th>Calculations</th><th>Format</th><th>Personal Data</th><th>Shown</th></tr></thead>
+          <tbody>
+            <tr><td><code>channel</code></td><td>Channel</td><td>Text</td><td>Count, Distinct Count</td><td>—</td><td>No</td><td class="yes">Yes</td></tr>
+            <tr><td><code>status</code></td><td>Status</td><td>Text</td><td>Count, Distinct Count</td><td>—</td><td>No</td><td class="yes">Yes</td></tr>
+            <tr><td><code>sent_at</code></td><td>Sent At</td><td>Date and time</td><td>Min, Max</td><td>13 Aug 2026, 06:41</td><td>No</td><td class="yes">Yes</td></tr>
+            <tr><td><code>is_delivered</code></td><td>Delivered</td><td>Number (0 or 1)</td><td>Sum, Average as %</td><td>1,234 / 97.4%</td><td>No</td><td class="yes">Yes</td></tr>
+            <tr><td><code>recipient_email</code></td><td>Email</td><td>Text</td><td>Count, Distinct Count</td><td>—</td><td class="mask">Yes, masked</td><td class="yes">Yes</td></tr>
+            <tr><td><code>provider_message_id</code></td><td>Engine Message ID</td><td>Text</td><td>—</td><td>—</td><td>No</td><td>Hidden</td></tr>
+          </tbody>
+        </table></div>
+        <p style="font-size:12px;color:var(--ink-800);margin-top:10px">Joins: Campaign (campaign_id), Contact (contact_id), Attributed Orders (message_id). A join is offered in the editor only when both datasets are on the workspace's plan.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Back-office: Report Sources (where report data is read from)<span>The connections the report engine may read from. The main database is always there. A read replica and an analytics store are added only when they are needed, each with its address, its login (stored encrypted), how far behind it may fall before reports warn, and Check Connection. Busy: all four in use, at a later stage. Sparse, today: the main database and summary tables only.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy · a later stage</div>
+    <div class="page">
+      <div class="pagehead"><div><h1 style="font-size:18px">Report Sources</h1><p>4 sources · 7 datasets</p></div><span class="btn">+ Add Source</span></div>
+      <table>
+        <thead><tr><th>Source</th><th>Kind</th><th>Status</th><th class="num">Datasets</th></tr></thead>
+        <tbody>
+          <tr><td><b>Main Database</b><small>The app's PostgreSQL</small></td><td>PostgreSQL</td><td><span class="tag okk">Connected</span></td><td class="num">3</td></tr>
+          <tr><td><b>Summary Tables</b><small>rpt schema, refreshed by cep-jobs</small></td><td>PostgreSQL</td><td><span class="tag okk">Refreshed 14:00 EDT</span></td><td class="num">1</td></tr>
+          <tr><td><b>Read Replica</b><small>Warn when more than 60 s behind</small></td><td>PostgreSQL replica</td><td><span class="tag okk">3 s behind</span></td><td class="num">2</td></tr>
+          <tr><td><b>Analytics Store</b><small>Fed from the main database, one per region</small></td><td>ClickHouse</td><td><span class="tag warn">4 min behind</span></td><td class="num">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse · today</div>
+    <div class="page">
+      <div class="pagehead"><div><h1 style="font-size:18px">Report Sources</h1><p>2 sources · 7 datasets</p></div><span class="btn">+ Add Source</span></div>
+      <table>
+        <thead><tr><th>Source</th><th>Kind</th><th>Status</th><th class="num">Datasets</th></tr></thead>
+        <tbody>
+          <tr><td><b>Main Database</b><small>The app's PostgreSQL</small></td><td>PostgreSQL</td><td><span class="tag okk">Connected</span></td><td class="num">6</td></tr>
+          <tr><td><b>Summary Tables</b><small>rpt schema, refreshed by cep-jobs</small></td><td>PostgreSQL</td><td><span class="tag okk">Refreshed 14:00 EDT</span></td><td class="num">1</td></tr>
+        </tbody>
+      </table>
+      <p class="hint" style="margin-top:10px">Add a read replica when reports start to slow the app, and an analytics store when event data reaches hundreds of millions of rows.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== AI: ask for a report -->
+<div class="part">AI · Ask for a Report</div>
+<div class="label">Ask for a Report, on Custom Reports<span>A prompt box above the list. The person writes what they want and picks the model next to Generate: Claude or OpenAI, whichever the platform team has switched on. The last choice is remembered per person. The model sees the prompt and the dataset catalogue only (dataset and field names, types, calculations), never customer rows. It returns a report definition, which is checked against the catalogue like any report built by hand. Busy: the model menu open, recent prompts below. Sparse: first use, with example prompts.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: choosing the model, 38 of 200 prompts used this month</div>
+    <div class="page">
+      <div class="ask">
+        <div class="askhead"><span class="ai">AI</span><b>Ask for a Report</b><small>38 of 200 prompts used in October</small></div>
+        <div class="prompt">Messages sent and revenue by channel and campaign for August and September, months across</div>
+        <div class="askbar">
+          <div class="pick">
+            <span class="ctl" style="min-width:230px"><span><span class="prov a">A</span>Claude Sonnet 5.5</span><span class="chev">▾</span></span>
+            <div class="menu">
+              <div class="mgroup">Claude (Anthropic)</div>
+              <div class="mitem on"><span class="prov a">A</span>Claude Sonnet 5.5<small>Best for reports</small></div>
+              <div class="mitem"><span class="prov a">A</span>Claude Haiku 4.5<small>Fastest</small></div>
+              <div class="mgroup">OpenAI</div>
+              <div class="mitem"><span class="prov o">O</span>GPT-5<small>Best for reports</small></div>
+              <div class="mitem"><span class="prov o">O</span>GPT-5 mini<small>Fastest</small></div>
+            </div>
+          </div>
+          <span class="hint" style="margin:0">Sends your prompt and the field names, never your data.</span>
+          <span class="btn primary" style="margin-left:auto">Generate Report</span>
+        </div>
+      </div>
+      <h4 class="small" style="margin-top:196px">Recent Prompts</h4>
+      <table>
+        <tbody>
+          <tr><td>Weekly revenue by channel for September as bars<small>Claude Sonnet 5.5 · saved as Weekly Revenue by Channel</small></td><td class="num">5 Oct, 09:14 EDT</td></tr>
+          <tr><td>Contacts by home store with email and text consent<small>GPT-5 · saved as Contacts by Store and Consent</small></td><td class="num">2 Oct, 16:02 EDT</td></tr>
+          <tr><td>Bounce rate by sending engine, last 30 days<small>Claude Haiku 4.5 · not saved</small></td><td class="num">30 Sep, 10:48 EDT</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse: first prompt, with examples</div>
+    <div class="page">
+      <div class="ask">
+        <div class="askhead"><span class="ai">AI</span><b>Ask for a Report</b><small>200 prompts a month on the Growth plan</small></div>
+        <div class="prompt muted">e.g. Revenue by channel and month for the last quarter, as a pivot</div>
+        <div class="askbar"><span class="ctl" style="min-width:230px"><span><span class="prov a">A</span>Claude Sonnet 5.5</span><span class="chev">▾</span></span><span class="btn primary" style="margin-left:auto;opacity:.45">Generate Report</span></div>
+      </div>
+      <h4 class="small">Try One of These</h4>
+      <div class="examples">
+        <span class="ex">Which campaigns made the most revenue last month?</span>
+        <span class="ex">Delivered rate by sending engine, by week</span>
+        <span class="ex">New contacts by home store this year, with consent</span>
+        <span class="ex">E-receipts sent per store per day, last 14 days</span>
+      </div>
+      <p class="hint" style="margin-top:14px">The report opens in the editor as a draft. Check it before you save or share it.</p>
+    </div>
+  </div>
+</div>
+
+<div class="label">What comes back: a draft, a question, or the closest fields<span>Left: the draft, in words, with the model and time it took; Open in Editor places the fields in the wells (Option 1 shown), and nothing is saved until Save. Middle: when the prompt has two readings, the model asks one question with the answers as buttons. Right: when the catalogue has no field for what was asked, it says so and offers the closest fields. It never makes one up. Only a draft counts against the month's prompts; a question or a no-field answer does not.</span></div>
+<div class="row three">
+  <div class="frame"><div class="cap">A draft</div>
+    <div class="page">
+      <div class="draft">
+        <div class="askhead"><span class="ai">AI</span><b>Draft Report</b><small>Claude Sonnet 5.5 · 3.2 s</small></div>
+        <p class="you">“Messages sent and revenue by channel and campaign for August and September, months across”</p>
+        <dl class="facts">
+          <dt>Name</dt><dd>Sent and Revenue by Channel and Campaign</dd>
+          <dt>View</dt><dd><span class="tag brand">Pivot</span></dd>
+          <dt>Data</dt><dd>Messages + Attributed Orders</dd>
+          <dt>Rows</dt><dd>Channel, then Campaign Name</dd>
+          <dt>Columns</dt><dd>Sent At, by month</dd>
+          <dt>Values</dt><dd>Sum of Messages Sent, Sum of Revenue</dd>
+          <dt>Filter</dt><dd>Sent At from 1 Aug to 30 Sep 2026</dd>
+        </dl>
+        <p class="hint">Preview: 9 rows · total revenue 144,400.00</p>
+        <div class="acts"><span class="btn">Try Again</span><span class="btn">Edit Prompt</span><span class="btn primary">Open in Editor</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">A question back</div>
+    <div class="page">
+      <div class="draft">
+        <div class="askhead"><span class="ai">AI</span><b>One Question First</b><small>GPT-5 · 1.8 s</small></div>
+        <p class="you">“Which campaigns made the most revenue last month?”</p>
+        <p style="font-size:13px">Which period is last month?</p>
+        <div class="answers"><span class="btn">September 2026, the calendar month</span><span class="btn">The last 30 days, 6 Sep to 5 Oct</span></div>
+        <p class="hint">Answering does not use another prompt.</p>
+      </div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Nothing to answer it with</div>
+    <div class="page">
+      <div class="draft">
+        <div class="askhead"><span class="ai">AI</span><b>No Field for This</b><small>Claude Haiku 4.5 · 1.1 s</small></div>
+        <p class="you">“Website visits by campaign for September”</p>
+        <p style="font-size:13px">No dataset has website visits. The closest fields are Clicked (Messages) and Orders (Attributed Orders).</p>
+        <div class="answers"><span class="btn">Clicks by Campaign for September</span><span class="btn">Orders by Campaign for September</span></div>
+        <p class="hint">To report on website visits, ask your platform team to map that data.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">In the editor: Change with a Prompt, and Explain This Report<span>A slim prompt bar sits above the result, with the same model picker. A change prompt edits the open report, such as "split SMS by campaign" or "only VIP", and every change can be undone. Explain This Report writes a short reading of the result. It sends the report's totals to the model, with personal-data fields stripped, and only when the workspace allows it. The text is marked as AI-written, with the model's name.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Option 1 editor with the prompt bar · Weekly Revenue by Channel, explained by GPT-5</div>
+    <div class="editor" style="min-height:0">
+      <div class="topbar"><span class="back">← Reports</span><h1>Weekly Revenue by Channel</h1><span class="tag grey">Finance</span><span class="end"><span class="saved">Saved 6 Oct 2026, 14:12 EDT</span><span class="btn">Explain This Report</span><span class="btn">Export</span><span class="btn primary">Save</span></span></div>
+      <div class="center">
+        <div class="askbar slim">
+          <span class="ai">AI</span>
+          <span class="prompt one muted">Change this report, e.g. add a line for cost, or show only SMS</span>
+          <span class="ctl" style="min-width:170px"><span><span class="prov o">O</span>GPT-5</span><span class="chev">▾</span></span>
+          <span class="btn">Apply</span>
+        </div>
+        <div class="explain">
+          <div class="askhead"><span class="ai">AI</span><b>About This Report</b><small>Written by GPT-5 from the report’s totals · 6 Oct 2026, 14:20 EDT · Check before sharing</small></div>
+          <ul>
+            <li>September revenue was 94,970.00: Email 73,240.00 (77.1%), SMS 18,250.00 (19.2%), MMS 3,480.00 (3.7%).</li>
+            <li>The best week was Sep 15–21 at 28,500.00. The last week fell to 22,370.00, down 21.5%, almost all of it from email.</li>
+            <li>SMS was the steadiest channel: its weekly revenue stayed between 3,900.00 and 5,100.00.</li>
+          </ul>
+          <div class="acts" style="justify-content:flex-start"><span class="btn sm">Copy</span><span class="btn sm">Add to Report Notes</span><span class="btn sm ghost">Hide</span></div>
+        </div>
+        <div class="card"><div class="head"><h3>Revenue by Week, September 2026</h3><span class="legend"><span><i style="background:var(--chart-1)"></i>Email</span><span><i style="background:var(--chart-5)"></i>SMS</span><span><i style="background:var(--chart-6)"></i>MMS</span></span></div>
+          <div class="body"><p class="hint" style="margin:0">The chart and its numbers, as in Option 2 above.</p></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">Back-office: Configuration → AI Assistant (both keys)<span>The platform team enters a Claude key and an OpenAI key, each stored encrypted and never shown again. For each provider: the models offered, Check Connection, and a switch. With both switched on, people choose either one at the prompt; with one switched on, the picker shows only its models. Below: the default model, the monthly prompts per plan, and this month's use by workspace and provider.</span></div>
+<div class="row one">
+  <div class="frame"><div class="cap">Back-office · Configuration → AI Assistant</div>
+    <div class="bo">
+      <nav class="boside"><b>CEP Platform</b><a>Home</a><a>Tenants</a><a>Plans and billing</a><small>Configuration</small><a>Global parameters</a><a>Mail server</a><a>Mailgun Inspect</a><a>Personalization tags</a><a>Report Datasets</a><a class="on">AI Assistant</a></nav>
+      <div class="page">
+        <div class="pagehead"><div><h1>AI Assistant</h1><p>Turns prompts into reports for every workspace on a plan with AI Reports. The model receives the prompt and the field names; Explain This Report also sends totals.</p></div><span class="btn primary">Save</span></div>
+        <div class="provs">
+          <div class="provcard">
+            <div class="ph"><span class="prov a big">A</span><div><b>Claude (Anthropic)</b><small>console.anthropic.com → API Keys</small></div><span class="pill-on">On</span></div>
+            <div class="field"><label>API Key</label><div class="ctl">Stored · ends in …Q7xD <span class="btn link" style="font-size:12px">Replace</span></div></div>
+            <div class="field"><label>Model for Reports</label><div class="ctl">claude-sonnet-5-5 <span class="chev">▾</span></div></div>
+            <div class="field"><label>Fast Model</label><div class="ctl">claude-haiku-4-5-20251001 <span class="chev">▾</span></div></div>
+            <div class="status ok">Connected · checked 6 Oct 2026, 13:58 EDT</div>
+            <div class="acts" style="justify-content:flex-start"><span class="btn sm">Check Connection</span><span class="btn sm ghost" style="color:var(--danger-text)">Remove</span></div>
+          </div>
+          <div class="provcard">
+            <div class="ph"><span class="prov o big">O</span><div><b>OpenAI</b><small>platform.openai.com → API Keys</small></div><span class="pill-on">On</span></div>
+            <div class="field"><label>API Key</label><div class="ctl">Stored · ends in …m2Lk <span class="btn link" style="font-size:12px">Replace</span></div></div>
+            <div class="field"><label>Model for Reports</label><div class="ctl">gpt-5 <span class="chev">▾</span></div></div>
+            <div class="field"><label>Fast Model</label><div class="ctl">gpt-5-mini <span class="chev">▾</span></div></div>
+            <div class="status ok">Connected · checked 6 Oct 2026, 13:59 EDT</div>
+            <div class="acts" style="justify-content:flex-start"><span class="btn sm">Check Connection</span><span class="btn sm ghost" style="color:var(--danger-text)">Remove</span></div>
+          </div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label>Default Model</label><div class="ctl">Claude Sonnet 5.5 <span class="chev">▾</span></div><p class="hint">Preselected for people who have not chosen.</p></div>
+          <div class="field"><label>Explain This Report</label><div class="ctl">Allowed, totals only <span class="chev">▾</span></div><p class="hint">Personal-data fields are never sent.</p></div>
+          <div class="field"><label>Prompts a Month</label><div class="ctl" style="justify-content:flex-start;gap:14px">Starter 50 · Growth 200 · Enterprise unlimited</div><p class="hint">Set on each plan. Add more on a tenant’s page.</p></div>
+        </div>
+        <div class="scroll"><table>
+          <caption style="text-align:left;font-size:12px;color:var(--ink-800);padding:12px 0 6px">October 2026, by workspace</caption>
+          <thead><tr><th>Workspace</th><th>Plan</th><th class="num">Claude</th><th class="num">OpenAI</th><th class="num">Used</th><th class="num">Of</th></tr></thead>
+          <tbody>
+            <tr><td>Northwind Apparel <small style="display:inline">NWA</small></td><td>Growth</td><td class="num">31</td><td class="num">7</td><td class="num">38</td><td class="num">200</td></tr>
+            <tr><td>Demo Retail <small style="display:inline">DEMO</small></td><td>Starter</td><td class="num">0</td><td class="num">12</td><td class="num">12</td><td class="num">50</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="label">The workspace's side: Settings → AI Assistant, and Plan & Usage<span>The workspace administrator decides whether AI is used at all, which of the switched-on providers people may pick, and whether Explain This Report may send totals. Plan & Usage counts prompts like any other limit. Sparse: AI switched off, so the prompt box and prompt bar do not appear.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: AI on, both providers allowed</div>
+    <div class="page">
+      <h3 style="font-size:16px;margin-bottom:12px">AI Assistant</h3>
+      <div class="setrow"><div><b>Use AI in Reports</b><small>Ask for a Report, Change with a Prompt and Explain This Report.</small></div><span class="sw on"></span></div>
+      <div class="setrow"><div><b>Claude (Anthropic)</b><small>Claude Sonnet 5.5, Claude Haiku 4.5</small></div><span class="sw on"></span></div>
+      <div class="setrow"><div><b>OpenAI</b><small>GPT-5, GPT-5 mini</small></div><span class="sw on"></span></div>
+      <div class="setrow"><div><b>Explain This Report</b><small>Sends the report’s totals to the model. Personal-data fields are never sent.</small></div><span class="sw on"></span></div>
+      <div class="meter"><div style="display:flex;justify-content:space-between;font-size:13px"><b>AI prompts this month</b><span class="num">38 of 200</span></div><div class="track"><i style="width:19%"></i></div><p class="hint">200 a month on the Growth plan. Prompts and drafts are kept for 90 days for your audit log.</p></div>
+    </div>
+  </div>
+  <div class="frame"><div class="cap">Sparse: AI switched off by the workspace</div>
+    <div class="page">
+      <h3 style="font-size:16px;margin-bottom:12px">AI Assistant</h3>
+      <div class="setrow"><div><b>Use AI in Reports</b><small>Off. Reports are built in the editor only; no prompt or field name leaves CEP.</small></div><span class="sw"></span></div>
+      <div class="setrow off"><div><b>Claude (Anthropic)</b><small>Available on your plan</small></div><span class="sw"></span></div>
+      <div class="setrow off"><div><b>OpenAI</b><small>Available on your plan</small></div><span class="sw"></span></div>
+      <div class="setrow off"><div><b>Explain This Report</b><small>Sends the report’s totals to the model.</small></div><span class="sw"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== rules -->
+<div class="rules"><div class="frame">
+  <h3>What every report shares</h3>
+  <ul>
+    <li>Runs as the signed-in user under the workspace's isolation, read-only, with a 15-second limit per query. A preview stops at 500 rows; a full run pages 50 at a time.</li>
+    <li>Share with people or roles (View or Edit), Export as CSV or Excel, Schedule by email through the workspace's own mail server. Show the SQL is for report.admin only.</li>
+    <li>Permissions: report.view to open, report.edit to build and save, report.admin to see all reports and the SQL. Personal-data fields are masked without contact.pii.</li>
+    <li>Each dataset reads from one source: the main database (live), summary tables (refreshed by cep-jobs), a read replica (seconds behind) or an analytics store (for very large event data). Every report shows its freshness. A report never reads tables directly, so moving a dataset to another source is a back-office setting, not a rewrite.</li>
+    <li>Charts use the app's chart kit and its palette. Channel splits are neutral parts, so they take Blue, Teal and Periwinkle, never green or amber.</li>
+  </ul>
+  <h3>AI, through Claude or OpenAI</h3>
+  <ul>
+    <li>Both keys live in the back-office, encrypted. The browser never sees a key; every call goes from CEP's server to the provider.</li>
+    <li>The model returns a report definition through a schema-bound tool call (Claude tool use, OpenAI structured outputs). CEP checks it against the catalogue, retries once with the error, and only then shows the draft. The model never writes SQL and never sees another workspace.</li>
+    <li>Sent: the prompt, the catalogue of fields this person may use, and for Explain This Report the totals with personal data stripped. Not sent: customer rows, emails, phone numbers.</li>
+    <li>Each prompt, the chosen model, the draft and the token count are logged for 90 days. Prompts count against the plan's monthly number; a clarifying answer does not count.</li>
+    <li>Model names come from the back-office, so a newer model is a setting change, not a release.</li>
+  </ul>
+  <h3>The two editors compared</h3>
+  <table class="compare">
+    <tbody>
+      <tr><td>Option 1 · Field Wells</td><td>Best for pivots and hierarchies: the layout of the result is visible in the wells. Familiar to anyone who has used a spreadsheet pivot. Needs width: three columns, so it is a desktop tool (tablet in a two-column mode, the wells as a drawer).</td></tr>
+      <tr><td>Option 2 · Steps</td><td>Best for marketers asking a question: it reads as a sentence, and it shows an answer (the row count) from the start. Narrower, so it works on a tablet. Pivots are set in the Pivot view's own column picker, one step further away.</td></tr>
+    </tbody>
+  </table>
+  <h3>A change to the earlier tool list</h3>
+  <p>The design system rules out chart libraries: every chart uses the app's chart kit (<code>components/charts/</code>). So ECharts drops out. The kit already draws bars, lines, area and the ranking list; the report builder adds pie and heatmap only if you want them, built into the kit the same way. The rest stands: TanStack Table for the grid, hierarchy and pivot; react-querybuilder for filters; dnd-kit for the wells; SQLGlot on the server to turn a report into SQL from the mapped datasets; XlsxWriter for Excel.</p>
+  <h3>Recommendation</h3>
+  <p><strong style="color:var(--ink-900)">Option 1, Field Wells</strong>, because you asked for pivot and hierarchical views, and the wells are where those are built. Option 2's sparse start (an answer from the first second) can still be borrowed: a new report in Option 1 can show the row count until a field is placed.</p>
+</div></div>
+
+</body>
+</html>

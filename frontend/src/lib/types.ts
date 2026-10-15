@@ -55,6 +55,8 @@ export interface Me {
   components?: SuiteComponent[]
   /** components that exist but are not released yet, for the launcher's line */
   coming?: { key: string; name: string; tagline: string }[]
+  /** how Insights is offered (platform admin): an item in each component's menu, its own app, or both */
+  insights?: { mode: 'integrated' | 'standalone' | 'both'; standalone_path: string }
   /** true while the only thing this session may do is enrol in multi-factor authentication */
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */

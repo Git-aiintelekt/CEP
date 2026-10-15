@@ -33,6 +33,37 @@ export const me = {
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
 
+/** Insights (apps/insights): the catalogue, a saved report and a run's result the tests see */
+export const insightsCatalog = {
+  engine: { engine: 'postgresql', status: 'ACTIVE', freshness_sla: 'LIVE', limits: { statement_timeout_ms: 15000, preview_rows: 200, run_rows: 5000, export_rows: 100000, concurrent: 4 } },
+  datasets: [
+    { key: 'messages', label: 'Messages', description: 'Every email and text a campaign sent', component: { key: 'cep', name: 'Engagement' }, primary_key: 'message_id', time_field: 'submitted_at', freshness: 'LIVE',
+      fields: [
+        { key: 'campaign_name', label: 'Campaign', type: 'string', role: 'dimension', aggregates: [], operators: ['=', '!=', 'contains'], buckets: [], format: null, sensitivity: 'NORMAL' },
+        { key: 'channel', label: 'Channel', type: 'string', role: 'dimension', aggregates: [], operators: ['=', '!=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
+        { key: 'submitted_at', label: 'Sent', type: 'datetime', role: 'dimension', aggregates: [], operators: ['between', 'last_days'], buckets: ['day', 'week', 'month'], format: 'datetime', sensitivity: 'NORMAL' },
+        { key: 'sent', label: 'Sent Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
+        { key: 'delivered', label: 'Delivered Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
+      ] },
+    { key: 'attributed_orders', label: 'Attributed Orders', description: 'Orders the shop reported', component: { key: 'cep', name: 'Engagement' }, primary_key: 'order_id', time_field: 'ordered_at', freshness: 'LIVE',
+      fields: [
+        { key: 'campaign_name', label: 'Credited To', type: 'string', role: 'dimension', aggregates: [], operators: ['=', '!='], buckets: [], format: null, sensitivity: 'NORMAL' },
+        { key: 'amount', label: 'Amount', type: 'number', role: 'measure', aggregates: ['sum', 'avg'], operators: ['>'], buckets: [], format: 'money', sensitivity: 'NORMAL' },
+      ] },
+  ],
+}
+export const insightsSummary = { id: 'rep-1', name: 'Sends by campaign', description: null, dataset: 'messages', dataset_label: 'Messages', component: { key: 'cep', name: 'Engagement' }, view_type: 'grid' as const,
+  visibility: 'WORKSPACE' as const, version: 2, owner_user_id: 'u1', owner_name: 'Aby John', last_run_at: '2026-10-15T08:00:00Z', updated_at: '2026-10-15T08:00:00Z', can_edit: true }
+export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
+  definition: { columns: [{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' as const }, { field: 'delivered', aggregate: 'sum' as const }], filters: { combinator: 'and' as const, rules: [] }, orderBy: [{ field: 'sent', direction: 'desc' as const }], limit: 500 } }
+export const insightsReportsNow: (typeof insightsSummary)[] = [insightsSummary]
+export const insightsResult = {
+  columns: [{ key: 'campaign_name', label: 'Campaign', type: 'string', format: null }, { key: 'channel', label: 'Channel', type: 'string', format: null },
+            { key: 'sent', label: 'Sent Count', type: 'number', format: 'integer', aggregate: 'sum' }, { key: 'delivered', label: 'Delivered Count', type: 'number', format: 'integer', aggregate: 'sum' }],
+  rows: [['Fall Launch', 'EMAIL', 142300, 139104], ['Weekend Flash Sale', 'SMS', 25100, 24871], ['Weekly Newsletter', 'EMAIL', 201500, 198002]],
+  row_count: 3, duration_ms: 42, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false,
+}
+
 export const templates: Template[] = [
   { ...audit, id: 'tpl-email', name: 'Fall Email', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null, last_used_in: { id: 'c1', name: 'Fall Launch', status: 'ACTIVE', at: '2026-09-10T10:00:00Z' }, campaign_count: 2 },
   { ...audit, id: 'tpl-sms', name: 'Fall SMS', description: null, channel: 'SMS', status: 'ACTIVE', cloned_from: null },
@@ -679,6 +710,7 @@ export const MFA_CODE = '123456'
 /** Installs a fetch mock; returns the recorded calls. Call signIn() to start authenticated. */
 export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
+  insightsReportsNow.splice(0, insightsReportsNow.length, { ...insightsSummary })      // every test starts with the one saved report
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate, steps: options.dripSteps, dripTestFails: options.dripTestFails, dripWarnings: options.dripWarnings, resumePlan: options.resumePlan }
@@ -1037,6 +1069,45 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/roles/')) return json(roles)
     if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
     if (path.endsWith('/api-clients/')) return json(apiKeys)
+    if (path.includes('/insights/')) {
+      if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (/\/insights\/catalog\/[a-z_]+\/$/.test(path)) return json(insightsCatalog.datasets.find((d) => path.endsWith(`/${d.key}/`)) ?? { detail: 'No such dataset.' })
+      if (path.endsWith('/insights/reports/preview/') && method === 'POST') {
+        const draft = body as { definition: { columns: { field: string; aggregate?: string }[] } }
+        if (draft.definition.columns.length === 1 && draft.definition.columns[0].aggregate === 'count') return json({ ...insightsResult, columns: [insightsResult.columns[3]], rows: [[670680]], row_count: 1 })
+        return json(insightsResult)
+      }
+      if (path.endsWith('/insights/reports/') && method === 'POST') {
+        const posted = body as { name: string; dataset: string; definition: typeof insightsReport.definition }
+        const created = { ...insightsReport, id: `rep-${insightsReportsNow.length + 1}`, name: posted.name, dataset: posted.dataset, definition: posted.definition }
+        insightsReportsNow.push({ ...insightsSummary, id: created.id, name: created.name, dataset: created.dataset })
+        return json(created, 201)
+      }
+      if (path.endsWith('/insights/reports/')) {
+        const component = new URL(url, 'http://test.local').searchParams.get('component')
+        return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component) })
+      }
+      if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') return json(insightsResult)
+      if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
+        const id = path.split('/').at(-2)
+        const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number }
+        if (put.row_version !== insightsReport.row_version) return json({ type: 'about:blank', title: 'The report changed since you opened it', status: 409 }, 409)
+        const found = insightsReportsNow.find((r) => r.id === id)
+        if (found && put.name) found.name = put.name
+        return json({ ...insightsReport, id, name: put.name ?? insightsReport.name, definition: put.definition ?? insightsReport.definition, version: insightsReport.version + (put.definition ? 1 : 0), row_version: insightsReport.row_version + 1 })
+      }
+      if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'DELETE') {
+        const id = path.split('/').at(-2)
+        const at = insightsReportsNow.findIndex((r) => r.id === id)
+        if (at >= 0) insightsReportsNow.splice(at, 1)
+        return new Response(null, { status: 204 })
+      }
+      if (/\/insights\/reports\/[\w-]+\/$/.test(path)) {
+        const id = path.split('/').at(-2)
+        const found = insightsReportsNow.find((r) => r.id === id)
+        return found ? json({ ...insightsReport, id: found.id, name: found.name, dataset: found.dataset, can_edit: true }) : json({ detail: 'No such report.' }, 404)
+      }
+    }
     if (path.endsWith('/me/')) return json({ ...me, ...options.me })
     const message = options.message ?? makeMessage()
     if (path.endsWith('/message/') && method === 'POST') {

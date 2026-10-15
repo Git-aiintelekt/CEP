@@ -13,7 +13,7 @@ interface NavBarProps {
 
 export function NavBar({ onNavigate }: NavBarProps) {
   const { can, has } = useAuth()
-  const items = MAIN_NAV.filter((item) => (!item.feature || has(item.feature)) && (!item.permission || can(item.permission)))
+  const items = MAIN_NAV.filter((item) => !item.requires && (!item.feature || has(item.feature)) && (!item.permission || can(item.permission)))
 
   return (
     <nav aria-label="Main" className="flex w-16 shrink-0 flex-col items-center bg-sidebar py-5">

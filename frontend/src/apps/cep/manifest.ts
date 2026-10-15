@@ -3,7 +3,7 @@
  * shell draws the launcher tile and the left navigation from this; the pages themselves are in ./routes, loaded the
  * first time the component is opened.
  */
-import { BarChart3, FileText, GitBranch, LayoutDashboard, Megaphone, Users } from 'lucide-react'
+import { BarChart3, ChartColumn, FileText, GitBranch, LayoutDashboard, Megaphone, Users } from 'lucide-react'
 
 import type { NavItem } from '@/components/navItems'
 import type { ComponentManifest } from '@/shell/componentTypes'
@@ -16,6 +16,7 @@ export const MAIN_NAV: NavItem[] = [
   { to: '/templates', label: 'Templates', icon: FileText },
   { to: '/contact-lists', label: 'Contact lists', icon: Users },
   { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'report.view' },
+  { to: '/insights/reports?component=cep', label: 'Insights', icon: ChartColumn, permission: 'report.view', requires: 'insights' },
 ]
 
 export const ENGAGEMENT: ComponentManifest = {

@@ -499,6 +499,7 @@ class MeSerializer(serializers.Serializer):
     workspace = serializers.DictField(help_text="the workspace's name and plan: {name, plan: {code, name} | null}")
     components = serializers.ListField(child=serializers.DictField(), help_text="the suite components this workspace can open, in suite order: {key, name, tagline, access, until}")
     coming = serializers.ListField(child=serializers.DictField(), help_text="components that exist but are not released: {key, name, tagline}")
+    insights = serializers.DictField(help_text="how Insights is offered: {mode: integrated | standalone | both, standalone_path}")
     mfa_setup_required = serializers.BooleanField()
     support_session = serializers.DictField(allow_null=True)
     session = MeSessionSerializer()

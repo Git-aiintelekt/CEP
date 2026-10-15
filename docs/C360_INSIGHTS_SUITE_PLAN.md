@@ -65,6 +65,16 @@ Exit: the same product, under the suite shell, with no page slower than today; N
 
 ### Phase B, the Insights engine foundation and grid reports (L; spec Phase 0 and 1)
 
+*Delivered first (PR insights-foundation, 2026-10-16):* patch 0049 (the catalogue, a workspace's reports, the engine
+setting, the reporting views, the `cep_reporting` role, the Insights parameters, `report.edit` / `report.admin`, Insights
+released as Beta), `apps/insights` (catalogue, definition validation, the PostgreSQL compiler, the runner with its limits,
+audit and cache, the API, the back-office admins), the engine as a service of its own (`config.settings.insights`,
+`docs/INSIGHTS_ENGINE.md`), and the first pages: Reports list grouped by component, New Report from a dataset, the grid
+viewer on AG Grid Community with CSV export, and the Report Editor with both options of docs/mockups/report-builder.html
+(decided 2026-10-16: both): Field Wells and Steps are two ways of building one definition, switched in the editor's
+header and remembered per browser, with the shared filter builder and the live grid preview. *Next in Phase B:* the
+engine service on the servers, PII masking by role in the grid, and the chart, hierarchy and pivot views.
+
 - The `c360-insights` service: a second Django process from the same codebase (`config.settings.insights`),
   mounting only the reports apps, with its own unit, worker, log and read-only reporting role. nginx routes
   `/api/v1/insights/`. Statement timeout, preview and export row caps, a per-tenant concurrency cap and a
