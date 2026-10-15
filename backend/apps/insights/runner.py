@@ -89,7 +89,24 @@ def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int) -> tuple[l
     return rows, int((time.monotonic() - started) * 1000)
 
 
-def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None) -> dict:
+MASK = "•••••"
+
+
+def mask(dataset: dict, columns: list[dict], rows: list[list], masked: bool) -> tuple[list[dict], list[list]]:
+    """A reader without the right sees a PII column's values as the mask, and the column marked, so the grid can say so."""
+    if not masked:
+        return columns, rows
+    pii = {f["key"] for f in dataset["fields"] if f["sensitivity"] == "PII"}
+    hidden = [i for i, c in enumerate(columns) if c["key"] in pii]
+    if not hidden:
+        return columns, rows
+    columns = [{**c, "masked": True} if i in hidden else c for i, c in enumerate(columns)]
+    rows = [[MASK if i in hidden and v is not None else v for i, v in enumerate(row)] for row in rows]
+    return columns, rows
+
+
+def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None,
+        mask_pii: bool = False) -> dict:
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     if engine["status"] == "MIGRATING":
@@ -97,7 +114,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
     page = min(limit or cap, cap)
     sig = signature({**definition, "limit": page, "offset": offset})
-    cache_key = f"cep:insights:result:{tenant.pk}:{sig}"
+    cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
     cached = cache.get(cache_key)
     if cached is not None:
         return {**cached, "cached": True}
@@ -117,15 +134,15 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     finally:
         _release(slot)
     truncated = len(rows) > page
-    rows = rows[:page]
+    columns, rows = mask(dataset, compiled.columns, rows[:page], mask_pii)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
-    result = {"columns": compiled.columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
+    result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
               "freshness": engine["freshness_sla"], "cached": False}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
 
 
-def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None):
+def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False):
     """The export: the rows in pages of 5,000 up to the export cap, as CSV text chunks, one audit row for the whole file."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
@@ -143,11 +160,12 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 return
+            page_columns, rows = mask(dataset, compiled.columns, rows, mask_pii)
             buffer = io.StringIO()
             writer = csv.writer(buffer)
             if columns is None:
-                columns = compiled.columns
-                writer.writerow([c["label"] for c in columns])
+                columns = page_columns
+                writer.writerow([c["label"] + (" (masked)" if c.get("masked") else "") for c in columns])
             for row in rows:
                 writer.writerow(["" if v is None else v for v in row])
             total += len(rows)

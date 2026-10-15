@@ -7,7 +7,7 @@ import pytest
 from django.conf import settings
 from django.db import connections
 
-from apps.insights import compiler, definition
+from apps.insights import catalog, compiler, definition, runner
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -59,6 +59,22 @@ def test_definition_and_compiler(check):
     check("groups nest two levels at most", refused({"columns": [{"field": "campaign_name"}], "filters": {"rules": [{"rules": [{"rules": [{"rules": []}]}]}]}}, "filters.rules[0].rules[0].rules[0]"))
     check("the limit is capped to what the engine allows", definition.validate(DATASET, {"columns": [{"field": "channel"}], "limit": 10**9}, max_limit=200)["limit"] == 200)
     check("the signature is one hash for one normalised definition", definition.signature(d) == definition.signature(definition.validate(DATASET, raw)) and len(definition.signature(d)) == 64)
+
+    # personal data: hidden from a person without the right when building, masked when reading someone else's report
+    seen = catalog._visible(DATASET, can_see_pii=False)
+    check("without the right the catalogue hides the PII field and remembers it as locked", "party_id" not in [f["key"] for f in seen["fields"]] and seen["locked"] == [{"key": "party_id", "label": "Customer"}])
+    try:
+        definition.validate(seen, {"columns": [{"field": "party_id"}, {"field": "messages", "aggregate": "count"}]})
+        told = ""
+    except DefinitionError as exc:
+        told = f"{exc.field}: {exc}"
+    check("a draft naming it is told why, where it sits", told == "columns[0].field: Customer is personal data: building a report on it needs the report administration right.", told)
+    columns = [{"key": "party_id", "label": "Customer", "type": "string", "format": None}, {"key": "messages", "label": "Messages", "type": "number", "format": "integer", "aggregate": "count"}]
+    rows = [["p-1", 4], ["p-2", 1], [None, 2]]
+    masked_columns, masked_rows = runner.mask(DATASET, columns, rows, True)
+    check("a reader without the right gets the PII column's values masked and the column marked; empty values stay empty",
+          masked_rows == [[runner.MASK, 4], [runner.MASK, 1], [None, 2]] and masked_columns[0].get("masked") is True and "masked" not in masked_columns[1], str(masked_rows))
+    check("a reader with the right gets the rows as they are", runner.mask(DATASET, columns, rows, False) == (columns, rows))
     check.done()
 
 

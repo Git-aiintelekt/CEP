@@ -1,5 +1,7 @@
 """The semantic catalogue as a workspace sees it: the datasets its engine has a source for, each with its fields, the
-operators and aggregates a field allows, and what the person may see (PII fields need report.admin or user.admin).
+operators and aggregates a field allows, and what the person may see. Authoring with a PII field needs report.admin or
+user.admin; without the right the field is hidden from the catalogue (kept as `locked`, so a draft naming it is told why)
+and a saved report that has it runs with that column masked (runner.mask).
 
     catalog.for_tenant(tenant_id, can_see_pii) -> [{key, label, description, component, time_field, freshness, fields: [...]}]
     catalog.dataset(tenant_id, key, can_see_pii) -> one of those, with its source, or None
@@ -63,8 +65,10 @@ def _load(engine: str) -> list[dict]:
 
 
 def _visible(dataset: dict, can_see_pii: bool) -> dict:
-    fields = [f for f in dataset["fields"] if f["sensitivity"] != "CONFIDENTIAL" and (can_see_pii or f["sensitivity"] != "PII")]
-    return {**dataset, "fields": fields}
+    offered = [f for f in dataset["fields"] if f["sensitivity"] != "CONFIDENTIAL"]
+    fields = [f for f in offered if can_see_pii or f["sensitivity"] != "PII"]
+    locked = [{"key": f["key"], "label": f["label"]} for f in offered if f not in fields]
+    return {**dataset, "fields": fields, "locked": locked}
 
 
 def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:

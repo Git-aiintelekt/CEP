@@ -4,6 +4,7 @@ import type { ResultColumn, RunResult } from '../types'
 
 export function formatCell(column: ResultColumn, value: unknown): string {
   if (value === null || value === undefined) return '—'
+  if (column.masked) return String(value)
   switch (column.format) {
     case 'integer': return formatNumber(Number(value))
     case 'decimal': return Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -13,6 +14,14 @@ export function formatCell(column: ResultColumn, value: unknown): string {
     case 'datetime': return column.type === 'date' || column.bucket ? formatDate(String(value)) : formatDateTime(String(value))
     default: return column.type === 'boolean' ? (value ? 'Yes' : 'No') : String(value)
   }
+}
+
+/** which columns are masked for this reader, in one sentence; empty when none is */
+export function maskedWords(info: RunResult): string {
+  const names = info.columns.filter((column) => column.masked).map((column) => column.label)
+  if (names.length === 0) return ''
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return `${list} ${names.length === 1 ? 'is' : 'are'} masked: personal data needs the report administration right.`
 }
 
 /** what the run says, in one line: rows, time, freshness, cache */
