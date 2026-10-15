@@ -33,7 +33,7 @@ test('settings opens on users; the administrator cannot deactivate themselves', 
   const other = within(table).getByText('devon@example.com').closest('tr') as HTMLElement
   expect(within(other).getByText('No password yet')).toBeTruthy()
   expect(within(other).getByRole('button', { name: 'Deactivate' })).toBeTruthy()
-  expect(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Settings')).toBeTruthy()
+  expect(within(screen.getByRole('navigation', { name: 'Main' })).getByText('Workspace Settings')).toBeTruthy()
 })
 
 test('add a user with a role: no password field exists, and the chosen roles are posted', async () => {
@@ -137,7 +137,7 @@ test('someone without user.admin sees no Settings entry and is refused on the UR
   try {
     await renderAppAt('/settings/users')
     expect(await screen.findByText('Settings are for workspace administrators')).toBeTruthy()
-    expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByText('Settings')).toBeNull()
+    expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByText('Workspace Settings')).toBeNull()
   } finally {
     me.principal.permissions = ['campaign.edit', 'campaign.publish', 'template.edit', 'user.admin']
   }
