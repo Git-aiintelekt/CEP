@@ -84,8 +84,9 @@ def test_attribution(check):
                 now = timezone.now()
 
                 def send(party, email, at):
-                    return q("""INSERT INTO mailer_execution (tenant_id, campaign_id, campaign_run_id, party_id, email_address, idempotency_key, status, delivered_at, created_at)
-                            VALUES (%s, %s, %s, %s, %s, %s, 'DELIVERED', %s, %s) RETURNING id""", [T, campaign_id, run_id, party, email, f"t-{party}-{secrets.token_hex(4)}", at, at])[0][0]
+                    # submitted_at too: Home's Revenue vs. Cost counts sends by it, and the seed's own sends age out of the last 30 days
+                    return q("""INSERT INTO mailer_execution (tenant_id, campaign_id, campaign_run_id, party_id, email_address, idempotency_key, status, submitted_at, delivered_at, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s, 'DELIVERED', %s, %s, %s) RETURNING id""", [T, campaign_id, run_id, party, email, f"t-{party}-{secrets.token_hex(4)}", at, at, at])[0][0]
 
                 sent_ids = {}
 
