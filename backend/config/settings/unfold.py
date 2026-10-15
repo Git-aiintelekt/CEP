@@ -98,6 +98,7 @@ UNFOLD = {
             ]},
             {"title": "Configuration", "separator": True, "items": [
                 _link("Global parameters", "tune", "platform_ops_platformsetting"),
+                _link("Component Registry", "widgets", "platform_ops_suitecomponent"),
                 _link("Mail server", "outgoing_mail", "platform_ops_mailserver"),
                 {"title": "Mailgun Inspect", "icon": "inbox", "link": INSPECT, "active": _under(INSPECT)},
                 _link("Industry profiles", "category", "platform_ops_industryprofile"),

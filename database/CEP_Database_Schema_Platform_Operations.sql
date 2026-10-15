@@ -1763,6 +1763,67 @@ UPDATE mailer_execution SET not_sent_reason = 'STOPPED_EARLY'
 UPDATE sms_execution SET not_sent_reason = 'STOPPED_EARLY'
  WHERE not_sent_reason IS NULL AND status = 'FAILED' AND status_reason = 'Not sent: the drip was stopped early.';
 
+-- -------------------------------------------------------------------------------------
+-- 0048: the suite's components (2026-10-15). The registry of what exists and its release state, what each plan
+-- includes, and a workspace's own entries (a trial until a date, an add-on, or a component switched off). The API
+-- resolves a workspace's components from these (apps/platform_ops/components.py) and GET /me/ hands the shell the list.
+-- -------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS suite_component (
+    key                 VARCHAR(20) PRIMARY KEY,                          -- cep, insights, crm, sales, pur, inv, pim
+    name                VARCHAR(60) NOT NULL,
+    tagline             VARCHAR(120) NOT NULL DEFAULT '',
+    release             VARCHAR(10) NOT NULL DEFAULT 'PLANNED',           -- RELEASED, BETA (switchable), PLANNED (coming soon: cannot be switched on)
+    needs               JSONB NOT NULL DEFAULT '[]',                      -- keys of the components this one depends on
+    js_budget_kb        INTEGER,                                          -- the most compressed JavaScript the component may add when first opened
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_suite_component_key CHECK (key ~ '^[a-z][a-z0-9_]{1,19}$'),
+    CONSTRAINT ck_suite_component_release CHECK (release IN ('RELEASED', 'BETA', 'PLANNED'))
+);
+
+CREATE TABLE IF NOT EXISTS plan_component (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    plan_id             UUID NOT NULL REFERENCES subscription_plan(id) ON DELETE CASCADE,
+    component_key       VARCHAR(20) NOT NULL REFERENCES suite_component(key) ON DELETE CASCADE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (plan_id, component_key)
+);
+
+CREATE TABLE IF NOT EXISTS tenant_component (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
+    component_key       VARCHAR(20) NOT NULL REFERENCES suite_component(key) ON DELETE CASCADE,
+    access              VARCHAR(10) NOT NULL,                             -- TRIAL (until a date), ADDON (billed on its own line), OFF (hidden although the plan includes it)
+    until               DATE,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, component_key),
+    CONSTRAINT ck_tenant_component_access CHECK (access IN ('TRIAL', 'ADDON', 'OFF'))
+);
+
+INSERT INTO suite_component (key, name, tagline, release, needs, js_budget_kb, sort_order) VALUES
+    ('cep',      'Engagement', 'Customer Engagement',            'RELEASED', '[]',             250, 10),
+    ('insights', 'Insights',   'Reports, dashboards, datasets',  'PLANNED',  '[]',             150, 20),
+    ('crm',      'CRM',        'Accounts, leads, opportunities', 'PLANNED',  '[]',             200, 30),
+    ('sales',    'Sales',      'Orders, quotes, pricing',        'PLANNED',  '["crm", "pim"]', 200, 40),
+    ('pur',      'Purchasing', 'Suppliers, purchase orders',     'PLANNED',  '["inv"]',        150, 50),
+    ('inv',      'Inventory',  'Stock, locations, transfers',    'PLANNED',  '["pim"]',        150, 60),
+    ('pim',      'PIM',        'Product information',            'PLANNED',  '[]',             150, 70)
+ON CONFLICT (key) DO NOTHING;
+
+-- every plan includes Engagement and Insights (decided 2026-10-15: Insights is on every plan from the start)
+INSERT INTO plan_component (plan_id, component_key)
+SELECT p.id, c.key FROM subscription_plan p CROSS JOIN suite_component c WHERE c.key IN ('cep', 'insights')
+ON CONFLICT (plan_id, component_key) DO NOTHING;
+
+GRANT SELECT ON suite_component, plan_component, tenant_component TO cep_app;          -- the API resolves; the back-office decides
+GRANT ALL ON suite_component, plan_component, tenant_component TO cep_admin;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

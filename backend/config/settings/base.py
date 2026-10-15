@@ -114,7 +114,8 @@ CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
                         "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "tenant_identity_provider",
                         "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
-                        "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "tenant_quota_grant"}
+                        "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "tenant_quota_grant",
+                        "suite_component", "plan_component", "tenant_component"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth

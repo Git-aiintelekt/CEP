@@ -16,7 +16,7 @@ from django.utils.html import format_html
 from django.shortcuts import redirect, render
 
 from . import onboarding, readiness, services
-from .models import Tenant
+from .models import SubscriptionPlan, Tenant
 
 
 class TenantForm(FeatureChoicesMixin):
@@ -173,16 +173,19 @@ class TenantAdmin(BaseAdmin):
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         tenant = Tenant.objects.using(settings.PLATFORM_ALIAS).filter(pk=object_id).first()
+        from apps.platform_ops.admin_components import tenant_panel as components_panel
         from apps.platform_ops.admin_observe import tenant_panel
         from apps.platform_ops.admin_deliverability import tenant_summary
         extra = {**(extra_context or {}), "readiness": readiness.readiness(tenant) if tenant else None,
-                 "performance": tenant_panel(tenant.pk) if tenant else None, "deliverability": tenant_summary(tenant) if tenant else None}
+                 "performance": tenant_panel(tenant.pk) if tenant else None, "deliverability": tenant_summary(tenant) if tenant else None,
+                 "components_panel": components_panel(tenant) if tenant else None}
         return super().change_view(request, object_id, form_url, extra)
 
     def get_urls(self):
+        from apps.platform_ops.admin_components import component_urls
         from apps.platform_ops.admin_deliverability import tenant_urls
         from apps.platform_ops.admin_observe import performance_urls
-        return [*performance_urls(self.admin_site), *tenant_urls(self.admin_site), *super().get_urls()]
+        return [*performance_urls(self.admin_site), *tenant_urls(self.admin_site), *component_urls(self.admin_site), *super().get_urls()]
 
     @display(description="Active users")
     def show_users(self, obj):
@@ -228,6 +231,26 @@ class TenantAdmin(BaseAdmin):
             result = services.onboard_tenant(tenant, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)
             months = services.ensure_partitions(tenant, using=settings.PLATFORM_ALIAS)
             messages.success(request, f"{tenant.code}: {result['partition_sets']} new partition sets, {months} monthly partitions added, roles added: {', '.join(result['roles']) or 'none'}.")
+
+
+@admin.register(SubscriptionPlan)
+class SubscriptionPlanAdmin(BaseAdmin):
+    """Plans: limits, price and features, and the components every workspace on the plan gets (the inline)."""
+    list_display = ("name", "code", "show_components", "monthly_price", "currency", "is_active")
+    ordering = ("code",)
+
+    def get_inlines(self, request, obj=None):
+        from apps.platform_ops.admin_components import PlanComponentInline
+        return [PlanComponentInline] if obj else []
+
+    @admin.display(description="Components")
+    def show_components(self, obj):
+        from apps.platform_ops.models import PlanComponent
+        return ", ".join(PlanComponent.objects.using(settings.PLATFORM_ALIAS).filter(plan=obj).order_by("component__sort_order").values_list("component__name", flat=True)) or "—"
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        params.invalidate()
 
 
 register_app_models(__package__)

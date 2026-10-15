@@ -7,10 +7,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Popover } from '@/components/Popover'
+import type { Me } from '@/lib/types'
 import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import { comingSentence, type EntitledComponent } from './manifests'
 
-export function AppLauncher({ components, current }: { components: EntitledComponent[]; current: EntitledComponent | null }) {
+export function AppLauncher({ me, components, current }: { me: Me | null; components: EntitledComponent[]; current: EntitledComponent | null }) {
+  const coming = comingSentence(me)
   const dropdown = useSingleDropdown<'apps'>()
   const [query, setQuery] = useState('')
   const term = query.trim().toLowerCase()
@@ -64,7 +66,7 @@ export function AppLauncher({ components, current }: { components: EntitledCompo
               })}
             </ul>
           )}
-          <p className="mt-2.5 border-t border-line-subtle pt-2.5 text-xs text-ink-800">{comingSentence()}</p>
+          {coming && <p className="mt-2.5 border-t border-line-subtle pt-2.5 text-xs text-ink-800">{coming}</p>}
         </Popover>
       )}
     </div>

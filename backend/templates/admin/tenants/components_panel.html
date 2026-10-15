@@ -1,0 +1,9 @@
+{% if original and components_panel %}
+<section class="cep-section" aria-labelledby="cep-components" style="margin-top:1.25rem">
+    <div class="cep-section-head">
+        <h2 id="cep-components">Components</h2>
+        <span>{{ components_panel.on|length }} of {{ components_panel.total }} on{% if components_panel.plan %} · {{ components_panel.plan.name }} plan{% endif %} · <a class="cep-link" href="{% url 'admin:tenants_tenant_components' original.pk %}">Manage components →</a></span>
+    </div>
+    <p>{% if components_panel.on %}{{ components_panel.on|join:", " }}{% else %}No component is on: the workspace cannot open anything.{% endif %}</p>
+</section>
+{% endif %}

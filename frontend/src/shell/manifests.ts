@@ -62,8 +62,10 @@ export function componentAt(pathname: string, components: EntitledComponent[]): 
   return owner ?? components.find((component) => component.key === 'cep') ?? components[0] ?? null
 }
 
-/** the names of the components still to come, as one sentence for the launcher */
-export function comingSentence(): string {
-  const names = COMING.map((item) => item.name)
+/** the names of the components still to come, as one sentence for the launcher: the server's list, else the manifests' */
+export function comingSentence(me: Me | null): string {
+  const names = (me?.coming ?? COMING).map((item) => item.name)
+  if (names.length === 0) return ''
+  if (names.length === 1) return `${names[0]} is coming.`
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} are coming.`
 }

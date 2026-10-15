@@ -99,14 +99,15 @@ def context_for(tenant_id) -> dict:
         return data
     import json
     as_dict = lambda v: (json.loads(v) if isinstance(v, str) else v) or {}       # noqa: E731
-    row = _rows("""SELECT t.settings, p.features, t.name, p.code, p.name
+    row = _rows("""SELECT t.settings, p.features, t.name, p.code, p.name, p.id::text
                      FROM tenant t
                      LEFT JOIN LATERAL (SELECT s.plan_id FROM tenant_subscription s WHERE s.tenant_id = t.id AND s.status <> 'CANCELLED'
                                         ORDER BY s.started_at DESC LIMIT 1) s ON TRUE
                      LEFT JOIN subscription_plan p ON p.id = s.plan_id
                     WHERE t.id = %s""", [str(tenant_id)])
     tenant_settings, plan_features = (as_dict(row[0][0]), as_dict(row[0][1])) if row else ({}, {})
-    workspace_name, plan_code, plan_name = (row[0][2], row[0][3], row[0][4]) if row else (None, None, None)
+    workspace_name, plan_code, plan_name, plan_id = (row[0][2], row[0][3], row[0][4], row[0][5]) if row else (None, None, None, None)
+    registry, plan_keys, own = components.inputs_for(tenant_id, plan_id)
     industry = tenant_settings.get("industry") or get("tenancy.default_industry", "GENERIC")
     found = _rows("SELECT code, features, terminology, defaults FROM industry_profile WHERE code = %s AND is_active", [industry])
     profile = {"features": as_dict(found[0][1]), "terminology": as_dict(found[0][2]), "defaults": as_dict(found[0][3])} if found else {}
@@ -116,7 +117,8 @@ def context_for(tenant_id) -> dict:
         "terminology": {term: profile.get("terminology", {}).get(term, term) for term in TERMS},
         "defaults": profile.get("defaults", {}),
         "workspace": {"name": workspace_name, "plan": {"code": plan_code, "name": plan_name} if plan_code else None},
-        "components": components.resolve(plan_code, plan_features, tenant_settings),
+        "components": components.resolve(registry, plan_keys, own),
+        "coming": components.coming(registry),
     }
     cache.set(key, data, TTL)
     return data
