@@ -45,6 +45,11 @@ def test_definition_and_compiler(check):
           and ["SMS", "EMAIL"] in c.params and sql.count("%s") == len(c.params), str(c.params))
     check("contains escapes the wildcard the person typed", "%Fall \\%%" in c.params and "ILIKE %s ESCAPE" in sql)
     check("a day given for a timestamp is that day in the workspace's zone", "AT TIME ZONE %s) >= now() - make_interval" not in sql and "make_interval(days => %s)" in sql)
+    span = compiler.compile(DATASET, definition.validate(DATASET, {"columns": [{"field": "channel"}], "filters": {"rules": [{"field": "submitted_at", "operator": "between", "value": ["2026-09-01", "2026-09-30"]},
+                                                                                                                              {"field": "submitted_at", "operator": "=", "value": "2026-10-01"}]}}),
+                            "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=10)
+    check("a range or a day on a timestamp names the zone once per use of the column, so the placeholders and the parameters agree",
+          span.sql.count("%s") == len(span.params) and span.params[1:9] == ["America/New_York", "2026-09-01", "America/New_York", "2026-09-30", "America/New_York", "2026-10-01", "America/New_York", "2026-10-01"], str(span.params))
     check("the result's columns carry the labels, the types and the formats", [x["label"] for x in c.columns] == ["Campaign", "Sent", "Sent Count"] and c.columns[1]["type"] == "date" and c.columns[2]["format"] == "integer")
 
     def refused(raw, where):
