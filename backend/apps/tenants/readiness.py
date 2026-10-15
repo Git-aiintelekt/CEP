@@ -60,7 +60,7 @@ def checks(tenant) -> list[dict]:
         gaps += [] if routing else ["no routing row"]
         gaps += [f"no roles (onboarding makes {', '.join(DEFAULT_ROLES)})"] if not roles else []
         out.append(_check("provisioned", "Provisioned", TODO, "Nothing works in the workspace before this. " + "; ".join(gaps) + ".",
-                          action="Repair onboarding", url=reverse("admin:tenants_tenant_changelist") + f"?q={tenant.code}"))
+                          action="Repair Onboarding", url=reverse("admin:tenants_tenant_changelist") + f"?q={tenant.code}"))
 
     # ---- plan
     subscription = TenantSubscription.objects.using(P).select_related("plan").filter(tenant=tenant, status__in=["TRIAL", "ACTIVE"]).first()
@@ -88,7 +88,7 @@ def checks(tenant) -> list[dict]:
     if overrides:
         names = [params.FEATURES[code]["name"] for code in overrides if code in params.FEATURES]
         words += f" · by override: {', '.join(names)}"
-    out.append(_check("features", "Industry and features", OK if industry else WARN,
+    out.append(_check("features", "Industry and Features", OK if industry else WARN,
                       words if industry else words + " · no industry profile chosen: the installation default applies",
                       action="Edit", url=reverse("admin:tenants_tenant_change", args=[tenant.pk]) + "#industry-and-features"))
 
@@ -100,27 +100,27 @@ def checks(tenant) -> list[dict]:
     if admins:
         first = admins[0]
         signed = f"signed in {_day(first['last_login'])}" if first["last_login"] else ("password link not used yet" if not first["password"] else "never signed in")
-        out.append(_check("administrator", "First administrator", OK if first["last_login"] else WARN,
+        out.append(_check("administrator", "First Administrator", OK if first["last_login"] else WARN,
                           f"{first['display_name']} · {first['email']} · {signed}" + (f" · {len(admins)} administrators" if len(admins) > 1 else ""),
                           action="Open", url=reverse("admin:identity_appuser_changelist") + f"?tenant__id__exact={tid}"))
     else:
-        out.append(_check("administrator", "First administrator", TODO, "Nobody in the workspace holds user.admin: no one can set it up.",
+        out.append(_check("administrator", "First Administrator", TODO, "Nobody in the workspace holds user.admin: no one can set it up.",
                           action="Add", url=reverse("admin:identity_appuser_add") + f"?tenant={tid}"))
 
     # ---- personalization tags
     platform = set(PlatformPersonalizationTag.objects.using(P).filter(is_active=True).values_list("pk", flat=True))
     present = set(PersonalizationTag.objects.using(P).filter(tenant_id=tid, deleted_at__isnull=True, platform_tag_id__in=platform).values_list("platform_tag_id", flat=True))
     missing = len(platform - present)
-    out.append(_check("tags", "Personalization tags", OK if not missing else WARN,
+    out.append(_check("tags", "Personalization Tags", OK if not missing else WARN,
                       f"{len(present)} of {len(platform)} platform tags present" + (f" · {missing} missing" if missing else ""),
-                      action="Push again" if missing else None, url=reverse("admin:platform_ops_platformpersonalizationtag_changelist") if missing else None))
+                      action="Push Again" if missing else None, url=reverse("admin:platform_ops_platformpersonalizationtag_changelist") if missing else None))
 
     # ---- consent policy
     chosen = stored.get(consent_policy.KEY) or {}
     policy = consent_policy.policy_of(tenant)
     words = (f"{'Refuse' if policy['without_consent'] == consent_policy.REFUSE else 'Hold back'} without consent · texts need a date: {'on' if policy['texts_need_date'] else 'off'}"
              f" · approval before first send: {'on' if policy['approval_before_send'] else 'off'} · lifetime {policy['lifetime_months']} months")
-    out.append(_check("consent", "Consent policy", OK if chosen else WARN,
+    out.append(_check("consent", "Consent Policy", OK if chosen else WARN,
                       words if chosen else "Platform defaults: " + words.lower() + ". Nothing chosen for this workspace yet; its administrator sets it under Settings.",
                       action="Edit" if chosen else None, url=reverse("admin:tenants_tenant_change", args=[tenant.pk]) + "#settings" if chosen else None))
 
@@ -129,22 +129,22 @@ def checks(tenant) -> list[dict]:
     senders = list(SenderProfile.objects.using(P).filter(tenant_id=tid, deleted_at__isnull=True).values("channel", "verification_status"))
     verified = {s["channel"] for s in senders if s["verification_status"] == "VERIFIED"}
     if not engines:
-        out.append(_check("sending", "Workspace sending", TODO, "No sending engine yet. The workspace's administrator adds them under Settings → Sending Engines.", optional=True))
+        out.append(_check("sending", "Workspace Sending", TODO, "No sending engine yet. The workspace's administrator adds them under Settings → Sending Engines.", optional=True))
     else:
         parts = []
         for engine in engines:
             channel = engine["channel"]
             parts.append(f"{channel.lower()}: {engine['provider_type'].title()}" + (" · sender verified" if channel in verified or (channel == "MMS" and "SMS" in verified) else " · no verified sender"))
         complete = all(e["channel"] in verified or (e["channel"] == "MMS" and "SMS" in verified) for e in engines)
-        out.append(_check("sending", "Workspace sending", OK if complete else WARN, " · ".join(parts) + " · theirs, read-only here", optional=True))
+        out.append(_check("sending", "Workspace Sending", OK if complete else WARN, " · ".join(parts) + " · theirs, read-only here", optional=True))
 
     # ---- single sign-on (optional)
     idp = TenantIdentityProvider.objects.using(P).filter(tenant=tenant, is_active=True).first()
     if idp:
-        out.append(_check("sso", "Single sign-on", OK, f"{idp.display_name} · {idp.protocol} · {'enforced' if idp.enforce_sso else 'optional'}", optional=True,
+        out.append(_check("sso", "Single Sign-On", OK, f"{idp.display_name} · {idp.protocol} · {'enforced' if idp.enforce_sso else 'optional'}", optional=True,
                           action="Open", url=reverse("admin:platform_ops_tenantidentityprovider_change", args=[idp.pk])))
     else:
-        out.append(_check("sso", "Single sign-on", TODO, "No identity provider registered: users sign in with a password.", optional=True,
+        out.append(_check("sso", "Single Sign-On", TODO, "No identity provider registered: users sign in with a password.", optional=True,
                           action="Register", url=reverse("admin:platform_ops_tenantidentityprovider_add") + f"?tenant={tid}"))
     return out
 

@@ -201,19 +201,19 @@ def test_observability(check):
         admin.force_login(staff)
         page = admin.get("/admin/platform_ops/errorgroup/")
         body = page.content.decode()
-        check("Errors lists open errors by default, with the sidebar entries", page.status_code == 200 and f"{marker} cannot read" in body and "Tenant performance" in body
+        check("Errors lists open errors by default, with the sidebar entries", page.status_code == 200 and f"{marker} cannot read" in body and "Tenant Performance" in body
               and "monitor_heart" in body, str(page.status_code))
         page = admin.get(f"/admin/platform_ops/errorgroup/?state=resolved&q={marker}")
         check("the state filter shows resolved errors only", page.status_code == 200 and f"{marker} cannot read" not in page.content.decode())
         gid = one("SELECT id FROM error_group WHERE message = %s", [report["message"]])[0]
         page = admin.get(f"/admin/platform_ops/errorgroup/{gid}/change/")
         body = page.content.decode()
-        check("an error's page shows the occurrences, the stack and the tenant", page.status_code == 200 and "Recent occurrences" in body and "renderRow" in body and tenant.code in body)
+        check("an error's page shows the occurrences, the stack and the tenant", page.status_code == 200 and "Recent Occurrences" in body and "renderRow" in body and tenant.code in body)
         page = admin.post(f"/admin/platform_ops/errorgroup/{gid}/change/", {"do": "resolve", "note": "fixed in PR"})
         row = one("SELECT status, note, resolved_by IS NOT NULL FROM error_group WHERE id = %s", [gid])
         check("Resolve with a note from the error's page", page.status_code == 302 and row == ("RESOLVED", "fixed in PR", True), str(row))
         page = admin.get("/admin/platform_ops/uptimetarget/")
-        check("Uptime lists the targets with availability", page.status_code == 200 and marker in page.content.decode() and "30 days" in page.content.decode())
+        check("Uptime lists the targets with availability", page.status_code == 200 and marker in page.content.decode() and "30 Days" in page.content.decode())
         page = admin.get(f"/admin/platform_ops/uptimetarget/{target}/change/")
         check("a target's page shows availability and recent probes", page.status_code == 200 and "Availability" in page.content.decode() and "probe.test" in page.content.decode())
         page = admin.get("/admin/tenants/tenant/performance/?window=7d")
@@ -223,7 +223,7 @@ def test_observability(check):
         body = page.content.decode()
         check("a tenant's performance page has requests per hour, endpoints and errors", page.status_code == 200 and "Requests per hour" in body and "Endpoints" in body and "/campaigns" in body)
         page = admin.get(f"/admin/tenants/tenant/{tenant.id}/change/")
-        check("the tenant's page carries the performance panel", page.status_code == 200 and "Open performance" in page.content.decode())
+        check("the tenant's page carries the performance panel", page.status_code == 200 and "Open Performance" in page.content.decode())
         check("an unknown tenant's performance is a 404", admin.get(f"/admin/tenants/tenant/{uuid.uuid4()}/performance/").status_code == 404)
         check("pages are staff only", Client().get("/admin/tenants/tenant/performance/").status_code == 302)
 

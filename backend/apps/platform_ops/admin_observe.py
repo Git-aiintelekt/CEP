@@ -176,15 +176,15 @@ class UptimeTargetAdmin(BaseAdmin):
     def show_day(self, obj):
         return self._percent(obj, 24)
 
-    @display(description="7 days")
+    @display(description="7 Days")
     def show_week(self, obj):
         return self._percent(obj, 24 * 7)
 
-    @display(description="30 days")
+    @display(description="30 Days")
     def show_month(self, obj):
         return self._percent(obj, 24 * 30)
 
-    @action(description="Probe now", url_path="probe-all", icon="refresh")
+    @action(description="Probe Now", url_path="probe-all", icon="refresh")
     def probe_all(self, request):
         result = observe.probe_uptime()
         messages.success(request, f"Probed {result['checked']} target{'s' if result['checked'] != 1 else ''}."
@@ -213,7 +213,7 @@ def performance_view(request):
     rows = observe.tenant_performance(hours)
     totals = {"requests": sum(r["requests"] for r in rows), "server_errors": sum(r["server_errors"] for r in rows), "sent": sum(r["sent"] for r in rows),
               "bad": sum(1 for r in rows if r["grade"] == "bad"), "warn": sum(1 for r in rows if r["grade"] == "warn")}
-    context = {**admin.site.each_context(request), "title": "Tenant performance", "rows": rows, "totals": totals, "window": key, "window_label": label,
+    context = {**admin.site.each_context(request), "title": "Tenant Performance", "rows": rows, "totals": totals, "window": key, "window_label": label,
                "windows": [(k, v[1]) for k, v in WINDOWS.items()]}
     return render(request, "admin/platform_ops/performance.html", context)
 

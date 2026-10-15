@@ -1,66 +1,57 @@
 {% extends "admin/base.html" %}
 {% load i18n unfold %}
 
-{% block title %}Home | {{ site_title|default:"C360 platform" }}{% endblock %}
+{% block title %}Home | {{ site_title|default:"C360 Platform" }}{% endblock %}
 
 {% block branding %}
     {% include "unfold/helpers/site_branding.html" %}
 {% endblock %}
 
 {% block content %}
-<div class="cep-home">
+<div class="cep-home cep-dashboard">
 
-    {# 1. who, when, and the one-line answer to "is the platform all right?" #}
+    {# 1. who and when #}
     <header class="cep-hero">
         <div>
             <h1 id="cep-greeting" data-name="{{ home.first_name }}">{{ home.greeting }}</h1>
             <p><span id="cep-today">{{ home.today|date:"l, j F Y" }}</span> · platform back-office, all tenants</p>
         </div>
-        <div class="cep-hero-status" role="status">
-            <span class="cep-pulse" data-state="{{ health.status }}"></span>
-            <div>
-                <strong>{% if health.status == "ok" %}All systems healthy{% elif health.status == "warn" %}Needs attention{% else %}Something is failing{% endif %}</strong>
-                checked <time class="cep-clock" datetime="{{ health.checked_at|date:'c' }}">{{ health.checked_at|time:"H:i" }}</time> · <a href="{% url 'admin:index' %}">check again</a>
-            </div>
-        </div>
     </header>
 
-    {# 2. what wants a person #}
-    <section class="cep-section" aria-labelledby="cep-attention">
-        <div class="cep-section-head">
-            <h2 id="cep-attention">Needs your attention</h2>
+    {# 2. what wants a person; the pill sums up the list under it #}
+    <section class="cep-section cep-attention-section" aria-labelledby="cep-attention">
+        <div class="cep-section-head cep-attention-head">
+            <h2 id="cep-attention">Needs Your Attention</h2>
             {% if home.attention %}<span>{{ home.attention|length }} item{{ home.attention|length|pluralize }}</span>{% endif %}
-            <a href="{% url 'admin:platform_ops_platformalert_changelist' %}">All alerts</a>
+            <span class="cep-pill" data-kind="{{ home.attention_status.label }}" role="status"><span class="cep-pulse" data-state="{{ home.attention_status.state }}"></span>{{ home.attention_status.word }}</span>
+            <div class="cep-head-end">
+                <span>checked <time class="cep-clock" datetime="{{ health.checked_at|date:'c' }}">{{ health.checked_at|time:"H:i" }}</time> · <a href="{% url 'admin:index' %}" id="cep-check-again">Check Again</a><span class="cep-spinner" aria-hidden="true"></span></span>
+                <span class="cep-head-divider" aria-hidden="true"></span>
+                <a href="{% url 'admin:platform_ops_platformalert_changelist' %}">All Alerts</a>
+            </div>
         </div>
-        <div class="cep-card">
-            {% if home.attention %}
-                <div class="cep-list">
-                    {% for item in home.attention %}
-                        <div class="cep-row">
+        {% if home.attention %}
+            <div class="cep-grid cep-grid-attention">
+                {% for item in home.attention %}
+                    <div class="cep-card cep-attention-card">
+                        <div class="cep-attention-top">
                             <span class="cep-icon" data-kind="{{ item.kind }}"><span class="material-symbols-outlined" aria-hidden="true">{{ item.icon }}</span></span>
-                            <div class="cep-row-main">
-                                <strong>{{ item.title }}</strong>
-                                <p>{{ item.text }}</p>
-                            </div>
-                            <div class="cep-row-side">
-                                <span class="cep-pill" data-kind="{{ item.label }}">{{ item.word }}</span>
-                                <a class="cep-link" href="{{ item.link }}">{{ item.action }} →</a>
-                            </div>
+                            <span class="cep-pill" data-kind="{{ item.label }}">{{ item.word }}</span>
                         </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="cep-clear">
-                    <span class="cep-icon" data-kind="ok"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span></span>
-                    <div><strong>Nothing needs you right now</strong><span class="cep-muted">Every check passes, the scheduled jobs are on time and there is no open alert.</span></div>
-                </div>
-            {% endif %}
-        </div>
+                        <strong>{{ item.title }}</strong>
+                        <p>{{ item.text }}</p>
+                        <a class="cep-link" href="{{ item.link }}">{{ item.action }} →</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="cep-card"><p class="cep-clear-line">Nothing needs your attention right now.</p></div>
+        {% endif %}
     </section>
 
     {# 3. what people come here to do #}
     <section class="cep-section" aria-labelledby="cep-actions">
-        <div class="cep-section-head"><h2 id="cep-actions">Quick actions</h2><span>the rest is in the menu on the left · press <kbd>Ctrl</kbd> <kbd>K</kbd> to search it</span></div>
+        <div class="cep-section-head"><h2 id="cep-actions">Quick Actions</h2><span>the rest is in the menu on the left · press <kbd>Ctrl</kbd> <kbd>K</kbd> to search it</span></div>
         <div class="cep-grid cep-grid-actions">
             {% for action in home.quick_actions %}
                 <a class="cep-card cep-action" href="{{ action.link }}">
@@ -73,7 +64,7 @@
 
     {# 4. how big the platform is #}
     <section class="cep-section" aria-labelledby="cep-numbers">
-        <div class="cep-section-head"><h2 id="cep-numbers">Platform at a glance</h2></div>
+        <div class="cep-section-head"><h2 id="cep-numbers">Platform at a Glance</h2></div>
         <div class="cep-grid cep-grid-kpi">
             {% for item in home.kpis %}
                 <a class="cep-card cep-kpi" href="{{ item.href }}">
@@ -85,12 +76,74 @@
         </div>
     </section>
 
-    {# 5. what happened recently #}
-    <div class="cep-grid cep-grid-2">
+    {# 5. the detail behind the status pill: what is not fine, every check counted; the jobs, worst first #}
+    <div class="cep-pair">
+        <section class="cep-section" id="checks" aria-labelledby="cep-checks">
+            <div class="cep-section-head"><h2 id="cep-checks">System Checks</h2><span>{{ home.checks_ok }} of {{ health.checks|length }} fine</span><a href="{% url 'admin_health_json' %}">JSON</a></div>
+            <div class="cep-card cep-panel">
+                {% with summary=home.check_summary %}
+                    {% for check in summary.problems %}
+                        <div class="cep-row">
+                            <span class="cep-dot" data-state="{{ check.status }}"></span>
+                            <div class="cep-row-main">
+                                <strong>{{ check.name }}</strong>
+                                <p>{{ check.summary }}</p>
+                                {% if check.detail %}<small>{{ check.detail }}</small>{% endif %}
+                            </div>
+                            <div class="cep-row-side"><span class="cep-pill" data-kind="{{ check.label }}">{{ check.word }}</span></div>
+                        </div>
+                    {% endfor %}
+                    {% if summary.chips %}
+                        <div class="cep-check-chips">
+                            {% for check in summary.chips %}<span class="cep-check-chip" title="{{ check.word }} · {{ check.summary }}"><span class="cep-dot" data-state="{{ check.status }}"></span>{{ check.name }}</span>{% endfor %}
+                            {% if summary.more %}
+                                <span id="cep-more-checks" class="cep-check-chips-more" hidden>
+                                    {% for check in summary.more %}<span class="cep-check-chip" title="{{ check.word }} · {{ check.summary }}"><span class="cep-dot" data-state="{{ check.status }}"></span>{{ check.name }}</span>{% endfor %}
+                                </span>
+                                <button type="button" class="cep-check-chip cep-check-chip-button" data-cep-toggle aria-controls="cep-more-checks" aria-expanded="false"
+                                        data-closed="+{{ summary.more|length }} more{% if summary.more_healthy %} healthy{% endif %}" data-open="Show Less">+{{ summary.more|length }} more{% if summary.more_healthy %} healthy{% endif %}</button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+
+        <section class="cep-section" id="jobs" aria-labelledby="cep-jobs">
+            <div class="cep-section-head"><h2 id="cep-jobs">Scheduled Jobs</h2><span>{{ home.jobs_ok }} of {{ jobs|length }} on time</span><a href="{% url 'admin:platform_ops_jobrun_changelist' %}">Run History</a></div>
+            <div class="cep-card cep-panel">
+                {% with summary=home.job_summary %}
+                    {% if summary.none_ran %}<div class="cep-job-note" role="status"><strong>Background jobs aren't running</strong><span>Scheduled sends, usage totals and invoices won't happen until the job runner (Celery) is started.</span></div>{% endif %}
+                    {% if summary.rows %}
+                        <table class="cep-jobs">
+                            <thead><tr><th scope="col">Job</th><th scope="col">Last Run</th></tr></thead>
+                            <tbody>
+                                {% for job in summary.rows %}
+                                    <tr>
+                                        <td>
+                                            <span class="cep-job-name"><span class="cep-dot" data-state="{{ job.state }}" title="{% if job.state == 'ok' %}On time{% elif job.state == 'failed' %}Last run failed{% elif job.state == 'overdue' %}Late{% else %}Never run{% endif %}"></span>{{ job.name }}</span>
+                                            <span class="cep-muted">{{ job.purpose }}</span>
+                                        </td>
+                                        <td title="{% if job.last_run %}{{ job.last_run|date:'Y-m-d H:i' }}{% endif %}">{{ job.last_run_ago }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <a class="cep-panel-foot cep-link" href="{% url 'admin:platform_ops_jobrun_changelist' %}">See all {{ summary.total }} in Run History →</a>
+                    {% else %}
+                        <p class="cep-clear-line">The job monitor is not installed on this database.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+    </div>
+
+    {# 6. what happened recently #}
+    <div class="cep-pair">
         <section class="cep-section" aria-labelledby="cep-tenants">
-            <div class="cep-section-head"><h2 id="cep-tenants">Newest tenants</h2><a href="{% url 'admin:tenants_tenant_changelist' %}">All tenants</a></div>
-            <div class="cep-card cep-list">
-                {% for tenant in home.recent_tenants %}
+            <div class="cep-section-head"><h2 id="cep-tenants">Newest Tenants</h2><a href="{% url 'admin:tenants_tenant_changelist' %}">All Tenants</a></div>
+            <div class="cep-card cep-panel">
+                {% for tenant in home.recent_tenants.rows %}
                     <div class="cep-row">
                         <span class="cep-dot" data-state="{% if tenant.active %}ok{% else %}warn{% endif %}" title="{{ tenant.status }}"></span>
                         <div class="cep-row-main">
@@ -100,67 +153,47 @@
                         <div class="cep-row-side">{% if not tenant.active %}<span class="cep-pill" data-kind="warning">{{ tenant.status }}</span>{% endif %}</div>
                     </div>
                 {% empty %}
-                    <div class="cep-row"><div class="cep-row-main"><p>No tenant yet. <a class="cep-link" href="{% url 'admin:tenants_tenant_add' %}">Create the first one →</a></p></div></div>
+                    <div class="cep-row"><div class="cep-row-main"><p>No tenant yet. <a class="cep-link" href="{% url 'admin:tenants_tenant_add' %}">Create the First One →</a></p></div></div>
                 {% endfor %}
+                {% if home.recent_tenants.total %}<p class="cep-panel-foot cep-muted">{{ home.recent_tenants.total }} tenant{{ home.recent_tenants.total|pluralize }} so far</p>{% endif %}
             </div>
         </section>
 
         <section class="cep-section" aria-labelledby="cep-changes">
-            <div class="cep-section-head"><h2 id="cep-changes">Latest changes</h2><a href="{% url 'admin:audit_definitionauditlog_changelist' %}">Audit trail</a></div>
-            <div class="cep-card cep-list">
-                {% for change in home.recent_changes %}
-                    <div class="cep-row">
-                        <div class="cep-row-main">
-                            <p style="margin:0"><strong>{{ change.who }}</strong> {{ change.verb }} {% if change.count > 1 %}<a class="cep-link" href="{{ change.list_link }}">{{ change.what }}</a> <small>{{ change.count }} times</small>{% else %}<a class="cep-link" href="{{ change.link }}">{{ change.what }}</a>{% endif %}{% if change.tenant %} <small>in {{ change.tenant }}</small>{% endif %}</p>
+            <div class="cep-section-head"><h2 id="cep-changes">Latest Changes</h2><a href="{% url 'admin:audit_definitionauditlog_changelist' %}">Audit Trail</a></div>
+            <div class="cep-card cep-panel">
+                {% for group in home.change_groups %}
+                    <div class="cep-change-group">
+                        <p class="cep-change-day">{{ group.day|date:"j M Y" }} · {{ group.ago }}</p>
+                        <div class="cep-change-head">
+                            <span class="cep-avatar" aria-hidden="true">{{ group.initials }}</span>
+                            <div class="cep-row-main">
+                                {% if group.lines|length == 1 %}
+                                    {% with change=group.lines.0 %}
+                                        <p class="cep-change-line"><strong>{{ change.who }}</strong> {{ change.verb }} {% if change.count > 1 %}<a class="cep-link" href="{{ change.list_link }}">{{ change.what }}</a> {{ change.count }} times{% else %}<a class="cep-link" href="{{ change.link }}">{{ change.what }}</a>{% endif %}{% if change.tenant %} in {{ change.tenant }}{% endif %}</p>
+                                    {% endwith %}
+                                {% else %}
+                                    <p class="cep-change-line"><strong>{{ group.who }}</strong> made {{ group.total }} changes{% if group.tenant %} in {{ group.tenant }}{% endif %}</p>
+                                    <p class="cep-muted">{{ group.breakdown }}</p>
+                                {% endif %}
+                            </div>
+                            {% if group.lines|length > 1 %}
+                                <button type="button" class="cep-button cep-button-quiet cep-expand" data-cep-toggle aria-controls="cep-changes-{{ forloop.counter }}" aria-expanded="false" data-closed="Expand" data-open="Collapse">Expand</button>
+                            {% endif %}
                         </div>
-                        <div class="cep-row-side"><small class="cep-muted" title="{{ change.at|date:'Y-m-d H:i' }}">{{ change.ago }}</small></div>
+                        {% if group.lines|length > 1 %}
+                            <ul class="cep-change-lines" id="cep-changes-{{ forloop.counter }}" hidden>
+                                {% for change in group.lines %}
+                                    <li>
+                                        <span>{{ change.verb }} {% if change.count > 1 %}<a class="cep-link" href="{{ change.list_link }}">{{ change.what }}</a> {{ change.count }} times{% else %}<a class="cep-link" href="{{ change.link }}">{{ change.what }}</a>{% endif %}</span>
+                                        <small class="cep-muted" title="{{ change.at|date:'Y-m-d H:i' }}">{{ change.ago }}</small>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
                     </div>
                 {% empty %}
-                    <div class="cep-row"><div class="cep-row-main"><p>No definition was changed in the last 30 days.</p></div></div>
-                {% endfor %}
-            </div>
-        </section>
-    </div>
-
-    {# 6. the detail behind the status line: every check, every job #}
-    <div class="cep-grid cep-grid-2">
-        <section class="cep-section" id="checks" aria-labelledby="cep-checks">
-            <div class="cep-section-head"><h2 id="cep-checks">System checks</h2><span>{{ home.checks_ok }} of {{ health.checks|length }} fine</span><a href="{% url 'admin_health_json' %}">JSON</a></div>
-            <div class="cep-card cep-list">
-                {% for check in health.checks %}
-                    <div class="cep-row">
-                        <span class="cep-dot" data-state="{{ check.status }}"></span>
-                        <div class="cep-row-main">
-                            <strong>{{ check.name }}</strong>
-                            <p>{{ check.summary }}</p>
-                            {% if check.detail %}<small>{{ check.detail }}</small>{% endif %}
-                        </div>
-                        <div class="cep-row-side"><span class="cep-pill" data-kind="{{ check.label }}">{{ check.word }}</span></div>
-                    </div>
-                {% endfor %}
-            </div>
-        </section>
-
-        <section class="cep-section" id="jobs" aria-labelledby="cep-jobs">
-            <div class="cep-section-head"><h2 id="cep-jobs">Scheduled jobs</h2><span>{{ home.jobs_ok }} of {{ jobs|length }} on time</span><a href="{% url 'admin:platform_ops_jobrun_changelist' %}">Run history</a></div>
-            <div class="cep-card cep-list">
-                {% for job in jobs %}
-                    <div class="cep-row">
-                        <span class="cep-dot" data-state="{{ job.state }}"></span>
-                        <div class="cep-row-main">
-                            <strong>{{ job.name }}</strong>
-                            <p>{{ job.purpose }}</p>
-                            <small>{% if job.last_success %}last success {{ job.last_success|timesince }} ago{% if job.duration_ms != None %} · {{ job.duration_ms }} ms{% endif %}{% else %}no successful run recorded{% endif %}{% if job.failures_24h %} · {{ job.failures_24h }} failure{{ job.failures_24h|pluralize }} in 24 h{% endif %}{% if job.last_error %} · {{ job.last_error }}{% endif %}</small>
-                        </div>
-                        <div class="cep-row-side">
-                            {% if job.state == "ok" %}<span class="cep-pill">On time</span>
-                            {% elif job.state == "failed" %}<span class="cep-pill" data-kind="danger">Failed</span>
-                            {% elif job.state == "overdue" %}<span class="cep-pill" data-kind="warning">Overdue</span>
-                            {% else %}<span class="cep-pill" data-kind="info">Never run</span>{% endif %}
-                        </div>
-                    </div>
-                {% empty %}
-                    <div class="cep-row"><div class="cep-row-main"><p>The job monitor is not installed on this database.</p></div></div>
+                    <p class="cep-clear-line">No definition was changed in the last 30 days.</p>
                 {% endfor %}
             </div>
         </section>
@@ -177,6 +210,26 @@
         var at = new Date(el.getAttribute('datetime'));
         if (!isNaN(at)) { el.textContent = at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); }
     });
+    document.querySelectorAll('[data-cep-toggle]').forEach(function (button) {      // Expand / Collapse, "+N more"
+        button.addEventListener('click', function () {
+            var target = document.getElementById(button.getAttribute('aria-controls')), open = button.getAttribute('aria-expanded') !== 'true';
+            if (!target) return;
+            target.hidden = !open;
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            button.textContent = open ? button.dataset.open : button.dataset.closed;
+        });
+    });
+    var again = document.getElementById('cep-check-again');
+    if (again) {
+        again.addEventListener('click', function () {
+            if (again.getAttribute('aria-busy')) return;
+            again.setAttribute('aria-busy', 'true');
+            again.textContent = 'Checking…';
+        });
+        window.addEventListener('pageshow', function (event) {     // coming Back to a cached page: undo the busy state
+            if (event.persisted) { again.removeAttribute('aria-busy'); again.textContent = 'Check Again'; }
+        });
+    }
 })();
 </script>
 {% endblock %}

@@ -51,7 +51,7 @@ class TenantInvoiceAdmin(BaseAdmin):
             self.set_fields(request, invoice, status="ISSUED", issued_at=timezone.now(), due_at=timezone.now() + timedelta(days=days))
         messages.success(request, f"Issued. Due in {days} days.")
 
-    @action(description="Mark as paid")
+    @action(description="Mark as Paid")
     def mark_paid(self, request, queryset):
         for invoice in queryset.filter(status="ISSUED"):
             self.set_fields(request, invoice, status="PAID", paid_at=timezone.now())
@@ -76,7 +76,7 @@ class TenantInvoiceAdmin(BaseAdmin):
             worst = max((m["percent"] or 0) for m in quota["meters"])
             rows.append({"tenant": tenant, "quota": quota, "worst": worst})
         rows.sort(key=lambda row: -row["worst"])
-        context = {**self.admin_site.each_context(request), "title": "Usage against plan limits", "rows": rows, "month": billing.month_start()}
+        context = {**self.admin_site.each_context(request), "title": "Usage Against Plan Limits", "rows": rows, "month": billing.month_start()}
         return render(request, "admin/platform_ops/usage.html", context)
 
 
@@ -141,7 +141,7 @@ class TenantOperationAdmin(BaseAdmin):
     def show_result(self, obj):
         return json.dumps(obj.result, indent=2) if obj.result else "—"
 
-    @action(description="Run now, in this request (small tenants only; a move waits 70 s for caches)")
+    @action(description="Run Now, in This Request (small tenants only; a move waits 70 s for caches)")
     def run_now(self, request, queryset):
         for operation in queryset.filter(status="REQUESTED"):
             try:
@@ -212,7 +212,7 @@ class SupportAccessLogAdmin(ReadOnlyAdmin):
     def has_change_permission(self, request, obj=None):
         return obj is None
 
-    @action(description="End the session now")
+    @action(description="End the Session Now")
     def end_now(self, request, queryset):
         updated = queryset.filter(ended_at__isnull=True, expires_at__gt=timezone.now()).update(ended_at=timezone.now())
         messages.success(request, f"{updated} ended.")
@@ -259,8 +259,8 @@ def value_fields(setting) -> dict[str, forms.Field]:
     if kind != "OBJECT":
         return {"typed_value": typed_field(kind, value, "Value")}
     fields = {f"{MEMBER}{key}": typed_field(typed_values.kind_of(item), item, key) for key, item in (value or {}).items()}
-    fields[NEW_KEY] = forms.CharField(label="Add a value: name", required=False, widget=UnfoldAdminTextInputWidget)
-    fields[NEW_VALUE] = forms.CharField(label="Add a value: value", required=False, widget=UnfoldAdminTextInputWidget,
+    fields[NEW_KEY] = forms.CharField(label="Add a Value: Name", required=False, widget=UnfoldAdminTextInputWidget)
+    fields[NEW_VALUE] = forms.CharField(label="Add a Value: Value", required=False, widget=UnfoldAdminTextInputWidget,
                                         help_text="Yes / no, a number, or text. Leave both empty to add nothing.")
     return fields
 
@@ -420,9 +420,9 @@ class IndustryProfileAdmin(BaseAdmin):
 
     def get_fieldsets(self, request, obj=None):
         return ((None, {"fields": ("code", "name", "description", "is_active", "sort_order")}),
-                ("Features for this kind of business", {"fields": tuple(f"feature_{code}" for code in params.FEATURES),
+                ("Features for This Kind of Business", {"fields": tuple(f"feature_{code}" for code in params.FEATURES),
                                                        "description": "“Default” leaves the product default. A tenant can still override, and its plan always has the last word."}),
-                ("Vocabulary and defaults", {"fields": ("terminology", "defaults"),
+                ("Vocabulary and Defaults", {"fields": ("terminology", "defaults"),
                                              "description": 'terminology renames customer / location / transaction, e.g. {"customer": "guest"}.'}))
 
     def get_readonly_fields(self, request, obj=None):
@@ -511,11 +511,11 @@ class MailServerAdmin(BaseAdmin):
     def owner(self, obj):
         return obj.tenant.code if obj.tenant_id else "Platform"
 
-    @display(description="Last test", label={"OK": "success", "Failed": "danger", "Never": "info"})
+    @display(description="Last Test", label={"OK": "success", "Failed": "danger", "Never": "info"})
     def show_test(self, obj):
         return "Never" if obj.last_test_ok is None else "OK" if obj.last_test_ok else "Failed"
 
-    @action(description="Send a test message to me", url_path="send-test")
+    @action(description="Send a Test Message to Me", url_path="send-test")
     def send_test(self, request, object_id):
         from django.shortcuts import redirect
         server = MailServer.objects.using(P).get(pk=object_id)
@@ -539,11 +539,11 @@ TAG_KINDS = (("STANDARD", "Standard"), ("CUSTOM", "Custom"), ("SYSTEM", "System"
 
 class PlatformPersonalizationTagForm(forms.ModelForm):
     """A tag is a key, a label and a data point: where the value comes from, chosen from what each source offers."""
-    data_point = forms.ChoiceField(label="Data point", choices=datapoints.choices, widget=UnfoldAdminSelectWidget,
+    data_point = forms.ChoiceField(label="Data Point", choices=datapoints.choices, widget=UnfoldAdminSelectWidget,
                                    help_text="Where the value comes from. For a customer attribute or a column from a list upload, pick the typed entry and complete the path below.")
     source_path = forms.CharField(label="Path", required=False, widget=UnfoldAdminTextInputWidget,
                                   help_text="Only for a typed data point: custom_attributes.<key> or custom_value_pairs.<column>.")
-    applies_to_channels = forms.MultipleChoiceField(label="Offered in", choices=CHANNELS, widget=UnfoldAdminSelectMultipleWidget, initial=[c for c, _ in CHANNELS])
+    applies_to_channels = forms.MultipleChoiceField(label="Offered In", choices=CHANNELS, widget=UnfoldAdminSelectMultipleWidget, initial=[c for c, _ in CHANNELS])
     data_type = forms.ChoiceField(choices=DATA_TYPES, widget=UnfoldAdminSelectWidget)
     tag_kind = forms.ChoiceField(label="Kind", choices=TAG_KINDS, widget=UnfoldAdminSelectWidget)
 
@@ -603,9 +603,9 @@ class PlatformPersonalizationTagAdmin(BaseAdmin):
     actions = ("push_to_workspaces",)
     fieldsets = (
         (None, {"fields": ("tag_key", "label", "tag_kind", "is_active")}),
-        ("Where the value comes from", {"fields": ("data_point", "source_path", "static_value", "default_value", "data_type", "format_spec"),
+        ("Where the Value Comes From", {"fields": ("data_point", "source_path", "static_value", "default_value", "data_type", "format_spec"),
                                         "description": "At send time: the data point, else the person's uploaded columns, else the customer's attributes, else the default value. format_spec is a date or number pattern."}),
-        ("In the designer", {"fields": ("applies_to_channels", "sample_value", "description"),
+        ("In the Designer", {"fields": ("applies_to_channels", "sample_value", "description"),
                              "description": "The sample value is what previews and the SMS counter show; the description is the tag's help in the Tags panel."}),
     )
 
@@ -616,12 +616,12 @@ class PlatformPersonalizationTagAdmin(BaseAdmin):
     def show_key(self, obj):
         return "{{" + obj.tag_key + "}}"
 
-    @display(description="Data point")
+    @display(description="Data Point")
     def show_source(self, obj):
         name = datapoints.SOURCES.get(obj.resolution_source, obj.resolution_source)
         return f"{name}: {obj.static_value}" if obj.resolution_source == "STATIC" else f"{name}: {obj.source_path or ''}"
 
-    @display(description="Offered in")
+    @display(description="Offered In")
     def show_channels(self, obj):
         return ", ".join(dict(CHANNELS).get(c, c) for c in obj.applies_to_channels or [])
 
@@ -639,7 +639,7 @@ class PlatformPersonalizationTagAdmin(BaseAdmin):
         super().delete_model(request, obj)
         messages.warning(request, f"Deleted. {released} workspace copies are now the workspaces' own tags: switch a tag off instead when it should disappear everywhere.")
 
-    @action(description="Apply to every workspace again")
+    @action(description="Apply to Every Workspace Again")
     def push_to_workspaces(self, request, queryset):
         for tag in queryset:
             outcomes = inherit.push_platform_tag(tag, using=settings.PLATFORM_ALIAS, user_id=request.user.pk)

@@ -1,146 +1,307 @@
-/* CEP back-office: what django-unfold's compiled stylesheet does not carry. Plain CSS on Unfold's own variables
-   (--color-base-*, --color-primary-*, --border-radius), so it follows the light / dark switch and the brand colours
-   configured in config/settings/unfold.py. Classes are prefixed cep- and used by templates/admin/**. */
+/* CEP back-office: the CEP design system (frontend/src/index.css and .claude/skills/cep-design) on top of django-unfold.
+   Unfold's own colours are set in config/settings/unfold.py (light); the dark values, the fonts, the navy rail and every
+   cep- class used by templates/admin/** live here. Components read the --cep-* role tokens, never a raw hex. */
 
+/* ---- IBM Plex, self-hosted (static/cep_admin/fonts, SIL Open Font License) ---------------------------------------- */
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-sans-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: italic; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-sans-latin-400-italic.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: italic; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-sans-latin-ext-400-italic.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/ibm-plex-sans-latin-500-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('fonts/ibm-plex-sans-latin-ext-500-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('fonts/ibm-plex-sans-latin-ext-600-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('fonts/ibm-plex-mono-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+
+/* ---- tokens: the app's roles, light then dark --------------------------------------------------------------------- */
 :root {
-    --cep-surface: #fff;
-    --cep-surface-soft: var(--color-base-50);
-    --cep-line: var(--color-base-200);
-    --cep-text: var(--color-base-600);
-    --cep-text-strong: var(--color-base-900);
-    --cep-text-subtle: var(--color-base-500);
-    --cep-accent: var(--color-primary-600);
-    --cep-accent-soft: var(--color-primary-50);
-    --cep-ok: #15803d;      --cep-ok-soft: #dcfce7;
-    --cep-warn: #b45309;    --cep-warn-soft: #fef3c7;
-    --cep-bad: #b91c1c;     --cep-bad-soft: #fee2e2;
-    --cep-info: #1d4ed8;    --cep-info-soft: #dbeafe;
-    --cep-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 1px 3px rgb(15 23 42 / 0.04);
-    --cep-shadow-hover: 0 4px 12px rgb(15 23 42 / 0.08), 0 2px 4px rgb(15 23 42 / 0.05);
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --cep-canvas: #f9fafb;
+    --cep-surface: #ffffff;
+    --cep-surface-overlay: #ffffff;  /* menus, popovers */
+    --cep-surface-soft: #f9fafb;
+    --cep-surface-hover: #eeeff5;
+    --cep-fill-subtle: #eeeff5;
+    --cep-line: #cfd2dc;
+    --cep-line-subtle: #e2e4eb;
+    --cep-line-control: #81858f;
+    --cep-text-strong: #17181c;      /* Gray 900: text, values, headers */
+    --cep-text: #4b4f5b;             /* Gray 800: labels, helper text, descriptions, icons */
+    --cep-text-subtle: #4b4f5b;
+    --cep-text-disabled: #9ea2ad;    /* Gray 400: placeholder and disabled only */
+    --cep-accent: #3863db;           /* links, outline buttons, selected tabs */
+    --cep-accent-hover: #2b4dd0;
+    --cep-accent-soft: #dee9fc;      /* Blue 100: selected rows and nav */
+    --cep-accent-text: #2b4dd0;      /* text on Blue 100 */
+    --cep-on-brand: #ffffff;
+    --cep-focus-ring: 0 0 0 3px rgb(56 99 219 / 0.24);
+
+    /* status: accent = dot, bar, icon; the tag pairs are the app's status tags */
+    --cep-ok: #2fa57a;      --cep-ok-soft: #d8f1e7;      --cep-ok-text: #0c5f43;      /* Active */
+    --cep-warn: #e8a13b;    --cep-warn-soft: #faf0c6;    --cep-warn-text: #6f5300;    /* Paused */
+    --cep-bad: #dd514c;     --cep-bad-soft: #fadce1;     --cep-bad-text: #9c1c33;     /* Failed */
+    --cep-info: #7570d4;    --cep-info-soft: #eef2fe;    --cep-info-text: #312e7c;    /* callout periwinkle, never action blue */
+    --cep-neutral-soft: #eeeff5; --cep-neutral-text: #4b4f5b;
+
+    --cep-sidebar: #20265d;
+    --cep-sidebar-text: #e7e8ef;
+    --cep-sidebar-icon: #a9afd0;
+    --cep-sidebar-hover: #2c336f;
+    --cep-sidebar-selected: #313c8e;
+    --cep-sidebar-accent: #9fb0ff;
+    --cep-sidebar-divider: #3a4178;
+    --cep-sidebar-field: #2c336f;
+
+    --cep-radius-tag: 6px;
+    --cep-radius-box: 12px;
+    --cep-radius-card: 16px;
+    --cep-radius-control: 9999px;
+    --cep-shadow-menu: 0 4px 16px rgb(20 23 31 / 0.1);
+    --cep-ease: cubic-bezier(0.2, 0, 0.38, 0.9);
 }
+/* dark: the app's neutral shell. Unfold's ramps are redefined so its own dark: classes land on the same values */
 html.dark {
-    --cep-surface: var(--color-base-900);
-    --cep-surface-soft: var(--color-base-950);
-    --cep-line: var(--color-base-800);
-    --cep-text: var(--color-base-300);
-    --cep-text-strong: var(--color-base-100);
-    --cep-text-subtle: var(--color-base-400);
-    --cep-accent: var(--color-primary-400);
-    --cep-accent-soft: color-mix(in oklab, var(--color-primary-500) 16%, transparent);
-    --cep-ok: #4ade80;      --cep-ok-soft: rgb(34 197 94 / 0.14);
-    --cep-warn: #fbbf24;    --cep-warn-soft: rgb(245 158 11 / 0.14);
-    --cep-bad: #f87171;     --cep-bad-soft: rgb(239 68 68 / 0.14);
-    --cep-info: #60a5fa;    --cep-info-soft: rgb(59 130 246 / 0.16);
-    --cep-shadow: none;
-    --cep-shadow-hover: 0 0 0 1px var(--color-base-700);
+    --color-base-50: #f5f5f6;  --color-base-100: #e2e3e4; --color-base-200: #bfc1c4; --color-base-300: #a9abaf;
+    --color-base-400: #96999e; --color-base-500: #7e8188; --color-base-600: #4b4d51; --color-base-700: #3d3f43;
+    --color-base-800: #3d3f43; --color-base-900: #1f1f21; --color-base-950: #18191a;
+    --color-primary-300: #a9c1f7; --color-primary-400: #8faef3; --color-primary-500: #8faef3;
+
+    --cep-canvas: #1f1f21;
+    --cep-surface: #242528;
+    --cep-surface-overlay: #2b2c2f;
+    --cep-surface-soft: #1f1f21;
+    --cep-surface-hover: #3d3f43;
+    --cep-fill-subtle: #303134;
+    --cep-line: #3d3f43;
+    --cep-line-subtle: #303134;
+    --cep-line-control: #7e8188;
+    --cep-text-strong: #e2e3e4;
+    --cep-text: #bfc1c4;
+    --cep-text-subtle: #bfc1c4;
+    --cep-text-disabled: #96999e;
+    --cep-accent: #8faef3;
+    --cep-accent-hover: #a9c1f7;
+    --cep-accent-soft: #152447;
+    --cep-accent-text: #a9c1f7;
+    --cep-focus-ring: 0 0 0 3px rgb(122 157 240 / 0.35);
+
+    --cep-ok: #5ec16a;      --cep-ok-soft: #15351d;      --cep-ok-text: #a3dfaa;
+    --cep-warn: #e8a13b;    --cep-warn-soft: #352b08;    --cep-warn-text: #f0d67a;
+    --cep-bad: #e5625d;     --cep-bad-soft: #471915;     --cep-bad-text: #f5a8a3;
+    --cep-info: #9c98f0;    --cep-info-soft: #23234a;    --cep-info-text: #d3d1fb;
+    --cep-neutral-soft: #303134; --cep-neutral-text: #bfc1c4;
+
+    --cep-sidebar: #18191a;
+    --cep-sidebar-text: #e2e3e4;
+    --cep-sidebar-icon: #a9abaf;
+    --cep-sidebar-hover: #2b2c2f;
+    --cep-sidebar-selected: #303134;
+    --cep-sidebar-accent: #7a9df0;
+    --cep-sidebar-divider: #303134;
+    --cep-sidebar-field: #242528;
+    --cep-shadow-menu: 0 4px 16px rgb(0 0 0 / 0.4);
 }
 
-/* ---- typography: the same face as the React app ------------------------------------------------------------------ */
-body { font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-feature-settings: 'cv11', 'ss01'; }
+body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-feature-settings: normal; }
+code, kbd, pre, samp, .font-mono { font-family: var(--font-mono); }
 
 /* ---- layout ------------------------------------------------------------------------------------------------------ */
-.cep-home { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1400px; color: var(--cep-text); }
+.cep-home { display: flex; flex-direction: column; gap: 1.5rem; max-width: 1440px; color: var(--cep-text); }
+.cep-home.cep-dashboard { gap: 2.5rem; }
 .cep-grid { display: grid; gap: 1rem; }
 .cep-grid-kpi { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .cep-grid-actions { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .cep-grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); align-items: start; }
 
-/* ---- hero -------------------------------------------------------------------------------------------------------- */
-.cep-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; padding: 1.5rem 1.75rem;
-    border-radius: calc(var(--border-radius, 8px) * 1.5); color: #fff;
-    background: linear-gradient(120deg, var(--color-primary-700), var(--color-primary-600) 55%, var(--color-primary-500)); box-shadow: var(--cep-shadow); }
-html.dark .cep-hero { background: linear-gradient(120deg, var(--color-primary-950), var(--color-primary-900) 60%, var(--color-primary-800)); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06); }
-.cep-hero h1 { font-size: 1.5rem; line-height: 2rem; font-weight: 650; letter-spacing: -0.015em; color: #fff; margin: 0; }
-.cep-hero p { margin: 0.25rem 0 0; color: rgb(255 255 255 / 0.82); font-size: 0.875rem; }
-.cep-hero-status { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; border-radius: var(--border-radius, 8px);
-    background: rgb(255 255 255 / 0.12); backdrop-filter: blur(4px); font-size: 0.8125rem; color: rgb(255 255 255 / 0.9); }
-.cep-hero-status strong { display: block; color: #fff; font-size: 0.9375rem; font-weight: 600; }
-.cep-hero-status a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }
-.cep-pulse { width: 0.625rem; height: 0.625rem; border-radius: 9999px; flex: none; background: #4ade80; box-shadow: 0 0 0 4px rgb(74 222 128 / 0.25); }
-.cep-pulse[data-state="warn"] { background: #fbbf24; box-shadow: 0 0 0 4px rgb(251 191 36 / 0.25); }
-.cep-pulse[data-state="fail"] { background: #f87171; box-shadow: 0 0 0 4px rgb(248 113 113 / 0.3); }
+/* ---- page opening: the greeting. Flat: no gradient, no glass ------------------------------------------------------ */
+.cep-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; }
+.cep-hero h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; color: var(--cep-text-strong); }
+.cep-hero p { margin: 0.25rem 0 0; font-size: 13px; line-height: 18px; color: var(--cep-text); }
+.cep-pulse { width: 0.375rem; height: 0.375rem; border-radius: 9999px; flex: none; background: var(--cep-ok); }
+.cep-pulse[data-state="warn"] { background: var(--cep-warn); }
+.cep-pulse[data-state="fail"] { background: var(--cep-bad); }
 
 /* ---- section heading --------------------------------------------------------------------------------------------- */
 .cep-section { display: flex; flex-direction: column; gap: 0.75rem; scroll-margin-top: 5rem; }
 .cep-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
-.cep-section-head h2 { margin: 0; font-size: 0.9375rem; font-weight: 600; color: var(--cep-text-strong); }
-.cep-section-head span, .cep-section-head a { font-size: 0.8125rem; color: var(--cep-text-subtle); }
+.cep-section-head h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-section-head span, .cep-section-head a { font-size: 13px; line-height: 18px; color: var(--cep-text); }
 .cep-section-head a { margin-left: auto; color: var(--cep-accent); font-weight: 500; }
-.cep-section-head a:hover { text-decoration: underline; }
+.cep-section-head a:hover { color: var(--cep-accent-hover); text-decoration: underline; }
+.cep-section-head kbd { padding: 0 0.25rem; border: 1px solid var(--cep-line); border-radius: 4px; font-size: 12px; }
 
-/* ---- cards ------------------------------------------------------------------------------------------------------- */
-.cep-card { background: var(--cep-surface); border: 1px solid var(--cep-line); border-radius: calc(var(--border-radius, 8px) * 1.25); box-shadow: var(--cep-shadow); }
-a.cep-card { display: block; text-decoration: none; color: inherit; transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease; }
-a.cep-card:hover { box-shadow: var(--cep-shadow-hover); border-color: var(--color-primary-300); transform: translateY(-1px); }
-html.dark a.cep-card:hover { border-color: var(--color-primary-700); }
-a.cep-card:focus-visible, .cep-row a:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 2px; }
+/* Needs Your Attention: heading, count and status pill on the left; check time and All Alerts on the right */
+.cep-attention-head { align-items: center; }
+.cep-section-head .cep-pill { height: 26px; padding: 0 0.75rem 0 0.625rem; border-radius: 9999px; font-size: 13px; line-height: 18px; color: var(--cep-ok-text); }
+.cep-section-head .cep-pill .cep-pulse { width: 0.5rem; height: 0.5rem; }
+.cep-section-head .cep-pill[data-kind="danger"] { color: var(--cep-bad-text); }
+.cep-section-head .cep-pill[data-kind="warning"] { color: var(--cep-warn-text); }
+.cep-head-end { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; }
+.cep-head-end a { margin-left: 0; }
+.cep-head-divider { width: 1px; height: 1rem; background: var(--cep-line); }
 
-a.cep-card.cep-kpi { padding: 1rem 1.125rem; display: flex; flex-direction: column; gap: 0.375rem; }
-.cep-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; font-size: 0.8125rem; font-weight: 500; color: var(--cep-text); }
-.cep-kpi-value { font-size: 1.75rem; line-height: 2rem; font-weight: 650; letter-spacing: -0.02em; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
-.cep-kpi-caption { font-size: 0.75rem; color: var(--cep-text-subtle); }
+/* Check Again: a small spinner beside the link while the page reloads */
+.cep-spinner { display: none; width: 0.75rem; height: 0.75rem; margin-left: 0.375rem; vertical-align: -0.125rem; border-radius: 9999px;
+    border: 2px solid var(--cep-line); border-top-color: var(--cep-accent); animation: cep-spin 0.7s linear infinite; }
+#cep-check-again[aria-busy] { pointer-events: none; color: var(--cep-text); }
+#cep-check-again[aria-busy] + .cep-spinner { display: inline-block; }
+@keyframes cep-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cep-spinner { animation-duration: 2s; } }
 
-.cep-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; border-radius: var(--border-radius, 8px);
-    background: var(--cep-accent-soft); color: var(--cep-accent); }
-.cep-icon .material-symbols-outlined { font-size: 1.125rem; }
-.cep-icon[data-kind="fail"] { background: var(--cep-bad-soft); color: var(--cep-bad); }
-.cep-icon[data-kind="warn"] { background: var(--cep-warn-soft); color: var(--cep-warn); }
-.cep-icon[data-kind="info"] { background: var(--cep-info-soft); color: var(--cep-info); }
-.cep-icon[data-kind="ok"] { background: var(--cep-ok-soft); color: var(--cep-ok); }
+/* Needs Your Attention items as cards: icon and tag on top, title, one line, the link at the foot */
+/* Needs Your Attention: equal-height cards, the link pinned to the foot */
+.cep-grid-attention { grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 1rem; }
+.cep-attention-card { display: flex; flex-direction: column; gap: 0.375rem; padding: 1rem; }
+.cep-attention-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.375rem; }
+.cep-attention-card strong { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-attention-card p { margin: 0; font-size: 13px; line-height: 18px; color: var(--cep-text); overflow-wrap: anywhere; }
+.cep-attention-card .cep-link { margin-top: auto; padding-top: 0.5rem; font-size: 13px; line-height: 18px; }
 
-a.cep-card.cep-action { padding: 0.875rem 1rem; display: flex; align-items: flex-start; gap: 0.75rem; }
-.cep-action strong { display: block; font-size: 0.875rem; font-weight: 600; color: var(--cep-text-strong); }
-.cep-action span.cep-muted { display: block; margin-top: 0.125rem; font-size: 0.75rem; line-height: 1.1rem; color: var(--cep-text-subtle); }
+/* Home only: Quick Actions and Platform at a Glance share one column rule */
+.cep-dashboard .cep-grid-actions, .cep-dashboard .cep-grid-kpi { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+/* Home only: two panels side by side, same 50/50 split on every row, each as tall as the taller; one column below 900px */
+.cep-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: stretch; }
+.cep-pair > .cep-section > .cep-panel { flex: 1; display: flex; flex-direction: column; }
+.cep-panel-foot { margin: auto 0 0; padding: 0.75rem 1rem; border-top: 1px solid var(--cep-line-subtle); font-size: 13px; line-height: 18px; }
+@media (max-width: 900px) { .cep-pair { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; } }
+
+/* System Checks: the fine ones as chips under the rows */
+.cep-check-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.875rem 1rem; border-top: 1px solid var(--cep-line-subtle); }
+.cep-check-chips:first-child { border-top: 0; }
+.cep-check-chips-more { display: contents; }
+.cep-check-chips-more[hidden] { display: none; }
+.cep-check-chip { display: inline-flex; align-items: center; gap: 0.375rem; height: 26px; padding: 0 0.625rem; border: 1px solid var(--cep-line); border-radius: 9999px;
+    background: var(--cep-surface); font: inherit; font-size: 13px; line-height: 18px; color: var(--cep-text-strong); white-space: nowrap; }
+.cep-check-chip .cep-dot { margin-top: 0; }
+button.cep-check-chip-button { cursor: pointer; color: var(--cep-accent); font-weight: 500; }
+button.cep-check-chip-button:hover { background: var(--cep-surface-hover); }
+
+/* Scheduled Jobs: one note when nothing ran, then a compact table */
+.cep-job-note { display: flex; flex-direction: column; gap: 0.125rem; padding: 0.75rem 1rem; background: var(--cep-warn-soft); color: var(--cep-warn-text); font-size: 13px; line-height: 18px; }
+.cep-job-note strong { font-weight: 600; }
+.cep-jobs { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 18px; }
+.cep-jobs th { padding: 0.625rem 1rem; text-align: left; font-weight: 500; color: var(--cep-text); border-bottom: 1px solid var(--cep-line-subtle); }
+.cep-jobs td { padding: 0.75rem 1rem; vertical-align: top; border-top: 1px solid var(--cep-line-subtle); color: var(--cep-text); }
+.cep-jobs tbody tr:first-child td { border-top: 0; }
+.cep-jobs th:last-child, .cep-jobs td:last-child { width: 9rem; white-space: nowrap; }
+.cep-job-name { display: flex; align-items: center; gap: 0.5rem; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-job-name .cep-dot { margin-top: 0; }
+.cep-jobs td .cep-muted { display: block; margin-left: 0.875rem; }
+
+/* Latest Changes: one group per person, tenant and day */
+.cep-change-group { padding: 0.875rem 1rem; border-top: 1px solid var(--cep-line-subtle); }
+.cep-change-group:first-child { border-top: 0; }
+.cep-change-day { margin: 0 0 0.5rem; font-size: 12px; line-height: 16px; font-weight: 500; color: var(--cep-text); }
+.cep-change-head { display: flex; align-items: center; gap: 0.75rem; }
+.cep-change-head .cep-change-line { margin: 0; font-size: 15px; line-height: 22px; color: var(--cep-text-strong); }
+.cep-change-head .cep-muted { display: block; }
+.cep-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; border-radius: 9999px;
+    background: var(--cep-accent-soft); color: var(--cep-accent-text); font-size: 12px; font-weight: 600; }
+.cep-button.cep-expand { flex: none; height: 30px; padding: 0 0.875rem; font-size: 13px; }
+.cep-change-lines { margin: 0.625rem 0 0 2.75rem; padding: 0; list-style: none; border-left: 1px solid var(--cep-line); }
+.cep-change-lines li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.375rem 0 0.375rem 0.75rem; font-size: 13px; line-height: 18px; color: var(--cep-text-strong); }
+
+/* ---- cards: white, 1px hairline, 16px corners. No shadow, no lift ------------------------------------------------ */
+.cep-card { background: var(--cep-surface); border: 1px solid var(--cep-line); border-radius: var(--cep-radius-card); overflow: hidden; }
+a.cep-card { display: block; text-decoration: none; color: inherit; transition: background-color 70ms var(--cep-ease), border-color 70ms var(--cep-ease); }
+a.cep-card:hover { background: var(--cep-surface-hover); }
+a.cep-card:focus-visible, .cep-row a:focus-visible, .cep-link:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 2px; }
+
+a.cep-card.cep-kpi, div.cep-card.cep-kpi { padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.cep-kpi-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--cep-text); }
+.cep-kpi-top .cep-icon { width: auto; height: auto; background: none; color: var(--cep-text); }
+.cep-kpi-value { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+.cep-kpi-caption { font-size: 13px; line-height: 18px; color: var(--cep-text); }
+
+/* an icon in a soft square: neutral by default, status colours only where the row carries a status */
+.cep-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2rem; height: 2rem; border-radius: 8px;
+    background: var(--cep-fill-subtle); color: var(--cep-text); }
+.cep-icon .material-symbols-outlined { font-size: 20px; }
+.cep-icon[data-kind="fail"] { background: var(--cep-bad-soft); color: var(--cep-bad-text); }
+.cep-icon[data-kind="warn"] { background: var(--cep-warn-soft); color: var(--cep-warn-text); }
+.cep-icon[data-kind="info"] { background: var(--cep-info-soft); color: var(--cep-info-text); }
+.cep-icon[data-kind="ok"] { background: var(--cep-ok-soft); color: var(--cep-ok-text); }
+
+a.cep-card.cep-action { padding: 1rem; display: flex; align-items: flex-start; gap: 0.75rem; }
+.cep-action strong { display: block; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-action span.cep-muted { display: block; margin-top: 0.125rem; font-size: 13px; line-height: 18px; color: var(--cep-text); }
 
 /* ---- lists inside a card ----------------------------------------------------------------------------------------- */
 .cep-list { display: flex; flex-direction: column; }
-.cep-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem 1.125rem; border-top: 1px solid var(--cep-line); font-size: 0.8125rem; }
+.cep-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.875rem 1rem; border-top: 1px solid var(--cep-line-subtle); font-size: 15px; line-height: 22px; }
 .cep-row:first-child { border-top: 0; }
-.cep-row-main { flex: 1 1 auto; min-width: 0; }
-.cep-row-main strong { font-weight: 600; font-size: 0.875rem; color: var(--cep-text-strong); }
-.cep-row-main p { margin: 0.125rem 0 0; color: var(--cep-text); overflow-wrap: anywhere; }
-.cep-row-main small, .cep-muted { font-size: 0.75rem; color: var(--cep-text-subtle); }
-.cep-row-side { flex: none; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.cep-row-main { flex: 1 1 auto; min-width: 0; color: var(--cep-text-strong); }
+.cep-row-main strong { font-weight: 600; font-size: 15px; color: var(--cep-text-strong); }
+.cep-row-main p { margin: 0.125rem 0 0; font-size: 13px; line-height: 18px; color: var(--cep-text); overflow-wrap: anywhere; }
+.cep-row-main small, .cep-muted { font-size: 13px; line-height: 18px; color: var(--cep-text); }
+.cep-row-side { flex: none; display: flex; align-items: center; gap: 0.75rem; white-space: nowrap; }
 .cep-row a.cep-link, .cep-link { color: var(--cep-accent); font-weight: 500; }
-.cep-row a.cep-link:hover, .cep-link:hover { text-decoration: underline; }
-.cep-dot { width: 0.5rem; height: 0.5rem; margin-top: 0.4rem; border-radius: 9999px; flex: none; background: var(--cep-ok); }
+.cep-row a.cep-link:hover, .cep-link:hover { color: var(--cep-accent-hover); text-decoration: underline; }
+/* the status dot is kept only where the row has no tag beside it (Newest tenants); the tag carries the state elsewhere */
+.cep-dot { width: 0.375rem; height: 0.375rem; margin-top: 0.5rem; border-radius: 9999px; flex: none; background: var(--cep-ok); }
 .cep-dot[data-state="warn"], .cep-dot[data-state="overdue"] { background: var(--cep-warn); }
 .cep-dot[data-state="fail"], .cep-dot[data-state="failed"] { background: var(--cep-bad); }
-.cep-dot[data-state="off"], .cep-dot[data-state="never"] { background: var(--color-base-400); }
+.cep-dot[data-state="off"], .cep-dot[data-state="never"] { background: var(--cep-text-disabled); }
+.cep-row:has(.cep-pill) > .cep-dot { display: none; }
 
-.cep-pill { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.02em;
-    text-transform: uppercase; background: var(--cep-ok-soft); color: var(--cep-ok); }
-.cep-pill[data-kind="danger"] { background: var(--cep-bad-soft); color: var(--cep-bad); }
-.cep-pill[data-kind="warning"] { background: var(--cep-warn-soft); color: var(--cep-warn); }
-.cep-pill[data-kind="info"] { background: var(--cep-info-soft); color: var(--cep-info); }
+/* ---- tags: the app's status tag. 22px, 6px corners, 12px Medium, as written (no capitals) ---------------------------- */
+.cep-pill, .cep-tag { display: inline-flex; align-items: center; gap: 0.375rem; height: 22px; padding: 0 0.5rem; border-radius: var(--cep-radius-tag);
+    font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.01em; white-space: nowrap; text-transform: none;
+    background: var(--cep-ok-soft); color: var(--cep-ok-text); }
+.cep-pill[data-kind="danger"], .cep-tag[data-kind="danger"] { background: var(--cep-bad-soft); color: var(--cep-bad-text); }
+.cep-pill[data-kind="warning"], .cep-tag[data-kind="warning"] { background: var(--cep-warn-soft); color: var(--cep-warn-text); }
+.cep-pill[data-kind="info"], .cep-tag[data-kind="info"] { background: var(--cep-neutral-soft); color: var(--cep-neutral-text); }
+.cep-tag[data-kind="neutral"] { background: var(--cep-neutral-soft); color: var(--cep-neutral-text); }
+.cep-tag[data-kind="primary"] { background: var(--cep-accent-soft); color: var(--cep-accent-text); }
+a.cep-tag:hover { text-decoration: underline; }
+.cep-tag .material-symbols-outlined { font-size: 14px; }
 
-.cep-clear { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.125rem; }
-.cep-clear strong { display: block; font-size: 0.875rem; font-weight: 600; color: var(--cep-text-strong); }
+.cep-clear { display: flex; align-items: center; gap: 0.875rem; padding: 1rem; }
+.cep-clear strong { display: block; font-size: 15px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-clear-line { margin: 0; padding: 1rem; font-size: 15px; line-height: 22px; color: var(--cep-text); }
 
-details.cep-more > summary { cursor: pointer; list-style: none; padding: 0.625rem 1.125rem; border-top: 1px solid var(--cep-line); font-size: 0.8125rem; font-weight: 500; color: var(--cep-accent); }
+details.cep-more > summary { cursor: pointer; list-style: none; padding: 0.75rem 1rem; border-top: 1px solid var(--cep-line-subtle); font-size: 14px; font-weight: 500; color: var(--cep-accent); }
 details.cep-more > summary::-webkit-details-marker { display: none; }
 details.cep-more > summary::after { content: ' ▾'; }
 details.cep-more[open] > summary::after { content: ' ▴'; }
 
-/* ---- meters (usage page) ----------------------------------------------------------------------------------------- */
-.cep-meter { height: 0.375rem; border-radius: 9999px; background: var(--cep-line); overflow: hidden; margin-top: 0.375rem; max-width: 28rem; }
-.cep-meter > i { display: block; height: 100%; border-radius: inherit; background: var(--cep-ok); }
+/* ---- meters (usage page): a Gray 100 track, round ends ------------------------------------------------------------ */
+.cep-meter { height: 6px; border-radius: 9999px; background: var(--cep-fill-subtle); overflow: hidden; margin-top: 0.375rem; max-width: 28rem; }
+.cep-meter > i { display: block; height: 100%; border-radius: inherit; background: var(--cep-accent); }
 .cep-meter[data-state="warning"] > i, .cep-meter[data-state="over"] > i { background: var(--cep-warn); }
 .cep-meter[data-state="blocked"] > i { background: var(--cep-bad); }
 
 /* ---- page head, buttons, narrow forms (custom pages) ------------------------------------------------------------- */
 .cep-pagehead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1.5rem; }
-.cep-pagehead h1 { margin: 0; font-size: 1.375rem; line-height: 1.875rem; font-weight: 650; letter-spacing: -0.015em; color: var(--cep-text-strong); }
-.cep-pagehead p { margin: 0.125rem 0 0; font-size: 0.8125rem; color: var(--cep-text-subtle); }
-.cep-button { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; border: 0; border-radius: var(--border-radius, 8px); cursor: pointer;
-    background: var(--color-primary-600); color: #fff; font-size: 0.8125rem; font-weight: 500; transition: background 0.15s ease; }
+.cep-pagehead h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; color: var(--cep-text-strong); }
+.cep-pagehead p { margin: 0.25rem 0 0; font-size: 13px; line-height: 18px; color: var(--cep-text); }
+/* primary: the only solid blue. 40px pill, 14px Medium; hover darkens, never shrinks */
+.cep-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; border: 1px solid transparent;
+    border-radius: var(--cep-radius-control); cursor: pointer; background: var(--color-primary-600); color: var(--cep-on-brand);
+    font-size: 14px; line-height: 20px; font-weight: 500; text-decoration: none; transition: background-color 110ms var(--cep-ease), border-color 110ms var(--cep-ease), color 110ms var(--cep-ease); }
 .cep-button:hover { background: var(--color-primary-700); }
-.cep-button:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 2px; }
-.cep-button .material-symbols-outlined { font-size: 1rem; }
+.cep-button:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 1px; box-shadow: var(--cep-focus-ring); }
+.cep-button .material-symbols-outlined { font-size: 18px; }
+/* secondary: a Blue 600 outline on white; Blue 100 on hover */
+.cep-button-quiet { background: var(--cep-surface); color: var(--cep-accent); border-color: var(--cep-accent); }
+.cep-button-quiet:hover { background: var(--cep-accent-soft); color: var(--cep-accent-text); border-color: var(--cep-accent-text); }
 .cep-narrow { max-width: 28rem; }
-.cep-row-head { align-items: center; background: var(--cep-surface-soft); border-radius: calc(var(--border-radius, 8px) * 1.25) calc(var(--border-radius, 8px) * 1.25) 0 0; }
+/* danger outline: red text on white; red only marks the destructive action */
+.cep-button-danger { background: var(--cep-surface); color: var(--cep-bad-text); border-color: var(--cep-bad); }
+.cep-button-danger:hover { background: var(--cep-bad-soft); }
+.cep-figure { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+.cep-plain-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 22px; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+.cep-plain-table td { border-color: var(--cep-line-subtle); }
+.cep-thead { text-align: left; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-thead th { border-bottom: 1px solid var(--cep-line); }
+
+.cep-row-head { align-items: center; background: var(--cep-surface-soft); }
 .cep-usage { align-items: center; }
-.cep-usage-label { flex: none; width: 11rem; color: var(--cep-text-strong); }
+.cep-usage-label { flex: none; width: 11rem; color: var(--cep-text-strong); font-weight: 500; }
 @media (max-width: 640px) { .cep-usage-label { width: 100%; } }
 
 /* ---- left menu: beside the page from 1024 px (the theme: from 1280 px); admin.js keeps it open from the same width ---- */
@@ -148,81 +309,184 @@ details.cep-more[open] > summary::after { content: ' ▴'; }
     div:has(> div > #nav-sidebar) { position: relative; }
 }
 
-/* ---- shell polish ------------------------------------------------------------------------------------------------ */
-#changelist table thead th { font-size: 0.75rem; letter-spacing: 0.02em; }
-#changelist table tbody tr:hover td, #changelist table tbody tr:hover th { background: color-mix(in oklab, var(--color-primary-500) 5%, transparent); }
+/* ==== Unfold shell, in the CEP look. Unfold's stylesheet sits in cascade layers, so these plain rules win over its
+   utility classes without !important. ============================================================================== */
+
+/* ---- the navy rail (the app's nav rail: solid fills, the current page on a fill with a 3px left bar) ---------------- */
+#nav-sidebar-inner { background: var(--cep-sidebar); color: var(--cep-sidebar-text); }
+#nav-sidebar-inner > div:first-child { border-color: var(--cep-sidebar-divider); }
+#nav-sidebar-inner #site-name, #nav-sidebar-inner #site-name a, #nav-sidebar-inner .text-important { color: var(--cep-sidebar-text); }
+#nav-sidebar-inner .text-subtle { color: var(--cep-sidebar-icon); }
+#nav-sidebar-inner a.bg-primary-600 { background: var(--color-primary-600); border-radius: 8px; }   /* the CEP mark */
+#nav-sidebar-inner hr { border-color: var(--cep-sidebar-divider); }
+#nav-sidebar-apps h2 { color: var(--cep-sidebar-icon); font-size: 13px; line-height: 18px; font-weight: 500; }
+#nav-sidebar-apps h2:hover, #nav-sidebar-apps h2:hover .material-symbols-outlined { color: var(--cep-sidebar-text); }
+#nav-sidebar-apps ol a { position: relative; height: 40px; border-radius: 8px; color: var(--cep-sidebar-text); font-size: 15px; transition: background-color 70ms var(--cep-ease); }
+#nav-sidebar-apps ol a .material-symbols-outlined { color: var(--cep-sidebar-icon); font-size: 20px; width: 20px; }
+#nav-sidebar-apps ol a:hover { background: var(--cep-sidebar-hover); color: var(--cep-sidebar-text); }
+#nav-sidebar-apps ol a.active { background: var(--cep-sidebar-selected); color: #ffffff; font-weight: 500; }
+#nav-sidebar-apps ol a.active .material-symbols-outlined { color: #ffffff; }
+#nav-sidebar-apps ol a.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--cep-sidebar-accent); }
+#nav-sidebar-apps ol a:focus-visible { outline: 2px solid var(--cep-sidebar-accent); outline-offset: -2px; }
+/* the search field and the account row on navy */
+#nav-sidebar-inner > div > div.bg-white { background: var(--cep-sidebar-field); border-color: transparent; box-shadow: none; border-radius: var(--cep-radius-control); }
+#nav-sidebar-inner > div > div.bg-white .material-symbols-outlined, #nav-sidebar-inner > div > div.bg-white > div { color: var(--cep-sidebar-icon); }
+#nav-sidebar-inner > div:last-child { border-color: var(--cep-sidebar-divider); }
+#nav-sidebar-inner > div:last-child > div.cursor-pointer:hover, #nav-sidebar-inner > div:last-child > div.bg-base-100 { background: var(--cep-sidebar-hover); }
+/* the account menu that opens from the rail stays a light menu */
+#nav-sidebar-inner > div:last-child > nav { padding: 0.25rem; color: var(--cep-text-strong); background: var(--cep-surface); border-color: var(--cep-line);
+    border-radius: var(--cep-radius-box); box-shadow: var(--cep-shadow-menu); font-size: 15px; background: var(--cep-surface-overlay); }
+.cep-menu-item { display: flex; align-items: center; width: 100%; height: 40px; padding: 0 0.75rem; border: 0; border-radius: 8px; background: none;
+    color: var(--cep-text-strong); font: inherit; text-align: left; text-decoration: none; cursor: pointer; transition: background-color 70ms var(--cep-ease); }
+.cep-menu-item:hover { background: var(--cep-surface-hover); }
+.cep-menu-item:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: -2px; }
+.cep-menu-item .material-symbols-outlined { margin-left: auto; font-size: 20px; color: var(--cep-text); }
+.cep-menu-divider { margin-top: 0.25rem; padding-top: 0.25rem; border-top: 1px solid var(--cep-line-subtle); }
+#nav-sidebar-inner .scrollbar-default-hover { scrollbar-color: var(--cep-sidebar-divider) transparent; }
+
+/* ---- page: the canvas sheet; cards stay white on it ---------------------------------------------------------------- */
+body { background: var(--cep-canvas); color: var(--cep-text-strong); }
+#main { background: var(--cep-canvas); }
+#main > div:first-child:has(#header-inner) { background: var(--cep-surface); border-color: var(--cep-line); }
+#header-inner { font-size: 15px; }
+
+/* ---- cards and boxes: Unfold's bordered blocks get the card radius and lose their shadow ---------------------------- */
+#content .shadow-xs, #content .shadow-sm, #main .shadow-xs { box-shadow: none; }
+#content .border.rounded-default.bg-white, #content fieldset.module, #changelist-form > div.border, #content .border.border-base-200.rounded-default { border-radius: var(--cep-radius-card); border-color: var(--cep-line); }
+
+/* ---- fields: the darker control border, Blue focus ring, pills for one-line fields ---------------------------------- */
+#content input[type="text"], #content input[type="email"], #content input[type="password"], #content input[type="number"],
+#content input[type="url"], #content input[type="search"], #content input[type="tel"], #content input[type="date"],
+#content input[type="time"], #content input[type="datetime-local"], #content select, #content textarea {
+    border-color: var(--cep-line-control); color: var(--cep-text-strong); font-size: 15px; box-shadow: none; }
+#content input[type="text"], #content input[type="email"], #content input[type="password"], #content input[type="number"],
+#content input[type="url"], #content input[type="search"], #content input[type="tel"], #content input[type="date"],
+#content input[type="time"], #content input[type="datetime-local"], #content select:not([multiple]) { border-radius: var(--cep-radius-control); padding-left: 1rem; padding-right: 1rem; }
+#content textarea, #content select[multiple] { border-radius: var(--cep-radius-box); }
+#content input:focus, #content select:focus, #content textarea:focus { border-color: var(--cep-accent); outline: none; box-shadow: var(--cep-focus-ring); }
+#content input::placeholder, #content textarea::placeholder { color: var(--cep-text-disabled); }
+#content input:disabled, #content select:disabled, #content textarea:disabled { background: var(--cep-fill-subtle); color: var(--cep-text-disabled); border-color: var(--cep-line-subtle); }
+/* the list search: the box around the field is the control, a sunken Gray 100 pill that turns white while focused */
+#changelist-search > div { height: 40px; background: var(--cep-fill-subtle); border-color: transparent; border-radius: var(--cep-radius-control); box-shadow: none; outline: none; }
+#changelist-search > div:focus-within { background: var(--cep-surface); border-color: var(--cep-accent); box-shadow: var(--cep-focus-ring); }
+#content #searchbar, #content #searchbar:focus { padding: 0 0.5rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+#changelist-search .material-symbols-outlined { color: var(--cep-text); }
+
+/* ---- buttons: primary solid Blue 600 (always last), secondary a Blue outline, every button a 40px pill --------------- */
+#content button, #content input[type="submit"], #content a.bg-primary-600, #main a.bg-primary-600, #header-inner a.border, #header-inner button.border,
+#submit-row button, #submit-row a, .submit-row button, .submit-row input[type="submit"], .submit-row a {
+    border-radius: var(--cep-radius-control); }
+#main .bg-primary-600 { background-color: var(--color-primary-600); }
+#main .bg-primary-600:hover, #main button.bg-primary-600:hover, #main a.bg-primary-600:hover { background-color: var(--color-primary-700); }
+#submit-row button:not(.bg-primary-600):not(.bg-red-600), #submit-row a.border, .submit-row button:not(.bg-primary-600):not(.bg-red-600),
+#content a.border.bg-white, #content button.border.bg-white {
+    background: var(--cep-surface); border: 1px solid var(--cep-accent); color: var(--cep-accent); font-weight: 500; }
+#submit-row button:not(.bg-primary-600):not(.bg-red-600):hover, #submit-row a.border:hover, .submit-row button:not(.bg-primary-600):not(.bg-red-600):hover,
+#content a.border.bg-white:hover, #content button.border.bg-white:hover {
+    background: var(--cep-accent-soft); border-color: var(--cep-accent-text); color: var(--cep-accent-text); }
+#main button:focus-visible, #main a:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 1px; }
+
+/* ---- tables: the app's list table. 48px header with no fill, Gray 900 semibold labels, hairline rows, no stripes ---- */
+#result_list { font-size: 15px; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+#result_list thead th { height: 48px; background: transparent; color: var(--cep-text-strong); font-size: 13px; line-height: 18px; font-weight: 600;
+    letter-spacing: 0; text-transform: none; border-bottom: 1px solid var(--cep-line); }
+#result_list tbody tr, #result_list tbody tr:nth-child(even), #result_list tbody tr:nth-child(odd) { background: var(--cep-surface); }
+#result_list tbody td, #result_list tbody th { border-color: var(--cep-line-subtle); padding-top: 0.875rem; padding-bottom: 0.875rem; }
+#result_list tbody tr:hover td, #result_list tbody tr:hover th { background: var(--cep-surface-hover); }
+#result_list tbody tr.selected td, #result_list tbody tr.selected th { background: var(--cep-accent-soft); }
+#result_list tbody a { color: var(--cep-accent); font-weight: 500; }
+#result_list thead a, #result_list thead a:hover { color: var(--cep-text-strong); }
+#result_list tbody a:hover { color: var(--cep-accent-hover); }
+
+/* ---- tabs above grouped lists: the app's tabs, the selected one in Blue on Blue 100 -------------------------------- */
+#content nav.flex.gap-2 a, #content .rounded-default.bg-base-100 > a, #content .bg-base-100.rounded-default.p-1 a { border-radius: var(--cep-radius-control); font-size: 14px; font-weight: 500; }
+
+/* ---- menus, popovers and modals: the menu shadow, 12px corners ----------------------------------------------------- */
+#main .shadow-lg, body > div .shadow-lg { box-shadow: var(--cep-shadow-menu); }
 
 @media (max-width: 640px) {
     .cep-hero { padding: 1.25rem; }
     .cep-row { flex-wrap: wrap; }
     .cep-row-side { width: 100%; padding-left: 1.25rem; }
 }
-@media (prefers-reduced-motion: reduce) { a.cep-card { transition: none; } a.cep-card:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { a.cep-card, .cep-button { transition: none; } }
 
 /* ---- the Platform Guide --------------------------------------------------------------------------------------------- */
 .cep-guide-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 1rem; align-items: start; }
 .cep-guide-chapters { position: sticky; top: 1rem; padding: 0.5rem 0; }
 .cep-guide-chapters ol { list-style: none; margin: 0; padding: 0; }
 .cep-guide-chapters li a { display: block; padding: 0.45rem 1rem; font-size: 0.875rem; }
-.cep-guide-chapters li.is-current a { font-weight: 600; background: color-mix(in oklab, var(--color-primary-500) 10%, transparent); }
-.cep-guide-chapter { padding: 1.5rem 1.75rem; max-width: 60rem; font-size: 0.9375rem; line-height: 1.6; }
+.cep-guide-chapters li a:hover { background: var(--cep-surface-hover); }
+.cep-guide-chapters li.is-current a { font-weight: 500; background: var(--cep-accent-soft); color: var(--cep-accent-text); box-shadow: inset 3px 0 0 var(--cep-accent); }
+.cep-guide-chapter { padding: 1.5rem; max-width: 60rem; font-size: 15px; line-height: 24px; color: var(--cep-text-strong); }
 .cep-guide-chapter h2 { font-size: 1.125rem; font-weight: 600; margin: 1.75rem 0 0.5rem; }
 .cep-guide-chapter h2:first-child { margin-top: 0; }
 .cep-guide-chapter h3 { font-size: 0.9375rem; font-weight: 600; margin: 1.25rem 0 0.4rem; }
 .cep-guide-chapter p, .cep-guide-chapter ul, .cep-guide-chapter ol { margin: 0 0 0.75rem; }
 .cep-guide-chapter ul, .cep-guide-chapter ol { padding-left: 1.25rem; }
 .cep-guide-chapter li { margin: 0.2rem 0; }
-.cep-guide-chapter code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; padding: 0 0.25rem; border-radius: 0.25rem; background: color-mix(in oklab, var(--color-base-500) 12%, transparent); }
+.cep-guide-chapter code { font-family: var(--font-mono); font-size: 13px; padding: 0 0.25rem; border-radius: 4px; background: var(--cep-fill-subtle); }
 .cep-guide-chapter table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.875rem; }
-.cep-guide-chapter th, .cep-guide-chapter td { text-align: left; vertical-align: top; padding: 0.4rem 0.5rem; border-bottom: 1px solid color-mix(in oklab, var(--color-base-500) 25%, transparent); }
-.cep-guide-chapter th { font-size: 0.75rem; letter-spacing: 0.02em; text-transform: uppercase; }
+.cep-guide-chapter th, .cep-guide-chapter td { text-align: left; vertical-align: top; padding: 0.5rem; border-bottom: 1px solid var(--cep-line-subtle); }
+.cep-guide-chapter th { font-size: 13px; font-weight: 600; color: var(--cep-text-strong); border-bottom-color: var(--cep-line); }
 .cep-guide-chapter td:first-child { font-weight: 500; width: 26%; }
-.cep-guide-chapter blockquote { margin: 0 0 0.75rem; padding-left: 0.75rem; border-left: 2px solid color-mix(in oklab, var(--color-base-500) 40%, transparent); }
+.cep-guide-chapter blockquote { margin: 0 0 0.75rem; padding: 0.75rem 1rem; border-radius: var(--cep-radius-box); background: var(--cep-info-soft); color: var(--cep-info-text); }
 @media (max-width: 900px) { .cep-guide-layout { grid-template-columns: 1fr; } .cep-guide-chapters { position: static; } }
 
 /* ---- observability: Errors, Uptime, Tenant performance ------------------------------------------------------------ */
-div.cep-card.cep-kpi { padding: 1rem 1.125rem; display: flex; flex-direction: column; gap: 0.375rem; }
-.cep-chips { display: inline-flex; gap: 0.25rem; padding: 0.1875rem; border: 1px solid var(--cep-line); border-radius: var(--border-radius, 8px); background: var(--cep-surface); }
-.cep-chips a { padding: 0.3125rem 0.75rem; border-radius: calc(var(--border-radius, 8px) - 2px); font-size: 0.8125rem; color: var(--cep-text); text-decoration: none; }
-.cep-chips a:hover { color: var(--cep-text-strong); background: var(--cep-surface-soft); }
-.cep-chips a[aria-current="page"] { background: var(--cep-accent-soft); color: var(--cep-accent); font-weight: 600; }
+.cep-chips { display: inline-flex; gap: 0.25rem; padding: 0.25rem; border: 1px solid var(--cep-line); border-radius: var(--cep-radius-control); background: var(--cep-surface); }
+.cep-chips a { padding: 0.375rem 0.875rem; border-radius: var(--cep-radius-control); font-size: 14px; line-height: 20px; font-weight: 500; color: var(--cep-text); text-decoration: none; }
+.cep-chips a:hover { color: var(--cep-text-strong); background: var(--cep-surface-hover); }
+.cep-chips a[aria-current="page"] { background: var(--cep-accent-soft); color: var(--cep-accent-text); }
 .cep-chips a:focus-visible { outline: 2px solid var(--cep-accent); outline-offset: 1px; }
 .cep-table-wrap { overflow-x: auto; }
-.cep-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
-.cep-table th, .cep-table td { padding: 0.625rem 0.625rem; text-align: left; vertical-align: top; border-top: 1px solid var(--cep-line); }
-.cep-table thead th { border-top: 0; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cep-text-subtle); background: var(--cep-surface-soft); vertical-align: bottom; }
+.cep-table { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 22px; color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
+.cep-table th, .cep-table td { padding: 0.75rem 0.5rem; text-align: left; vertical-align: top; border-top: 1px solid var(--cep-line-subtle); }
+.cep-table thead th { height: 48px; border-top: 0; border-bottom: 1px solid var(--cep-line); font-size: 13px; line-height: 18px; font-weight: 600; color: var(--cep-text-strong); vertical-align: middle; }
 .cep-table tbody th { font-weight: 400; color: var(--cep-text-strong); min-width: 11rem; max-width: 18rem; }
-.cep-table th:first-child, .cep-table td:first-child { padding-left: 1rem; }
+.cep-table th:first-child, .cep-table td:first-child { padding-left: 1.5rem; }
+.cep-table th:last-child, .cep-table td:last-child { padding-right: 1.5rem; }
 .cep-table tbody th small { overflow-wrap: anywhere; }
-.cep-table tbody th small { display: block; color: var(--cep-text-subtle); }
+.cep-table tbody th small { display: block; font-size: 13px; line-height: 18px; color: var(--cep-text); }
 .cep-table .num { text-align: right; white-space: nowrap; }
-.cep-table .bad { color: var(--cep-bad); font-weight: 600; }
-.cep-table .warn { color: var(--cep-warn); font-weight: 600; }
-.cep-table code, .cep-event code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; }
-.cep-note { font-size: 0.75rem; max-width: 60rem; margin: 0; }
-.cep-bars-card { padding: 1rem 1.125rem 0.75rem; }
+.cep-table .bad { color: var(--cep-bad-text); font-weight: 600; }
+.cep-table .warn { color: var(--cep-warn-text); font-weight: 600; }
+.cep-table code, .cep-event code { font-family: var(--font-mono); font-size: 13px; }
+.cep-note { font-size: 13px; line-height: 18px; color: var(--cep-text); max-width: 60rem; margin: 0; }
+.cep-bars-card { padding: 1rem 1rem 0.75rem; }
 .cep-bars { display: flex; align-items: flex-end; gap: 2px; height: 7rem; }
-.cep-bars > span { flex: 1 1 0; min-width: 2px; display: flex; flex-direction: column; overflow: hidden; background: var(--color-primary-300); border-radius: 2px 2px 0 0; }
+.cep-bars > span { flex: 1 1 0; min-width: 2px; display: flex; flex-direction: column; overflow: hidden; background: var(--color-primary-600); border-radius: 2px 2px 0 0; }
 .cep-bars > span > i { display: block; flex: none; background: var(--cep-bad); }
-.cep-bars > span[data-state="fail"] { background: var(--cep-bad); opacity: 0.75; }
-.cep-bars-axis { display: flex; justify-content: space-between; margin-top: 0.375rem; font-size: 0.6875rem; color: var(--cep-text-subtle); }
+.cep-bars > span[data-state="fail"] { background: var(--cep-bad); }
+.cep-bars-axis { display: flex; justify-content: space-between; margin-top: 0.375rem; font-size: 12px; line-height: 16px; color: var(--cep-text); font-variant-numeric: tabular-nums; }
 .cep-actions { display: flex; gap: 0.5rem; }
-.cep-button-quiet { background: var(--cep-surface); color: var(--cep-text-strong); border: 1px solid var(--cep-line); }
-.cep-button-quiet:hover { background: var(--cep-surface-soft); }
-.cep-note-form { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 0.875rem 1.125rem; }
-.cep-note-form textarea { width: 100%; max-width: 48rem; padding: 0.5rem 0.625rem; border: 1px solid var(--cep-line); border-radius: var(--border-radius, 8px);
-    background: var(--cep-surface); color: var(--cep-text-strong); font: inherit; font-size: 0.8125rem; }
+.cep-note-form { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem; }
+.cep-note-form textarea { width: 100%; max-width: 48rem; padding: 0.5rem 0.75rem; border: 1px solid var(--cep-line-control); border-radius: var(--cep-radius-box);
+    background: var(--cep-surface); color: var(--cep-text-strong); font: inherit; font-size: 15px; }
+.cep-note-form textarea:focus { outline: none; border-color: var(--cep-accent); box-shadow: var(--cep-focus-ring); }
 .cep-event { display: block; }
 .cep-event summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; color: var(--cep-text); }
 .cep-event summary strong { color: var(--cep-text-strong); font-variant-numeric: tabular-nums; }
-.cep-context { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 0.75rem; }
+.cep-context { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; margin: 0.75rem 0 0; font-size: 13px; line-height: 18px; }
 .cep-context dt { color: var(--cep-text-subtle); }
 .cep-context dd { margin: 0; color: var(--cep-text-strong); word-break: break-word; }
-.cep-stack { margin: 0.75rem 0 0; padding: 0.75rem; max-height: 24rem; overflow: auto; border-radius: var(--border-radius, 8px); background: var(--cep-surface-soft);
-    border: 1px solid var(--cep-line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; line-height: 1.5; white-space: pre; color: var(--cep-text-strong); }
+.cep-stack { margin: 0.75rem 0 0; padding: 0.75rem; max-height: 24rem; overflow: auto; border-radius: var(--cep-radius-box); background: var(--cep-surface-soft);
+    border: 1px solid var(--cep-line); font-family: var(--font-mono); font-size: 13px; line-height: 20px; white-space: pre; color: var(--cep-text-strong); }
 
 /* ---- the legal line at the foot of every back-office page (templates/admin/base_site.html) ---- */
 .cep-footer { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0; padding: 1rem; border-top: 1px solid var(--cep-line);
-              font-size: 0.75rem; color: var(--cep-text-subtle); }
+              font-size: 12px; line-height: 16px; color: var(--cep-text); }
 .cep-footer a { color: inherit; text-decoration: none; }
 .cep-footer a:hover { color: var(--cep-text-strong); text-decoration: underline; }
+
+/* ---- the sticky save bar: solid, never frosted ---------------------------------------------------------------------- */
+.cep-submit-bar { background: var(--cep-surface); }
+#submit-row > div { border-color: var(--cep-line); }
+
+/* ---- empty lists: the app's empty state, centred, the fix in one sentence -------------------------------------------- */
+.cep-empty { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 4rem 2rem; text-align: center;
+    background: var(--cep-surface); border: 1px solid var(--cep-line); }
+.cep-empty-icon { font-size: 24px; color: var(--cep-text); }
+.cep-empty h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-empty p { margin: 0; font-size: 16px; line-height: 24px; color: var(--cep-text); }
+.cep-empty-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 1rem; }

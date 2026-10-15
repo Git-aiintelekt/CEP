@@ -27,11 +27,11 @@ class IntegrationAdmin(BaseAdmin):
         ("Integration", {"fields": ("tenant", "name", "kind", "direction", "system", "delivery_provider", "status", "environment")}),
         ("Throttle", {"fields": ("throttle_per_minute", "throttle_burst"),
                       "description": "Calls per minute. Blank: the plan's default (integrations.inbound_per_minute) for POS receipts, the engine's own rate for a sending engine."}),
-        ("Retries and circuit breaker", {"fields": ("retry_max_attempts", "breaker_failures", "breaker_cooldown_seconds", "breaker_open_until"),
+        ("Retries and Circuit Breaker", {"fields": ("retry_max_attempts", "breaker_failures", "breaker_cooldown_seconds", "breaker_open_until"),
                                          "description": "After this many consecutive failures the engine is not called for the cooldown; sends are retried after it."}),
         ("Log", {"fields": ("log_level", "log_body_max_bytes", "log_retention_days"),
                  "description": "Card numbers and credentials are never stored, whatever the level. Bodies above the cap keep their start and a digest."}),
-        ("Last call", {"fields": ("last_outcome", "last_error")}),
+        ("Last Call", {"fields": ("last_outcome", "last_error")}),
         ("System", {"fields": ("id", "created_at", "updated_at", "row_version"), "classes": ("collapse",)}),
     )
 
@@ -49,7 +49,7 @@ class IntegrationAdmin(BaseAdmin):
     def show_status(self, obj):
         return obj.status
 
-    @display(description="Last outcome", label={"OK": "success", "REJECTED": "info", "RETRY": "warning", "ERROR": "danger", "THROTTLED": "warning", "BREAKER": "danger", "PAUSED": "info"})
+    @display(description="Last Outcome", label={"OK": "success", "REJECTED": "info", "RETRY": "warning", "ERROR": "danger", "THROTTLED": "warning", "BREAKER": "danger", "PAUSED": "info"})
     def show_last_outcome(self, obj):
         return obj.last_outcome or ""
 
@@ -67,7 +67,7 @@ class IntegrationAdmin(BaseAdmin):
             logbook.invalidate(item.tenant_id, item.kind, item.delivery_provider_id and str(item.delivery_provider_id))
         messages.success(request, "Resumed.")
 
-    @action(description="Close the circuit now (forget the recent failures)")
+    @action(description="Close the Circuit Now (forget the recent failures)")
     def reset_breaker(self, request, queryset):
         for item in queryset:
             Breaker({"id": str(item.pk), "tenant_id": str(item.tenant_id), "breaker_failures": item.breaker_failures,
@@ -99,19 +99,19 @@ class IntegrationLogAdmin(ReadOnlyAdmin):
     def show_outcome(self, obj):
         return obj.outcome
 
-    @display(description="Request headers")
+    @display(description="Request Headers")
     def show_request_headers(self, obj):
         return json.dumps(obj.request_headers, indent=2) if obj.request_headers else "—"
 
-    @display(description="Request body")
+    @display(description="Request Body")
     def show_request_body(self, obj):
         return obj.request_body or "—"
 
-    @display(description="Response headers")
+    @display(description="Response Headers")
     def show_response_headers(self, obj):
         return json.dumps(obj.response_headers, indent=2) if obj.response_headers else "—"
 
-    @display(description="Response body")
+    @display(description="Response Body")
     def show_response_body(self, obj):
         return obj.response_body or "—"
 

@@ -12,7 +12,7 @@ OPEN_PATHS = ("/admin/login/", "/admin/logout/", "/admin/mfa/", "/admin/jsi18n/"
 
 
 class CodeForm(forms.Form):
-    code = forms.CharField(label="Code from your authenticator", max_length=20,
+    code = forms.CharField(label="Code from Your Authenticator", max_length=20,
                            widget=UnfoldAdminTextInputWidget(attrs={"autocomplete": "one-time-code", "inputmode": "numeric", "autofocus": True}))
 
 
@@ -41,4 +41,4 @@ def verify_view(request):
             target = request.GET.get("next") or "/admin/"
             return redirect(target if url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}) else "/admin/")
         form.add_error("code", "That code is not right. Codes change every 30 seconds; a recovery code works once.")
-    return render(request, "admin/mfa.html", {**admin.site.each_context(request), "title": "Two-step verification", "form": form})
+    return render(request, "admin/mfa.html", {**admin.site.each_context(request), "title": "Two-Step Verification", "form": form})

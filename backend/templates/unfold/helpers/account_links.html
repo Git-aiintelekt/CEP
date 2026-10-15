@@ -1,0 +1,19 @@
+{% comment %}Unfold's account menu: title-case items; Log Out is a plain item, since red is kept for destructive actions.{% endcomment %}
+{% if site_url %}
+    <a href="{{ site_url }}" class="cep-menu-item">View Site</a>
+{% endif %}
+
+{% if account_links %}
+    {% for link in account_links %}
+        <a href="{{ link.link }}" class="cep-menu-item">{{ link.title }}</a>
+    {% endfor %}
+{% elif user.has_usable_password %}
+    <a href="{% url 'admin:password_change' %}" class="cep-menu-item">Change Password</a>
+{% endif %}
+
+<div class="cep-menu-divider">
+    <form id="logout-form" method="post" action="{% url 'admin:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="cep-menu-item">Log Out <span class="material-symbols-outlined" aria-hidden="true">logout</span></button>
+    </form>
+</div>

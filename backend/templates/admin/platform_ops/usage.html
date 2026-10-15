@@ -6,7 +6,7 @@
 <div class="cep-home">
     <div class="cep-pagehead">
         <div>
-            <h1>Usage against plan limits</h1>
+            <h1>Usage Against Plan Limits</h1>
             <p>{{ month|date:"F Y" }} · month so far, worst first · refreshed hourly by the rollup-usage job</p>
         </div>
         <form method="post">{% csrf_token %}
@@ -22,7 +22,7 @@
                     <a class="cep-link" href="{% url 'admin:tenants_tenant_change' row.tenant.pk %}"><strong>{{ row.tenant.name }}</strong></a> <small>{{ row.tenant.code }}</small>
                     <p><small>{% if row.quota.plan %}{{ row.quota.plan.name }} plan · {{ row.quota.plan.currency }} {{ row.quota.plan.monthly_price }} a month{% else %}no plan{% endif %}</small></p>
                 </div>
-                <div class="cep-row-side">{% if not row.quota.can_send %}<span class="cep-pill" data-kind="danger">Sending blocked</span>{% endif %}</div>
+                <div class="cep-row-side">{% if not row.quota.can_send %}<span class="cep-pill" data-kind="danger">Sending Blocked</span>{% endif %}</div>
             </div>
             {% for meter in row.quota.meters %}
                 <div class="cep-row cep-usage">
@@ -34,9 +34,9 @@
                         {% if meter.limit %}<div class="cep-meter" data-state="{{ meter.state }}" role="img" aria-label="{{ meter.percent }}% of the limit used"><i style="width: {% if meter.percent > 100 %}100{% else %}{{ meter.percent|unlocalize }}{% endif %}%"></i></div>{% endif %}
                     </div>
                     <div class="cep-row-side">
-                        {% if meter.state == "blocked" %}<span class="cep-pill" data-kind="danger">At limit</span>
+                        {% if meter.state == "blocked" %}<span class="cep-pill" data-kind="danger">At Limit</span>
                         {% elif meter.state == "over" %}<span class="cep-pill" data-kind="warning">Overage</span>
-                        {% elif meter.state == "warning" %}<span class="cep-pill" data-kind="warning">Near limit</span>
+                        {% elif meter.state == "warning" %}<span class="cep-pill" data-kind="warning">Near Limit</span>
                         {% else %}<span class="cep-pill">OK</span>{% endif %}
                     </div>
                 </div>

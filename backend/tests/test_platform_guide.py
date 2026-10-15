@@ -32,7 +32,7 @@ def test_platform_guide(check):
     client.force_login(staff)
     page = client.get("/admin/platform_ops/platformsetting/guide/")
     body = page.content.decode() if page.status_code == 200 else ""
-    check("the index lists every chapter and the way in", page.status_code == 200 and body.count('class="cep-link" href="/admin/platform_ops/platformsetting/guide/') >= 16 and "Where to start" in body, f"{page.status_code}")
+    check("the index lists every chapter and the way in", page.status_code == 200 and body.count('class="cep-link" href="/admin/platform_ops/platformsetting/guide/') >= 16 and "Where to Start" in body, f"{page.status_code}")
     check("the sidebar offers the Platform Guide", "Platform Guide" in body and "menu_book" in body)
     page = client.get("/admin/platform_ops/platformsetting/guide/onboarding/")
     body = page.content.decode() if page.status_code == 200 else ""
