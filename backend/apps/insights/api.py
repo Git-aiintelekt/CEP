@@ -364,6 +364,30 @@ class ExportView(APIView):
         return response
 
 
+class ExportXlsxView(APIView):
+    """The report in its saved view as an Excel workbook (apps/insights/excel.py): a pivot or a hierarchy with its totals first, the rows after."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, report_id=None):
+        from django.http import HttpResponse
+        from . import excel
+        tenant = _tenant()
+        row = _report_row(report_id, request)
+        import json
+        definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
+        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
+        try:
+            columns, rows = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+        except runner.RunRefused as exc:
+            return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
+        body = excel.build(row["name"], columns, rows, definition.get("view"))
+        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "report"
+        response = HttpResponse(body, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = f'attachment; filename="{safe}.xlsx"'
+        return response
+
+
 class EngineView(APIView):
     permission_classes = VIEW
 

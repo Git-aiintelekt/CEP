@@ -118,9 +118,21 @@ Dashboards, `/dev/dashboard`). The chart views came with Phase B on the app's ow
   across workspaces is still to come.
 - **Aggregate tables** refreshed by the engine's worker stay for a later slice, once the figures above show a need.
 
-### Phase D, pivot, hierarchy, XLSX (M; spec Phase 3)
+### Phase D, exact totals and Excel (M; spec Phase 3)
 
-Server-side pivots with ROLLUP and GROUPING SETS, dnd-kit zones, hierarchy datasets, XlsxWriter export.
+Started 2026-10-16. The pivot and hierarchy views exist since Phase B, reshaped in the browser from the capped grouped
+rows; Phase D makes their totals exact and takes them to Excel.
+
+- **D1, the Excel export** (XlsxWriter): `GET /insights/reports/<id>/export.xlsx`, the report in its saved view. A
+  grid is one sheet with a bold frozen header, a filter, column widths and number formats per column (integers,
+  decimals, money, percentages, dates and bucketed dates). A pivot or a hierarchy comes as its reshaped sheet with
+  its totals first, and the grouped rows as a second sheet. Masked columns export masked. Audited as an export.
+  Done 2026-10-16 (`xlsxwriter` added to the backend's requirements).
+- **D2, exact totals in the engine**: a run can ask for totals; the compiler adds GROUPING SETS for the hierarchy's
+  levels and the pivot's row, column and grand totals, so averages and distinct counts are exact and a truncated run
+  still totals everything. The views and the export prefer the engine's totals.
+- **D3, reordering by drag** in Field Wells (dnd-kit), on the user's say; hierarchy datasets (dimensions that form a
+  natural tree) wait for a dataset that needs them.
 
 ### Phase E, scheduling, PDF, the engine switch (M; spec Phase 4)
 

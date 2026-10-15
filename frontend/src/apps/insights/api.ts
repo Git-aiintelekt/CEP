@@ -21,6 +21,7 @@ export const insightsApi = {
   run: (id: string, body: { limit?: number; offset?: number } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
+  exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
 }
 
 export const dashboardsApi = {

@@ -76,7 +76,8 @@ test('New Report: pick a dataset, name it, and the report opens in the viewer wi
   await vi.waitFor(() => expect(within(grid).getByText('Fall Launch')).toBeTruthy())
 })
 
-test('the viewer runs a saved report in the grid, with Edit and Export', async () => {
+test('the viewer runs a saved report in the grid, with Edit and the two exports; Export Excel fetches the workbook', async () => {
+  const user = userEvent.setup()
   await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   const grid = await screen.findByRole('region', { name: 'Report rows' })
@@ -84,6 +85,12 @@ test('the viewer runs a saved report in the grid, with Edit and Export', async (
   expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy()
   expect(screen.getByText(/3 rows · 42 ms · live data/)).toBeTruthy()
+  const urls: string[] = []
+  vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: (blob: Blob) => { urls.push(blob.type); return 'blob:x' }, revokeObjectURL: () => undefined }))
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  await user.click(screen.getByRole('button', { name: 'Export Excel' }))
+  await vi.waitFor(() => expect(urls).toEqual(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']))
+  click.mockRestore()
 })
 
 test('the viewer switches the views: a pivot with totals on both edges, a hierarchy that folds, a chart', async () => {
