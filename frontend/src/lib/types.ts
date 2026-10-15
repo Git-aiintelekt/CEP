@@ -49,12 +49,25 @@ export interface Me {
   features?: Partial<Record<Feature, boolean>>
   /** the industry's words for generic things: { location: 'store' } */
   terminology?: Record<string, string>
+  /** the workspace's name and plan, for the navigation's head */
+  workspace?: { name: string | null; plan: { code: string; name: string } | null }
+  /** the suite components this workspace can open, in suite order; absent (an older API) = Engagement alone */
+  components?: SuiteComponent[]
   /** true while the only thing this session may do is enrol in multi-factor authentication */
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */
   support_session?: { by: string; mode: 'READ' | 'WRITE'; expires_at: string; reason?: string } | null
   /** how long the browser waits before warning of inactivity, and how long the warning stays up before signing out (global parameters) */
   session?: { idle_timeout_minutes: number; idle_warning_seconds: number }
+}
+
+/** one entry of GET /me/ components: how the workspace has it and, for a trial, until when */
+export interface SuiteComponent {
+  key: string
+  name: string
+  tagline: string
+  access: 'PLAN' | 'TRIAL' | 'ADDON' | 'NONE'
+  until: string | null
 }
 
 export type Feature =

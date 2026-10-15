@@ -28,6 +28,8 @@ export const me = {
                permissions: ['campaign.view', 'campaign.edit', 'campaign.publish', 'template.edit', 'provider.edit', 'user.admin', 'list.view', 'list.edit', 'list.import', 'report.view', 'consent.edit',
                              'journey.view', 'journey.edit', 'journey.activate', 'journey.export', 'journey.suppress'] },
   tenant: { id: 't1', code: 'NWA', timezone: 'America/New_York', db_alias: 'default', db_status: 'ACTIVE' },
+  workspace: { name: 'Northwind Apparel', plan: { code: 'GROWTH', name: 'Growth' } },
+  components: [{ key: 'cep', name: 'Engagement', tagline: 'Customer Engagement', access: 'PLAN', until: null }],
   session: { idle_timeout_minutes: 120, idle_warning_seconds: 60 },
 }
 

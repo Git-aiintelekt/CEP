@@ -496,6 +496,8 @@ class MeSerializer(serializers.Serializer):
     industry = serializers.CharField()
     features = serializers.DictField(child=serializers.BooleanField(), help_text="feature code -> enabled for this workspace")
     terminology = serializers.DictField(child=serializers.CharField())
+    workspace = serializers.DictField(help_text="the workspace's name and plan: {name, plan: {code, name} | null}")
+    components = serializers.ListField(child=serializers.DictField(), help_text="the suite components this workspace can open, in suite order: {key, name, tagline, access, until}")
     mfa_setup_required = serializers.BooleanField()
     support_session = serializers.DictField(allow_null=True)
     session = MeSessionSerializer()
