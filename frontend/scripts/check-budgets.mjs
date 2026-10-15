@@ -10,6 +10,7 @@ import { join } from 'node:path'
 const BUDGETS_KB = {
   index: 120,   // the shell: top bar, navigation, sign-in, the query client, the design system, React itself
   cep: 400,     // Engagement's pages (the designer and the journey canvas load separately, on their own pages)
+  insights: 360, // Insights' pages: AG Grid Community is most of it (measured 326 KB on 2026-10-16); charts load on their own pages when they come
 }
 
 const assets = join(process.cwd(), 'dist', 'assets')

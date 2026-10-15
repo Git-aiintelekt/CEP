@@ -47,7 +47,7 @@ def test_me_hands_the_shell_its_components(check, world):
     body = me.json() if me.status_code == 200 else {}
     check("GET /me/ names the workspace and its plan", me.status_code == 200 and body.get("workspace", {}).get("name") and body["workspace"]["plan"]["code"], str(body.get("workspace")))
     check("GET /me/ lists the components the shell may show, Engagement first, and what is coming", [c["key"] for c in body.get("components", [])][:1] == ["cep"]
-          and body["components"][0]["name"] == "Engagement" and any(c["key"] == "insights" for c in body.get("coming", [])), str(body.get("components")) + str(body.get("coming")))
+          and body["components"][0]["name"] == "Engagement" and any(c["key"] == "crm" for c in body.get("coming", [])), str(body.get("components")) + str(body.get("coming")))
     check.done()
 
 

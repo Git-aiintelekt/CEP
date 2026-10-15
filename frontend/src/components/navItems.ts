@@ -11,6 +11,8 @@ export interface NavItem {
   feature?: Feature
   /** shown only to someone whose role carries this permission */
   permission?: string
+  /** shown only when the workspace has this suite component (and, for insights, the mode offers it in menus) */
+  requires?: string
 }
 
 /** The second group, below the divider: for workspace admins only */

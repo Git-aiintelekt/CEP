@@ -1,3 +1,4 @@
+from apps.insights import api as insights_api
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -112,6 +113,16 @@ urlpatterns = [
     path("reports/schedule/", reports_api.ReportScheduleView.as_view(), name="report-schedule"),
     path("reports/journeys/", reports_api.JourneysReportView.as_view(), name="report-journeys"),
     path("reports/journeys.csv", reports_api.JourneysReportCsvView.as_view(), name="report-journeys-csv"),
+    # Insights, the report engine (apps/insights); the engine service mounts these alone (config/urls_insights.py)
+    path("insights/catalog/", insights_api.CatalogView.as_view(), name="insights-catalog"),
+    path("insights/catalog/<slug:dataset>/", insights_api.CatalogView.as_view(), name="insights-dataset"),
+    path("insights/reports/", insights_api.ReportListView.as_view(), name="insights-reports"),
+    path("insights/reports/preview/", insights_api.PreviewView.as_view(), name="insights-preview"),
+    path("insights/reports/<uuid:report_id>/", insights_api.ReportView.as_view(), name="insights-report"),
+    path("insights/reports/<uuid:report_id>/versions/", insights_api.ReportVersionsView.as_view(), name="insights-report-versions"),
+    path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
+    path("insights/reports/<uuid:report_id>/export.csv", insights_api.ExportView.as_view(), name="insights-report-export"),
+    path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
     path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
     path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

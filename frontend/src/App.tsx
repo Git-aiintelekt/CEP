@@ -23,7 +23,10 @@ const TermsPage = lazy(() => import('@/apps/cep/pages/TermsPage'))
 const cepRoutesChunk = import('@/apps/cep/routes')
 const CepRoutes = lazy(() => cepRoutesChunk)
 /** the tests await this before rendering, so a page's first assertion is not spent on loading the chunk */
+// eslint-disable-next-line react-refresh/only-export-components
 export const cepReady: Promise<unknown> = cepRoutesChunk
+/** Insights' pages: a chunk of their own, loaded the first time the component is opened */
+const InsightsRoutes = lazy(() => import('@/apps/insights/routes'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/DesignerPlayground')) : null
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/MessagePlayground')) : null
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ReceiptPlayground')) : null
@@ -37,6 +40,7 @@ const CustomerPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/p
 const ConditionPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ConditionPlayground')) : null
 const TimelinePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/TimelinePlayground')) : null
 const JourneyBuildPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/JourneyBuildPlayground')) : null
+const InsightsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/InsightsPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,9 +92,11 @@ export default function App() {
                 {ConditionPlayground && <Route path="/dev/journey-condition" element={<Suspense fallback={<FullPageSpinner label="Loading the Condition" />}><ConditionPlayground /></Suspense>} />}
                 {TimelinePlayground && <Route path="/dev/journey-timeline" element={<Suspense fallback={<FullPageSpinner label="Loading the timeline" />}><TimelinePlayground /></Suspense>} />}
                 {JourneyBuildPlayground && <Route path="/dev/journey-build" element={<Suspense fallback={<FullPageSpinner label="Loading the builder" />}><JourneyBuildPlayground /></Suspense>} />}
+                {InsightsPlayground && <Route path="/dev/insights" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><InsightsPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>
+              <Route path="/insights/*" element={<Suspense fallback={<FullPageSpinner label="Loading Insights" />}><InsightsRoutes /></Suspense>} />
               <Route path="/*" element={<Suspense fallback={<FullPageSpinner label="Loading" />}><CepRoutes /></Suspense>} />
             </Route>
           </Routes>
