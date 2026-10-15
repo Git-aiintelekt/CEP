@@ -9,11 +9,12 @@ import { starterDefinition } from './starter'
 const withInsights = { ...me, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights' } }
 
 async function renderAppAt(path: string, meOverride: object = withInsights) {
-  installMockApi({ me: meOverride as never })
+  const calls = installMockApi({ me: meOverride as never })
   signIn(path)
   vi.resetModules()
   const { default: App } = await import('@/App').then(cepReady)
   render(<App />)
+  return calls
 }
 
 const nav = () => screen.getByRole('navigation', { name: 'Main' })
@@ -95,7 +96,7 @@ test('the viewer runs a saved report in the grid, with Edit and the two exports;
 
 test('the viewer switches the views: a pivot with totals on both edges, a hierarchy that folds, a chart', async () => {
   const user = userEvent.setup()
-  await renderAppAt('/insights/reports/rep-1')
+  const calls = await renderAppAt('/insights/reports/rep-1')
   await screen.findByRole('heading', { name: 'Sends by campaign' })
   await screen.findByRole('region', { name: 'Report rows' })
   await user.click(screen.getByRole('radio', { name: 'Pivot' }))
@@ -105,6 +106,8 @@ test('the viewer switches the views: a pivot with totals on both edges, a hierar
   expect(within(pivot).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['Campaign', 'EMAIL', 'SMS', 'Total'])
   const total = within(pivot).getAllByRole('row').at(-1) as HTMLElement
   expect(within(total).getAllByRole('cell').map((td) => td.textContent)).toEqual(['Total', '343,800', '25,100', '368,900'])
+  const asked = calls.filter((call) => call.url.endsWith('/insights/reports/rep-1/run/')).map((call) => (call.body as { view?: { type: string; across?: string } } | null)?.view)
+  expect(asked.at(-1)).toEqual({ type: 'pivot', across: 'channel' })                   // the engine totals for the view shown
   await user.click(screen.getByRole('radio', { name: 'Hierarchy' }))
   const tree = screen.getByRole('region', { name: 'Report rows' })
   const fall = within(tree).getByRole('button', { name: /Fall Launch/ })

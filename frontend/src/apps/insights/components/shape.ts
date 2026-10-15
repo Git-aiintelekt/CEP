@@ -1,8 +1,9 @@
 /**
  * How a run's grouped rows become the other three views, in the browser: the chart (categories and series), the
  * hierarchy (groups that fold, with subtotals) and the pivot (one dimension spread across the columns, with totals).
- * Subtotals come from the rows shown: sums and counts add up, minimums and maximums compare, averages and distinct
- * counts cannot be combined and read as an em dash.
+ * Subtotals are the engine's when the run carries them (exact, whatever the aggregate, whatever was truncated); else they
+ * come from the rows shown: sums and counts add up, minimums and maximums compare, averages and distinct counts cannot
+ * be combined and read as an em dash.
  */
 import type { Aggregate, ResultColumn, RunResult } from '../types'
 import { formatCell } from './resultWords'
@@ -20,6 +21,16 @@ export function split(result: RunResult, across?: string) {
   const spread = dims.find(({ column }) => column.key === across) ?? null
   const down = spread ? dims.filter(({ column }) => column.key !== across) : dims
   return { dims, meas, spread, down }
+}
+
+const same = (a: unknown, b: unknown) => String(a ?? '') === String(b ?? '')
+
+/** the engine's total for these dimension keys, when it computed one */
+export function exact(result: RunResult, keys: Record<string, unknown>, measureIndex: number): number | null {
+  const names = Object.keys(keys)
+  const entry = result.totals?.find((item) => Object.keys(item.keys).length === names.length && names.every((name) => name in item.keys && same(item.keys[name], keys[name])))
+  const value = entry?.values[measureIndex]
+  return typeof value === 'number' ? value : value === null || value === undefined ? null : Number(value)
 }
 
 export function combine(aggregate: Aggregate | undefined, values: unknown[]): number | null {
@@ -119,6 +130,7 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
   if (dims.length < 2) return { ...empty, reason: 'A hierarchy needs two or more dimensions, such as Channel, then Campaign.' }
   if (meas.length === 0) return { ...empty, reason: 'A hierarchy needs a value to total per group: add a number, such as Sent Count.' }
   const roots: HierarchyNode[] = []
+  const paths = new Map<HierarchyNode, Record<string, unknown>>()
   for (const row of result.rows) {
     let siblings = roots
     let node: HierarchyNode | undefined
@@ -128,6 +140,7 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
       if (!node) {
         node = { key, label: cellText(column, row[index]), depth, totals: [], children: [], rows: 0 }
         siblings.push(node)
+        paths.set(node, Object.fromEntries(dims.slice(0, depth + 1).map((d) => [d.column.key, row[d.index]])))
       }
       node.rows += 1
       siblings = node.children
@@ -138,14 +151,14 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
     for (const node of nodes) {
       if (node.children.length) {
         total(node.children)
-        node.totals = meas.map(({ column }, m) => combine(column.aggregate, node.children.map((child) => (child.row ? child.row[m] : child.totals[m]))))
+        node.totals = meas.map(({ column }, m) => exact(result, paths.get(node) ?? {}, m) ?? combine(column.aggregate, node.children.map((child) => (child.row ? child.row[m] : child.totals[m]))))
       } else {
         node.totals = meas.map((_, m) => (typeof node.row?.[m] === 'number' ? (node.row[m] as number) : null))
       }
     }
   }
   total(roots)
-  const grand = meas.map(({ column }, m) => combine(column.aggregate, roots.map((node) => node.totals[m])))
+  const grand = meas.map(({ column }, m) => exact(result, {}, m) ?? combine(column.aggregate, roots.map((node) => node.totals[m])))
   return { levels: dims.map((d) => d.column), measures: meas.map((m) => m.column), roots, grand }
 }
 
@@ -172,19 +185,21 @@ export function pivotShape(result: RunResult, across: string | undefined, measur
   const columnValues = distinct(result, spread.index)
   const columns = columnValues.map((value) => ({ key: String(value ?? ''), label: cellText(spread.column, value) }))
   const at = new Map(columnValues.map((value, i) => [String(value ?? ''), i]))
-  const rows = new Map<string, { key: string; label: string; cells: (number | null)[]; total: number | null }>()
+  const rows = new Map<string, { key: string; label: string; cells: (number | null)[]; total: number | null; keys: Record<string, unknown> }>()
   for (const row of result.rows) {
     const key = down.map(({ index }) => String(row[index] ?? '')).join('\u001f')
     let line = rows.get(key)
     if (!line) {
-      line = { key, label: down.map(({ column, index }) => cellText(column, row[index])).join(' · '), cells: new Array(columns.length).fill(null), total: null }
+      line = { key, label: down.map(({ column, index }) => cellText(column, row[index])).join(' · '), cells: new Array(columns.length).fill(null), total: null,
+               keys: Object.fromEntries(down.map(({ column, index }) => [column.key, row[index]])) }
       rows.set(key, line)
     }
     const value = row[measure.index]
     const column = at.get(String(row[spread.index] ?? '')) as number
     line.cells[column] = combine(measure.column.aggregate, [line.cells[column], value])
   }
-  const lines = [...rows.values()].map((line) => ({ ...line, total: combine(measure.column.aggregate, line.cells) }))
-  const columnTotals = columns.map((_, c) => combine(measure.column.aggregate, lines.map((line) => line.cells[c])))
-  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: combine(measure.column.aggregate, columnTotals), measure: measure.column }
+  const m = meas.findIndex((item) => item.index === measure.index)
+  const lines = [...rows.values()].map(({ keys, ...line }) => ({ ...line, total: exact(result, keys, m) ?? combine(measure.column.aggregate, line.cells) }))
+  const columnTotals = columns.map((_, c) => exact(result, { [spread.column.key]: columnValues[c] }, m) ?? combine(measure.column.aggregate, lines.map((line) => line.cells[c])))
+  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: exact(result, {}, m) ?? combine(measure.column.aggregate, columnTotals), measure: measure.column }
 }

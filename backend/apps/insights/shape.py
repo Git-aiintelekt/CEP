@@ -8,6 +8,18 @@ maximums compare, averages and distinct counts cannot be combined and read as No
 from numbers import Number
 
 
+def _same(a, b) -> bool:
+    return (str(a) if a is not None else "") == (str(b) if b is not None else "")
+
+
+def _exact(totals, keys: dict, index: int):
+    """the engine's total for these dimension keys, when it computed one"""
+    for entry in totals or []:
+        if len(entry["keys"]) == len(keys) and all(k in entry["keys"] and _same(entry["keys"][k], v) for k, v in keys.items()):
+            return entry["values"][index]
+    return None
+
+
 def _combine(aggregate, values):
     numbers = [v for v in values if isinstance(v, Number) and not isinstance(v, bool)]
     if not numbers:
@@ -39,7 +51,7 @@ def _distinct(rows, index):
     return out
 
 
-def pivot(columns: list[dict], rows: list[list], across: str | None, measure_key: str | None = None) -> dict:
+def pivot(columns: list[dict], rows: list[list], across: str | None, measure_key: str | None = None, totals: list[dict] | None = None) -> dict:
     dims, meas, spread, down = _split(columns, across)
     measure = next(((i, c) for i, c in meas if c["key"] == measure_key), meas[0] if meas else None)
     if not measure:
@@ -58,14 +70,18 @@ def pivot(columns: list[dict], rows: list[list], across: str | None, measure_key
         line = lines.setdefault(key, {"labels": [row[i] for i, _ in down], "cells": [None] * len(column_values)})
         c = at[str(row[s_index]) if row[s_index] is not None else ""]
         line["cells"][c] = _combine(m_col["aggregate"], [line["cells"][c], row[m_index]])
-    out_rows = [[*line["labels"], *line["cells"], _combine(m_col["aggregate"], line["cells"])] for line in lines.values()]
-    column_totals = [_combine(m_col["aggregate"], [line["cells"][c] for line in lines.values()]) for c in range(len(column_values))]
-    grand = _combine(m_col["aggregate"], column_totals)
+    m_at = [i for i, _ in meas].index(m_index)
+    exact = (lambda keys: _exact(totals, keys, m_at)) if totals else (lambda keys: None)
+    out_rows = [[*line["labels"], *line["cells"], (lambda e: e if e is not None else _combine(m_col["aggregate"], line["cells"]))(exact(dict(zip([c["key"] for _, c in down], line["labels"]))))]
+                for line in lines.values()]
+    column_totals = [(lambda e: e if e is not None else _combine(m_col["aggregate"], [line["cells"][c] for line in lines.values()]))(exact({s_col["key"]: column_values[c]}))
+                     for c in range(len(column_values))]
+    grand = (lambda e: e if e is not None else _combine(m_col["aggregate"], column_totals))(exact({}))
     return {"row_columns": [c for _, c in down], "across": s_col, "measure": m_col, "column_values": column_values,
             "header": [*(c["label"] for _, c in down), *column_values, "Total"], "rows": out_rows, "total": ["Total", *([None] * (len(down) - 1)), *column_totals, grand]}
 
 
-def hierarchy(columns: list[dict], rows: list[list]) -> dict:
+def hierarchy(columns: list[dict], rows: list[list], totals: list[dict] | None = None) -> dict:
     dims, meas, _, _ = _split(columns)
     if len(dims) < 2:
         return {"reason": "A hierarchy needs two or more dimensions."}
@@ -79,7 +95,7 @@ def hierarchy(columns: list[dict], rows: list[list]) -> dict:
             key = str(row[i]) if row[i] is not None else ""
             node = next((n for n in siblings if n["key"] == key), None)
             if node is None:
-                node = {"key": key, "value": row[i], "depth": depth, "children": [], "row": None}
+                node = {"key": key, "value": row[i], "depth": depth, "children": [], "row": None, "path": {c["key"]: row[j] for j, c in dims[:depth + 1]}}
                 siblings.append(node)
             siblings = node["children"]
         if node is not None:
@@ -89,7 +105,8 @@ def hierarchy(columns: list[dict], rows: list[list]) -> dict:
         for node in nodes:
             if node["children"]:
                 total(node["children"])
-                node["totals"] = [_combine(c["aggregate"], [(child["row"][m] if child["row"] else child["totals"][m]) for child in node["children"]]) for m, (_, c) in enumerate(meas)]
+                node["totals"] = [(lambda e: e if e is not None else _combine(c["aggregate"], [(child["row"][m] if child["row"] else child["totals"][m]) for child in node["children"]]))(_exact(totals, node["path"], m))
+                                  for m, (_, c) in enumerate(meas)]
             else:
                 node["totals"] = [v if isinstance(v, Number) else None for v in (node["row"] or [])]
 
@@ -103,6 +120,6 @@ def hierarchy(columns: list[dict], rows: list[list]) -> dict:
             walk(node["children"])
 
     walk(roots)
-    grand = [_combine(c["aggregate"], [node["totals"][m] for node in roots]) for m, (_, c) in enumerate(meas)]
+    grand = [(lambda e: e if e is not None else _combine(c["aggregate"], [node["totals"][m] for node in roots]))(_exact(totals, {}, m)) for m, (_, c) in enumerate(meas)]
     return {"levels": [c for _, c in dims], "measures": [c for _, c in meas], "header": [" / ".join(c["label"] for _, c in dims), *(c["label"] for _, c in meas)],
             "rows": lines, "total": ["Total", *grand]}

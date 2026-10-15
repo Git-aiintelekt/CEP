@@ -25,17 +25,18 @@ export function ReportViewerPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const report = useReport(id)
-  const run = useRun(id, {})
+  const [view, setView] = useState<ReportView | null>(null)
+  const askedView = view ?? report.data?.definition.view
+  const run = useRun(report.data ? id : undefined, askedView && (askedView.type === 'pivot' || askedView.type === 'hierarchy') ? { view: { type: askedView.type, across: askedView.across } } : {})
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null)
-  const [view, setView] = useState<ReportView | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const [shownVersion, setShownVersion] = useState<number | null>(null)
   const versions = useVersions(versionsOpen || shownVersion !== null ? id : undefined)
   const old = shownVersion === null ? null : versions.data?.versions.find((v) => v.version === shownVersion) ?? null
   const oldRun = useQuery({
     queryKey: ['insights', 'version-run', id, shownVersion],
-    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: old?.definition as never }),
+    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: old?.definition as never, ...(view ? { view } : {}) }),
     enabled: Boolean(old && report.data),
     retry: false,
   })

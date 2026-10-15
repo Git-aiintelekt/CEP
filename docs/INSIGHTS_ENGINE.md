@@ -85,6 +85,15 @@ anyone with `report.edit` makes one, its maker or a report administrator renames
 filed nowhere), and the report's owner moves it from the viewer's Folder select. The Reports list filters by folder,
 or by no folder, and shows the folder under the name.
 
+## The engine's totals
+
+A run or a preview for a hierarchy or a pivot (the definition's view, or the `view` in the body when the viewer
+switches without saving; a tile's own view) carries `totals`: the engine totals the same rows a second time with
+GROUPING SETS (`compiler.compile_totals`), every prefix of the hierarchy's dimensions and the whole, or the pivot's
+rows, columns and the whole. One entry per total: the dimension values kept and the measures. The views and the Excel
+export take the engine's total where there is one and combine the rows shown only where there is none, so averages
+and distinct counts subtotal exactly and a truncated run still totals everything. The totals are cached with the run.
+
 ## The Excel export
 
 `GET /insights/reports/<id>/export.xlsx` (`apps/insights/excel.py`, XlsxWriter) is the report in its saved view as a

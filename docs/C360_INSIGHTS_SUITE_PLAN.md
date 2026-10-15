@@ -130,7 +130,7 @@ rows; Phase D makes their totals exact and takes them to Excel.
   Done 2026-10-16 (`xlsxwriter` added to the backend's requirements).
 - **D2, exact totals in the engine**: a run can ask for totals; the compiler adds GROUPING SETS for the hierarchy's
   levels and the pivot's row, column and grand totals, so averages and distinct counts are exact and a truncated run
-  still totals everything. The views and the export prefer the engine's totals.
+  still totals everything. The views and the export prefer the engine's totals. Done 2026-10-16.
 - **D3, reordering by drag** in Field Wells (dnd-kit), on the user's say; hierarchy datasets (dimensions that form a
   natural tree) wait for a dataset that needs them.
 

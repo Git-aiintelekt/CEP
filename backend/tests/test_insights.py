@@ -87,6 +87,21 @@ def test_definition_and_compiler(check):
           masked_rows == [[runner.MASK, 4], [runner.MASK, 1], [None, 2]] and masked_columns[0].get("masked") is True and "masked" not in masked_columns[1], str(masked_rows))
     check("a reader with the right gets the rows as they are", runner.mask(DATASET, columns, rows, False) == (columns, rows))
 
+    # the engine's totals: the grouping sets a view needs, and their query
+    d2 = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}, {"field": "messages", "aggregate": "count"}],
+                                       "filters": {"rules": [{"field": "channel", "operator": "=", "value": "EMAIL"}]}})
+    check("a hierarchy totals every prefix of its dimensions and the whole; a pivot its rows, its columns and the whole; a grid nothing",
+          compiler.totals_sets(d2, {"type": "hierarchy"}) == [(), ("channel",)] and compiler.totals_sets(d2, {"type": "pivot", "across": "submitted_at"}) == [(), ("channel",), ("submitted_at",)]
+          and compiler.totals_sets(d2, {"type": "grid"}) is None and compiler.totals_sets(d2, {"type": "pivot"}) is None)
+    t = compiler.compile_totals(DATASET, d2, "a0000000-0000-4000-8000-000000000001", "America/New_York", [(), ("channel",), ("submitted_at",)], limit=5000)
+    check("the totals query computes the dimensions once in a subquery and totals them by GROUPING SETS, with GROUPING last, every placeholder bound",
+          t.sql.startswith('SELECT "d0", "d1", sum("m0") AS "v0", count("m1") AS "v1", GROUPING("d0", "d1") AS "g" FROM (SELECT "channel" AS "d0", date_trunc(%s, "submitted_at" AT TIME ZONE %s)::date AS "d1", "sent_n" AS "m0", "message_id" AS "m1" FROM')
+          and 'GROUP BY GROUPING SETS ((), ("d0"), ("d1")) LIMIT %s' in t.sql and t.sql.count("%s") == len(t.params) and t.params[-1] == 5000, t.sql)
+    check("exact totals win over combining the rows: an average subtotal comes from the engine",
+          shape.hierarchy([{"key": "channel", "label": "Channel", "type": "string", "format": None}, {"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"},
+                           {"key": "opened", "label": "Opened", "type": "number", "format": "integer", "aggregate": "avg"}],
+                          [["EMAIL", "2026-09-01", 10.5], ["EMAIL", "2026-08-01", 9.0]], totals=[{"keys": {"channel": "EMAIL"}, "values": [9.9]}, {"keys": {}, "values": [9.9]}])["rows"][0][2] == ["EMAIL", 9.9])
+
     # the pivot and the hierarchy as tables (the Excel export), and the workbook itself
     cols = [{"key": "channel", "label": "Channel", "type": "string", "format": None}, {"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"},
             {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}, {"key": "opened", "label": "Opened", "type": "number", "format": "integer", "aggregate": "avg"}]
@@ -160,6 +175,10 @@ def test_api(check, world):
     check("the list shows it under its component with its dataset's label", any(r["id"] == rid and r["component"]["key"] == "cep" and r["dataset_label"] == "Messages" and r["can_edit"] for r in listed))
     run = world.api("post", f"/api/v1/insights/reports/{rid}/run/", {"limit": 10})
     check("a saved report runs and is stamped", run.status_code == 200 and run.json()["limit"] == 10 and world.api("get", f"/api/v1/insights/reports/{rid}/").json()["last_run_at"], run.content[:200])
+    as_pivot = world.api("post", f"/api/v1/insights/reports/{rid}/run/", {"limit": 10, "view": {"type": "pivot", "across": "channel"}})
+    pv_body = as_pivot.json() if as_pivot.status_code == 200 else {}
+    check("run as a pivot, the engine totals the rows, the columns and the whole", as_pivot.status_code == 200 and isinstance(pv_body.get("totals"), list)
+          and any(t["keys"] == {} and len(t["values"]) == 2 for t in pv_body["totals"]) and all(set(t["keys"]) <= {"campaign_name", "channel"} for t in pv_body["totals"]), as_pivot.content[:300])
     changed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Sends by campaign and channel", "visibility": "WORKSPACE",
                                                                    "definition": {**draft["definition"], "limit": 100, "view": {"type": "pivot", "across": "channel"}}, "note": "Shared with the workspace"})
     check("the report's view follows the definition", changed.status_code == 200 and changed.json()["view_type"] == "pivot" and changed.json()["definition"]["view"] == {"type": "pivot", "across": "channel"}, changed.content[:200])
