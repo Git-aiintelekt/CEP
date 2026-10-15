@@ -112,6 +112,15 @@ export interface Report extends Omit<ReportSummary, 'dataset_label' | 'component
   created_at: string
 }
 
+export interface ReportVersion {
+  version: number
+  view_type: ViewType
+  note: string | null
+  changed_at: string
+  changed_by_name: string | null
+  definition: ReportDefinition
+}
+
 export interface ResultColumn {
   key: string
   label: string

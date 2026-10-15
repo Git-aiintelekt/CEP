@@ -146,6 +146,12 @@ def test_api(check, world):
           and [v["version"] for v in world.api("get", f"/api/v1/insights/reports/{rid}/versions/").json()["versions"]] == [2, 1], changed.content[:200])
     stale = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Too late"})
     check("a stale change is a 409", stale.status_code == 409)
+    history = world.api("get", f"/api/v1/insights/reports/{rid}/versions/").json()["versions"]
+    check("every version carries its definition", history[0]["version"] == 2 and history[0]["definition"]["limit"] == 100 and "limit" not in history[1]["definition"], str(history)[:200])
+    restored = world.api("post", f"/api/v1/insights/reports/{rid}/versions/1/restore/", {})
+    check("restoring version 1 makes version 3 from its definition, and says so", restored.status_code == 200 and restored.json()["version"] == 3 and "limit" not in restored.json()["definition"]
+          and world.api("get", f"/api/v1/insights/reports/{rid}/versions/").json()["versions"][0]["note"] == "Restored from version 1", restored.content[:200])
+    check("a version that never was is 404", world.api("post", f"/api/v1/insights/reports/{rid}/versions/9/restore/", {}).status_code == 404)
     export = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv")
     text = b"".join(export.streaming_content).decode() if export.status_code == 200 else ""
     check("the export streams a CSV with the labels as its header", export.status_code == 200 and text.startswith("Campaign,Channel,Sent Count,Messages") and "attachment" in export["Content-Disposition"], text[:120])
@@ -157,7 +163,7 @@ def test_api(check, world):
     twice = world.api("post", "/api/v1/insights/folders/", {"name": "finance"})
     check("a folder name is unique, whatever the case", twice.status_code == 400)
     filed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": world.api("get", f"/api/v1/insights/reports/{rid}/").json()["row_version"], "folder_id": folder["id"]})
-    check("a report is filed in a folder without a new version", filed.status_code == 200 and filed.json()["folder_id"] == folder["id"] and filed.json()["version"] == 2, filed.content[:200])
+    check("a report is filed in a folder without a new version", filed.status_code == 200 and filed.json()["folder_id"] == folder["id"] and filed.json()["version"] == 3, filed.content[:200])
     check("the star goes on and shows in the list, first", world.api("put", f"/api/v1/insights/favourites/report/{rid}/").status_code == 204
           and next(r for r in world.api("get", "/api/v1/insights/reports/").json()["reports"] if r["id"] == rid)["favourite"] is True)
     in_folder = world.api("get", f"/api/v1/insights/reports/?folder={folder['id']}").json()["reports"]

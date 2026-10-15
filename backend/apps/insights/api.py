@@ -257,9 +257,37 @@ class ReportVersionsView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None, report_id=None):
         _report_row(report_id, request)
-        rows = _q("""SELECT v.version, v.view_type, v.note, v.changed_at, u.display_name AS changed_by_name FROM report_version v
+        rows = _q("""SELECT v.version, v.view_type, v.note, v.changed_at, u.display_name AS changed_by_name, v.definition FROM report_version v
                      LEFT JOIN app_user u ON u.id = v.changed_by WHERE v.report_id = %s ORDER BY v.version DESC""", [str(report_id)])
-        return Response({"versions": rows})
+        import json
+        return Response({"versions": [{**r, "definition": json.loads(r["definition"]) if isinstance(r["definition"], str) else r["definition"]} for r in rows]})
+
+
+class ReportVersionRestoreView(APIView):
+    """An earlier version becomes the current one again, as a new version, so nothing is lost. Its definition is checked
+    against today's catalogue, as any save is."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def post(self, request, version=None, report_id=None, number=None):
+        row = _report_row(report_id, request)
+        if not _may_edit(request, row):
+            raise PermissionDenied("Only the report's owner, or a report administrator, can restore a version.")
+        old = _q("SELECT definition, view_type FROM report_version WHERE report_id = %s AND version = %s", [str(report_id), int(number)])
+        if not old:
+            raise NotFound("No such version.")
+        import json
+        definition_raw = json.loads(old[0]["definition"]) if isinstance(old[0]["definition"], str) else old[0]["definition"]
+        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(context.require().tenant_id)["limits"]["run_rows"])
+        new_version = row["version"] + 1
+        view_type = (definition.get("view") or {}).get("type", old[0]["view_type"])
+        tenant_id = context.require().tenant_id
+        with session.tx():
+            _q("""UPDATE report SET definition = %s, version = %s, view_type = %s, updated_by = %s, updated_at = now(), row_version = row_version + 1 WHERE id = %s""",
+               [json.dumps(definition), new_version, view_type, str(request.user.pk), str(report_id)])
+            _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+               [tenant_id, str(report_id), new_version, json.dumps(definition), view_type, f"Restored from version {int(number)}", str(request.user.pk)])
+        return Response(_serialize(_report_row(report_id, request)))
 
 
 def _run_body(request) -> tuple[int | None, int]:
