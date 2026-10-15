@@ -12,17 +12,17 @@
         <div>
             {% if service and service.api_key_enc %}
                 {% if service.last_check_ok %}<span class="cep-pill" data-kind="success">Connected · checked {{ service.last_checked_at|date:"M j, H:i" }}</span>
-                {% elif service.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Check failed</span>
-                {% else %}<span class="cep-pill" data-kind="warning">Not checked yet</span>{% endif %}
-                {% if not service.is_active %}<span class="cep-pill" data-kind="warning">Switched off</span>{% endif %}
-            {% else %}<span class="cep-pill">Not set up</span>{% endif %}
+                {% elif service.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Check Failed</span>
+                {% else %}<span class="cep-pill" data-kind="warning">Not Checked Yet</span>{% endif %}
+                {% if not service.is_active %}<span class="cep-pill" data-kind="warning">Switched Off</span>{% endif %}
+            {% else %}<span class="cep-pill" data-kind="info">Not Set Up</span>{% endif %}
         </div>
     </div>
 
     {% if service and service.last_check_ok is False and service.last_check_error %}
-        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;color:var(--cep-bad);font-size:0.8125rem">{{ service.last_check_error }}</div>
+        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;color:var(--cep-bad-text);font-size:13px">{{ service.last_check_error }}</div>
     {% elif not service %}
-        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;font-size:0.8125rem">Until this is set up, only workspaces with their own Mailgun account can run inbox previews.</div>
+        <div class="cep-card" style="padding:0.75rem 1.125rem;margin-bottom:1rem;font-size:13px">Until this is set up, only workspaces with their own Mailgun account can run inbox previews.</div>
     {% endif %}
 
     <section class="cep-card" style="padding:1.125rem">
@@ -31,9 +31,9 @@
                 {% for field in form %}
                     <div{% if field.name == "default_clients" %} style="grid-column:1 / -1"{% endif %}>
                         {% if field.field.widget.input_type == "checkbox" %}
-                            <label style="display:flex;gap:0.5rem;align-items:center;font-size:0.875rem;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+                            <label style="display:flex;gap:0.5rem;align-items:center;font-size:15px;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
                         {% else %}
-                            <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span style="color:var(--cep-bad)">*</span>{% endif %}</label>
+                            <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span style="color:var(--cep-bad-text)">*</span>{% endif %}</label>
                             {{ field }}
                         {% endif %}
                         {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
@@ -43,8 +43,8 @@
             </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
                 {% if service and service.api_key_enc %}
-                    <button type="submit" name="action" value="remove" class="cep-button" style="background:var(--cep-surface);color:var(--cep-bad);border:1px solid var(--cep-line)" formnovalidate>Remove</button>
-                    <button type="submit" name="action" value="check" class="cep-button" style="background:var(--cep-surface);color:var(--cep-text);border:1px solid var(--cep-line)" formnovalidate>Check Connection</button>
+                    <button type="submit" name="action" value="remove" class="cep-button cep-button-danger" formnovalidate>Remove</button>
+                    <button type="submit" name="action" value="check" class="cep-button cep-button-quiet" formnovalidate>Check Connection</button>
                 {% endif %}
                 <button type="submit" name="action" value="save" class="cep-button">Save</button>
             </div>
@@ -52,9 +52,9 @@
     </section>
 
     <section class="cep-card" style="padding:0;margin-top:1rem">
-        <table style="width:100%;border-collapse:collapse;font-size:0.8125rem">
+        <table class="cep-plain-table">
             <caption class="cep-muted" style="text-align:left;padding:0.875rem 1.125rem 0.5rem">{{ month|date:"F Y" }} through this account, by workspace</caption>
-            <thead><tr style="text-align:left;color:var(--cep-text-subtle);font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.04em">
+            <thead><tr class="cep-thead">
                 <th style="padding:0.5rem 1.125rem">Workspace</th><th style="padding:0.5rem">Plan</th><th style="padding:0.5rem;text-align:right">Used</th><th style="padding:0.5rem;text-align:right">Of</th><th style="padding:0.5rem"></th></tr></thead>
             <tbody>
             {% for row in use %}

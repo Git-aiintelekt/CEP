@@ -53,7 +53,7 @@ class PlanComponentInline(admin.TabularInline):
     fk_name = "plan"
     extra = 0
     verbose_name = "component"
-    verbose_name_plural = "Components included"
+    verbose_name_plural = "Components Included"
     fields = ("component",)
 
     def get_queryset(self, request):

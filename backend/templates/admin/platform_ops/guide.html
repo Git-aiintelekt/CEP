@@ -7,7 +7,7 @@
     <div class="cep-pagehead">
         <div>
             <h1>{% if current %}{{ current.title }}{% else %}Platform Guide{% endif %}</h1>
-            <p>{% if current %}From the CEP Platform Guide · <a class="cep-link" href="{% url 'admin:platform_ops_guide' %}">All chapters</a>{% else %}For the platform team: every section of the back-office, chapter by chapter. The same text ships as docs/manuals/CEP_Platform_Guide.docx.{% endif %}</p>
+            <p>{% if current %}From the CEP Platform Guide · <a class="cep-link" href="{% url 'admin:platform_ops_guide' %}">All Chapters</a>{% else %}For the platform team: every section of the back-office, chapter by chapter. The same text ships as docs/manuals/CEP_Platform_Guide.docx.{% endif %}</p>
         </div>
     </div>
 
@@ -25,7 +25,7 @@
             {% if current %}
                 {{ current.html|safe }}
             {% else %}
-                <h2>Where to start</h2>
+                <h2>Where to Start</h2>
                 <p>Onboarding a customer: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'onboarding' %}">Onboarding a Tenant</a>, then <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'industry-and-features' %}">Industry Profiles and Features</a> and <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'plans-and-billing' %}">Plans, Subscriptions, Usage and Invoices</a>. The installation's defaults: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'global-parameters' %}">Global Parameters</a>. What to watch: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'jobs-and-checks' %}">Jobs, Alerts and System Checks</a>.</p>
                 <p>Workspace users have their own guide, the C360 User Guide, shown inside the app behind the help icon on every page.</p>
             {% endif %}

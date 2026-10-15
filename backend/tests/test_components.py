@@ -75,7 +75,7 @@ def test_back_office_decides(check, world):
             cursor.execute("SELECT id::text FROM subscription_plan ORDER BY code LIMIT 1")
             plan_id = cursor.fetchone()[0]
         plan = admin.get(f"/admin/tenants/subscriptionplan/{plan_id}/change/")
-        check("a plan's page carries its components inline", plan.status_code == 200 and "Components included" in plan.content.decode())
+        check("a plan's page carries its components inline", plan.status_code == 200 and "Components Included" in plan.content.decode())
 
         before = [c["key"] for c in world.api("get", "/api/v1/me/").json()["components"]]
         saved = admin.post(f"/admin/tenants/tenant/{T}/components/", {"on_insights": "1", "access_insights": "TRIAL", "until_insights": "2099-01-01"})

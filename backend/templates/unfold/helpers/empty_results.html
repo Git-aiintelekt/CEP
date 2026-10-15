@@ -1,0 +1,27 @@
+{% load admin_urls %}
+{% comment %}Unfold's empty list in the CEP empty state: a title, one sentence that says what to do, title-case buttons.{% endcomment %}
+
+{% url cl.opts|admin_urlname:"add" as add_url %}
+
+<div class="cep-empty {% if cl.search_fields %}rounded-b-default{% else %}rounded-default{% endif %}">
+    {% if not cl.is_dataset %}<span class="material-symbols-outlined cep-empty-icon" aria-hidden="true">inbox</span>{% endif %}
+
+    {% if cl.query or cl.has_active_filters %}
+        <h2>No matching {{ cl.opts.verbose_name_plural }}</h2>
+        <p>Try another search or clear the filters.</p>
+    {% else %}
+        <h2>No {{ cl.opts.verbose_name_plural }} yet</h2>
+        <p>{% if has_add_permission %}Add the first one, or they appear here as soon as they are recorded.{% else %}They appear here as soon as they are recorded.{% endif %}</p>
+    {% endif %}
+
+    {% if has_add_permission or cl.has_active_filters or cl.query %}
+        <div class="cep-empty-actions">
+            {% if cl.has_active_filters or cl.query %}
+                <a href="?" class="cep-button cep-button-quiet">Clear Filters</a>
+            {% endif %}
+            {% if has_add_permission %}
+                <a href="{% add_preserved_filters add_url is_popup to_field %}" class="cep-button">Add {{ cl.opts.verbose_name|title }}</a>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>

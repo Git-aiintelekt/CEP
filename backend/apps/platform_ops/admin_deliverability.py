@@ -35,15 +35,15 @@ CLIENTS_KEY = "cep:inspect-clients:platform"
 class InspectAccountForm(forms.Form):
     region = forms.ChoiceField(label="Region", choices=(("US", "US"), ("EU", "EU")), widget=UnfoldAdminSelectWidget,
                                help_text="Where the Mailgun account lives: api.mailgun.net (US) or api.eu.mailgun.net (EU).")
-    username = forms.CharField(label="Account username", max_length=200, widget=UnfoldAdminTextInputWidget,
+    username = forms.CharField(label="Account Username", max_length=200, widget=UnfoldAdminTextInputWidget,
                                help_text="Mailgun → Inspect → Settings → API.")
-    api_key = forms.CharField(label="API key", required=False, max_length=500,
+    api_key = forms.CharField(label="API Key", required=False, max_length=500,
                               widget=UnfoldAdminTextInputWidget(attrs={"type": "password", "autocomplete": "new-password"}),
                               help_text="Stored encrypted and never shown again. Leave empty to keep the saved key.")
-    default_clients = forms.MultipleChoiceField(label="Default clients", required=False, widget=UnfoldAdminSelectMultipleWidget,
+    default_clients = forms.MultipleChoiceField(label="Default Clients", required=False, widget=UnfoldAdminSelectMultipleWidget,
                                                 help_text="What a workspace's test renders in unless the workspace picks its own. None: Mailgun's default set.")
-    image_blocking = forms.BooleanField(label="Render with images blocked", required=False, widget=UnfoldBooleanSwitchWidget)
-    is_active = forms.BooleanField(label="Workspaces may use this account", required=False, initial=True, widget=UnfoldBooleanSwitchWidget)
+    image_blocking = forms.BooleanField(label="Render with Images Blocked", required=False, widget=UnfoldBooleanSwitchWidget)
+    is_active = forms.BooleanField(label="Workspaces May Use This Account", required=False, initial=True, widget=UnfoldBooleanSwitchWidget)
 
     def __init__(self, *args, clients=(), saved_key=False, **kwargs):
         super().__init__(*args, **kwargs)
@@ -132,7 +132,7 @@ def inspect_account_view(request):
 
 # ---------------------------------------------------------------- tests added to one workspace
 class AddTestsForm(forms.Form):
-    amount = forms.IntegerField(label="Tests to add", min_value=1, max_value=100000, widget=UnfoldAdminTextInputWidget(attrs={"inputmode": "numeric"}))
+    amount = forms.IntegerField(label="Tests to Add", min_value=1, max_value=100000, widget=UnfoldAdminTextInputWidget(attrs={"inputmode": "numeric"}))
     note = forms.CharField(label="Note", max_length=300, required=False, widget=UnfoldAdminTextInputWidget,
                            help_text="Why, for the history: e.g. Black Friday campaign checks.")
 

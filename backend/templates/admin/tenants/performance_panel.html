@@ -4,7 +4,7 @@
     <div class="cep-section-head">
         <h2 id="cep-performance">Performance</h2>
         {% if performance %}{% if performance.grade == 'bad' %}<span class="cep-pill" data-kind="danger">Trouble</span>{% elif performance.grade == 'warn' %}<span class="cep-pill" data-kind="warning">Watch</span>{% else %}<span class="cep-pill">Healthy</span>{% endif %}{% endif %}
-        <span>last 24 hours · <a class="cep-link" href="{% url 'admin:tenants_tenant_performance_detail' original.pk %}">Open performance →</a></span>
+        <span>last 24 hours · <a class="cep-link" href="{% url 'admin:tenants_tenant_performance_detail' original.pk %}">Open Performance →</a></span>
     </div>
     {% if performance %}
     <div class="cep-grid cep-grid-kpi">

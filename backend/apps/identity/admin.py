@@ -55,10 +55,10 @@ class AppUserAdmin(BaseAdmin):
     actions_detail = ("password_link", "support_session")
     fieldsets = (
         ("Person", {"fields": ("tenant", "email", "display_name")}),
-        ("Sign-in", {"fields": ("auth_provider", "external_subject_id", "is_active", "mfa_enabled", "last_login"),
+        ("Sign-In", {"fields": ("auth_provider", "external_subject_id", "is_active", "mfa_enabled", "last_login"),
                      "description": "Passwords are never typed here. Use “Create password link” and send the link to the user."}),
-        ("Roles in the tenant", {"fields": ("roles",)}),
-        ("Platform staff", {"fields": ("is_staff", "is_platform_admin"),
+        ("Roles in the Tenant", {"fields": ("roles",)}),
+        ("Platform Staff", {"fields": ("is_staff", "is_platform_admin"),
                             "description": "Staff can open this back-office. Platform administrators can change everything in it, for every tenant."}),
         ("System", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
@@ -101,7 +101,7 @@ class AppUserAdmin(BaseAdmin):
         for user in queryset.filter(is_active=False):
             self.set_fields(request, user, is_active=True)
 
-    @action(description="Create password link", url_path="password-link")
+    @action(description="Create Password Link", url_path="password-link")
     def password_link(self, request, object_id):
         from django.shortcuts import redirect
         user = AppUser.objects.using(P).select_related("tenant").get(pk=object_id)
@@ -120,7 +120,7 @@ class AppUserAdmin(BaseAdmin):
         return redirect("admin:identity_appuser_change", object_id)
 
 
-    @action(description="Sign in as this user (support session)", url_path="support-session")
+    @action(description="Sign In as This User (support session)", url_path="support-session")
     def support_session(self, request, object_id):
         from apps.platform_ops import support
         return support.admin_view(self, request, object_id)

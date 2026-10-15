@@ -12,7 +12,7 @@
     {% if link %}
         {% component "unfold/components/card.html" with title="Session opened" %}
             <p class="text-sm mb-4">Open the application as {{ target.display_name }} in a new tab. Close that tab, or press “End support session” in the banner, when you are done.</p>
-            <a class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white" href="{{ link }}" target="_blank" rel="noopener">Open the application</a>
+            <a class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white" href="{{ link }}" target="_blank" rel="noopener">Open the Application</a>
         {% endcomponent %}
     {% else %}
         {% component "unfold/components/card.html" %}
@@ -25,10 +25,10 @@
                 {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
             </div>
         {% endfor %}
-                <button type="submit" class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white">Open support session</button>
+                <button type="submit" class="bg-primary-600 border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-sm text-white">Open Support Session</button>
             </form>
         {% endcomponent %}
     {% endif %}
-    <a class="text-primary-600 text-sm dark:text-primary-500" href="{% url 'admin:identity_appuser_change' target.pk %}">Back to the user</a>
+    <a class="text-primary-600 text-sm dark:text-primary-500" href="{% url 'admin:identity_appuser_change' target.pk %}">Back to the User</a>
 </div>
 {% endblock %}

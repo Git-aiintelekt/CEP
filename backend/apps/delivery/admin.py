@@ -24,7 +24,7 @@ class DeliveryProviderAdmin(BaseAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    @display(description="Last check", label={"OK": "success", "Failed": "danger", "Never": "info"})
+    @display(description="Last Check", label={"OK": "success", "Failed": "danger", "Never": "info"})
     def show_check(self, obj):
         return "Never" if obj.last_check_ok is None else "OK" if obj.last_check_ok else "Failed"
 
