@@ -1,4 +1,5 @@
 from apps.insights import api as insights_api
+from apps.insights import dashboards as insights_dashboards
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -123,6 +124,9 @@ urlpatterns = [
     path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
     path("insights/reports/<uuid:report_id>/export.csv", insights_api.ExportView.as_view(), name="insights-report-export"),
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
+    path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),
+    path("insights/dashboards/<uuid:dashboard_id>/", insights_dashboards.DashboardView.as_view(), name="insights-dashboard"),
+    path("insights/dashboards/<uuid:dashboard_id>/tiles/<slug:tile_id>/run/", insights_dashboards.TileRunView.as_view(), name="insights-dashboard-tile-run"),
     path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
     path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

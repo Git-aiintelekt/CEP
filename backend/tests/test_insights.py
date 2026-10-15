@@ -7,7 +7,9 @@ import pytest
 from django.conf import settings
 from django.db import connections
 
-from apps.insights import catalog, compiler, definition, runner
+from datetime import date
+
+from apps.insights import catalog, compiler, dashboards, definition, runner
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -79,18 +81,27 @@ def test_definition_and_compiler(check):
     check("a reader without the right gets the PII column's values masked and the column marked; empty values stay empty",
           masked_rows == [[runner.MASK, 4], [runner.MASK, 1], [None, 2]] and masked_columns[0].get("masked") is True and "masked" not in masked_columns[1], str(masked_rows))
     check("a reader with the right gets the rows as they are", runner.mask(DATASET, columns, rows, False) == (columns, rows))
+
+    # dashboards: the period's bounds, and the period as one more rule on the time field
+    check("this month runs from the 1st to today, the previous period is the same length just before",
+          dashboards.period_bounds({"preset": "month"}, date(2026, 10, 15)) == {"from": "2026-10-01", "to": "2026-10-15", "previous_from": "2026-09-16", "previous_to": "2026-09-30"})
+    check("the quarter starts on its first day", dashboards.period_bounds({"preset": "quarter"}, date(2026, 11, 3))["from"] == "2026-10-01")
+    shaped = dashboards._with_period(raw, "submitted_at", "2026-09-01", "2026-09-30")
+    check("the period is and-ed onto the report's own rules, and a report with its own rule on the time field is left alone",
+          shaped["filters"]["rules"][-1] == {"field": "submitted_at", "operator": "between", "value": ["2026-09-01", "2026-09-30"]} and len(shaped["filters"]["rules"]) == 4
+          and dashboards._has_time_rule(raw["filters"], "submitted_at") and not dashboards._has_time_rule({"rules": [{"field": "channel", "operator": "=", "value": "x"}]}, "submitted_at"))
     check.done()
 
 
 def _tables_present() -> bool:
     with connections[P].cursor() as cursor:
-        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit')")
-        return cursor.fetchone()[0] == 3
+        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit', 'dashboard')")
+        return cursor.fetchone()[0] == 4
 
 
 def test_api(check, world):
     if not _tables_present():
-        pytest.skip("patch 0049 has not been applied to this database")
+        pytest.skip("patches 0049 and 0050 have not been applied to this database")
     me = world.api("get", "/api/v1/me/").json()
     check("the workspace has Insights (Beta, on every plan) and /me says how it is offered", any(c["key"] == "insights" for c in me["components"]) and me["insights"]["mode"] in ("integrated", "standalone", "both"), str(me.get("insights")))
 
@@ -133,6 +144,32 @@ def test_api(check, world):
     export = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv")
     text = b"".join(export.streaming_content).decode() if export.status_code == 200 else ""
     check("the export streams a CSV with the labels as its header", export.status_code == 200 and text.startswith("Campaign,Channel,Sent Count,Messages") and "attachment" in export["Content-Disposition"], text[:120])
+
+    # dashboards (Phase C): rows of tiles over the report, one period for every tile
+    made = world.api("post", "/api/v1/insights/dashboards/", {"name": "Marketing Weekly"})
+    dash = made.json() if made.status_code == 201 else {}
+    check("a dashboard starts empty, private, on the last 30 days", made.status_code == 201 and dash["layout"] == {"rows": []} and dash["period"] == {"preset": "30d"}
+          and dash["visibility"] == "PRIVATE" and dash["bounds"]["from"] < dash["bounds"]["to"], made.content[:200])
+    did = dash.get("id")
+    layout = {"rows": [{"width": "2-1", "tiles": [{"id": "t1", "report_id": rid, "show": "chart", "title": "Sends by campaign"}, {"id": "t2", "report_id": rid, "show": "figure", "measure": "sent"}]}]}
+    saved = world.api("put", f"/api/v1/insights/dashboards/{did}/", {"row_version": dash["row_version"], "layout": layout, "period": {"preset": "7d"}, "compare": True, "note": "First tiles"})
+    check("tiles save as version 2 with the period and the comparison", saved.status_code == 200 and saved.json()["version"] == 2 and saved.json()["compare"] is True
+          and len(saved.json()["layout"]["rows"][0]["tiles"]) == 2, saved.content[:300])
+    bad = world.api("put", f"/api/v1/insights/dashboards/{did}/", {"row_version": saved.json()["row_version"],
+                                                                    "layout": {"rows": [{"width": "1", "tiles": [{"id": "x", "report_id": "00000000-0000-4000-8000-000000000000", "show": "grid"}]}]}})
+    check("a tile on a report one cannot open is refused where it sits", bad.status_code == 400 and "layout.rows[0].tiles[0].report_id" in json.dumps(bad.json()), bad.content[:200])
+    figure = world.api("post", f"/api/v1/insights/dashboards/{did}/tiles/t2/run/", {})
+    fig = figure.json() if figure.status_code == 200 else {}
+    check("a figure tile answers the measure over the period, with the previous period beside it", figure.status_code == 200 and fig.get("kind") == "figure" and fig["compared"] is True
+          and fig["column"]["key"] == "sent" and fig["own_dates"] is False, figure.content[:300])
+    view = world.api("post", f"/api/v1/insights/dashboards/{did}/tiles/t1/run/", {"period": {"preset": "custom", "from": "2026-09-01", "to": "2026-09-30"}})
+    vw = view.json() if view.status_code == 200 else {}
+    check("a view tile answers the rows in the tile's view for the period asked", view.status_code == 200 and vw.get("kind") == "view" and vw["view"]["type"] == "chart"
+          and vw["bounds"] == {"from": "2026-09-01", "to": "2026-09-30", "previous_from": "2026-08-02", "previous_to": "2026-08-31"} and isinstance(vw["result"]["rows"], list), view.content[:300])
+    listed_d = world.api("get", "/api/v1/insights/dashboards/").json()["dashboards"]
+    check("the list counts the tiles", any(d["id"] == did and d["tiles"] == 2 and d["can_edit"] for d in listed_d), str(listed_d)[:200])
+    check("a deleted dashboard is gone", world.api("delete", f"/api/v1/insights/dashboards/{did}/").status_code == 204
+          and not any(d["id"] == did for d in world.api("get", "/api/v1/insights/dashboards/").json()["dashboards"]))
 
     audit = world.sql("SELECT kind, outcome FROM report_run_audit WHERE report_id = %s OR (report_id IS NULL AND dataset_key = 'messages') ORDER BY id", [rid], fetch=True)
     check("every preview, run and export is audited with its outcome", ("preview", "OK") in audit and ("run", "OK") in audit and ("export", "OK") in audit, str(audit))

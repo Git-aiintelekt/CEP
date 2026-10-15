@@ -2041,6 +2041,56 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON report_folder, report, report_version, r
 GRANT SELECT, INSERT ON report_run_audit TO cep_app;
 GRANT USAGE, SELECT ON SEQUENCE report_run_audit_id_seq TO cep_app;
 GRANT ALL ON report_dataset, report_field, report_dataset_source, report_engine_setting, report_folder, report, report_version, report_share, report_run_audit TO cep_admin;
+
+-- ---- dashboards (Phase C): rows of tiles over a workspace's reports, one period for every tile (apps/insights/dashboards.py)
+CREATE TABLE IF NOT EXISTS dashboard (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(200) NOT NULL,
+    description         TEXT,
+    visibility          VARCHAR(10) NOT NULL DEFAULT 'PRIVATE',           -- PRIVATE (the owner), WORKSPACE (everyone with report.view)
+    period              JSONB NOT NULL DEFAULT '{"preset": "30d"}',       -- preset 7d, 30d, month, quarter or custom (from, to)
+    compare             BOOLEAN NOT NULL DEFAULT false,                   -- figures show the change against the previous period
+    layout              JSONB NOT NULL DEFAULT '{"rows": []}',            -- rows: [{width: 1 | 2 | 3 | 4 | 2-1, tiles: [{id, report_id, show, title, measure}]}]
+    owner_user_id       UUID REFERENCES app_user(id),
+    version             INTEGER NOT NULL DEFAULT 1,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_dashboard_name CHECK (btrim(name) <> ''),
+    CONSTRAINT ck_dashboard_visibility CHECK (visibility IN ('PRIVATE', 'WORKSPACE'))
+);
+CREATE INDEX IF NOT EXISTS ix_dashboard_tenant_live ON dashboard(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS dashboard_version (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dashboard_id        UUID NOT NULL REFERENCES dashboard(id) ON DELETE CASCADE,
+    version             INTEGER NOT NULL,
+    layout              JSONB NOT NULL,
+    period              JSONB NOT NULL,
+    note                VARCHAR(300),
+    changed_by          UUID REFERENCES app_user(id),
+    changed_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_dashboard_version UNIQUE (dashboard_id, version)
+);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['dashboard', 'dashboard_version'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard, dashboard_version TO cep_app;
+GRANT ALL ON dashboard, dashboard_version TO cep_admin;
 GRANT ALL ON SEQUENCE report_run_audit_id_seq TO cep_admin;
 
 -- ---- the first datasets: what Reports already shows, as catalogue entries

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insights dashboards: two layouts, the shared period, tiles, favourites, folders, versions and the run log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --danger-bg:#fae2e2; --danger-text:#a92e26; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --success-bg:#e3f5e5; --success-text:#1f6b2d; --callout-bg:#eef2fe; --callout-text:#312e7c;
+    --plum-100:#f4e4f1; --plum-700:#8a3375; --sidebar:#1b2a5a; --teal-100:#dff1f5; --teal-700:#1f6c80;
+    --chart-1:#3863db; --chart-2:#a8488f; --chart-3:#418eae; --chart-4:#9ea2ad; --chart-5:#b08a6e; --chart-6:#7570d4;
+    --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3,h4 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .part { max-width:1440px; margin:40px auto 4px; padding:0 16px; font:700 18px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label { max-width:1440px; margin:18px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.45 var(--font-sans); color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:start } .row.one { grid-template-columns:1fr }
+  @media (max-width:1000px) { .row { grid-template-columns:1fr } }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .frame .cap { font-size:12px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .app { display:grid; grid-template-columns:168px minmax(0,1fr); min-height:420px }
+  .rail { background:var(--sidebar); color:#fff; padding:16px 12px; font-size:13px } .rail b { display:block; margin:0 6px 2px; font-family:var(--font-display) } .rail small { display:block; margin:0 6px 14px; color:#c9d3f2; font-size:11px }
+  .rail a { display:block; padding:7px 10px; border-radius:6px; color:#c9d3f2 } .rail a.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600 }
+  .page { padding:18px 22px; min-width:0; background:var(--surface-subtle) }
+  .pagehead { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:10px 16px; margin-bottom:12px } .pagehead h1 { font-size:22px } .pagehead p { color:var(--ink-800); font-size:13px; margin-top:4px }
+  .btn { height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 13px var(--font-sans); display:inline-flex; align-items:center; gap:6px; color:var(--ink-900); white-space:nowrap }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:28px; padding:0 9px; font-size:12px } .btn.link { border:0; background:none; color:var(--brand-800); padding:0; height:auto } .btn.ghost { border-color:transparent }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap }
+  .tag.grey { background:var(--fill-subtle); color:var(--ink-800) } .tag.brand { background:var(--brand-100); color:var(--brand-800) } .tag.plum { background:var(--plum-100); color:var(--plum-700) } .tag.ok { background:var(--success-bg); color:var(--success-text) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) } .tag.bad { background:var(--danger-bg); color:var(--danger-text) }
+  table { width:100%; border-collapse:collapse; font-size:13px } th { text-align:left; font-size:12px; font-weight:600; color:var(--ink-800); padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap } td { padding:8px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top } td small { display:block; color:var(--ink-800); font-size:12px }
+  .num { font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap }
+  .star { color:var(--ink-300); font-size:14px } .star.on { color:var(--warning-text) }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px } .toolbar .end { margin-left:auto; display:flex; gap:8px; align-items:center; font-size:12px; color:var(--ink-800) }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:8px; overflow:hidden; background:#fff } .seg span { padding:5px 11px; font-size:12px; font-weight:600; border-right:1px solid var(--line) } .seg span:last-child { border-right:0 } .seg span.on { background:var(--brand-100); color:var(--brand-800) }
+  .ctl { height:30px; border:1px solid var(--line-control); border-radius:6px; padding:0 9px; display:inline-flex; align-items:center; gap:8px; background:#fff; font-size:12px; font-weight:600 } .ctl .chev { color:var(--ink-800); font-weight:400 }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; align-items:center } .chip { height:26px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font-size:12px; font-weight:600; display:inline-flex; align-items:center; background:#fff } .chip.on { background:var(--brand-100); border-color:var(--brand-100); color:var(--brand-800) }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; min-width:0; display:flex; flex-direction:column }
+  .card .head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--line-subtle) } .card .head h3 { font-size:13px } .card .head small { font-size:11px; color:var(--ink-800); white-space:nowrap } .card .head .dots { color:var(--ink-700); font-weight:700; letter-spacing:1px }
+  .card .body { padding:10px 12px; min-width:0; flex:1 }
+  .kpi .body { display:flex; flex-direction:column; gap:2px } .kpi b { font:600 26px/1.1 var(--font-display); font-variant-numeric:tabular-nums } .kpi small { font-size:12px; color:var(--ink-800) } .kpi .d { font-size:12px; font-weight:600; color:var(--success-text) } .kpi .d.down { color:var(--danger-text) }
+  .mini th, .mini td { padding:5px 8px; font-size:12px } .mini thead th { background:var(--surface-subtle) } .mini tr.grand td { font-weight:600; border-top:1px solid var(--line); border-bottom:0 } .mini tr.sub td { background:var(--surface-subtle); font-weight:600 } .l2 { padding-left:24px !important } .bl { border-left:1px solid var(--line-subtle) }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px } .legend span { display:inline-flex; align-items:center; gap:5px } .legend i { width:10px; height:10px; border-radius:2px; display:inline-block }
+  svg text { font:400 11px var(--font-sans); fill:var(--ink-800); font-variant-numeric:tabular-nums } .chartbox { width:100%; height:auto; display:block }
+  /* option 1: the free grid */
+  .grid12 { position:relative; display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); grid-auto-rows:92px; gap:12px; background-image:linear-gradient(var(--line-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--line-subtle) 1px, transparent 1px); background-size:calc(100% / 12) 104px; background-position:-1px -1px; padding:0 0 12px }
+  .grid12 > .card { position:relative } .grid12 > .card::after { content:""; position:absolute; right:3px; bottom:3px; width:9px; height:9px; border-right:2px solid var(--ink-300); border-bottom:2px solid var(--ink-300); border-radius:0 0 2px 0 }
+  .grid12 .head { cursor:grab } .handle { color:var(--ink-300); font-size:11px; letter-spacing:-1px; margin-right:6px }
+  .c3 { grid-column:span 3 } .c4 { grid-column:span 4 } .c6 { grid-column:span 6 } .c8 { grid-column:span 8 } .c12 { grid-column:span 12 } .r2 { grid-row:span 2 } .r3 { grid-row:span 3 }
+  .drop { grid-column:span 6; grid-row:span 2; border:2px dashed var(--brand-600); border-radius:8px; background:var(--brand-100); opacity:.55 }
+  /* option 2: rows */
+  .band { display:grid; gap:12px; margin-bottom:12px; position:relative } .band.w4 { grid-template-columns:repeat(4, minmax(0,1fr)) } .band.w21 { grid-template-columns:2fr 1fr } .band.w1 { grid-template-columns:1fr } .band.w2 { grid-template-columns:1fr 1fr }
+  .bandbar { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-700); margin:2px 0 6px } .bandbar .end { margin-left:auto; display:flex; gap:6px } .bandbar .mv { color:var(--ink-700); font-weight:600 }
+  .addrow { border:1px dashed var(--line-control); border-radius:8px; padding:10px; text-align:center; font-size:12px; font-weight:600; color:var(--ink-800); background:#fff }
+  .empty { text-align:center; padding:40px 16px 32px; border:1px dashed var(--line-control); border-radius:8px; background:#fff }
+  .empty h3 { font-size:16px } .empty p { font-size:13px; color:var(--ink-800); margin:4px auto 14px; max-width:480px }
+  .starters { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:14px; text-align:left } @media (max-width:700px) { .starters { grid-template-columns:1fr } }
+  .starter { border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:4px; background:#fff } .starter b { font-size:13px } .starter small { font-size:12px; color:var(--ink-800) }
+  /* dialog, drawer, menu */
+  .modal { max-width:720px; margin:20px auto; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 12px 32px rgba(23,24,28,.14) }
+  .modal .mh { padding:14px 22px 10px; border-bottom:1px solid var(--line) } .modal .mh h2 { font-size:17px } .modal .mh small { font-size:12px; color:var(--ink-800) }
+  .modal .mb { padding:20px 22px; display:flex; flex-direction:column; gap:16px; font-size:13px } .modal .mf { padding:12px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px }
+  .flabel { font-weight:600; font-size:13px; margin-bottom:6px }
+  .choice { border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:2px } .choice.on { border-color:var(--brand-600); background:var(--brand-100) } .choice b { font-size:13px } .choice small { font-size:12px; color:var(--ink-800) } .choice.on small { color:var(--callout-text) }
+  .cards4 { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px } .cards3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px } @media (max-width:700px) { .cards4, .cards3 { grid-template-columns:1fr } }
+  .drawer { width:360px; margin-left:auto; background:#fff; border-left:1px solid var(--line); min-height:420px; display:flex; flex-direction:column } .drawer .dh { padding:14px 16px; border-bottom:1px solid var(--line) } .drawer .dh h3 { font-size:15px } .drawer .dh small { font-size:12px; color:var(--ink-800) }
+  .ver { padding:10px 16px; border-bottom:1px solid var(--line-subtle); display:flex; flex-direction:column; gap:2px; font-size:13px } .ver b { font-size:13px } .ver small { font-size:12px; color:var(--ink-800) } .ver .acts { display:flex; gap:12px; margin-top:4px } .ver.now { background:var(--brand-100) }
+  .menu { width:220px; background:#fff; border:1px solid var(--line); border-radius:8px; box-shadow:0 8px 24px rgba(23,24,28,.12); padding:6px; font-size:13px } .mitem { padding:7px 10px; border-radius:6px } .mitem.danger { color:var(--danger-text) } .msep { border-top:1px solid var(--line-subtle); margin:4px 0 }
+  .two { display:grid; grid-template-columns:minmax(0,1fr) 360px; min-height:420px } .two .page { background:var(--surface-subtle) }
+  .folder { display:inline-flex; align-items:center; gap:5px; color:var(--ink-800); font-size:12px } .folder::before { content:"▸"; font-size:10px }
+  .grp td { background:var(--surface-subtle); font-weight:600; font-size:12px; color:var(--ink-800) }
+  .rules { max-width:1440px; margin:36px auto 56px; padding:0 16px } .rules .frame { padding:18px 20px }
+  .rules h3 { font-size:15px; margin:18px 0 8px } .rules h3:first-child { margin-top:0 } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--ink-800) } .rules li { margin-bottom:5px } .rules p { font-size:13px; color:var(--ink-800) }
+  .compare td:first-child { font-weight:600; width:200px }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Insights dashboards, mocked up (Phase C).</strong> A dashboard is a page of tiles, each tile a saved report shown in one of its views, or one of its numbers as a figure. One period at the top applies to every tile. The two options below differ in how tiles are laid out: a free grid you drag on, or rows of tiles with set widths. Everything after the options is shared: the period, Add Tile, the tile menu, favourites and folders on the Reports list, version history, and the run log. Data: Northwind Apparel, September and October 2026.</p>
+
+<!-- ===================================================================== shared: the list -->
+<div class="part">Shared</div>
+<div class="label">Insights → Dashboards<span>Dashboards joins the Insights menu between Reports and the rest. The list shows favourites first, then every dashboard with its tiles, owner, who it is shared with and when it was changed. Busy: four dashboards. Sparse: none yet, with three starters that build a dashboard from the workspace's reports.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy · four dashboards, one favourite</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>Dashboards</h1><p>Pages of your reports, on one period.</p></div><span class="btn primary">+ New Dashboard</span></div>
+      <div class="toolbar"><span class="ctl">Search dashboards</span><span class="chips"><span class="chip on">All</span><span class="chip">Mine</span><span class="chip">Shared With Me</span></span></div>
+      <div class="card"><table>
+        <thead><tr><th></th><th>Dashboard</th><th>Tiles</th><th>Owner</th><th>Shared</th><th>Changed</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="6">Favourites</td></tr>
+          <tr><td><span class="star on">★</span></td><td><b>Marketing Weekly</b><small>Sends, revenue and the top campaigns, by week</small></td><td>7</td><td>Aby John</td><td><span class="tag brand">Workspace</span></td><td>15 Oct 2026, 09:12</td></tr>
+          <tr class="grp"><td colspan="6">All dashboards</td></tr>
+          <tr><td><span class="star">☆</span></td><td><b>Revenue by Channel</b><small>Attributed revenue, email against text</small></td><td>4</td><td>Aby John</td><td><span class="tag brand">Workspace</span></td><td>14 Oct 2026, 17:40</td></tr>
+          <tr><td><span class="star">☆</span></td><td><b>Stores · E-Receipts</b><small>Receipts and returns per store</small></td><td>5</td><td>Devon Okafor</td><td><span class="tag grey">Private</span></td><td>12 Oct 2026, 08:05</td></tr>
+          <tr><td><span class="star">☆</span></td><td><b>Journey Health</b><small>Enrolments, completions and exits</small></td><td>3</td><td>Priya Natarajan</td><td><span class="tag brand">Workspace</span></td><td>9 Oct 2026, 15:31</td></tr>
+        </tbody></table></div>
+    </div>
+  </div></div>
+  <div class="frame"><div class="cap">Sparse · no dashboard yet</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>Dashboards</h1><p>Pages of your reports, on one period.</p></div><span class="btn primary">+ New Dashboard</span></div>
+      <div class="empty"><h3>No dashboards yet</h3><p>Put your reports on one page, with one period for all of them. Start empty, or from one of these.</p>
+        <div class="starters">
+          <div class="starter"><b>Marketing Weekly</b><small>Sent, delivered and revenue figures, sends by week, the top campaigns.</small><span class="btn sm" style="align-self:flex-start;margin-top:6px">Use This</span></div>
+          <div class="starter"><b>Revenue by Channel</b><small>Attributed revenue as a chart by month, with the pivot under it.</small><span class="btn sm" style="align-self:flex-start;margin-top:6px">Use This</span></div>
+          <div class="starter"><b>Contacts and Consent</b><small>Contacts by store, email and text consent, new this period.</small><span class="btn sm" style="align-self:flex-start;margin-top:6px">Use This</span></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== option 1: free grid -->
+<div class="part">Option 1 · Free Grid</div>
+<div class="label">Busy: Marketing Weekly, editing<span>A 12-column grid (react-grid-layout). Any tile sits anywhere, any width from a quarter to the whole row, any height; drag by the title, resize by the corner, and the others move out of the way. The faint grid shows only while editing. Most freedom, and the most ways to end up untidy.</span></div>
+<div class="row one"><div class="frame"><div class="cap">Editing · the period is on top, every tile follows it · drag by the title, resize by the corner · Done</div><div class="app">
+  <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+  <div class="page">
+    <div class="pagehead"><div><h1>Marketing Weekly</h1><p>Sends, revenue and the top campaigns, by week</p></div><div style="display:flex;gap:8px"><span class="btn">+ Add Tile</span><span class="btn primary">Done</span></div></div>
+    <div class="toolbar"><span class="seg"><span>7 Days</span><span class="on">30 Days</span><span>This Month</span><span>Quarter</span><span>Custom</span></span><span class="ctl">Compare With Previous Period <span class="chev">▾</span></span><span class="end">16 Sep – 15 Oct 2026 · refreshed 09:12</span></div>
+    <div class="grid12">
+      <div class="card kpi c3"><div class="head"><h3><span class="handle">⋮⋮</span>Sent</h3><span class="dots">···</span></div><div class="body"><b>391,520</b><span class="d">▲ 8.4% vs previous</span><small>Messages · Sum of Sent Count</small></div></div>
+      <div class="card kpi c3"><div class="head"><h3><span class="handle">⋮⋮</span>Delivered Rate</h3><span class="dots">···</span></div><div class="body"><b>97.6%</b><span class="d">▲ 0.3 pts</span><small>Messages · Delivered ÷ Sent</small></div></div>
+      <div class="card kpi c3"><div class="head"><h3><span class="handle">⋮⋮</span>Attributed Revenue</h3><span class="dots">···</span></div><div class="body"><b>$94,970</b><span class="d">▲ 12.1%</span><small>Attributed Orders · Sum of Amount</small></div></div>
+      <div class="card kpi c3"><div class="head"><h3><span class="handle">⋮⋮</span>Unsubscribed</h3><span class="dots">···</span></div><div class="body"><b>412</b><span class="d down">▲ 6.0%</span><small>Messages · Count where Unsubscribed</small></div></div>
+      <div class="card c8 r3"><div class="head"><h3><span class="handle">⋮⋮</span>Sends by Week and Channel</h3><small>Chart · Bars</small></div><div class="body">
+        <div class="legend"><span><i style="background:var(--chart-1)"></i>EMAIL</span><span><i style="background:var(--chart-2)"></i>SMS</span></div>
+        <svg class="chartbox" viewBox="0 0 760 210" role="img" aria-label="Sends by week and channel">
+          <g stroke="var(--line-subtle)"><line x1="52" x2="752" y1="170" y2="170" stroke="var(--line)"/><line x1="52" x2="752" y1="117" y2="117"/><line x1="52" x2="752" y1="64" y2="64"/><line x1="52" x2="752" y1="11" y2="11"/></g>
+          <g text-anchor="end"><text x="44" y="174">0</text><text x="44" y="121">50k</text><text x="44" y="68">100k</text><text x="44" y="15">150k</text></g>
+          <g>
+            <rect x="92" y="78" width="46" height="92" rx="2" fill="var(--chart-1)"/><rect x="142" y="158" width="46" height="12" rx="2" fill="var(--chart-2)"/>
+            <rect x="262" y="52" width="46" height="118" rx="2" fill="var(--chart-1)"/><rect x="312" y="150" width="46" height="20" rx="2" fill="var(--chart-2)"/>
+            <rect x="432" y="40" width="46" height="130" rx="2" fill="var(--chart-1)"/><rect x="482" y="156" width="46" height="14" rx="2" fill="var(--chart-2)"/>
+            <rect x="602" y="66" width="46" height="104" rx="2" fill="var(--chart-1)"/><rect x="652" y="146" width="46" height="24" rx="2" fill="var(--chart-2)"/>
+          </g>
+          <g text-anchor="middle"><text x="140" y="192">16–22 Sep</text><text x="310" y="192">23–29 Sep</text><text x="480" y="192">30 Sep – 6 Oct</text><text x="650" y="192">7–13 Oct</text></g>
+        </svg>
+        <p style="font-size:12px;color:var(--ink-800);margin-top:4px"><span class="btn link" style="font-size:12px">Show the Numbers</span></p>
+      </div></div>
+      <div class="card c4 r3"><div class="head"><h3><span class="handle">⋮⋮</span>Top Campaigns by Revenue</h3><small>Grid</small></div><div class="body" style="padding:0"><table class="mini">
+        <thead><tr><th>Campaign</th><th class="num">Revenue</th></tr></thead>
+        <tbody><tr><td>Fall Collection Launch</td><td class="num">48,210</td></tr><tr><td>VIP Early Access</td><td class="num">17,980</td></tr><tr><td>Weekend Flash Sale</td><td class="num">12,940</td></tr><tr><td>Weekly Newsletter</td><td class="num">7,050</td></tr><tr><td>Back in Stock Alerts</td><td class="num">5,310</td></tr><tr><td>Loyalty Double Points</td><td class="num">3,480</td></tr></tbody></table></div></div>
+      <div class="drop"></div>
+      <div class="card c6 r2"><div class="head"><h3><span class="handle">⋮⋮</span>Revenue by Channel and Month</h3><small>Pivot</small></div><div class="body" style="padding:0"><table class="mini">
+        <thead><tr><th>Channel</th><th class="num bl">Sep 2026</th><th class="num">Oct 2026</th><th class="num bl">Total</th></tr></thead>
+        <tbody><tr><td>EMAIL</td><td class="num bl">73,240</td><td class="num">31,170</td><td class="num bl">104,410</td></tr><tr><td>SMS</td><td class="num bl">18,250</td><td class="num">15,400</td><td class="num bl">33,650</td></tr><tr class="grand"><td>Total</td><td class="num bl">91,490</td><td class="num">46,570</td><td class="num bl">138,060</td></tr></tbody></table></div></div>
+    </div>
+  </div>
+</div></div></div>
+<div class="label">Sparse: a new dashboard, nothing on it<span>The grid is empty; Add Tile is the one thing to do. The first tile lands top left at a half width; the next ones fill in beside it.</span></div>
+<div class="row one"><div class="frame"><div class="cap">Editing · empty</div><div class="app">
+  <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+  <div class="page">
+    <div class="pagehead"><div><h1>Untitled Dashboard</h1><p>Name it, add a tile.</p></div><div style="display:flex;gap:8px"><span class="btn">+ Add Tile</span><span class="btn primary">Done</span></div></div>
+    <div class="toolbar"><span class="seg"><span>7 Days</span><span class="on">30 Days</span><span>This Month</span><span>Quarter</span><span>Custom</span></span><span class="end">16 Sep – 15 Oct 2026</span></div>
+    <div class="grid12" style="grid-auto-rows:92px;min-height:300px"><div class="empty c12 r3" style="display:flex;flex-direction:column;justify-content:center"><h3>Nothing on this dashboard yet</h3><p>Add a tile: one of your reports in its view, or one of its numbers as a figure.</p><span class="btn primary" style="align-self:center">+ Add Tile</span></div></div>
+  </div>
+</div></div></div>
+
+<!-- ===================================================================== option 2: rows -->
+<div class="part">Option 2 · Rows of Tiles</div>
+<div class="label">Busy: Marketing Weekly, editing<span>A dashboard is rows. Each row holds one to four tiles of equal width, or one wide and one narrow (two thirds and a third). Tiles move with arrows, rows with Up and Down, widths come from a short list. Nothing can overlap or leave a gap, so every dashboard stays tidy, like Home. No new library.</span></div>
+<div class="row one"><div class="frame"><div class="cap">Editing · the row bar shows while editing · Done</div><div class="app">
+  <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+  <div class="page">
+    <div class="pagehead"><div><h1>Marketing Weekly</h1><p>Sends, revenue and the top campaigns, by week</p></div><div style="display:flex;gap:8px"><span class="btn">+ Add Tile</span><span class="btn primary">Done</span></div></div>
+    <div class="toolbar"><span class="seg"><span>7 Days</span><span class="on">30 Days</span><span>This Month</span><span>Quarter</span><span>Custom</span></span><span class="ctl">Compare With Previous Period <span class="chev">▾</span></span><span class="end">16 Sep – 15 Oct 2026 · refreshed 09:12</span></div>
+    <div class="bandbar"><span>Row 1 · Figures</span><span class="ctl" style="height:24px;font-size:11px">4 across <span class="chev">▾</span></span><span class="end"><span class="mv">↑</span><span class="mv">↓</span><span class="mv">✕</span></span></div>
+    <div class="band w4">
+      <div class="card kpi"><div class="head"><h3>Sent</h3><span class="dots">···</span></div><div class="body"><b>391,520</b><span class="d">▲ 8.4% vs previous</span><small>Messages · Sum of Sent Count</small></div></div>
+      <div class="card kpi"><div class="head"><h3>Delivered Rate</h3><span class="dots">···</span></div><div class="body"><b>97.6%</b><span class="d">▲ 0.3 pts</span><small>Messages · Delivered ÷ Sent</small></div></div>
+      <div class="card kpi"><div class="head"><h3>Attributed Revenue</h3><span class="dots">···</span></div><div class="body"><b>$94,970</b><span class="d">▲ 12.1%</span><small>Attributed Orders · Sum of Amount</small></div></div>
+      <div class="card kpi"><div class="head"><h3>Unsubscribed</h3><span class="dots">···</span></div><div class="body"><b>412</b><span class="d down">▲ 6.0%</span><small>Messages · Count where Unsubscribed</small></div></div>
+    </div>
+    <div class="bandbar"><span>Row 2</span><span class="ctl" style="height:24px;font-size:11px">Wide and narrow <span class="chev">▾</span></span><span class="end"><span class="mv">↑</span><span class="mv">↓</span><span class="mv">✕</span></span></div>
+    <div class="band w21">
+      <div class="card"><div class="head"><h3>Sends by Week and Channel</h3><span style="display:flex;gap:8px;align-items:center"><small>Chart · Bars</small><span class="mv">←</span><span class="mv">→</span><span class="dots">···</span></span></div><div class="body">
+        <div class="legend"><span><i style="background:var(--chart-1)"></i>EMAIL</span><span><i style="background:var(--chart-2)"></i>SMS</span></div>
+        <svg class="chartbox" viewBox="0 0 760 190" role="img" aria-label="Sends by week and channel">
+          <g stroke="var(--line-subtle)"><line x1="52" x2="752" y1="150" y2="150" stroke="var(--line)"/><line x1="52" x2="752" y1="103" y2="103"/><line x1="52" x2="752" y1="57" y2="57"/><line x1="52" x2="752" y1="11" y2="11"/></g>
+          <g text-anchor="end"><text x="44" y="154">0</text><text x="44" y="107">50k</text><text x="44" y="61">100k</text><text x="44" y="15">150k</text></g>
+          <g>
+            <rect x="92" y="69" width="46" height="81" rx="2" fill="var(--chart-1)"/><rect x="142" y="139" width="46" height="11" rx="2" fill="var(--chart-2)"/>
+            <rect x="262" y="46" width="46" height="104" rx="2" fill="var(--chart-1)"/><rect x="312" y="132" width="46" height="18" rx="2" fill="var(--chart-2)"/>
+            <rect x="432" y="35" width="46" height="115" rx="2" fill="var(--chart-1)"/><rect x="482" y="138" width="46" height="12" rx="2" fill="var(--chart-2)"/>
+            <rect x="602" y="58" width="46" height="92" rx="2" fill="var(--chart-1)"/><rect x="652" y="129" width="46" height="21" rx="2" fill="var(--chart-2)"/>
+          </g>
+          <g text-anchor="middle"><text x="140" y="172">16–22 Sep</text><text x="310" y="172">23–29 Sep</text><text x="480" y="172">30 Sep – 6 Oct</text><text x="650" y="172">7–13 Oct</text></g>
+        </svg>
+      </div></div>
+      <div class="card"><div class="head"><h3>Top Campaigns by Revenue</h3><span style="display:flex;gap:8px;align-items:center"><small>Grid</small><span class="mv">←</span><span class="dots">···</span></span></div><div class="body" style="padding:0"><table class="mini">
+        <thead><tr><th>Campaign</th><th class="num">Revenue</th></tr></thead>
+        <tbody><tr><td>Fall Collection Launch</td><td class="num">48,210</td></tr><tr><td>VIP Early Access</td><td class="num">17,980</td></tr><tr><td>Weekend Flash Sale</td><td class="num">12,940</td></tr><tr><td>Weekly Newsletter</td><td class="num">7,050</td></tr><tr><td>Back in Stock Alerts</td><td class="num">5,310</td></tr></tbody></table></div></div>
+    </div>
+    <div class="bandbar"><span>Row 3</span><span class="ctl" style="height:24px;font-size:11px">2 across <span class="chev">▾</span></span><span class="end"><span class="mv">↑</span><span class="mv">↓</span><span class="mv">✕</span></span></div>
+    <div class="band w2">
+      <div class="card"><div class="head"><h3>Revenue by Channel and Month</h3><span style="display:flex;gap:8px;align-items:center"><small>Pivot</small><span class="mv">→</span><span class="dots">···</span></span></div><div class="body" style="padding:0"><table class="mini">
+        <thead><tr><th>Channel</th><th class="num bl">Sep 2026</th><th class="num">Oct 2026</th><th class="num bl">Total</th></tr></thead>
+        <tbody><tr><td>EMAIL</td><td class="num bl">73,240</td><td class="num">31,170</td><td class="num bl">104,410</td></tr><tr><td>SMS</td><td class="num bl">18,250</td><td class="num">15,400</td><td class="num bl">33,650</td></tr><tr class="grand"><td>Total</td><td class="num bl">91,490</td><td class="num">46,570</td><td class="num bl">138,060</td></tr></tbody></table></div></div>
+      <div class="card"><div class="head"><h3>Contacts by Store and Consent</h3><span style="display:flex;gap:8px;align-items:center"><small>Hierarchy</small><span class="mv">←</span><span class="dots">···</span></span></div><div class="body" style="padding:0"><table class="mini">
+        <thead><tr><th>Store / Consent</th><th class="num">Contacts</th></tr></thead>
+        <tbody><tr class="sub"><td>▾ Downtown</td><td class="num">4,120</td></tr><tr><td class="l2">Email and text</td><td class="num">2,870</td></tr><tr><td class="l2">Email only</td><td class="num">1,250</td></tr><tr class="sub"><td>▸ Riverside <small style="display:inline;margin-left:6px">2 items</small></td><td class="num">2,960</td></tr><tr class="grand"><td>Total</td><td class="num">7,080</td></tr></tbody></table></div></div>
+    </div>
+    <div class="addrow">+ Add Row</div>
+  </div>
+</div></div></div>
+<div class="label">Sparse: a new dashboard, nothing on it<span>One empty row with Add Tile in it. Each new tile goes into the last row until it is full, then a new row starts.</span></div>
+<div class="row one"><div class="frame"><div class="cap">Editing · empty</div><div class="app">
+  <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a class="on">Dashboards</a></div>
+  <div class="page">
+    <div class="pagehead"><div><h1>Untitled Dashboard</h1><p>Name it, add a tile.</p></div><div style="display:flex;gap:8px"><span class="btn">+ Add Tile</span><span class="btn primary">Done</span></div></div>
+    <div class="toolbar"><span class="seg"><span>7 Days</span><span class="on">30 Days</span><span>This Month</span><span>Quarter</span><span>Custom</span></span><span class="end">16 Sep – 15 Oct 2026</span></div>
+    <div class="bandbar"><span>Row 1</span><span class="ctl" style="height:24px;font-size:11px">2 across <span class="chev">▾</span></span></div>
+    <div class="band w2"><div class="empty" style="padding:34px 16px"><h3>Nothing in this row yet</h3><p>Add a tile: one of your reports in its view, or one of its numbers as a figure.</p><span class="btn primary">+ Add Tile</span></div><div></div></div>
+    <div class="addrow">+ Add Row</div>
+  </div>
+</div></div></div>
+
+<!-- ===================================================================== shared: the period, add tile, the tile menu -->
+<div class="part">Shared</div>
+<div class="label">The period, Add Tile, and a tile's menu<span>Left: the dashboard's period applies to each tile through its dataset's time field (Messages: sent at; Attributed Orders: ordered at); a report with its own date filter shows a small note and keeps it. Compare With Previous Period adds the change to every figure. Middle: Add Tile picks one of your reports, then how to show it: one of its views, or a figure (one measure, totalled over the period). Right: a tile's menu.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Add Tile</div><div class="modal" style="margin:16px auto;max-width:640px;box-shadow:none">
+    <div class="mh"><h2>Add Tile</h2><small>Step 2 of 2 · Sends by Campaign</small></div>
+    <div class="mb">
+      <div><div class="flabel">Show it as</div><div class="cards4">
+        <div class="choice"><b>Grid</b><small>The rows, as saved</small></div><div class="choice on"><b>Chart</b><small>Bars by week</small></div><div class="choice"><b>Pivot</b><small>Needs a field across</small></div><div class="choice"><b>Hierarchy</b><small>Campaign, then channel</small></div>
+      </div></div>
+      <div><div class="flabel">Or one figure</div><div class="cards3">
+        <div class="choice"><b>Sent Count</b><small>Sum over the period</small></div><div class="choice"><b>Delivered Count</b><small>Sum over the period</small></div><div class="choice"><b>Messages</b><small>Count over the period</small></div>
+      </div></div>
+      <div><div class="flabel">Title on the dashboard</div><span class="ctl" style="width:100%;font-weight:400">Sends by Week and Channel</span></div>
+    </div>
+    <div class="mf"><span class="btn">Back</span><span class="btn primary">Add to Dashboard</span></div>
+  </div></div>
+  <div class="frame"><div class="cap">A tile's menu, and a figure with its own date filter</div><div style="padding:16px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:16px;align-items:start;background:var(--surface-subtle)">
+    <div class="menu"><div class="mitem">Open Report</div><div class="mitem">Show As ▸</div><div class="mitem">Rename Tile</div><div class="msep"></div><div class="mitem">Move Left</div><div class="mitem">Move Right</div><div class="msep"></div><div class="mitem danger">Remove From Dashboard</div></div>
+    <div class="card kpi"><div class="head"><h3>Orders Since Launch</h3><span class="dots">···</span></div><div class="body"><b>1,284</b><span class="d">▲ 3.9% vs previous</span><small>Attributed Orders · Count · <span class="tag warn" style="height:18px;font-size:11px">Own dates: from 1 Sep</span></small></div></div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== shared: favourites, folders, versions -->
+<div class="label">Reports: favourites and folders; the viewer's version history<span>Left: a star on every report and dashboard; favourites sit first in the lists and on the Insights Overview. Folders group a workspace's reports (Finance, Stores, Weekly Review) as a filter and as the group rows; a report is in one folder or none; the owner or a report administrator moves it from the viewer's menu. Right: Versions, a drawer on the viewer: every saved version with who, when and the note; Open shows that version read-only, Restore makes it the new current version (a new version, nothing is lost).</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Reports · Finance folder, favourites first</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a class="on">Reports</a><a>Dashboards</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>All Reports</h1><p>Every saved report you can open, grouped by component.</p></div><span class="btn primary">+ New Report</span></div>
+      <div class="toolbar"><span class="ctl">Search reports</span><span class="chips"><span class="chip">All Folders</span><span class="chip on">Finance</span><span class="chip">Stores</span><span class="chip">Weekly Review</span><span class="chip">No Folder</span></span></div>
+      <div class="card"><table>
+        <thead><tr><th></th><th>Report</th><th>View</th><th>Dataset</th><th>Owner</th><th>Changed</th></tr></thead>
+        <tbody>
+          <tr class="grp"><td colspan="6">Favourites</td></tr>
+          <tr><td><span class="star on">★</span></td><td><b>Revenue by Channel and Month</b><small><span class="folder">Finance</span></small></td><td><span class="tag brand">Pivot</span></td><td>Attributed Orders</td><td>Aby John</td><td>14 Oct 2026</td></tr>
+          <tr class="grp"><td colspan="6">Engagement · Finance</td></tr>
+          <tr><td><span class="star">☆</span></td><td><b>Weekly Revenue by Channel</b></td><td><span class="tag brand">Chart</span></td><td>Attributed Orders</td><td>Aby John</td><td>13 Oct 2026</td></tr>
+          <tr><td><span class="star">☆</span></td><td><b>Orders Since Launch</b></td><td><span class="tag brand">Grid</span></td><td>Attributed Orders</td><td>Priya Natarajan</td><td>8 Oct 2026</td></tr>
+        </tbody></table></div>
+    </div>
+  </div></div>
+  <div class="frame"><div class="cap">Report viewer · Versions</div><div class="two">
+    <div class="page"><div class="pagehead"><div><h1>Sends by Campaign</h1><p>3 rows · 42 ms · live data · version 4</p></div><div style="display:flex;gap:8px"><span class="btn">Versions</span><span class="btn">Edit</span><span class="btn">Export CSV</span></div></div><div class="card" style="min-height:260px"><div class="body" style="color:var(--ink-700);font-size:12px">The grid, as today.</div></div></div>
+    <div class="drawer"><div class="dh"><h3>Versions</h3><small>Every saved change. Restoring makes a new version.</small></div>
+      <div class="ver now"><b>Version 4 · current</b><small>Aby John · 15 Oct 2026, 09:40 · Added the channel</small></div>
+      <div class="ver"><b>Version 3</b><small>Aby John · 14 Oct 2026, 17:02 · Pivot across month</small><span class="acts"><span class="btn link" style="font-size:12px">Open</span><span class="btn link" style="font-size:12px">Restore</span></span></div>
+      <div class="ver"><b>Version 2</b><small>Devon Okafor · 10 Oct 2026, 11:15 · Shared with the workspace</small><span class="acts"><span class="btn link" style="font-size:12px">Open</span><span class="btn link" style="font-size:12px">Restore</span></span></div>
+      <div class="ver"><b>Version 1</b><small>Aby John · 9 Oct 2026, 16:20 · Created</small><span class="acts"><span class="btn link" style="font-size:12px">Open</span><span class="btn link" style="font-size:12px">Restore</span></span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== shared: run log -->
+<div class="label">The run log, for report administrators<span>Insights → Run Log: every preview, run and export in the workspace from <code>report_run_audit</code>, with the outcome, the rows and the time, filterable by outcome and person; a timed-out or refused run shows its reason. The platform's back-office keeps the view across workspaces. Not a page for everyone: it needs <code>report.admin</code>.</span></div>
+<div class="row one"><div class="frame"><div class="cap">Run Log · last 7 days</div><div class="app">
+  <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a>Dashboards</a><a class="on">Run Log</a></div>
+  <div class="page">
+    <div class="pagehead"><div><h1>Run Log</h1><p>Every preview, run and export, with how it went.</p></div></div>
+    <div class="toolbar"><span class="seg"><span class="on">7 Days</span><span>30 Days</span></span><span class="chips"><span class="chip on">All</span><span class="chip">OK</span><span class="chip">Timed Out</span><span class="chip">Refused</span><span class="chip">Failed</span></span><span class="ctl">Anyone <span class="chev">▾</span></span><span class="end">1,842 runs · 3 timed out · median 210 ms</span></div>
+    <div class="card"><table>
+      <thead><tr><th>When</th><th>Report</th><th>Kind</th><th>Who</th><th>Outcome</th><th class="num">Rows</th><th class="num">Time</th></tr></thead>
+      <tbody>
+        <tr><td>15 Oct, 09:41</td><td>Sends by Campaign <small>Messages · v4</small></td><td>Run</td><td>Aby John</td><td><span class="tag ok">OK</span></td><td class="num">3</td><td class="num">42 ms</td></tr>
+        <tr><td>15 Oct, 09:40</td><td>Sends by Campaign <small>Messages · draft</small></td><td>Preview</td><td>Aby John</td><td><span class="tag ok">OK</span></td><td class="num">3</td><td class="num">38 ms</td></tr>
+        <tr><td>15 Oct, 08:02</td><td>Every Message, 90 Days <small>Messages · v1</small></td><td>Export</td><td>Devon Okafor</td><td><span class="tag bad">Timed Out</span> <small>15 s statement timeout</small></td><td class="num">—</td><td class="num">15,004 ms</td></tr>
+        <tr><td>14 Oct, 17:40</td><td>Revenue by Channel and Month <small>Attributed Orders · v3</small></td><td>Run</td><td>Dashboard · Marketing Weekly</td><td><span class="tag ok">OK</span> <small>cached</small></td><td class="num">2</td><td class="num">0 ms</td></tr>
+        <tr><td>14 Oct, 17:39</td><td>Contacts by Store and Consent <small>Contacts · v2</small></td><td>Run</td><td>Priya Natarajan</td><td><span class="tag warn">Refused</span> <small>4 reports already running</small></td><td class="num">—</td><td class="num">—</td></tr>
+      </tbody></table></div>
+  </div>
+</div></div></div>
+
+<!-- ===================================================================== rules -->
+<div class="rules"><div class="frame">
+  <h3>What is the same in both options</h3>
+  <ul>
+    <li>A dashboard belongs to the workspace like a report: private or shared, an owner, <code>report.edit</code> to make one, favourites, a version each time the layout is saved.</li>
+    <li>A tile is a saved report in one of its views, or one figure from it. The tile runs the report through the same engine with the dashboard's period added as a filter on the dataset's time field; results are cached for a minute like every run, so a dashboard of seven tiles is seven short queries, each under the engine's limits.</li>
+    <li>Compare With Previous Period runs the figure twice. Figures show the change; charts and tables do not.</li>
+    <li>Viewing is read-only; Edit turns the layout controls on; Done saves. Nothing moves by accident.</li>
+    <li>Folders, favourites, version history and the run log are the same under either option.</li>
+  </ul>
+  <h3>How the options differ</h3>
+  <table class="compare">
+    <tr><td></td><td><b>Option 1 · Free Grid</b></td><td><b>Option 2 · Rows of Tiles</b></td></tr>
+    <tr><td>Placing a tile</td><td>Drag anywhere on 12 columns; resize by the corner; others shuffle</td><td>Into a row; move with arrows; width from a short list (1 to 4 across, wide and narrow)</td></tr>
+    <tr><td>Tidiness</td><td>Up to the person; gaps and ragged edges are possible</td><td>Always aligned, like Home's bands</td></tr>
+    <tr><td>Phone</td><td>Collapses to one column in layout order</td><td>Each row stacks; the order is the rows' order</td></tr>
+    <tr><td>Library</td><td>react-grid-layout, about 30 KB gzip in the Insights chunk</td><td>None; CSS grid</td></tr>
+    <tr><td>Saved layout</td><td>x, y, w, h per tile</td><td>rows, each with a width preset and tiles in order</td></tr>
+    <tr><td>Growing later</td><td>Already free-form</td><td>A free grid can be added as a second layout mode without changing what is saved</td></tr>
+  </table>
+  <p style="margin-top:14px"><b>Recommendation:</b> Option 2 for the Beta. It keeps every dashboard looking like the rest of C360 with no new dependency, and its saved shape converts to a free grid later if people ask for one.</p>
+</div></div>
+
+</body>
+</html>

@@ -145,7 +145,7 @@ test('the editor, field wells: a click adds a field to its well, a measure gets 
   const save = screen.getByRole('button', { name: 'Save' })
   await vi.waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false))
   await user.click(save)
-  await screen.findByText(/version 3/)
+  await screen.findAllByText(/version 3/)                                              // the header and the toast both say it
 })
 
 test('the editor, steps: Summarize and Group By take fields from their pickers, the result sits under the steps, and the choice of editor is remembered', async () => {

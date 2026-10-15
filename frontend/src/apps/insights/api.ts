@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { Catalog, CatalogDataset, Report, ReportDefinition, ReportSummary, RunResult } from './types'
+import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Period, Report, ReportDefinition, ReportSummary, RunResult, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -21,8 +21,24 @@ export const insightsApi = {
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
 }
 
+export const dashboardsApi = {
+  list: (signal?: AbortSignal) => api.get<{ dashboards: DashboardSummary[] }>('/insights/dashboards/', undefined, signal),
+  get: (id: string, signal?: AbortSignal) => api.get<Dashboard>(`/insights/dashboards/${id}/`, undefined, signal),
+  create: (body: { name?: string; description?: string; visibility?: 'PRIVATE' | 'WORKSPACE' }) => api.post<Dashboard>('/insights/dashboards/', body),
+  update: (id: string, body: { row_version: number; name?: string; description?: string | null; visibility?: 'PRIVATE' | 'WORKSPACE'; period?: Period; compare?: boolean; layout?: DashboardLayout; note?: string }) =>
+    api.put<Dashboard>(`/insights/dashboards/${id}/`, body),
+  remove: (id: string) => api.delete(`/insights/dashboards/${id}/`),
+  /** a saved tile */
+  runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
+  /** a tile as it is being edited, saved or not */
+  previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+}
+
 export const keys = {
   catalog: ['insights', 'catalog'] as const,
+  dashboards: ['insights', 'dashboards'] as const,
+  dashboard: (id: string) => ['insights', 'dashboard', id] as const,
+  tiles: (id: string) => ['insights', 'tiles', id] as const,
   reports: (query: { component?: string; dataset?: string; q?: string }) => ['insights', 'reports', query] as const,
   report: (id: string) => ['insights', 'report', id] as const,
   run: (id: string, page: { limit?: number; offset?: number }) => ['insights', 'run', id, page] as const,
@@ -42,6 +58,19 @@ export function useReport(id: string | undefined) {
 
 export function useRun(id: string | undefined, page: { limit?: number; offset?: number }) {
   return useQuery({ queryKey: keys.run(id ?? '', page), queryFn: () => insightsApi.run(id as string, page), enabled: Boolean(id), retry: false })
+}
+
+export function useDashboards() {
+  return useQuery({ queryKey: keys.dashboards, queryFn: ({ signal }) => dashboardsApi.list(signal) })
+}
+
+export function useDashboard(id: string | undefined) {
+  return useQuery({ queryKey: keys.dashboard(id ?? ''), queryFn: ({ signal }) => dashboardsApi.get(id as string, signal), enabled: Boolean(id) })
+}
+
+export function useDeleteDashboard() {
+  const client = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => dashboardsApi.remove(id), onSuccess: () => client.invalidateQueries({ queryKey: keys.dashboards }) })
 }
 
 export function useDeleteReport() {
