@@ -15,39 +15,34 @@ export is audited in `report_run_audit`; a timeout or a refusal is a plain 422 t
 ## The engine as its own service
 
 The same codebase, with the settings module `config.settings.insights`, mounts only the Insights routes and the health
-check (`config/urls_insights.py`). Beside `cep-backend` and `cep-jobs`:
+check (`config/urls_insights.py`). The unit is `deploy/cep-insights.service`; it runs beside `cep-backend` and `cep-jobs`
+on the dev server 10.0.0.51 since 15 October 2026 (a user unit, port 8012, log `/app/cep/insights.log`; 8020 is taken
+by a Docker container there). On 10.0.0.56 it would be a system unit with `User=`, the log under `/var/log/cep`
+(SELinux refuses an append log under `/opt`) and `CEP_SETTINGS_BASE` set to the base the app process runs with.
 
-```ini
-# ~/.config/systemd/user/cep-insights.service (a user unit on 10.0.0.51; a system unit, User=mafsar, on 10.0.0.56)
-[Unit]
-Description=C360 Insights report engine
-After=network.target
-
-[Service]
-WorkingDirectory=/app/cep/backend
-Environment=PYTHONUNBUFFERED=1
-Environment=DJANGO_SETTINGS_MODULE=config.settings.insights
-Environment=CEP_SETTINGS_BASE=development
-ExecStart=/app/cep/backend/.venv/bin/python manage.py runserver 127.0.0.1:8020 --noreload
-Restart=always
-RestartSec=3
-StandardOutput=append:/var/log/cep/insights.log
-StandardError=append:/var/log/cep/insights.log
-
-[Install]
-WantedBy=default.target
-```
-
-nginx sends the Insights routes there and everything else to the app:
+nginx sends the Insights routes there and everything else to the app. The block goes before the general API block in
+**every** server block that proxies the API (on the dev server both the 443 block and the 8443 Cloudflare tunnel origin):
 
 ```nginx
-location ~ ^/api/v1/insights(/|$) { proxy_pass http://127.0.0.1:8020; proxy_set_header Host $host; proxy_set_header X-Forwarded-Proto $scheme; }
+location ~ ^/api/v1/insights(/|$) {
+    proxy_pass http://127.0.0.1:8012;
+    proxy_http_version 1.1;
+    proxy_read_timeout 120s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
 location ~ ^/(api|admin|healthz|static|media)(/|$) { proxy_pass http://127.0.0.1:8010; ... }
 ```
 
-Set the global parameter `insights.engine_url` to the engine's address (`http://127.0.0.1:8020`) so the platform
-health page probes it; empty means the app process runs reports itself. A deploy restarts `cep-insights` with the
-other two units. Under SELinux the log lives under `/var/log` (an append log under `/opt` is refused).
+Check it after a reload: a request to `/api/v1/insights/catalog/` with an `X-Tenant` header answers 401 and appears in
+`insights.log`, not `backend.log`; `/api/v1/journeys/` does the opposite. A deploy restarts `cep-insights` with the
+other two units (`systemctl --user restart cep-backend cep-jobs cep-insights`).
+
+The app process keeps the same routes, so an installation without the second service needs no nginx change at all;
+the global parameter `insights.engine_url` records the engine's address for operators and the platform health page to
+come, and no code reads it yet.
 
 ## How Insights is offered (platform admin → Global Parameters)
 
@@ -55,7 +50,7 @@ other two units. Under SELinux the log lives under `/var/log` (an append log und
 |---|---|---|
 | `insights.mode` | `integrated` (default), `standalone`, `both` | integrated: an Insights item in each component's menu opening the list on that component's reports; standalone: Insights only as an app of its own in the launcher; both. |
 | `insights.standalone_path` | `/insights` | Where the standalone app answers on this host. |
-| `insights.engine_url` | an internal URL, or empty | The engine service, when there is one. |
+| `insights.engine_url` | an internal URL, or empty | The engine service, when there is one (informational until the health page probes it). |
 
 A workspace sees Insights at all only when Tenant Administration → Components has it on (every plan includes it since
 patch 0048; it is released as Beta in patch 0049).
