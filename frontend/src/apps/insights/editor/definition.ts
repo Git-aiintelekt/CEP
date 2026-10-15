@@ -2,7 +2,7 @@
  * The editor's state: one report definition, changed the same way by both editors (field wells, steps). Every change
  * returns a new definition; nothing here talks to the server. The validator on the server has the last word.
  */
-import type { Aggregate, Bucket, CatalogDataset, CatalogField, FilterGroup, FilterRule, ReportColumn, ReportDefinition } from '../types'
+import type { Aggregate, Bucket, CatalogDataset, CatalogField, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
 
 export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max' }
 export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year' }
@@ -42,8 +42,27 @@ export function addField(definition: ReportDefinition, field: CatalogField): Rep
   return { ...definition, columns, orderBy }
 }
 
-export function removeField(definition: ReportDefinition, key: string): ReportDefinition {
+function removeColumn(definition: ReportDefinition, key: string): ReportDefinition {
   return { ...definition, columns: definition.columns.filter((column) => column.field !== key), orderBy: (definition.orderBy ?? []).filter((item) => item.field !== key) }
+}
+
+/** the field goes, and with it the spread across when it was that field */
+export function removeField(definition: ReportDefinition, key: string): ReportDefinition {
+  const next = removeColumn(definition, key)
+  return next.view?.across === key ? { ...next, view: { ...next.view, across: undefined } } : next
+}
+
+export function viewOf(definition: ReportDefinition): ReportView {
+  return definition.view ?? { type: 'grid' }
+}
+
+export function setView(definition: ReportDefinition, view: ReportView): ReportDefinition {
+  return { ...definition, view }
+}
+
+/** the dimension spread across the columns (the pivot's columns, the chart's series), or none */
+export function setAcross(definition: ReportDefinition, key: string | null): ReportDefinition {
+  return { ...definition, view: { ...viewOf(definition), across: key ?? undefined } }
 }
 
 export function setAggregate(definition: ReportDefinition, key: string, aggregate: Aggregate): ReportDefinition {

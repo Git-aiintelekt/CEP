@@ -1,6 +1,6 @@
 /**
- * A report, run: its rows in the grid, with what the run says (rows, time, freshness, truncated), Edit for whoever may,
- * Export CSV, and Delete for the owner. The grid is the first of the four views.
+ * A report, run: its rows in the saved view, with what the run says (rows, time, freshness, truncated), Edit for whoever
+ * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice.
  */
 import { Download, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
@@ -9,12 +9,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buttonDanger, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
-import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { insightsApi, useDeleteReport, useReport, useRun } from '../api'
-import { ResultGrid } from '../components/ResultGrid'
+import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
+import type { ReportView } from '../types'
 
 export function ReportViewerPage() {
   const { id } = useParams()
@@ -24,6 +24,7 @@ export function ReportViewerPage() {
   const run = useRun(id, {})
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState(false)
+  const [view, setView] = useState<ReportView | null>(null)
 
   async function exportCsv() {
     if (!id) return
@@ -60,7 +61,6 @@ export function ReportViewerPage() {
         description={info ? `${runWords(info)} · version ${report.data.version}` : report.data.description ?? undefined}
         actions={(
           <div className="flex items-center gap-2">
-            <Tag tone="brand">Grid</Tag>
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             <button type="button" className={buttonSecondary} onClick={exportCsv} disabled={exporting || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
             {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
@@ -74,7 +74,10 @@ export function ReportViewerPage() {
       ) : run.isError ? (
         <ErrorState error={run.error} onRetry={() => run.refetch()} />
       ) : (
-        <ResultGrid result={run.data} />
+        <div className="flex flex-col gap-3">
+          <ViewBar view={view ?? report.data.definition.view ?? DEFAULT_VIEW} onChange={setView} columns={run.data.columns} dimensions={[]} />
+          <ReportResult result={run.data} view={view ?? report.data.definition.view ?? DEFAULT_VIEW} />
+        </div>
       )}
     </div>
   )
