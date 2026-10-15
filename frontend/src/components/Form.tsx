@@ -7,7 +7,7 @@ import { limitTone, type Limit } from '@/lib/fieldRules'
 
 import { CONTROL_BASE, FILL, borderClass, controlClass, type ControlSize, type ControlTone } from './controlStyles'
 
-import { FieldNote } from '@/help/HelpPanel'
+import { FieldNote } from '@/apps/cep/help/HelpPanel'
 
 interface FieldProps {
   label: string

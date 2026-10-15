@@ -1,0 +1,126 @@
+/** /templates/new : name + channel, then straight into the designer for email channels. */
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+import { ArrowLeft } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
+import { buttonPrimary, buttonSecondary, Field, FormSection, Select, TextArea, TextInput } from '@/components/Form'
+import { PageHeader } from '@/components/ResourceList'
+import { ErrorState, Spinner } from '@/components/States'
+import { StarterGallery } from '@/apps/cep/features/templates/StarterGallery'
+import { useFieldRules } from '@/lib/fieldRules'
+import { api, ApiError } from '@/lib/api'
+import { editorRouteFor } from '@/lib/editorRoute'
+import { channelAllowed } from '@/lib/features'
+import { saveFailure } from '@/lib/saveFeedback'
+import type { Template } from '@/lib/types'
+
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
+
+const CHANNELS = [
+  { value: 'EMAIL', label: 'Email', hint: 'Opens the drag-and-drop email designer.' },
+  { value: 'E_RECEIPT', label: 'E-Receipt', hint: 'Transactional receipt email. Opens the receipt editor.' },
+  { value: 'SMS', label: 'SMS', hint: 'Text message. Opens the message editor with live part counting.' },
+  { value: 'MMS', label: 'MMS', hint: 'Picture message: text plus one image. Opens the message editor.' },
+]
+
+/** What the create button promises, by the editor the new template opens in. */
+const CREATE_LABEL: Record<ReturnType<typeof editorRouteFor>, string> = {
+  design: 'Create and Open the Designer',
+  receipt: 'Create and Open the Receipt Editor',
+  message: 'Create and Write the Message',
+}
+
+const TEMPLATE_FIELDS = ['name', 'channel', 'description', 'starter']
+const CREATE_FAILED = 'The template was not created'
+
+export function TemplateFormPage() {
+  const { can, has } = useAuth()
+  const channels = CHANNELS.filter((item) => channelAllowed(has, item.value))
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const formRef = useRef<HTMLFormElement>(null)
+  const [name, setName] = useState('')
+  const rule = useFieldRules('template')
+  const [channel, setChannel] = useState(() => channels[0]?.value ?? 'EMAIL')
+  const [description, setDescription] = useState('')
+  const [starter, setStarter] = useState('')
+  const [errors, setErrors] = useState<Record<string, string | undefined>>({})
+
+  const create = useMutation({
+    mutationFn: () => api.post<Template>('/templates/', { name: name.trim(), channel, description: description.trim() || null, ...(starter ? { starter } : {}) }),
+    onSuccess: async (template) => {
+      await queryClient.invalidateQueries({ queryKey: ['templates'] })
+      navigate(`/templates/${template.id}/${editorRouteFor(template.channel)}`, { replace: true })
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 400) {
+        setErrors(saveFailure(error, CREATE_FAILED, TEMPLATE_FIELDS).fields)
+        requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+      }
+    },
+  })
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (name.trim().length < 3) {
+      setErrors({ name: 'Use at least 3 characters.' })
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+      return
+    }
+    create.mutate()
+  }
+
+  if (!can('template.edit')) {
+    return <ErrorState title="You cannot create templates" detail="Ask a Marketing Admin for the template.edit permission." />
+  }
+
+  return (
+    <section className="max-w-5xl">
+      <Link to="/templates" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-brand-800 hover:underline"><ArrowLeft size={16} strokeWidth={1.5} aria-hidden /> Templates</Link>
+      <PageHeader title="New Template" description="Created as a draft. Activate it from the designer when it is ready to be used by campaigns." help={<PageHelp chapter="templates" />} />
+      {create.isError && (
+        <div className="mb-4 empty:hidden">
+          <ErrorState title={CREATE_FAILED} error={create.error} shownFields={TEMPLATE_FIELDS} />
+        </div>
+      )}
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5">
+        <FormSection title="Template">
+          <Field label="Name" required error={errors.name} limit={{ used: name.length, max: rule('name')?.max ?? 200 }}>
+            {(ids) => <TextInput {...ids} value={name} maxLength={rule('name')?.max ?? 200} autoFocus onChange={(event) => { setName(event.target.value); setErrors({}) }} />}
+          </Field>
+          <Field label="Channel" required error={errors.channel} help="Decides which editor opens and which campaigns can use the template: an email campaign needs an email template, a text campaign a text one. Fixed once created." hint={CHANNELS.find((item) => item.value === channel)?.hint}>
+            {(ids) => (
+              <Select {...ids} value={channel} onChange={(event) => { setChannel(event.target.value); setStarter('') }}>
+                {channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </Select>
+            )}
+          </Field>
+          <div className="lg:col-span-2">
+            <Field label="Description" error={errors.description} hint="What this template is for. Shown in the template list.">
+              {(ids) => <TextArea {...ids} rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />}
+            </Field>
+          </div>
+        </FormSection>
+        <StarterGallery
+          channel={channel}
+          value={starter}
+          onChange={(key, chosen) => {
+            setStarter(key)
+            if (chosen && !name.trim()) setName(chosen.name) // a sensible default the user can overwrite
+            if (chosen && !description.trim()) setDescription(chosen.description)
+          }}
+        />
+        {errors.starter && <p className="text-sm font-medium text-danger-text">{errors.starter}</p>}
+        <div className="flex items-center gap-3">
+          <button type="submit" disabled={create.isPending} className={buttonPrimary}>
+            {create.isPending && <Spinner size="sm" tone="onBrand" />}
+            {CREATE_LABEL[editorRouteFor(channel)]}
+          </button>
+          <Link to="/templates" className={buttonSecondary}>Cancel</Link>
+        </div>
+      </form>
+    </section>
+  )
+}

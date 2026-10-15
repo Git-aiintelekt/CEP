@@ -1,12 +1,12 @@
 /**
  * Stands in for the Outer design canvas in tests: GrapesJS hangs under jsdom. It keeps the same handle, so the
  * workspace saves, loads and compiles through it exactly as it would through the real one.
- * Swap it in with vi.mock('@/features/receipt/OuterDesignPane', () => import('@/test/fakeOuterDesignPane')); read and
+ * Swap it in with vi.mock('@/apps/cep/features/receipt/OuterDesignPane', () => import('@/test/fakeOuterDesignPane')); read and
  * steer it through ./fakeCanvas.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
-import type { EmailDesignerHandle } from '@/features/designer/EmailDesigner'
+import type { EmailDesignerHandle } from '@/apps/cep/features/designer/EmailDesigner'
 
 import { fakeCanvas, fakeCompiled } from './fakeCanvas'
 

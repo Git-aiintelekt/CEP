@@ -19,7 +19,21 @@ export default defineConfig(({ mode }) => {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     // The email designer (GrapesJS + the MJML compiler) is one lazily loaded ~2.4 MB chunk by design.
-    build: { chunkSizeWarningLimit: 2600 },
+    // One chunk per suite component: App.tsx lazy-imports apps/<key>/routes, so a component's pages and their own
+    // dependencies become one chunk, named after the component; the designer and the journey canvas stay lazy inside it.
+    // scripts/check-budgets.mjs holds the shell (index) and each component to its budget after the build.
+    build: {
+      chunkSizeWarningLimit: 2600,
+      rollupOptions: {
+        output: {
+          chunkFileNames(chunk) {
+            const facade = (chunk.facadeModuleId || '').replace(/\\/g, '/')
+            const component = facade.match(/\/src\/apps\/([a-z0-9_]+)\/routes\.tsx$/)
+            return component ? `assets/${component[1]}-[hash].js` : 'assets/[name]-[hash].js'
+          },
+        },
+      },
+    },
     // css.include: src/lib/theme.test.ts reads index.css?raw to check the theme blocks (Vitest empties CSS otherwise)
     test: { css: { include: [/index\.css/] }, environment: 'jsdom', env: { VITE_DEFAULT_TENANT: 'NWA', VITE_LOADING_HOLD_MS: '0' }, testTimeout: 20_000, setupFiles: ['./src/test/setup.ts'] },
     server: {

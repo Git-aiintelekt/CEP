@@ -2,13 +2,13 @@
 import { vi } from 'vitest'
 
 import { derived, handleCampaigns, listCampaigns, makeStep, moduleDefaults } from './mockCampaigns'
-import { starterFromTemplate } from '@/features/journeys/templates/templateApi'
+import { starterFromTemplate } from '@/apps/cep/features/journeys/templates/templateApi'
 
 import { handleWorkspaceTools, workspaceToolsState, type WorkspaceToolsState } from './mockWorkspaceTools'
-import { defaultSectionsFor } from '@/features/receipt/receiptPresets'
-import { RECEIPT_STARTER_MJML } from '@/features/receipt/receiptStarter'
+import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
+import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
-import { SAMPLE_SETUP_READY } from '@/features/setup/sampleSetup'
+import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
 import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
@@ -1524,3 +1524,9 @@ export function signIn(path = '/') {
 }
 
 export const problem = (status: number, body: Record<string, unknown>) => json({ type: 'about:blank', status, ...body }, status)
+
+/** `await import('@/App').then(cepReady)`: the app module with Engagement's chunk already loaded, so a test's first findBy is not spent on it */
+export async function cepReady<T extends { cepReady?: Promise<unknown> }>(app: T): Promise<T> {
+  await app.cepReady
+  return app
+}
