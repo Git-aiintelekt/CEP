@@ -34,8 +34,8 @@
                         {% if meter.limit %}<div class="cep-meter" data-state="{{ meter.state }}" role="img" aria-label="{{ meter.percent }}% of the limit used"><i style="width: {% if meter.percent > 100 %}100{% else %}{{ meter.percent|unlocalize }}{% endif %}%"></i></div>{% endif %}
                     </div>
                     <div class="cep-row-side">
-                        {% if meter.state == "blocked" %}<span class="cep-pill" data-kind="danger">At Limit</span>
-                        {% elif meter.state == "over" %}<span class="cep-pill" data-kind="warning">Overage</span>
+                        {% if meter.state == "blocked" %}<span class="cep-pill" data-kind="danger">Blocked</span>
+                        {% elif meter.state == "over" %}<span class="cep-pill" data-kind="warning">Over Limit</span>
                         {% elif meter.state == "warning" %}<span class="cep-pill" data-kind="warning">Near Limit</span>
                         {% else %}<span class="cep-pill">OK</span>{% endif %}
                     </div>

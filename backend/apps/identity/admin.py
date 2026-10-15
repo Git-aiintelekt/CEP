@@ -201,7 +201,7 @@ class ApiClientAdmin(BaseAdmin):
     def get_readonly_fields(self, request, obj=None):
         return [f.name for f in ApiClient._meta.concrete_fields if f.name not in ("key_hash", "rate_limit_per_minute", "expires_at")]
 
-    @display(description="State", label={"Active": "success", "Revoked": "danger", "Expired": "warning"})
+    @display(description="State", label={"Active": "success", "Revoked": "info", "Expired": "warning"})
     def show_state(self, obj):
         return "Revoked" if obj.revoked_at else "Expired" if obj.expires_at and obj.expires_at <= timezone.now() else "Active"
 

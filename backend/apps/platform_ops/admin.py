@@ -40,9 +40,9 @@ class TenantInvoiceAdmin(BaseAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    @display(description="Status", label={"DRAFT": "info", "ISSUED": "warning", "PAID": "success", "VOID": "danger"})
+    @display(description="Status", label={"DRAFT": "info", "ISSUED": "warning", "PAID": "success", "VOID": "info"})
     def show_status(self, obj):
-        return obj.status
+        return obj.status, obj.status.title()
 
     @action(description="Issue: the tenant can see it, the due date starts")
     def issue(self, request, queryset):
@@ -129,9 +129,9 @@ class TenantOperationAdmin(BaseAdmin):
         if not change:
             messages.info(request, f"Requested. It runs with the next run-tenant-operations job, or now with: python manage.py run_tenant_operation {obj.pk}")
 
-    @display(description="Status", label={"REQUESTED": "info", "RUNNING": "warning", "SUCCEEDED": "success", "FAILED": "danger", "CANCELLED": "info"})
+    @display(description="Status", label={"REQUESTED": "info", "RUNNING": "live", "SUCCEEDED": "done", "FAILED": "danger", "CANCELLED": "info"})
     def show_status(self, obj):
-        return obj.status
+        return obj.status, obj.status.title()
 
     @display(description="Steps")
     def show_progress(self, obj):
@@ -163,9 +163,9 @@ class JobRunAdmin(ReadOnlyAdmin):
     list_filter = ("status", "job_name")
     ordering = ("-started_at",)
 
-    @display(description="Status", label={"SUCCEEDED": "success", "FAILED": "danger", "RUNNING": "warning"})
+    @display(description="Status", label={"SUCCEEDED": "done", "FAILED": "danger", "RUNNING": "live"})
     def show_status(self, obj):
-        return obj.status
+        return obj.status, obj.status.title()
 
     @display(description="Error")
     def short_error(self, obj):
@@ -182,7 +182,7 @@ class PlatformAlertAdmin(ReadOnlyAdmin):
 
     @display(description="Severity", label={"FAIL": "danger", "WARN": "warning"})
     def show_severity(self, obj):
-        return obj.severity
+        return obj.severity, {"FAIL": "Failing", "WARN": "Attention"}.get(obj.severity, obj.severity.title())
 
     @display(description="State", label={"Open": "danger", "Acknowledged": "warning", "Resolved": "success"})
     def show_state(self, obj):
@@ -205,7 +205,7 @@ class SupportAccessLogAdmin(ReadOnlyAdmin):
     ordering = ("-started_at",)
     actions = ("end_now",)
 
-    @display(description="State", label={"Active": "warning", "Ended": "success", "Expired": "info"})
+    @display(description="State", label={"Active": "warning", "Ended": "info", "Expired": "info"})
     def show_state(self, obj):
         return "Ended" if obj.ended_at else "Active" if obj.expires_at > timezone.now() else "Expired"
 
@@ -511,9 +511,9 @@ class MailServerAdmin(BaseAdmin):
     def owner(self, obj):
         return obj.tenant.code if obj.tenant_id else "Platform"
 
-    @display(description="Last Test", label={"OK": "success", "Failed": "danger", "Never": "info"})
+    @display(description="Last Test", label={"OK": "success", "Failed": "danger", "Not Checked": "info"})
     def show_test(self, obj):
-        return "Never" if obj.last_test_ok is None else "OK" if obj.last_test_ok else "Failed"
+        return "Not Checked" if obj.last_test_ok is None else "OK" if obj.last_test_ok else "Failed"
 
     @action(description="Send a Test Message to Me", url_path="send-test")
     def send_test(self, request, object_id):

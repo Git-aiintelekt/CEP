@@ -79,7 +79,7 @@ class ErrorGroupAdmin(BaseAdmin):
         where = obj.culprit or ""
         return [obj.message[:140], f"{obj.kind}{f' · {where}' if where else ''}"]
 
-    @display(description="Source", label={"API": "info", "Browser": "warning", "Job": "info"})
+    @display(description="Source", label={"API": "info", "Browser": "info", "Job": "info"})
     def show_source(self, obj):
         return obj.get_source_display()
 
@@ -155,9 +155,9 @@ class UptimeTargetAdmin(BaseAdmin):
     readonly_fields = ("state", "state_since", "consecutive_failures", "last_checked_at", "last_ms", "last_error")
     change_form_after_template = "admin/platform_ops/uptime_checks.html"
 
-    @display(description="State", label={"Up": "success", "Down": "danger", "Not checked yet": "info"})
+    @display(description="State", label={"Up": "success", "Down": "danger", "Not Checked": "info"})
     def show_state(self, obj):
-        return obj.get_state_display()
+        return "Not Checked" if obj.state == "UNKNOWN" else obj.get_state_display()
 
     @display(description="Since")
     def show_since(self, obj):
