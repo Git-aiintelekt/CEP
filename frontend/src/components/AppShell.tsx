@@ -1,6 +1,6 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bell, ChevronDown, ChevronsLeft, ChevronsRight, Keyboard, LogOut, Menu, Monitor, Moon, Search, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
@@ -8,23 +8,18 @@ import { LegalFooter } from '@/components/LegalFooter'
 import { UploadsIndicator } from '@/features/contact-lists/UploadsIndicator'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
-import { useThemePreference, type ThemePreference } from '@/lib/theme'
-import type { SearchResults } from '@/lib/types'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import { useSingleDropdown } from '@/lib/useSingleDropdown'
-import { iconButtonClass } from './buttonStyles'
-import { MenuRow } from './MenuRow'
-import { Popover } from './Popover'
-import { MAIN_NAV, SETTINGS, type NavItem } from './navItems'
-import { RailGroup, RailMark } from './Rail'
-import { SegmentedControl, type SegmentOption } from './SegmentedControl'
+import { LeftNav } from '@/shell/LeftNav'
+import { componentAt, entitled, type EntitledComponent } from '@/shell/manifests'
+import { TopBar } from '@/shell/TopBar'
+import { SETTINGS, type NavItem } from './navItems'
 import { useToast } from './Toast'
 
 const SECURITY = '/account/security'
 
 /**
  * Labels leave at the start of a collapse and come back at the end of an expand (240ms, the width's own
- * transition), so text never squeezes while the rail moves. With reduced motion they follow at once.
+ * transition), so text never squeezes while the navigation moves. With reduced motion they follow at once.
  */
 function useLabelsAfterWidth(expanded: boolean): boolean {
   const [ready, setReady] = useState(expanded)
@@ -39,8 +34,6 @@ function useLabelsAfterWidth(expanded: boolean): boolean {
   }, [expanded])
   return expanded && ready
 }
-/** the open rail's mark row: 240px less its 16px sides */
-const RAIL_OPEN_INNER = 240 - 32
 const COLLAPSED_KEY = 'cep.nav.collapsed'
 
 function readCollapsed(): boolean {
@@ -55,7 +48,7 @@ function writeCollapsed(value: boolean): void {
   try {
     window.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0')
   } catch {
-    /* blocked storage: the rail simply opens expanded next time */
+    /* blocked storage: the navigation simply opens expanded next time */
   }
 }
 
@@ -78,15 +71,6 @@ function SupportBanner({ by, mode, expiresAt, onEnded }: { by: string; mode: 'RE
       </button>
     </div>
   )
-}
-
-function initials(name: string | undefined): string {
-  if (!name) return '?'
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
 }
 
 const SHORTCUTS: { keys: string; does: string }[] = [
@@ -136,110 +120,18 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   )
 }
 
-const THEME_OPTIONS: SegmentOption<ThemePreference>[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-]
-
-/** Finds records and pages: campaigns, contact lists and templates by name, and the menu the person can already see. */
-function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: React.RefObject<HTMLInputElement | null> }) {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [query, setQuery] = useState('')
-  const [openedOn, setOpenedOn] = useState<string | null>(null)
-  const open = openedOn === location.pathname
-  const setOpen = (value: boolean) => setOpenedOn(value ? location.pathname : null)
-  const term = query.trim().toLowerCase()
-  const [debounced, setDebounced] = useState('')
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(term), 220)
-    return () => window.clearTimeout(timer)
-  }, [term])
-  const results = useQuery({
-    queryKey: ['search', debounced],
-    queryFn: ({ signal }) => api.get<SearchResults>('/search/', { q: debounced }, signal),
-    enabled: open && debounced.length >= 2,
-    staleTime: 30_000,
-  })
-  const pageMatches = term ? pages.filter((page) => page.label.toLowerCase().includes(term)) : []
-  const found = results.data && results.data.q === debounced ? results.data : null
-  const rows: { key: string; kind: string; label: string; meta?: string; to: string; icon?: LucideIcon }[] = [
-    ...(found?.campaigns ?? []).map((item) => ({ key: `c-${item.id}`, kind: 'Campaign', label: item.name, meta: `${item.status_label}${item.code ? ` · ${item.code}` : ''}`, to: item.setup_complete ? `/campaigns/${item.id}` : `/campaigns/${item.id}/edit` })),
-    ...(found?.lists ?? []).map((item) => ({ key: `l-${item.id}`, kind: 'Contact list', label: item.name, meta: `${item.member_count.toLocaleString()} contacts`, to: `/contact-lists/${item.id}` })),
-    ...(found?.templates ?? []).map((item) => ({ key: `t-${item.id}`, kind: 'Template', label: item.name, meta: item.channel, to: `/templates/${item.id}` })),
-    ...pageMatches.map((page) => ({ key: `p-${page.to}`, kind: 'Page', label: page.label, to: page.to, icon: page.icon })),
-  ]
-  const searching = open && term.length >= 2 && (results.isPending || debounced !== term)
-
-  function go(to: string) {
-    setQuery('')
-    setOpen(false)
-    navigate(to)
-  }
-
-  function onSubmit(event: FormEvent) {
-    event.preventDefault()
-    if (rows[0]) go(rows[0].to)
-  }
-
-  return (
-    <form
-      role="search"
-      onSubmit={onSubmit}
-      className="group relative w-full max-w-md"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
-      }}
-    >
-      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sidebar-icon group-focus-within:text-ink-800" />
-      <input
-        ref={inputRef}
-        type="search"
-        aria-label="Search"
-        placeholder="Search campaigns, audiences, templates or journeys"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === 'Escape') { setOpen(false); (event.target as HTMLInputElement).blur() }
-        }}
-        className="h-8 w-full rounded-control-md border border-transparent bg-sidebar-hover pr-3 pl-8 text-sm text-on-brand transition-colors placeholder:text-sidebar-text focus:bg-surface focus:text-ink-900 focus:placeholder:text-ink-300 focus-visible:border-focus"
-      />
-      {open && term && (
-        <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface-overlay py-1 shadow-menu">
-          {rows.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-ink-800">{searching ? 'Searching' : term.length < 2 ? 'Type two characters or more.' : 'Nothing matches. Try a campaign, list or template name, or a page such as Settings.'}</li>
-          ) : (
-            rows.map((row) => (
-              <li key={row.key}>
-                <button type="button" onClick={() => go(row.to)} className="flex h-10 w-full items-center gap-2 px-3 text-left text-sm text-ink-900 transition-colors hover:bg-surface-hover">
-                  {row.icon ? <row.icon size={16} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-800" /> : <span className="w-16 shrink-0 text-xs text-ink-800">{row.kind}</span>}
-                  <span className="min-w-0 flex-1 truncate">{row.label}</span>
-                  {row.meta && <span className="shrink-0 truncate text-xs text-ink-800">{row.meta}</span>}
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
-    </form>
-  )
-}
-
+/**
+ * The suite shell: the top bar (launcher, brand, search, account), the left navigation by component, and the page.
+ * xl and up: the navigation is 240px unless the person collapsed it. Below xl it is 64px icon-only, and opening it
+ * expands it over the page (never pushing it). Below md there is no navigation until the menu button opens it.
+ */
 export function AppShell() {
   const { me, logout, can, has } = useAuth()
-  const [themePreference, setThemePreference] = useThemePreference()
   const location = useLocation()
   const isXl = useMinWidth(BREAKPOINT.xl)
   const isMd = useMinWidth(BREAKPOINT.md)
-  // xl and up: the rail is 240px unless the person collapsed it. Below xl it is 64px icon-only, and opening it
-  // expands it over the content (never pushing it). Below md there is no rail until the menu button opens it.
   const [userCollapsed, setUserCollapsed] = useState(readCollapsed)
-  // the menu is open only for the page it was opened on, so navigating closes it without an effect
+  // the overlay is open only for the page it was opened on, so navigating closes it without an effect
   const [openedOn, setOpenedOn] = useState<string | null>(null)
   const open = openedOn === location.pathname
   const setOpen = (value: boolean | ((current: boolean) => boolean)) => {
@@ -248,19 +140,17 @@ export function AppShell() {
   }
   const expanded = isXl ? !userCollapsed : open
   const overlay = open && !isXl
-  const showRail = isMd || open
+  const showNav = isMd || open
   const support = me?.support_session ?? null
   const enrolFirst = Boolean(me?.mfa_setup_required)
   const allowed = (item: NavItem) => (!item.feature || has(item.feature)) && (!item.permission || can(item.permission))
   // support never manages users, roles, keys or security: the API refuses, so the menu does not offer it
   const showSettings = !enrolFirst && can('user.admin') && !support
-  const main = enrolFirst ? [] : MAIN_NAV.filter(allowed)
-  const admin = showSettings ? [SETTINGS] : []
-  const pages = [...main, ...admin]
+  const components: EntitledComponent[] = enrolFirst ? [] : entitled(me).map((component) => ({ ...component, menu: component.menu.filter(allowed) }))
+  const current = componentAt(location.pathname, components)
+  const settings = showSettings ? { ...SETTINGS, label: 'Workspace Settings' } : null
+  const pages = [...(current?.menu ?? []), ...(settings ? [settings] : [])]
   const labels = useLabelsAfterWidth(expanded)
-  const name = me?.principal.display_name ?? me?.principal.email
-  const role = me?.principal.roles?.[0] ?? me?.principal.email
-  const account = useSingleDropdown<'account'>()
   const navigate = useNavigate()
   const searchRef = useRef<HTMLInputElement>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -307,124 +197,44 @@ export function AppShell() {
     }
   }
 
-  const toggleLabel = !isMd ? 'Close navigation' : expanded ? 'Collapse navigation' : 'Expand navigation'
-  const ToggleIcon = !isMd ? X : expanded ? ChevronsLeft : ChevronsRight
   const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
-  const toggleButton = (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={toggleLabel}
-      aria-expanded={isMd ? expanded : undefined}
-      data-rail-toggle={expanded ? 'beside' : 'below'}
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-sidebar-divider text-sidebar-icon transition-colors duration-fast ease-standard outline-none hover:bg-sidebar-hover hover:text-on-brand focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent active:bg-sidebar-pressed"
-    >
-      <ToggleIcon size={16} strokeWidth={1.5} aria-hidden />
-    </button>
-  )
 
   return (
-    <div className="cep-settle-in min-h-screen">
+    <div className="cep-settle-in min-h-screen bg-canvas">
       {overlay && <div aria-hidden className="fixed inset-0 z-30 animate-fade-in bg-scrim" onClick={() => setOpen(false)} />}
 
-      {showRail && (
-        <>
-          <aside aria-label="Sidebar"
-            className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar pb-5 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'} pt-5`}>
-            {/* the mark stays put; the round toggle glides with the rail's width, from the end of the mark's row (open) to under the mark (closed) */}
-            <div className={`relative mx-4 mb-8 shrink-0 transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'pb-0' : 'pb-11'}`}>
-              <RailMark expanded={labels} />
-              <div className="absolute transition-[top,left] duration-moderate ease-standard motion-reduce:transition-none" style={{ top: expanded ? 0 : 44, left: expanded ? RAIL_OPEN_INNER - 32 : 0 }}>
-                {toggleButton}
-              </div>
-            </div>
-            <nav aria-label="Main" className="flex flex-col px-3">
-              <RailGroup label="Pages" items={main} expanded={labels} />
-              <RailGroup label="Administration" items={admin} expanded={labels} divided={main.length > 0} />
-            </nav>
-          </aside>
-        </>
+      {showNav && (
+        <aside aria-label="Sidebar"
+          className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar pb-4 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'} pt-3`}>
+          <nav aria-label="Main" className={`flex min-h-0 flex-1 flex-col ${labels ? 'px-3' : 'items-center px-0'}`}>
+            <LeftNav
+              components={components}
+              current={current}
+              expanded={labels}
+              workspace={me?.workspace}
+              settings={settings}
+              toggle={{ kind: !isMd ? 'close' : expanded ? 'collapse' : 'expand', onClick: toggle }}
+              onNavigate={overlay ? () => setOpen(false) : undefined}
+            />
+          </nav>
+        </aside>
       )}
 
-      {/* navy behind the page, so the page reads as a sheet with its top-left corner rounded against the rail and the top bar */}
-      <div className={`flex min-h-screen min-w-0 flex-col bg-sidebar transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
+      <div className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
-        {/* stays put while the page scrolls under it, like the rail: search and the account are always one reach away */}
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 bg-sidebar px-4 md:px-8">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            {!isMd && (
-              <button
-                type="button"
-                onClick={() => setOpen(true)}
-                aria-label="Open navigation"
-                className={iconButtonClass({ variant: 'onNavy' })}
-              >
-                <Menu size={20} strokeWidth={1.5} aria-hidden />
-              </button>
-            )}
-            <GlobalSearch pages={pages} inputRef={searchRef} />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-2 text-sm whitespace-nowrap md:flex">
-              <span className="text-sidebar-text">Tenant</span>
-              <span className="font-semibold text-on-brand">{me?.tenant.code}</span>
-              <span className="hidden text-sidebar-text xl:inline">· {me?.tenant.timezone}</span>
-            </span>
-            <UploadsIndicator />
-            <span className="hidden md:flex">
-              <button type="button" onClick={() => setHelpOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className={iconButtonClass({ variant: 'onNavy' })}>
-                <Keyboard size={20} strokeWidth={1.5} aria-hidden />
-              </button>
-            </span>
-            <button
-              type="button"
-              disabled
-              aria-label="Notifications"
-              title="Notifications are not available yet"
-              className={iconButtonClass({ variant: 'onNavy', disabled: true })}
-            >
-              <Bell size={20} strokeWidth={1.5} aria-hidden />
-            </button>
-            <div className="relative">
-              <button
-                type="button"
-                {...account.triggerProps('account')}
-                aria-label={`Account: ${name ?? ''}`}
-                className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-sidebar-hover"
-              >
-                <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-plum-500 text-xs font-semibold text-on-brand">
-                  {initials(me?.principal.display_name)}
-                </span>
-                <span className="hidden min-w-0 flex-col text-left leading-tight lg:flex">
-                  <span className="truncate text-sm font-semibold text-on-brand">{name}</span>
-                  <span data-role className="truncate text-xs text-sidebar-text">{role}</span>
-                </span>
-                <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-sidebar-icon lg:block" />
-              </button>
-              {account.isOpen('account') && (
-                <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={240}>
-                  <div className="border-b border-line-subtle px-3 py-2.5 leading-tight">
-                    <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
-                    <p className="truncate text-xs text-ink-800">{me?.principal.email}</p>
-                  </div>
-                  <div className="border-b border-line-subtle px-3 py-2.5">
-                    <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} stretch />
-                  </div>
-                  <MenuRow title="Account Security" leading={<ShieldCheck size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />}
-                    onClick={() => { account.close({ restoreFocus: false }); navigate(SECURITY) }} />
-                  <MenuRow title="Sign Out" leading={<LogOut size={16} strokeWidth={1.5} aria-hidden className="text-ink-800" />} onClick={() => { account.close({ restoreFocus: false }); logout() }} />
-                </Popover>
-              )}
-            </div>
-          </div>
-        </header>
-        {/* the sheet's rounded corner stays put under the top bar while the page scrolls beneath it */}
-        <div aria-hidden data-sheet-corner className="pointer-events-none sticky top-14 z-20 h-0">
-          <span className="cep-sheet-corner absolute top-0 left-0 h-3 w-3" />
-        </div>
-
-        {/* same side padding as the header and no width cap, so content lines up with the search bar and Sign out */}
-        <main className="flex w-full min-w-0 flex-1 flex-col rounded-tl-xl bg-canvas px-4 py-5 md:px-8 md:py-6">
+        <TopBar
+          me={me}
+          components={components}
+          current={current}
+          pages={pages}
+          searchRef={searchRef}
+          onOpenNav={!isMd ? () => setOpen(true) : undefined}
+          onHelp={() => setHelpOpen(true)}
+          onLogout={logout}
+          extra={<UploadsIndicator />}
+        />
+        {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
+        <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
           <div className="flex-1"><Outlet /></div>
           <LegalFooter variant="bar" />
         </main>

@@ -1,4 +1,4 @@
-/** The app shell's navigation rail: its items and groups, collapsing and expanding, and the collapsed tooltips. */
+/** The suite shell: the top bar (brand, launcher, account), the left navigation by component, collapsing, and the collapsed flyout. */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -14,6 +14,7 @@ async function renderAppAt(path: string) {
 
 const rail = () => screen.getByRole('complementary', { name: 'Sidebar' })
 const nav = () => screen.getByRole('navigation', { name: 'Main' })
+const topBar = () => screen.getByRole('banner')
 
 beforeEach(() => window.localStorage.clear())
 afterEach(() => {
@@ -21,45 +22,42 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test('240px expanded: the brand, Home and the everyday pages, then Settings below a divider; no section headings', async () => {
+test('240px: the component’s head and its menu, then Workspace Settings and Collapse at the foot; the brand sits in the white top bar', async () => {
   installMockApi()
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
   expect(rail().className).toContain('w-60')
   expect(rail().className).not.toContain('border')
-  const mark = within(rail()).getByRole('link', { name: 'C360 home' })
-  expect(within(mark).getByText('C360').className).toContain('bg-brand-600')
-  expect(within(rail()).getByText('Engagement')).toBeTruthy()                            // the wordmark sits under the mark, outside the link
 
-  const [pages, admin] = within(nav()).getAllByRole('list')
-  expect(within(pages).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
-  expect(within(admin).getAllByRole('link').map((link) => link.textContent)).toEqual(['Settings'])
-  expect(within(rail()).queryByText(/^engage$/i)).toBeNull()
-  expect(within(rail()).queryByText(/^manage$/i)).toBeNull()
+  // the brand: C360 and the open component's name, on the top bar, not in the navy
+  expect(within(topBar()).getByText('C')).toBeTruthy()
+  expect(topBar().querySelector('[data-component-name]')?.textContent).toBe('Engagement')
+  expect(topBar().className).toContain('bg-surface')
+  expect(within(rail()).queryByText('C360')).toBeNull()
 
-  const current = within(nav()).getByRole('link', { name: 'Campaigns' })
+  const menu = within(nav()).getByRole('list', { name: 'Engagement' })
+  expect(within(menu).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
+  expect(within(within(nav()).getByRole('list', { name: 'Workspace' })).getAllByRole('link').map((link) => link.textContent)).toEqual(['Workspace Settings'])
+  expect(within(nav()).queryByRole('button', { name: 'All Components' })).toBeNull()               // one component: nothing to choose between
+
+  const current = within(menu).getByRole('link', { name: 'Campaigns' })
   expect(current.getAttribute('aria-current')).toBe('page')
   expect(current.querySelector('[data-current-bar]')).toBeTruthy()
 })
 
-test('collapsing: 64px, labels gone at once, remembered; expanding brings the labels back after the width', async () => {
+test('collapsing: 64px with one tile per component, labels gone at once, remembered; expanding brings the labels back after the width', async () => {
   const user = userEvent.setup()
   installMockApi()
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
   const toggle = screen.getByRole('button', { name: 'Collapse navigation' })
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
-  expect(toggle.getAttribute('data-rail-toggle')).toBe('beside')                                       // expanded: 32px beside the mark
-  expect(within(rail()).getByRole('link', { name: 'C360 home' }).compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
   await user.click(toggle)
   expect(rail().className).toContain('w-16')
-  const collapsedToggle = screen.getByRole('button', { name: 'Expand navigation' })                   // 64px has no room beside the mark: the round toggle sits under it
-  expect(collapsedToggle.getAttribute('data-rail-toggle')).toBe('below')
-  expect(collapsedToggle.className).toContain('h-8 w-8 items-center justify-center rounded-full')
-  expect(within(rail()).getByRole('link', { name: 'C360 home' }).compareDocumentPosition(collapsedToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('')                 // named by aria-label only
-  expect(within(rail()).queryByText('Engagement')).toBeNull()
+  expect(within(nav()).queryByRole('link', { name: 'Campaigns' })).toBeNull()
+  const tile = within(within(nav()).getByRole('list', { name: 'Components' })).getByRole('button', { name: 'Engagement' })
+  expect(tile.getAttribute('aria-current')).toBe('true')
   expect(window.localStorage.getItem('cep.nav.collapsed')).toBe('1')
 
   await user.click(screen.getByRole('button', { name: 'Expand navigation' }))
@@ -67,21 +65,59 @@ test('collapsing: 64px, labels gone at once, remembered; expanding brings the la
   await vi.waitFor(() => expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('Campaigns'))
 })
 
-test('collapsed, a hovered item names itself in a tooltip', async () => {
+test('collapsed, pointing at a component’s tile shows its menu as a flyout, with the current page marked', async () => {
   const user = userEvent.setup()
   window.localStorage.setItem('cep.nav.collapsed', '1')
   installMockApi()
-  await renderAppAt('/campaigns')
+  await renderAppAt('/templates')
   await screen.findByRole('navigation', { name: 'Main' })
-  await user.hover(within(nav()).getByRole('link', { name: 'Templates' }))
-  await vi.waitFor(() => expect(document.querySelector('[data-rail-tooltip]')?.textContent).toBe('Templates'))
-  await user.unhover(within(nav()).getByRole('link', { name: 'Templates' }))
-  expect(document.querySelector('[data-rail-tooltip]')).toBeNull()
+  await user.hover(within(nav()).getByRole('button', { name: 'Engagement' }))
+  const flyout = await screen.findByRole('region', { name: 'Engagement menu' })
+  expect(within(flyout).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
+  expect(within(flyout).getByRole('link', { name: 'Templates' }).getAttribute('aria-current')).toBe('page')
+  await user.keyboard('{Escape}')
+  await vi.waitFor(() => expect(screen.queryByRole('region', { name: 'Engagement menu' })).toBeNull())
 })
 
-test('without user.admin there is no second group and no divider', async () => {
-  installMockApi({ me: { principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
+test('the launcher lists the workspace’s components as tiles, marks the open one, and names what is coming', async () => {
+  const user = userEvent.setup()
+  installMockApi()
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
-  expect(within(nav()).getAllByRole('list')).toHaveLength(1)
+  await user.click(within(topBar()).getByRole('button', { name: 'Apps' }))
+  const apps = await screen.findByRole('region', { name: 'Apps' })
+  const tiles = within(within(apps).getByRole('list', { name: 'Your apps' })).getAllByRole('link')
+  expect(tiles.map((tile) => tile.textContent)).toEqual(['Engagement'])
+  expect(tiles[0].getAttribute('aria-current')).toBe('true')
+  expect(apps.textContent).toContain('Insights, CRM, Sales, Purchasing, Inventory and PIM are coming.')
+})
+
+test('with several components the navigation lists them first, and choosing one drills into its menu', async () => {
+  const user = userEvent.setup()
+  installMockApi({ me: { ...me, components: [...me.components, { key: 'cep', name: 'Engagement', tagline: 'Customer Engagement', access: 'TRIAL', until: '2026-10-31' }] } as never })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('navigation', { name: 'Main' })
+  // the menu is open on the current component; All Components goes up a level
+  await user.click(within(nav()).getByRole('button', { name: 'All Components' }))
+  const list = within(nav()).getByRole('list', { name: 'Components' })
+  expect(within(nav()).getByText('Northwind Apparel')).toBeTruthy()
+  expect(within(nav()).getByText('Growth plan')).toBeTruthy()
+  expect(within(list).getAllByRole('button').length).toBe(2)
+  await user.click(within(list).getAllByRole('button')[0])
+  expect(within(nav()).getByRole('list', { name: 'Engagement' })).toBeTruthy()
+})
+
+test('a component the workspace does not have is not offered anywhere', async () => {
+  installMockApi({ me: { ...me, components: [{ key: 'crm', name: 'CRM', tagline: 'Accounts', access: 'PLAN', until: null }] } as never })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('navigation', { name: 'Main' })
+  expect(within(nav()).queryByRole('list', { name: 'Engagement' })).toBeNull()
+  expect(topBar().querySelector('[data-component-name]')).toBeNull()
+})
+
+test('without user.admin there is no Workspace Settings', async () => {
+  installMockApi({ me: { ...me, principal: { ...me.principal, permissions: ['campaign.view'] } } as never })
+  await renderAppAt('/campaigns')
+  await screen.findByRole('navigation', { name: 'Main' })
+  expect(within(nav()).queryByRole('list', { name: 'Workspace' })).toBeNull()
 })

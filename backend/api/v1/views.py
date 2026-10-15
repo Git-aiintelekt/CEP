@@ -528,7 +528,7 @@ class MeViewSet(viewsets.ViewSet):
             principal["auth_provider"] = user.auth_provider
         token = getattr(request, "auth", None)
         return Response({"principal": principal, "tenant": request.tenant, "industry": workspace["industry"], "features": workspace["features"],
-                         "terminology": workspace["terminology"],
+                         "terminology": workspace["terminology"], "workspace": workspace["workspace"], "components": workspace["components"],
                          "mfa_setup_required": bool(token is not None and hasattr(token, "get") and token.get("mfa_setup") and not getattr(user, "mfa_enabled", True)),
                          "support_session": {"by": session.staff_name or "Platform support", "mode": session.access_mode, "expires_at": session.expires_at,
                                              "reason": session.reason} if session else None,
