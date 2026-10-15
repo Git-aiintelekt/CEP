@@ -36,7 +36,7 @@ function BrandPanel() {
       <div className="relative z-10 flex items-center gap-3">
         <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-on-brand">C360</span>
         <span aria-hidden className="h-4 w-px bg-on-brand-soft/30" />
-        <span className="text-helper text-on-brand-soft">Customer Engagement Platform</span>
+        <span className="text-helper text-on-brand-soft">Customer Insights Platform</span>
       </div>
 
       <div className="relative z-10 flex max-w-[clamp(440px,26vw,640px)] flex-col gap-5">
@@ -62,7 +62,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2.5 pb-10 min-[860px]:hidden">
           <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">C360</span>
           <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
-          <span className="text-helper text-ink-800">Customer Engagement Platform</span>
+          <span className="text-helper text-ink-800">Customer Insights Platform</span>
         </div>
 
         <div className="flex flex-1 flex-col items-center justify-center">
