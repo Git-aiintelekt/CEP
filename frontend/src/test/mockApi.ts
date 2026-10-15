@@ -78,6 +78,29 @@ export const insightsDashboard: InsightsDashboard = {
 export const insightsDashboardsNow: InsightsDashboard[] = [insightsDashboard]
 const BOUNDS_7D = { from: '2026-10-09', to: '2026-10-15', previous_from: '2026-10-02', previous_to: '2026-10-08' }
 
+/** the engine's totals for a view, summed from the rows (the mock's engine): hierarchy prefixes, or the pivot's rows, columns and the whole */
+function mockTotals(result: typeof insightsResult, view?: { type?: string; across?: string }) {
+  const dims = result.columns.map((c, i) => ({ c, i })).filter(({ c }) => !('aggregate' in c))
+  const meas = result.columns.map((c, i) => ({ c, i })).filter(({ c }) => 'aggregate' in c)
+  let sets: string[][] | null = null
+  if (view?.type === 'hierarchy' && dims.length >= 2) sets = dims.map((_, n) => dims.slice(0, n).map(({ c }) => c.key))
+  if (view?.type === 'pivot' && view.across && dims.some(({ c }) => c.key === view.across) && dims.length >= 2) sets = [[], dims.filter(({ c }) => c.key !== view.across).map(({ c }) => c.key), [view.across]]
+  if (!sets) return {}
+  const totals: { keys: Record<string, unknown>; values: number[] }[] = []
+  for (const set of sets) {
+    const groups = new Map<string, { keys: Record<string, unknown>; values: number[] }>()
+    for (const row of result.rows) {
+      const keys = Object.fromEntries(set.map((key) => [key, row[dims.find(({ c }) => c.key === key)!.i]]))
+      const id = JSON.stringify(keys)
+      const group = groups.get(id) ?? { keys, values: meas.map(() => 0) }
+      meas.forEach(({ i }, m) => { group.values[m] += Number(row[i] ?? 0) })
+      groups.set(id, group)
+    }
+    totals.push(...groups.values())
+  }
+  return { totals }
+}
+
 /** the same saved report run by a reader without the right to personal data: the Customer column comes back masked */
 export const insightsMaskedResult = {
   ...insightsResult,
@@ -1194,7 +1217,8 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
-        return json(permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult)
+        const base = permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult
+        return json({ ...base, ...mockTotals(base as typeof insightsResult, (body as { view?: { type?: string; across?: string } } | null)?.view ?? (insightsReport.definition as { view?: { type?: string; across?: string } }).view) })
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
         const id = path.split('/').at(-2)

@@ -105,15 +105,34 @@ def mask(dataset: dict, columns: list[dict], rows: list[list], masked: bool) -> 
     return columns, rows
 
 
+def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout_ms: int, cap: int, mask_pii: bool) -> list[dict]:
+    """The engine's totals for a hierarchy or a pivot: one entry per totalled row, its dimension keys (the ones kept) and its measures."""
+    compiled = compiler.compile_totals(dataset, definition, str(tenant_id), zone, sets, limit=cap)
+    rows, _ = _execute(tenant_id, compiled, timeout_ms)
+    dims = [c for c in compiled.columns if "aggregate" not in c]
+    pii = {f["key"] for f in dataset["fields"] if f["sensitivity"] == "PII"} if mask_pii else set()
+    out = []
+    for row in rows:
+        mask_bits = int(row[-1])
+        keys = {}
+        for i, column in enumerate(dims):
+            if not mask_bits & (1 << (len(dims) - 1 - i)):
+                keys[column["key"]] = MASK if column["key"] in pii and row[i] is not None else row[i]
+        out.append({"keys": keys, "values": [_json_safe(v) for v in row[len(dims):-1]]})
+    return out
+
+
 def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None,
-        mask_pii: bool = False) -> dict:
+        mask_pii: bool = False, totals_view: dict | None = None) -> dict:
+    """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     if engine["status"] == "MIGRATING":
         raise RunRefused("REFUSED", "This workspace's reports are moving to a new engine; try again shortly.")
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
     page = min(limit or cap, cap)
-    sig = signature({**definition, "limit": page, "offset": offset})
+    sets = compiler.totals_sets(definition, totals_view or definition.get("view"))
+    sig = signature({**definition, "limit": page, "offset": offset, "totals": [list(s) for s in sets] if sets else None})
     cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -124,6 +143,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     try:
         try:
             rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"])
+            totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii) if sets else None
         except Exception as exc:                                    # noqa: BLE001  the reason is classified, the query never reaches the client
             message = str(exc)
             outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
@@ -137,7 +157,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     columns, rows = mask(dataset, compiled.columns, rows[:page], mask_pii)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
     result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
-              "freshness": engine["freshness_sla"], "cached": False}
+              "freshness": engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {})}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
 
@@ -179,16 +199,24 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=total)
 
 
-def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False) -> tuple[list[dict], list[list]]:
-    """Every row up to the export cap, in pages, for a file built in memory (the Excel export); one audit row for the whole."""
+def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False) -> tuple[list[dict], list[list], list[dict] | None]:
+    """Every row up to the export cap, in pages, for a file built in memory (the Excel export), with the engine's totals when the
+    definition's view has them; one audit row for the whole."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
-    columns, out = None, []
+    columns, out, totals = None, [], None
+    sets = compiler.totals_sets(definition, definition.get("view"))
     try:
+        if sets:
+            try:
+                totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii)
+            except Exception as exc:                                # noqa: BLE001
+                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
+                raise RunRefused("FAILED", "The export could not be run. If it happens again, tell your administrator.") from None
         offset, page = 0, 5_000
         while offset < limits["export_rows"]:
             compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset)
@@ -212,7 +240,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
         _release(slot)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "OK", report_id=report_id, report_version=report_version,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=len(out))
-    return columns or [], out
+    return columns or [], out, totals
 
 
 def touch_last_run(report_id) -> None:

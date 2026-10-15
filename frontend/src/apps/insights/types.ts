@@ -206,9 +206,17 @@ export type TileResult =
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }
 
+/** one of the engine's totals: the dimension values kept (the ones totalled away are absent) and the measures in the report's order */
+export interface TotalEntry {
+  keys: Record<string, unknown>
+  values: (number | string | null)[]
+}
+
 export interface RunResult {
   columns: ResultColumn[]
   rows: unknown[][]
+  /** the engine's totals for a hierarchy (every prefix of the dimensions, and the whole) or a pivot (its rows, its columns, the whole) */
+  totals?: TotalEntry[]
   row_count: number
   duration_ms: number
   truncated: boolean

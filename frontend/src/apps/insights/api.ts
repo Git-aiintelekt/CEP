@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, RunLog, RunResult, TileResult } from './types'
+import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -17,8 +17,8 @@ export const insightsApi = {
   remove: (id: string) => api.delete(`/insights/reports/${id}/`),
   versions: (id: string, signal?: AbortSignal) => api.get<{ versions: ReportVersion[] }>(`/insights/reports/${id}/versions/`, undefined, signal),
   restore: (id: string, version: number) => api.post<Report>(`/insights/reports/${id}/versions/${version}/restore/`, {}),
-  preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number }) => api.post<RunResult>('/insights/reports/preview/', body),
-  run: (id: string, body: { limit?: number; offset?: number } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
+  preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number; view?: ReportView }) => api.post<RunResult>('/insights/reports/preview/', body),
+  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
   exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
@@ -58,7 +58,7 @@ export const keys = {
   reports: (query: { component?: string; dataset?: string; q?: string; folder?: string }) => ['insights', 'reports', query] as const,
   report: (id: string) => ['insights', 'report', id] as const,
   versions: (id: string) => ['insights', 'versions', id] as const,
-  run: (id: string, page: { limit?: number; offset?: number }) => ['insights', 'run', id, page] as const,
+  run: (id: string, page: { limit?: number; offset?: number; view?: ReportView }) => ['insights', 'run', id, page] as const,
 }
 
 export function useCatalog() {
@@ -85,7 +85,7 @@ export function useVersions(id: string | undefined) {
   return useQuery({ queryKey: keys.versions(id ?? ''), queryFn: ({ signal }) => insightsApi.versions(id as string, signal), enabled: Boolean(id) })
 }
 
-export function useRun(id: string | undefined, page: { limit?: number; offset?: number }) {
+export function useRun(id: string | undefined, page: { limit?: number; offset?: number; view?: ReportView }) {
   return useQuery({ queryKey: keys.run(id ?? '', page), queryFn: () => insightsApi.run(id as string, page), enabled: Boolean(id), retry: false })
 }
 

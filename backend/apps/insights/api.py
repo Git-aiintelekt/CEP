@@ -301,6 +301,17 @@ def _run_body(request) -> tuple[int | None, int]:
     return limit, offset
 
 
+def _totals_view(request, definition: dict) -> dict | None:
+    """The view the engine totals for: the body's `view` (the viewer switching views without saving), else the definition's own."""
+    body = request.data if isinstance(request.data, dict) else {}
+    view = body.get("view")
+    if not isinstance(view, dict):
+        return None
+    dims = [c["field"] for c in definition["columns"] if "aggregate" not in c]
+    across = view.get("across")
+    return {"type": str(view.get("type") or "grid"), **({"across": across} if across in dims else {})}
+
+
 class PreviewView(APIView):
     permission_classes = VIEW
 
@@ -312,7 +323,7 @@ class PreviewView(APIView):
         dataset, definition = _validated(request, body, max_limit=limits["preview_rows"])
         limit, offset = _run_body(request)
         try:
-            return Response(runner.run(tenant, request.user, dataset, definition, "preview", limit=limit, offset=offset))
+            return Response(runner.run(tenant, request.user, dataset, definition, "preview", limit=limit, offset=offset, totals_view=_totals_view(request, definition)))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The preview did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
 
@@ -329,7 +340,7 @@ class RunView(APIView):
         limit, offset = _run_body(request)
         try:
             result = runner.run(tenant, request.user, dataset, definition, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
-                                mask_pii=not _can_see_pii(request))
+                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, definition))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():
@@ -378,10 +389,10 @@ class ExportXlsxView(APIView):
         definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
         dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
         try:
-            columns, rows = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+            columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
-        body = excel.build(row["name"], columns, rows, definition.get("view"))
+        body = excel.build(row["name"], columns, rows, definition.get("view"), totals)
         safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "report"
         response = HttpResponse(body, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         response["Content-Disposition"] = f'attachment; filename="{safe}.xlsx"'

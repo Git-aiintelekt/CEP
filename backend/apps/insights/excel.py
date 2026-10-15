@@ -38,7 +38,7 @@ def _width(label: str, column: dict) -> int:
     return max(base, 16 if column.get("type") in ("date", "datetime") else base)
 
 
-def build(name: str, columns: list[dict], rows: list[list], view: dict | None) -> bytes:
+def build(name: str, columns: list[dict], rows: list[list], view: dict | None, totals: list[dict] | None = None) -> bytes:
     buffer = io.BytesIO()
     book = xlsxwriter.Workbook(buffer, {"in_memory": True, "remove_timezone": True})
     header = book.add_format({"bold": True, "bg_color": "#F2F3F7", "bottom": 1, "border_color": "#CFD2DC"})
@@ -67,7 +67,7 @@ def build(name: str, columns: list[dict], rows: list[list], view: dict | None) -
         return sheet
 
     if kind == "pivot":
-        table = shape.pivot(columns, rows, across)
+        table = shape.pivot(columns, rows, across, totals=totals)
         if "reason" not in table:
             sheet = book.add_worksheet("Pivot")
             sheet.freeze_panes(1, len(table["row_columns"]))
@@ -84,7 +84,7 @@ def build(name: str, columns: list[dict], rows: list[list], view: dict | None) -
             for c, value in enumerate(table["total"]):
                 sheet.write(r, c, value, total if c < len(table["row_columns"]) else total_formats.get(_format_key(measure), total))
     elif kind == "hierarchy":
-        table = shape.hierarchy(columns, rows)
+        table = shape.hierarchy(columns, rows, totals=totals)
         if "reason" not in table:
             sheet = book.add_worksheet("Hierarchy")
             sheet.freeze_panes(1, 1)

@@ -317,9 +317,9 @@ class TileRunView(APIView):
                 return Response({"kind": "figure", "value": now["rows"][0][0] if now["rows"] else None, "previous": previous["rows"][0][0] if previous and previous["rows"] else None,
                                  "compared": previous is not None, "column": now["columns"][0], "own_dates": own_dates, "bounds": bounds, "report": about, "cached": now["cached"]})
             definition = prepared(bounds["from"], bounds["to"])
-            result = runner.run(tenant, request.user, dataset, definition, "run", limit=min(int(body.get("limit") or TILE_ROWS), limits["run_rows"]), report_id=report["id"],
-                                report_version=report["version"], mask_pii=mask)
             view = {**(definition.get("view") or {}), "type": tile["show"]}
+            result = runner.run(tenant, request.user, dataset, definition, "run", limit=min(int(body.get("limit") or TILE_ROWS), limits["run_rows"]), report_id=report["id"],
+                                report_version=report["version"], mask_pii=mask, totals_view=view)
             return Response({"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about})
         except RunProblem as exc:
             return Response({"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, status=422)
