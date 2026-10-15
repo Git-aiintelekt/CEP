@@ -121,6 +121,32 @@ export interface ReportVersion {
   definition: ReportDefinition
 }
 
+export type RunOutcome = 'OK' | 'TIMEOUT' | 'REFUSED' | 'FAILED'
+
+export interface RunLogEntry {
+  id: number
+  started_at: string
+  kind: 'preview' | 'run' | 'export'
+  outcome: RunOutcome
+  detail: string | null
+  duration_ms: number | null
+  row_count: number | null
+  dataset: string
+  dataset_label: string | null
+  report_id: string | null
+  report_name: string | null
+  report_version: number | null
+  user_id: string | null
+  user_name: string | null
+}
+
+export interface RunLog {
+  days: number
+  runs: RunLogEntry[]
+  summary: { runs: number; timed_out: number; refused: number; failed: number; median_ms: number | null }
+  people: { id: string; name: string }[]
+}
+
 export interface ResultColumn {
   key: string
   label: string

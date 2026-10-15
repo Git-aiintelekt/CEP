@@ -1095,6 +1095,15 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (path.endsWith('/insights/runs/')) {
+        const outcome = new URL(url, 'http://test.local').searchParams.get('outcome')
+        const runs = [
+          { id: 3, started_at: '2026-10-15T09:41:00Z', kind: 'run', outcome: 'OK', detail: null, duration_ms: 42, row_count: 3, dataset: 'messages', dataset_label: 'Messages', report_id: 'rep-1', report_name: 'Sends by campaign', report_version: 2, user_id: 'u1', user_name: 'Aby John' },
+          { id: 2, started_at: '2026-10-15T09:40:00Z', kind: 'preview', outcome: 'OK', detail: null, duration_ms: 38, row_count: 3, dataset: 'messages', dataset_label: 'Messages', report_id: null, report_name: null, report_version: null, user_id: 'u1', user_name: 'Aby John' },
+          { id: 1, started_at: '2026-10-15T08:02:00Z', kind: 'export', outcome: 'TIMEOUT', detail: '15 s statement timeout', duration_ms: 15004, row_count: null, dataset: 'messages', dataset_label: 'Messages', report_id: 'rep-1', report_name: 'Sends by campaign', report_version: 1, user_id: 'u2', user_name: 'Devon Okafor' },
+        ].filter((r) => !outcome || r.outcome === outcome)
+        return json({ days: 7, runs, summary: { runs: runs.length, timed_out: runs.filter((r) => r.outcome === 'TIMEOUT').length, refused: 0, failed: 0, median_ms: 42 }, people: [{ id: 'u1', name: 'Aby John' }, { id: 'u2', name: 'Devon Okafor' }] })
+      }
       const star = /\/insights\/favourites\/(report|dashboard)\/([\w-]+)\/$/.exec(path)
       if (star) {
         if (method === 'PUT') insightsFavourites.add(`${star[1]}:${star[2]}`); else insightsFavourites.delete(`${star[1]}:${star[2]}`)

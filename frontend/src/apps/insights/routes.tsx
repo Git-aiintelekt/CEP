@@ -10,6 +10,7 @@ import { NewReportPage } from './pages/NewReportPage'
 import { ReportEditorPage } from './pages/ReportEditorPage'
 import { ReportListPage } from './pages/ReportListPage'
 import { ReportViewerPage } from './pages/ReportViewerPage'
+import { RunLogPage } from './pages/RunLogPage'
 
 export default function InsightsRoutes() {
   return (
@@ -23,6 +24,7 @@ export default function InsightsRoutes() {
         <Route path="dashboards" element={<DashboardListPage />} />
         <Route path="dashboards/:id" element={<DashboardPage />} />
         <Route path="dashboards/:id/edit" element={<DashboardEditorPage />} />
+        <Route path="runs" element={<RunLogPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

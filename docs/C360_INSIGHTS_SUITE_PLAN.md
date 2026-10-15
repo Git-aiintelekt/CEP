@@ -114,8 +114,8 @@ Dashboards, `/dev/dashboard`). The chart views came with Phase B on the app's ow
 - **Folders**: a workspace's reports filed (`report_folder` from 0049; `apps/insights/library.py`), a filter on the list
   and the Folder select on the viewer. Done 2026-10-15.
 - **Version history**: a Versions drawer on the viewer, Open (read-only) and Restore (a new version). Done 2026-10-16.
-- **Run log**: Insights → Run Log for `report.admin`, from `report_run_audit`; the back-office keeps the view across
-  workspaces.
+- **Run log**: Insights → Run Log for `report.admin`, from `report_run_audit`. Done 2026-10-16; the back-office view
+  across workspaces is still to come.
 - **Aggregate tables** refreshed by the engine's worker stay for a later slice, once the figures above show a need.
 
 ### Phase D, pivot, hierarchy, XLSX (M; spec Phase 3)

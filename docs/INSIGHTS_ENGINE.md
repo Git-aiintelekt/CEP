@@ -92,6 +92,14 @@ when and the note. Open shows a version's rows in the viewer, read-only, through
 (`POST /insights/reports/<id>/versions/<n>/restore/`, the owner or a report administrator) makes it the current version
 again as a new version noted "Restored from version n", checked against today's catalogue like any save.
 
+## The run log
+
+Insights → Run Log (`report.admin`; `GET /insights/runs/`, `apps/insights/audit.py`) lists every preview, run and
+export of the last 7 or 30 days from `report_run_audit`, newest first, 200 at most, with the report and its version,
+the kind, who, the outcome with its reason when it is not OK, the rows and the time; filters by outcome, person and
+report name; a summary of the runs, the timed-out, refused and failed ones and the median time of the good ones.
+A view across workspaces in the back-office is still to come.
+
 ## The catalogue
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049
