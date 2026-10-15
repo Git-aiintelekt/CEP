@@ -37,7 +37,7 @@ def test_save_feedback(check, admin_email):
 
             duplicate = refused("UPDATE journey SET code = %s WHERE id = %s", [journey.code, str(other.pk)])
             status, body = exceptions.database_problem(duplicate)
-            check("a duplicate is a 400 on its field, in CEP's words", isinstance(duplicate, IntegrityError) and status == 400
+            check("a duplicate is a 400 on its field, in C360's words", isinstance(duplicate, IntegrityError) and status == 400
                   and body["errors"] == {"code": ["Another record already uses this code."]} and body["title"] == "Check the highlighted fields", json.dumps(body))
 
             rule = refused("UPDATE journey SET reentry_policy = 'AFTER_X_DAYS', reentry_after_days = 0 WHERE id = %s", [str(journey.pk)])
@@ -47,7 +47,7 @@ def test_save_feedback(check, admin_email):
 
             choice = refused("UPDATE journey SET status = 'NOPE' WHERE id = %s", [str(journey.pk)])
             status, body = exceptions.database_problem(choice)
-            check("any other rule names its column from the rule's name", status == 400 and body["errors"] == {"status": ["This value is not one CEP allows here."]},
+            check("any other rule names its column from the rule's name", status == 400 and body["errors"] == {"status": ["This value is not one C360 allows here."]},
                   json.dumps(body))
 
             missing = refused("UPDATE journey SET name = NULL WHERE id = %s", [str(journey.pk)])
@@ -56,20 +56,20 @@ def test_save_feedback(check, admin_email):
 
             too_long = refused("UPDATE journey SET code = %s WHERE id = %s", ["X" * 41, str(journey.pk)])
             status, body = exceptions.database_problem(too_long)
-            check("a value too long is said plainly", status == 400 and body["errors"] == {"non_field_errors": ["A value is longer than CEP allows."]}, json.dumps(body))
+            check("a value too long is said plainly", status == 400 and body["errors"] == {"non_field_errors": ["A value is longer than C360 allows."]}, json.dumps(body))
 
             texts = json.dumps([exceptions.database_problem(e)[1] for e in (duplicate, rule, choice, missing, too_long)])
             check("no database wording ever goes out", not re.search(r"duplicate key|violates|constraint|null value|character varying|ux_|ck_", texts), texts[:300])
 
     down = exceptions.database_problem(OperationalError("could not connect to server"))
-    check("the database not answering is a 503 with CEP's sentence", down[0] == 503 and down[1]["detail"] == "CEP's database is not answering. Try again in a minute."
+    check("the database not answering is a 503 with C360's sentence", down[0] == 503 and down[1]["detail"] == "C360's database is not answering. Try again in a minute."
           and "connect" not in json.dumps(down[1]))
 
     request = RequestFactory().post("/api/v1/journeys/")
     response = exceptions.problem_json_exception_handler(RuntimeError("secret internals: password=hunter2"), {"request": request})
     body = response.data
     check("anything else is a 500 with a reference and a time, and none of the exception's own words",
-          response.status_code == 500 and re.fullmatch(r"ER-\d+", body.get("reference", "")) and body["title"] == "CEP had a problem"
+          response.status_code == 500 and re.fullmatch(r"ER-\d+", body.get("reference", "")) and body["title"] == "C360 had a problem"
           and "hunter2" not in json.dumps(body) and body["reference"] in body["detail"] and body.get("at"), json.dumps(body))
 
     try:

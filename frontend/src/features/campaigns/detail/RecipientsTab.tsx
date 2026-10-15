@@ -1,5 +1,5 @@
 /**
- * Recipients: one row per person a run was sent to, with what became of the message — CEP's record, the events behind it,
+ * Recipients: one row per person a run was sent to, with what became of the message — C360's record, the events behind it,
  * the engine's calls in the integration log, and the engine's own word on it (Check with Postal). Beside it, Blocked &
  * Unsubscribed: who on this campaign's lists is held back, why, from where and since when — the Suppressions rows kept to
  * this campaign's people. Both export to CSV.

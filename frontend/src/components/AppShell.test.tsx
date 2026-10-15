@@ -27,9 +27,9 @@ test('240px expanded: the brand, Home and the everyday pages, then Settings belo
   await screen.findByRole('navigation', { name: 'Main' })
   expect(rail().className).toContain('w-60')
   expect(rail().className).not.toContain('border')
-  const mark = within(rail()).getByRole('link', { name: 'CEP home' })
-  expect(within(mark).getByText('CEP').className).toContain('bg-brand-600')
-  expect(within(rail()).getByText('Customer Engagement')).toBeTruthy()                            // the wordmark sits under the mark, outside the link
+  const mark = within(rail()).getByRole('link', { name: 'C360 home' })
+  expect(within(mark).getByText('C360').className).toContain('bg-brand-600')
+  expect(within(rail()).getByText('Engagement')).toBeTruthy()                            // the wordmark sits under the mark, outside the link
 
   const [pages, admin] = within(nav()).getAllByRole('list')
   expect(within(pages).getAllByRole('link').map((link) => link.textContent)).toEqual(['Home', 'Campaigns', 'Journeys', 'Templates', 'Contact lists', 'Reports'])
@@ -50,16 +50,16 @@ test('collapsing: 64px, labels gone at once, remembered; expanding brings the la
   const toggle = screen.getByRole('button', { name: 'Collapse navigation' })
   expect(toggle.getAttribute('aria-expanded')).toBe('true')
   expect(toggle.getAttribute('data-rail-toggle')).toBe('beside')                                       // expanded: 32px beside the mark
-  expect(within(rail()).getByRole('link', { name: 'CEP home' }).compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(rail()).getByRole('link', { name: 'C360 home' }).compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
   await user.click(toggle)
   expect(rail().className).toContain('w-16')
   const collapsedToggle = screen.getByRole('button', { name: 'Expand navigation' })                   // 64px has no room beside the mark: the round toggle sits under it
   expect(collapsedToggle.getAttribute('data-rail-toggle')).toBe('below')
   expect(collapsedToggle.className).toContain('h-8 w-8 items-center justify-center rounded-full')
-  expect(within(rail()).getByRole('link', { name: 'CEP home' }).compareDocumentPosition(collapsedToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(rail()).getByRole('link', { name: 'C360 home' }).compareDocumentPosition(collapsedToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(within(nav()).getByRole('link', { name: 'Campaigns' }).textContent).toBe('')                 // named by aria-label only
-  expect(within(rail()).queryByText('Customer Engagement')).toBeNull()
+  expect(within(rail()).queryByText('Engagement')).toBeNull()
   expect(window.localStorage.getItem('cep.nav.collapsed')).toBe('1')
 
   await user.click(screen.getByRole('button', { name: 'Expand navigation' }))

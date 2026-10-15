@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-A template is the content a campaign sends: an email design, a text message, or an e-receipt. The Templates page is the library: start a new one from a channel or from a CEP preset, and find, rename, duplicate or preview the ones you have. Each channel has its own editor, full-screen, with versions kept on every save. A campaign picks a template on its Content step; a template is used by any number of campaigns and changing it changes what those campaigns send from then on.
+A template is the content a campaign sends: an email design, a text message, or an e-receipt. The Templates page is the library: start a new one from a channel or from a C360 preset, and find, rename, duplicate or preview the ones you have. Each channel has its own editor, full-screen, with versions kept on every save. A campaign picks a template on its Content step; a template is used by any number of campaigns and changing it changes what those campaigns send from then on.
 
 ## Who can use it
 
@@ -23,7 +23,7 @@ A template is the content a campaign sends: an email design, a text message, or 
 | Your Templates | Search, a tab per channel, a Status filter (Draft, Active, Archived). | The library below. |
 | A template's card | Name, channel, status, when it was last used and by which campaign. A drip message's template says which message it is ("Loyalty Welcome Series · Message 2 of 4"); a drip's templates sit together by name, and carry Locked while the drip is live. | Opens the editor. |
 | Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template, and while a drip uses it for a message ("This Template Is in Use", with the way to the campaign). |
-| Starting Point gallery | CEP's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
+| Starting Point gallery | C360's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
 
 ### New Template
 

@@ -85,7 +85,7 @@ export function GalleryStarterCard({ starter, onClick }: { starter: JourneyStart
         <StepsLine count={starter.step_count} channels={starter.channels} />
       </span>
       <span className="border-t border-line px-4 py-2.5 text-xs text-ink-800">
-        {starter.saved ? `Saved ${formatDate(starter.saved.created_at)}${starter.saved.created_by_name ? ` by ${starter.saved.created_by_name}` : ''}` : 'Made by CEP · Never changes'}
+        {starter.saved ? `Saved ${formatDate(starter.saved.created_at)}${starter.saved.created_by_name ? ` by ${starter.saved.created_by_name}` : ''}` : 'Made by C360 · Never changes'}
       </span>
     </button>
   )

@@ -53,7 +53,7 @@ test('a preset preview: its name and tags, the resolved message in a phone, the 
   const trigger = await previewPresetFromList(user, 'SMS offer')
 
   const dialog = await screen.findByRole('dialog', { name: 'SMS offer' })
-  for (const tag of ['SMS', 'Promotion', 'CEP Preset']) expect(within(dialog).getByText(tag)).toBeTruthy()
+  for (const tag of ['SMS', 'Promotion', 'C360 Preset']) expect(within(dialog).getByText(tag)).toBeTruthy()
   const resolved = renderWithSamples(smsBody, presetTags)
   expect((await within(dialog).findByTestId('preview-bubble')).textContent).toBe(resolved)
 
@@ -181,7 +181,7 @@ test('list rows start with the name: no leading tile for any channel', async () 
 test('clicking a preset card opens its preview, not a copy; the footer offers the copy and no edited time', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP Preset' }))
+  await user.click(screen.getByRole('button', { name: 'SMS offer, C360 Preset' }))
 
   const dialog = await screen.findByRole('dialog', { name: 'SMS offer' })
   expect(posts(calls)).toEqual([])
@@ -205,7 +205,7 @@ test('clicking a preset row in the list opens its preview, not a copy', async ()
 test('Copy This Template makes the copy through the same path, closes the preview and opens the new draft', async () => {
   const calls = await openLanding()
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'SMS offer, CEP Preset' }))
+  await user.click(screen.getByRole('button', { name: 'SMS offer, C360 Preset' }))
   const copy = within(await screen.findByRole('dialog', { name: 'SMS offer' })).getByRole('button', { name: 'Copy This Template' })
   await user.click(copy)
   await user.click(copy) // a second press while the copy runs does nothing
@@ -218,7 +218,7 @@ test('Copy This Template makes the copy through the same path, closes the previe
 test('without template.edit a preset card does nothing on click, and its preview has no copy button', async () => {
   await openLanding({ me: { principal: { ...me.principal, kind: 'user', permissions: me.principal.permissions.filter((code) => code !== 'template.edit') } } })
   const user = userEvent.setup()
-  expect(screen.queryByRole('button', { name: 'SMS offer, CEP Preset' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'SMS offer, C360 Preset' })).toBeNull()
 
   // the list row's menu still previews, read-only
   await previewPresetFromList(user, 'SMS offer')

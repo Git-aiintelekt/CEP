@@ -1,5 +1,5 @@
 /**
- * Thin client for the CEP REST API.
+ * Thin client for the C360 REST API.
  *  - JWT bearer auth with one silent refresh on 401 (refresh tokens rotate server-side)
  *  - X-Tenant header on every call (the API resolves the tenant before it authenticates)
  *  - errors are RFC 9457 problem+json -> ApiError
@@ -117,13 +117,13 @@ async function parseProblem(response: Response): Promise<Problem> {
     return { status: response.status, ...data }
   } catch {
     // not problem+json (a proxy's page, an HTML error): never show its words
-    return { type: 'about:blank', title: response.status >= 500 ? 'CEP had a problem' : 'The request was refused', status: response.status }
+    return { type: 'about:blank', title: response.status >= 500 ? 'C360 had a problem' : 'The request was refused', status: response.status }
   }
 }
 
-/** No answer at all (offline, the server unreachable): status 0, in CEP's words rather than the browser's. */
+/** No answer at all (offline, the server unreachable): status 0, in C360's words rather than the browser's. */
 function unreachable(): ApiError {
-  return new ApiError(0, { type: 'about:blank', title: 'CEP could not be reached', status: 0, detail: 'CEP could not be reached. Check your connection and try again.' })
+  return new ApiError(0, { type: 'about:blank', title: 'C360 could not be reached', status: 0, detail: 'C360 could not be reached. Check your connection and try again.' })
 }
 
 let refreshing: Promise<boolean> | null = null

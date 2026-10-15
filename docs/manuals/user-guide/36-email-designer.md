@@ -13,7 +13,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 | | |
 |---|---|
 | Permission | `template.edit` to edit, save and activate. Without it a template opens read-only: the canvas can be browsed and the Preview used, nothing can be changed. |
-| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: CEP's, or your own under Settings. |
+| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: C360's, or your own under Settings. |
 
 ## The workspace, piece by piece
 
@@ -34,7 +34,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 
 ## Starting a template
 
-**New Template → Email** asks for a name and a **Starting Point**: Blank, or one of CEP's starters, which become version 1 of your template and are yours to change:
+**New Template → Email** asks for a name and a **Starting Point**: Blank, or one of C360's starters, which become version 1 of your template and are yours to change:
 
 | Starter | What it holds |
 |---|---|
@@ -84,7 +84,7 @@ Settings every block shares, in Layout: **Margin** (space outside the block), **
 
 ## Deliverability mode
 
-Run Inbox Previews renders the last saved version in real email clients through CEP's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through CEP's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
+Run Inbox Previews renders the last saved version in real email clients through C360's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through C360's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
 
 ## Saving, versions and activating
 
@@ -227,5 +227,5 @@ Each example is a complete recipe. Names, colours and addresses are placeholders
 - Marketing mail must carry the unsubscribe link; the Footer block has it. Remove it and Activate refuses, and a marketing campaign cannot publish.
 - Images are stored once per workspace and served from the media store; the same file uploaded twice is kept once.
 - Email clients differ: Outlook for Windows has no shadows and no media queries (the phone rules use its own mechanism), Gmail clips emails over 102 KB. The Preview's clients show the common cases; Deliverability shows the real ones.
-- A design made outside CEP can be pasted as Custom HTML, but the blocks cannot edit what is inside it; rebuild with blocks where you will want to change it later.
+- A design made outside C360 can be pasted as Custom HTML, but the blocks cannot edit what is inside it; rebuild with blocks where you will want to change it later.
 - A text template has no designer: SMS and MMS open the message editor, e-receipts the receipt editor.

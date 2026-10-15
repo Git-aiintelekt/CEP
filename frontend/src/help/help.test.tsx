@@ -28,7 +28,7 @@ const SAMPLE = `# Sending Engines
 
 ## What this page is for
 
-Nothing leaves CEP without an engine, *checked* first. See [Contact Lists](/contact-lists) and \`provider.edit\`.
+Nothing leaves C360 without an engine, *checked* first. See [Contact Lists](/contact-lists) and \`provider.edit\`.
 
 | Control | What it is | What it changes |
 |---|---|---|

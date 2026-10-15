@@ -76,7 +76,7 @@ export function UploadReport({ job }: { job: ListImport }) {
             <Line label="Held Back" value={held.total} />
             {held.reasons.filter((reason) => reason.count > 0).map((reason) => <Line key={reason.code} label={reason.label} value={reason.count} indent muted />)}
             <Line label={result ? 'Imported' : 'Ready to Import'} value={ready.total} strong />
-            <Line label="New to CEP" value={ready.new} indent muted />
+            <Line label="New to C360" value={ready.new} indent muted />
             <Line label="Already Known" value={ready.existing} indent muted />
             {result && (
               <>

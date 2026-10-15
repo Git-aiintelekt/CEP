@@ -275,7 +275,7 @@ test('a server failure: the banner with the time, the entries kept, and Try agai
   await user.click(within(dialog()).getByRole('button', { name: 'Create Campaign' }))
   const banner = await within(dialog()).findByRole('alert')
   expect(within(banner).getByText('The campaign was not created')).toBeTruthy()
-  expect(banner.textContent).toMatch(/CEP had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\./)
+  expect(banner.textContent).toMatch(/C360 had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\./)
   expect(banner.textContent).not.toMatch(/Server error|on our side/)
   expect((within(dialog()).getByLabelText(/^Campaign Name/) as HTMLInputElement).value).toBe('Holiday Preview')
   fail = false

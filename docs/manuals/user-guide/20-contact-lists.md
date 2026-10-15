@@ -28,7 +28,7 @@ The page shows every list of the workspace with its size and where it is used, a
 | Uploads | Opens the Uploads page: every file upload of the workspace with its progress, who started it, Continue, Cancel and its report. | |
 | Create List | Opens the wizard. | |
 | The table | Name and description; **For** (Email, Texts, Email and Texts); the number of people; the source; the type; how many campaigns it is attached to and how many of those are live; when it changed. A note under the name when the list waits for approval or was refused. | |
-| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from CEP. |
+| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from C360. |
 
 ### The wizard: Upload a File
 
@@ -40,11 +40,11 @@ The page shows every list of the workspace with its size and where it is used, a
 | | What the List Is For | Email, Texts, or Email and Texts. | Which column the file must have (an email address, a mobile number, or both), how a new person is recognised, and how each row is judged (email consent and address status, or text consent and the number's standing). Changed later on the list's Edit Details. |
 | | Type | Production or Test. | See Type above. |
 | | CSV File | The file: CSV only, up to 50 MB and 250,000 rows, comma, semicolon, tab or pipe separated, UTF-8 or Windows-1252. **Download Sample CSV** gives a file with the recognised columns in the right shape. | The file is stored privately, read in the background and deleted as soon as its rows are staged. |
-| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. CEP guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people CEP has no answer for. Any other column is kept on the person's list entry under its header and can be used as a tag in a template (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
+| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. C360 guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people C360 has no answer for. Any other column is kept on the person's list entry under its header and can be used as a tag in a template (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
 | Where Did These People Agree? | Consent Basis | Signed up on our website or app; Enrolled in store or in the loyalty programme; Asked us directly; Existing customers under implied consent. A bought or rented list is not allowed. | Recorded on every consent written from the file and on the list's compliance record. A Texts or Email-and-Texts list cannot use implied consent: marketing texts need an express opt-in. |
 | | Where the Consent Was Collected | Optional, up to 300 characters: a form name, a store, a campaign. | Kept as the evidence, so the proof can be found later. |
 | | The attestation | A sentence the uploader confirms in their own name, worded by the workspace (Settings → Consent Policy). | The import cannot be applied without it. Who confirmed it, and when, is kept. |
-| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to CEP and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
+| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to C360 and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
 | List Created | Where the list is, and what to do next. | | |
 
 The other two sources are shorter: **BI or Extraction Tool** asks for the audience (the list then follows the audience: who leaves is removed and who joins is added, hourly and on *Refresh now*), **Clone a List** asks for the list to copy and the copy's name.
@@ -77,16 +77,16 @@ The upload button in the header shows the uploads running on every page and rais
 
 1. **The file is stored and queued**, never processed inside your request. Reading, checking and importing run in the background, in chunks, at most a few uploads at a time across the whole platform and never two of the same workspace at once, so one large file cannot slow everyone down. The page keeps showing progress; a hidden browser tab stops asking.
 2. **Reading** stages every row and guesses the columns from the headers.
-3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person CEP knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
+3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person C360 knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
 4. **The declaration** is recorded: the basis, where it was collected, who attested and when.
-5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where CEP had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
+5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where C360 had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
 6. **The compliance record** on the list's page shows, for as long as the list exists: the source, every upload with its declaration, the approval, the policy as it stands today and today's consent by channel.
 
 ## Things to know
 
-- Uploading someone does not give consent. Only a consent date in the file, a sign-up through a CEP form or a preference page, or a record from your other systems does.
+- Uploading someone does not give consent. Only a consent date in the file, a sign-up through a C360 form or a preference page, or a record from your other systems does.
 - The review's numbers add up: rows in the file = held back + ready; ready = added + already in the list. The row-by-row report is the audit trail of an upload.
-- Lists are never deleted while a campaign uses them; archive instead. People are never deleted from CEP by a list action.
+- Lists are never deleted while a campaign uses them; archive instead. People are never deleted from C360 by a list action.
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
 
@@ -108,6 +108,6 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
 | Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
 
-**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before CEP can reach them.
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them.
 
 Who may see it: anyone who may see contact lists, campaigns or journeys.

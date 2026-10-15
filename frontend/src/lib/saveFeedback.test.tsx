@@ -15,18 +15,18 @@ afterEach(() => {
 
 const problem = (status: number, body: Record<string, unknown> = {}) => new ApiError(status, { type: 'about:blank', status, title: 'x', ...body })
 
-test('no connection: CEP could not be reached, the entries kept, a warning not an error', () => {
-  const failed = saveFailure(problem(0, { detail: 'CEP could not be reached. Check your connection and try again.' }), 'The campaign was not saved')
-  expect(failed).toMatchObject({ title: 'CEP could not be reached', tone: 'warning', short: 'Check your connection and try again.' })
+test('no connection: C360 could not be reached, the entries kept, a warning not an error', () => {
+  const failed = saveFailure(problem(0, { detail: 'C360 could not be reached. Check your connection and try again.' }), 'The campaign was not saved')
+  expect(failed).toMatchObject({ title: 'C360 could not be reached', tone: 'warning', short: 'Check your connection and try again.' })
   expect(failed.detail).toBe('The campaign was not saved. Your changes are still here; check your connection and try again.')
 })
 
-test('CEP’s own problem: the time, what to do and the reference, never the server’s words', () => {
+test('C360’s own problem: the time, what to do and the reference, never the server’s words', () => {
   const failed = saveFailure(problem(500, { title: 'Internal Server Error', reference: 'ER-42', at: '2026-10-06T14:32:00Z' }), 'The sender was not saved')
   expect(failed.title).toBe('The sender was not saved')
   expect(failed.reference).toBe('ER-42')
-  expect(failed.detail).toMatch(/^CEP had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\. If it happens again, give your administrator the reference ER-42\.$/)
-  expect(failed.short).toMatch(/^CEP had a problem at .+\. Try again\.$/)
+  expect(failed.detail).toMatch(/^C360 had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\. If it happens again, give your administrator the reference ER-42\.$/)
+  expect(failed.short).toMatch(/^C360 had a problem at .+\. Try again\.$/)
   expect(JSON.stringify(failed)).not.toContain('Internal Server Error')
   expect(saveFailure(problem(502), 'The sender was not saved').detail).toContain('tell your administrator')
 })
@@ -48,7 +48,7 @@ test('no permission, a conflict, the database busy and a mistake in the page eac
     .toBe('You do not have permission to do this. Ask a workspace administrator.')
   expect(saveFailure(problem(403, { detail: 'Journeys is not part of this workspace.' }), 'x').detail).toBe('Journeys is not part of this workspace.')
   expect(saveFailure(problem(409, { detail: 'Someone else changed this template after you opened it' }), 'x').detail).toBe('Someone else changed this template after you opened it.')
-  expect(saveFailure(problem(503, { detail: 'CEP’s database is not answering.' }), 'x')).toMatchObject({ tone: 'warning', detail: 'CEP’s database is not answering. Your entries are still here; try again in a minute.' })
+  expect(saveFailure(problem(503, { detail: 'C360’s database is not answering.' }), 'x')).toMatchObject({ tone: 'warning', detail: 'C360’s database is not answering. Your entries are still here; try again in a minute.' })
   expect(saveFailure(new TypeError('Cannot read properties of undefined'), 'The tag was not saved').detail).toBe('Your entries are still here; try again. If it happens again, tell your administrator.')
 })
 

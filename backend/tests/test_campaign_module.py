@@ -302,7 +302,8 @@ def test_campaign_module(check, admin_email):
         daily = new("ZC daily texts", send_type="RECURRING", recurring_config={"frequency": "DAILY", "time": "09:00"}).json()
         publish(daily["id"])
         today = timezone.localdate()
-        cal = api("get", f"/api/v1/campaigns/calendar/?date_from={today.isoformat()}&date_to={(today + timedelta(days=20)).isoformat()}&channel=SMS")
+        since = today - timedelta(days=1)                   # the calendar's days are the workspace's (New York); near midnight UTC the send just made is still yesterday there
+        cal = api("get", f"/api/v1/campaigns/calendar/?date_from={since.isoformat()}&date_to={(today + timedelta(days=20)).isoformat()}&channel=SMS")
         spans = {x["name"]: x for x in cal.json()["spans"]}
         series, sent_, plan, every_day = spans.get("ZC welcome series", {}), spans.get("ZC Fall texts", {}), spans.get("ZC scheduled texts", {}), spans.get("ZC daily texts", {})
         check("calendar: one span per campaign with its sends: a drip series over its days, a finished send on its day, a draft that plans a date, a recurrence projected ahead and marked as going on",

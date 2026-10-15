@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-Keys for systems that call CEP's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
+Keys for systems that call C360's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
 
 ## Who can use it
 

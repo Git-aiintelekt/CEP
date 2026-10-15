@@ -1,10 +1,10 @@
-/** What the Setup pop-up starts with: a CEP starter's settings, or only a name and description (a drip turned into a journey). */
+/** What the Setup pop-up starts with: a C360 starter's settings, or only a name and description (a drip turned into a journey). */
 import type { JourneyEntryRule, JourneyStarter } from '@/lib/types'
 
 import { triggerFromRule } from '../entryTriggers'
 
 export interface SetupPrefill {
-  /** what POST /journeys/ is told the journey is made from: a CEP starter's key or a saved template's id; absent when nothing
+  /** what POST /journeys/ is told the journey is made from: a C360 starter's key or a saved template's id; absent when nothing
    * but a name and description is carried over */
   source?: { starter: string } | { template: string }
   sourceName?: string

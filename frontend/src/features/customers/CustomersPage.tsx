@@ -58,7 +58,7 @@ export function CustomersPage() {
       ) : query.isError ? (
         <ErrorState error={query.error} onRetry={() => void query.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState title="No customer matches" hint="A customer has to be in the records before CEP can reach them: C360 syncs them, or a contact list upload adds them." />
+        <EmptyState title="No customer matches" hint="A customer has to be in the records before C360 can reach them: C360 syncs them, or a contact list upload adds them." />
       ) : (
         <section className="rounded-lg border border-line bg-surface">
           <DataTable caption="Customers" columns={columns} rows={rows} rowKey={(row) => row.party_id} inset="card" />

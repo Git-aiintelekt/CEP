@@ -1,6 +1,6 @@
 # Home
 
-**Where:** Home in the main navigation, and the CEP mark at the top of the rail.
+**Where:** Home in the main navigation, and the C360 mark at the top of the rail.
 
 ## What this page is for
 

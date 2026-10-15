@@ -1,5 +1,5 @@
 /**
- * Read-only preview of a CEP starter or a saved template: its flow drawn with the canvas's own cards, who can enter, its goal,
+ * Read-only preview of a C360 starter or a saved template: its flow drawn with the canvas's own cards, who can enter, its goal,
  * channels and steps. Nothing is copied until Use This Template, which hands it to the Setup pop-up. A saved template can be
  * deleted here (journey.edit); journeys made from it keep working.
  */

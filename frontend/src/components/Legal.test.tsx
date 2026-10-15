@@ -36,7 +36,7 @@ test('the Terms of Use page renders the platform text, its date, and leads back 
 
   expect(await screen.findByRole('heading', { name: 'Terms of Use', level: 1 })).toBeTruthy()
   expect(await screen.findByText(/Last updated/)).toBeTruthy()
-  expect(await screen.findByRole('heading', { name: '1. What CEP is' })).toBeTruthy()
+  expect(await screen.findByRole('heading', { name: '1. What C360 is' })).toBeTruthy()
   expect(screen.getByRole('heading', { name: '8. Contact' })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Back to Log In' }).getAttribute('href')).toBe('/login')
   expect(within(screen.getByRole('contentinfo', { name: 'Legal' })).getByText(`© ${year} Transaction Tree`)).toBeTruthy()

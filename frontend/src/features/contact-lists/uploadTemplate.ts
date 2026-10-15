@@ -28,7 +28,7 @@ export function uploadColumns(channel: ListChannel | string = 'EMAIL'): UploadCo
     { header: 'Mobile number', required: mobile, examples: ['+14045550101', '+14045550102'],
       note: mobile ? 'With the country code, as +14045550101. A row without a usable number is held back.' : 'With the country code, as +14045550101. Kept for text campaigns; an unrecognised number is left out and the row still imports.' },
     { header: 'Postal code', required: false, examples: ['30303', '31401'], note: '' },
-    { header: 'Loyalty ID', required: false, examples: ['NWA700001', 'NWA700002'], note: 'Used first to recognise people CEP already knows.' },
+    { header: 'Loyalty ID', required: false, examples: ['NWA700001', 'NWA700002'], note: 'Used first to recognise people C360 already knows.' },
     { header: 'Loyalty tier', required: false, examples: ['GOLD', 'SILVER'], note: '' },
     { header: 'Last order date', required: false, examples: ['2026-08-24', '2026-07-15'], note: 'Dates as YYYY-MM-DD.' },
     { header: 'Time zone', required: false, examples: ['America/New_York', 'America/Chicago'], note: 'The customer’s own time zone, an IANA name such as America/Chicago. Journeys that wait until a time of day use it.' },

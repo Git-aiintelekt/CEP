@@ -301,7 +301,7 @@ export function ContactListsPage() {
             </>
           }
         >
-          <p className="text-sm text-ink-800">“{deleting.name}” and its {formatNumber(deleting.member_count)} memberships are removed. The people stay in CEP. Sends that were already built are not affected.</p>
+          <p className="text-sm text-ink-800">“{deleting.name}” and its {formatNumber(deleting.member_count)} memberships are removed. The people stay in C360. Sends that were already built are not affected.</p>
           {remove.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-plain">{problemText(remove.error)}</p>}
         </Modal>
       )}

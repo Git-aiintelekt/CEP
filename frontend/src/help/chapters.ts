@@ -3,7 +3,7 @@
  * opens (each chapter is its own chunk). A page names its chapter on its PageHelp icon.
  */
 export const HELP_CHAPTERS = {
-  introduction: { title: 'Welcome to CEP', load: () => import('../../../docs/manuals/user-guide/00-introduction.md?raw').then((module) => module.default) },
+  introduction: { title: 'Welcome to C360', load: () => import('../../../docs/manuals/user-guide/00-introduction.md?raw').then((module) => module.default) },
   home: { title: 'Home', load: () => import('../../../docs/manuals/user-guide/10-home.md?raw').then((module) => module.default) },
   'contact-lists': { title: 'Contact Lists', load: () => import('../../../docs/manuals/user-guide/20-contact-lists.md?raw').then((module) => module.default) },
   reports: { title: 'Reports', load: () => import('../../../docs/manuals/user-guide/31-reports.md?raw').then((module) => module.default) },

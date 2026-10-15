@@ -24,7 +24,7 @@ test('anonymous visitors are sent to the login form, and a wrong password is exp
   const user = userEvent.setup()
   render(<App />)
 
-  expect(await screen.findByText('Log In to CEP')).toBeTruthy()
+  expect(await screen.findByText('Log In to C360')).toBeTruthy()
   await user.type(screen.getByLabelText('Email'), 'aby.john@aiintelekt.com')
   await user.type(screen.getByLabelText('Password'), 'nope')
   await user.click(screen.getByRole('button', { name: 'Log In' }))

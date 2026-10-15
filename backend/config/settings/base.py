@@ -100,10 +100,10 @@ EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 PASSWORD_RESET_TIMEOUT = 14 * 24 * 3600        # hard ceiling for one-time password links; the effective lifetime is the
                                                 # global parameter security.password_link_hours (apps/platform_ops/links.py)
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend" if EMAIL_HOST else "django.core.mail.backends.console.EmailBackend")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="CEP <no-reply@localhost>")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="C360 <no-reply@localhost>")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_REPLY_TO = env("EMAIL_REPLY_TO", default="")
-EMAIL_PRODUCT_NAME = env("EMAIL_PRODUCT_NAME", default="Customer Engagement Platform")
+EMAIL_PRODUCT_NAME = env("EMAIL_PRODUCT_NAME", default="C360")
 
 # ---------------------------------------------------------------- secrets at rest, tenant operations
 FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")     # Fernet key(s), comma separated; see apps/platform_ops/crypto.py
@@ -160,7 +160,7 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "sub",
 }
 SPECTACULAR_SETTINGS = {
-    "TITLE": "CEP API",
+    "TITLE": "C360 API",
     "DESCRIPTION": "AI-InteleKt Customer Engagement Platform — API-first modular monolith (Django + DRF) with FastAPI hot-path services.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,

@@ -25,14 +25,14 @@ test('Events: the last 7 days by type, where to send events, and the coupon requ
   expect(screen.getByRole('heading', { name: 'Events', level: 2 })).toBeTruthy()
   expect(summary.textContent).toContain('3 events')
   expect(summary.textContent).toContain('Abandoned Cart')
-  expect(summary.textContent).toContain('1 event names a customer CEP does not have yet')
+  expect(summary.textContent).toContain('1 event names a customer C360 does not have yet')
 
   expect(screen.getByText('https://cep.example.com/api/v1/events/')).toBeTruthy()
   expect(screen.getByRole('heading', { name: 'Send Events' }).closest('section')!.textContent).toContain('1 active key has it.')
   const coupons = screen.getByRole('heading', { name: 'Coupon Requests for C360' }).closest('section')!
   expect(within(coupons).getByText('Waiting').nextElementSibling?.textContent).toBe('2')
   expect(coupons.textContent).toContain('no key has it yet')
-  expect(screen.getByRole('heading', { name: 'Raised by CEP Itself' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Raised by C360 Itself' })).toBeTruthy()
 })
 
 test('Events: the latest events filter by type and search; tracking-only types are not offered', async () => {

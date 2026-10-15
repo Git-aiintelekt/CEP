@@ -241,7 +241,7 @@ export function CampaignSetupDialog({ campaign, onClose, onSaved, onReload, init
 
   const busy = save.isPending
   const conflict = save.error instanceof ApiError && save.error.status === 409 ? save.error : null
-  // what the fields do not say: CEP's problem, no connection, a refusal that is not about one field
+  // what the fields do not say: C360's problem, no connection, a refusal that is not about one field
   const failure = failed ? saveFailure(failed, editing ? 'The details were not saved' : 'The campaign was not created', [...FIELD_ORDER]) : null
   const fieldsOnly = failure?.title === FIELDS_TITLE && failure.general.length === 0
   const refused = failed instanceof ApiError && failed.status === 400

@@ -106,7 +106,7 @@ export function ApiKeysPage() {
   const revoke = useMutation({
     mutationFn: (key: ApiKey) => api.post<ApiKey>(`/api-clients/${key.id}/revoke/`),
     onSuccess: (_revoked, key) => {
-      toast.success('Key revoked', `“${key.name}” can no longer call CEP.`)
+      toast.success('Key revoked', `“${key.name}” can no longer call C360.`)
       void queryClient.invalidateQueries({ queryKey: ['settings'] }); void queryClient.invalidateQueries({ queryKey: ['workspace'] })
     },
   })

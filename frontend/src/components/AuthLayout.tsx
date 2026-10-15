@@ -34,7 +34,7 @@ function BrandPanel() {
       <div aria-hidden className="cep-auth-vignette absolute inset-0 z-0" />
 
       <div className="relative z-10 flex items-center gap-3">
-        <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-on-brand">CEP</span>
+        <span className="font-display text-[22px] font-semibold tracking-[-0.02em] text-on-brand">C360</span>
         <span aria-hidden className="h-4 w-px bg-on-brand-soft/30" />
         <span className="text-helper text-on-brand-soft">Customer Engagement Platform</span>
       </div>
@@ -60,7 +60,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col px-6 py-8">
         {/* the wordmark only has to stand in for the panel once the panel is gone */}
         <div className="flex items-center gap-2.5 pb-10 min-[860px]:hidden">
-          <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">CEP</span>
+          <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">C360</span>
           <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
           <span className="text-helper text-ink-800">Customer Engagement Platform</span>
         </div>

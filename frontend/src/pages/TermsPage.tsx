@@ -15,7 +15,7 @@ export default function TermsPage() {
       <div className="mx-auto flex w-full max-w-[720px] flex-col gap-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">CEP</span>
+            <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">C360</span>
             <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
             <span className="text-helper text-ink-800">Customer Engagement Platform</span>
           </div>

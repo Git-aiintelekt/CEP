@@ -1,6 +1,6 @@
 /**
- * Settings → Events: what the shop, the loyalty system and CEP itself tell journeys about customers. Where to send events
- * (POST /events/ with an events:ingest key), which events CEP raises on its own, the last seven days by type, the latest
+ * Settings → Events: what the shop, the loyalty system and C360 itself tell journeys about customers. Where to send events
+ * (POST /events/ with an events:ingest key), which events C360 raises on its own, the last seven days by type, the latest
  * events, and the coupon requests journeys leave for C360 to fulfil.
  */
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
@@ -33,7 +33,7 @@ export function EventsPage() {
         <h2 className="font-display text-section-title font-semibold text-ink-900">Events</h2>
         <p className="mt-0.5 max-w-4xl text-sm text-ink-800">
           What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events here,
-          and CEP raises some itself. A journey whose trigger is an event enrols the customer within a minute; a Condition step can check for one.
+          and C360 raises some itself. A journey whose trigger is an event enrols the customer within a minute; a Condition step can check for one.
         </p>
       </div>
       {!data.journeys_enabled && <Notice tone="warning">Journeys are not part of this workspace, so events are refused. Ask the platform team to enable them.</Notice>}
@@ -75,7 +75,7 @@ function SummaryCard({ data }: { data: EventsSettings }) {
       ) : <p className="mt-2 text-sm text-ink-800">Nothing in the last {s.days} days.</p>}
       {s.unknown_customers > 0 && (
         <p className="mt-3 text-sm text-ink-800">
-          {formatNumber(s.unknown_customers)} event{s.unknown_customers === 1 ? ' names' : 's name'} a customer CEP does not have yet. They enter journeys once the customer
+          {formatNumber(s.unknown_customers)} event{s.unknown_customers === 1 ? ' names' : 's name'} a customer C360 does not have yet. They enter journeys once the customer
           arrives from C360, within seven days of the event.
         </p>
       )}
@@ -90,12 +90,12 @@ function BuiltInCard() {
     ['Loyalty Tier Change', 'Every Update Loyalty Tier step of a journey that changes the customer’s tier. The loyalty system sends the tier changes it makes itself.'],
     ['Preference Update', 'Every preference-centre save that changes a channel or a topic.'],
     ['No Response', 'A customer sent at least 3 marketing emails in 30 days who opened, clicked and replied to none, at most once in 30 days. Raised while a live journey starts from it.'],
-    ['Email Open/Click', 'Read from CEP’s own tracking of its emails; security scanners are left out. Nothing to send.'],
-    ['SMS Response', 'Read from the replies to CEP’s texts. Nothing to send.'],
+    ['Email Open/Click', 'Read from C360’s own tracking of its emails; security scanners are left out. Nothing to send.'],
+    ['SMS Response', 'Read from the replies to C360’s texts. Nothing to send.'],
   ]
   return (
     <section className="rounded-lg border border-line bg-surface p-5">
-      <h3 className="font-display text-card-heading font-semibold text-ink-900">Raised by CEP Itself</h3>
+      <h3 className="font-display text-card-heading font-semibold text-ink-900">Raised by C360 Itself</h3>
       <dl className="mt-3 space-y-3 text-sm">
         {rows.map(([name, text]) => (
           <div key={name}>
@@ -201,7 +201,7 @@ function RecentCard({ data }: { data: EventsSettings }) {
     <section className="rounded-lg border border-line bg-surface">
       <div className="border-b border-line-subtle px-4 py-3">
         <h3 className="font-display text-card-heading font-semibold text-ink-900">Latest Events</h3>
-        <p className="mt-1 text-sm text-ink-800">The newest 50, sent or raised by CEP. Opens, clicks and text replies are read from tracking and do not appear here.</p>
+        <p className="mt-1 text-sm text-ink-800">The newest 50, sent or raised by C360. Opens, clicks and text replies are read from tracking and do not appear here.</p>
       </div>
       <form className="flex flex-wrap items-end gap-3 border-b border-line-subtle px-4 py-3" onSubmit={(event: FormEvent) => event.preventDefault()}>
         <Field label="Type">

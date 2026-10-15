@@ -4,9 +4,9 @@
 
 ## What is attribution
 
-Attribution answers one question: **which campaign earned this order?** The shop sends CEP its orders (and the point of sale its store sales, if you choose). CEP matches each order to the customer, looks back at what it sent that customer, and credits the order to one campaign. Adding those orders up gives each campaign its **revenue**, and with its cost, its **ROI**.
+Attribution answers one question: **which campaign earned this order?** The shop sends C360 its orders (and the point of sale its store sales, if you choose). C360 matches each order to the customer, looks back at what it sent that customer, and credits the order to one campaign. Adding those orders up gives each campaign its **revenue**, and with its cost, its **ROI**.
 
-CEP credits an order to the first of these that applies:
+C360 credits an order to the first of these that applies:
 
 1. **A campaign code.** The order carries the campaign's code (for example CMP-2026-0042), as `campaign_code` or as one of its coupon codes. That campaign gets it, whatever else happened.
 2. **The latest click** on a campaign's link by that customer within the **Click Window** (7 days by default).
@@ -15,7 +15,7 @@ CEP credits an order to the first of these that applies:
 
 One campaign gets the whole amount (this is called *last touch*). An order that matches none of these is **Not Credited**, and the page says why. A refund follows its original order and takes the money back from the same campaign.
 
-Until attribution is on, every revenue figure in CEP reads *Not Set Up*: Home's Attributed Revenue, Campaign ROI, Marketing Performance and Top Campaigns, each campaign's revenue against its target, the Reports revenue column, and the e-receipts' Revenue from Receipt Offers.
+Until attribution is on, every revenue figure in C360 reads *Not Set Up*: Home's Attributed Revenue, Campaign ROI, Marketing Performance and Top Campaigns, each campaign's revenue against its target, the Reports revenue column, and the e-receipts' Revenue from Receipt Offers.
 
 ## Who can use it
 
@@ -94,7 +94,7 @@ Each order needs `order_id` and `amount` (revenue to count, 0 or more) and names
 
 **Credit a promotion outright.** Give the campaign's code (on the campaign's page) to the shop as the coupon, or have the shop send it as `campaign_code`. An order carrying it is credited to that campaign whatever the customer clicked.
 
-**Find out why an order earned nothing.** Latest Orders → State: **Not Credited**. The reason is under each order: no customer CEP knows, no click, open or text within the windows, or a refund whose order was not credited.
+**Find out why an order earned nothing.** Latest Orders → State: **Not Credited**. The reason is under each order: no customer C360 knows, no click, open or text within the windows, or a refund whose order was not credited.
 
 **Change a window.** It applies to new orders. **Recalculate** (in Last 30 Days) judges the last 400 days of orders again under the current windows and rewrites every campaign's figures.
 
@@ -102,11 +102,11 @@ Each order needs `order_id` and `amount` (revenue to count, 0 or more) and names
 
 ## What happens behind the scenes
 
-The attribute-orders job runs every five minutes. It finds the customer: the customer id, or whoever CEP emailed at the address or texted at the number in the last 120 days. It credits the order as above, then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
+The attribute-orders job runs every five minutes. It finds the customer: the customer id, or whoever C360 emailed at the address or texted at the number in the last 120 days. It credits the order as above, then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
 
 ## Things to know
 
 - Last touch is easy to explain and to check against the shop, but it gives no credit to the campaigns earlier in a customer's path.
 - Revenue counts on the campaign whenever the order happens, so a campaign's figures grow for as long as its clicks are in the window.
-- CEP keeps the amount, the customer, the store and the codes of an order, not its items or payment.
-- An order for a customer CEP never emailed or texted, and with no customer id it knows, is Not Credited: there is nobody to match.
+- C360 keeps the amount, the customer, the store and the codes of an order, not its items or payment.
+- An order for a customer C360 never emailed or texted, and with no customer id it knows, is Not Credited: there is nobody to match.

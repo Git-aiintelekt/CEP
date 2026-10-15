@@ -4,7 +4,7 @@
 
 ## What is a journey
 
-A journey is an automated path that each customer walks on their own. You draw it once: **who enters**, then the **steps** they go through (wait, check something, send an email or a text, issue a coupon, change their record, call your system) and where the path **ends**. From then on CEP runs it for every customer who qualifies, one at a time, at their own pace.
+A journey is an automated path that each customer walks on their own. You draw it once: **who enters**, then the **steps** they go through (wait, check something, send an email or a text, issue a coupon, change their record, call your system) and where the path **ends**. From then on C360 runs it for every customer who qualifies, one at a time, at their own pace.
 
 A campaign sends one message to a list at one moment. A journey keeps working: a customer who abandons a cart this afternoon gets the reminder an hour later, a customer whose birthday is next week gets the reward seven days before it, and a new loyalty member gets the welcome series over their first two weeks, without anyone pressing Send.
 
@@ -41,7 +41,7 @@ The platform team's own chapter, **Journeys** in the Platform Guide, has the det
 1. **The feature.** Journeys is a feature of the workspace's industry profile and plan: the tenant's page → Industry and features → Journeys → On, and a plan that includes it. Without it the Journeys menu item is missing and events sent to the workspace are refused.
 2. **The scheduler.** One scheduler process (cep-jobs) runs for the platform; it enrols and moves journey customers every minute, activates scheduled journeys and rolls up the figures nightly. Nothing in a journey moves while it is stopped.
 3. **The encryption key** for secrets at rest, so a Webhook step's signing secret can be kept.
-4. **C360's feeds** into the workspace's database: the customer records, segments and their memberships, coupons and loyalty tiers. CEP does not create customers from nothing: a journey can only reach a customer who is in the records.
+4. **C360's feeds** into the workspace's database: the customer records, segments and their memberships, coupons and loyalty tiers. C360 does not create customers from nothing: a journey can only reach a customer who is in the records.
 
 ### What the workspace does (Settings)
 
@@ -62,13 +62,13 @@ A journey reads and writes the customer's record and reacts to what happens to t
 
 | Data | Comes from | Used by |
 |---|---|---|
-| Customer records (name, emails, phones, address, source) | C360 syncs them into the workspace; a contact list upload adds the people CEP did not know (owned by CEP, not a C360 copy). | Who can enter at all; the Customer fields in conditions; the Webhook payload. |
+| Customer records (name, emails, phones, address, source) | C360 syncs them into the workspace; a contact list upload adds the people C360 did not know (owned by C360, not a C360 copy). | Who can enter at all; the Customer fields in conditions; the Webhook payload. |
 | Custom attributes (loyalty tier, customer status, home store, lifetime value, any field C360 sends) | C360, as a JSON object on the record; the upload adds `loyalty_tier`, `loyalty_id`, `last_purchase_at`, `timezone`; the Update Profile and Update Loyalty Tier steps write them. | Conditions (text, number or date by the comparison), Split by an attribute, the attribute trigger, Wait Until a date on the record. |
 | `timezone` (an IANA name such as America/Chicago) | C360, or the upload template's Time zone column. | Wait Until a Time of Day and Until a Date on the Record, in the customer's own time; the workspace's zone otherwise. |
 | Dates on the record (YYYY-MM-DD) such as `birth_date`, `membership_date`, `renewal_date` | C360 custom attributes. | On a Date Attribute entries, Wait Until a Date on the Record, date conditions. |
 | Segments and their members | C360 (audiences the data team defined). | Enters / Exits Segment entries, Is in a Segment conditions, the Update Segment step, Who Enters on a schedule. |
-| Contact lists | Uploaded, cloned or made from a segment in CEP. | Customer List entries, Is in a List conditions, Add to / Remove from List steps, Who Enters on a schedule, the test list. |
-| Events (purchase, abandoned cart, store visit, birthday, any type you name) | `POST /api/v1/events/` from the shop, the app, the point of sale or the loyalty system, with an `events:ingest` key; CEP raises Purchase and First Purchase from orders, Email Open/Click and SMS Response from its own tracking, No Response, Preference Update, Loyalty Tier Change and Coupon Issue itself. | Event entries, Event conditions with property filters, the Goal step. |
+| Contact lists | Uploaded, cloned or made from a segment in C360. | Customer List entries, Is in a List conditions, Add to / Remove from List steps, Who Enters on a schedule, the test list. |
+| Events (purchase, abandoned cart, store visit, birthday, any type you name) | `POST /api/v1/events/` from the shop, the app, the point of sale or the loyalty system, with an `events:ingest` key; C360 raises Purchase and First Purchase from orders, Email Open/Click and SMS Response from its own tracking, No Response, Preference Update, Loyalty Tier Change and Coupon Issue itself. | Event entries, Event conditions with property filters, the Goal step. |
 | Orders | `POST /api/v1/orders/` with an `orders:ingest` key, or store transactions when POS Receipts count store sales. | Purchase events, Last Purchase Date, Number of Purchases, a Goal's attributed revenue. |
 | Coupons and loyalty tiers | C360 references synced into the workspace. | Issue Coupon (a request C360 fulfils through `coupons:issue`), Update Loyalty Tier. |
 | Consent, suppressions, preferences | The preference centre, unsubscribe links, STOP replies, imports, Settings → Suppressions. | Whether a message step sends; Preview Route shows the verdict for one customer. |
@@ -93,7 +93,7 @@ A journey reads and writes the customer's record and reacts to what happens to t
 
 **From scratch.** **Create Journey** (or **Start from Scratch** in the panel) opens the two-step set-up with nothing filled in.
 
-**From one of your own templates.** **Save as Template** on a journey's page keeps the journey as a template of the workspace: its entry, steps, settings and goal, as the live version has them (or the newest version, on a journey that has not gone live). Give it a name, a category (Lifecycle, Commerce, Loyalty, Engagement) and a description. Saved templates sit under **Your Templates** on the Journey Templates panel and in **View More**, tagged *Saved Template* beside CEP's *CEP Starter*; clicking one previews it like a starter, **Use This Template** copies it into a new draft, and **Delete Template** in the preview removes it (journeys made from it keep working). The template never changes after it is saved; the message steps keep their templates and senders, which the copy can change.
+**From one of your own templates.** **Save as Template** on a journey's page keeps the journey as a template of the workspace: its entry, steps, settings and goal, as the live version has them (or the newest version, on a journey that has not gone live). Give it a name, a category (Lifecycle, Commerce, Loyalty, Engagement) and a description. Saved templates sit under **Your Templates** on the Journey Templates panel and in **View More**, tagged *Saved Template* beside C360's *C360 Starter*; clicking one previews it like a starter, **Use This Template** copies it into a new draft, and **Delete Template** in the preview removes it (journeys made from it keep working). The template never changes after it is saved; the message steps keep their templates and senders, which the copy can change.
 
 **From one of yours.** **Duplicate** on a journey's page makes a new draft copy of it, steps included, to start again or try a variant. The journeys already set up in the workspace are on the Journeys page, with their status, trigger, channels and steps; open one to see how it is built and how it is doing.
 
@@ -115,7 +115,7 @@ Every way a customer can enter, and what each needs:
 | Entry | Enters when | Needs |
 |---|---|---|
 | Customer List | A customer is on the chosen list (newcomers to the list enter on later passes unless the population is Fixed). | A list in Contact Lists, approved if the consent policy asks for it. |
-| Event: Welcome, Birthday, Anniversary, First Purchase, Customer Creation, Purchase, Abandoned Cart, Coupon Issue, Coupon Redemption, Segment Inception, Loyalty Tier Change, Email Open/Click, SMS Response, No Response | That event arrives for the customer after the journey went live (within the last seven days at most). | The shop, app or loyalty system sending events; Attribution for purchases; nothing for Email Open/Click, SMS Response, No Response, Coupon Issue and Loyalty Tier Change, which CEP raises itself. |
+| Event: Welcome, Birthday, Anniversary, First Purchase, Customer Creation, Purchase, Abandoned Cart, Coupon Issue, Coupon Redemption, Segment Inception, Loyalty Tier Change, Email Open/Click, SMS Response, No Response | That event arrives for the customer after the journey went live (within the last seven days at most). | The shop, app or loyalty system sending events; Attribution for purchases; nothing for Email Open/Click, SMS Response, No Response, Coupon Issue and Loyalty Tier Change, which C360 raises itself. |
 | Date / Time: Daily, Weekly, Monthly, On a Specific Date | The schedule's moment comes, for the members of a list or a segment. | The list or segment. Times are the workspace's time zone; each moment fires once. |
 | Date / Time: On a Date Attribute | A date on the customer's record is the chosen number of days away (every year, or once). | A custom attribute holding a date, for example `birth_date`; the Date list shows how many records have each. |
 | Enters Segment, Exits Segment | The customer joins or leaves the segment. | The segment, synced from C360. |
@@ -153,7 +153,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments, the goal. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Split | Several paths. **By an Attribute**: each customer takes the first path whose values hold their attribute's value (Home Store is Lakeside Mall → Path 1; Downtown or Airport → Path 2), everyone else the last path. **At Random**: percentages that add up to 100, chosen once per customer and kept on retry. Name each path; the names show on the canvas. |
 | Email, SMS / MMS | Sends a published template through the normal send engine, as a campaign of its own (one per step per day), so consent, suppressions, caps and quiet hours apply. **Sender** chooses which of the workspace's senders the message goes from; left as *Workspace default*, it is the engine's default sender for the channel. An SMS step offers texting senders only. |
-| Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
+| Issue Coupon | Asks C360 for a coupon for the customer. C360 makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
 | Update Profile | Sets any attribute on the customer's record to a value (Customer Status to Welcomed). |
 | Update Segment | Adds the customer to a segment, or removes them. |
@@ -192,7 +192,7 @@ Choose the **Test Population**: a **Random Sample of Live Audience** (up to 200 
 
 **Approve & Activate →** (needs Activate). Choose **Activate Immediately** or **Schedule for Later** (a date and a time), then **Activate Journey** or **Schedule Journey**. A scheduled journey reads *Approved* until its time; **Cancel Schedule** on its page takes it back to Test.
 
-From then on CEP enrols qualifying customers every minute. Watch them arrive on the journey's page.
+From then on C360 enrols qualifying customers every minute. Watch them arrive on the journey's page.
 
 ## How to edit a journey
 
@@ -241,13 +241,13 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## Things to know
 
-- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). CEP raises it at most once in 30 days per customer, while a live journey starts from it.
+- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). C360 raises it at most once in 30 days per customer, while a live journey starts from it.
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
-- The dates for **On a Date Attribute** and **Until a Date on the Record** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
-- A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name CEP does not know, waits in the workspace's time zone. Test Publish skips every wait.
+- The dates for **On a Date Attribute** and **Until a Date on the Record** come from customer records' custom attributes holding a date (YYYY-MM-DD); C360 has no birthday field of its own. If no record holds a date yet, the Date list says so.
+- A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name C360 does not know, waits in the workspace's time zone. Test Publish skips every wait.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
 - A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - A Webhook address must be https (http only for localhost), so customer data never travels in the clear. The signing secret is kept encrypted; the Webhook Calls card never shows it.
-- A saved template belongs to the workspace, not to the journey it came from: deleting the template leaves the journeys made from it as they are, and archiving the journey leaves the template. CEP's own starters cannot be changed or deleted.
+- A saved template belongs to the workspace, not to the journey it came from: deleting the template leaves the journeys made from it as they are, and archiving the journey leaves the template. C360's own starters cannot be changed or deleted.
 - The **Journeys** dataset in Reports adds up every journey's entries, conversions, revenue and messages per day over a period, with a CSV (see *Reports*).
 - Events are explained in **Events** (Settings → Events), purchases in **Attribution**, keys in **API Keys**, who may do what in **Roles**.

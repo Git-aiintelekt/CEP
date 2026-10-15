@@ -1,5 +1,5 @@
 /**
- * The one web font CEP's emails use: IBM Plex Sans, the design system's typeface. Inboxes fetch it from a public
+ * The one web font C360's emails use: IBM Plex Sans, the design system's typeface. Inboxes fetch it from a public
  * URL (the app's self-hosted copy is not reachable from a mail client), so it comes from Google Fonts. Apple Mail,
  * iOS Mail, Outlook for Mac and Samsung Mail show it; Gmail, Outlook for Windows and Yahoo ignore web fonts and
  * fall back to Helvetica, then Arial, which is why the stack is part of the design.

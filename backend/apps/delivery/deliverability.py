@@ -4,7 +4,7 @@ inbox placement are not run yet; a test carries their slots so the panel already
 Which account (account_for): the workspace's own when it has one, otherwise the platform's (back-office -> Configuration ->
 Mailgun Inspect, the row without a tenant). Tests on the platform's account count against the plan's monthly number plus
 the tests the platform team added for the month (tenant_quota_grant); a workspace paying Mailgun itself is not limited
-by CEP, its count is shown for information. A test remembers its account, so its results are read from the same one.
+by C360, its count is shown for information. A test remembers its account, so its results are read from the same one.
 
 A test counts the moment it is requested (that is when the provider bills it). Results are fetched when the test is read
 and the last look is older than POLL_AFTER; nothing runs in the background.
@@ -114,7 +114,7 @@ def allowance(tenant_id) -> dict:
     left = None if limit is None else max(0, limit - used)
     plan_name = plan.get("name") or "current"
     if own:
-        note = "Through your own Mailgun account: CEP does not limit them."
+        note = "Through your own Mailgun account: C360 does not limit them."
     elif plan_limit is None:
         note = f"Unlimited on the {plan_name} plan."
     elif added:

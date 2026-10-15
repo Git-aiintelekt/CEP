@@ -138,7 +138,7 @@ def prepare(tenant) -> dict:
     return settings_of(tenant)
 
 
-def deliver(config: dict, tenant_id, event: str, *, title: str, lines: list[str], link: str | None = None, link_label: str = "Open in CEP",
+def deliver(config: dict, tenant_id, event: str, *, title: str, lines: list[str], link: str | None = None, link_label: str = "Open in C360",
             owner_email: str | None = None, to: list[str] | tuple[str, ...] = ()) -> dict:
     """Sends by every channel the event is switched on for. `to` are addresses that get it regardless (approvers, a report's
     subscribers). Returns how many emails went and whether the webhook took it."""
@@ -152,7 +152,7 @@ def deliver(config: dict, tenant_id, event: str, *, title: str, lines: list[str]
     emailed = 0
     if addresses:
         context = {"title": title, "lines": lines, "link": link, "link_label": link_label, "event_label": EVENTS[event][0]}
-        emailed = len(addresses) if mail.send("workspace_notification", addresses, context, subject=f"[CEP] {title}", tenant_id=tenant_id) else 0
+        emailed = len(addresses) if mail.send("workspace_notification", addresses, context, subject=f"[C360] {title}", tenant_id=tenant_id) else 0
     hooked = False
     if channels["webhook"] and config["webhook_url"]:
         hooked = post_webhook(config["webhook_url"], title, lines, link)
@@ -186,7 +186,7 @@ def send_test(tenant, *, by: str) -> dict:
     lines = [f"Sent by {by} from Settings → Notifications at {timezone.now():%d %b %Y %H:%M} UTC.", "If you can read this, the channel works."]
     emailed = len(config["emails"]) if config["emails"] and mail.send("workspace_notification", config["emails"],
                                                                          {"title": "Test notification", "lines": lines, "link": None, "link_label": "", "event_label": "Test"},
-                                                                         subject="[CEP] Test notification", tenant_id=tenant_id) else 0
+                                                                         subject="[C360] Test notification", tenant_id=tenant_id) else 0
     hooked = bool(config["webhook_url"]) and post_webhook(config["webhook_url"], "Test notification", lines)
     if hooked:
         mark_webhook_tested(tenant, timezone.now())

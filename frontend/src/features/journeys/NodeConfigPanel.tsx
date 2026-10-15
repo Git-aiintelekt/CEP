@@ -196,7 +196,7 @@ function MessageFields({ type, config, set }: { type: MessageType; config: Recor
 function CouponFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
   const coupons = useCoupons()
   return (
-    <Field label="Coupon" required hint="Issues an existing coupon from C360; CEP doesn't create or manage coupons.">
+    <Field label="Coupon" required hint="Issues an existing coupon from C360; C360 doesn't create or manage coupons.">
       {(ids) =>
         coupons.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading coupons</p>
         : coupons.isError ? <ErrorState title="Couldn't load coupons" error={coupons.error} onRetry={() => void coupons.refetch()} />
@@ -213,7 +213,7 @@ function CouponFields({ config, set }: { config: Record<string, unknown>; set: S
 function TierFields({ config, set }: { config: Record<string, unknown>; set: SetFn }) {
   const tiers = useLoyaltyTiers()
   return (
-    <Field label="Loyalty Tier" required hint="Sets the customer's tier to this one; CEP doesn't run the loyalty program itself.">
+    <Field label="Loyalty Tier" required hint="Sets the customer's tier to this one; C360 doesn't run the loyalty program itself.">
       {(ids) =>
         tiers.isPending ? <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading tiers</p>
         : tiers.isError ? <ErrorState title="Couldn't load loyalty tiers" error={tiers.error} onRetry={() => void tiers.refetch()} />

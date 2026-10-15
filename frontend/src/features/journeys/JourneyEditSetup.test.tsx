@@ -229,7 +229,7 @@ test('the Win-Back starter pre-fills Setup with its segment still to choose', as
   const user = userEvent.setup()
   await renderAppAt('/journeys')
 
-  await user.click(await screen.findByRole('button', { name: 'Win-Back Lapsed Customers, CEP Starter' }))
+  await user.click(await screen.findByRole('button', { name: 'Win-Back Lapsed Customers, C360 Starter' }))
   const preview = await screen.findByRole('dialog', { name: 'Win-Back Lapsed Customers' })
   expect((await within(preview).findAllByText('Choose your Lapsed segment')).length).toBeGreaterThan(0)
   await user.click(within(preview).getByRole('button', { name: 'Use This Template' }))

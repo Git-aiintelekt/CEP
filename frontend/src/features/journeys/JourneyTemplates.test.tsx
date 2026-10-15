@@ -53,11 +53,11 @@ test('the Journey Templates panel offers Start from Scratch and the first four s
   await renderAppAt('/journeys')
 
   const panel = await screen.findByRole('region', { name: 'Journey Templates' })
-  expect(within(panel).getByText('Start a journey from a blank canvas, a CEP starter or a template saved from one of your journeys. A template is copied into a new draft; the original never changes.')).toBeTruthy()
+  expect(within(panel).getByText('Start a journey from a blank canvas, a C360 starter or a template saved from one of your journeys. A template is copied into a new draft; the original never changes.')).toBeTruthy()
   const row = within(panel).getByRole('list', { name: 'Start a Journey' })
   await vi.waitFor(() => expect(within(row).getAllByRole('listitem')).toHaveLength(5))
   expect(within(row).getByRole('button', { name: /Start from Scratch/ })).toBeTruthy()
-  expect(within(row).getByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' })).toBeTruthy()
+  expect(within(row).getByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' })).toBeTruthy()
   expect(within(row).getByText('When a shopper leaves items in their cart')).toBeTruthy()
   expect(within(row).queryByRole('button', { name: /Loyalty Tier Upgrade/ })).toBeNull()        // the fifth starter waits for View More
 
@@ -76,18 +76,18 @@ test('View More lists every starter by category, with search', async () => {
   const gallery = await screen.findByRole('dialog', { name: 'Starter Templates' })
   const categories = within(gallery).getByRole('navigation', { name: 'Category' })
   await within(gallery).findByRole('heading', { name: 'All · 6' })
-  expect(within(gallery).getAllByText('CEP Starter')).toHaveLength(7)                         // the header's and each card's
+  expect(within(gallery).getAllByText('C360 Starter')).toHaveLength(7)                         // the header's and each card's
   expect(within(categories).getByRole('button', { name: /Commerce\s*2/ })).toBeTruthy()
 
   await user.click(within(categories).getByRole('button', { name: /Lifecycle/ }))
   expect(within(gallery).getByRole('heading', { name: 'Lifecycle · 2' })).toBeTruthy()
-  expect(within(gallery).getByRole('button', { name: 'Welcome Series, CEP Starter' })).toBeTruthy()
-  expect(within(gallery).queryByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' })).toBeNull()
+  expect(within(gallery).getByRole('button', { name: 'Welcome Series, C360 Starter' })).toBeTruthy()
+  expect(within(gallery).queryByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' })).toBeNull()
 
   await user.type(within(gallery).getByPlaceholderText('Search Starter Templates'), 'first')
   expect(within(gallery).getByRole('heading', { name: 'Lifecycle · 1' })).toBeTruthy()
-  expect(within(gallery).getByRole('button', { name: 'First to Second Purchase, CEP Starter' })).toBeTruthy()
-  expect(within(gallery).getAllByText('Made by CEP · Never changes')).toHaveLength(1)
+  expect(within(gallery).getByRole('button', { name: 'First to Second Purchase, C360 Starter' })).toBeTruthy()
+  expect(within(gallery).getAllByText('Made by C360 · Never changes')).toHaveLength(1)
 
   await user.type(within(gallery).getByPlaceholderText('Search Starter Templates'), 'zzz')
   expect(within(gallery).getByText('No matching starters')).toBeTruthy()
@@ -98,9 +98,9 @@ test("a starter's preview lists the steps that need setup", async () => {
   const user = userEvent.setup()
   await renderAppAt('/journeys')
 
-  await user.click(await screen.findByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' }))
+  await user.click(await screen.findByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' }))
   const preview = await screen.findByRole('dialog', { name: 'Abandoned Cart Recovery' })
-  expect(within(preview).getByText('CEP Starter')).toBeTruthy()
+  expect(within(preview).getByText('C360 Starter')).toBeTruthy()
   expect(within(preview).getByText('Read-only preview. Nothing is copied yet.')).toBeTruthy()
   expect(within(preview).queryByText('What Starts It')).toBeNull()
   expect(within(preview).getByText('Order placed within 3 days')).toBeTruthy()
@@ -125,7 +125,7 @@ test('Use This Template pre-fills Setup, creates from the starter, keeps its ste
   const user = userEvent.setup()
   await renderAppAt('/journeys')
 
-  await user.click(await screen.findByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' }))
+  await user.click(await screen.findByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' }))
   await user.click(within(await screen.findByRole('dialog', { name: 'Abandoned Cart Recovery' })).getByRole('button', { name: 'Use This Template' }))
 
   const setup = await screen.findByRole('dialog', { name: /^Create Journey$/ })
@@ -182,11 +182,11 @@ test('without journey.edit the starters can be looked at but not used', async ()
   await renderAppAt('/journeys')
 
   const panel = await screen.findByRole('region', { name: 'Journey Templates' })
-  await within(panel).findByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' })
+  await within(panel).findByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' })
   expect(within(panel).queryByRole('button', { name: /Start from Scratch/ })).toBeNull()
   expect(screen.queryByRole('button', { name: /Create Journey/ })).toBeNull()
 
-  await user.click(within(panel).getByRole('button', { name: 'Abandoned Cart Recovery, CEP Starter' }))
+  await user.click(within(panel).getByRole('button', { name: 'Abandoned Cart Recovery, C360 Starter' }))
   const preview = await screen.findByRole('dialog', { name: 'Abandoned Cart Recovery' })
   expect(within(preview).queryByRole('button', { name: 'Use This Template' })).toBeNull()
   expect(within(preview).getAllByRole('button', { name: 'Close' })).toHaveLength(2)          // the header's × and the footer's

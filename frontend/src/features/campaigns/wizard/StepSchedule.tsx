@@ -17,7 +17,7 @@ import { SEND_TYPES, WEEKDAYS } from '../vocabulary'
 import { formatInZone, zonedToIso } from '../zone'
 
 /**
- * How many of the people on the attached lists have a time zone CEP can work out, asked for as soon as the box is ticked
+ * How many of the people on the attached lists have a time zone C360 can work out, asked for as soon as the box is ticked
  * (?local_time=1), before it is saved. The rest get the message at the chosen time in the campaign's own zone.
  */
 function LocalTimeCoverage({ campaignId, zone }: { campaignId: string; zone: string }) {

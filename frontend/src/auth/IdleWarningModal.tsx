@@ -17,7 +17,7 @@ export function IdleWarningModal({ secondsLeft, totalSeconds, onStay, onSignOut 
         </>
       }>
       <p aria-live="polite" className="text-sm text-ink-800">
-        For your security, CEP signs itself out after time spent idle. Without a response you will be signed out in <span className="font-semibold text-ink-900">{plural(secondsLeft)}</span>.
+        For your security, C360 signs itself out after time spent idle. Without a response you will be signed out in <span className="font-semibold text-ink-900">{plural(secondsLeft)}</span>.
       </p>
       <div className="mt-3">
         <ProgressBar value={(secondsLeft / Math.max(1, totalSeconds)) * 100} label="Time left before sign-out" />

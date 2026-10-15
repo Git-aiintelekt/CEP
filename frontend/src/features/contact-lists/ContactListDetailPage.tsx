@@ -111,7 +111,7 @@ function AddContacts({ list, onClose, onAdded }: { list: ContactList; onClose: (
             <TextArea {...ids} value={text} onChange={(event) => setText(event.target.value)} rows={8} placeholder={'ana@example.com, Ana, Lopez\nben@example.com'} autoFocus />
           )}
       </Field>
-      <p className="mt-3 text-xs text-ink-800">Someone CEP already knows is linked to their existing record. Anyone new is added to CEP without a consent answer, so marketing sends leave them out until they opt in.</p>
+      <p className="mt-3 text-xs text-ink-800">Someone C360 already knows is linked to their existing record. Anyone new is added to C360 without a consent answer, so marketing sends leave them out until they opt in.</p>
     </Modal>
   )
 }
@@ -272,7 +272,7 @@ export function ContactListDetailPage() {
     mutationFn: () => api.post<{ removed: number }>(`/contact-lists/${id}/members/remove/`, { ids: selected }),
     onSuccess: (result) => {
       setDialog(null)
-      setNotice(`${formatNumber(result.removed)} contact${result.removed === 1 ? '' : 's'} removed from this list. They are still in CEP.`)
+      setNotice(`${formatNumber(result.removed)} contact${result.removed === 1 ? '' : 's'} removed from this list. They are still in C360.`)
       refreshAll()
     },
   })
@@ -488,7 +488,7 @@ export function ContactListDetailPage() {
         <AddContacts list={data} onClose={() => setDialog(null)} onAdded={(result) => {
           setDialog(null)
           const parts = [`${formatNumber(result.added)} added`]
-          if (result.new_people) parts.push(`${formatNumber(result.new_people)} new to CEP`)
+          if (result.new_people) parts.push(`${formatNumber(result.new_people)} new to C360`)
           if (result.already_in_list) parts.push(`${formatNumber(result.already_in_list)} already in the list`)
           if (result.invalid.length) parts.push(`not valid and skipped: ${result.invalid.slice(0, 5).join(', ')}${result.invalid.length > 5 ? '…' : ''}`)
           setNotice(`${parts.join(' · ')}.`)
@@ -509,7 +509,7 @@ export function ContactListDetailPage() {
           }
         >
           <p className="text-sm text-ink-800">
-            {formatNumber(selected.length)} contact{selected.length === 1 ? '' : 's'} leave{selected.length === 1 ? 's' : ''} “{data.name}”. They stay in CEP and in every other list.
+            {formatNumber(selected.length)} contact{selected.length === 1 ? '' : 's'} leave{selected.length === 1 ? 's' : ''} “{data.name}”. They stay in C360 and in every other list.
             {followsAudience && ' Someone who still qualifies for the audience comes back at the next refresh.'}
           </p>
           {remove.isError && <p role="alert" className="mt-3 text-sm font-medium text-danger-plain">{problemText(remove.error)}</p>}

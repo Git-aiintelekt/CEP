@@ -1,6 +1,6 @@
 /**
  * Create Template, in the shared set-up frame: 1 the name, channel and description; 2 where it starts, Blank (picked
- * for you) or one of CEP's starters (the same picker as /templates/new). Creating opens the template in its editor.
+ * for you) or one of C360's starters (the same picker as /templates/new). Creating opens the template in its editor.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useId, useState, type FormEvent } from 'react'
@@ -61,7 +61,7 @@ export function CreateTemplateModal({ channel: initialChannel, onClose }: { chan
       setFailed(error)
     },
   })
-  // what the fields do not say: CEP's problem, no connection, a refusal that is not about a field on step 1
+  // what the fields do not say: C360's problem, no connection, a refusal that is not about a field on step 1
   const failure = failed ? saveFailure(failed, CREATE_FAILED, STEP_ONE_FIELDS) : null
   const banner = failure && !(failure.title === FIELDS_TITLE && failure.general.length === 0) ? failure : null
   const refused = failed instanceof ApiError && failed.status === 400

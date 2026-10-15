@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; CEP validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
+E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; C360 validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
 
 ## Who can use it
 

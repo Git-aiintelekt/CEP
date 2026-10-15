@@ -70,7 +70,7 @@ export function SetPasswordPage() {
         </AuthStep>
       ) : (
         <AuthStep>
-          <AuthHeading title="Set a New Password">Choose a password you haven't used on CEP before.</AuthHeading>
+          <AuthHeading title="Set a New Password">Choose a password you haven't used on C360 before.</AuthHeading>
           {errors.link && <AuthAlert>{errors.link}</AuthAlert>}
 
           <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
