@@ -85,6 +85,15 @@ anyone with `report.edit` makes one, its maker or a report administrator renames
 filed nowhere), and the report's owner moves it from the viewer's Folder select. The Reports list filters by folder,
 or by no folder, and shows the folder under the name.
 
+## The Excel export
+
+`GET /insights/reports/<id>/export.xlsx` (`apps/insights/excel.py`, XlsxWriter) is the report in its saved view as a
+workbook: a pivot or a hierarchy as its reshaped sheet with its totals first (`apps/insights/shape.py`, the server's
+twin of the front end's shaping) and the grouped rows as the "Rows" sheet; a grid is the "Rows" sheet alone, with a
+bold frozen header, a filter, column widths and a number format per column (integers, decimals, money, percentages,
+dates, and bucketed dates as months, quarters or years). Masked columns export masked. Every row up to the export cap
+is fetched in pages (`runner.fetch_all`) and audited as one export. The CSV export stays as it was.
+
 ## Versions
 
 Every save of a report's definition is a version (`report_version`), listed in the viewer's Versions drawer with who,

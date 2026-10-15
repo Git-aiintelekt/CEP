@@ -2,7 +2,7 @@
  * A report, run: its rows in the saved view, with what the run says (rows, time, freshness, truncated), Edit for whoever
  * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice.
  */
-import { Download, History, Pencil, Trash2 } from 'lucide-react'
+import { Download, FileSpreadsheet, History, Pencil, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -27,7 +27,7 @@ export function ReportViewerPage() {
   const report = useReport(id)
   const run = useRun(id, {})
   const remove = useDeleteReport()
-  const [exporting, setExporting] = useState(false)
+  const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null)
   const [view, setView] = useState<ReportView | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const [shownVersion, setShownVersion] = useState<number | null>(null)
@@ -50,20 +50,20 @@ export function ReportViewerPage() {
     onError: (error) => toast.failure(error, 'The report was not moved'),
   })
 
-  async function exportCsv() {
+  async function exportAs(kind: 'csv' | 'xlsx') {
     if (!id) return
-    setExporting(true)
+    setExporting(kind)
     try {
-      const blob = await insightsApi.exportCsv(id)
+      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : insightsApi.exportXlsx(id))
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${report.data?.name ?? 'report'}.csv`
+      link.download = `${report.data?.name ?? 'report'}.${kind}`
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (error) {
       toast.failure(error, 'The export did not run')
     } finally {
-      setExporting(false)
+      setExporting(null)
     }
   }
 
@@ -89,7 +89,8 @@ export function ReportViewerPage() {
             {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
             <button type="button" className={buttonSecondary} onClick={() => setVersionsOpen(true)}><History size={16} strokeWidth={1.5} aria-hidden />Versions</button>
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
-            <button type="button" className={buttonSecondary} onClick={exportCsv} disabled={exporting || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
+            <button type="button" className={buttonSecondary} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
+            <button type="button" className={buttonSecondary} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
             {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
           </div>
         )}

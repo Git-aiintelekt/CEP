@@ -126,6 +126,7 @@ urlpatterns = [
     path("insights/reports/<uuid:report_id>/versions/<int:number>/restore/", insights_api.ReportVersionRestoreView.as_view(), name="insights-report-version-restore"),
     path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
     path("insights/reports/<uuid:report_id>/export.csv", insights_api.ExportView.as_view(), name="insights-report-export"),
+    path("insights/reports/<uuid:report_id>/export.xlsx", insights_api.ExportXlsxView.as_view(), name="insights-report-export-xlsx"),
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
     path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),
     path("insights/dashboards/<uuid:dashboard_id>/", insights_dashboards.DashboardView.as_view(), name="insights-dashboard"),

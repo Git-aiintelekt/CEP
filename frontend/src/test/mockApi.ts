@@ -1178,6 +1178,9 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
           .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
+      if (/\/insights\/reports\/[\w-]+\/export\.(csv|xlsx)$/.test(path)) {
+        return new Response(path.endsWith('.csv') ? 'Campaign,Channel\n' : new Uint8Array([0x50, 0x4b, 3, 4]), { status: 200, headers: { 'Content-Type': path.endsWith('.csv') ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } })
+      }
       if (/\/insights\/reports\/[\w-]+\/versions\/$/.test(path)) {
         return json({ versions: [
           { version: 2, view_type: 'grid', note: 'Shared with the workspace', changed_at: '2026-10-15T08:00:00Z', changed_by_name: 'Aby John', definition: insightsReport.definition },

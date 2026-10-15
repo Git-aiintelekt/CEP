@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, compiler, dashboards, definition, runner
+from apps.insights import catalog, compiler, dashboards, definition, excel, runner, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -87,6 +87,27 @@ def test_definition_and_compiler(check):
           masked_rows == [[runner.MASK, 4], [runner.MASK, 1], [None, 2]] and masked_columns[0].get("masked") is True and "masked" not in masked_columns[1], str(masked_rows))
     check("a reader with the right gets the rows as they are", runner.mask(DATASET, columns, rows, False) == (columns, rows))
 
+    # the pivot and the hierarchy as tables (the Excel export), and the workbook itself
+    cols = [{"key": "channel", "label": "Channel", "type": "string", "format": None}, {"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"},
+            {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}, {"key": "opened", "label": "Opened", "type": "number", "format": "integer", "aggregate": "avg"}]
+    data = [["EMAIL", "2026-09-01", 356920, 10.5], ["EMAIL", "2026-08-01", 247250, 9.0], ["SMS", "2026-09-01", 29580, 0], ["SMS", "2026-08-01", 27810, 0]]
+    pv = shape.pivot(cols, data, "submitted_at")
+    check("a pivot spreads the dimension across with a total on both edges, in the rows' order", pv["header"] == ["Channel", "2026-09-01", "2026-08-01", "Total"] and pv["rows"] == [["EMAIL", 356920, 247250, 604170], ["SMS", 29580, 27810, 57390]]
+          and pv["total"] == ["Total", 386500, 275060, 661560], str(pv.get("rows")))
+    hy = shape.hierarchy(cols, data)
+    check("a hierarchy folds the dimensions in order with a subtotal per group; an average cannot be combined",
+          [(d, g, cells[0]) for d, g, cells in hy["rows"]] == [(0, True, "EMAIL"), (1, False, "2026-09-01"), (1, False, "2026-08-01"), (0, True, "SMS"), (1, False, "2026-09-01"), (1, False, "2026-08-01")]
+          and hy["rows"][0][2][1:] == [604170, None] and hy["total"] == ["Total", 661560, None], str(hy["rows"]))
+    check("a pivot without a dimension across, or a hierarchy on one dimension, says what it needs", "reason" in shape.pivot(cols, data, None) and "reason" in shape.hierarchy(cols[1:], [r[1:] for r in data]))
+    import zipfile
+    book = excel.build("Monthly Sends", cols, data, {"type": "pivot", "across": "submitted_at"})
+    with zipfile.ZipFile(__import__("io").BytesIO(book)) as z:
+        names = z.namelist()
+        strings = z.read("xl/sharedStrings.xml").decode()
+        sheets = z.read("xl/workbook.xml").decode()
+    check("the workbook has the pivot sheet first and the rows after, with the labels and the values as text", "xl/worksheets/sheet1.xml" in names and "xl/worksheets/sheet2.xml" in names
+          and "Pivot" in sheets and "Sent Count" in strings and "EMAIL" in strings, str(names))
+
     # dashboards: the period's bounds, and the period as one more rule on the time field
     check("this month runs from the 1st to today, the previous period is the same length just before",
           dashboards.period_bounds({"preset": "month"}, date(2026, 10, 15)) == {"from": "2026-10-01", "to": "2026-10-15", "previous_from": "2026-09-16", "previous_to": "2026-09-30"})
@@ -155,6 +176,9 @@ def test_api(check, world):
     export = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv")
     text = b"".join(export.streaming_content).decode() if export.status_code == 200 else ""
     check("the export streams a CSV with the labels as its header", export.status_code == 200 and text.startswith("Campaign,Channel,Sent Count,Messages") and "attachment" in export["Content-Disposition"], text[:120])
+    book = world.api("get", f"/api/v1/insights/reports/{rid}/export.xlsx")
+    check("the Excel export is a workbook named after the report", book.status_code == 200 and book["Content-Type"].startswith("application/vnd.openxmlformats") and 'filename="Sends by campaign and channel.xlsx"' in book["Content-Disposition"]
+          and book.content[:2] == b"PK", str(book.status_code))
 
     # favourites and folders (Phase C)
     made_folder = world.api("post", "/api/v1/insights/folders/", {"name": "Finance"})

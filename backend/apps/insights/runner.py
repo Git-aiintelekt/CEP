@@ -179,6 +179,42 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=total)
 
 
+def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False) -> tuple[list[dict], list[list]]:
+    """Every row up to the export cap, in pages, for a file built in memory (the Excel export); one audit row for the whole."""
+    engine = engine_of(tenant.pk)
+    limits = engine["limits"]
+    zone = reports.zone_of(tenant).key
+    sig = signature(definition)
+    slot = _slot(tenant.pk, limits["concurrent"])
+    started = time.monotonic()
+    columns, out = None, []
+    try:
+        offset, page = 0, 5_000
+        while offset < limits["export_rows"]:
+            compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset)
+            try:
+                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"])
+            except Exception as exc:                                # noqa: BLE001
+                message = str(exc)
+                outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
+                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, outcome, report_id=report_id, report_version=report_version, detail=message)
+                if outcome == "TIMEOUT":
+                    raise RunRefused(outcome, f"The export took longer than {limits['statement_timeout_ms'] // 1000} seconds and was stopped. Narrow the report with a filter.") from None
+                raise RunRefused(outcome, "The export could not be run. If it happens again, tell your administrator.") from None
+            page_columns, rows = mask(dataset, compiled.columns, rows, mask_pii)
+            if columns is None:
+                columns = page_columns
+            out.extend(rows)
+            if len(rows) < page:
+                break
+            offset += page
+    finally:
+        _release(slot)
+    _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "OK", report_id=report_id, report_version=report_version,
+           duration_ms=int((time.monotonic() - started) * 1000), row_count=len(out))
+    return columns or [], out
+
+
 def touch_last_run(report_id) -> None:
     with session.connection().cursor() as cursor:
         cursor.execute("UPDATE report SET last_run_at = %s WHERE id = %s", [timezone.now(), str(report_id)])
