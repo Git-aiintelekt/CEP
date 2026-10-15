@@ -68,7 +68,7 @@ export function CustomerPage({ partyId: given }: { partyId?: string } = {}) {
       </header>
 
       <div className="mt-6 flex flex-col gap-6">
-        <DetailCard title="Record" description="As C360 synced it, or as an upload added it. CEP does not edit the record.">
+        <DetailCard title="Record" description="As C360 synced it, or as an upload added it. C360 does not edit the record.">
           <dl className={FACTS_GRID}>
             <Fact label="Email Addresses">
               {customer.emails.length === 0 ? <span className="text-ink-300">None</span>
@@ -131,7 +131,7 @@ export function CustomerPage({ partyId: given }: { partyId?: string } = {}) {
           )}
         </DetailCard>
 
-        <DetailCard title="Events" flush description="The last 50 events received for this customer: what the shop, the app, the point of sale and CEP itself reported.">
+        <DetailCard title="Events" flush description="The last 50 events received for this customer: what the shop, the app, the point of sale and C360 itself reported.">
           {events.length === 0 ? <p className="p-6 text-sm text-ink-800">No event has been received for this customer.</p> : (
             <DataTable rows={events} rowKey={(row) => String(row.id)} caption="Events received" inset="card" framed={false} primary="event" columns={[
               { key: 'event', header: 'Event', render: (row) => <span className="flex flex-col"><span className="font-medium text-ink-900">{row.label}</span><span className="text-xs font-normal text-ink-800">{row.event_type}{row.event_id ? ` · ${row.event_id}` : ''}</span></span> },

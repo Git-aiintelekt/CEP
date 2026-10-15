@@ -1,4 +1,4 @@
-/** In-memory stand-in for the CEP API used by the component tests. */
+/** In-memory stand-in for the C360 API used by the component tests. */
 import { vi } from 'vitest'
 
 import { derived, handleCampaigns, listCampaigns, makeStep, moduleDefaults } from './mockCampaigns'
@@ -254,7 +254,7 @@ export const attributionSettings: AttributionSettings = {
 
 export const attributedOrders: AttributedOrder[] = [
   { id: 3, source: 'API', order_id: 'W-100236', kind: 'ORDER', amount: 70, currency: 'USD', ordered_at: '2026-10-04T08:40:00Z', channel: 'ONLINE', store_number: null, party_id: null, email: 'nobody@example.com', phone: null,
-    status: 'UNATTRIBUTED', campaign_id: null, campaign_name: null, touch_type: null, touch_at: null, note: 'No person: no customer id, and no email address or phone number CEP sent to.', received_at: '2026-10-04T08:41:00Z' },
+    status: 'UNATTRIBUTED', campaign_id: null, campaign_name: null, touch_type: null, touch_at: null, note: 'No person: no customer id, and no email address or phone number C360 sent to.', received_at: '2026-10-04T08:41:00Z' },
   { id: 2, source: 'API', order_id: 'W-100235', kind: 'ORDER', amount: 129.5, currency: 'USD', ordered_at: '2026-10-04T08:30:00Z', channel: 'ONLINE', store_number: null, party_id: 'C-88213', email: 'jane@example.com', phone: null,
     status: 'ATTRIBUTED', campaign_id: 'cmp-1', campaign_name: 'Fall Launch', touch_type: 'CLICK', touch_at: '2026-10-03T19:12:00Z', note: null, received_at: '2026-10-04T08:31:00Z' },
 ]
@@ -732,7 +732,7 @@ export function installMockApi(options: MockOptions = {}) {
     const account = deliverabilityServiceNow.uses ?? null
     const planLimit = options.deliverabilityLimit === undefined ? 20 : options.deliverabilityLimit
     const limit = account === 'OWN' ? null : planLimit
-    const note = account === 'OWN' ? 'Through your own Mailgun account: CEP does not limit them.' : planLimit === null ? 'Unlimited on the Growth plan.' : `${planLimit} a month on the Growth plan.`
+    const note = account === 'OWN' ? 'Through your own Mailgun account: C360 does not limit them.' : planLimit === null ? 'Unlimited on the Growth plan.' : `${planLimit} a month on the Growth plan.`
     return { enabled: true, used: deliverabilityTests.length, limit, left: limit === null ? null : Math.max(0, limit - deliverabilityTests.length), month: '2026-10-01', plan: 'Growth',
              configured: account !== null, plan_limit: planLimit, added: 0, account, note }
   }
@@ -775,7 +775,7 @@ export function installMockApi(options: MockOptions = {}) {
     const tools = handleWorkspaceTools({ path, url, method, body }, toolsState)
     if (tools) return tools
     if (path.endsWith('/legal/')) return json({ copyright_holder: 'Transaction Tree', year: 2026, terms: { title: 'Terms of Use', updated_at: '2026-10-09T10:00:00Z',
-      body: '## 1. What CEP is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
+      body: '## 1. What C360 is\n\nCEP is a customer engagement platform.\n\n## 2. Your account\n\nYour account is personal.\n\n## 8. Contact\n\nAsk your workspace administrator.' } })
     if (path.endsWith('/auth/options/')) return json({ workspace: headers['X-Tenant'], sso_enabled: false, sso_enforced: false, sso_name: null, mfa_required: false, ...options.authOptions })
     if (path.endsWith('/auth/mfa/verify/')) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
@@ -1120,7 +1120,7 @@ export function installMockApi(options: MockOptions = {}) {
         && item.name.toLowerCase().includes(needle))
       return json({ next: null, previous: null, results: rows })
     }
-    // ---- journey templates: CEP's starters
+    // ---- journey templates: C360's starters
     if (path.endsWith('/journey-starters/')) return json(journeyStartersNow)
     if (path.endsWith('/journey-templates/') && method === 'GET') return json(savedTemplatesNow)
     if (path.endsWith('/journey-templates/') && method === 'POST') {

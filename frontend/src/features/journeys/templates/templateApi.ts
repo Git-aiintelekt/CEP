@@ -1,4 +1,4 @@
-/** Reads CEP's starters and the workspace's own saved templates (journey.edit on the server), and shows a saved template through
+/** Reads C360's starters and the workspace's own saved templates (journey.edit on the server), and shows a saved template through
  * the starter's shape so the cards, the gallery, the preview and the Setup pre-fill treat both alike. */
 import { useQuery } from '@tanstack/react-query'
 

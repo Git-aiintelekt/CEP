@@ -76,7 +76,7 @@ export function EmptyState({ title, hint, action, icon: Icon = Inbox, variant = 
 }
 
 /**
- * A failed load or save, in CEP's words (lib/saveFeedback): what failed, why, what to do, and CEP's reference when it had a problem.
+ * A failed load or save, in C360's words (lib/saveFeedback): what failed, why, what to do, and C360's reference when it had a problem.
  * A form passes `shownFields`, the fields that show their own message: those stay on the field, the rest show here, and with only
  * field problems nothing shows here at all. A page that knows the reason itself (a missing permission, the wrong kind of template)
  * passes it as `detail` instead of an error.

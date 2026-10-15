@@ -1,4 +1,4 @@
-/** View More: every CEP starter and every template the workspace saved, by category, with a search. A card opens the
+/** View More: every C360 starter and every template the workspace saved, by category, with a search. A card opens the
  * template's preview over this pop-up. */
 import { Bookmark, LayoutGrid, Search } from 'lucide-react'
 import { useState } from 'react'
@@ -39,8 +39,8 @@ export function StarterGalleryModal({ onClose, onPreview }: { onClose: () => voi
   return (
     <Modal
       title="Starter Templates"
-      subtitle={yours.length > 0 ? '10 ready-made retail journeys from CEP, and the templates saved from your own journeys. Using one creates a copy; the original never changes.'
-                                 : '10 ready-made retail journeys from CEP. Using one creates a copy; the original never changes.'}
+      subtitle={yours.length > 0 ? '10 ready-made retail journeys from C360, and the templates saved from your own journeys. Using one creates a copy; the original never changes.'
+                                 : '10 ready-made retail journeys from C360. Using one creates a copy; the original never changes.'}
       headerExtra={<StarterTag />}
       onClose={onClose}
       size="screen"

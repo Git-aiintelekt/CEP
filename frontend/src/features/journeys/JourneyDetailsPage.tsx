@@ -93,7 +93,7 @@ function EditableFact({ label, value, placeholder, onSave, editable, max }: {
       await onSave(draft)
       setEditing(false)
     } catch (problem) {
-      // beside the text being edited, in CEP's words (lib/saveFeedback): the field's own message, or why it failed and what to do
+      // beside the text being edited, in C360's words (lib/saveFeedback): the field's own message, or why it failed and what to do
       setError(failureText(problem, `The ${label.toLowerCase()} was not saved`))
     } finally {
       setSaving(false)

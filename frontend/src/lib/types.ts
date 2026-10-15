@@ -9,7 +9,7 @@ export interface Problem {
   status?: number
   detail?: string
   errors?: Record<string, unknown>
-  /** CEP's own problem (500): ER-<error group>, which the back-office Errors page finds */
+  /** C360's own problem (500): ER-<error group>, which the back-office Errors page finds */
   reference?: string
   /** when the server had it */
   at?: string
@@ -619,7 +619,7 @@ export interface AudienceStatusLine {
 export type ListChannel = 'EMAIL' | 'SMS' | 'BOTH'
 
 export interface CampaignAudience {
-  /** with ?local_time=1, or once the campaign sends at each recipient's local time: how many have a time zone CEP can work out */
+  /** with ?local_time=1, or once the campaign sends at each recipient's local time: how many have a time zone C360 can work out */
   local_time?: { people: number; local_time_known: number }
   lists: { id: string; name: string; member_count: number; updated_at: string; list_environment: string; source_type: string; channel?: string; approval_status?: string; role: 'INCLUDE' | 'EXCLUDE' }[]
   gross: number
@@ -1343,7 +1343,7 @@ export interface Journey extends Audited {
   /** the saved template this journey was made from (journey_template id), if any. Save as Template left the UI on
    * 2026-10-05; the API still returns it for journeys made from one before then */
   source_template?: string | null
-  /** the CEP starter this journey was made from (apps/journeys/starters.py key), if any */
+  /** the C360 starter this journey was made from (apps/journeys/starters.py key), if any */
   source_starter_key?: string | null
   /** the template's or starter's name, for "From {name}" on the canvas */
   source_name?: string | null
@@ -1351,7 +1351,7 @@ export interface Journey extends Audited {
 
 export type JourneyTemplateCategory = 'LIFECYCLE' | 'COMMERCE' | 'LOYALTY' | 'ENGAGEMENT'
 
-/** GET /journey-starters/ : one of CEP's ten ready-made journeys (apps/journeys/starters.py); a workspace's saved template
+/** GET /journey-starters/ : one of C360's ten ready-made journeys (apps/journeys/starters.py); a workspace's saved template
  * (JourneyTemplate) is shown through the same shape, with `template_id` set and the key `template:{id}` */
 export interface JourneyStarter {
   key: string
@@ -1366,7 +1366,7 @@ export interface JourneyStarter {
   /** every step after the entry trigger */
   step_count: number
   channels: string[]
-  /** a saved template's id (journey_template); absent on a CEP starter */
+  /** a saved template's id (journey_template); absent on a C360 starter */
   template_id?: string
   /** a saved template: who saved it and when, how many journeys were made from it */
   saved?: { created_by_name: string | null; created_at: string; used_count: number; row_version: number }
@@ -2081,7 +2081,7 @@ export interface SuppressionPage {
   results: SuppressionRow[]
 }
 
-/** one recipient of a run: CEP's record of the message (GET /campaign-runs/{id}/recipients/) */
+/** one recipient of a run: C360's record of the message (GET /campaign-runs/{id}/recipients/) */
 export interface RunRecipient {
   id: number
   party_id: string

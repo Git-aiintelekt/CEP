@@ -74,7 +74,7 @@ test('idle warning: no response before it runs out signs the person out and the 
   await tick(3_000) // the whole warning window, untouched
   await tick(50) // settles the sign-out -> redirect -> login-page render chain
 
-  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to C360' })).toBeTruthy()
   expect(screen.getByRole('status').textContent).toContain('signed out after some time without activity')
   expect(window.localStorage.getItem('cep.access')).toBeNull() // the token is really gone, not just the screen changed
 })
@@ -86,7 +86,7 @@ test('idle warning: "Sign out now" ends the session immediately, without waiting
 
   fireEvent.click(screen.getByRole('button', { name: 'Sign Out Now' }))
   await tick(50)
-  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to C360' })).toBeTruthy()
 })
 
 test('idle warning: activity recorded in another tab (the shared timestamp) stands a warning down in this one', async () => {
@@ -115,5 +115,5 @@ test('a resting pointer over the page while the warning is up does not silently 
 
   await tick(3_000)
   await tick(50) // settles the sign-out -> redirect -> login-page render chain
-  expect(screen.getByRole('heading', { name: 'Log In to CEP' })).toBeTruthy()
+  expect(screen.getByRole('heading', { name: 'Log In to C360' })).toBeTruthy()
 })

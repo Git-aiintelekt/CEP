@@ -103,7 +103,7 @@ test('a wrong code is explained and sign in can be started again', async () => {
   expect((await screen.findByRole('alert')).textContent).toContain('Codes change every 30 seconds')
 
   await user.click(screen.getByRole('button', { name: '← Back to Log In' }))
-  expect(await screen.findByText('Log In to CEP')).toBeTruthy()
+  expect(await screen.findByText('Log In to C360')).toBeTruthy()
 })
 
 test('forgot password: the address is checked here, and the missing endpoint is reported honestly', async () => {

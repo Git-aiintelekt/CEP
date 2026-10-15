@@ -1,6 +1,6 @@
-# Welcome to CEP
+# Welcome to C360
 
-CEP is the Customer Engagement Platform: the place where a marketing team keeps its contacts, designs emails and texts, sends campaigns and reads what came back. This guide is for the people who sign in to a workspace: administrators who set it up, marketers who run campaigns, and anyone who reads the reports.
+C360 is the Customer Engagement Platform: the place where a marketing team keeps its contacts, designs emails and texts, sends campaigns and reads what came back. This guide is for the people who sign in to a workspace: administrators who set it up, marketers who run campaigns, and anyone who reads the reports.
 
 A second guide, the Platform Guide, is for the platform team who run the back-office: creating workspaces, plans, features and the platform's own settings. If you were invited to a workspace, you only need this one.
 
@@ -10,9 +10,9 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 - **What this page is for.** One paragraph on the job the page does.
 - **Who can use it.** The permission a role needs, and the feature the workspace needs switched on.
-- **The fields and controls.** A table of everything on the page: what each field or button is, and what it changes elsewhere in CEP. That is the part to read when a setting is unclear.
+- **The fields and controls.** A table of everything on the page: what each field or button is, and what it changes elsewhere in C360. That is the part to read when a setting is unclear.
 - **How to.** The everyday tasks, step by step.
-- **What happens behind the scenes.** The business flow: what CEP does with what you entered, and where it shows up later.
+- **What happens behind the scenes.** The business flow: what C360 does with what you entered, and where it shows up later.
 - **Things to know.** The limits and the consequences worth remembering.
 
 ## Help inside the app
@@ -24,11 +24,11 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Three ideas that run through everything
 
-**Workspace.** Your company's own area of CEP. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address CEP gives you to register with other systems.
+**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address C360 gives you to register with other systems.
 
 **Roles and permissions.** What a person may do is set by their role. A role is a set of permissions such as *campaign.edit* or *user.admin*. The chapter for each page names the permission it needs. If a page refuses you, it says which permission to ask an administrator for.
 
-**Features.** Some parts of CEP are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
+**Features.** Some parts of C360 are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
 
 ## Statuses you will meet
 

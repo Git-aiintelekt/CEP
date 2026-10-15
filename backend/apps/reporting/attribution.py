@@ -249,7 +249,7 @@ def record_pos(tenant, read: dict, *, key: str) -> bool:
 
 # ---------------------------------------------------------------------------------------------------- attribution
 def _parties(cursor, tenant_id, order) -> list[str]:
-    """The person behind an order: its customer id, and whoever CEP sent to at its email address or phone number."""
+    """The person behind an order: its customer id, and whoever C360 sent to at its email address or phone number."""
     found = [order["party_id"]] if order["party_id"] else []
     since = order["ordered_at"] - timedelta(days=120)
     if order["email"]:
@@ -285,7 +285,7 @@ def decide(cursor, tenant_id, order: dict, config: dict) -> dict:
             return {"status": "ATTRIBUTED", "campaign_id": row[0], "touch_type": "CODE", "touch_at": at, "touch_party_id": order["party_id"], "note": None}
     parties = _parties(cursor, tenant_id, order)
     if not parties:
-        return {"status": "UNATTRIBUTED", "note": "No person: no customer id, and no email address or phone number CEP sent to."}
+        return {"status": "UNATTRIBUTED", "note": "No person: no customer id, and no email address or phone number C360 sent to."}
     cursor.execute("""SELECT campaign_id, occurred_at, party_id FROM tracking_event
                        WHERE tenant_id = %s AND party_id = ANY(%s) AND event_type = 'CLICK' AND NOT is_bot AND campaign_id IS NOT NULL
                          AND occurred_at >= %s AND occurred_at <= %s ORDER BY occurred_at DESC LIMIT 1""",

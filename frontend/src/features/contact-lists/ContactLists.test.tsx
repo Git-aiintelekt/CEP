@@ -89,16 +89,16 @@ test('create from a file: name and type, the file, the columns, the review, then
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
   dialog = await wizard('Match Columns')
-  expect((within(dialog).getByLabelText('CEP Property for Email Address') as HTMLSelectElement).value).toBe('email')
-  expect((within(dialog).getByLabelText('CEP Property for Notes') as HTMLSelectElement).value).toBe('')
+  expect((within(dialog).getByLabelText('C360 Property for Email Address') as HTMLSelectElement).value).toBe('email')
+  expect((within(dialog).getByLabelText('C360 Property for Notes') as HTMLSelectElement).value).toBe('')
   expect(within(dialog).getByText('2 of 3 columns mapped')).toBeTruthy()
   // taking the email property away blocks the step and says why; a property moves with the column that takes it
-  await user.selectOptions(within(dialog).getByLabelText('CEP Property for Email Address'), '')
+  await user.selectOptions(within(dialog).getByLabelText('C360 Property for Email Address'), '')
   expect(within(dialog).getByText(/email still needs a column/)).toBeTruthy()
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
-  await user.selectOptions(within(dialog).getByLabelText('CEP Property for Notes'), 'email')
-  await user.selectOptions(within(dialog).getByLabelText('CEP Property for Email Address'), 'email')
-  expect((within(dialog).getByLabelText('CEP Property for Notes') as HTMLSelectElement).value).toBe('')
+  await user.selectOptions(within(dialog).getByLabelText('C360 Property for Notes'), 'email')
+  await user.selectOptions(within(dialog).getByLabelText('C360 Property for Email Address'), 'email')
+  expect((within(dialog).getByLabelText('C360 Property for Notes') as HTMLSelectElement).value).toBe('')
   await user.click(within(dialog).getByRole('button', { name: 'Next' }))
 
   // where these people agreed, and the uploader's word that they did: the check already runs in the background meanwhile
@@ -121,7 +121,7 @@ test('create from a file: name and type, the file, the columns, the review, then
   // the governance check, contact by contact, before anything is imported; and numbers that add up
   const report = within(dialog).getByRole('region', { name: 'Upload Report' })
   const value = (label: string) => within(report).getByText(label).nextElementSibling?.textContent
-  expect([value('Rows in the File'), value('Held Back'), value('Ready to Import'), value('New to CEP'), value('Already Known')]).toEqual(['6', '2', '4', '3', '1'])
+  expect([value('Rows in the File'), value('Held Back'), value('Ready to Import'), value('New to C360'), value('Already Known')]).toEqual(['6', '2', '4', '3', '1'])
   expect([value('Not a valid email address'), value('Same address earlier in the file')]).toEqual(['1', '1'])
   expect(within(report).queryByText('No email address')).toBeNull()                          // a reason with nothing in it is not listed
   expect([value('Can receive marketing email'), value('Unsubscribed'), value('Bounced: the address does not exist')]).toEqual(['2', '1', '1'])
@@ -237,7 +237,7 @@ test('inspect and fix: who is in the list and how they got there; what is safe t
   expect(screen.getByText('1 selected')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Remove from List' }))
   const confirm = await screen.findByRole('dialog', { name: 'Remove from this list?' })
-  expect(confirm.textContent).toContain('They stay in CEP')
+  expect(confirm.textContent).toContain('They stay in C360')
   await user.click(within(confirm).getByRole('button', { name: 'Remove 1' }))
   expect((await screen.findByRole('status')).textContent).toContain('1 contact removed from this list')
   expect(calls.find((call) => call.url.endsWith('/members/remove/'))?.body).toEqual({ ids: [13] })
@@ -246,7 +246,7 @@ test('inspect and fix: who is in the list and how they got there; what is safe t
   const add = await screen.findByRole('dialog', { name: 'Add Contacts' })
   await user.type(within(add).getByLabelText('Email Addresses'), 'ana@example.com, Ana, Lopez{enter}not-an-email')
   await user.click(within(add).getByRole('button', { name: 'Add 2 Contacts' }))
-  await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('1 added · 1 new to CEP · not valid and skipped: not-an-email'))
+  await vi.waitFor(() => expect(screen.getByRole('status').textContent).toContain('1 added · 1 new to C360 · not valid and skipped: not-an-email'))
   expect(calls.filter((call) => call.method === 'POST' && call.url.endsWith('/members/')).at(-1)?.body).toEqual({
     contacts: [{ email: 'ana@example.com', first_name: 'Ana', last_name: 'Lopez' }, { email: 'not-an-email', first_name: '', last_name: '' }],
   })
@@ -404,7 +404,7 @@ test('uploads page: what is running shows its progress, what waits can be contin
   expect(within(idle).getByText('Waiting for You')).toBeTruthy()
   await user.click(within(idle).getByRole('button', { name: 'Continue' }))
   const dialog = await wizard('Match Columns')        // resumed where it stopped, with its columns
-  expect((within(dialog).getByLabelText('CEP Property for Email Address') as HTMLSelectElement).value).toBe('email')
+  expect((within(dialog).getByLabelText('C360 Property for Email Address') as HTMLSelectElement).value).toBe('email')
   await user.click(within(dialog).getByRole('button', { name: 'Close' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
@@ -475,10 +475,10 @@ test('a text list: Texts chosen, the mobile number is the required column and th
   dialog = await wizard('Match Columns')
   expect(within(dialog).getByText(/mobile number still needs a column/)).toBeTruthy()
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
-  await user.selectOptions(within(dialog).getByLabelText('CEP Property for Notes'), 'mobile')
+  await user.selectOptions(within(dialog).getByLabelText('C360 Property for Notes'), 'mobile')
   expect(within(dialog).queryByText(/still needs a column/)).toBeNull()
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false)
   // the address is optional on a text list: taking it away does not block the step
-  await user.selectOptions(within(dialog).getByLabelText('CEP Property for Email Address'), '')
+  await user.selectOptions(within(dialog).getByLabelText('C360 Property for Email Address'), '')
   expect((within(dialog).getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false)
 })

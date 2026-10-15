@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-Reports shows how the workspace performed over a period, from the figures CEP already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.
+Reports shows how the workspace performed over a period, from the figures C360 already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.
 
 ## Who can use it
 

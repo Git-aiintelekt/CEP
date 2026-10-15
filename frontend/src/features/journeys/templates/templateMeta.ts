@@ -1,4 +1,4 @@
-/** What the Journey Templates panel, cards and previews say about a CEP starter (and the Your Journeys cards about a
+/** What the Journey Templates panel, cards and previews say about a C360 starter (and the Your Journeys cards about a
  * journey): its category, the sentence for what starts it, its steps in order, which of them still need content,
  * and its population and re-entry in words. */
 import { Activity, Award, ShoppingBag, Users, type LucideIcon } from 'lucide-react'

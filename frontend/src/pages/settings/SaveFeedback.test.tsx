@@ -1,4 +1,4 @@
-/** Save feedback (docs/mockups/save-feedback.html): every save says that it worked or why it did not, in CEP's words. */
+/** Save feedback (docs/mockups/save-feedback.html): every save says that it worked or why it did not, in C360's words. */
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -64,7 +64,7 @@ test('an instant setting confirms beside its own control: Click Window shows "Sa
   expect(screen.queryByText('Click Window saved')).toBeNull()                                          // option A: no toast for an instant setting
 })
 
-test('CEP\'s own problem (500) names what failed, the time and the reference, never the server\'s words', async () => {
+test('C360\'s own problem (500) names what failed, the time and the reference, never the server\'s words', async () => {
   installMockApi({ onSettingsWrite: (call) => (call.url.endsWith('/users/') ? problem(500, { title: 'Internal Server Error', reference: 'ER-42' }) : null) })
   const user = userEvent.setup()
   await renderAppAt('/settings/users')
@@ -76,12 +76,12 @@ test('CEP\'s own problem (500) names what failed, the time and the reference, ne
 
   const banner = await within(dialog).findByRole('alert')
   expect(within(banner).getByText('The user was not saved')).toBeTruthy()
-  expect(banner.textContent).toMatch(/CEP had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\. If it happens again, give your administrator the reference ER-42\./)
+  expect(banner.textContent).toMatch(/C360 had a problem at \d{1,2}:\d{2} [AP]M\. Your entries are still here; try again\. If it happens again, give your administrator the reference ER-42\./)
   expect(document.body.textContent).not.toContain('Internal Server Error')
   expect((within(dialog).getByLabelText(/^Email/) as HTMLInputElement).value).toBe('new.person@example.com')
 })
 
-test('no answer at all reads "CEP could not be reached", not the browser\'s "Failed to fetch"', async () => {
+test('no answer at all reads "C360 could not be reached", not the browser\'s "Failed to fetch"', async () => {
   installMockApi()
   failWhen((url, method) => method === 'PUT' && url.endsWith('/attribution/settings/'), () => Promise.reject(new TypeError('Failed to fetch')))
   const user = userEvent.setup()
@@ -90,7 +90,7 @@ test('no answer at all reads "CEP could not be reached", not the browser\'s "Fai
   await user.type(email, '0.85')
   await user.click(screen.getByRole('button', { name: 'Save Costs' }))
 
-  const banner = await screen.findByText('CEP could not be reached')
+  const banner = await screen.findByText('C360 could not be reached')
   expect(banner.closest('[role="alert"]')?.textContent).toContain('The costs were not saved. Your changes are still here; check your connection and try again.')
   expect(document.body.textContent).not.toContain('Failed to fetch')
 })
@@ -104,7 +104,7 @@ test('a failure that used to pass in silence now speaks: Rotate Address', async 
   await user.click(within(engines).getAllByRole('button', { name: 'Rotate Address' })[0])
 
   const alert = (await screen.findByText('The callback address was not rotated')).closest('[role="alert"]') as HTMLElement
-  expect(alert.textContent).toMatch(/CEP had a problem at \d{1,2}:\d{2} [AP]M\..*If it happens again, tell your administrator\./)
+  expect(alert.textContent).toMatch(/C360 had a problem at \d{1,2}:\d{2} [AP]M\..*If it happens again, tell your administrator\./)
   expect(screen.queryByText(/the callback address was rotated/)).toBeNull()
 })
 

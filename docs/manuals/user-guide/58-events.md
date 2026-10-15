@@ -4,7 +4,7 @@
 
 ## What this page is for
 
-What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to CEP, and CEP raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for C360.
+What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to C360, and C360 raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for C360.
 
 ## Who can use it
 
@@ -16,8 +16,8 @@ What happened to a customer: a purchase, an abandoned cart, a birthday, a tier c
 
 | Part | What it shows |
 |---|---|
-| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer CEP does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
-| Raised by CEP Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from CEP's own tracking (security scanners left out). These need nothing sent. |
+| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer C360 does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
+| Raised by C360 Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from C360's own tracking (security scanners left out). These need nothing sent. |
 | Send Events | The endpoint, the headers, the key's scope and how many keys have it, and one event as an example. |
 | Coupon Requests for C360 | How many requests are waiting, issued and failed, and how C360 reads and answers them. |
 | Latest Events | The newest 50 events, sent or raised by CEP: when it arrived, the event and its id, the customer, the source and when it happened. Filter by type; search by customer, event id or source. Opens, clicks and text replies are not listed here. |
@@ -26,9 +26,9 @@ What happened to a customer: a purchase, an abandoned cart, a birthday, a tier c
 
 Customer Creation (`CUSTOMER_CREATED`), Welcome (`WELCOME`), Birthday (`BIRTHDAY`), Anniversary (`ANNIVERSARY`), Purchase (`PURCHASE`), First Purchase (`FIRST_PURCHASE`), Category Purchase (`CATEGORY_PURCHASE`), Abandoned Cart (`CART_ABANDON`), Coupon Issue (`COUPON_ISSUED`), Coupon Redemption (`COUPON_REDEEMED`), Segment Inception (`SEGMENT_INCEPTION`), Segment Change (`SEGMENT_CHANGE`), Loyalty Tier Change (`LOYALTY_TIER_CHANGE`), Preference Update (`PREFERENCE_UPDATE`), Address Change (`ADDRESS_CHANGE`), No Response (`NO_RESPONSE`), Email Open/Click (`EMAIL_ENGAGEMENT`) and SMS Response (`SMS_RESPONSE`). Any other name in capitals and underscores (for example `STORE_VISIT`) is accepted too.
 
-A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. CEP does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
+A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. C360 does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
 
-**No Response** is raised by CEP for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
+**No Response** is raised by C360 for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
 
 ## How to
 
@@ -53,5 +53,5 @@ The enrol job reads events every minute. An event counts for a journey that was 
 
 ## Things to know
 
-- CEP keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
-- CEP never makes coupon codes; C360 does.
+- C360 keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
+- C360 never makes coupon codes; C360 does.

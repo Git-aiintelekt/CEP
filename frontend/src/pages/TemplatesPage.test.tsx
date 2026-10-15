@@ -28,7 +28,7 @@ const cardNames = () => Array.from(document.querySelectorAll('ul > li .truncate'
 
 /** A preset opens its preview; the copy is the preview's footer button. */
 async function copyPreset(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await screen.findByRole('button', { name: `${name}, CEP Preset` }))
+  await user.click(await screen.findByRole('button', { name: `${name}, C360 Preset` }))
   const dialog = await screen.findByRole('dialog', { name })
   await user.click(within(dialog).getByRole('button', { name: 'Copy This Template' }))
 }
@@ -56,8 +56,8 @@ test('shows the workspace templates, then the presets the workspace can fill', a
   expect(cardNames()).toEqual(['Fall Email', 'Fall SMS', 'Retired Email', 'Northline order receipt', ...serverFirst, ...FRONTEND_PRESETS.filter((name) => !serverFirst.includes(name)), ...RECEIPT_PRESET_NAMES])
   // a server-only starter that uses {{points_balance}}, which the workspace has no tag for
   expect(screen.queryByText('Points balance update')).toBeNull()
-  const preset = screen.getByRole('button', { name: 'Announce a sale, CEP Preset' })
-  expect(within(preset).getByText('CEP Preset')).toBeTruthy()
+  const preset = screen.getByRole('button', { name: 'Announce a sale, C360 Preset' })
+  expect(within(preset).getByText('C360 Preset')).toBeTruthy()
   expect(within(preset).getByText('Starter')).toBeTruthy()
 })
 
@@ -127,7 +127,7 @@ test('a channel switched off loses its card and tab', async () => {
 test('without template.edit the cards are hidden and presets cannot be clicked', async () => {
   await openLanding({ me: { principal: { ...me.principal, kind: 'user', permissions: me.principal.permissions.filter((code) => code !== 'template.edit') } } })
   expect(screen.queryByRole('button', { name: 'Create Email template' })).toBeNull()
-  expect(screen.queryByRole('button', { name: /, CEP preset$/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: /, C360 preset$/ })).toBeNull()
   expect(screen.getByText('Announce a sale')).toBeTruthy()
 })
 
@@ -208,7 +208,7 @@ test('a preset that cannot be copied says so in a toast', async () => {
   const user = userEvent.setup()
   await copyPreset(user, 'Announce a sale')
   expect(await screen.findByText('The template was not created')).toBeTruthy()
-  expect(screen.getByText(/^CEP had a problem at \d{1,2}:\d{2}/)).toBeTruthy()
+  expect(screen.getByText(/^C360 had a problem at \d{1,2}:\d{2}/)).toBeTruthy()
   expect(window.location.pathname).toBe('/templates')
 })
 

@@ -60,7 +60,7 @@ function HelpPanel({ chapter, onClose }: { chapter: HelpChapter; onClose: () => 
         {!failed && source === null && <p className="flex items-center gap-2 text-sm text-ink-800"><Spinner size="sm" /> Loading</p>}
         {source !== null && <Markdown source={source} skipTitle />}
       </div>
-      <p className="border-t border-line px-5 py-2.5 text-xs text-ink-800">From the CEP User Guide. Press Escape to close.</p>
+      <p className="border-t border-line px-5 py-2.5 text-xs text-ink-800">From the C360 User Guide. Press Escape to close.</p>
     </aside>
   )
 }

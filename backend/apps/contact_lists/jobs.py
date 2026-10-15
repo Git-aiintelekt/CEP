@@ -228,7 +228,7 @@ def _run(import_id: str, tenant_id: str, action: str, attempts: int) -> bool:
             log.exception("list import %s failed at %s (attempt %s)", import_id, action, attempts)
             if attempts >= MAX_ATTEMPTS:
                 finish(status="FAILED", next_action=None, completed_at=timezone.now(),
-                       error=f"CEP could not finish this upload after {MAX_ATTEMPTS} attempts. Nothing was half-imported; upload the file again, or contact support."[:500])
+                       error=f"C360 could not finish this upload after {MAX_ATTEMPTS} attempts. Nothing was half-imported; upload the file again, or contact support."[:500])
             else:
                 finish(status=STATUS_BEFORE[action])      # still queued: claimed again by the next worker run
             return False

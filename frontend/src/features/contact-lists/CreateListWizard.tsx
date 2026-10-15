@@ -39,7 +39,7 @@ const STEPS: Record<ListSource, Step[]> = {
 const TITLES: Record<Step, [string, string]> = {
   method: ['New Contact List', ''],
   file: ['Add Your File', 'Upload the CSV that holds your contacts.'],
-  map: ['Match Your Columns', 'Tell CEP what each column in your file means.'],
+  map: ['Match Your Columns', 'Tell C360 what each column in your file means.'],
   consent: ['Where Did These People Agree?', 'Every upload records its consent basis. It is kept with the list and shown on its compliance record.'],
   review: ['Review Before Importing', 'Check what comes in and what gets held back.'],
   importing: ['Importing Your Contacts', 'This runs in the background. You can keep working.'],
@@ -533,7 +533,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <thead className="bg-surface-subtle text-xs font-semibold text-ink-900">
                 <tr>
                   <th scope="col" className="px-3 py-2">Column in Your File</th>
-                  <th scope="col" className="px-3 py-2">CEP Property</th>
+                  <th scope="col" className="px-3 py-2">C360 Property</th>
                   <th scope="col" className="px-3 py-2">Status</th>
                 </tr>
               </thead>
@@ -547,7 +547,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                         <span className="block max-w-[240px] truncate text-xs font-normal text-ink-800">{column.samples.join(', ') || 'no values'}</span>
                       </th>
                       <td className="px-3 py-2 align-top">
-                        <Select aria-label={`CEP Property for ${column.name}`} value={property} onChange={(event) => choose(column.name, event.target.value)}>
+                        <Select aria-label={`C360 Property for ${column.name}`} value={property} onChange={(event) => choose(column.name, event.target.value)}>
                           <option value="">Skip This Column</option>
                           {upload.properties.map((item) => (
                             <option key={item.key} value={item.key}>
@@ -583,7 +583,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
                 <ChoiceCard key={item.key} selected={basis === item.key} onSelect={() => item.allowed && setBasis(item.key)} title={item.label} text={BASIS_TEXT[item.key]}
                   badge={!item.allowed ? 'Not for Texts' : undefined} />
               ))}
-              <ChoiceCard selected={false} onSelect={() => undefined} title="Bought or rented list" text="Cannot be imported. CEP sends only to people who agreed to hear from the workspace." badge="Not Allowed" />
+              <ChoiceCard selected={false} onSelect={() => undefined} title="Bought or rented list" text="Cannot be imported. C360 sends only to people who agreed to hear from the workspace." badge="Not Allowed" />
             </div>
             {basis && !basisAllowed && (
               <p role="alert" className="mt-3 rounded-sm border border-danger bg-danger-bg px-3 py-2 text-sm text-danger-text">
@@ -599,7 +599,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <p className="mt-1 pl-6 text-xs text-ink-800">
               Recorded with your name and the time.{' '}
               {consentMapped
-                ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people CEP has no answer for.`
+                ? `${upload.properties.find((item) => item.key === consentKey)?.label ?? 'Consent date'} is mapped: a valid date becomes an opt-in for people C360 has no answer for.`
                 : 'No consent date column is mapped.'}
             </p>
           </div>
@@ -631,7 +631,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
               <p className="text-sm font-semibold text-ink-900">{job.phase}{job.progress.percent > 0 ? ` · ${job.progress.percent}%` : ''}</p>
               <ProgressBar job={job} />
               <p className="text-sm text-ink-800">
-                {job.row_count > 0 ? `${formatNumber(job.row_count)} rows. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of CEP stays fast.
+                {job.row_count > 0 ? `${formatNumber(job.row_count)} rows. ` : ''}Large files take a few minutes and are handled a chunk at a time, so the rest of C360 stays fast.
                 You can wait here, or continue in the background: the upload button at the top shows the progress and you get an alert when it is done.
               </p>
             </>
@@ -646,7 +646,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             <p className="cep-num text-sm text-ink-800">{formatNumber(review_.held_back)} rows held back</p>
           </div>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {([['New', review_.new, 'not in CEP yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
+            {([['New', review_.new, 'not in C360 yet'], ['Existing', review_.existing, 'already known'], ['Warnings', review_.warnings, 'imported with a remark'], ['Errors', review_.errors, 'held back']] as const).map(
               ([label, value, hint]) => (
                 <div key={label} className="rounded-lg border border-line px-3 py-2">
                   <dd className="cep-num text-section-title font-semibold text-ink-900">{formatNumber(value)}</dd>
@@ -673,7 +673,7 @@ export function CreateListWizard({ onClose, onCreated, inCampaign = false, resum
             </div>
           )}
           <UploadReport job={job} />
-          {review_.new > 0 && <p className="text-xs text-ink-800">New contacts have no consent answer in CEP unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
+          {review_.new > 0 && <p className="text-xs text-ink-800">New contacts have no consent answer in C360 unless the file gives a consent date, so marketing sends will leave them out until they opt in.</p>}
         </div>
       )}
 

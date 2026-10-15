@@ -13,7 +13,7 @@ interface ToastAction {
 interface ToastOptions {
   /** ms until the toast removes itself; 0 or Infinity keeps it until dismissed */
   durationMs?: number
-  /** CEP's own problem: ER-<error group>, shown as a chip the reader can quote */
+  /** C360's own problem: ER-<error group>, shown as a chip the reader can quote */
   reference?: string | null
   /** an inline text action such as Undo; running it also dismisses the toast */
   action?: ToastAction
@@ -34,7 +34,7 @@ interface ToastApi {
   error: (title: string, detail?: string, options?: ToastOptions) => string
   /** work that has started and is still going: stays until the caller dismisses or replaces it */
   running: (title: string, detail?: string, options?: ToastOptions) => string
-  /** a failed save, in CEP's words (lib/saveFeedback): `toast.failure(error, 'The template was not duplicated')` */
+  /** a failed save, in C360's words (lib/saveFeedback): `toast.failure(error, 'The template was not duplicated')` */
   failure: (error: unknown, failedTitle: string) => string
   dismiss: (id: string) => void
 }

@@ -21,7 +21,7 @@ test('every block in the registry resolves to a readable name and a real icon', 
   }
 })
 
-test('the MJML tags get their CEP names, not humanised ones', () => {
+test('the MJML tags get their C360 names, not humanised ones', () => {
   expect(defaultNameFor('mj-section')).toBe('Section')
   expect(defaultNameFor('mj-column')).toBe('Column')
   expect(defaultNameFor('mj-text')).toBe('Text')

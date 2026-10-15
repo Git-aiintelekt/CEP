@@ -9,9 +9,9 @@
                       is new, and the GOVERNANCE CHECK: how a marketing email send would judge each contact today
                       (unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent: governance.py).
                       Can be run again with another mapping; nothing outside the staging table changes.
-    apply()           worker: a range of lines per transaction. New people become customer_master rows owned by CEP
+    apply()           worker: a range of lines per transaction. New people become customer_master rows owned by C360
                       (source_system CEP_UPLOAD, not a C360 copy), the list gets its members, and a consent date in the
-                      file becomes an email opt-in for people CEP has no consent answer for (never over an unsubscribe).
+                      file becomes an email opt-in for people C360 has no consent answer for (never over an unsubscribe).
 
 The queue, the limits on how much runs at once and the workers are in jobs.py. Every transaction is short and runs under
 the tenant's row-level security. COPY FROM is not available on tables with row-level security, so rows are staged with
@@ -49,15 +49,15 @@ PROPERTIES = {
     "mobile": ("Mobile number", False, "Kept for text campaigns. A number that is not recognised is dropped, the row is still imported.",
                ("mobile", "mobilenumber", "phone", "phonenumber", "cell", "cellphone", "msisdn", "telephone", "tel")),
     "postal_code": ("Postal code", False, "", ("postalcode", "postcode", "zip", "zipcode", "postal")),
-    "loyalty_id": ("Loyalty ID", False, "Used first to recognise people CEP already knows.",
+    "loyalty_id": ("Loyalty ID", False, "Used first to recognise people C360 already knows.",
                    ("loyaltyid", "loyaltynumber", "loyaltyno", "memberid", "membernumber", "membershipid", "cardnumber")),
     "loyalty_tier": ("Loyalty tier", False, "", ("loyaltytier", "tier", "memberlevel", "level")),
     "last_order_date": ("Last order date", False, "", ("lastorderdate", "lastorder", "lastpurchase", "lastpurchasedate", "lastpurchaseat")),
     "timezone": ("Time zone", False, "An IANA name such as America/Chicago. Journeys that wait until a time of day use it; a name that is not recognised is left out.",
                  ("timezone", "tz", "tzid", "zone", "ianatimezone", "customertimezone", "localtimezone")),
-    "consent_date": ("Email consent date", False, "Recorded as an email opt-in for people CEP has no consent answer for. It never overrides an unsubscribe.",
+    "consent_date": ("Email consent date", False, "Recorded as an email opt-in for people C360 has no consent answer for. It never overrides an unsubscribe.",
                      ("consentdate", "optindate", "optin", "consent", "subscribedat", "subscribedate", "optindatetime", "emailconsentdate", "emailconsent", "emailoptin", "emailoptindate")),
-    "sms_consent_date": ("Text consent date", False, "Recorded as a text (SMS) opt-in for people CEP has no consent answer for. It never overrides a STOP.",
+    "sms_consent_date": ("Text consent date", False, "Recorded as a text (SMS) opt-in for people C360 has no consent answer for. It never overrides a STOP.",
                          ("textconsentdate", "smsconsentdate", "textconsent", "smsconsent", "smsoptin", "textoptin", "smsoptindate", "textoptindate", "mobileconsent", "mobileoptin", "mobileconsentdate")),
 }
 # the column an upload must have, by what the list is for
@@ -152,7 +152,7 @@ def _sniff(head: bytes, complete: bool) -> tuple[str, str, list[list[str]]]:
                 text = head[:exc.start].decode(encoding)  # the head ended in the middle of a character
                 break
     if text is None:
-        raise ImportError_("The file is not text CEP can read. Save it as CSV (UTF-8) and try again.")
+        raise ImportError_("The file is not text C360 can read. Save it as CSV (UTF-8) and try again.")
     text = text.replace(chr(0), "")
     if not text.strip():
         raise ImportError_("The file is empty.")
@@ -275,7 +275,7 @@ def stage(record: ContactListImport, chunk_rows: int, beat) -> None:
         except UnicodeDecodeError:
             continue
     else:
-        raise ImportError_("The file is not text CEP can read. Save it as CSV (UTF-8) and try again.")
+        raise ImportError_("The file is not text C360 can read. Save it as CSV (UTF-8) and try again.")
     if total == 0:
         raise ImportError_("The file has a header row but no contacts.")
     discard_file(record)
@@ -387,7 +387,7 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
 
     connection = _conn()
     try:
-        # who CEP knows, once per job and indexed, instead of scanning the customer master for every range of lines.
+        # who C360 knows, once per job and indexed, instead of scanning the customer master for every range of lines.
         # Temporary tables are private to this database session; the worker keeps the connection for the whole job.
         with session.tx(), connection.cursor() as cursor:
             cursor.execute("DROP TABLE IF EXISTS cep_known_email, cep_known_loyalty, cep_known_phone")
@@ -451,12 +451,12 @@ def review(record: ContactListImport, chunk_rows: int, beat) -> None:
                     cursor.execute(f"""UPDATE contact_list_import_row r
                                           SET match_status = 'MATCHED', match_method = 'LOYALTY_ID', matched_party_id = k.party_id,
                                               warning = CASE WHEN EXISTS (SELECT 1 FROM cep_known_email e WHERE e.party_id = k.party_id AND e.address = lower({v['email']})) THEN NULL
-                                                             ELSE 'Recognised by loyalty ID: the email address CEP has on file is used, not the one in the file' END
+                                                             ELSE 'Recognised by loyalty ID: the email address C360 has on file is used, not the one in the file' END
                                          FROM cep_known_loyalty k
                                         WHERE {span} AND r.match_status = 'PENDING' AND upper({v['loyalty_id']}) = k.loyalty_id""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'EMAIL', matched_party_id = k.party_id
                                      FROM cep_known_email k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) = k.address""", params)
-                if channel == "SMS":                           # a text list: the number recognises someone CEP knows when the row has no usable address
+                if channel == "SMS":                           # a text list: the number recognises someone C360 knows when the row has no usable address
                     cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'MATCHED', match_method = 'PHONE', matched_party_id = k.party_id
                                          FROM cep_known_phone k WHERE {span} AND r.match_status = 'PENDING' AND ({v['email_use']}) IS NULL AND ({v['mobile_e164']}) = k.number""", params)
                 cursor.execute(f"""UPDATE contact_list_import_row r SET match_status = 'UNMATCHED', match_method = CASE WHEN ({v['email_use']}) IS NULL THEN 'PHONE' ELSE 'EMAIL' END,
@@ -574,7 +574,7 @@ def apply(record: ContactListImport, chunk_rows: int, beat, user_id=None) -> Non
     for a, b in _ranges(record.row_count + 1, chunk_rows):
         params = {**base, "a": a, "b": b}
         with session.tx(), _conn().cursor() as cursor:
-            # people CEP did not know: its own customer rows (not a C360 copy), addressed by a key derived from workspace + address
+            # people C360 did not know: its own customer rows (not a C360 copy), addressed by a key derived from workspace + address
             cursor.execute(f"""INSERT INTO customer_master (party_id, tenant_id, first_name, last_name, emails, phones, primary_address, custom_attributes, source_system, is_synced_copy)
                                SELECT r.matched_party_id, r.tenant_id, left({v['first_name']}, 120), left({v['last_name']}, 120),
                                       CASE WHEN ({v['email_use']}) IS NULL THEN '[]'::jsonb
@@ -659,7 +659,7 @@ REPORT_HEADER = ["line", "email", "outcome", "detail", "recognised", "marketing_
 def report_rows(record: ContactListImport, page_rows: int = 5000):
     """Every row of the file with what happened to it, for reconciling the upload against its source."""
     email_column = (record.column_mapping or {}).get("email")
-    recognised = {("MATCHED", "EMAIL"): "Known: same email address", ("MATCHED", "LOYALTY_ID"): "Known: same loyalty ID", ("UNMATCHED", "EMAIL"): "New to CEP"}
+    recognised = {("MATCHED", "EMAIL"): "Known: same email address", ("MATCHED", "LOYALTY_ID"): "Known: same loyalty ID", ("UNMATCHED", "EMAIL"): "New to C360"}
     last = 0
     while True:
         with _conn().cursor() as cursor:

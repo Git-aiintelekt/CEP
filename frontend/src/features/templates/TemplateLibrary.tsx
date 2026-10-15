@@ -1,5 +1,5 @@
 /**
- * "Your Templates": channel tabs, status, search, grid or list, with the CEP presets after the workspace's own. A drip's
+ * "Your Templates": channel tabs, status, search, grid or list, with the C360 presets after the workspace's own. A drip's
  * message templates sit together by name, say which message they are, and carry Locked while the drip is live.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -190,7 +190,7 @@ export function TemplateLibrary({ channels, canEdit }: TemplateLibraryProps) {
               <p className="mt-1 text-helper text-ink-800">Try a different channel filter or clear the search.</p>
             </div>
           ) : (
-            <EmptyState title="No Templates Yet" hint={canEdit ? 'Start one from a channel above, or copy a CEP preset: every campaign needs a template to send.' : 'Someone with the template.edit permission can start one from a channel above.'} />
+            <EmptyState title="No Templates Yet" hint={canEdit ? 'Start one from a channel above, or copy a C360 preset: every campaign needs a template to send.' : 'Someone with the template.edit permission can start one from a channel above.'} />
           )
         ) : view === 'grid' ? (
           <TemplateGrid items={items} canEdit={canEdit} onPreview={setPreviewing} actions={actions} />
@@ -384,13 +384,13 @@ function TemplateGrid({ items, canEdit, onPreview, actions }: ItemsProps) {
         const body = (
           <>
             <ItemTile item={item} />
-            <CardBody name={preset.name} meta="Starter" tags={<><Tag>CEP Preset</Tag><Tag>{lookOf(preset.channel).label}</Tag></>} />
+            <CardBody name={preset.name} meta="Starter" tags={<><Tag>C360 Preset</Tag><Tag>{lookOf(preset.channel).label}</Tag></>} />
           </>
         )
         return (
           <li key={`preset-${preset.key}`} className="relative min-w-0">
             {canEdit ? (
-              <button type="button" onClick={() => onPreview(item)} aria-label={`${preset.name}, CEP Preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
+              <button type="button" onClick={() => onPreview(item)} aria-label={`${preset.name}, C360 Preset`} className={`${CARD} ${CARD_ACTIVE} h-full w-full`}>{body}</button>
             ) : (
               <div className={`${CARD} h-full`}>{body}</div>
             )}
@@ -489,7 +489,7 @@ function TemplateTable({ items, canEdit, onPreview, actions }: ItemsProps) {
                   </span>
                 </td>
                 <td className={CELL}><Tag>{lookOf(preset.channel).label}</Tag></td>
-                <td className={CELL}><Tag>CEP Preset</Tag></td>
+                <td className={CELL}><Tag>C360 Preset</Tag></td>
                 <td className={`${CELL} text-ink-800`}>Starter</td>
                 <td className={`${CELL} text-right`} onClick={(event) => event.stopPropagation()}>
                   <RowMenu menus={menus} id={`preset-${preset.key}`} name={preset.name}>

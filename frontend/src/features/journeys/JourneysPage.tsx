@@ -1,4 +1,4 @@
-/** Journeys landing (phase 6c): the blue Journey Templates panel (Start from Scratch + CEP starters, View More), then
+/** Journeys landing (phase 6c): the blue Journey Templates panel (Start from Scratch + C360 starters, View More), then
  * Your Journeys — every journey, with search + Status / Triggered By / Channel filters and a grid or list view (the
  * choice is remembered per viewer). Create Journey opens the Setup modal (phase 6e); a starter's preview opens it
  * pre-filled. A row or card opens the preview popover, whose View Details opens the Journey Details page (6d). */

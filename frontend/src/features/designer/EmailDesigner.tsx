@@ -1,5 +1,5 @@
 /**
- * GrapesJS + MJML email editor. Deliberately knows nothing about the CEP API: data comes in through props and goes
+ * GrapesJS + MJML email editor. Deliberately knows nothing about the C360 API: data comes in through props and goes
  * out through the imperative handle, so the same component runs in the page, the dev playground and tests.
  *
  *   load    editor_state (GrapesJS project JSON) when a version exists, otherwise the MJML (starter or imported)

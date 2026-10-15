@@ -29,7 +29,7 @@ test('the bar carries the six destinations, with the editor’s own section mark
   renderBar()
   const bar = screen.getByRole('navigation', { name: 'Main' })
   expect([...bar.querySelectorAll('a')].map((a) => a.getAttribute('aria-label'))).toEqual([
-    'CEP home',
+    'C360 home',
     'Home',
     'Campaigns',
     'Journeys',
@@ -61,7 +61,7 @@ test('every link hands the destination back so the page can hold it', async () =
   await user.click(screen.getByRole('link', { name: 'Campaigns' }))
   expect(onNavigate).toHaveBeenCalledWith('/campaigns', expect.anything())
 
-  await user.click(screen.getByRole('link', { name: 'CEP home' }))
+  await user.click(screen.getByRole('link', { name: 'C360 home' }))
   expect(onNavigate).toHaveBeenCalledWith('/', expect.anything())
 })
 

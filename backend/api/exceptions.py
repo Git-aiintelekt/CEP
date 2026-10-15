@@ -4,7 +4,7 @@
                                      as a 500 with a reference (ER-<error group>) that the back-office Errors page finds
     server_error                     handler500: the same for an error raised outside a view (a middleware, the database down)
 
-Database wording never reaches the client: the sentences below are CEP's. A field is named when the database says which.
+Database wording never reaches the client: the sentences below are C360's. A field is named when the database says which.
 """
 import logging
 import re
@@ -86,7 +86,7 @@ def _unique_field(diag) -> str | None:
 def database_problem(exc) -> tuple[int, dict] | None:
     """The plain-words answer to a database error, or None when it is not one the client caused (then: 500)."""
     if isinstance(exc, (OperationalError, InterfaceError)):
-        return 503, _problem(503, "The database is not answering", detail="CEP's database is not answering. Try again in a minute.")
+        return 503, _problem(503, "The database is not answering", detail="C360's database is not answering. Try again in a minute.")
     if not isinstance(exc, DatabaseError):
         return None
     state, diag = _diag(exc)
@@ -100,7 +100,7 @@ def database_problem(exc) -> tuple[int, dict] | None:
         field, sentence = CHECK_SENTENCES.get(constraint, (None, None))
         if sentence is None:
             field = constraint.removeprefix(f"ck_{table}_") if table and constraint.startswith(f"ck_{table}_") else None
-            sentence = "This value is not one CEP allows here." if field else "One of the values is not one CEP allows here."
+            sentence = "This value is not one C360 allows here." if field else "One of the values is not one C360 allows here."
         return 400, _problem(400, FIELDS_TITLE, errors={field: [sentence]} if field else {"non_field_errors": [sentence]})
     if state == "23502":                                   # not null
         field = getattr(diag, "column_name", None)
@@ -108,9 +108,9 @@ def database_problem(exc) -> tuple[int, dict] | None:
     if state == "23503":                                   # foreign key
         return 409, _problem(409, "Linked to other records", detail="This refers to something that no longer exists, or something else still uses it.")
     if state == "22001":                                   # value too long
-        return 400, _problem(400, FIELDS_TITLE, errors={"non_field_errors": ["A value is longer than CEP allows."]})
+        return 400, _problem(400, FIELDS_TITLE, errors={"non_field_errors": ["A value is longer than C360 allows."]})
     if state in ("22P02", "22007", "22008", "22003"):      # not a number / date, out of range
-        return 400, _problem(400, FIELDS_TITLE, errors={"non_field_errors": ["A value is not in a form CEP can store."]})
+        return 400, _problem(400, FIELDS_TITLE, errors={"non_field_errors": ["A value is not in a form C360 can store."]})
     if state == "42501":                                   # row-level security, privileges
         return 403, _problem(403, "You do not have access", detail="You do not have access to this record.")
     if state in ("40001", "40P01"):                        # serialization failure, deadlock
@@ -130,8 +130,8 @@ def _reference(exc, request) -> str:
 def unexpected_problem(exc, request) -> dict:
     reference = _reference(exc, request)
     at = timezone.now()
-    return _problem(500, "CEP had a problem",
-                    detail=f"CEP had a problem at {at:%H:%M} UTC. Try again. If it happens again, give your administrator the reference {reference}.",
+    return _problem(500, "C360 had a problem",
+                    detail=f"C360 had a problem at {at:%H:%M} UTC. Try again. If it happens again, give your administrator the reference {reference}.",
                     reference=reference, at=at.isoformat())
 
 
@@ -165,5 +165,5 @@ def server_error(request, *args, **kwargs):
         return django_server_error(request, *args, **kwargs)
     exc = sys.exc_info()[1]
     known = database_problem(exc) if exc is not None else None
-    status, body = known if known else (500, unexpected_problem(exc, request) if exc is not None else _problem(500, "CEP had a problem"))
+    status, body = known if known else (500, unexpected_problem(exc, request) if exc is not None else _problem(500, "C360 had a problem"))
     return JsonResponse(body, status=status, content_type="application/problem+json")

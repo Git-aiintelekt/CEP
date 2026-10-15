@@ -40,7 +40,7 @@ test('Tags: every tag with where it reads from and its origin; a platform tag ca
   expect(screen.getByText('No tags here yet')).toBeTruthy()
 })
 
-test('Add Tag: the key is checked, the data point comes from the catalogue, the tag is posted with CUSTOM / CEP and appears in the list', async () => {
+test('Add Tag: the key is checked, the data point comes from the catalogue, the tag is posted with CUSTOM / C360 and appears in the list', async () => {
   const calls = installMockApi()
   const user = userEvent.setup()
   await renderAppAt('/settings/tags')

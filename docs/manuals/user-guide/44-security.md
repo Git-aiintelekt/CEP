@@ -44,7 +44,7 @@ How people sign in to the workspace: whether everyone must use multi-factor auth
 
 **Require a second step for everyone.** Set up your own under Account Security first (the account menu), then switch Require for Everyone on. From the next sign-in everyone without it is walked through the set-up.
 
-**Sign in with your company's identity provider.** Register CEP as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
+**Sign in with your company's identity provider.** Register C360 as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
 
 ## What happens behind the scenes
 

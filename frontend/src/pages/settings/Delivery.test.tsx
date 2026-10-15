@@ -256,17 +256,17 @@ test('Deliverability Testing: no account shows the set-up call, the form wants t
   expect(again?.body).toMatchObject({ default_clients: ['gmail_android'], image_blocking: true })
   expect(again?.body).not.toHaveProperty('api_key')
   expect(await within(section).findByText(/1 default clients · images blocked/)).toBeTruthy()
-  expect(within(section).getByText(/Your own account: CEP does not limit your tests/)).toBeTruthy()
+  expect(within(section).getByText(/Your own account: C360 does not limit your tests/)).toBeTruthy()
 })
 
-test('Deliverability Testing through CEP’s account: the tests this month, Edit Clients saves only the clients, own account takes over and Stop Using goes back', async () => {
+test('Deliverability Testing through C360’s account: the tests this month, Edit Clients saves only the clients, own account takes over and Stop Using goes back', async () => {
   const calls = installMockApi({ platformInspect: true, deliverabilityLimit: 50 })
   const user = userEvent.setup()
   vi.spyOn(window, 'confirm').mockReturnValue(true)
   await renderAppAt('/settings/delivery')
 
   const section = (await screen.findByRole('heading', { name: 'Deliverability Testing' })).closest('section') as HTMLElement
-  expect(await within(section).findByText('Provided by CEP')).toBeTruthy()
+  expect(await within(section).findByText('Provided by C360')).toBeTruthy()
   expect(await within(section).findByText('0 of 50 tests this month')).toBeTruthy()
   expect(within(section).getByText('50 a month on the Growth plan.')).toBeTruthy()
   expect(within(section).queryByText('No inbox-preview account yet')).toBeNull()
@@ -287,8 +287,8 @@ test('Deliverability Testing through CEP’s account: the tests this month, Edit
   await user.type(within(own).getByLabelText(/^API Key/), 'inspect-key-1')
   await user.click(within(own).getByRole('button', { name: 'Save' }))
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  expect(await within(section).findByText(/Your own account: CEP does not limit your tests/)).toBeTruthy()
+  expect(await within(section).findByText(/Your own account: C360 does not limit your tests/)).toBeTruthy()
 
   await user.click(within(section).getByRole('button', { name: 'Stop Using My Own Account' }))
-  expect(await within(section).findByText('Provided by CEP')).toBeTruthy()
+  expect(await within(section).findByText('Provided by C360')).toBeTruthy()
 })

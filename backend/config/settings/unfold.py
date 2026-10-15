@@ -50,8 +50,8 @@ def _tabs(models, *items):
 
 
 UNFOLD = {
-    "SITE_TITLE": "CEP platform",
-    "SITE_HEADER": "CEP platform",
+    "SITE_TITLE": "C360 platform",
+    "SITE_HEADER": "C360 platform",
     "SITE_SUBHEADER": "Back-office · all tenants",
     "SITE_SYMBOL": "hub",
     "SITE_URL": None,                                      # there is no public site behind "view site"

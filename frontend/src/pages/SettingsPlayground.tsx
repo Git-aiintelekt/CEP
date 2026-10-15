@@ -48,7 +48,7 @@ const SAMPLE_ORDERS: AttributedOrder[] = [
              note: 'No campaign: no click within 7 days, open within 1 day or text within 1 day before the order.' }),
   order(5, { amount: -32, kind: 'REFUND', email: 'jane.doe@example.com', ordered_at: '2026-10-04T07:58:00Z', touch_type: 'REFUND' }),
   order(6, { amount: 89, email: 'pat@example.com', ordered_at: '2026-10-04T07:40:00Z', status: 'UNATTRIBUTED', campaign_id: null, campaign_name: null, touch_type: null, touch_at: null,
-             note: 'No person: no customer id, and no email address or phone number CEP sent to.' }),
+             note: 'No person: no customer id, and no email address or phone number C360 sent to.' }),
 ]
 
 const SAMPLE_ATTRIBUTION: AttributionSettings = {

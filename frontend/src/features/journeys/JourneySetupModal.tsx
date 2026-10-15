@@ -94,7 +94,7 @@ const POPULATION_OPTIONS: { value: PopulationMode; icon: LucideIcon; title: stri
 ]
 
 type ReentryPolicy = 'NEVER' | 'AFTER_X_DAYS' | 'EVERY_QUALIFYING_EVENT'
-// Every Qualifying Event is a real re-entry policy (Journey.ReentryPolicy) that two CEP starters use, so Setup offers it too
+// Every Qualifying Event is a real re-entry policy (Journey.ReentryPolicy) that two C360 starters use, so Setup offers it too
 const REENTRY_OPTIONS: { value: ReentryPolicy; icon: LucideIcon; title: string; text: string }[] = [
   { value: 'NEVER', icon: Ban, title: 'Never', text: "Once a customer completes or exits, they can't re-enter." },
   { value: 'AFTER_X_DAYS', icon: CalendarClock, title: 'After X Days', text: 'Customer becomes eligible again after a cooldown period.' },
@@ -377,7 +377,7 @@ export function JourneySetupModal({ onClose, prefill, edit }: { onClose: () => v
   const descriptionError = fieldError('description')
   const daysError = fieldError('reentry_after_days')
   const conflict = create.error instanceof ApiError && create.error.status === 409
-  // what the name, description and re-entry fields do not say themselves, in CEP's words
+  // what the name, description and re-entry fields do not say themselves, in C360's words
   const failure = create.error && !conflict ? saveFailure(create.error, edit ? 'The setup was not saved' : 'The journey was not created', ['name', 'description', 'reentry_after_days']) : null
   const genericError = failure && !(failure.title === FIELDS_TITLE && failure.general.length === 0) ? failure : null
   const refused = create.error instanceof ApiError && create.error.status === 400

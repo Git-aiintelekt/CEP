@@ -3,7 +3,7 @@
  *
  *   saveFailure(error, 'The sender was not saved', shownFields?)  → { title, detail, tone, reference, fields, general }
  *
- * The caller names what failed; the helper says why and what to do, in CEP's words. A browser's ("Failed to fetch"), a
+ * The caller names what failed; the helper says why and what to do, in C360's words. A browser's ("Failed to fetch"), a
  * server framework's ("Internal Server Error", "Invalid input") or a database's words never reach the screen.
  */
 import { ApiError } from './api'
@@ -17,7 +17,7 @@ export interface SaveFailure {
   short: string
   /** warning when nothing was wrong with the entry (no connection, the database busy); error otherwise */
   tone: 'error' | 'warning'
-  /** ER-123 for CEP's own problem: the back-office Errors page finds it */
+  /** ER-123 for C360's own problem: the back-office Errors page finds it */
   reference: string | null
   /** field → message, for the fields the form shows */
   fields: Record<string, string>
@@ -60,7 +60,7 @@ export function saveFailure(error: unknown, failedTitle: string, shownFields?: s
   const said = problem.detail ? sentence(String(problem.detail)) : ''
   switch (true) {
     case error.status === 0:
-      return failure({ ...base, title: 'CEP could not be reached', tone: 'warning', detail: `${sentence(failedTitle)} Your changes are still here; check your connection and try again.`,
+      return failure({ ...base, title: 'C360 could not be reached', tone: 'warning', detail: `${sentence(failedTitle)} Your changes are still here; check your connection and try again.`,
                        short: 'Check your connection and try again.' })
     case error.status === 400: {
       const fields: Record<string, string> = {}
@@ -88,13 +88,13 @@ export function saveFailure(error: unknown, failedTitle: string, shownFields?: s
     case error.status === 429:
       return failure({ ...base, tone: 'warning', detail: 'Too many requests in a short time. Wait a moment and try again.' })
     case error.status === 503: {
-      const why = said || `CEP is not answering at ${clock(problem.at)}.`
+      const why = said || `C360 is not answering at ${clock(problem.at)}.`
       return failure({ ...base, tone: 'warning', detail: `${why} Your entries are still here; try again in a minute.`, short: `${why} Try again in a minute.` })
     }
     case error.status >= 500: {
       const reference = typeof problem.reference === 'string' && problem.reference ? problem.reference : null
       const after = reference ? ` If it happens again, give your administrator the reference ${reference}.` : ' If it happens again, tell your administrator.'
-      const when = `CEP had a problem at ${clock(problem.at)}.`
+      const when = `C360 had a problem at ${clock(problem.at)}.`
       return failure({ ...base, reference, detail: `${when} Your entries are still here; try again.${after}`, short: `${when} Try again.` })
     }
     default:

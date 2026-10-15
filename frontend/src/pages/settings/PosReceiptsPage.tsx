@@ -1,7 +1,7 @@
 /**
  * Settings → POS Receipts: what the point of sale must be told (endpoint, headers, key), which e-receipt campaign its
  * transactions go out on, the workspace's stores (the STORE tags of a receipt), and the trail of what was received — read
- * from the integration log, because CEP stores nothing about a transaction or a customer.
+ * from the integration log, because C360 stores nothing about a transaction or a customer.
  */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload } from 'lucide-react'
@@ -52,7 +52,7 @@ export function PosReceiptsPage() {
     <div className="space-y-5">
       <div>
         <h2 className="font-display text-section-title font-semibold text-ink-900">POS Receipts</h2>
-        <p className="mt-0.5 text-sm text-ink-500">The point of sale posts each transaction here as TransactionTree TTDR 3.2.2 XML; CEP renders the e-receipt on the campaign below and sends it. The transaction and the customer are not kept, only what was received and what was sent, unless <Link to="/settings/attribution" className="font-semibold text-brand-800 hover:underline">Attribution</Link> counts store sales.</p>
+        <p className="mt-0.5 text-sm text-ink-500">The point of sale posts each transaction here as TransactionTree TTDR 3.2.2 XML; C360 renders the e-receipt on the campaign below and sends it. The transaction and the customer are not kept, only what was received and what was sent, unless <Link to="/settings/attribution" className="font-semibold text-brand-800 hover:underline">Attribution</Link> counts store sales.</p>
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

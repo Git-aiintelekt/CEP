@@ -12,19 +12,19 @@ type OnNavigate = (to: string, event: MouseEvent) => void
 
 const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent'
 
-/** "CEP" on a 32px brand-blue square, and the product name beside it when there is room */
+/** "C360" on a 32px brand-blue square, and the component's name, Engagement, beside it when there is room */
 export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onNavigate?: OnNavigate; end?: ReactNode }) {
   const go = (event: MouseEvent<HTMLAnchorElement>) => onNavigate?.('/', event)
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <Link to="/" aria-label="CEP home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
-          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-on-brand">CEP</span>
+        <Link to="/" aria-label="C360 home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-on-brand">C360</span>
         </Link>
         {end}
       </div>
       {expanded && (
-        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-on-brand">Customer Engagement</Link>
+        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-on-brand">Engagement</Link>
       )}
     </div>
   )

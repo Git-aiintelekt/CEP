@@ -180,7 +180,7 @@ export function LoginPage() {
     <AuthLayout>
       {step === 'signin' && (
         <AuthStep>
-          <AuthHeading title="Log In to CEP">Enter your email and password to continue.</AuthHeading>
+          <AuthHeading title="Log In to C360">Enter your email and password to continue.</AuthHeading>
           {signedOutReason === 'idle' && !error && <AuthNotice>You were signed out after some time without activity. Log in again to continue.</AuthNotice>}
           {signedOutReason === 'expired' && !error && (
             <AuthNotice>Your session ended. Sign in again to carry on. Changes on the page you were on that were not saved are not kept.</AuthNotice>

@@ -125,7 +125,7 @@ test('the button is held back with the reason: no account, nothing saved, allowa
   expect(await screen.findByRole('link', { name: /add your own Mailgun Inspect account/ })).toBeTruthy()
 })
 
-test('the allowance line: the plan’s number through CEP’s account, no limit through the workspace’s own', async () => {
+test('the allowance line: the plan’s number through C360’s account, no limit through the workspace’s own', async () => {
   const sample = sampleDeliverability()
   const finished = await sample.read('sample-1')
   const shared = mount(backendWith([finished], { account: 'PLATFORM' }))

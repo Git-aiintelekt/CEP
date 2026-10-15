@@ -265,7 +265,7 @@ class CampaignSerializer(s.CampaignSerializer):
         if "send_timezone" in attrs and attrs["send_timezone"]:
             from zoneinfo import available_timezones
             if attrs["send_timezone"] not in available_timezones():
-                errors["send_timezone"] = "Not a time zone CEP knows."
+                errors["send_timezone"] = "Not a time zone C360 knows."
         if "ab_config" in attrs:
             from apps.delivery.engine import abtest
             problem = abtest.validate(attrs["ab_config"])

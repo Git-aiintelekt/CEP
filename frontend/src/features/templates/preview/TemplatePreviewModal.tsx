@@ -77,7 +77,7 @@ export function TemplatePreviewModal({ item, canEdit, onClose, action }: Templat
   const tags = (
     <>
       <Tag>{lookOf(channel).label}</Tag>
-      {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>CEP Preset</Tag></> : <StatusTag status={item.template.status} />}
+      {item.kind === 'preset' ? <><Tag>{item.preset.category}</Tag><Tag>C360 Preset</Tag></> : <StatusTag status={item.template.status} />}
       {lock && <Tag>Locked</Tag>}
       <span className="ml-1.5 text-xs text-ink-800">Tags show their sample values. Nothing here is saved or sent.</span>
     </>

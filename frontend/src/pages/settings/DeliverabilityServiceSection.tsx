@@ -1,6 +1,6 @@
-/** Settings → Sending Engines → Deliverability Testing. A workspace's tests run through CEP's Mailgun Inspect account (set up by the
+/** Settings → Sending Engines → Deliverability Testing. A workspace's tests run through C360's Mailgun Inspect account (set up by the
  * platform team in the back-office) up to its plan's number plus the tests added for the month, or through its own account,
- * which CEP does not limit. Here: which one it uses, this month's tests, its choice of clients, and its own account. */
+ * which C360 does not limit. Here: which one it uses, this month's tests, its choice of clients, and its own account. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 
@@ -37,7 +37,7 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
   const remove = useMutation({
     mutationFn: () => api.delete('/deliverability/service/'),
     onSuccess: () => {
-      toast.success('Mailgun Inspect account removed', service.data?.platform_available ? 'Tests now run through CEP’s account, within your plan.' : undefined)
+      toast.success('Mailgun Inspect account removed', service.data?.platform_available ? 'Tests now run through C360’s account, within your plan.' : undefined)
       void refresh()
     },
   })
@@ -48,7 +48,7 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="deliverability-heading" className="font-display text-section-title font-semibold text-ink-900">Deliverability Testing</h2>
-          <p className="text-sm text-ink-800">Inbox previews of a template in real email clients, through CEP’s Mailgun Inspect account within your plan, or through your own.</p>
+          <p className="text-sm text-ink-800">Inbox previews of a template in real email clients, through C360’s Mailgun Inspect account within your plan, or through your own.</p>
         </div>
         {service.data?.configured && <button type="button" className={buttonSecondary} onClick={() => setEditing('own')}>Edit</button>}
       </div>
@@ -58,8 +58,8 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
           <div className="flex flex-col gap-3 rounded-lg border border-line bg-surface px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="font-medium text-ink-900">Provided by CEP <span className="ml-2 align-middle"><StatusBadge status="ACTIVE" label="Ready" /></span></p>
-                <p className="text-xs text-ink-800">Your tests run through CEP’s Mailgun Inspect account.</p>
+                <p className="font-medium text-ink-900">Provided by C360 <span className="ml-2 align-middle"><StatusBadge status="ACTIVE" label="Ready" /></span></p>
+                <p className="text-xs text-ink-800">Your tests run through C360’s Mailgun Inspect account.</p>
               </div>
               <TestsThisMonth allowance={allowance.data} />
             </div>
@@ -72,7 +72,7 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
             </div>
           </div>
         ) : !service.data.configured ? (
-          <EmptyState title="No inbox-preview account yet" hint="CEP’s account is not set up for this workspace: ask your platform team, or add your own Mailgun Inspect username and API key. Mailgun Inspect Basic covers client previews; the spam check needs Premium."
+          <EmptyState title="No inbox-preview account yet" hint="C360’s account is not set up for this workspace: ask your platform team, or add your own Mailgun Inspect username and API key. Mailgun Inspect Basic covers client previews; the spam check needs Premium."
             action={<button type="button" className={buttonPrimary} onClick={() => setEditing('own')}>Set Up Mailgun Inspect</button>} />
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-line bg-surface px-4 py-3">
@@ -83,12 +83,12 @@ export function DeliverabilityServiceSection({ onNotice }: { onNotice: (notice: 
                 {service.data.default_clients.length ? ` · ${service.data.default_clients.length} default clients` : ' · the service’s default clients'}
                 {service.data.image_blocking ? ' · images blocked' : ''}
               </p>
-              <p className="mt-1 text-xs text-ink-800">Your own account: CEP does not limit your tests{allowance.data ? ` (${formatNumber(allowance.data.used)} this month)` : ''}.</p>
+              <p className="mt-1 text-xs text-ink-800">Your own account: C360 does not limit your tests{allowance.data ? ` (${formatNumber(allowance.data.used)} this month)` : ''}.</p>
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" loading={check.isPending} onClick={() => check.mutate()}>Check Connection</Button>
               <Button variant="danger" size="sm" disabled={remove.isPending}
-                onClick={() => window.confirm(service.data.platform_available ? 'Stop using your own Mailgun Inspect account? Past test results stay; new tests run through CEP’s account, within your plan.'
+                onClick={() => window.confirm(service.data.platform_available ? 'Stop using your own Mailgun Inspect account? Past test results stay; new tests run through C360’s account, within your plan.'
                   : 'Remove the Mailgun Inspect account? Past test results stay; new tests need an account again.') && remove.mutate()}>
                 {service.data.platform_available ? 'Stop Using My Own Account' : 'Remove'}
               </Button>
@@ -157,7 +157,7 @@ function ServiceForm({ service, clientsOnly = false, onClose }: { service: Deliv
 
   return (
     <Modal title={clientsOnly ? 'Default Clients' : service.configured ? 'Mailgun Inspect Account' : service.platform_available ? 'Use Your Own Mailgun Account' : 'Set Up Mailgun Inspect'}
-      subtitle={clientsOnly ? 'The clients your tests render in, through CEP’s account.' : 'Mailgun → Inspect → Settings → API: the account username and an API key. Your own account is not limited by your plan.'}
+      subtitle={clientsOnly ? 'The clients your tests render in, through C360’s account.' : 'Mailgun → Inspect → Settings → API: the account username and an API key. Your own account is not limited by your plan.'}
       onClose={onClose} size="lg" scrollBody
       footer={<><button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button><button type="submit" form="deliverability-service-form" className={buttonPrimary} disabled={save.isPending}>{save.isPending ? 'Saving' : 'Save'}</button></>}>
       <form id="deliverability-service-form" onSubmit={onSubmit} noValidate className="space-y-4">

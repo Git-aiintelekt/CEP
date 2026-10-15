@@ -73,8 +73,8 @@ def evaluate(notify: bool = True) -> dict:
 
 def _notify(opened, renotified, resolved) -> dict:
     failing = [item for item in opened + renotified if item[1] == "FAIL"]
-    subject = (f"[CEP] {len(failing)} failing: {failing[0][0]}" if failing else
-               f"[CEP] {len(opened + renotified)} need attention" if opened or renotified else f"[CEP] recovered: {resolved[0][0]}")
+    subject = (f"[C360] {len(failing)} failing: {failing[0][0]}" if failing else
+               f"[C360] {len(opened + renotified)} need attention" if opened or renotified else f"[C360] recovered: {resolved[0][0]}")
     context = {"opened": opened, "renotified": renotified, "resolved": resolved, "admin_url": settings.PLATFORM_ADMIN_URL.rstrip("/") + "/admin/"}
     recipients = params.get("alerts.recipients", []) or []
     emailed = mail.send("platform_alert", recipients, context, subject=subject) if recipients else False

@@ -1,5 +1,5 @@
 /** Small pieces shared by the template and journey cards and the preview: the category and trigger-family chips, the plum
- * "CEP Starter" tag, the step-icon strip in the canvas's category colours (an approved exception, as on the canvas)
+ * "C360 Starter" tag, the step-icon strip in the canvas's category colours (an approved exception, as on the canvas)
  * and the channel icons. */
 import { BadgeCheck, Bookmark } from 'lucide-react'
 
@@ -41,7 +41,7 @@ export function StarterTag() {
   return (
     <span className={`${CHIP} bg-plum-100 text-plum-800`}>
       <BadgeCheck size={12} strokeWidth={1.5} aria-hidden />
-      CEP Starter
+      C360 Starter
     </span>
   )
 }
@@ -56,13 +56,13 @@ export function SavedTag() {
   )
 }
 
-/** CEP Starter or Saved Template, whichever the card is. */
+/** C360 Starter or Saved Template, whichever the card is. */
 export function TemplateKindTag({ starter }: { starter: JourneyStarter }) {
   return starter.template_id ? <SavedTag /> : <StarterTag />
 }
 
 export function templateKind(starter: JourneyStarter): string {
-  return starter.template_id ? 'Saved Template' : 'CEP Starter'
+  return starter.template_id ? 'Saved Template' : 'C360 Starter'
 }
 
 /** The entry trigger and then every step, as icon tiles joined by dashes: up to `max` icons (the entry's included),
