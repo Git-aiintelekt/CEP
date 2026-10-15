@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { lazy, Suspense, type ReactNode } from 'react'
-import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { AuthProvider } from '@/auth/AuthContext'
 import { EditorScopeContext } from '@/components/editorScope'
@@ -57,6 +57,13 @@ const TemplateDesignerPage = lazy(() => import('@/pages/TemplateDesignerPage'))
 // @xyflow/react is loaded only when someone opens the journey canvas.
 const JourneyBuildPage = lazy(() => import('@/pages/JourneyBuildPage'))
 const TermsPage = lazy(() => import('@/pages/TermsPage'))
+
+/** Engagement's own namespace, /cep/..., stands for today's addresses: the component's pages keep theirs, and a link with the prefix lands on the same page */
+function ComponentAlias() {
+  const location = useLocation()
+  const rest = location.pathname.replace(/^\/cep(?=\/|$)/, '') || '/'
+  return <Navigate to={`${rest}${location.search}${location.hash}`} replace />
+}
 const JourneyTestPublishPage = lazy(() => import('@/pages/JourneyTestPublishPage'))
 const ReceiptEditorPage = lazy(() => import('@/pages/ReceiptEditorPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/pages/DesignerPlayground')) : null
@@ -151,6 +158,7 @@ export default function App() {
               <Route path="journeys/:id/test-publish" element={<EditorScope><Suspense fallback={<EditorLoading label="Loading Test Publish" />}><JourneyTestPublishPage /></Suspense></EditorScope>} />
               <Route element={<AppShell />}>
                 <Route index element={<LandingAfterSignIn />} />
+                <Route path="cep/*" element={<ComponentAlias />} />
                 <Route path="campaigns" element={<CampaignListPage />} />
                 <Route path="campaigns/new" element={<CampaignListPage creating />} />
                 <Route path="campaigns/:id" element={<CampaignDetailPage />} />

@@ -58,7 +58,7 @@ export function TopBar({ me, components, current, pages, searchRef, onOpenNav, o
           <Menu size={20} strokeWidth={1.5} aria-hidden />
         </button>
       )}
-      <AppLauncher components={components} current={current} />
+      <AppLauncher me={me} components={components} current={current} />
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <span className="font-display text-[15px] font-bold tracking-[-0.02em] whitespace-nowrap text-ink-900">C<span className="text-brand-600">360</span></span>
         {current && (

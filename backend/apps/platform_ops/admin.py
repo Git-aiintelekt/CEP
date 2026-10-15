@@ -648,4 +648,6 @@ class PlatformPersonalizationTagAdmin(BaseAdmin):
 
 from . import admin_observe  # noqa: E402,F401  Errors, Uptime, Tenant performance
 
+from apps.platform_ops import admin_components  # noqa: E402, F401  the components' own admins register before the generic fallback
+
 register_app_models(__package__)

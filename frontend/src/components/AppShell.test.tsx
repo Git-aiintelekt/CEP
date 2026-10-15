@@ -121,3 +121,11 @@ test('without user.admin there is no Workspace Settings', async () => {
   await screen.findByRole('navigation', { name: 'Main' })
   expect(within(nav()).queryByRole('list', { name: 'Workspace' })).toBeNull()
 })
+
+test('/cep/... is Engagement’s alias: it lands on the same page, query and all', async () => {
+  installMockApi()
+  await renderAppAt('/cep/campaigns?status=DRAFT')
+  await screen.findByRole('navigation', { name: 'Main' })
+  await vi.waitFor(() => expect(window.location.pathname + window.location.search).toBe('/campaigns?status=DRAFT'))
+  await vi.waitFor(() => expect(within(nav()).getByRole('link', { name: 'Campaigns' }).getAttribute('aria-current')).toBe('page'))
+})

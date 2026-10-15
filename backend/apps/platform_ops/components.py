@@ -1,33 +1,27 @@
-"""The suite's components: what exists, what each plan includes, and what a workspace has.
+"""The suite's components: what exists (the registry), what each plan includes, and what a workspace has.
 
-    components.resolve(plan_code, plan_features, tenant_settings)   -> the components a workspace can open, in suite order
-    components.for_tenant(tenant_id)                                 -> the same, cached with the workspace's features (params.context_for)
+    components.resolve(registry, plan_keys, own, today)   -> the components a workspace can open, in suite order (pure)
+    components.for_tenant(tenant_id)                      -> the same, cached with the workspace's features (params.context_for)
+    components.registry()                                  -> suite_component rows, in suite order
+    components.coming(registry)                            -> what exists but is not released: the launcher's "coming" line
 
-A workspace gets a component when its plan includes it (subscription_plan.features["components"], else the plan's default
-set below), when a trial or an add-on adds it in tenant.settings["components"], or loses it when that entry switches it
-off. A component that is not released is never offered. The shell builds the launcher and the left navigation from the
-list GET /me/ returns; nothing is fetched per click.
+Tables (patch 0048): suite_component (key, name, tagline, release RELEASED | BETA | PLANNED, needs), plan_component
+(plan_id, component_key) and tenant_component (tenant_id, component_key, access TRIAL | ADDON | OFF, until). A workspace
+gets a component when its plan includes it, or a trial (until a date) or an add-on adds it; OFF hides a plan component.
+PLANNED is never offered. The shell builds the launcher and the left navigation from the list GET /me/ returns.
 """
 from datetime import date, datetime
 
-COMPONENTS = {
-    "cep":       {"name": "Engagement", "tagline": "Customer Engagement",            "release": "RELEASED", "needs": []},
-    "insights":  {"name": "Insights",   "tagline": "Reports, dashboards, datasets",  "release": "PLANNED",  "needs": []},
-    "crm":       {"name": "CRM",        "tagline": "Accounts, leads, opportunities", "release": "PLANNED",  "needs": []},
-    "sales":     {"name": "Sales",      "tagline": "Orders, quotes, pricing",        "release": "PLANNED",  "needs": ["crm", "pim"]},
-    "pur":       {"name": "Purchasing", "tagline": "Suppliers, purchase orders",     "release": "PLANNED",  "needs": ["inv"]},
-    "inv":       {"name": "Inventory",  "tagline": "Stock, locations, transfers",    "release": "PLANNED",  "needs": ["pim"]},
-    "pim":       {"name": "PIM",        "tagline": "Product information",            "release": "PLANNED",  "needs": []},
-}
+from django.conf import settings
+from django.db import connections
 
-# what a plan includes when subscription_plan.features carries no "components" list of its own (decided 2026-10-15:
-# Insights is on every plan from the start)
-PLAN_DEFAULTS = {
-    "STARTER":    ["cep", "insights"],
-    "GROWTH":     ["cep", "insights"],
-    "ENTERPRISE": [key for key, spec in COMPONENTS.items() if spec["release"] == "RELEASED"] + ["insights"],
-}
-FALLBACK = ["cep"]
+OFFERABLE = ("RELEASED", "BETA")
+# what a plan includes when the plan_component table has nothing for it (an installation that has not run patch 0048's seed)
+FALLBACK_PLAN = ["cep", "insights"]
+FALLBACK_REGISTRY = [
+    {"key": "cep", "name": "Engagement", "tagline": "Customer Engagement", "release": "RELEASED", "needs": []},
+    {"key": "insights", "name": "Insights", "tagline": "Reports, dashboards, datasets", "release": "PLANNED", "needs": []},
+]
 
 
 def _day(value) -> date | None:
@@ -43,34 +37,64 @@ def _day(value) -> date | None:
         return None
 
 
-def resolve(plan_code: str | None, plan_features: dict | None, tenant_settings: dict | None, today: date | None = None) -> list[dict]:
-    """Pure resolution: the plan's set, then the workspace's own entries ({"insights": {"on": true, "access": "TRIAL",
-    "until": "2026-10-31"}}), released components only, in suite order."""
+def resolve(registry: list[dict], plan_keys: list[str] | None, own: dict[str, dict] | None, today: date | None = None) -> list[dict]:
+    """Pure resolution. `registry`: suite_component rows in suite order; `plan_keys`: the plan's component keys (None = the
+    fallback set); `own`: {key: {"access": TRIAL | ADDON | OFF, "until": date}} from tenant_component."""
     today = today or date.today()
-    included = (plan_features or {}).get("components")
-    if not isinstance(included, list):
-        included = PLAN_DEFAULTS.get((plan_code or "").upper(), FALLBACK)
-    overrides = (tenant_settings or {}).get("components") or {}
+    included = set(FALLBACK_PLAN if plan_keys is None else plan_keys)
+    own = own or {}
     out = []
-    for key, spec in COMPONENTS.items():
-        if spec["release"] != "RELEASED":
+    for spec in registry:
+        key = spec["key"]
+        if spec.get("release") not in OFFERABLE:
             continue
-        entry = overrides.get(key) if isinstance(overrides.get(key), dict) else {}
-        on, access, until = key in included, "PLAN" if key in included else "NONE", None
-        if "on" in entry:
-            on = bool(entry["on"])
-            access = str(entry.get("access") or ("TRIAL" if on else "NONE")).upper()
-            until = _day(entry.get("until"))
-            if on and until and until < today:
-                on = False
+        entry = own.get(key) or {}
+        access = str(entry.get("access") or "").upper()
+        until = _day(entry.get("until"))
+        if access == "OFF":
+            on = False
+        elif access in ("TRIAL", "ADDON"):
+            on = not (until and until < today)
+        else:
+            on, access = key in included, "PLAN"
         if on:
-            out.append({"key": key, "name": spec["name"], "tagline": spec["tagline"], "access": access, "until": until.isoformat() if until else None})
+            out.append({"key": key, "name": spec["name"], "tagline": spec.get("tagline") or "", "access": access, "until": until.isoformat() if until else None})
     return out
 
 
-def coming() -> list[dict]:
-    """The components that exist but are not released: the launcher's More Apps line."""
-    return [{"key": key, "name": spec["name"], "tagline": spec["tagline"]} for key, spec in COMPONENTS.items() if spec["release"] != "RELEASED"]
+def coming(registry: list[dict]) -> list[dict]:
+    return [{"key": spec["key"], "name": spec["name"], "tagline": spec.get("tagline") or ""} for spec in registry if spec.get("release") not in OFFERABLE]
+
+
+def _rows(sql, args=()):
+    """On the platform connection: the back-office writes these tables there, so a decision is seen at once (also inside a test)."""
+    with connections[settings.PLATFORM_ALIAS].cursor() as cursor:
+        cursor.execute(sql, args)
+        return cursor.fetchall()
+
+
+def _table_exists(name: str) -> bool:
+    return bool(_rows("SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = %s", [name]))
+
+
+def registry() -> list[dict]:
+    """suite_component in suite order; the fallback until patch 0048 has run."""
+    if not _table_exists("suite_component"):
+        return [dict(spec) for spec in FALLBACK_REGISTRY]
+    import json
+    rows = _rows("SELECT key, name, tagline, release, needs FROM suite_component ORDER BY sort_order, key")
+    return [{"key": key, "name": name, "tagline": tagline, "release": release, "needs": (json.loads(needs) if isinstance(needs, str) else needs) or []}
+            for key, name, tagline, release, needs in rows]
+
+
+def inputs_for(tenant_id, plan_id) -> tuple[list[dict], list[str] | None, dict[str, dict]]:
+    """What resolve() needs for one workspace, read from the tables: the registry, the plan's keys, the workspace's own entries."""
+    reg = registry()
+    if not _table_exists("plan_component"):
+        return reg, None, {}
+    plan_keys = [row[0] for row in _rows("SELECT component_key FROM plan_component WHERE plan_id = %s", [str(plan_id)])] if plan_id else []
+    own = {row[0]: {"access": row[1], "until": row[2]} for row in _rows("SELECT component_key, access, until FROM tenant_component WHERE tenant_id = %s", [str(tenant_id)])}
+    return reg, (plan_keys if plan_keys or plan_id else None), own
 
 
 def for_tenant(tenant_id) -> list[dict]:

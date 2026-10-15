@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+{% load unfold %}
+{% block title %}{{ tenant.name }} · Components | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <p class="cep-muted"><a class="cep-link" href="{% url 'admin:tenants_tenant_changelist' %}">Tenants</a> › <a class="cep-link" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">{{ tenant.name }}</a> › Components</p>
+            <h1>{{ tenant.name }} · Components</h1>
+            <p>{{ tenant.code }} · {% if plan %}{{ plan.name }} plan{% else %}no plan{% endif %} · {{ on_count }} of {{ total }} components on</p>
+        </div>
+    </div>
+
+    <form method="post" class="cep-card">{% csrf_token %}
+        <div class="cep-table-wrap">
+            <table class="cep-table" aria-label="Components">
+                <thead>
+                    <tr><th>Component</th><th>Release</th><th>Access</th><th>On</th><th>Until</th></tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td><strong>{{ row.name }}</strong><br><small class="cep-muted">{{ row.tagline }}</small></td>
+                        <td><span class="cep-pill" {% if row.release == 'RELEASED' %}data-kind="ok"{% elif row.release == 'BETA' %}data-kind="warning"{% endif %}>{{ row.release_label }}</span></td>
+                        <td>
+                            {% if not row.offerable %}<span class="cep-muted">{% if row.in_plan and plan %}{{ plan.name }} plan, when released{% else %}Not on the plan{% endif %}</span>
+                            {% elif row.in_plan %}{% if plan %}{{ plan.name }} plan{% else %}Included{% endif %}
+                            {% else %}
+                                <select name="access_{{ row.key }}" aria-label="Access for {{ row.name }}">
+                                    <option value="TRIAL" {% if row.access == 'TRIAL' or row.access == 'NONE' %}selected{% endif %}>Trial</option>
+                                    <option value="ADDON" {% if row.access == 'ADDON' %}selected{% endif %}>Add-on</option>
+                                </select>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.offerable %}
+                                <input type="checkbox" name="on_{{ row.key }}" value="1" aria-label="{{ row.name }} on" {% if row.on %}checked{% endif %}>
+                            {% else %}
+                                <input type="checkbox" disabled aria-label="{{ row.name }} cannot be switched on yet">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.offerable and not row.in_plan %}
+                                <input type="date" name="until_{{ row.key }}" aria-label="{{ row.name }} trial ends" value="{{ row.until|date:'Y-m-d' }}" min="{{ today }}">
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="cep-muted" style="margin:0.75rem 0">Access is the plan (included), a trial (until a date) or an add-on (billed on its own line). A component that is not released shows Coming soon and cannot be switched on. Switching a component off hides it everywhere for this workspace and keeps its data. A component that depends on another can only be switched on with it. Inside the workspace, roles then decide who opens each component.</p>
+        <div class="cep-actions">
+            <button type="submit" class="cep-button">Save</button>
+            <a class="cep-button cep-button-quiet" href="{% url 'admin:tenants_tenant_change' tenant.pk %}">Back to the Tenant</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

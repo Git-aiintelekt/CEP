@@ -53,6 +53,8 @@ export interface Me {
   workspace?: { name: string | null; plan: { code: string; name: string } | null }
   /** the suite components this workspace can open, in suite order; absent (an older API) = Engagement alone */
   components?: SuiteComponent[]
+  /** components that exist but are not released yet, for the launcher's line */
+  coming?: { key: string; name: string; tagline: string }[]
   /** true while the only thing this session may do is enrol in multi-factor authentication */
   mfa_setup_required?: boolean
   /** set when platform support is acting as this user */

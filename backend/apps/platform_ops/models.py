@@ -418,3 +418,69 @@ class UptimeCheck(models.Model):
     class Meta:
         managed = False
         db_table = 'uptime_check'
+
+
+# ---------------------------------------------------------------------------------------------------- the suite's components (0048)
+class SuiteComponent(models.Model):
+    """The registry: what exists, its release state and what it depends on. PLANNED cannot be switched on anywhere."""
+    class Release(models.TextChoices):
+        RELEASED = 'RELEASED', 'Released'
+        BETA = 'BETA', 'Beta'
+        PLANNED = 'PLANNED', 'Coming soon'
+
+    key = models.CharField(max_length=20, primary_key=True)
+    name = models.CharField(max_length=60)
+    tagline = models.CharField(max_length=120, blank=True, default='')
+    release = models.CharField(max_length=10, choices=Release.choices, default=Release.PLANNED)
+    needs = models.JSONField(default=list, blank=True)
+    js_budget_kb = models.IntegerField(null=True, blank=True)
+    sort_order = models.IntegerField(default=0)
+    row_version = models.IntegerField(default=1)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'suite_component'
+        ordering = ('sort_order', 'key')
+        verbose_name = 'component'
+
+    def __str__(self):
+        return str(self.name)
+
+
+class PlanComponent(models.Model):
+    """A component a plan includes"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plan = models.ForeignKey('tenants.SubscriptionPlan', on_delete=models.CASCADE, db_column='plan_id', related_name='plan_components')
+    component = models.ForeignKey(SuiteComponent, on_delete=models.CASCADE, db_column='component_key', related_name='+')
+    created_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'plan_component'
+        unique_together = (('plan', 'component'),)
+
+
+class TenantComponent(models.Model):
+    """A workspace's own entry for a component: a trial until a date, an add-on, or OFF although the plan includes it"""
+    class Access(models.TextChoices):
+        TRIAL = 'TRIAL', 'Trial'
+        ADDON = 'ADDON', 'Add-on'
+        OFF = 'OFF', 'Off'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey('tenants.Tenant', on_delete=models.CASCADE, db_column='tenant_id', related_name='+')
+    component = models.ForeignKey(SuiteComponent, on_delete=models.CASCADE, db_column='component_key', related_name='+')
+    access = models.CharField(max_length=10, choices=Access.choices)
+    until = models.DateField(null=True, blank=True)
+    row_version = models.IntegerField(default=1)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'tenant_component'
+        unique_together = (('tenant', 'component'),)
