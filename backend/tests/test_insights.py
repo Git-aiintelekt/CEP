@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, compiler, dashboards, definition, excel, runner, shape
+from apps.insights import catalog, compiler, dashboards, definition, excel, runner, schedules, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -123,6 +123,18 @@ def test_definition_and_compiler(check):
     check("the workbook has the pivot sheet first and the rows after, with the labels and the values as text", "xl/worksheets/sheet1.xml" in names and "xl/worksheets/sheet2.xml" in names
           and "Pivot" in sheets and "Sent Count" in strings and "EMAIL" in strings, str(names))
 
+    # scheduled delivery: when the next sending falls, in the workspace's zone
+    from datetime import datetime, time as clock
+    from zoneinfo import ZoneInfo
+    ny = ZoneInfo("America/New_York")
+    after = datetime(2026, 10, 16, 12, 0, tzinfo=ny)                                 # a Friday, noon
+    nxt = lambda every, on_day, at: schedules.next_run(every, on_day, clock(*at), ny, after).astimezone(ny).strftime("%a %Y-%m-%d %H:%M")
+    check("every day at 08:00 after Friday noon is Saturday 08:00; a weekday is Monday; weekly on Monday is Monday; monthly on the 1st is 1 November",
+          nxt("day", None, (8, 0)) == "Sat 2026-10-17 08:00" and nxt("weekday", None, (7, 0)) == "Mon 2026-10-19 07:00" and nxt("week", 1, (8, 0)) == "Mon 2026-10-19 08:00"
+          and nxt("month", 1, (9, 0)) == "Sun 2026-11-01 09:00" and nxt("day", None, (18, 0)) == "Fri 2026-10-16 18:00", nxt("month", 1, (9, 0)))
+    check("a schedule reads in words", schedules.words({"every": "week", "on_day": 1, "at_time": clock(8, 0)}) == "Every Monday at 08:00"
+          and schedules.words({"every": "month", "on_day": 22, "at_time": clock(9, 30)}) == "Monthly on the 22nd at 09:30" and schedules.words({"every": "weekday", "on_day": None, "at_time": "07:00:00"}) == "Every weekday at 07:00")
+
     # dashboards: the period's bounds, and the period as one more rule on the time field
     check("this month runs from the 1st to today, the previous period is the same length just before",
           dashboards.period_bounds({"preset": "month"}, date(2026, 10, 15)) == {"from": "2026-10-01", "to": "2026-10-15", "previous_from": "2026-09-16", "previous_to": "2026-09-30"})
@@ -136,13 +148,13 @@ def test_definition_and_compiler(check):
 
 def _tables_present() -> bool:
     with connections[P].cursor() as cursor:
-        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit', 'dashboard', 'report_favourite')")
-        return cursor.fetchone()[0] == 5
+        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit', 'dashboard', 'report_favourite', 'report_schedule')")
+        return cursor.fetchone()[0] == 6
 
 
 def test_api(check, world):
     if not _tables_present():
-        pytest.skip("patches 0049 to 0051 have not been applied to this database")
+        pytest.skip("patches 0049 to 0052 have not been applied to this database")
     me = world.api("get", "/api/v1/me/").json()
     check("the workspace has Insights (Beta, on every plan) and /me says how it is offered", any(c["key"] == "insights" for c in me["components"]) and me["insights"]["mode"] in ("integrated", "standalone", "both"), str(me.get("insights")))
 
@@ -198,6 +210,27 @@ def test_api(check, world):
     book = world.api("get", f"/api/v1/insights/reports/{rid}/export.xlsx")
     check("the Excel export is a workbook named after the report", book.status_code == 200 and book["Content-Type"].startswith("application/vnd.openxmlformats") and 'filename="Sends by campaign and channel.xlsx"' in book["Content-Disposition"]
           and book.content[:2] == b"PK", str(book.status_code))
+
+    # scheduled delivery (Phase E): a schedule on the report, a test sending through the (console) mail backend, pause and resume
+    made_s = world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "week", "on_day": 1, "at_time": "08:00", "format": "xlsx", "recipients": ["finance@northwind.example", "Aby@Northwind.example"],
+                                                                "subject": "Sends · {date}", "note": "Last week's sends."})
+    sched = made_s.json() if made_s.status_code == 201 else {}
+    check("a schedule is made with its next sending computed and its addresses cleaned", made_s.status_code == 201 and sched["words"] == "Every Monday at 08:00" and sched["status"] == "ACTIVE"
+          and sched["recipients"] == ["finance@northwind.example", "aby@northwind.example"] and sched["next_run_at"], made_s.content[:300])
+    sid = sched.get("id")
+    check("a bad address, and PDF, are refused where they sit",
+          "recipients" in json.dumps(world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "day", "at_time": "08:00", "recipients": ["nope"]}).json())
+          and "format" in json.dumps(world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "day", "at_time": "08:00", "format": "pdf", "recipients": ["a@b.co"]}).json()))
+    test_send = world.api("post", f"/api/v1/insights/schedules/{sid}/test/", {})
+    check("Send a Test Now builds the file and sends it to the asker, recorded as a test delivery and audited as a delivery", test_send.status_code == 200 and test_send.json()["outcome"] == "OK"
+          and test_send.json()["recipients"] == 1 and world.sql("SELECT trigger, outcome FROM report_delivery WHERE schedule_id = %s", [sid], fetch=True) == [("test", "OK")]
+          and ("delivery", "OK") in world.sql("SELECT kind, outcome FROM report_run_audit WHERE report_id = %s", [rid], fetch=True), test_send.content[:300])
+    paused = world.api("post", f"/api/v1/insights/schedules/{sid}/pause/", {})
+    resumed = world.api("post", f"/api/v1/insights/schedules/{sid}/resume/", {})
+    check("pause clears the next sending; resume computes it again", paused.json()["status"] == "PAUSED" and paused.json()["next_run_at"] is None and resumed.json()["status"] == "ACTIVE" and resumed.json()["next_run_at"])
+    listed_s = world.api("get", f"/api/v1/insights/schedules/?item={rid}").json()
+    check("the list shows the report's schedule and whether mail is set up", any(s["id"] == sid for s in listed_s["schedules"]) and "mail_configured" in listed_s)
+    check("a deleted schedule is gone", world.api("delete", f"/api/v1/insights/schedules/{sid}/").status_code == 204 and not world.api("get", f"/api/v1/insights/schedules/?item={rid}").json()["schedules"])
 
     # favourites and folders (Phase C)
     made_folder = world.api("post", "/api/v1/insights/folders/", {"name": "Finance"})

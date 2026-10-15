@@ -1,6 +1,6 @@
 """The run log (Phase C): every preview, run and export in the workspace from report_run_audit, for report administrators.
 
-    GET /insights/runs/?days=7|30&outcome=OK|TIMEOUT|REFUSED|FAILED&user=<id>&q=<report name>
+    GET /insights/runs/?days=7|30&outcome=OK|TIMEOUT|REFUSED|FAILED&user=<id>&q=<report name>   (kinds: preview, run, export, delivery)
         -> {"runs": [...newest first, 200 at most], "summary": {"runs", "timed_out", "refused", "failed", "median_ms"}}
 """
 from datetime import timedelta

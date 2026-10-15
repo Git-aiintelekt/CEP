@@ -121,12 +121,57 @@ export interface ReportVersion {
   definition: ReportDefinition
 }
 
+export type ScheduleEvery = 'day' | 'weekday' | 'week' | 'month'
+export type ScheduleFormat = 'xlsx' | 'csv' | 'pdf'
+
+export interface Schedule {
+  id: string
+  kind: 'report' | 'dashboard'
+  item_id: string
+  item_name: string | null
+  view_type: ViewType | null
+  item_gone: boolean
+  owner_user_id: string | null
+  owner_name: string | null
+  every: ScheduleEvery
+  on_day: number | null
+  /** "08:00", in the workspace's zone */
+  at_time: string
+  format: ScheduleFormat
+  recipients: string[]
+  subject: string | null
+  note: string | null
+  status: 'ACTIVE' | 'PAUSED'
+  failures: number
+  last_sent_at: string | null
+  last_outcome: string | null
+  last_detail: string | null
+  next_run_at: string | null
+  /** "Every Monday at 08:00" */
+  words: string
+  row_version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface ScheduleBody {
+  kind: 'report'
+  item_id: string
+  every: ScheduleEvery
+  on_day: number | null
+  at_time: string
+  format: ScheduleFormat
+  recipients: string[]
+  subject: string | null
+  note: string | null
+}
+
 export type RunOutcome = 'OK' | 'TIMEOUT' | 'REFUSED' | 'FAILED'
 
 export interface RunLogEntry {
   id: number
   started_at: string
-  kind: 'preview' | 'run' | 'export'
+  kind: 'preview' | 'run' | 'export' | 'delivery'
   outcome: RunOutcome
   detail: string | null
   duration_ms: number | null

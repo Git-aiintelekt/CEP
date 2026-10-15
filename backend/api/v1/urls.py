@@ -2,6 +2,7 @@ from apps.insights import api as insights_api
 from apps.insights import dashboards as insights_dashboards
 from apps.insights import audit as insights_audit
 from apps.insights import library as insights_library
+from apps.insights import schedules as insights_schedules
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -135,6 +136,10 @@ urlpatterns = [
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),
+    path("insights/schedules/", insights_schedules.ScheduleListView.as_view(), name="insights-schedules"),
+    path("insights/schedules/<uuid:schedule_id>/", insights_schedules.ScheduleView.as_view(), name="insights-schedule"),
+    path("insights/schedules/<uuid:schedule_id>/test/", insights_schedules.ScheduleTestView.as_view(), name="insights-schedule-test"),
+    path("insights/schedules/<uuid:schedule_id>/<slug:action>/", insights_schedules.ScheduleStateView.as_view(), name="insights-schedule-state"),   # pause, resume; after test
     path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
     path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

@@ -199,7 +199,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=total)
 
 
-def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False) -> tuple[list[dict], list[list], list[dict] | None]:
+def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False, kind: str = "export") -> tuple[list[dict], list[list], list[dict] | None]:
     """Every row up to the export cap, in pages, for a file built in memory (the Excel export), with the engine's totals when the
     definition's view has them; one audit row for the whole."""
     engine = engine_of(tenant.pk)
@@ -215,7 +215,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
             try:
                 totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii)
             except Exception as exc:                                # noqa: BLE001
-                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
+                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 raise RunRefused("FAILED", "The export could not be run. If it happens again, tell your administrator.") from None
         offset, page = 0, 5_000
         while offset < limits["export_rows"]:
@@ -225,7 +225,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
             except Exception as exc:                                # noqa: BLE001
                 message = str(exc)
                 outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
-                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, outcome, report_id=report_id, report_version=report_version, detail=message)
+                _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, outcome, report_id=report_id, report_version=report_version, detail=message)
                 if outcome == "TIMEOUT":
                     raise RunRefused(outcome, f"The export took longer than {limits['statement_timeout_ms'] // 1000} seconds and was stopped. Narrow the report with a filter.") from None
                 raise RunRefused(outcome, "The export could not be run. If it happens again, tell your administrator.") from None
@@ -238,7 +238,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
             offset += page
     finally:
         _release(slot)
-    _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "OK", report_id=report_id, report_version=report_version,
+    _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=len(out))
     return columns or [], out, totals
 

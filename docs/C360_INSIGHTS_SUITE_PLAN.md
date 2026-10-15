@@ -134,11 +134,27 @@ rows; Phase D makes their totals exact and takes them to Excel.
 - **D3, reordering by drag** in Field Wells (dnd-kit), on the user's say; hierarchy datasets (dimensions that form a
   natural tree) wait for a dataset that needs them.
 
-### Phase E, scheduling, PDF, the engine switch (M; spec Phase 4)
+### Phase E, scheduled delivery, PDF, the engine switch (M; spec Phase 4)
 
-Scheduled delivery through the engine's worker, WeasyPrint PDF, ClickHouse as a second dialect with the
-per-tenant switch workflow (backfill, reconcile, activate, roll back), legacy ingestion pipelines one source
-at a time.
+Started 2026-10-16 with `docs/mockups/insights-scheduled-delivery.html`, two options for where scheduling lives.
+
+- **E1, scheduled delivery.** A report or a dashboard emailed on a schedule: every day, every weekday, weekly on a
+  day, or monthly on a day, at a time in the workspace's zone, to a list of addresses, as Excel, CSV or PDF (a
+  dashboard as PDF only), with a subject and a note. A new job `deliver-report-schedules` in the scheduler (the same
+  loop as `send-weekly-reports`, every 5 minutes) runs each due schedule through the engine with the owner's rights
+  and masking, builds the file (`runner.fetch_all`, `excel.build`, the PDF below), sends it through the workspace's own
+  mail server with the file attached, records the outcome on the schedule and in the run log (`kind = delivery`), and
+  pauses a schedule after three failures in a row. Tables `report_schedule` and `report_delivery` (patch 0052).
+  Option 1: Schedule on the viewer, Insights → Scheduled as the list. Option 2: Insights → Deliveries as the hub, with
+  several reports in one email and only a note on the viewer. The user chose Option 1 (2026-10-16); built for reports
+  as Excel or CSV, dashboards and PDF following with E2.
+- **E2, PDF** (WeasyPrint): `export.pdf` of a report in its view and of a dashboard (its tiles, one period), the
+  same HTML the app renders styled for paper, A4 or Letter, the C360 header and the period. The library needs Pango
+  and Cairo on the servers; checked before the slice.
+- **E3, the engine switch.** ClickHouse as a second dialect of the compiler, a reporting instance fed by logical
+  replication, and the per-workspace switch workflow (backfill, reconcile, activate, roll back) behind Tenant
+  Administration → Report Engines. Needs a ClickHouse to point at; planned once there is one.
+- Legacy ingestion pipelines come one source at a time, after E3.
 
 ## What stays out of the first release
 

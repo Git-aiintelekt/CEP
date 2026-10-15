@@ -19,7 +19,7 @@ const OUTCOMES: { value: RunOutcome | ''; label: string }[] = [{ value: '', labe
 const OUTCOME_WORDS: Record<RunOutcome, { label: string; tone: 'success' | 'error' | 'warning' }> = {
   OK: { label: 'OK', tone: 'success' }, TIMEOUT: { label: 'Timed Out', tone: 'error' }, REFUSED: { label: 'Refused', tone: 'warning' }, FAILED: { label: 'Failed', tone: 'error' },
 }
-const KIND: Record<string, string> = { preview: 'Preview', run: 'Run', export: 'Export' }
+const KIND: Record<string, string> = { preview: 'Preview', run: 'Run', export: 'Export', delivery: 'Delivery' }
 
 export function RunLogPage() {
   const [days, setDays] = useState<'7' | '30'>('7')
