@@ -77,6 +77,14 @@ and the tile says "Own dates". Compare With Previous Period runs each figure twi
 through the same engine, limits, masking, cache and audit as reports (`POST /insights/dashboards/<id>/tiles/<tile>/run/`;
 the editor previews a tile before it is saved through `tiles/preview/run/`). The layout and the period save as a version.
 
+## Favourites and folders
+
+A star on every report and dashboard (`report_favourite`, patch 0051, one row per person and item) puts it first in
+the lists under Favourites. Folders (`report_folder`, from 0049; `apps/insights/library.py`) group a workspace's reports:
+anyone with `report.edit` makes one, its maker or a report administrator renames or deletes it (the reports stay,
+filed nowhere), and the report's owner moves it from the viewer's Folder select. The Reports list filters by folder,
+or by no folder, and shows the folder under the name.
+
 ## The catalogue
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049

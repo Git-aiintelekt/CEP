@@ -54,7 +54,11 @@ export const insightsCatalog = {
   ],
 }
 export const insightsSummary = { id: 'rep-1', name: 'Sends by campaign', description: null, dataset: 'messages', dataset_label: 'Messages', component: { key: 'cep', name: 'Engagement' }, view_type: 'grid' as const,
-  visibility: 'WORKSPACE' as const, version: 2, owner_user_id: 'u1', owner_name: 'Aby John', last_run_at: '2026-10-15T08:00:00Z', updated_at: '2026-10-15T08:00:00Z', can_edit: true }
+  visibility: 'WORKSPACE' as const, version: 2, owner_user_id: 'u1', owner_name: 'Aby John', last_run_at: '2026-10-15T08:00:00Z', updated_at: '2026-10-15T08:00:00Z', can_edit: true,
+  folder_id: null as string | null, folder_name: null as string | null, favourite: false }
+export const insightsFolders: { id: string; name: string; owner_user_id: string; reports: number; row_version: number; updated_at: string }[] = []
+/** this person's stars, as "kind:id" */
+export const insightsFavourites = new Set<string>()
 export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
   definition: { columns: [{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' as const }, { field: 'delivered', aggregate: 'sum' as const }], filters: { combinator: 'and' as const, rules: [] }, orderBy: [{ field: 'sent', direction: 'desc' as const }], limit: 500 } }
 export const insightsReportsNow: (typeof insightsSummary)[] = [insightsSummary]
@@ -729,6 +733,8 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   insightsReportsNow.splice(0, insightsReportsNow.length, { ...insightsSummary })      // every test starts with the one saved report
   insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
+  insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
+  insightsFavourites.clear()
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate, steps: options.dripSteps, dripTestFails: options.dripTestFails, dripWarnings: options.dripWarnings, resumePlan: options.resumePlan }
@@ -1089,6 +1095,19 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      const star = /\/insights\/favourites\/(report|dashboard)\/([\w-]+)\/$/.exec(path)
+      if (star) {
+        if (method === 'PUT') insightsFavourites.add(`${star[1]}:${star[2]}`); else insightsFavourites.delete(`${star[1]}:${star[2]}`)
+        return new Response(null, { status: 204 })
+      }
+      if (path.endsWith('/insights/folders/') && method === 'POST') {
+        const posted = body as { name: string }
+        if (insightsFolders.some((f) => f.name.toLowerCase() === posted.name.toLowerCase())) return json({ type: 'about:blank', title: 'Validation failed', status: 400, errors: { name: 'There is a folder of that name already.' } }, 400)
+        const made = { id: `fold-${insightsFolders.length + 1}`, name: posted.name, owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-15T10:00:00Z' }
+        insightsFolders.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/folders/')) return json({ folders: insightsFolders.map((f) => ({ ...f, reports: insightsReportsNow.filter((r) => r.folder_id === f.id).length })) })
       if (path.endsWith('/insights/dashboards/') && method === 'POST') {
         const posted = body as { name?: string }
         const made = { ...structuredClone(insightsDashboard), id: `dash-${insightsDashboardsNow.length + 1}`, name: posted.name ?? 'Untitled Dashboard', description: null, visibility: 'PRIVATE' as const,
@@ -1098,7 +1117,8 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (path.endsWith('/insights/dashboards/')) {
         return json({ dashboards: insightsDashboardsNow.map((d) => ({ id: d.id, name: d.name, description: d.description, visibility: d.visibility, tiles: d.layout.rows.reduce((n, row) => n + row.tiles.length, 0),
-                                                                     version: d.version, owner_user_id: d.owner_user_id, owner_name: d.owner_name, updated_at: d.updated_at, can_edit: d.can_edit })) })
+                                                                     version: d.version, owner_user_id: d.owner_user_id, owner_name: d.owner_name, updated_at: d.updated_at, can_edit: d.can_edit,
+                                                                     favourite: insightsFavourites.has(`dashboard:${d.id}`) })) })
       }
       const tileRun = /\/insights\/dashboards\/([\w-]+)\/tiles\/([\w-]+)\/run\/$/.exec(path)
       if (tileRun && method === 'POST') {
@@ -1143,8 +1163,11 @@ export function installMockApi(options: MockOptions = {}) {
         return json(created, 201)
       }
       if (path.endsWith('/insights/reports/')) {
-        const component = new URL(url, 'http://test.local').searchParams.get('component')
-        return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component) })
+        const query = new URL(url, 'http://test.local').searchParams
+        const component = query.get('component')
+        const folder = query.get('folder')
+        return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
+          .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
@@ -1152,11 +1175,13 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
         const id = path.split('/').at(-2)
-        const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number }
-        if (put.row_version !== insightsReport.row_version) return json({ type: 'about:blank', title: 'The report changed since you opened it', status: 409 }, 409)
+        const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number; folder_id?: string | null }
+        if (put.row_version < insightsReport.row_version) return json({ type: 'about:blank', title: 'The report changed since you opened it', status: 409 }, 409)   // a later version from an earlier PUT is fine
         const found = insightsReportsNow.find((r) => r.id === id)
         if (found && put.name) found.name = put.name
-        return json({ ...insightsReport, id, name: put.name ?? insightsReport.name, definition: put.definition ?? insightsReport.definition, version: insightsReport.version + (put.definition ? 1 : 0), row_version: insightsReport.row_version + 1 })
+        if (found && 'folder_id' in put) found.folder_id = put.folder_id ?? null
+        return json({ ...insightsReport, id, name: put.name ?? insightsReport.name, definition: put.definition ?? insightsReport.definition, version: insightsReport.version + (put.definition ? 1 : 0),
+                      row_version: insightsReport.row_version + 1, folder_id: found?.folder_id ?? null })
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'DELETE') {
         const id = path.split('/').at(-2)

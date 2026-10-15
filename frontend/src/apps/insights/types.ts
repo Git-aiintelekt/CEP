@@ -90,9 +90,22 @@ export interface ReportSummary {
   last_run_at: string | null
   updated_at: string
   can_edit: boolean
+  folder_id: string | null
+  folder_name: string | null
+  /** this person's star */
+  favourite: boolean
 }
 
-export interface Report extends Omit<ReportSummary, 'dataset_label' | 'component'> {
+export interface Folder {
+  id: string
+  name: string
+  owner_user_id: string | null
+  reports: number
+  row_version: number
+  updated_at: string
+}
+
+export interface Report extends Omit<ReportSummary, 'dataset_label' | 'component' | 'folder_name' | 'favourite'> {
   definition: ReportDefinition
   row_version: number
   folder_id: string | null
@@ -140,9 +153,10 @@ export interface DashboardSummary {
   owner_name: string | null
   updated_at: string
   can_edit: boolean
+  favourite: boolean
 }
 
-export interface Dashboard extends Omit<DashboardSummary, 'tiles'> {
+export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'> {
   period: Period
   compare: boolean
   layout: DashboardLayout

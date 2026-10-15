@@ -72,6 +72,11 @@ def _may_edit(request, row: dict) -> bool:
     return _has(request, "report.admin") or (_has(request, "report.edit") and str(row.get("owner_user_id")) == user_id)
 
 
+def favourite_sql(user_id: str, kind: str, item: str) -> tuple[str, list]:
+    """an EXISTS for a list query: whether this person starred the row (item: the row's id column, e.g. r.id)"""
+    return f"EXISTS (SELECT 1 FROM report_favourite fav WHERE fav.user_id = %s AND fav.kind = '{kind}' AND fav.item_id = {item})", [user_id]
+
+
 def _visible_sql(request) -> tuple[str, list]:
     """Private reports are the owner's; shared ones everyone's with report.view; admins see all."""
     if _has(request, "report.admin"):
@@ -141,15 +146,23 @@ class ReportListView(APIView):
             filters.append("d.component_key = %s"); params.append(request.query_params["component"])
         if request.query_params.get("q", "").strip():
             filters.append("r.name ILIKE %s"); params.append(f"%{request.query_params['q'].strip()}%")
+        folder = request.query_params.get("folder")
+        if folder == "none":
+            filters.append("r.folder_id IS NULL")
+        elif folder:
+            filters.append("r.folder_id = %s"); params.append(folder)
+        starred, star_args = favourite_sql(str(request.user.pk), "report", "r.id")
         rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, d.label AS dataset_label, d.component_key, c.name AS component_name, r.view_type,
-                             r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at
+                             r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at,
+                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite
                         FROM report r JOIN report_dataset d ON d.key = r.dataset_key JOIN suite_component c ON c.key = d.component_key
-                        LEFT JOIN app_user u ON u.id = r.owner_user_id
-                       WHERE r.deleted_at IS NULL AND {' AND '.join(filters)} ORDER BY c.sort_order, r.updated_at DESC LIMIT 500""", params)
+                        LEFT JOIN app_user u ON u.id = r.owner_user_id LEFT JOIN report_folder f ON f.id = r.folder_id AND f.deleted_at IS NULL
+                       WHERE r.deleted_at IS NULL AND {' AND '.join(filters)} ORDER BY c.sort_order, r.updated_at DESC LIMIT 500""", [*star_args, *params])
         return Response({"reports": [{"id": r["id"], "name": r["name"], "description": r["description"], "dataset": r["dataset_key"], "dataset_label": r["dataset_label"],
                                       "component": {"key": r["component_key"], "name": r["component_name"]}, "view_type": r["view_type"], "visibility": r["visibility"],
                                       "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "last_run_at": r["last_run_at"],
-                                      "updated_at": r["updated_at"], "can_edit": _may_edit(request, r)} for r in rows]})
+                                      "updated_at": r["updated_at"], "can_edit": _may_edit(request, r), "folder_id": r["folder_id"], "folder_name": r["folder_name"],
+                                      "favourite": bool(r["favourite"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):
@@ -203,6 +216,11 @@ class ReportView(APIView):
         visibility = str(body.get("visibility") or row["visibility"]).upper()
         if visibility not in ("PRIVATE", "WORKSPACE"):
             raise ValidationError({"visibility": "PRIVATE or WORKSPACE."})
+        folder_id = row["folder_id"]
+        if "folder_id" in body:
+            folder_id = body["folder_id"] or None
+            if folder_id and not _q("SELECT 1 FROM report_folder WHERE id::text = %s AND deleted_at IS NULL", [str(folder_id)]):
+                raise ValidationError({"folder_id": "Choose one of the workspace's folders."})
         definition_body = body.get("definition")
         import json
         if definition_body is not None:
@@ -214,9 +232,10 @@ class ReportView(APIView):
         view_type = (definition.get("view") or {}).get("type", row["view_type"])
         tenant_id = context.require().tenant_id
         with session.tx():
-            _q("""UPDATE report SET name = %s, description = %s, visibility = %s, definition = %s, version = %s, view_type = %s, updated_by = %s, updated_at = now(),
+            _q("""UPDATE report SET name = %s, description = %s, visibility = %s, definition = %s, version = %s, view_type = %s, folder_id = %s, updated_by = %s, updated_at = now(),
                                     row_version = row_version + 1 WHERE id = %s AND row_version = %s""",
-               [name, body.get("description", row["description"]) or None, visibility, json.dumps(definition), new_version, view_type, str(request.user.pk), str(report_id), row["row_version"]])
+               [name, body.get("description", row["description"]) or None, visibility, json.dumps(definition), new_version, view_type, (str(folder_id) if folder_id else None),
+                str(request.user.pk), str(report_id), row["row_version"]])
             if definition_body is not None:
                 _q("INSERT INTO report_version (tenant_id, report_id, version, definition, view_type, note, changed_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                    [tenant_id, str(report_id), new_version, json.dumps(definition), view_type, (str(body.get("note") or "")[:300] or None), str(request.user.pk)])

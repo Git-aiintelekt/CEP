@@ -22,7 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.insights import catalog, runner
-from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql
+from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql, favourite_sql
 from apps.insights.definition import DefinitionError, validate
 from apps.reporting import reports
 from apps.delivery.engine import session
@@ -186,12 +186,14 @@ class DashboardListView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
         where, args = _visible_sql(request)
-        rows = _q(f"""SELECT d.id::text, d.name, d.description, d.visibility, d.layout, d.version, d.owner_user_id::text, u.display_name AS owner_name, d.updated_at
+        starred, star_args = favourite_sql(str(request.user.pk), "dashboard", "d.id")
+        rows = _q(f"""SELECT d.id::text, d.name, d.description, d.visibility, d.layout, d.version, d.owner_user_id::text, u.display_name AS owner_name, d.updated_at,
+                             {starred} AS favourite
                         FROM dashboard d LEFT JOIN app_user u ON u.id = d.owner_user_id
-                       WHERE d.deleted_at IS NULL AND {where.replace('r.', 'd.')} ORDER BY d.updated_at DESC""", args)
+                       WHERE d.deleted_at IS NULL AND {where.replace('r.', 'd.')} ORDER BY d.updated_at DESC""", [*star_args, *args])
         return Response({"dashboards": [{"id": r["id"], "name": r["name"], "description": r["description"], "visibility": r["visibility"], "tiles": len(_tiles(_json(r["layout"]))),
                                          "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "updated_at": r["updated_at"],
-                                         "can_edit": _may_edit(request, r)} for r in rows]})
+                                         "can_edit": _may_edit(request, r), "favourite": bool(r["favourite"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):

@@ -3,6 +3,7 @@
  * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice.
  */
 import { Download, Pencil, Trash2 } from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -11,7 +12,8 @@ import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
-import { insightsApi, useDeleteReport, useReport, useRun } from '../api'
+import { insightsApi, keys, useDeleteReport, useReport, useRun } from '../api'
+import { FolderSelect } from '../components/FolderSelect'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
 import type { ReportView } from '../types'
@@ -25,6 +27,16 @@ export function ReportViewerPage() {
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState(false)
   const [view, setView] = useState<ReportView | null>(null)
+  const client = useQueryClient()
+  const file = useMutation({
+    mutationFn: (folderId: string | null) => insightsApi.update(id as string, { row_version: report.data?.row_version as number, folder_id: folderId }),
+    onSuccess: (saved) => {
+      client.setQueryData(keys.report(id as string), { ...saved, can_edit: true })
+      client.invalidateQueries({ queryKey: ['insights', 'reports'] })
+      client.invalidateQueries({ queryKey: keys.folders })
+    },
+    onError: (error) => toast.failure(error, 'The report was not moved'),
+  })
 
   async function exportCsv() {
     if (!id) return
@@ -61,6 +73,7 @@ export function ReportViewerPage() {
         description={info ? `${runWords(info)} · version ${report.data.version}` : report.data.description ?? undefined}
         actions={(
           <div className="flex items-center gap-2">
+            {report.data.can_edit && <FolderSelect value={report.data.folder_id} onChange={(folderId) => file.mutate(folderId)} disabled={file.isPending} />}
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             <button type="button" className={buttonSecondary} onClick={exportCsv} disabled={exporting || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
             {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}

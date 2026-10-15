@@ -13,7 +13,8 @@ import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { formatDateTime } from '@/lib/format'
-import { useCatalog, useReports } from '../api'
+import { useCatalog, useFolders, useReports } from '../api'
+import { FavouriteStar } from '../components/FavouriteStar'
 import type { ReportSummary } from '../types'
 
 const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy' }
@@ -23,12 +24,17 @@ export function ReportListPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const component = params.get('component') ?? ''
+  const folder = params.get('folder') ?? ''
   const [q, setQ] = useState('')
-  const reports = useReports({ component: component || undefined, q: q.trim() || undefined })
+  const reports = useReports({ component: component || undefined, q: q.trim() || undefined, folder: folder || undefined })
   const catalog = useCatalog()
+  const folders = useFolders()
+  const setFilters = (next: { component?: string; folder?: string }) => setParams(Object.fromEntries(Object.entries({ component, folder, ...next }).filter(([, v]) => v)))
   const components = Array.from(new Map((catalog.data?.datasets ?? []).map((d) => [d.component.key, d.component])).values())
   const rows = reports.data?.reports ?? []
-  const groups = Array.from(new Map(rows.map((r) => [r.component.key, r.component])).values()).map((c) => ({ component: c, reports: rows.filter((r) => r.component.key === c.key) }))
+  const starred = rows.filter((r) => r.favourite)
+  const rest = rows.filter((r) => !r.favourite)
+  const groups = Array.from(new Map(rest.map((r) => [r.component.key, r.component])).values()).map((c) => ({ component: c, reports: rest.filter((r) => r.component.key === c.key) }))
   const canCreate = can('report.edit') || can('report.admin')
 
   return (
@@ -46,11 +52,20 @@ export function ReportListPage() {
             className="h-8 w-56 rounded-control-md border border-transparent bg-surface-sunken pr-3 pl-8 text-sm text-ink-900 placeholder:text-ink-700 focus:bg-surface focus-visible:border-focus focus-visible:outline-none" />
         </label>
         <div role="group" aria-label="Component" className="flex flex-wrap gap-1.5">
-          <button type="button" aria-pressed={!component} onClick={() => setParams({})} className={chip(!component)}>All Components</button>
+          <button type="button" aria-pressed={!component} onClick={() => setFilters({ component: '' })} className={chip(!component)}>All Components</button>
           {components.map((c) => (
-            <button key={c.key} type="button" aria-pressed={component === c.key} onClick={() => setParams({ component: c.key })} className={chip(component === c.key)}>{c.name}</button>
+            <button key={c.key} type="button" aria-pressed={component === c.key} onClick={() => setFilters({ component: c.key })} className={chip(component === c.key)}>{c.name}</button>
           ))}
         </div>
+        {(folders.data?.folders.length ?? 0) > 0 && (
+          <div role="group" aria-label="Folder" className="flex flex-wrap gap-1.5">
+            <button type="button" aria-pressed={!folder} onClick={() => setFilters({ folder: '' })} className={chip(!folder)}>All Folders</button>
+            {folders.data?.folders.map((f) => (
+              <button key={f.id} type="button" aria-pressed={folder === f.id} onClick={() => setFilters({ folder: f.id })} className={chip(folder === f.id)}>{f.name}</button>
+            ))}
+            <button type="button" aria-pressed={folder === 'none'} onClick={() => setFilters({ folder: 'none' })} className={chip(folder === 'none')}>No Folder</button>
+          </div>
+        )}
       </div>
 
       {reports.isPending ? (
@@ -64,10 +79,11 @@ export function ReportListPage() {
           <table className="w-full text-sm" aria-label="Reports">
             <thead>
               <tr className="text-left text-xs font-semibold tracking-wide text-ink-800 uppercase">
-                <th className="px-3 py-2">Report</th><th className="px-3 py-2">View</th><th className="px-3 py-2">Dataset</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Last Run</th>
+                <th className="w-9 px-1 py-2"><span className="sr-only">Favourite</span></th><th className="px-3 py-2">Report</th><th className="px-3 py-2">View</th><th className="px-3 py-2">Dataset</th><th className="px-3 py-2">Owner</th><th className="px-3 py-2">Last Run</th>
               </tr>
             </thead>
             <tbody>
+              {starred.length > 0 && <GroupRows name="Favourites" count={starred.length} reports={starred} />}
               {groups.map((group) => (
                 <GroupRows key={group.component.key} name={group.component.name} count={group.reports.length} reports={group.reports} />
               ))}
@@ -86,10 +102,12 @@ function chip(on: boolean): string {
 function GroupRows({ name, count, reports }: { name: string; count: number; reports: ReportSummary[] }) {
   return (
     <>
-      <tr className="bg-surface-subtle"><th scope="rowgroup" colSpan={5} className="px-3 py-1.5 text-left text-sm font-semibold text-ink-900">{name} <span className="font-normal text-ink-800">{count}</span></th></tr>
+      <tr className="bg-surface-subtle"><th scope="rowgroup" colSpan={6} className="px-3 py-1.5 text-left text-sm font-semibold text-ink-900">{name} <span className="font-normal text-ink-800">{count}</span></th></tr>
       {reports.map((report) => (
         <tr key={report.id} className="border-t border-line-subtle">
-          <td className="px-3 py-2"><Link to={`/insights/reports/${report.id}`} className="font-medium text-ink-900 hover:underline">{report.name}</Link>{report.description && <span className="block text-xs text-ink-800">{report.description}</span>}</td>
+          <td className="px-1 py-1.5 text-center"><FavouriteStar kind="report" id={report.id} name={report.name} on={report.favourite} /></td>
+          <td className="px-3 py-2"><Link to={`/insights/reports/${report.id}`} className="font-medium text-ink-900 hover:underline">{report.name}</Link>
+            {(report.description || report.folder_name) && <span className="block text-xs text-ink-800">{[report.folder_name, report.description].filter(Boolean).join(' · ')}</span>}</td>
           <td className="px-3 py-2"><Tag tone="brand">{VIEW_LABEL[report.view_type]}</Tag></td>
           <td className="px-3 py-2 text-ink-800">{report.dataset_label}</td>
           <td className="px-3 py-2 text-ink-800">{report.owner_name ?? '—'}{report.visibility === 'PRIVATE' && <span className="ml-1.5 text-xs text-ink-700">· private</span>}</td>

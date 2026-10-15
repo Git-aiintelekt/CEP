@@ -100,13 +100,13 @@ def test_definition_and_compiler(check):
 
 def _tables_present() -> bool:
     with connections[P].cursor() as cursor:
-        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit', 'dashboard')")
-        return cursor.fetchone()[0] == 4
+        cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('report_dataset', 'report', 'report_run_audit', 'dashboard', 'report_favourite')")
+        return cursor.fetchone()[0] == 5
 
 
 def test_api(check, world):
     if not _tables_present():
-        pytest.skip("patches 0049 and 0050 have not been applied to this database")
+        pytest.skip("patches 0049 to 0051 have not been applied to this database")
     me = world.api("get", "/api/v1/me/").json()
     check("the workspace has Insights (Beta, on every plan) and /me says how it is offered", any(c["key"] == "insights" for c in me["components"]) and me["insights"]["mode"] in ("integrated", "standalone", "both"), str(me.get("insights")))
 
@@ -149,6 +149,25 @@ def test_api(check, world):
     export = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv")
     text = b"".join(export.streaming_content).decode() if export.status_code == 200 else ""
     check("the export streams a CSV with the labels as its header", export.status_code == 200 and text.startswith("Campaign,Channel,Sent Count,Messages") and "attachment" in export["Content-Disposition"], text[:120])
+
+    # favourites and folders (Phase C)
+    made_folder = world.api("post", "/api/v1/insights/folders/", {"name": "Finance"})
+    folder = made_folder.json() if made_folder.status_code == 201 else {}
+    check("a folder is made for the workspace", made_folder.status_code == 201 and folder["name"] == "Finance" and folder["reports"] == 0, made_folder.content[:200])
+    twice = world.api("post", "/api/v1/insights/folders/", {"name": "finance"})
+    check("a folder name is unique, whatever the case", twice.status_code == 400)
+    filed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": world.api("get", f"/api/v1/insights/reports/{rid}/").json()["row_version"], "folder_id": folder["id"]})
+    check("a report is filed in a folder without a new version", filed.status_code == 200 and filed.json()["folder_id"] == folder["id"] and filed.json()["version"] == 2, filed.content[:200])
+    check("the star goes on and shows in the list, first", world.api("put", f"/api/v1/insights/favourites/report/{rid}/").status_code == 204
+          and next(r for r in world.api("get", "/api/v1/insights/reports/").json()["reports"] if r["id"] == rid)["favourite"] is True)
+    in_folder = world.api("get", f"/api/v1/insights/reports/?folder={folder['id']}").json()["reports"]
+    none = world.api("get", "/api/v1/insights/reports/?folder=none").json()["reports"]
+    check("the list filters by folder, and by no folder", any(r["id"] == rid and r["folder_name"] == "Finance" for r in in_folder) and not any(r["id"] == rid for r in none))
+    check("the folders list counts the reports", next(f for f in world.api("get", "/api/v1/insights/folders/").json()["folders"] if f["id"] == folder["id"])["reports"] == 1)
+    check("the star comes off", world.api("delete", f"/api/v1/insights/favourites/report/{rid}/").status_code == 204
+          and next(r for r in world.api("get", "/api/v1/insights/reports/").json()["reports"] if r["id"] == rid)["favourite"] is False)
+    check("deleting the folder leaves its reports, filed nowhere", world.api("delete", f"/api/v1/insights/folders/{folder['id']}/").status_code == 204
+          and world.api("get", f"/api/v1/insights/reports/{rid}/").json()["folder_id"] is None)
 
     # dashboards (Phase C): rows of tiles over the report, one period for every tile
     made = world.api("post", "/api/v1/insights/dashboards/", {"name": "Marketing Weekly"})
