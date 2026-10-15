@@ -11,6 +11,9 @@ from .bridge import logbook
 from .bridge.outbound import Breaker
 from .models import Integration, IntegrationLog
 
+OUTCOME_WORD = {"OK": "OK", "RETRY": "Retrying", "THROTTLED": "Throttled", "ERROR": "Error", "BREAKER": "Circuit Open", "REJECTED": "Rejected", "PAUSED": "Paused"}
+OUTCOME_LABEL = {"OK": "success", "REJECTED": "info", "RETRY": "warning", "ERROR": "danger", "THROTTLED": "warning", "BREAKER": "danger", "PAUSED": "warning"}
+
 
 @admin.register(Integration)
 class IntegrationAdmin(BaseAdmin):
@@ -47,11 +50,11 @@ class IntegrationAdmin(BaseAdmin):
 
     @display(description="Status", label={"ACTIVE": "success", "PAUSED": "warning"})
     def show_status(self, obj):
-        return obj.status
+        return obj.status, obj.status.title()
 
-    @display(description="Last Outcome", label={"OK": "success", "REJECTED": "info", "RETRY": "warning", "ERROR": "danger", "THROTTLED": "warning", "BREAKER": "danger", "PAUSED": "info"})
+    @display(description="Last Outcome", label=OUTCOME_LABEL)
     def show_last_outcome(self, obj):
-        return obj.last_outcome or ""
+        return (obj.last_outcome, OUTCOME_WORD.get(obj.last_outcome, obj.last_outcome.title())) if obj.last_outcome else ""
 
     @action(description="Pause: inbound answers 503, an engine's sends wait")
     def pause(self, request, queryset):
@@ -95,9 +98,9 @@ class IntegrationLogAdmin(ReadOnlyAdmin):
     def show_url(self, obj):
         return obj.url if len(obj.url) <= 80 else obj.url[:77] + "…"
 
-    @display(description="Outcome", label={"OK": "success", "REJECTED": "info", "RETRY": "warning", "ERROR": "danger", "THROTTLED": "warning", "BREAKER": "danger", "PAUSED": "info"})
+    @display(description="Outcome", label=OUTCOME_LABEL)
     def show_outcome(self, obj):
-        return obj.outcome
+        return obj.outcome, OUTCOME_WORD.get(obj.outcome, obj.outcome.title())
 
     @display(description="Request Headers")
     def show_request_headers(self, obj):

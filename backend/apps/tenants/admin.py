@@ -81,9 +81,9 @@ class TenantAdmin(BaseAdmin):
         fixed = ("code", "isolation_mode") if obj else ()          # the code names partitions and URLs; isolation is changed by migration
         return (*self.readonly_fields, *fixed)
 
-    @display(description="Status", label={"ACTIVE": "success", "SUSPENDED": "danger"})
+    @display(description="Status", label={"ACTIVE": "success", "SUSPENDED": "danger", "OFFBOARDED": "info"})
     def show_status(self, obj):
-        return obj.status
+        return obj.status, obj.status.title()
 
     @display(description="Industry")
     def show_industry(self, obj):

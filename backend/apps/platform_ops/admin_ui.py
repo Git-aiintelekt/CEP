@@ -103,7 +103,7 @@ def attention(health, jobs, alerts):
             items.append({"kind": "fail", "icon": "error", "title": f"Job failed: {job['name']}", "text": job["last_error"] or job["purpose"],
                           "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the Runs"})
         elif job["state"] == "overdue":
-            items.append({"kind": "warn", "icon": "schedule", "title": f"Job overdue: {job['name']}", "text": job["purpose"],
+            items.append({"kind": "warn", "icon": "schedule", "title": f"Job late: {job['name']}", "text": job["purpose"],
                           "link": _url("admin:platform_ops_jobrun_changelist") + f"?job_name={job['name']}", "action": "Open the Runs"})
     if never:
         every = len(never) == len(jobs)

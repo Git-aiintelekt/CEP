@@ -12,9 +12,9 @@
         <div>
             {% if service and service.api_key_enc %}
                 {% if service.last_check_ok %}<span class="cep-pill" data-kind="success">Connected · checked {{ service.last_checked_at|date:"M j, H:i" }}</span>
-                {% elif service.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Check Failed</span>
-                {% else %}<span class="cep-pill" data-kind="warning">Not Checked Yet</span>{% endif %}
-                {% if not service.is_active %}<span class="cep-pill" data-kind="warning">Switched Off</span>{% endif %}
+                {% elif service.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Failed</span>
+                {% else %}<span class="cep-pill" data-kind="info">Not Checked</span>{% endif %}
+                {% if not service.is_active %}<span class="cep-pill" data-kind="info">Off</span>{% endif %}
             {% else %}<span class="cep-pill" data-kind="info">Not Set Up</span>{% endif %}
         </div>
     </div>
