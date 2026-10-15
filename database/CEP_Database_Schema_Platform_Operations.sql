@@ -2117,9 +2117,9 @@ ON CONFLICT (dataset_key, key) DO NOTHING;
 
 -- ---- the Insights global parameters (Platform admin -> Global Parameters)
 INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
-    ('insights.mode',            'integrated', 'STRING',  'Insights', 'How Insights is offered: integrated (an Insights item in each component''s menu), standalone (its own app in the launcher), or both'),
-    ('insights.standalone_path', '/insights',  'STRING',  'Insights', 'Where the standalone Insights app answers: a path on this host'),
-    ('insights.engine_url',      '',           'STRING',  'Insights', 'The internal address of the report engine service; empty means this backend runs reports itself')
+    ('insights.mode',            '"integrated"', 'STRING',  'Insights', 'How Insights is offered: integrated (an Insights item in each component''s menu), standalone (its own app in the launcher), or both'),
+    ('insights.standalone_path', '"/insights"',  'STRING',  'Insights', 'Where the standalone Insights app answers: a path on this host'),
+    ('insights.engine_url',      '""',           'STRING',  'Insights', 'The internal address of the report engine service; empty means this backend runs reports itself')
 ON CONFLICT (key) DO NOTHING;
 
 -- ---- the report permissions: view and run (report.view, since 2026-09), build (report.edit), share and administer (report.admin)
