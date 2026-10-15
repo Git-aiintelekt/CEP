@@ -2115,6 +2115,69 @@ BEGIN
 END $$;
 GRANT SELECT, INSERT, DELETE ON report_favourite TO cep_app;
 GRANT ALL ON report_favourite TO cep_admin;
+
+-- ---- scheduled delivery (Phase E): a report emailed on a schedule, and each sending (apps/insights/schedules.py, workers/insights_delivery.py)
+CREATE TABLE IF NOT EXISTS report_schedule (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    kind                VARCHAR(10) NOT NULL DEFAULT 'report',            -- report (dashboard with the PDF slice)
+    item_id             UUID NOT NULL,
+    owner_user_id       UUID REFERENCES app_user(id),                     -- whose rights and masking the file is built with
+    every               VARCHAR(10) NOT NULL,                             -- day, weekday, week, month
+    on_day              SMALLINT,                                         -- week: 1 (Monday) to 7; month: 1 to 28
+    at_time             TIME NOT NULL,                                    -- in the workspace's zone
+    format              VARCHAR(5) NOT NULL DEFAULT 'xlsx',               -- xlsx, csv (pdf with the PDF slice)
+    recipients          JSONB NOT NULL,                                   -- ["a@b.c", ...]
+    subject             VARCHAR(200),                                     -- {date} is the sending date; empty: "<report> · {date}"
+    note                TEXT,
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, PAUSED (by hand, or after three failures in a row)
+    failures            SMALLINT NOT NULL DEFAULT 0,
+    last_sent_at        TIMESTAMPTZ,
+    last_outcome        VARCHAR(12),
+    last_detail         VARCHAR(300),
+    next_run_at         TIMESTAMPTZ,
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_schedule_kind CHECK (kind IN ('report', 'dashboard')),
+    CONSTRAINT ck_report_schedule_every CHECK (every IN ('day', 'weekday', 'week', 'month')),
+    CONSTRAINT ck_report_schedule_format CHECK (format IN ('xlsx', 'csv', 'pdf')),
+    CONSTRAINT ck_report_schedule_status CHECK (status IN ('ACTIVE', 'PAUSED'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_schedule_due ON report_schedule(next_run_at) WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS report_delivery (
+    id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    schedule_id         UUID NOT NULL REFERENCES report_schedule(id) ON DELETE CASCADE,
+    trigger             VARCHAR(10) NOT NULL DEFAULT 'schedule',          -- schedule, test
+    outcome             VARCHAR(12) NOT NULL,                             -- OK, TIMEOUT, REFUSED, FAILED
+    detail              VARCHAR(300),
+    recipients          SMALLINT NOT NULL DEFAULT 0,
+    row_count           INTEGER,
+    duration_ms         INTEGER,
+    sent_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_report_delivery_schedule ON report_delivery(schedule_id, sent_at DESC);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_schedule', 'report_delivery'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_schedule TO cep_app;
+GRANT SELECT, INSERT ON report_delivery TO cep_app;
+GRANT USAGE, SELECT ON SEQUENCE report_delivery_id_seq TO cep_app;
+GRANT ALL ON report_schedule, report_delivery TO cep_admin;
 GRANT ALL ON SEQUENCE report_run_audit_id_seq TO cep_admin;
 
 -- ---- the first datasets: what Reports already shows, as catalogue entries

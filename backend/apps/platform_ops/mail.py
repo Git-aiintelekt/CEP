@@ -95,9 +95,10 @@ def is_configured(tenant_id=None) -> bool:
 
 
 # ------------------------------------------------------------------------------------------------------------ sending
-def send(template: str, to: list[str] | str, context: dict, *, subject: str, tenant_id=None) -> bool:
-    """Renders templates/email/<template>.txt and .html and sends both parts. Returns False instead of raising: the
-    caller decides what a failed email means (a password link can still be copied, an alert stays open)."""
+def send(template: str, to: list[str] | str, context: dict, *, subject: str, tenant_id=None, attachments: list[tuple[str, bytes, str]] = ()) -> bool:
+    """Renders templates/email/<template>.txt and .html and sends both parts, with any attachments (name, bytes, MIME type).
+    Returns False instead of raising: the caller decides what a failed email means (a password link can still be copied,
+    an alert stays open)."""
     recipients = [to] if isinstance(to, str) else [address for address in to if address]
     if not recipients:
         return False
@@ -109,6 +110,8 @@ def send(template: str, to: list[str] | str, context: dict, *, subject: str, ten
         message = EmailMultiAlternatives(subject=subject, body=text, from_email=route.from_email, to=recipients,
                                          reply_to=[route.reply_to] if route.reply_to else None, connection=route.connection())
         message.attach_alternative(html, "text/html")
+        for name, data, mime in attachments:
+            message.attach(name, data, mime)
         message.send(fail_silently=False)
         return True
     except Exception as exc:                               # SMTP errors are many and varied; none may break the request

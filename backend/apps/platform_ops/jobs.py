@@ -42,6 +42,7 @@ JOBS = {
     "advance-journey-customers": ("Moves journey customers whose next step is due", 10 * 60),
     "rollup-journey-analytics": ("Rolls journey enrollments and steps up into the reporting tables", 49 * 3600),
     "activate-scheduled-journeys": ("Goes live with journeys approved and scheduled once their time comes", 10 * 60),
+    "deliver-report-schedules": ("Emails the Insights reports whose scheduled time has come", 20 * 60),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded
 _last_recorded: dict[str, float] = {}

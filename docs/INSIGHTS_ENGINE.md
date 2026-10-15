@@ -110,6 +110,20 @@ when and the note. Open shows a version's rows in the viewer, read-only, through
 (`POST /insights/reports/<id>/versions/<n>/restore/`, the owner or a report administrator) makes it the current version
 again as a new version noted "Restored from version n", checked against today's catalogue like any save.
 
+## Scheduled delivery
+
+A report goes out by email on a schedule (`report_schedule`, `report_delivery`, patch 0052; `apps/insights/schedules.py`;
+option 1 of docs/mockups/insights-scheduled-delivery.html): every day, every weekday, weekly on a day or monthly on a
+day, at a time in the workspace's zone, as Excel or CSV, to up to twenty addresses, with a subject (`{date}` is the
+sending date) and a note. Schedule sits on the viewer for `report.edit`; Insights → Scheduled lists the person's
+schedules (every schedule for `report.admin`) with Pause, Resume and Delete; the viewer shows the schedule in a line
+with Change and Pause. The job `deliver-report-schedules` (every 5 minutes, `workers/insights_delivery.py`) builds each
+due report through the engine with the rights and masking of whoever scheduled it (`runner.fetch_all`, audited as a
+`delivery`), sends it through the workspace's own mail server with the file attached (`mail.send` now takes
+attachments; the templates are `email/report_delivery.*`), records the sending in `report_delivery`, computes the next
+sending, and pauses the schedule after three failures in a row. Send a Test Now sends the email to the person asking at
+once. A workspace without a mail server cannot schedule; the API says so. Dashboards and PDF come with the PDF slice.
+
 ## The run log
 
 Insights → Run Log (`report.admin`; `GET /insights/runs/`, `apps/insights/audit.py`) lists every preview, run and

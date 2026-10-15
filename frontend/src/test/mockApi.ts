@@ -57,6 +57,14 @@ export const insightsSummary = { id: 'rep-1', name: 'Sends by campaign', descrip
   visibility: 'WORKSPACE' as const, version: 2, owner_user_id: 'u1', owner_name: 'Aby John', last_run_at: '2026-10-15T08:00:00Z', updated_at: '2026-10-15T08:00:00Z', can_edit: true,
   folder_id: null as string | null, folder_name: null as string | null, favourite: false }
 export const insightsFolders: { id: string; name: string; owner_user_id: string; reports: number; row_version: number; updated_at: string }[] = []
+/** the report schedules (apps/insights/schedules) */
+export const insightsSchedulesNow: InsightsSchedule[] = []
+type InsightsSchedule = import('@/apps/insights/types').Schedule
+function scheduleWords(every: string, onDay: number | null, at: string): string {
+  if (every === 'week') return `Every ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][(onDay ?? 1) - 1]} at ${at}`
+  if (every === 'month') return `Monthly on the ${onDay}th at ${at}`
+  return `Every ${every === 'weekday' ? 'weekday' : 'day'} at ${at}`
+}
 /** this person's stars, as "kind:id" */
 export const insightsFavourites = new Set<string>()
 export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
@@ -758,6 +766,7 @@ export function installMockApi(options: MockOptions = {}) {
   insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
   insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
   insightsFavourites.clear()
+  insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
   const campaignState = { variants: options.runVariants, campaigns: options.campaigns ?? [campaign], tags: options.campaignTags, make: makeCampaign, audience: options.audience, audienceExportFails: options.audienceExportFails, metrics: options.metrics, activity: options.activity, activityFails: options.activityFails, estimate: options.estimate, steps: options.dripSteps, dripTestFails: options.dripTestFails, dripWarnings: options.dripWarnings, resumePlan: options.resumePlan }
@@ -1118,6 +1127,40 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/api-clients/')) return json(apiKeys)
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (path.endsWith('/insights/schedules/') && method === 'POST') {
+        const posted = body as { item_id: string; every: string; on_day: number | null; at_time: string; format: 'xlsx' | 'csv' | 'pdf'; recipients: string[]; subject: string | null; note: string | null }
+        const made: InsightsSchedule = { id: `sch-${insightsSchedulesNow.length + 1}`, kind: 'report', item_id: posted.item_id, item_name: insightsReportsNow.find((r) => r.id === posted.item_id)?.name ?? null, view_type: 'grid', item_gone: false,
+          owner_user_id: 'u1', owner_name: 'Aby John', every: posted.every as InsightsSchedule['every'], on_day: posted.on_day, at_time: posted.at_time, format: posted.format, recipients: posted.recipients, subject: posted.subject, note: posted.note,
+          status: 'ACTIVE', failures: 0, last_sent_at: null, last_outcome: null, last_detail: null, next_run_at: '2026-10-19T12:00:00Z', words: scheduleWords(posted.every, posted.on_day, posted.at_time), row_version: 1,
+          created_at: '2026-10-16T10:00:00Z', updated_at: '2026-10-16T10:00:00Z' }
+        insightsSchedulesNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/schedules/')) {
+        const item = new URL(url, 'http://test.local').searchParams.get('item')
+        return json({ schedules: insightsSchedulesNow.filter((s) => !item || s.item_id === item), mail_configured: true })
+      }
+      const scheduleState = /\/insights\/schedules\/([\w-]+)\/(pause|resume|test)\/$/.exec(path)
+      if (scheduleState && method === 'POST') {
+        const found = insightsSchedulesNow.find((s) => s.id === scheduleState[1])
+        if (!found) return json({ detail: 'No such schedule.' }, 404)
+        if (scheduleState[2] === 'test') return json({ outcome: 'OK', detail: null, recipients: 1, rows: 3 })
+        Object.assign(found, scheduleState[2] === 'pause' ? { status: 'PAUSED', next_run_at: null } : { status: 'ACTIVE', failures: 0, next_run_at: '2026-10-19T12:00:00Z' }, { row_version: found.row_version + 1 })
+        return json(found)
+      }
+      const oneSchedule = /\/insights\/schedules\/([\w-]+)\/$/.exec(path)
+      if (oneSchedule && method === 'DELETE') {
+        const at = insightsSchedulesNow.findIndex((s) => s.id === oneSchedule[1])
+        if (at >= 0) insightsSchedulesNow.splice(at, 1)
+        return new Response(null, { status: 204 })
+      }
+      if (oneSchedule && method === 'PUT') {
+        const found = insightsSchedulesNow.find((s) => s.id === oneSchedule[1])
+        if (!found) return json({ detail: 'No such schedule.' }, 404)
+        const put = body as Partial<InsightsSchedule>
+        Object.assign(found, put, { words: scheduleWords(put.every ?? found.every, put.on_day ?? found.on_day, put.at_time ?? found.at_time), row_version: found.row_version + 1 })
+        return json(found)
+      }
       if (path.endsWith('/insights/runs/')) {
         const outcome = new URL(url, 'http://test.local').searchParams.get('outcome')
         const runs = [

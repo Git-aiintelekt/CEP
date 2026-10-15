@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, TileResult } from './types'
+import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -48,7 +48,17 @@ export const libraryApi = {
     api.get<RunLog>('/insights/runs/', Object.fromEntries(Object.entries(query).filter(([, v]) => v)), signal),
 }
 
+export const schedulesApi = {
+  list: (query: { item?: string }, signal?: AbortSignal) => api.get<{ schedules: Schedule[]; mail_configured: boolean }>('/insights/schedules/', Object.fromEntries(Object.entries(query).filter(([, v]) => v)), signal),
+  create: (body: ScheduleBody) => api.post<Schedule>('/insights/schedules/', body),
+  update: (id: string, body: ScheduleBody & { row_version: number }) => api.put<Schedule>(`/insights/schedules/${id}/`, body),
+  remove: (id: string) => api.delete(`/insights/schedules/${id}/`),
+  state: (id: string, action: 'pause' | 'resume') => api.post<Schedule>(`/insights/schedules/${id}/${action}/`, {}),
+  test: (id: string) => api.post<{ outcome: string; detail: string | null; recipients: number; rows: number | null }>(`/insights/schedules/${id}/test/`, {}),
+}
+
 export const keys = {
+  schedules: ['insights', 'schedules'] as const,
   folders: ['insights', 'folders'] as const,
   runs: (query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) => ['insights', 'runs', query] as const,
   catalog: ['insights', 'catalog'] as const,
@@ -63,6 +73,10 @@ export const keys = {
 
 export function useCatalog() {
   return useQuery({ queryKey: keys.catalog, queryFn: ({ signal }) => insightsApi.catalog(signal), staleTime: 60_000 })
+}
+
+export function useSchedules(query: { item?: string }) {
+  return useQuery({ queryKey: [...keys.schedules, query], queryFn: ({ signal }) => schedulesApi.list(query, signal) })
 }
 
 export function useRunLog(query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) {

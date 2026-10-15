@@ -1,0 +1,11 @@
+{% autoescape off %}{{ title }}
+{% if note %}
+{{ note }}
+{% endif %}
+{{ report_name }}, as {{ fmt }}, for {{ date }}. {{ rows }} row{{ rows|pluralize }}. The file is attached.
+
+Open the report: {{ frontend_url }}{{ report_link }}
+Change or stop this schedule: {{ frontend_url }}{{ schedules_link }}
+
+Scheduled by {{ owner }} in {{ product }} Insights, {{ schedule|lower }}.
+{% endautoescape %}

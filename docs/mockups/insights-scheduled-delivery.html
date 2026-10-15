@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insights scheduled delivery: a report or a dashboard by email on a schedule, two places to set it up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&family=Inter:opsz,wght@14..32,400..600&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-700:#6b6f7b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --surface-sunken:#eeeff5; --fill-subtle:#eeeff5;
+    --line:#cfd2dc; --line-subtle:#e2e4eb; --line-control:#8b8f9a;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --danger-bg:#fae2e2; --danger-text:#a92e26; --warning-bg:#fcf4cb; --warning-text:#87451d;
+    --success-bg:#e3f5e5; --success-text:#1f6b2d; --callout-bg:#eef2fe; --callout-text:#312e7c;
+    --sidebar:#1b2a5a; --font-display:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif; --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 14px/1.5 var(--font-sans); font-optical-sizing:auto; -webkit-font-smoothing:antialiased }
+  h1,h2,h3,h4 { margin:0; font-family:var(--font-display); font-weight:600; letter-spacing:-0.02em } p { margin:0 }
+  .note { max-width:1440px; margin:24px auto 0; padding:0 16px; font-size:13px; color:var(--ink-800) } .note strong { color:var(--ink-900) }
+  .part { max-width:1440px; margin:40px auto 4px; padding:0 16px; font:700 18px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label { max-width:1440px; margin:18px auto 8px; padding:0 16px; font:600 15px/1.3 var(--font-display); letter-spacing:-0.02em }
+  .label span { display:block; font:400 13px/1.45 var(--font-sans); color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { max-width:1440px; margin:0 auto; padding:0 16px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:start } .row.one { grid-template-columns:1fr }
+  @media (max-width:1000px) { .row { grid-template-columns:1fr } }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .frame .cap { font-size:12px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line-subtle); background:var(--surface-subtle) }
+  .app { display:grid; grid-template-columns:168px minmax(0,1fr); min-height:400px }
+  .rail { background:var(--sidebar); color:#fff; padding:16px 12px; font-size:13px } .rail b { display:block; margin:0 6px 2px; font-family:var(--font-display) } .rail small { display:block; margin:0 6px 14px; color:#c9d3f2; font-size:11px }
+  .rail a { display:block; padding:7px 10px; border-radius:6px; color:#c9d3f2 } .rail a.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600 }
+  .page { padding:18px 22px; min-width:0; background:var(--surface-subtle) }
+  .pagehead { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:10px 16px; margin-bottom:12px } .pagehead h1 { font-size:22px } .pagehead p { color:var(--ink-800); font-size:13px; margin-top:4px }
+  .btn { height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line-control); background:#fff; font:600 13px var(--font-sans); display:inline-flex; align-items:center; gap:6px; color:var(--ink-900); white-space:nowrap }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:28px; padding:0 9px; font-size:12px } .btn.link { border:0; background:none; color:var(--brand-800); padding:0; height:auto }
+  .tag { display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:600; white-space:nowrap }
+  .tag.grey { background:var(--fill-subtle); color:var(--ink-800) } .tag.brand { background:var(--brand-100); color:var(--brand-800) } .tag.ok { background:var(--success-bg); color:var(--success-text) } .tag.warn { background:var(--warning-bg); color:var(--warning-text) } .tag.bad { background:var(--danger-bg); color:var(--danger-text) }
+  table { width:100%; border-collapse:collapse; font-size:13px } th { text-align:left; font-size:12px; font-weight:600; color:var(--ink-800); padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap } td { padding:8px 10px; border-bottom:1px solid var(--line-subtle); vertical-align:top } td small { display:block; color:var(--ink-800); font-size:12px }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:12px } .toolbar .end { margin-left:auto; font-size:12px; color:var(--ink-800) }
+  .chips { display:flex; flex-wrap:wrap; gap:6px } .chip { height:26px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font-size:12px; font-weight:600; display:inline-flex; align-items:center; background:#fff } .chip.on { background:var(--brand-100); border-color:var(--brand-100); color:var(--brand-800) }
+  .ctl { height:32px; border:1px solid var(--line-control); border-radius:6px; padding:0 9px; display:inline-flex; align-items:center; gap:8px; background:#fff; font-size:13px } .ctl .chev { color:var(--ink-800) } .ctl.wide { width:100% } .ctl.muted { color:var(--ink-700); font-weight:400 }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:8px; overflow:hidden; background:#fff } .seg span { padding:5px 11px; font-size:12px; font-weight:600; border-right:1px solid var(--line) } .seg span:last-child { border-right:0 } .seg span.on { background:var(--brand-100); color:var(--brand-800) }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; min-width:0 } .card .head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line-subtle) } .card .head h3 { font-size:14px } .card .body { padding:12px 14px }
+  .modal { max-width:640px; margin:16px auto; background:#fff; border:1px solid var(--line); border-radius:8px } .modal .mh { padding:14px 22px 10px; border-bottom:1px solid var(--line) } .modal .mh h2 { font-size:17px } .modal .mh small { font-size:12px; color:var(--ink-800) }
+  .modal .mb { padding:18px 22px; display:flex; flex-direction:column; gap:14px; font-size:13px } .modal .mf { padding:12px 22px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:8px }
+  .flabel { font-weight:600; font-size:13px; margin-bottom:5px } .flabel small { font-weight:400; color:var(--ink-800) }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px } .grid3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px } @media (max-width:700px) { .grid2, .grid3 { grid-template-columns:1fr } }
+  .choice { border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:2px } .choice.on { border-color:var(--brand-600); background:var(--brand-100) } .choice b { font-size:13px } .choice small { font-size:12px; color:var(--ink-800) } .choice.on small { color:var(--callout-text) }
+  .pills { display:flex; flex-wrap:wrap; gap:6px; min-height:32px; border:1px solid var(--line-control); border-radius:6px; padding:4px 6px; background:#fff } .pill { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 8px; border-radius:4px; background:var(--fill-subtle); font-size:12px; font-weight:600 } .pill i { font-style:normal; color:var(--ink-700) }
+  .textarea { min-height:60px; border:1px solid var(--line-control); border-radius:6px; padding:8px 10px; background:#fff; font-size:13px; color:var(--ink-700) }
+  .empty { text-align:center; padding:40px 16px 32px; border:1px dashed var(--line-control); border-radius:8px; background:#fff } .empty h3 { font-size:16px } .empty p { font-size:13px; color:var(--ink-800); margin:4px auto 14px; max-width:480px }
+  .banner { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-subtle); font-size:13px; margin-bottom:12px }
+  .mail { border:1px solid var(--line); border-radius:8px; background:#fff; max-width:560px; font-size:13px } .mail .mh2 { padding:10px 14px; border-bottom:1px solid var(--line-subtle); display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--ink-800) } .mail .mh2 b { color:var(--ink-900); font-size:14px } .mail .mb2 { padding:14px } .mail .att { display:inline-flex; align-items:center; gap:8px; margin-top:12px; padding:8px 10px; border:1px solid var(--line); border-radius:6px; font-weight:600 } .mail .att small { font-weight:400; color:var(--ink-800) }
+  .rules { max-width:1440px; margin:36px auto 56px; padding:0 16px } .rules .frame { padding:18px 20px } .rules h3 { font-size:15px; margin:18px 0 8px } .rules h3:first-child { margin-top:0 } .rules ul { margin:0; padding-left:18px; font-size:13px; color:var(--ink-800) } .rules li { margin-bottom:5px } .rules p { font-size:13px; color:var(--ink-800) }
+  .compare td:first-child { font-weight:600; width:200px }
+  code { font:500 12px/1 ui-monospace, Consolas, monospace; background:var(--surface-sunken); padding:2px 6px; border-radius:4px }
+</style>
+</head>
+<body>
+
+<p class="note"><strong>Scheduled delivery, mocked up (Phase E).</strong> A report or a dashboard goes out by email on a schedule: every day, every weekday, weekly on a day, or monthly on a day, at a time in the workspace's zone, to a list of addresses, as Excel, CSV or PDF, with a subject and a note. The two options differ in where that is set up: from the report itself, with a list to keep an eye on them all; or from one Deliveries page where an email can carry several reports. What is sent, how a failure is handled and the run log are the same in both. Data: Northwind Apparel, October 2026.</p>
+
+<!-- ===================================================================== option 1 -->
+<div class="part">Option 1 · Schedule From the Report</div>
+<div class="label">The Schedule dialog, from a report's viewer (and a dashboard's)<span>Schedule sits beside Export on the viewer. One report per schedule; the dialog is one screen. The format offers what the report can be: Excel, CSV, PDF; a dashboard offers PDF only. Recipients are typed addresses; people of the workspace complete as you type.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Schedule · Monthly Revenue by Channel</div><div class="modal" style="box-shadow:none;max-width:none;margin:0;border:0;border-radius:0">
+    <div class="mh"><h2>Schedule</h2><small>Monthly Revenue by Channel · sent as it is saved, with the engine's rights of whoever schedules it</small></div>
+    <div class="mb">
+      <div><div class="flabel">Every</div><span class="seg"><span>Day</span><span>Weekday</span><span class="on">Week</span><span>Month</span></span></div>
+      <div class="grid2">
+        <div><div class="flabel">On</div><span class="ctl wide">Monday <span class="chev" style="margin-left:auto">▾</span></span></div>
+        <div><div class="flabel">At <small>America/New_York</small></div><span class="ctl wide">08:00 <span class="chev" style="margin-left:auto">▾</span></span></div>
+      </div>
+      <div><div class="flabel">Send as</div><div class="grid3">
+        <div class="choice on"><b>Excel</b><small>The pivot with its totals, the rows after</small></div><div class="choice"><b>CSV</b><small>The rows only</small></div><div class="choice"><b>PDF</b><small>The view, on A4</small></div>
+      </div></div>
+      <div><div class="flabel">To</div><div class="pills"><span class="pill">aby@northwind.example <i>✕</i></span><span class="pill">finance@northwind.example <i>✕</i></span><span style="color:var(--ink-700);font-size:12px;align-self:center">Add an address…</span></div></div>
+      <div><div class="flabel">Subject</div><span class="ctl wide muted">Monthly Revenue by Channel · {period}</span></div>
+      <div><div class="flabel">Note <small>optional, at the top of the email</small></div><div class="textarea">Last week's revenue by channel, from Insights. Reply to this email with questions.</div></div>
+    </div>
+    <div class="mf"><span class="btn">Cancel</span><span class="btn">Send a Test Now</span><span class="btn primary">Schedule</span></div>
+  </div></div>
+  <div class="frame"><div class="cap">The viewer, once scheduled: a line under the title and the button reads Scheduled</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a class="on">Reports</a><a>Dashboards</a><a>Scheduled</a></div>
+    <div class="page">
+      <p style="font-size:12px;color:var(--ink-800);margin-bottom:10px"><span style="color:var(--brand-800)">All Reports</span> › Monthly Revenue by Channel</p>
+      <div class="pagehead"><div><h1>Monthly Revenue by Channel</h1><p>2 rows · 55 ms · live data · version 3</p></div><div style="display:flex;gap:8px"><span class="btn">Folder: Finance ▾</span><span class="btn">Versions</span><span class="btn">Scheduled · Mondays 08:00</span><span class="btn">Edit</span><span class="btn">Export CSV</span><span class="btn">Export Excel</span></div></div>
+      <div class="banner"><span class="tag ok">Scheduled</span><span>Every Monday at 08:00 to 2 people as Excel · last sent 13 Oct 2026, 08:00 · next 20 Oct</span><span class="btn link" style="font-size:12px;margin-left:auto">Change</span><span class="btn link" style="font-size:12px">Pause</span></div>
+      <div class="card" style="min-height:220px"><div class="body" style="color:var(--ink-700);font-size:12px">The pivot, as today.</div></div>
+    </div>
+  </div></div>
+</div>
+<div class="label">Insights → Scheduled<span>Every schedule in the workspace this person may see: what, when, to whom, the last delivery and the next. A failed delivery shows its reason; three failures in a row pause the schedule, with a note. Busy: five schedules, one failed. Sparse: none yet.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a>Dashboards</a><a class="on">Scheduled</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>Scheduled</h1><p>Reports and dashboards sent by email on a schedule.</p></div></div>
+      <div class="toolbar"><span class="chips"><span class="chip on">All</span><span class="chip">Mine</span><span class="chip">Paused</span></span><span class="end">5 schedules · 2 deliveries this morning</span></div>
+      <div class="card"><table>
+        <thead><tr><th>Report</th><th>Every</th><th>As</th><th>To</th><th>Last Sent</th><th>Next</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Monthly Revenue by Channel</b><small>Pivot · Aby John</small></td><td>Monday, 08:00</td><td>Excel</td><td>2 people</td><td><span class="tag ok">Sent</span> <small>13 Oct, 08:00</small></td><td>20 Oct, 08:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Marketing Weekly</b><small>Dashboard · Aby John</small></td><td>Monday, 07:30</td><td>PDF</td><td>5 people</td><td><span class="tag ok">Sent</span> <small>13 Oct, 07:30</small></td><td>20 Oct, 07:30</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Every Message, 90 Days</b><small>Grid · Devon Okafor</small></td><td>Day, 06:00</td><td>CSV</td><td>1 person</td><td><span class="tag bad">Failed</span> <small>16 Oct, 06:00 · timed out after 15 s</small></td><td>17 Oct, 06:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Stores · E-Receipts</b><small>Dashboard · Devon Okafor</small></td><td>Weekday, 07:00</td><td>PDF</td><td>3 people</td><td><span class="tag ok">Sent</span> <small>16 Oct, 07:00</small></td><td>17 Oct, 07:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Contacts by Store and Consent</b><small>Hierarchy · Priya Natarajan</small></td><td>Month, the 1st, 09:00</td><td>Excel</td><td>2 people</td><td><span class="tag warn">Paused</span> <small>after 3 failures · mail server refused</small></td><td>—</td><td><span class="btn link" style="font-size:12px">Resume</span></td></tr>
+        </tbody></table></div>
+    </div>
+  </div></div>
+  <div class="frame"><div class="cap">Sparse</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a>Dashboards</a><a class="on">Scheduled</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>Scheduled</h1><p>Reports and dashboards sent by email on a schedule.</p></div></div>
+      <div class="empty"><h3>Nothing scheduled yet</h3><p>Open a report or a dashboard and press Schedule: it goes out by email on the days and at the time you choose, as Excel, CSV or PDF.</p><span class="btn">Open Reports</span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== option 2 -->
+<div class="part">Option 2 · Deliveries, One Email With Several Reports</div>
+<div class="label">Insights → Deliveries, and New Delivery<span>Scheduling lives on its own page. A delivery is one email with one or more attachments: pick reports and dashboards, then the schedule, the recipients, the subject and the note. The viewer only says "Sent Mondays in Weekly Pack" with a link. Fewer emails for the same people; one more place to go.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">New Delivery · step 1 of 2, what to send</div><div class="modal" style="box-shadow:none;max-width:none;margin:0;border:0;border-radius:0">
+    <div class="mh"><h2>New Delivery</h2><small>Step 1 of 2 · What to send</small></div>
+    <div class="mb">
+      <div><div class="flabel">Name</div><span class="ctl wide">Weekly Pack</span></div>
+      <div><div class="flabel">Attachments <small>in the order they are listed</small></div>
+        <div class="card"><table>
+          <tbody>
+            <tr><td><b>Marketing Weekly</b><small>Dashboard</small></td><td><span class="seg"><span class="on">PDF</span></span></td><td style="text-align:right"><span class="btn link" style="font-size:12px">Remove</span></td></tr>
+            <tr><td><b>Monthly Revenue by Channel</b><small>Pivot</small></td><td><span class="seg"><span class="on">Excel</span><span>CSV</span><span>PDF</span></span></td><td style="text-align:right"><span class="btn link" style="font-size:12px">Remove</span></td></tr>
+            <tr><td><b>Top Campaigns by Revenue</b><small>Grid</small></td><td><span class="seg"><span>Excel</span><span class="on">CSV</span><span>PDF</span></span></td><td style="text-align:right"><span class="btn link" style="font-size:12px">Remove</span></td></tr>
+          </tbody></table></div>
+        <span class="btn sm" style="margin-top:8px">+ Add a Report or Dashboard</span>
+      </div>
+    </div>
+    <div class="mf"><span class="btn">Cancel</span><span class="btn primary">Next: When and To Whom</span></div>
+  </div></div>
+  <div class="frame"><div class="cap">Deliveries · busy</div><div class="app">
+    <div class="rail"><b>Insights</b><small>Reports, dashboards, datasets</small><a>Overview</a><a>Reports</a><a>Dashboards</a><a class="on">Deliveries</a></div>
+    <div class="page">
+      <div class="pagehead"><div><h1>Deliveries</h1><p>Emails that carry reports and dashboards on a schedule.</p></div><span class="btn primary">+ New Delivery</span></div>
+      <div class="card"><table>
+        <thead><tr><th>Delivery</th><th>Every</th><th>To</th><th>Last Sent</th><th>Next</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><b>Weekly Pack</b><small>Marketing Weekly (PDF), Monthly Revenue by Channel (Excel), Top Campaigns by Revenue (CSV) · Aby John</small></td><td>Monday, 08:00</td><td>5 people</td><td><span class="tag ok">Sent</span> <small>13 Oct, 08:00</small></td><td>20 Oct, 08:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Stores Daily</b><small>Stores · E-Receipts (PDF) · Devon Okafor</small></td><td>Weekday, 07:00</td><td>3 people</td><td><span class="tag ok">Sent</span> <small>16 Oct, 07:00</small></td><td>17 Oct, 07:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+          <tr><td><b>Message Dump</b><small>Every Message, 90 Days (CSV) · Devon Okafor</small></td><td>Day, 06:00</td><td>1 person</td><td><span class="tag bad">Failed</span> <small>16 Oct · timed out after 15 s</small></td><td>17 Oct, 06:00</td><td><span class="btn link" style="font-size:12px">Pause</span></td></tr>
+        </tbody></table></div>
+      <p style="font-size:12px;color:var(--ink-800);margin-top:12px">Sparse: the same page with "No deliveries yet" and New Delivery.</p>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== shared -->
+<div class="part">Shared</div>
+<div class="label">The email as received, and what the run log shows<span>Left: the email from the workspace's own mail server, the C360 product name, the note, the period the file covers and the attachment; a line at the bottom says who scheduled it and where to change it. Right: each delivery is a run in the Run Log, kind "Delivery", with its outcome and reason, beside the previews, runs and exports.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">The email</div><div style="padding:16px;background:var(--surface-subtle)"><div class="mail">
+    <div class="mh2"><span>From: Northwind Apparel &lt;reports@northwind.example&gt;</span><span>To: aby@northwind.example, finance@northwind.example</span><b>Monthly Revenue by Channel · 6 – 12 Oct 2026</b></div>
+    <div class="mb2"><p>Last week's revenue by channel, from Insights. Reply to this email with questions.</p>
+      <p style="margin-top:10px;color:var(--ink-800)">Monthly Revenue by Channel, as a pivot with its totals, for 6 – 12 October 2026. 2 rows.</p>
+      <div class="att">▤ Monthly Revenue by Channel.xlsx <small>14 KB</small></div>
+      <p style="margin-top:14px;font-size:12px;color:var(--ink-700)">Scheduled by Aby John in C360 Insights · Open the report · Change or stop this schedule</p></div>
+  </div></div></div>
+  <div class="frame"><div class="cap">Run Log · deliveries among the runs</div><div style="padding:0"><table>
+    <thead><tr><th>When</th><th>Report</th><th>Kind</th><th>Who</th><th>Outcome</th><th style="text-align:right">Rows</th><th style="text-align:right">Time</th></tr></thead>
+    <tbody>
+      <tr><td>13 Oct, 08:00</td><td>Monthly Revenue by Channel <small>Attributed Orders · v3</small></td><td>Delivery</td><td>Schedule · Aby John</td><td><span class="tag ok">OK</span> <small>sent to 2</small></td><td style="text-align:right">2</td><td style="text-align:right">61 ms</td></tr>
+      <tr><td>13 Oct, 07:30</td><td>Marketing Weekly <small>Dashboard · 7 tiles</small></td><td>Delivery</td><td>Schedule · Aby John</td><td><span class="tag ok">OK</span> <small>sent to 5</small></td><td style="text-align:right">—</td><td style="text-align:right">2,140 ms</td></tr>
+      <tr><td>16 Oct, 06:00</td><td>Every Message, 90 Days <small>Messages · v1</small></td><td>Delivery</td><td>Schedule · Devon Okafor</td><td><span class="tag bad">Timed Out</span> <small>15 s statement timeout · not sent</small></td><td style="text-align:right">—</td><td style="text-align:right">15,004 ms</td></tr>
+      <tr><td>15 Oct, 09:41</td><td>Sends by Campaign <small>Messages · v4</small></td><td>Run</td><td>Aby John</td><td><span class="tag ok">OK</span></td><td style="text-align:right">3</td><td style="text-align:right">42 ms</td></tr>
+    </tbody></table></div></div>
+</div>
+
+<div class="rules"><div class="frame">
+  <h3>What is the same in both options</h3>
+  <ul>
+    <li>Every day, every weekday, weekly on a day, or monthly on a day, at a time in the workspace's zone. The scheduler checks every five minutes; a delivery that missed its minute goes out on the next pass, never twice.</li>
+    <li>The file is built by the engine with the rights and masking of whoever scheduled it, at the moment of sending: the report as it is saved then, in its saved view. A dashboard goes as PDF, on its saved period.</li>
+    <li>Sent through the workspace's own mail server (Settings → Mail Server); a workspace without one cannot schedule, and the dialog says so.</li>
+    <li>Each delivery is a run in the Run Log, kind Delivery. Three failures in a row pause the schedule and tell its owner by email; Resume starts it again.</li>
+    <li>Send a Test Now sends the email to the person setting it up, at once.</li>
+    <li>Tables: <code>report_schedule</code> (what, when, to whom, as what, status, last and next) and <code>report_delivery</code> (each sending). Patch 0052.</li>
+  </ul>
+  <h3>How the options differ</h3>
+  <table class="compare">
+    <tr><td></td><td><b>Option 1 · Schedule From the Report</b></td><td><b>Option 2 · Deliveries</b></td></tr>
+    <tr><td>Where to set it up</td><td>On the report or dashboard, beside Export</td><td>Insights → Deliveries, then pick what to send</td></tr>
+    <tr><td>One email carries</td><td>One report or dashboard</td><td>Several, in the order listed</td></tr>
+    <tr><td>Seeing them all</td><td>Insights → Scheduled</td><td>Insights → Deliveries</td></tr>
+    <tr><td>Emails for a weekly pack of three</td><td>Three</td><td>One</td></tr>
+    <tr><td>Work to build</td><td>Smaller: one dialog, one list</td><td>A two-step dialog, a picker across reports and dashboards, and the per-attachment format</td></tr>
+    <tr><td>Growing later</td><td>A pack can be added as a second kind of schedule</td><td>Already packs</td></tr>
+  </table>
+  <p style="margin-top:14px"><b>Recommendation:</b> Option 1 for the first slice. It puts the action where people are, on the report, and the list keeps the overview; packs can follow as a second kind of schedule without changing what is saved.</p>
+</div></div>
+
+</body>
+</html>
