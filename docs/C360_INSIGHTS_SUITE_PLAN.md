@@ -19,7 +19,7 @@ inputs into one build order: the suite mockup (`docs/mockups/ai-intelekt-suite.h
 ```
 Browser ──► nginx ──┬─► /                     the suite shell + component chunks (one static build)
                     ├─► /api/v1/<component>/   c360-app     (Django, today's backend)        port 8010
-                    └─► /api/v1/insights/      c360-insights (Django, the report engine)      port 8020
+                    └─► /api/v1/insights/      c360-insights (Django, the report engine)      port 8012
                                                   │ read-only role, statement_timeout, row caps, per-tenant concurrency cap
                                                   ▼
                         PostgreSQL (system of record) ──logical replication──► reporting schema / instance (PostgreSQL 18)
@@ -72,8 +72,10 @@ audit and cache, the API, the back-office admins), the engine as a service of it
 `docs/INSIGHTS_ENGINE.md`), and the first pages: Reports list grouped by component, New Report from a dataset, the grid
 viewer on AG Grid Community with CSV export, and the Report Editor with both options of docs/mockups/report-builder.html
 (decided 2026-10-16: both): Field Wells and Steps are two ways of building one definition, switched in the editor's
-header and remembered per browser, with the shared filter builder and the live grid preview. *Next in Phase B:* the
-engine service on the servers, PII masking by role in the grid, and the chart, hierarchy and pivot views.
+header and remembered per browser, with the shared filter builder and the live grid preview. *Then (2026-10-15):* the
+engine runs as its own process on the dev server, `cep-insights` on port 8012 with nginx sending `/api/v1/insights/` to
+it in both server blocks (`deploy/cep-insights.service`, `docs/INSIGHTS_ENGINE.md`). *Next in Phase B:* PII masking by
+role in the grid, and the chart, hierarchy and pivot views.
 
 - The `c360-insights` service: a second Django process from the same codebase (`config.settings.insights`),
   mounting only the reports apps, with its own unit, worker, log and read-only reporting role. nginx routes

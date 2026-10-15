@@ -1,0 +1,27 @@
+# C360 Insights report engine: the same code as cep-backend with the Insights routes alone (config.settings.insights), so a
+# runaway report exhausts this process's connections and CPU share, never the app's. nginx sends /api/v1/insights/ here and
+# everything else to cep-backend (docs/INSIGHTS_ENGINE.md). A user unit on the dev server, like cep-backend and cep-jobs:
+#
+#   cp deploy/cep-insights.service ~/.config/systemd/user/cep-insights.service   # edit the paths, the port and the base first
+#   systemctl --user daemon-reload && systemctl --user enable --now cep-insights
+#   systemctl --user status cep-insights; tail -f /app/cep/insights.log
+#
+# On a server with system units (10.0.0.56) add User= and Group=, keep the log under /var/log/cep (SELinux refuses an append
+# log under /opt) and set CEP_SETTINGS_BASE to the base the app process runs with.
+[Unit]
+Description=C360 Insights report engine
+After=network.target
+
+[Service]
+WorkingDirectory=/app/cep/backend
+Environment=PYTHONUNBUFFERED=1
+Environment=DJANGO_SETTINGS_MODULE=config.settings.insights
+Environment=CEP_SETTINGS_BASE=development
+ExecStart=/app/cep/backend/.venv/bin/python manage.py runserver 127.0.0.1:8012 --noreload
+Restart=always
+RestartSec=3
+StandardOutput=append:/app/cep/insights.log
+StandardError=append:/app/cep/insights.log
+
+[Install]
+WantedBy=default.target
