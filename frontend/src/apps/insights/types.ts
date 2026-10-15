@@ -25,6 +25,8 @@ export interface CatalogDataset {
   time_field: string | null
   freshness: string
   fields: CatalogField[]
+  /** PII fields hidden from this person (they need the report administration right to build on them) */
+  locked?: { key: string; label: string }[]
 }
 
 export interface EngineInfo {
@@ -95,6 +97,8 @@ export interface ResultColumn {
   format: CatalogField['format']
   aggregate?: Aggregate
   bucket?: Bucket
+  /** personal data this reader may not see: every value is the mask */
+  masked?: boolean
 }
 
 export interface RunResult {

@@ -40,6 +40,9 @@ def _field_of(dataset: dict, key, where: str) -> dict:
     for field in dataset["fields"]:
         if field["key"] == key:
             return field
+    for locked in dataset.get("locked", []):
+        if locked["key"] == key:
+            raise DefinitionError(where, f"{locked['label']} is personal data: building a report on it needs the report administration right.")
     raise DefinitionError(where, "Not a field of this dataset.")
 
 

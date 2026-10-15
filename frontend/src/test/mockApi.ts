@@ -63,6 +63,12 @@ export const insightsResult = {
   rows: [['Fall Launch', 'EMAIL', 142300, 139104], ['Weekend Flash Sale', 'SMS', 25100, 24871], ['Weekly Newsletter', 'EMAIL', 201500, 198002]],
   row_count: 3, duration_ms: 42, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false,
 }
+/** the same saved report run by a reader without the right to personal data: the Customer column comes back masked */
+export const insightsMaskedResult = {
+  ...insightsResult,
+  columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...insightsResult.columns.slice(1)],
+  rows: insightsResult.rows.map((row) => ['•••••', ...row.slice(1)]),
+}
 
 export const templates: Template[] = [
   { ...audit, id: 'tpl-email', name: 'Fall Email', description: null, channel: 'EMAIL', status: 'ACTIVE', cloned_from: null, last_used_in: { id: 'c1', name: 'Fall Launch', status: 'ACTIVE', at: '2026-09-10T10:00:00Z' }, campaign_count: 2 },
@@ -1087,7 +1093,10 @@ export function installMockApi(options: MockOptions = {}) {
         const component = new URL(url, 'http://test.local').searchParams.get('component')
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component) })
       }
-      if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') return json(insightsResult)
+      if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
+        const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
+        return json(permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult)
+      }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
         const id = path.split('/').at(-2)
         const put = body as { name?: string; definition?: typeof insightsReport.definition; row_version: number }

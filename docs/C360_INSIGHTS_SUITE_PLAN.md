@@ -74,8 +74,9 @@ viewer on AG Grid Community with CSV export, and the Report Editor with both opt
 (decided 2026-10-16: both): Field Wells and Steps are two ways of building one definition, switched in the editor's
 header and remembered per browser, with the shared filter builder and the live grid preview. *Then (2026-10-15):* the
 engine runs as its own process on the dev server, `cep-insights` on port 8012 with nginx sending `/api/v1/insights/` to
-it in both server blocks (`deploy/cep-insights.service`, `docs/INSIGHTS_ENGINE.md`). *Next in Phase B:* PII masking by
-role in the grid, and the chart, hierarchy and pivot views.
+it in both server blocks (`deploy/cep-insights.service`, `docs/INSIGHTS_ENGINE.md`). *Then:* PII masking by role: building
+on a PII field needs the right, reading a shared report masks the column in the grid and the export. *Next in Phase B:*
+the chart, hierarchy and pivot views.
 
 - The `c360-insights` service: a second Django process from the same codebase (`config.settings.insights`),
   mounting only the reports apps, with its own unit, worker, log and read-only reporting role. nginx routes

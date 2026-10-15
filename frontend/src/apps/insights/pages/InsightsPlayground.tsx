@@ -1,5 +1,6 @@
 /**
- * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse.
+ * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
+ * reader without the right to personal data.
  * For design review and screenshots; the real editor is ReportEditorPage.
  */
 import { useState } from 'react'
@@ -53,13 +54,16 @@ export default function InsightsPlayground() {
   const [params, setParams] = useSearchParams()
   const layout = (params.get('layout') === 'steps' ? 'steps' : 'wells') as Layout
   const [definition, setDefinition] = useState<ReportDefinition>(params.get('state') === 'sparse' ? EMPTY : BUSY)
+  const shown: RunResult = params.get('masked')
+    ? { ...RESULT, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...RESULT.columns.slice(1)], rows: RESULT.rows.map((row) => ['•••••', ...row.slice(1)]) }
+    : RESULT
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
         <div className="flex items-center gap-2"><Tag tone="brand">Grid</Tag><span className="text-ink-700">Chart, Hierarchy and Pivot come next</span></div>
-        <span>{runWords(RESULT)}</span>
+        <span>{runWords(shown)}</span>
       </div>
-      <ResultGrid result={RESULT} label="Preview rows" minHeight={280} />
+      <ResultGrid result={shown} label="Preview rows" minHeight={280} />
     </div>
   )
   return (

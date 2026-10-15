@@ -59,8 +59,11 @@ patch 0048; it is released as Beta in patch 0049).
 
 Configuration → Report Datasets maps each dataset to its reporting view (`reporting.rpt_*`, created by patch 0049
 with `security_invoker`, so row-level security applies) and lists its fields: a dimension or a measure, its type, its
-aggregates, its display format and its sensitivity (PII fields are offered only to `report.admin` or `user.admin`;
-CONFIDENTIAL never). Report authors never see table or column names.
+aggregates, its display format and its sensitivity. A PII field is offered for building only to `report.admin` or
+`user.admin`; for anyone else it is hidden from the catalogue (a draft naming it is told why), and a saved report that
+has it still runs for them with that column masked, in the grid (named above it, cells `•••••`) and in the CSV export
+(header `Label (masked)`). The result cache keeps masked and full results apart. CONFIDENTIAL fields are never offered.
+Report authors never see table or column names.
 
 ## The analytics engine per workspace
 

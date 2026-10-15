@@ -86,6 +86,16 @@ test('the viewer runs a saved report in the grid, with Edit and Export', async (
   expect(screen.getByText(/3 rows · 42 ms · live data/)).toBeTruthy()
 })
 
+test('a reader without the right to personal data sees the PII column masked, named above the grid', async () => {
+  const reader = { ...withInsights, principal: { ...withInsights.principal, permissions: withInsights.principal.permissions.filter((p) => p !== 'user.admin') } }
+  await renderAppAt('/insights/reports/rep-1', reader)
+  await screen.findByRole('heading', { name: 'Sends by campaign' })
+  const grid = await screen.findByRole('region', { name: 'Report rows' })
+  await vi.waitFor(() => expect(within(grid).getByText('Customer (masked)')).toBeTruthy())
+  expect(within(grid).getAllByText('•••••').length).toBe(3)
+  expect(screen.getByRole('note').textContent).toBe('Customer is masked: personal data needs the report administration right.')
+})
+
 test('the viewer: the owner can delete, and the list no longer shows the report', async () => {
   const user = userEvent.setup()
   vi.spyOn(window, 'confirm').mockReturnValue(true)

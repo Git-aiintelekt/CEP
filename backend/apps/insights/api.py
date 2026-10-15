@@ -14,7 +14,7 @@
     GET    /insights/engine/                     this workspace's engine, limits and freshness (read-only here)
 
 report.view: see and run; report.edit: create and change what one may edit; report.admin: change and delete any,
-and see PII fields. The workspace needs the Insights component (an entitlement check, like the shell's).
+and build on PII fields (a reader without the right gets them masked). The workspace needs the Insights component (an entitlement check, like the shell's).
 """
 from django.http import StreamingHttpResponse
 from django.utils import timezone
@@ -99,9 +99,11 @@ def _serialize(row: dict) -> dict:
             "last_run_at": row["last_run_at"], "created_at": row["created_at"], "updated_at": row["updated_at"]}
 
 
-def _validated(request, body: dict, *, max_limit: int):
+def _validated(request, body: dict, *, max_limit: int, reading: bool = False):
+    """Authoring (create, change, preview) is checked against the fields the person may see; reading a saved report (run,
+    export) against the whole catalogue, with PII columns masked for a reader without the right."""
     dataset_key = body.get("dataset")
-    dataset = catalog.dataset(context.require().tenant_id, str(dataset_key or ""), _can_see_pii(request))
+    dataset = catalog.dataset(context.require().tenant_id, str(dataset_key or ""), reading or _can_see_pii(request))
     if dataset is None:
         raise ValidationError({"dataset": "Choose one of the datasets this workspace can report on."})
     try:
@@ -277,10 +279,11 @@ class RunView(APIView):
         tenant = _tenant()
         row = _report_row(report_id, request)
         dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": row["definition"] if not isinstance(row["definition"], str) else __import__("json").loads(row["definition"])},
-                                         max_limit=catalog.engine_of(tenant.pk)["limits"]["run_rows"])
+                                         max_limit=catalog.engine_of(tenant.pk)["limits"]["run_rows"], reading=True)
         limit, offset = _run_body(request)
         try:
-            result = runner.run(tenant, request.user, dataset, definition, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"])
+            result = runner.run(tenant, request.user, dataset, definition, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
+                                mask_pii=not _can_see_pii(request))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():
@@ -297,9 +300,9 @@ class ExportView(APIView):
         row = _report_row(report_id, request)
         import json
         definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
-        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"])
+        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
         try:
-            chunks = runner.stream_csv(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"])
+            chunks = runner.stream_csv(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
             first = next(chunks)
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
