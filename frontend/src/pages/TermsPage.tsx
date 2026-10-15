@@ -17,7 +17,7 @@ export default function TermsPage() {
           <div className="flex items-center gap-2.5">
             <span className="font-display text-xl font-semibold tracking-[-0.02em] text-wordmark-navy">C360</span>
             <span aria-hidden className="h-3.5 w-px bg-fill-muted" />
-            <span className="text-helper text-ink-800">Customer Engagement Platform</span>
+            <span className="text-helper text-ink-800">Customer Insights Platform</span>
           </div>
           <Link to="/login" className="inline-flex items-center gap-1 text-helper text-brand-800 hover:underline">
             <ChevronLeft size={16} strokeWidth={1.5} aria-hidden /> Back to Log In
