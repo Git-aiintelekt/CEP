@@ -68,6 +68,35 @@ class ReportDatasetSource(models.Model):
         unique_together = (('dataset', 'engine'),)
 
 
+class ReportEngineConnection(models.Model):
+    """An analytics engine the back-office can point a workspace at: named by its profile on ReportEngineSetting.connection_profile."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    profile = models.CharField(max_length=60, unique=True)
+    engine = models.CharField(max_length=12, default='clickhouse')
+    url = models.CharField(max_length=300)
+    username = models.CharField(max_length=100, null=True, blank=True)
+    password_enc = models.TextField(null=True, blank=True)
+    database_name = models.CharField(max_length=60, default='cep_reporting')
+    status = models.CharField(max_length=10, default='ACTIVE')
+    notes = models.TextField(null=True, blank=True)
+    last_tested_at = models.DateTimeField(null=True, blank=True)
+    last_test_ok = models.BooleanField(null=True, blank=True)
+    last_test_error = models.CharField(max_length=300, null=True, blank=True)
+    created_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='created_by', related_name='+', null=True, blank=True)
+    updated_by = models.ForeignKey('identity.AppUser', on_delete=models.PROTECT, db_column='updated_by', related_name='+', null=True, blank=True)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'report_engine_connection'
+        ordering = ('profile',)
+
+    def __str__(self):
+        return f"{self.profile} ({self.engine})"
+
+
 class ReportEngineSetting(models.Model):
     tenant = models.OneToOneField('tenants.Tenant', on_delete=models.CASCADE, db_column='tenant_id', primary_key=True, related_name='+')
     engine = models.CharField(max_length=12, default='postgresql')

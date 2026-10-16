@@ -8,5 +8,5 @@
         <li><strong>Activate ClickHouse</strong> moves the workspace's reports, dashboards, exports and deliveries over; the data is then as of the last quarter hour.</li>
         <li><strong>Roll Back to PostgreSQL</strong> returns to the live views at once.</li>
     </ol>
-    <p style="margin:0;font-size:13px;color:#4b4f5b;">The buttons sit at the top of a workspace's row. The server's ClickHouse connection is its environment, not this page; an empty connection means every workspace stays on PostgreSQL. Full chapter: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'report-engines' %}">Report Datasets and Report Engines</a> in the Platform Guide.</p>
+    <p style="margin:0;font-size:13px;color:#4b4f5b;">The buttons sit at the top of a workspace's row. The ClickHouse a workspace uses is its <strong>Connection profile</strong> (Configuration → Report Engine Connections), else the server's environment; with neither, the workspace stays on PostgreSQL. Full chapter: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'report-engines' %}">Report Datasets and Report Engines</a> in the Platform Guide.</p>
 </div>
