@@ -37,6 +37,7 @@ import { MailServerPage } from './pages/settings/MailServerPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { PlanUsagePage } from './pages/settings/PlanUsagePage'
 import { PosReceiptsPage } from './pages/settings/PosReceiptsPage'
+import { AiAssistantPage } from './pages/settings/AiAssistantPage'
 import { PreferenceCenterPage } from './pages/settings/PreferenceCenterPage'
 import { RolesPage } from './pages/settings/RolesPage'
 import { SecurityPage } from './pages/settings/SecurityPage'
@@ -107,6 +108,7 @@ export default function CepRoutes() {
           <Route path="events" element={<EventsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="ai-assistant" element={<AiAssistantPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>

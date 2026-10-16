@@ -76,6 +76,7 @@ def plan_for(tenant_id) -> dict | None:
     keys = ("code", "name", "max_messages", "max_contacts", "max_users", "max_storage_gb", "monthly_price", "currency", "overage_messages", "overage_contacts", "subscription_status")
     plan = dict(zip(keys, rows[0]))
     plan["max_deliverability_tests"] = _tests_allowance(rows[0][-1])
+    plan["max_ai_prompts"] = _column_allowance(rows[0][-1], "max_ai_prompts_per_month")
     return plan
 
 
@@ -87,6 +88,25 @@ def _tests_allowance(plan_id):
             return _rows("SELECT max_deliverability_tests_per_month FROM subscription_plan WHERE id = %s", [plan_id])[0][0]
     except ProgrammingError:
         return None
+
+
+def _column_allowance(plan_id, column: str):
+    """A plan's monthly allowance in a column a later patch adds; None (unlimited) until the patch is applied."""
+    from django.db import ProgrammingError
+    try:
+        with transaction.atomic(using=P):
+            return _rows(f"SELECT {column} FROM subscription_plan WHERE id = %s", [plan_id])[0][0]
+    except ProgrammingError:
+        return None
+
+
+def _prompts_meter(tenant_id) -> dict:
+    """AI report drafts this month against the plan's number (apps/insights/assistant)."""
+    from apps.insights import assistant
+    use = assistant.allowance(tenant_id)
+    meter = _meter("AI prompts this month", use["used"], use["limit"], None)
+    meter["note"] = "Drafts asked for with AI · Ask for a Report. A question back or a no-field answer does not count."
+    return meter
 
 
 def usage_for(tenant_id, month: date | None = None) -> dict:
@@ -145,6 +165,7 @@ def quota(tenant_id) -> dict:
         _meter("Active users", users, limits.get("max_users"), None),
         _meter("Storage", storage_gb, limits.get("max_storage_gb"), None, "GB"),
         _tests_meter(tenant_id),
+        _prompts_meter(tenant_id),
     ]
     return {"month": month_start().isoformat(),
             "plan": {"code": plan["code"], "name": plan["name"], "monthly_price": float(plan["monthly_price"] or 0), "currency": plan["currency"],

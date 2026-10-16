@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, TileResult } from './types'
+import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -59,7 +59,15 @@ export const schedulesApi = {
   test: (id: string) => api.post<{ outcome: string; detail: string | null; recipients: number; rows: number | null }>(`/insights/schedules/${id}/test/`, {}),
 }
 
+export const assistantApi = {
+  state: (signal?: AbortSignal) => api.get<AssistantState>('/insights/assistant/', undefined, signal),
+  ask: (body: { prompt: string; model: string; answer_to?: string }) => api.post<AskResult>('/insights/assistant/ask/', body),
+  /** the draft becomes a private report, opened in the editor */
+  open: (id: string) => api.post<Report>(`/insights/assistant/${id}/open/`, {}),
+}
+
 export const keys = {
+  assistant: ['insights', 'assistant'] as const,
   schedules: ['insights', 'schedules'] as const,
   folders: ['insights', 'folders'] as const,
   runs: (query: { days?: '7' | '30'; outcome?: string; user?: string; q?: string }) => ['insights', 'runs', query] as const,
@@ -71,6 +79,10 @@ export const keys = {
   report: (id: string) => ['insights', 'report', id] as const,
   versions: (id: string) => ['insights', 'versions', id] as const,
   run: (id: string, page: { limit?: number; offset?: number; view?: ReportView }) => ['insights', 'run', id, page] as const,
+}
+
+export function useAssistant() {
+  return useQuery({ queryKey: keys.assistant, queryFn: ({ signal }) => assistantApi.state(signal), staleTime: 30_000 })
 }
 
 export function useCatalog() {

@@ -178,3 +178,13 @@ run there, freshness a quarter hour) and **Roll Back to PostgreSQL**. The catalo
 `report_engine_setting` names the engine (PostgreSQL today, ClickHouse with Phase E), its connection profile, its
 status, freshness and limits. For dev and test, the reporting views read the CEP database itself (the spec's smallest
 deployment); production gets a reporting instance fed by logical replication.
+
+## AI · Ask for a Report
+
+`apps/insights/assistant.py` turns a prompt into a report through Claude or OpenAI (patch 0055). The platform's keys live
+in `ai_provider` (Configuration → AI Assistant, encrypted); a workspace's switches in `tenant.settings.ai_assistant`; every
+prompt in `ai_prompt` (RLS, kept 90 days). The model receives the prompt and the catalogue of fields the person may use
+(locked PII fields are left out) and answers through a schema-bound reply (Anthropic tool use, OpenAI json_schema): a
+draft, validated with `definition.validate` and retried once with the error; one question; or no_field with the closest
+prompts. Only a draft counts against `subscription_plan.max_ai_prompts_per_month`. Open in Editor inserts the report and
+its first version like New Report. Change with a Prompt and Explain This Report are the next slice.

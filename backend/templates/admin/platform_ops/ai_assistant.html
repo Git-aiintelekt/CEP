@@ -1,0 +1,109 @@
+{% extends "admin/base.html" %}
+{% load unfold humanize %}
+{% block title %}AI Assistant | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home">
+    <div class="cep-pagehead">
+        <div>
+            <h1>AI Assistant</h1>
+            <p>Turns prompts into reports for every workspace on a plan with AI prompts. The model receives the prompt and the field names a person may use, never customer rows; Explain This Report also sends totals. Each workspace has its own switch under Settings → AI Assistant.</p>
+        </div>
+    </div>
+
+    {% for p in providers %}
+    <section class="cep-card" style="padding:1.125rem;margin-bottom:1rem">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.875rem;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;border:1px solid var(--cep-line, #d9dbe0);font-weight:700;font-size:14px">{{ p.mark }}</span>
+            <div style="flex:1;min-width:200px">
+                <div style="font-size:15px;font-weight:600;color:var(--cep-text-strong)">{{ p.name }}</div>
+                <div class="cep-muted" style="font-size:12px">{{ p.keys }}</div>
+            </div>
+            {% if p.row and p.row.api_key_enc %}
+                {% if p.row.last_check_ok %}<span class="cep-pill" data-kind="success">Connected · checked {{ p.row.last_checked_at|date:"M j, H:i" }}</span>
+                {% elif p.row.last_check_ok is False %}<span class="cep-pill" data-kind="danger">Failed</span>
+                {% else %}<span class="cep-pill" data-kind="info">Not Checked</span>{% endif %}
+                {% if p.row.is_active %}<span class="cep-pill" data-kind="success">On</span>{% else %}<span class="cep-pill" data-kind="info">Off</span>{% endif %}
+            {% else %}<span class="cep-pill" data-kind="info">Not Set Up</span>{% endif %}
+        </div>
+        {% if p.row and p.row.last_check_ok is False and p.row.last_check_error %}
+            <div style="padding:0.5rem 0.75rem;margin-bottom:0.875rem;border:1px solid var(--cep-line, #d9dbe0);border-radius:6px;color:var(--cep-bad-text);font-size:13px">{{ p.row.last_check_error }}</div>
+        {% endif %}
+        <form method="post">{% csrf_token %}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem 1.25rem">
+                {% for field in p.form %}
+                    <div{% if field.name == "api_key" %} style="grid-column:1 / -1"{% endif %}>
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label style="display:flex;gap:0.5rem;align-items:center;font-size:15px;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+                        {% else %}
+                            <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}{% if field.name == "api_key" and p.row and p.row.api_key_enc %} <span class="cep-muted" style="font-weight:400">· stored</span>{% endif %}</label>
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+                {% if p.row and p.row.api_key_enc %}
+                    <button type="submit" name="action" value="remove:{{ p.key }}" class="cep-button cep-button-danger" formnovalidate>Remove</button>
+                    <button type="submit" name="action" value="check:{{ p.key }}" class="cep-button cep-button-quiet" formnovalidate>Check Connection</button>
+                {% endif %}
+                <button type="submit" name="action" value="save:{{ p.key }}" class="cep-button">Save</button>
+            </div>
+        </form>
+    </section>
+    {% endfor %}
+
+    {% if defaults %}
+    <section class="cep-card" style="padding:1.125rem;margin-bottom:1rem">
+        <form method="post">{% csrf_token %}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem 1.25rem">
+                {% for field in defaults %}
+                    <div>
+                        {% if field.field.widget.input_type == "checkbox" %}
+                            <label style="display:flex;gap:0.5rem;align-items:center;font-size:15px;font-weight:600;color:var(--cep-text-strong)" for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+                        {% else %}
+                            <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}<div class="leading-relaxed mt-2 text-xs">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="mt-2 text-red-600 text-sm dark:text-red-500">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+                <div style="grid-column:1 / -1">
+                    <div class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark">Prompts a Month</div>
+                    <div style="font-size:14px">{% for plan in plans %}{{ plan.name }} {% if plan.limit is None %}unlimited{% else %}{{ plan.limit|intcomma }}{% endif %}{% if not forloop.last %} · {% endif %}{% empty %}—{% endfor %}</div>
+                    <div class="leading-relaxed mt-2 text-xs">Set on each plan (Plans → AI prompts a month). Only a draft counts; a question back or a no-field answer does not.</div>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+                <button type="submit" name="action" value="defaults" class="cep-button">Save</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
+
+    <section class="cep-card" style="padding:0">
+        <table class="cep-plain-table">
+            <caption class="cep-muted" style="text-align:left;padding:0.875rem 1.125rem 0.5rem">{{ month|date:"F Y" }}, by workspace</caption>
+            <thead><tr class="cep-thead">
+                <th style="padding:0.5rem 1.125rem">Workspace</th><th style="padding:0.5rem">Plan</th><th style="padding:0.5rem;text-align:right">Claude</th><th style="padding:0.5rem;text-align:right">OpenAI</th><th style="padding:0.5rem;text-align:right">Used</th><th style="padding:0.5rem 1.125rem;text-align:right">Of</th></tr></thead>
+            <tbody>
+            {% for row in use %}
+                <tr>
+                    <td style="padding:0.5rem 1.125rem"><a class="cep-link" href="{% url 'admin:tenants_tenant_change' row.tenant.pk %}">{{ row.tenant.name }}</a> <span class="cep-muted">{{ row.tenant.code }}</span></td>
+                    <td style="padding:0.5rem">{{ row.plan }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ row.anthropic|intcomma }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ row.openai|intcomma }}</td>
+                    <td style="padding:0.5rem;text-align:right">{{ row.used|intcomma }}</td>
+                    <td style="padding:0.5rem 1.125rem;text-align:right">{% if row.limit is None %}unlimited{% else %}{{ row.limit|intcomma }}{% endif %}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="cep-muted" style="padding:0.875rem 1.125rem">No prompts this month.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

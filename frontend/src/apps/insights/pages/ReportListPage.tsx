@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { formatDateTime } from '@/lib/format'
 import { useCatalog, useFolders, useReports } from '../api'
+import { AskForReport } from '../components/AskForReport'
 import { FavouriteStar } from '../components/FavouriteStar'
 import type { ReportSummary } from '../types'
 
@@ -46,6 +47,7 @@ export function ReportListPage() {
         description={reports.data ? `${rows.length} report${rows.length === 1 ? '' : 's'}${component ? '' : ' · grouped by component'}` : undefined}
         actions={canCreate ? <button type="button" className={buttonPrimary} onClick={() => navigate(`/insights/reports/new${component ? `?component=${component}` : ''}`)}><Plus size={16} strokeWidth={1.5} aria-hidden />New Report</button> : undefined}
       />
+      {canCreate && <AskForReport />}
       <div className="flex flex-wrap items-center gap-2">
         <label className="relative">
           <span className="sr-only">Search all reports</span>
