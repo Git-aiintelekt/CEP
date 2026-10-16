@@ -125,7 +125,7 @@ def test_api(check, world, monkeypatch):
 
     mine = world.api("get", "/api/v1/workspace/ai-assistant/").json()
     check("Settings → AI Assistant shows the switches, the providers the platform offers and the month's use", mine["enabled"] and mine["providers"] == {"anthropic": True, "openai": True}
-          and [p["key"] for p in mine["available"]] == ["anthropic"] and mine["usage"]["used"] == 2 and mine["usage"]["limit"] == 2 and mine["retention_days"] == 90, json.dumps(mine)[:300])
+          and [p["key"] for p in mine["available"] if p["platform"]] == ["anthropic"] and [p["key"] for p in mine["available"]] == ["anthropic", "openai"] and mine["usage"]["used"] == 2 and mine["usage"]["limit"] == 2 and mine["retention_days"] == 90, json.dumps(mine)[:300])
     off = world.api("put", "/api/v1/workspace/ai-assistant/", {"enabled": False})
     state = world.api("get", "/api/v1/insights/assistant/").json()
     check("switched off by the workspace, the box is gone and a prompt is refused", off.status_code == 200 and not off.json()["enabled"] and not state["enabled"] and state["reason"] == "workspace_off"
