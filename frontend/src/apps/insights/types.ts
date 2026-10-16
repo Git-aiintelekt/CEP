@@ -39,6 +39,8 @@ export interface CatalogDataset {
 
 export interface EngineInfo {
   engine: 'postgresql' | 'clickhouse'
+  /** the engine the reports run on now: ClickHouse only once it is active */
+  dialect?: 'postgresql' | 'clickhouse'
   status: 'ACTIVE' | 'MIGRATING' | 'READ_ONLY'
   freshness_sla: string
   limits: { statement_timeout_ms: number; preview_rows: number; run_rows: number; export_rows: number; concurrent: number }

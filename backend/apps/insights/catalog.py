@@ -33,10 +33,12 @@ def engine_of(tenant_id) -> dict:
     row = _rows("SELECT engine, status, freshness_sla, query_limits FROM report_engine_setting WHERE tenant_id = %s", [str(tenant_id)])
     import json
     if not row:
-        return {"engine": "postgresql", "status": "ACTIVE", "freshness_sla": "LIVE", "limits": dict(DEFAULT_LIMITS)}
+        return {"engine": "postgresql", "status": "ACTIVE", "freshness_sla": "LIVE", "limits": dict(DEFAULT_LIMITS), "dialect": "postgresql"}
     engine, status, freshness, limits = row[0]
     limits = (json.loads(limits) if isinstance(limits, str) else limits) or {}
-    return {"engine": engine, "status": status, "freshness_sla": freshness, "limits": {**DEFAULT_LIMITS, **limits}}
+    # the engine that runs the reports now: ClickHouse only once it is active; while it is MIGRATING the runs stay on PostgreSQL
+    dialect = engine if engine == "clickhouse" and status in ("ACTIVE", "READ_ONLY") else "postgresql"
+    return {"engine": engine, "status": status, "freshness_sla": freshness if dialect == engine else "LIVE", "limits": {**DEFAULT_LIMITS, **limits}, "dialect": dialect}
 
 
 def _load(engine: str) -> list[dict]:
@@ -73,7 +75,7 @@ def _visible(dataset: dict, can_see_pii: bool) -> dict:
 
 def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
     engine = engine_of(tenant_id)
-    return [_visible(d, can_see_pii) for d in _load(engine["engine"])]
+    return [_visible(d, can_see_pii) for d in _load(engine["dialect"])]
 
 
 def dataset(tenant_id, key: str, can_see_pii: bool = False) -> dict | None:

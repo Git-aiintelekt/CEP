@@ -87,6 +87,19 @@ def test_definition_and_compiler(check):
           masked_rows == [[runner.MASK, 4], [runner.MASK, 1], [None, 2]] and masked_columns[0].get("masked") is True and "masked" not in masked_columns[1], str(masked_rows))
     check("a reader with the right gets the rows as they are", runner.mask(DATASET, columns, rows, False) == (columns, rows))
 
+    # the ClickHouse dialect: typed named placeholders, its time-zone and bucket expressions, IN, ILIKE without ESCAPE, FINAL
+    ch = compiler.compile(DATASET, d, "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=51, offset=0, dialect="clickhouse")
+    check("the ClickHouse query reads the table FINAL, buckets with date_trunc in the zone, binds every value as a typed parameter and keeps the shape",
+          ch.sql.startswith('SELECT "campaign_name" AS "c0", toDate(date_trunc(\'month\', toTimeZone("submitted_at", {p0:String}))) AS "c1", sum("sent_n") AS "c2" FROM "reporting"."rpt_messages" FINAL WHERE "tenant_id" = {p1:UUID}')
+          and "toIntervalDay({p" in ch.sql and " IN {p" in ch.sql and "ESCAPE" not in ch.sql and "ILIKE {p" in ch.sql and "LIMIT {p" in ch.sql and isinstance(ch.params, dict)
+          and ch.params["p0"] == "America/New_York" and ch.params["p1"] == "a0000000-0000-4000-8000-000000000001" and ["SMS", "EMAIL"] in ch.params.values(), ch.sql)
+    ch_span = compiler.compile(DATASET, definition.validate(DATASET, {"columns": [{"field": "channel"}], "filters": {"rules": [{"field": "submitted_at", "operator": "between", "value": ["2026-09-01", "2026-09-30"]}]}}),
+                               "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=10, dialect="clickhouse")
+    check("a range of days on a timestamp becomes the instants of the local days' bounds in ClickHouse", '"submitted_at" >= toDateTime({p1:String}, {p2:String}) AND "submitted_at" < toDateTime({p3:String}, {p4:String}) + INTERVAL 1 DAY' in ch_span.sql
+          and ch_span.params["p1"] == "2026-09-01" and ch_span.params["p2"] == "America/New_York", ch_span.sql)
+    ch_t = compiler.compile_totals(DATASET, d2 if "d2" in dir() else d, "a0000000-0000-4000-8000-000000000001", "America/New_York", [(), ("campaign_name",)], limit=100, dialect="clickhouse")
+    check("the totals query keeps GROUPING SETS and GROUPING in ClickHouse", "GROUP BY GROUPING SETS ((), (\"d0\"))" in ch_t.sql and 'GROUPING("d0") AS "g"' in ch_t.sql and " FINAL WHERE " in ch_t.sql, ch_t.sql)
+
     # the engine's totals: the grouping sets a view needs, and their query
     d2 = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}, {"field": "messages", "aggregate": "count"}],
                                        "filters": {"rules": [{"field": "channel", "operator": "=", "value": "EMAIL"}]}})

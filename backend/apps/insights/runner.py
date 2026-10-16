@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import compiler
+from . import clickhouse, compiler
 from .catalog import engine_of
 from .definition import signature
 
@@ -73,11 +73,19 @@ def _json_safe(value):
     return value
 
 
-def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int) -> tuple[list, int]:
-    """The query in a savepoint of its own: read-only, as the reporting role, with the statement timeout. The savepoint is
-    rolled back on the way out (a read-only query loses nothing), so the role, the timeout and the read-only flag never
-    outlive the query: the request's own transaction goes on as the app, writing its audit row and anything else."""
+def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int, dialect: str = "postgresql") -> tuple[list, int]:
+    """PostgreSQL: the query in a savepoint of its own: read-only, as the reporting role, with the statement timeout. The
+    savepoint is rolled back on the way out (a read-only query loses nothing), so the role, the timeout and the read-only
+    flag never outlive the query: the request's own transaction goes on as the app, writing its audit row and anything
+    else. ClickHouse: one read-only HTTP query with max_execution_time; its timeout reads as a statement timeout."""
     started = time.monotonic()
+    if dialect == "clickhouse":
+        try:
+            rows = [[_json_safe(v) for v in row] for row in clickhouse.query(compiled.sql, compiled.params, timeout_s=max(1, timeout_ms // 1000))]
+        except clickhouse.ClickHouseError as exc:
+            message = str(exc)
+            raise RuntimeError(f"statement timeout: {message}" if "TIMEOUT_EXCEEDED" in message or "Timeout exceeded" in message else message) from None
+        return rows, int((time.monotonic() - started) * 1000)
     with session.tenant_scope(tenant_id) as scope, session.tx():
         with session.connection().cursor() as cursor:
             cursor.execute("SET LOCAL transaction_read_only = on")
@@ -105,10 +113,10 @@ def mask(dataset: dict, columns: list[dict], rows: list[list], masked: bool) -> 
     return columns, rows
 
 
-def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout_ms: int, cap: int, mask_pii: bool) -> list[dict]:
+def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout_ms: int, cap: int, mask_pii: bool, dialect: str = "postgresql") -> list[dict]:
     """The engine's totals for a hierarchy or a pivot: one entry per totalled row, its dimension keys (the ones kept) and its measures."""
-    compiled = compiler.compile_totals(dataset, definition, str(tenant_id), zone, sets, limit=cap)
-    rows, _ = _execute(tenant_id, compiled, timeout_ms)
+    compiled = compiler.compile_totals(dataset, definition, str(tenant_id), zone, sets, limit=cap, dialect=dialect)
+    rows, _ = _execute(tenant_id, compiled, timeout_ms, dialect)
     dims = [c for c in compiled.columns if "aggregate" not in c]
     pii = {f["key"] for f in dataset["fields"] if f["sensitivity"] == "PII"} if mask_pii else set()
     out = []
@@ -138,12 +146,13 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     if cached is not None:
         return {**cached, "cached": True}
     zone = reports.zone_of(tenant).key
-    compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=page + 1, offset=offset)
+    dialect = engine["dialect"]
+    compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=page + 1, offset=offset, dialect=dialect)
     slot = _slot(tenant.pk, limits["concurrent"])
     try:
         try:
-            rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"])
-            totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii) if sets else None
+            rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
+            totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect) if sets else None
         except Exception as exc:                                    # noqa: BLE001  the reason is classified, the query never reaches the client
             message = str(exc)
             outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
@@ -167,6 +176,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
+    dialect = engine["dialect"]
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
@@ -174,9 +184,9 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
     try:
         offset, page = 0, 5_000
         while offset < limits["export_rows"]:
-            compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset)
+            compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset, dialect=dialect)
             try:
-                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"])
+                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 return
@@ -205,6 +215,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
+    dialect = engine["dialect"]
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
@@ -213,15 +224,15 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
     try:
         if sets:
             try:
-                totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii)
+                totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect)
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 raise RunRefused("FAILED", "The export could not be run. If it happens again, tell your administrator.") from None
         offset, page = 0, 5_000
         while offset < limits["export_rows"]:
-            compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset)
+            compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset, dialect=dialect)
             try:
-                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"])
+                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
             except Exception as exc:                                # noqa: BLE001
                 message = str(exc)
                 outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"
