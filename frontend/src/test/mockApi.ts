@@ -77,8 +77,12 @@ const assistantModels = [
 export const insightsAssistantNow = { enabled: true, reason: null as string | null, models: assistantModels, default_model: 'anthropic:claude-sonnet-5-5',
   usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' },
   examples: ['Which campaigns made the most revenue last month?', 'Delivered rate by sending engine, by week'], recent: [] as unknown[] }
-export const workspaceAssistantNow = { enabled: true, providers: { anthropic: true, openai: true }, explain: true,
-  available: [{ key: 'anthropic', name: 'Claude (Anthropic)', mark: 'A', models: ['Claude Sonnet 5.5', 'Claude Haiku 5.5'] }, { key: 'openai', name: 'OpenAI', mark: 'O', models: ['GPT-5', 'GPT-5 mini'] }],
+type OwnKey = { configured: boolean; model_reports: string | null; model_fast: string | null; last_checked_at: string | null; last_check_ok: boolean | null; last_check_error: string | null } | null
+const assistantProviders = () => [
+  { key: 'anthropic', name: 'Claude (Anthropic)', mark: 'A', keys: 'console.anthropic.com → API Keys', platform: true, platform_models: ['Claude Sonnet 5.5', 'Claude Haiku 5.5'], own: null as OwnKey, default_models: ['claude-sonnet-5-5', 'claude-haiku-5-5'] },
+  { key: 'openai', name: 'OpenAI', mark: 'O', keys: 'platform.openai.com → API Keys', platform: true, platform_models: ['GPT-5', 'GPT-5 mini'], own: null as OwnKey, default_models: ['gpt-5', 'gpt-5-mini'] },
+]
+export const workspaceAssistantNow = { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders(),
   explain_allowed: true, usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth' }, retention_days: 90 }
 function assistantReply(prompt: string, modelId: string) {
   const model = assistantModels.find((m) => m.id === modelId) ?? assistantModels[0]
@@ -800,7 +804,7 @@ export function installMockApi(options: MockOptions = {}) {
   insightsAssistantNow.reason = null
   insightsAssistantNow.usage = { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' }
   insightsAssistantNow.recent = []
-  Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
+  Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders() })
   insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
@@ -1160,11 +1164,24 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/roles/')) return json(roles)
     if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
     if (path.endsWith('/api-clients/')) return json(apiKeys)
+    if (path.endsWith('/workspace/ai-assistant/check/')) {
+      const provider = workspaceAssistantNow.available.find((p) => p.key === ((body ?? {}) as { provider: string }).provider)
+      if (provider?.own) provider.own = { ...provider.own, last_check_ok: true, last_checked_at: '2026-10-16T10:00:00Z', last_check_error: null }
+      return json({ ok: true, detail: 'Connected. gpt-5, gpt-5-mini available.' })
+    }
     if (path.endsWith('/workspace/ai-assistant/')) {
       if (method === 'PUT') {
         const put = (body ?? {}) as Record<string, unknown>
         Object.assign(workspaceAssistantNow, { ...(typeof put.enabled === 'boolean' ? { enabled: put.enabled } : {}), ...(typeof put.explain === 'boolean' ? { explain: put.explain } : {}),
           ...(put.providers ? { providers: { ...workspaceAssistantNow.providers, ...(put.providers as object) } } : {}) })
+        for (const [key, value] of Object.entries((put.own ?? {}) as Record<string, { api_key?: string; model_reports?: string; model_fast?: string } | null>)) {
+          const provider = workspaceAssistantNow.available.find((p) => p.key === key)
+          if (!provider) continue
+          if (value === null) provider.own = null
+          else if (!provider.own && !value.api_key) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { api_key: "Give the provider's API key." } }, 400)
+          else provider.own = { configured: true, model_reports: value.model_reports ?? provider.own?.model_reports ?? null, model_fast: value.model_fast ?? provider.own?.model_fast ?? null,
+            last_checked_at: null, last_check_ok: null, last_check_error: null }
+        }
       }
       return json(workspaceAssistantNow)
     }

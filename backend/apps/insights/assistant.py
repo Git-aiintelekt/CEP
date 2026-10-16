@@ -5,15 +5,18 @@ a definition, checked against the catalogue like any report built by hand and re
 question when the prompt has two readings, or "no field for this" with the closest prompts the catalogue can answer.
 Only a draft counts against the plan's prompts a month.
 
-    Platform:   Configuration -> AI Assistant (apps/platform_ops/admin_ai.py): ai_provider rows, one per provider, the key
-                encrypted; ai.default_model and ai.explain_allowed among the global parameters (patch 0055).
-    Workspace:  Settings -> AI Assistant: tenant.settings.ai_assistant = {enabled, providers: {anthropic, openai}, explain}.
+    Platform:   Configuration -> AI Assistant (apps/platform_ops/admin_ai.py): ai_provider rows without a tenant, one per provider,
+                the key encrypted; ai.default_model and ai.explain_allowed among the global parameters (patch 0055).
+    Workspace:  Settings -> AI Assistant: tenant.settings.ai_assistant = {enabled, providers: {anthropic, openai}, explain}, and the
+                workspace's own keys as ai_provider rows with its tenant_id (RLS). A workspace's own key wins over the platform's
+                for that provider, and prompts on it are not limited by the plan (account OWN).
     Prompts:    ai_prompt, in the workspace (RLS), kept 90 days.
 
     GET  /insights/assistant/                  what this person may ask: the models, the default, the month's use, recent prompts
     POST /insights/assistant/ask/              {prompt, model, answer_to?} -> the reply
     POST /insights/assistant/<id>/open/        the draft becomes a private report, opened in the editor
-    GET, PUT /workspace/ai-assistant/          the workspace's switches (user.admin)
+    GET, PUT /workspace/ai-assistant/          the workspace's switches and its own keys (user.admin)
+    POST     /workspace/ai-assistant/check/    {provider} -> the workspace's own key checked
 """
 import json
 import time
@@ -108,13 +111,15 @@ def table_present() -> bool:
     return _TABLE_SEEN
 
 
+COLUMNS = "provider, api_key_enc, model_reports, model_fast, is_active, last_checked_at, last_check_ok, last_check_error, updated_at"
+
+
 def providers() -> dict[str, dict]:
-    """every provider row by key, the key decrypted (never serialised)"""
+    """the platform's provider rows by key (the key stays encrypted here)"""
     if not table_present():
         return {}
     with connections[P].cursor() as cursor:
-        cursor.execute("""SELECT provider, api_key_enc, model_reports, model_fast, is_active, last_checked_at, last_check_ok, last_check_error, updated_at
-                            FROM ai_provider""")
+        cursor.execute(f"SELECT {COLUMNS} FROM ai_provider WHERE tenant_id IS NULL")
         names = [c[0] for c in cursor.description]
         rows = [dict(zip(names, row)) for row in cursor.fetchall()]
     return {row["provider"]: row for row in rows if row["provider"] in PROVIDERS}
@@ -122,6 +127,71 @@ def providers() -> dict[str, dict]:
 
 def active_providers() -> dict[str, dict]:
     return {key: row for key, row in providers().items() if row["is_active"] and row["api_key_enc"]}
+
+
+def own_providers(tenant_id) -> dict[str, dict]:
+    """a workspace's own provider rows by key: on its own connection inside a request, on the platform's from the back-office"""
+    if not table_present():
+        return {}
+    if context.current() is not None and not context.is_platform():
+        rows = _q(f"SELECT {COLUMNS} FROM ai_provider WHERE tenant_id = %s", [str(tenant_id)])
+    else:
+        with connections[P].cursor() as cursor:
+            cursor.execute(f"SELECT {COLUMNS} FROM ai_provider WHERE tenant_id = %s", [str(tenant_id)])
+            names = [c[0] for c in cursor.description]
+            rows = [dict(zip(names, row)) for row in cursor.fetchall()]
+    return {row["provider"]: row for row in rows if row["provider"] in PROVIDERS}
+
+
+def effective_providers(tenant) -> dict[str, dict]:
+    """the rows a workspace runs on: its own key for a provider when it has one, else the platform's when switched on and allowed"""
+    mine = workspace_settings(tenant)
+    own, platform = own_providers(tenant.pk), active_providers()
+    out = {}
+    for key in PROVIDERS:
+        if key in own and own[key]["api_key_enc"] and own[key]["is_active"]:
+            out[key] = {**own[key], "source": "own"}
+        elif key in platform and mine["providers"].get(key, True):
+            out[key] = {**platform[key], "source": "platform"}
+    return out
+
+
+def save_own_provider(tenant, provider: str, data: dict) -> None:
+    """the workspace's own row for a provider: inserted or changed, the key encrypted; an empty key keeps the stored one"""
+    current = own_providers(tenant.pk).get(provider)
+    key = (data.get("api_key") or "").strip()
+    if current is None and not key:
+        raise ValidationError({"api_key": "Give the provider's API key."})
+    models = {name: " ".join(str(data.get(name) or (current or {}).get(name) or DEFAULT_MODELS[provider][i]).split()) for i, name in enumerate(("model_reports", "model_fast"))}
+    for name, value in models.items():
+        if len(value) > 80 or not all(ch.isalnum() or ch in "-._:" for ch in value):
+            raise ValidationError({name: "A model name: letters, digits, dots, dashes."})
+    with session.tx():
+        if current is None:
+            _q("""INSERT INTO ai_provider (tenant_id, provider, api_key_enc, model_reports, model_fast, is_active)
+                  VALUES (%s, %s, %s, %s, %s, TRUE)""", [str(tenant.pk), provider, crypto.encrypt(key), models["model_reports"], models["model_fast"]])
+        else:
+            sets, args = ["model_reports = %s", "model_fast = %s", "updated_at = now()", "row_version = row_version + 1"], [models["model_reports"], models["model_fast"]]
+            if key:
+                sets += ["api_key_enc = %s", "last_checked_at = NULL", "last_check_ok = NULL", "last_check_error = NULL"]
+                args.append(crypto.encrypt(key))
+            _q(f"UPDATE ai_provider SET {', '.join(sets)} WHERE tenant_id = %s AND provider = %s", [*args, str(tenant.pk), provider])
+
+
+def remove_own_provider(tenant, provider: str) -> None:
+    with session.tx():
+        _q("DELETE FROM ai_provider WHERE tenant_id = %s AND provider = %s", [str(tenant.pk), provider])
+
+
+def check_own_provider(tenant, provider: str) -> tuple[bool, str]:
+    row = own_providers(tenant.pk).get(provider)
+    if row is None or not row["api_key_enc"]:
+        raise ValidationError({"provider": "Save the key first."})
+    ok, detail = check(provider, row)
+    with session.tx():
+        _q("UPDATE ai_provider SET last_checked_at = %s, last_check_ok = %s, last_check_error = %s WHERE tenant_id = %s AND provider = %s",
+           [timezone.now(), ok, None if ok else detail[:300], str(tenant.pk), provider])
+    return ok, detail
 
 
 def model_label(model: str) -> str:
@@ -138,7 +208,7 @@ def models_of(rows: dict[str, dict]) -> list[dict]:
         for model, note in ((row["model_reports"], "Best for reports"), (row["model_fast"], "Fastest")):
             if model and not any(m["id"] == f"{key}:{model}" for m in out):
                 out.append({"id": f"{key}:{model}", "provider": key, "provider_name": PROVIDERS[key]["name"], "mark": PROVIDERS[key]["mark"], "model": model,
-                            "label": model_label(model), "note": note})
+                            "label": model_label(model), "note": note, "source": row.get("source", "platform")})
     return out
 
 
@@ -182,17 +252,17 @@ def save_workspace_settings(tenant, data: dict) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- the month's prompts
 def prompts_this_month(tenant_id) -> int:
-    """Counted live: the allowance is checked before every prompt. Only drafts count. Read on the workspace's own connection
-    inside a request (the one the prompts are written on), on the platform connection from the back-office."""
+    """Counted live: the allowance is checked before every prompt. Only drafts on the platform's key count. Read on the workspace's
+    own connection inside a request (the one the prompts are written on), on the platform connection from the back-office."""
     if context.current() is not None and not context.is_platform():
         if not _q("SELECT to_regclass('public.ai_prompt') IS NOT NULL AS present")[0]["present"]:
             return 0
-        return int(_q("SELECT count(*) AS n FROM ai_prompt WHERE tenant_id = %s AND counted AND created_at >= %s", [str(tenant_id), billing.month_start()])[0]["n"])
+        return int(_q("SELECT count(*) AS n FROM ai_prompt WHERE tenant_id = %s AND counted AND account = 'PLATFORM' AND created_at >= %s", [str(tenant_id), billing.month_start()])[0]["n"])
     with connections[P].cursor() as cursor:
         cursor.execute("SELECT to_regclass('public.ai_prompt') IS NOT NULL")
         if not cursor.fetchone()[0]:
             return 0
-        cursor.execute("SELECT count(*) FROM ai_prompt WHERE tenant_id = %s AND counted AND created_at >= %s", [str(tenant_id), billing.month_start()])
+        cursor.execute("SELECT count(*) FROM ai_prompt WHERE tenant_id = %s AND counted AND account = 'PLATFORM' AND created_at >= %s", [str(tenant_id), billing.month_start()])
         return int(cursor.fetchone()[0])
 
 
@@ -216,21 +286,21 @@ def usage_words(use: dict) -> str:
 def offer(tenant, request) -> dict:
     """The box's state: the models the person may pick (the platform's switched-on providers the workspace allows), the default,
     the month's use; or why the box is not there."""
-    rows = active_providers()
     mine = workspace_settings(tenant)
-    allowed = {k: v for k, v in rows.items() if mine["providers"].get(k, True)}
-    models = models_of(allowed)
+    effective = effective_providers(tenant)
+    models = models_of(effective)
     if not (_has(request, "report.edit") or _has(request, "report.admin")):
         return {"enabled": False, "reason": "no_right", "models": [], "default_model": None, "usage": None}
-    if not rows:
+    if not active_providers() and not any(row["api_key_enc"] for row in own_providers(tenant.pk).values()):
         return {"enabled": False, "reason": "no_provider", "models": [], "default_model": None, "usage": None}
     if not mine["enabled"]:
         return {"enabled": False, "reason": "workspace_off", "models": [], "default_model": None, "usage": None}
     if not models:
         return {"enabled": False, "reason": "no_provider_allowed", "models": [], "default_model": None, "usage": None}
     use = allowance(tenant.pk)
+    own = [key for key, row in effective.items() if row["source"] == "own"]
     return {"enabled": True, "reason": None, "models": models, "default_model": default_model(models), "usage": {**use, "words": usage_words(use)},
-            "examples": EXAMPLES}
+            "own": own, "examples": EXAMPLES}
 
 
 # ---------------------------------------------------------------------------------------------------- the conversation
@@ -393,9 +463,9 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
     if chosen is None:
         raise ValidationError({"model": "Pick one of the models offered."})
     use = state["usage"]
-    if use["limit"] is not None and use["used"] >= use["limit"]:
-        raise AssistantError(f"The workspace has used its {use['limit']} prompts for {timezone.now().strftime('%B')}. Ask the platform team for more, or build the report in the editor.")
-    row = active_providers()[chosen["provider"]]
+    if chosen["source"] == "platform" and use["limit"] is not None and use["used"] >= use["limit"]:
+        raise AssistantError(f"The workspace has used its {use['limit']} prompts for {timezone.now().strftime('%B')}. Ask the platform team for more, add your own key under Settings → AI Assistant, or build the report in the editor.")
+    row = effective_providers(tenant)[chosen["provider"]]
     datasets = catalog.for_tenant(tenant.pk, _can_see_pii(request))
     limits = catalog.engine_of(tenant.pk)["limits"]
     system = system_prompt(datasets, reports.zone_of(tenant).key, timezone.now().astimezone(reports.zone_of(tenant)).date())
@@ -423,7 +493,7 @@ def ask(tenant, request, prompt: str, model_id: str, *, answer_to: str | None = 
         if result["kind"] == "draft":
             result["preview"] = _preview(tenant, request, datasets, result)
     prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, outcome, result, failure, usage, duration_ms, answer_to)
-    return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label")},
+    return {"id": prompt_id, "kind": result["kind"] if result else "failed", "prompt": prompt, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
             "duration_ms": duration_ms, "counted": outcome == "DRAFT", "message": failure, **({k: v for k, v in result.items() if k != "kind"} if result else {}),
             "usage": {**allowance(tenant.pk)}}
 
@@ -447,9 +517,9 @@ def _record(tenant_id, user_id, chosen: dict, prompt: str, outcome: str, result:
     reply = {k: v for k, v in (result or {}).items() if k in ("question", "answers", "message", "suggestions")} or None
     with session.tx():
         _q("DELETE FROM ai_prompt WHERE tenant_id = %s AND created_at < %s", [str(tenant_id), timezone.now() - timedelta(days=RETENTION_DAYS)])
-        _q("""INSERT INTO ai_prompt (id, tenant_id, user_id, provider, model, kind, prompt, outcome, counted, draft, reply, detail, tokens_in, tokens_out, duration_ms, answer_to)
-              VALUES (%s, %s, %s, %s, %s, 'report', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-           [prompt_id, str(tenant_id), str(user_id), chosen["provider"], chosen["model"], prompt, outcome, outcome == "DRAFT",
+        _q("""INSERT INTO ai_prompt (id, tenant_id, user_id, provider, model, kind, prompt, outcome, counted, account, draft, reply, detail, tokens_in, tokens_out, duration_ms, answer_to)
+              VALUES (%s, %s, %s, %s, %s, 'report', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           [prompt_id, str(tenant_id), str(user_id), chosen["provider"], chosen["model"], prompt, outcome, outcome == "DRAFT", "OWN" if chosen.get("source") == "own" else "PLATFORM",
             json.dumps(draft) if draft else None, json.dumps(reply) if reply else None, (failure or "")[:300] or None, usage["in"], usage["out"], duration_ms,
             str(answer_to) if answer_to else None])
     return prompt_id
@@ -543,9 +613,13 @@ class WorkspaceAssistantView(APIView):
 
     def _payload(self, tenant) -> dict:
         rows = active_providers()
+        own = own_providers(tenant.pk)
         return {**workspace_settings(tenant),
-                "available": [{"key": key, "name": PROVIDERS[key]["name"], "mark": PROVIDERS[key]["mark"],
-                               "models": [model_label(m) for m in (rows[key]["model_reports"], rows[key]["model_fast"]) if m]} for key in PROVIDERS if key in rows],
+                "available": [{"key": key, "name": PROVIDERS[key]["name"], "mark": PROVIDERS[key]["mark"], "keys": PROVIDERS[key]["keys"],
+                               "platform": key in rows, "platform_models": [model_label(m) for m in (rows[key]["model_reports"], rows[key]["model_fast"]) if m] if key in rows else [],
+                               "own": {"configured": bool(own[key]["api_key_enc"]), "model_reports": own[key]["model_reports"], "model_fast": own[key]["model_fast"],
+                                       "last_checked_at": own[key]["last_checked_at"], "last_check_ok": own[key]["last_check_ok"], "last_check_error": own[key]["last_check_error"]} if key in own else None,
+                               "default_models": list(DEFAULT_MODELS[key])} for key in PROVIDERS],
                 "explain_allowed": explain_allowed(), "usage": allowance(tenant.pk), "retention_days": RETENTION_DAYS}
 
     @extend_schema(responses={200: None})
@@ -555,5 +629,29 @@ class WorkspaceAssistantView(APIView):
     @extend_schema(request=None, responses={200: None})
     def put(self, request, version=None):
         tenant = _tenant()
-        save_workspace_settings(tenant, request.data if isinstance(request.data, dict) else {})
+        body = request.data if isinstance(request.data, dict) else {}
+        own = body.pop("own", None) if isinstance(body, dict) else None
+        if own is not None:
+            if not isinstance(own, dict) or any(k not in PROVIDERS or not (v is None or isinstance(v, dict)) for k, v in own.items()):
+                raise ValidationError({"own": "A provider's key and models, or null to remove it."})
+            for key, value in own.items():
+                if value is None:
+                    remove_own_provider(tenant, key)
+                else:
+                    save_own_provider(tenant, key, value)
+        save_workspace_settings(tenant, body)
         return Response(self._payload(tenant))
+
+
+class WorkspaceAssistantCheckView(APIView):
+    """Check Connection on the workspace's own key."""
+    permission_classes = [IsAuthenticated, SameTenant, HasPermissionCode.for_("user.admin")]
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None):
+        body = request.data if isinstance(request.data, dict) else {}
+        provider = str(body.get("provider") or "")
+        if provider not in PROVIDERS:
+            raise ValidationError({"provider": "anthropic or openai."})
+        ok, detail = check_own_provider(_tenant(), provider)
+        return Response({"ok": ok, "detail": detail})
