@@ -3,6 +3,7 @@ from apps.insights import dashboards as insights_dashboards
 from apps.insights import audit as insights_audit
 from apps.insights import library as insights_library
 from apps.insights import schedules as insights_schedules
+from apps.insights import databases as insights_databases
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -77,6 +78,15 @@ urlpatterns = [
     path("attribution/recalculate/", attribution_api.AttributionRecalculateView.as_view(), name="attribution-recalculate"),
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
+    path("workspace/report-databases/", insights_databases.DatabasesView.as_view(), name="workspace-report-databases"),
+    path("workspace/report-databases/test/", insights_databases.DatabaseTestView.as_view(), name="workspace-report-database-test-new"),
+    path("workspace/report-databases/datasets/<uuid:dataset_id>/", insights_databases.DatasetView.as_view(), name="workspace-report-dataset"),
+    path("workspace/report-databases/<uuid:connection_id>/", insights_databases.DatabaseView.as_view(), name="workspace-report-database"),
+    path("workspace/report-databases/<uuid:connection_id>/test/", insights_databases.DatabaseTestView.as_view(), name="workspace-report-database-test"),
+    path("workspace/report-databases/<uuid:connection_id>/sources/", insights_databases.SourcesView.as_view(), name="workspace-report-database-sources"),
+    path("workspace/report-databases/<uuid:connection_id>/sources/<str:source>/", insights_databases.SourcesView.as_view(), name="workspace-report-database-source"),
+    path("workspace/report-databases/<uuid:connection_id>/preview/", insights_databases.PreviewView.as_view(), name="workspace-report-database-preview"),
+    path("workspace/report-databases/<uuid:connection_id>/datasets/", insights_databases.DatasetsView.as_view(), name="workspace-report-database-datasets"),
     path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),
     path("workspace/setup/", setup_api.WorkspaceSetupView.as_view(), name="workspace-setup"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),

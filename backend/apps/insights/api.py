@@ -127,9 +127,9 @@ class CatalogView(APIView):
             found = catalog.dataset(tenant_id, dataset, _can_see_pii(request))
             if found is None:
                 raise NotFound("No such dataset.")
-            return Response({k: v for k, v in found.items() if k not in ("source", "workspace_field")})
+            return Response({k: v for k, v in found.items() if k not in ("source", "workspace_field", "connection")})
         datasets = catalog.for_tenant(tenant_id, _can_see_pii(request))
-        return Response({"datasets": [{k: v for k, v in d.items() if k not in ("source", "workspace_field")} for d in datasets],
+        return Response({"datasets": [{k: v for k, v in d.items() if k not in ("source", "workspace_field", "connection")} for d in datasets],
                          "engine": {k: v for k, v in catalog.engine_of(tenant_id).items() if k != "limits"} | {"limits": catalog.engine_of(tenant_id)["limits"]}})
 
 
@@ -143,7 +143,7 @@ class ReportListView(APIView):
         if request.query_params.get("dataset"):
             filters.append("r.dataset_key = %s"); params.append(request.query_params["dataset"])
         if request.query_params.get("component"):
-            filters.append("d.component_key = %s"); params.append(request.query_params["component"])
+            filters.append("COALESCE(d.component_key, x.component_key, 'cep') = %s"); params.append(request.query_params["component"])
         if request.query_params.get("q", "").strip():
             filters.append("r.name ILIKE %s"); params.append(f"%{request.query_params['q'].strip()}%")
         folder = request.query_params.get("folder")
@@ -152,17 +152,19 @@ class ReportListView(APIView):
         elif folder:
             filters.append("r.folder_id = %s"); params.append(folder)
         starred, star_args = favourite_sql(str(request.user.pk), "report", "r.id")
-        rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, d.label AS dataset_label, d.component_key, c.name AS component_name, r.view_type,
+        rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, COALESCE(d.label, x.label, r.dataset_key) AS dataset_label, c.key AS component_key, c.name AS component_name, r.view_type,
                              r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at,
-                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite
-                        FROM report r JOIN report_dataset d ON d.key = r.dataset_key JOIN suite_component c ON c.key = d.component_key
+                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id
+                        FROM report r LEFT JOIN report_dataset d ON d.key = r.dataset_key
+                        LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id
+                        JOIN suite_component c ON c.key = COALESCE(d.component_key, x.component_key, 'cep')
                         LEFT JOIN app_user u ON u.id = r.owner_user_id LEFT JOIN report_folder f ON f.id = r.folder_id AND f.deleted_at IS NULL
                        WHERE r.deleted_at IS NULL AND {' AND '.join(filters)} ORDER BY c.sort_order, r.updated_at DESC LIMIT 500""", [*star_args, *params])
         return Response({"reports": [{"id": r["id"], "name": r["name"], "description": r["description"], "dataset": r["dataset_key"], "dataset_label": r["dataset_label"],
                                       "component": {"key": r["component_key"], "name": r["component_name"]}, "view_type": r["view_type"], "visibility": r["visibility"],
                                       "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "last_run_at": r["last_run_at"],
                                       "updated_at": r["updated_at"], "can_edit": _may_edit(request, r), "folder_id": r["folder_id"], "folder_name": r["folder_name"],
-                                      "favourite": bool(r["favourite"])} for r in rows]})
+                                      "favourite": bool(r["favourite"]), "own_dataset": bool(r["own_dataset_id"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):

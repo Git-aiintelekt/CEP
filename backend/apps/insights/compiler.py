@@ -1,4 +1,4 @@
-"""The query compiler: one validated definition -> parameterised SQL in the engine's dialect, PostgreSQL or ClickHouse.
+"""The query compiler: one validated definition -> parameterised SQL in the engine's dialect, PostgreSQL, ClickHouse or MySQL.
 Every identifier is the catalogue's, never the request's; every value is a bound parameter; the workspace restriction is
 always present, and on PostgreSQL the row-level security of the tables beneath the view applies on top of it.
 
@@ -9,22 +9,27 @@ always present, and on PostgreSQL the row-level security of the tables beneath t
 
 PostgreSQL binds values as positional %s placeholders (params: a list). ClickHouse binds them as typed {pN:Type}
 placeholders sent over HTTP as param_pN (params: a dict), writes the time-zone and bucket expressions its own way,
-has no ESCAPE clause on ILIKE (a backslash escapes), uses IN for a list and reads the replacing tables FINAL.
+has no ESCAPE clause on ILIKE (a backslash escapes), uses IN for a list and reads the replacing tables FINAL. MySQL (a
+workspace's own database, apps/insights/external.py) binds positional %s like PostgreSQL, quotes identifiers with backticks,
+has no workspace restriction (the database is the workspace's), writes its buckets with DATE arithmetic in the session's
+zone, uses LIKE (case-insensitive by collation), IN with one placeholder per value, "IS NULL" ordering instead of NULLS LAST,
+and totals by one query per grouping set joined with UNION ALL instead of GROUPING SETS.
 """
 AGGREGATES = {"sum": "sum({col})", "count": "count({col})", "count_distinct": "count(DISTINCT {col})", "avg": "avg({col})", "min": "min({col})", "max": "max({col})"}
 BUCKET_UNIT = {"day": "day", "week": "week", "month": "month", "quarter": "quarter", "year": "year"}
-DIALECTS = ("postgresql", "clickhouse")
+DIALECTS = ("postgresql", "clickhouse", "mysql")
+POSITIONAL = ("postgresql", "mysql")
 
 
-def _ident(name: str) -> str:
+def _ident(name: str, dialect: str = "postgresql") -> str:
     assert name.replace("_", "").isalnum(), name
-    return f'"{name}"'
+    return f"`{name}`" if dialect == "mysql" else f'"{name}"'
 
 
-def _source(name: str) -> str:
+def _source(name: str, dialect: str = "postgresql") -> str:
     parts = name.split(".")
     assert all(part.replace("_", "").isalnum() for part in parts), name
-    return ".".join(f'"{part}"' for part in parts)
+    return ".".join(f"`{part}`" if dialect == "mysql" else f'"{part}"' for part in parts)
 
 
 class Compiled:
@@ -42,7 +47,7 @@ class Params:
 
     def bind(self, value, type_: str = "String") -> str:
         """adds a value, returns its placeholder"""
-        if self.dialect == "postgresql":
+        if self.dialect in POSITIONAL:
             self.values.append(value)
             return "%s"
         name = f"p{len(self.named)}"
@@ -50,7 +55,7 @@ class Params:
         return f"{{{name}:{type_}}}"
 
     def out(self):
-        return self.values if self.dialect == "postgresql" else self.named
+        return self.values if self.dialect in POSITIONAL else self.named
 
 
 def _ch_type(value) -> str:
@@ -67,10 +72,13 @@ def _ch_type(value) -> str:
 
 def _dimension_expr(field: dict, bucket: str | None, zone: str, params: Params) -> str:
     """A dimension as selected: a bucketed date is the start of its day, week, month, quarter or year, in the workspace's zone."""
-    col = _ident(field["column"])
+    col = _ident(field["column"], params.dialect)
     if not bucket:
         return col
     unit = BUCKET_UNIT[bucket]
+    if params.dialect == "mysql":
+        return {"day": f"DATE({col})", "week": f"DATE(DATE_SUB({col}, INTERVAL WEEKDAY({col}) DAY))", "month": f"DATE_SUB(DATE({col}), INTERVAL (DAYOFMONTH({col}) - 1) DAY)",
+                "quarter": f"DATE_ADD(MAKEDATE(YEAR({col}), 1), INTERVAL (QUARTER({col}) - 1) QUARTER)", "year": f"MAKEDATE(YEAR({col}), 1)"}[unit]
     if params.dialect == "clickhouse":
         if field["type"] == "datetime":
             return f"toDate(date_trunc('{unit}', toTimeZone({col}, {params.bind(zone)})))"
@@ -83,6 +91,8 @@ def _dimension_expr(field: dict, bucket: str | None, zone: str, params: Params) 
 def _day_span(col: str, local_col: bool, start: str, end: str, zone: str, params: Params) -> str:
     """col within the local days start..end: PostgreSQL compares the column in local time with naive timestamps; ClickHouse
     compares the instant with the local day's bounds parsed in the zone."""
+    if params.dialect == "mysql":                                    # the session runs in the workspace's zone (external.connect)
+        return f"{col} >= {params.bind(start)} AND {col} < DATE_ADD({params.bind(end)}, INTERVAL 1 DAY)"
     if params.dialect == "clickhouse":
         if local_col:
             return f"{col} >= toDateTime({params.bind(start)}, {params.bind(zone)}) AND {col} < toDateTime({params.bind(end)}, {params.bind(zone)}) + INTERVAL 1 DAY"
@@ -96,6 +106,7 @@ def _day_span(col: str, local_col: bool, start: str, end: str, zone: str, params
 def _filter_sql(dataset: dict, node: dict, zone: str, params: Params) -> str:
     parts = []
     ch = params.dialect == "clickhouse"
+    my = params.dialect == "mysql"
     for rule in node["rules"]:
         if "rules" in rule:
             inner = _filter_sql(dataset, rule, zone, params)
@@ -103,7 +114,7 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: Params) -> str:
                 parts.append(f"({inner})")
             continue
         field = next(f for f in dataset["fields"] if f["key"] == rule["field"])
-        col = _ident(field["column"])
+        col = _ident(field["column"], params.dialect)
         op, value = rule["operator"], rule["value"]
         temporal = field["type"] in ("date", "datetime")
         local = temporal and field["type"] == "datetime"
@@ -112,17 +123,18 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: Params) -> str:
         elif op == "is_not_null":
             parts.append(f"{col} IS NOT NULL")
         elif op == "last_days":
-            parts.append(f"{col} >= now() - toIntervalDay({params.bind(int(value), 'Int64')})" if ch else f"{col} >= now() - make_interval(days => {params.bind(int(value))})")
+            parts.append(f"{col} >= now() - toIntervalDay({params.bind(int(value), 'Int64')})" if ch else f"{col} >= NOW() - INTERVAL {params.bind(int(value))} DAY" if my
+                         else f"{col} >= now() - make_interval(days => {params.bind(int(value))})")
         elif op == "in":
             values = list(value)
-            parts.append(f"{col} IN {params.bind(values, _ch_type(values))}" if ch else f"{col} = ANY({params.bind(values)})")
+            parts.append(f"{col} IN {params.bind(values, _ch_type(values))}" if ch else f"{col} IN ({', '.join(params.bind(v) for v in values)})" if my else f"{col} = ANY({params.bind(values)})")
         elif op == "between" and temporal:
             parts.append(_day_span(col, local, str(value[0])[:10], str(value[1])[:10], zone, params))
         elif op == "between":
             parts.append(f"{col} BETWEEN {params.bind(value[0], _ch_type(value[0]))} AND {params.bind(value[1], _ch_type(value[1]))}")
         elif op in ("contains", "starts_with"):
             pattern = f"%{_escape_like(value)}%" if op == "contains" else f"{_escape_like(value)}%"
-            parts.append(f"{col} ILIKE {params.bind(pattern)}" if ch else f"{col} ILIKE {params.bind(pattern)} ESCAPE '\\'")
+            parts.append(f"{col} ILIKE {params.bind(pattern)}" if ch else f"{col} LIKE {params.bind(pattern)}" if my else f"{col} ILIKE {params.bind(pattern)} ESCAPE '\\'")
         elif temporal and op in ("=", "!="):
             inside = _day_span(col, local, str(value)[:10], str(value)[:10], zone, params)
             parts.append(inside if op == "=" else f"NOT ({inside})")
@@ -136,15 +148,15 @@ def _escape_like(value: str) -> str:
 
 
 def _from(dataset: dict, dialect: str) -> str:
-    return f"{_source(dataset['source'])} FINAL" if dialect == "clickhouse" else _source(dataset["source"])
+    return f"{_source(dataset['source'])} FINAL" if dialect == "clickhouse" else _source(dataset["source"], dialect)
 
 
 def _where(dataset: dict, definition: dict, tenant_id: str, zone: str, params: Params) -> str:
-    where = [f"{_ident(dataset['workspace_field'])} = {params.bind(str(tenant_id), 'UUID')}"]
+    where = [f"{_ident(dataset['workspace_field'])} = {params.bind(str(tenant_id), 'UUID')}"] if dataset.get("workspace_field") else []
     filters = _filter_sql(dataset, definition["filters"], zone, params)
     if filters:
         where.append(f"({filters})")
-    return " AND ".join(where)
+    return " AND ".join(where) or "1 = 1"
 
 
 def totals_sets(definition: dict, view: dict | None) -> list[tuple[str, ...]] | None:
@@ -168,24 +180,42 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     params = Params(dialect)
     dims = [c for c in definition["columns"] if "aggregate" not in c]
     meas = [c for c in definition["columns"] if "aggregate" in c]
-    inner, columns = [], []
-    for i, column in enumerate(dims):
+    columns = []
+    for column in dims:
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-        inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params)} AS {_ident(f'd{i}')}")
         columns.append({"key": column["field"], "label": column.get("label") or field["label"], "type": "date" if column.get("bucket") else field["type"], "format": field["format"],
                         **({"bucket": column["bucket"]} if column.get("bucket") else {})})
-    for j, column in enumerate(meas):
+    for column in meas:
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-        inner.append(f"{_ident(field['column'])} AS {_ident(f'm{j}')}")
         columns.append({"key": column["field"], "label": column.get("label") or field["label"], "type": field["type"], "format": field["format"], "aggregate": column["aggregate"]})
-    where = _where(dataset, definition, tenant_id, zone, params)
+
+    def base() -> str:
+        """the dimensions and raw measures once, in a subquery; every placeholder binds as the text is built, so it is built per use"""
+        inner = []
+        for i, column in enumerate(dims):
+            field = next(f for f in dataset["fields"] if f["key"] == column["field"])
+            inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params)} AS {_ident(f'd{i}', dialect)}")
+        for j, column in enumerate(meas):
+            field = next(f for f in dataset["fields"] if f["key"] == column["field"])
+            inner.append(f"{_ident(field['column'], dialect)} AS {_ident(f'm{j}', dialect)}")
+        return f"(SELECT {', '.join(inner)} FROM {_from(dataset, dialect)} WHERE {_where(dataset, definition, tenant_id, zone, params)}) AS base"
+
     index = {c["field"]: i for i, c in enumerate(dims)}
     kept = [i for i, c in enumerate(dims) if any(c["field"] in s for s in sets)]   # a dimension in no set is always totalled away: it cannot be selected or marked
-    outer = [_ident(f"d{i}") for i in kept] + [AGGREGATES[c["aggregate"]].format(col=_ident(f"m{j}")) + f" AS {_ident(f'v{j}')}" for j, c in enumerate(meas)]
+    measures = [AGGREGATES[c["aggregate"]].format(col=_ident(f"m{j}", dialect)) + f" AS {_ident(f'v{j}', dialect)}" for j, c in enumerate(meas)]
+    if dialect == "mysql":
+        pieces = []
+        for s in sets:
+            bits = sum(1 << (len(kept) - 1 - n) for n, i in enumerate(kept) if dims[i]["field"] not in s)
+            selected = [(_ident(f"d{i}", dialect) if dims[i]["field"] in s else f"NULL AS {_ident(f'd{i}', dialect)}") for i in kept]
+            group = ", ".join(_ident(f"d{index[f]}", dialect) for f in s)
+            pieces.append(f"(SELECT {', '.join([*selected, *measures, f'{bits} AS `g`'])} FROM {base()}" + (f" GROUP BY {group})" if group else ")"))
+        sql = " UNION ALL ".join(pieces) + f" LIMIT {params.bind(int(limit))}"
+        return Compiled(sql, params.out(), [columns[i] for i in kept] + columns[len(dims):])
+    outer = [_ident(f"d{i}") for i in kept] + measures
     outer.append(f"GROUPING({', '.join(_ident(f'd{i}') for i in kept)}) AS {_ident('g')}" if kept else f"0 AS {_ident('g')}")
     groups = ", ".join("(" + ", ".join(_ident(f"d{index[f]}") for f in s) + ")" for s in sets)
-    sql = (f"SELECT {', '.join(outer)} FROM (SELECT {', '.join(inner)} FROM {_from(dataset, dialect)} WHERE {where}) AS base "
-           f"GROUP BY GROUPING SETS ({groups}) LIMIT {params.bind(int(limit), 'Int64')}")
+    sql = f"SELECT {', '.join(outer)} FROM {base()} GROUP BY GROUPING SETS ({groups}) LIMIT {params.bind(int(limit), 'Int64')}"
     return Compiled(sql, params.out(), [columns[i] for i in kept] + columns[len(dims):])
 
 
@@ -195,9 +225,9 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     selects, groups, columns = [], [], []
     for index, column in enumerate(definition["columns"]):
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-        alias = _ident(f"c{index}")
+        alias = _ident(f"c{index}", dialect)
         if "aggregate" in column:
-            expr = AGGREGATES[column["aggregate"]].format(col=_ident(field["column"]))
+            expr = AGGREGATES[column["aggregate"]].format(col=_ident(field["column"], dialect))
         else:
             expr = _dimension_expr(field, column.get("bucket"), zone, params)
             if definition["grouped"]:
@@ -210,9 +240,10 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     order = []
     for item in definition["orderBy"]:
         index = next(i for i, c in enumerate(definition["columns"]) if c["field"] == item["field"])
-        order.append(f"{_ident(f'c{index}')} {item['direction'].upper()} NULLS LAST")
+        alias = _ident(f"c{index}", dialect)
+        order.append(f"{alias} IS NULL, {alias} {item['direction'].upper()}" if dialect == "mysql" else f"{alias} {item['direction'].upper()} NULLS LAST")
     if not order:
-        order.append('"c0" ASC NULLS LAST')
+        order.append("`c0` IS NULL, `c0` ASC" if dialect == "mysql" else '"c0" ASC NULLS LAST')
     sql = f"SELECT {', '.join(selects)} FROM {_from(dataset, dialect)} WHERE {where}"
     if groups:
         sql += f" GROUP BY {', '.join(groups)}"

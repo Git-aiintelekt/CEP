@@ -178,3 +178,19 @@ run there, freshness a quarter hour) and **Roll Back to PostgreSQL**. The catalo
 `report_engine_setting` names the engine (PostgreSQL today, ClickHouse with Phase E), its connection profile, its
 status, freshness and limits. For dev and test, the reporting views read the CEP database itself (the spec's smallest
 deployment); production gets a reporting instance fed by logical replication.
+
+## Report Databases: a workspace's own MySQL or PostgreSQL
+
+`apps/insights/databases.py` (the API, Settings → Report Databases) and `apps/insights/external.py` (the access) let a
+workspace connect its own MySQL 5.7, MySQL 8.0 or PostgreSQL database read-only and map tables or views as datasets
+(patch 0056: `report_connection`, `report_dataset_custom`, both RLS, the password encrypted; `report.dataset_key` no
+longer references the platform's catalogue alone). `catalog.for_tenant` appends the workspace's datasets (cached a
+minute per workspace) with `external: True`, their dialect (`mysql` or `postgresql`) and their connection; the catalogue
+API strips the connection. The runner picks the dialect from the dataset and reads through `external.query`: a session
+opened read-only (`SET SESSION TRANSACTION READ ONLY`, `default_transaction_read_only=on`) with the workspace's statement
+limit and time zone. The compiler's MySQL dialect: backticks, no workspace restriction, DATE arithmetic for buckets, LIKE,
+IN with one placeholder a value, `IS NULL` ordering, and one query per grouping set joined with UNION ALL for the totals.
+Test Connection reads the server's version, what the account may read and its rights (`SHOW GRANTS`; on PostgreSQL the
+role's attributes, `information_schema.role_table_grants` beyond SELECT and CREATE on the schema); an account that could
+write is recorded `read_only = false` and the connection cannot be used until it is fixed. `pymysql` is the MySQL client
+(requirements.txt); PostgreSQL uses the psycopg Django already has.

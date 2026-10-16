@@ -42,6 +42,6 @@ export function maskedWords(info: RunResult): string {
 /** what the run says, in one line: rows, time, freshness, cache */
 export function runWords(info: RunResult): string {
   const rows = `${formatNumber(info.row_count)} row${info.row_count === 1 ? '' : 's'}${info.truncated ? ` of more, the first ${formatNumber(info.limit)} shown` : ''}`
-  const fresh = info.freshness === 'LIVE' ? 'live data' : `data as of the last ${info.freshness.toLowerCase().replace('_', ' ')}`
+  const fresh = info.source ? `live from ${info.source}` : info.freshness === 'LIVE' ? 'live data' : `data as of the last ${info.freshness.toLowerCase().replace('_', ' ')}`
   return `${rows} · ${info.duration_ms} ms · ${fresh}${info.cached ? ' · from the last minute' : ''}`
 }

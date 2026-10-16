@@ -1,5 +1,5 @@
 /** The Settings menu: its groups and pages, who sees which, and the three things the panel remembers per viewer. */
-import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+import { Bell, Braces, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature } from '@/lib/types'
 
@@ -25,6 +25,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { to: '/settings/tags', label: 'Tags', icon: Braces },
     { to: '/settings/security', label: 'Security', icon: Lock },
     { to: '/settings/approvals', label: 'Approvals', icon: CheckCircle2 },
+    { to: '/settings/report-databases', label: 'Report Databases', icon: Database },
     { to: '/settings/plan', label: 'Plan & Usage', icon: CircleDollarSign },
   ] },
   { key: 'sending', label: 'Sending', icon: Send, pages: [
@@ -51,7 +52,7 @@ export function visibleGroups(has: (feature: Feature) => boolean): SettingsGroup
   return SETTINGS_GROUPS.map((group) => ({ ...group, pages: group.pages.filter((page) => !page.feature || has(page.feature)) })).filter((group) => group.pages.length > 0)
 }
 
-export const pageAt = (path: string): SettingsPage | undefined => SETTINGS_GROUPS.flatMap((group) => group.pages).find((page) => page.to === path)
+export const pageAt = (path: string): SettingsPage | undefined => SETTINGS_GROUPS.flatMap((group) => group.pages).find((page) => page.to === path || path.startsWith(page.to + '/'))
 export const groupOf = (path: string): SettingsGroup | undefined => SETTINGS_GROUPS.find((group) => group.pages.some((page) => page.to === path))
 
 /** the pages whose label (or group) contains the words typed, in menu order */
