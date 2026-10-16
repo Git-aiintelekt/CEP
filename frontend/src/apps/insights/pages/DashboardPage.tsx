@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { buttonDanger, buttonSecondary } from '@/components/Form'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
@@ -64,7 +65,7 @@ export function DashboardPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <p className="text-xs text-ink-800"><Link to="/insights/dashboards" className="text-brand-800 hover:underline">Dashboards</Link> › {data.name}</p>
-      <PageHeader title={data.name} description={data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}
+      <PageHeader help={<PageHelp chapter="insights" />} title={data.name} description={data.description ?? `${tiles(data.layout).length} tile${tiles(data.layout).length === 1 ? '' : 's'} · ${periodWords(data.bounds)}`}
         actions={(
           <div className="flex items-center gap-2">
             {(can('report.edit') || can('report.admin')) && (

@@ -1,0 +1,12 @@
+{% comment %}The help panel above Configuration → Report Engines (the list and a workspace's row): what the page decides, the switch in four buttons, and the guide chapter.{% endcomment %}
+<div class="cep-card" style="margin-bottom:16px;padding:14px 18px;">
+    <h2 style="margin:0 0 6px;font-size:15px;font-weight:600;">How Report Engines works</h2>
+    <p style="margin:0 0 10px;font-size:13px;color:#4b4f5b;">One row per workspace: the analytics engine its Insights reports run on, PostgreSQL (the live views on the workspace's own database) or ClickHouse (reporting tables loaded from them), and its query limits. A workspace without a row runs on PostgreSQL with the default limits. Nothing here changes a workspace's data.</p>
+    <ol style="margin:0 0 10px 18px;padding:0;font-size:13px;color:#4b4f5b;">
+        <li><strong>Backfill ClickHouse</strong> loads every dataset of the workspace and marks it <em>migrating</em>; reports still run on PostgreSQL.</li>
+        <li><strong>Reconcile</strong> counts every dataset on both engines and shows them side by side.</li>
+        <li><strong>Activate ClickHouse</strong> moves the workspace's reports, dashboards, exports and deliveries over; the data is then as of the last quarter hour.</li>
+        <li><strong>Roll Back to PostgreSQL</strong> returns to the live views at once.</li>
+    </ol>
+    <p style="margin:0;font-size:13px;color:#4b4f5b;">The buttons sit at the top of a workspace's row. The server's ClickHouse connection is its environment, not this page; an empty connection means every workspace stays on PostgreSQL. Full chapter: <a class="cep-link" href="{% url 'admin:platform_ops_guide_chapter' 'report-engines' %}">Report Datasets and Report Engines</a> in the Platform Guide.</p>
+</div>

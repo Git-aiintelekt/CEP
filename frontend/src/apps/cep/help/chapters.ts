@@ -12,6 +12,7 @@ export const HELP_CHAPTERS = {
   templates: { title: 'Templates and Content', load: () => import('../../../../../docs/manuals/user-guide/34-templates.md?raw').then((module) => module.default) },
   'email-designer': { title: 'The Email Designer', load: () => import('../../../../../docs/manuals/user-guide/36-email-designer.md?raw').then((module) => module.default) },
   journeys: { title: 'Journeys', load: () => import('../../../../../docs/manuals/user-guide/57-journeys.md?raw').then((module) => module.default) },
+  insights: { title: 'Insights: Reports, Dashboards and Scheduled Delivery', load: () => import('../../../../../docs/manuals/user-guide/59-insights.md?raw').then((module) => module.default) },
   'settings-sending-engines': { title: 'Sending Engines and Senders', load: () => import('../../../../../docs/manuals/user-guide/40-settings-sending-engines.md?raw').then((module) => module.default) },
   'settings-setup': { title: 'Setting Up a New Workspace', load: () => import('../../../../../docs/manuals/user-guide/39-workspace-setup.md?raw').then((module) => module.default) },
   'settings-users': { title: 'Users', load: () => import('../../../../../docs/manuals/user-guide/41-users.md?raw').then((module) => module.default) },
@@ -37,6 +38,7 @@ export type HelpChapter = keyof typeof HELP_CHAPTERS
 
 /** the chapter of a page, by its route; a page without one has no help icon yet */
 export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
+  '/insights': 'insights',
   '/': 'home',
   '/campaigns': 'campaigns',
   '/campaigns/new': 'campaign-setup',

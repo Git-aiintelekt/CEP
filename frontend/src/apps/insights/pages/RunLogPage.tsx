@@ -6,6 +6,7 @@ import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Select } from '@/components/Form'
@@ -31,7 +32,7 @@ export function RunLogPage() {
   const words = summary ? `${formatNumber(summary.runs)} run${summary.runs === 1 ? '' : 's'} · ${summary.timed_out} timed out · ${summary.refused} refused · ${summary.failed} failed${summary.median_ms !== null ? ` · median ${formatNumber(summary.median_ms)} ms` : ''}` : undefined
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Run Log" description={words ?? 'Every preview, run and export, with how it went.'} />
+      <PageHeader title="Run Log" description={words ?? 'Every preview, run and export, with how it went.'} help={<PageHelp chapter="insights" />} />
       <div className="flex flex-wrap items-center gap-3">
         <SegmentedControl label="Period" options={[{ value: '7', label: '7 Days' }, { value: '30', label: '30 Days' }]} value={days} onChange={setDays} />
         <div role="group" aria-label="Outcome" className="flex flex-wrap gap-1.5">

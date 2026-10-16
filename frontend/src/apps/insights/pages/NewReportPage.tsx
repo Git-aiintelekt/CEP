@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
 import { buttonPrimary, buttonSecondary, Field, TextInput } from '@/components/Form'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
@@ -32,7 +33,7 @@ export function NewReportPage() {
 
   return (
     <div className="flex max-w-3xl flex-col gap-5">
-      <PageHeader title="New Report" description="Pick what to report on. The report opens in the editor with the dataset's first columns." />
+      <PageHeader title="New Report" description="Pick what to report on. The report opens in the editor with the dataset's first columns." help={<PageHelp chapter="insights" />} />
       {catalog.isPending ? <Spinner label="Loading the datasets" /> : catalog.isError ? <ErrorState error={catalog.error} onRetry={() => catalog.refetch()} /> : (
         <form className="flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); if (chosen) create.mutate() }}>
           <fieldset className="flex flex-col gap-2">

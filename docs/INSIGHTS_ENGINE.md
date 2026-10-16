@@ -153,6 +153,9 @@ Report authors never see table or column names.
 
 ## ClickHouse, the second engine
 
+The operator's guide to switching a workspace, with the server settings and the back-office buttons, is
+`docs/INSIGHTS_ENGINE_SWITCH.md`.
+
 `apps/insights/clickhouse.py` talks to ClickHouse over HTTP (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`,
 `CLICKHOUSE_DATABASE`, server environment; an empty URL means no ClickHouse). It creates the database and one
 ReplacingMergeTree table per dataset in the shape of the PostgreSQL reporting view, keyed by the workspace and the

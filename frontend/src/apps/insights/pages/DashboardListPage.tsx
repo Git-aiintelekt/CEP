@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
 import { buttonPrimary } from '@/components/Form'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -30,7 +31,7 @@ export function DashboardListPage() {
   const rest = rows.filter((d) => !d.favourite)
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Dashboards" description="Pages of your reports, on one period."
+      <PageHeader title="Dashboards" description="Pages of your reports, on one period." help={<PageHelp chapter="insights" />}
         actions={canCreate ? <button type="button" className={buttonPrimary} onClick={() => create.mutate()} disabled={create.isPending}><Plus size={16} strokeWidth={1.5} aria-hidden />New Dashboard</button> : undefined} />
       {dashboards.isPending ? <Spinner label="Loading the dashboards" /> : dashboards.isError ? <ErrorState error={dashboards.error} onRetry={() => dashboards.refetch()} /> : rows.length === 0 ? (
         <EmptyState title="No Dashboards Yet" hint={canCreate ? 'Put your reports on one page, with one period for all of them. Start with New Dashboard.' : 'Nobody has shared a dashboard with the workspace yet.'} />
