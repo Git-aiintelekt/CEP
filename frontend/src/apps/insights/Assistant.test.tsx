@@ -107,3 +107,27 @@ test('Settings → AI Assistant: the switch, the providers people may pick, Expl
   expect(await screen.findByText(/Off\. Reports are built in the editor only/)).toBeTruthy()
   expect((screen.getByRole('switch', { name: 'Allow Claude (Anthropic)' }) as HTMLButtonElement).disabled).toBe(true)
 })
+
+test('a workspace adds its own key for a provider: the form, one PUT with the key and models, the provider then on the own key with Check Connection and a way back', async () => {
+  const calls = await renderAppAt('/settings/ai-assistant')
+  const user = userEvent.setup()
+  await screen.findByRole('heading', { name: 'AI Assistant' })
+  const openai = screen.getByRole('listitem', { name: 'OpenAI' })
+  expect(within(openai).getByText('Provided by the Platform')).toBeTruthy()
+  await user.click(within(openai).getByRole('button', { name: 'Use Your Own Key' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add Your Own OpenAI Key' })
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  expect(within(dialog).getByText('Give the provider’s API key.')).toBeTruthy()                            // nothing sent without a key
+  await user.type(within(dialog).getByLabelText(/API Key/), 'sk-own-test')
+  await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+  const put = calls.filter((call) => call.url.endsWith('/workspace/ai-assistant/') && call.method === 'PUT').at(-1)?.body as Record<string, unknown>
+  expect(put).toEqual({ own: { openai: { api_key: 'sk-own-test', model_reports: 'gpt-5', model_fast: 'gpt-5-mini' } } })
+  const after = await screen.findByRole('listitem', { name: 'OpenAI' })
+  expect(within(after).getByText('Not Checked Yet')).toBeTruthy()
+  expect(within(after).getByText(/Your own key · gpt-5, gpt-5-mini/)).toBeTruthy()
+  expect(within(after).queryByRole('switch', { name: 'Allow OpenAI' })).toBeNull()                         // the own key wins; nothing to allow
+  await user.click(within(after).getByRole('button', { name: 'Check Connection' }))
+  expect(await within(screen.getByRole('listitem', { name: 'OpenAI' })).findByText(/Checked/)).toBeTruthy()
+  expect(calls.find((call) => call.url.endsWith('/workspace/ai-assistant/check/'))?.body).toEqual({ provider: 'openai' })
+  expect(within(screen.getByRole('listitem', { name: 'OpenAI' })).getByRole('button', { name: 'Use the Platform’s Key' })).toBeTruthy()
+})

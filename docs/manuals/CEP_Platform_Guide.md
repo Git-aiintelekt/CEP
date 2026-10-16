@@ -147,6 +147,7 @@ For the platform team in the back-office. Built from `docs/manuals/platform-guid
 - AI Assistant
   - What this page is for
   - The providers
+  - A workspace's own key
   - Defaults
   - This month, by workspace
   - What happens on a prompt
@@ -1349,6 +1350,13 @@ result stays on the card (Connected, Failed with the reason, Not Checked after a
 the card's settings; workspaces can no longer pick that provider.
 
 Model names are settings, not code: a newer model is a change on this page, not a release.
+
+## A workspace's own key
+
+A workspace may enter its own key for either provider under Settings → AI Assistant, with the two models to offer. Its
+own key wins over the platform's for that provider, so a workspace can use a provider the platform does not offer, or
+keep its prompts on its own account. Prompts on a workspace's own key are not counted against its plan and do not
+appear in the table below; the row is the workspace's, in `ai_provider` with its tenant id, and never shown here.
 
 ## Defaults
 

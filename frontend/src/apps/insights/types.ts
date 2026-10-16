@@ -383,6 +383,8 @@ export interface AssistantModel {
   model: string
   label: string
   note: string
+  /** the platform's key, or the workspace's own */
+  source?: 'platform' | 'own'
 }
 export interface AssistantUsage { used: number; limit: number | null; month: string; plan: string | null; words?: string }
 export interface AssistantRecent {
@@ -401,6 +403,8 @@ export interface AssistantState {
   models: AssistantModel[]
   default_model: string | null
   usage: AssistantUsage | null
+  /** the providers running on the workspace's own key */
+  own?: string[]
   examples?: string[]
   recent: AssistantRecent[]
 }
@@ -424,12 +428,24 @@ export interface AskResult {
   suggestions?: AskPrompt[]
   usage: AssistantUsage
 }
-/** Settings → AI Assistant */
+/** Settings → AI Assistant: one provider, the platform's key and the workspace's own */
+export interface WorkspaceAssistantProvider {
+  key: 'anthropic' | 'openai'
+  name: string
+  mark: string
+  /** where the key comes from: "console.anthropic.com → API Keys" */
+  keys: string
+  /** the platform offers this provider */
+  platform: boolean
+  platform_models: string[]
+  own: { configured: boolean; model_reports: string | null; model_fast: string | null; last_checked_at: string | null; last_check_ok: boolean | null; last_check_error: string | null } | null
+  default_models: string[]
+}
 export interface WorkspaceAssistant {
   enabled: boolean
   providers: Record<'anthropic' | 'openai', boolean>
   explain: boolean
-  available: { key: string; name: string; mark: string; models: string[] }[]
+  available: WorkspaceAssistantProvider[]
   explain_allowed: boolean
   usage: AssistantUsage
   retention_days: number

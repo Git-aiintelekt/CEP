@@ -2567,6 +2567,8 @@ When your platform has switched on an AI provider and your workspace allows it (
 
 Prompts and drafts are kept in the workspace for 90 days. Settings → AI Assistant switches AI off for the whole workspace, or allows only one of the providers.
 
+**Your own key.** Under Settings → AI Assistant each provider shows whether it runs on the platform's key or on yours. **Use Your Own Key** (or **Add Your Own Key**, when the platform does not offer that provider) takes your API key from the provider's console and the two models to offer; the key is stored encrypted and never shown again, and **Check Connection** proves it works. Your own key wins over the platform's for that provider, and prompts on it are billed to you by the provider and not limited by your plan. **Use the Platform's Key** goes back.
+
 ### The four views
 
 Any report switches between the views without losing its fields; the switch sits above the result, in the editor and in the viewer. The editor saves the choice; the viewer switches for a look.

@@ -80,6 +80,7 @@ urlpatterns = [
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
     path("workspace/ai-assistant/", insights_assistant.WorkspaceAssistantView.as_view(), name="workspace-ai-assistant"),
+    path("workspace/ai-assistant/check/", insights_assistant.WorkspaceAssistantCheckView.as_view(), name="workspace-ai-assistant-check"),
     path("workspace/report-databases/", insights_databases.DatabasesView.as_view(), name="workspace-report-databases"),
     path("workspace/report-databases/test/", insights_databases.DatabaseTestView.as_view(), name="workspace-report-database-test-new"),
     path("workspace/report-databases/datasets/<uuid:dataset_id>/", insights_databases.DatasetView.as_view(), name="workspace-report-dataset"),

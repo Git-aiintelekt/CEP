@@ -2304,10 +2304,12 @@ ON CONFLICT DO NOTHING;
 -- ---- Insights is released as Beta: every plan already includes it (0048), so workspaces see it from today
 UPDATE suite_component SET release = 'BETA', updated_at = now() WHERE key = 'insights' AND release = 'PLANNED';
 
--- ---- AI · Ask for a Report (patch 0055; apps/insights/assistant.py): the platform's providers, each workspace's prompts, the plan's allowance
+-- ---- AI · Ask for a Report (patch 0055; apps/insights/assistant.py): the platform's providers and a workspace's own keys, each
+--      workspace's prompts, the plan's allowance
 CREATE TABLE IF NOT EXISTS ai_provider (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    provider            VARCHAR(12) NOT NULL UNIQUE,                       -- anthropic, openai
+    tenant_id           UUID REFERENCES tenant(id),                        -- NULL: the platform's row; else a workspace's own key, which wins
+    provider            VARCHAR(12) NOT NULL,                              -- anthropic, openai
     api_key_enc         TEXT,                                              -- Fernet, apps/platform_ops/crypto.py; never shown again
     model_reports       VARCHAR(80),                                       -- the model offered as "best for reports"
     model_fast          VARCHAR(80),                                       -- the model offered as "fastest"
@@ -2322,7 +2324,14 @@ CREATE TABLE IF NOT EXISTS ai_provider (
     row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ck_ai_provider_provider CHECK (provider IN ('anthropic', 'openai'))
 );
-GRANT SELECT ON ai_provider TO cep_app;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_provider_platform ON ai_provider(provider) WHERE tenant_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_provider_tenant ON ai_provider(tenant_id, provider) WHERE tenant_id IS NOT NULL;
+ALTER TABLE ai_provider ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_provider FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_ai_provider_tenant ON ai_provider;
+CREATE POLICY rls_ai_provider_tenant ON ai_provider USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);   -- the platform's rows are read by the platform login, which bypasses RLS
+GRANT SELECT, INSERT, UPDATE, DELETE ON ai_provider TO cep_app;
 GRANT ALL ON ai_provider TO cep_admin;
 
 CREATE TABLE IF NOT EXISTS ai_prompt (
@@ -2335,6 +2344,7 @@ CREATE TABLE IF NOT EXISTS ai_prompt (
     prompt              TEXT NOT NULL,
     outcome             VARCHAR(10) NOT NULL,                              -- DRAFT, QUESTION, NO_FIELD, FAILED
     counted             BOOLEAN NOT NULL DEFAULT FALSE,                    -- only a draft counts against the month
+    account             VARCHAR(10) NOT NULL DEFAULT 'PLATFORM',           -- PLATFORM: the platform's key (the plan's number applies); OWN: the workspace's key
     draft               JSONB,                                             -- {name, dataset, view, definition}
     reply               JSONB,                                             -- the question and its answers, or the message and suggestions
     detail              VARCHAR(300),                                      -- why it failed
@@ -2344,7 +2354,8 @@ CREATE TABLE IF NOT EXISTS ai_prompt (
     answer_to           UUID,                                              -- the question this prompt answers
     report_id           UUID REFERENCES report(id) ON DELETE SET NULL,     -- the report the draft became
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT ck_ai_prompt_outcome CHECK (outcome IN ('DRAFT', 'QUESTION', 'NO_FIELD', 'FAILED'))
+    CONSTRAINT ck_ai_prompt_outcome CHECK (outcome IN ('DRAFT', 'QUESTION', 'NO_FIELD', 'FAILED')),
+    CONSTRAINT ck_ai_prompt_account CHECK (account IN ('PLATFORM', 'OWN'))
 );
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_tenant ON ai_prompt(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_user ON ai_prompt(user_id, created_at DESC);
