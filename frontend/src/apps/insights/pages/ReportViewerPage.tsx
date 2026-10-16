@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { buttonDanger, buttonSecondary } from '@/components/Form'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
@@ -91,6 +92,7 @@ export function ReportViewerPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <p className="text-xs text-ink-800"><Link to="/insights/reports" className="text-brand-800 hover:underline">All Reports</Link> › {report.data.name}</p>
       <PageHeader
+        help={<PageHelp chapter="insights" />}
         title={report.data.name}
         description={info ? `${runWords(info)} · version ${report.data.version}` : report.data.description ?? undefined}
         actions={(

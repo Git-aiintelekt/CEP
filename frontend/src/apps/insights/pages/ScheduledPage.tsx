@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useAuth } from '@/auth/AuthContext'
+import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
@@ -31,7 +32,7 @@ export function ScheduledPage() {
   const mayChange = (s: Schedule) => can('report.admin') || (can('report.edit') && s.owner_user_id === principal?.id)
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Scheduled" description="Reports and dashboards sent by email on a schedule." />
+      <PageHeader title="Scheduled" description="Reports and dashboards sent by email on a schedule." help={<PageHelp chapter="insights" />} />
       <div role="group" aria-label="Which" className="flex flex-wrap gap-1.5">
         {([['all', 'All'], ['mine', 'Mine'], ['paused', 'Paused']] as const).map(([value, label]) => (
           <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}

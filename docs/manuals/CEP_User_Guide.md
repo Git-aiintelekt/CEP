@@ -4,7 +4,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
 
 ## Contents
 
-- Welcome to CEP
+- Welcome to C360
   - How the guide is organised
   - Help inside the app
   - Three ideas that run through everything
@@ -210,12 +210,22 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - How to
   - What happens behind the scenes
   - Things to know
+- Insights: Reports, Dashboards and Scheduled Delivery
+  - What Insights is for
+  - Who can use it
+  - The datasets
+  - Reports
+  - Dashboards
+  - Scheduled delivery
+  - Run Log
+  - How fresh is the data
+  - When something does not run
 
 ---
 
-# Welcome to CEP
+# Welcome to C360
 
-CEP is the Customer Engagement Platform: the place where a marketing team keeps its contacts, designs emails and texts, sends campaigns and reads what came back. This guide is for the people who sign in to a workspace: administrators who set it up, marketers who run campaigns, and anyone who reads the reports.
+C360 is the Customer Engagement Platform: the place where a marketing team keeps its contacts, designs emails and texts, sends campaigns and reads what came back. This guide is for the people who sign in to a workspace: administrators who set it up, marketers who run campaigns, and anyone who reads the reports.
 
 A second guide, the Platform Guide, is for the platform team who run the back-office: creating workspaces, plans, features and the platform's own settings. If you were invited to a workspace, you only need this one.
 
@@ -225,9 +235,9 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 - **What this page is for.** One paragraph on the job the page does.
 - **Who can use it.** The permission a role needs, and the feature the workspace needs switched on.
-- **The fields and controls.** A table of everything on the page: what each field or button is, and what it changes elsewhere in CEP. That is the part to read when a setting is unclear.
+- **The fields and controls.** A table of everything on the page: what each field or button is, and what it changes elsewhere in C360. That is the part to read when a setting is unclear.
 - **How to.** The everyday tasks, step by step.
-- **What happens behind the scenes.** The business flow: what CEP does with what you entered, and where it shows up later.
+- **What happens behind the scenes.** The business flow: what C360 does with what you entered, and where it shows up later.
 - **Things to know.** The limits and the consequences worth remembering.
 
 ## Help inside the app
@@ -239,11 +249,11 @@ Every page of the app has a chapter, and every chapter has the same shape:
 
 ## Three ideas that run through everything
 
-**Workspace.** Your company's own area of CEP. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address CEP gives you to register with other systems.
+**Workspace.** Your company's own area of C360. Everything you see belongs to one workspace: its users, roles, lists, templates, campaigns and settings. The workspace code (for example `NWA`) appears in the sign-in screen and in every address C360 gives you to register with other systems.
 
 **Roles and permissions.** What a person may do is set by their role. A role is a set of permissions such as *campaign.edit* or *user.admin*. The chapter for each page names the permission it needs. If a page refuses you, it says which permission to ask an administrator for.
 
-**Features.** Some parts of CEP are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
+**Features.** Some parts of C360 are switched on per workspace by the platform team: texts, MMS, e-receipts, journeys, A/B testing, API access, the preference centre, barcodes. A page that belongs to a feature that is off is simply not shown, and its chapter says which feature to ask for.
 
 ## Statuses you will meet
 
@@ -265,7 +275,7 @@ A new workspace begins with the chapter **Setting Up a New Workspace**: from the
 
 # Home
 
-**Where:** Home in the main navigation, and the CEP mark at the top of the rail.
+**Where:** Home in the main navigation, and the C360 mark at the top of the rail.
 
 ## What this page is for
 
@@ -371,7 +381,7 @@ The page shows every list of the workspace with its size and where it is used, a
 | Uploads | Opens the Uploads page: every file upload of the workspace with its progress, who started it, Continue, Cancel and its report. | |
 | Create List | Opens the wizard. | |
 | The table | Name and description; **For** (Email, Texts, Email and Texts); the number of people; the source; the type; how many campaigns it is attached to and how many of those are live; when it changed. A note under the name when the list waits for approval or was refused. | |
-| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from CEP. |
+| Row menu | **Open** the list, **Clone** it (asks for the copy's name), **Delete** it. | Delete is refused while the list is attached to a campaign: archive it from its page instead. Deleting removes its people from the list, never from C360. |
 
 ### The wizard: Upload a File
 
@@ -383,11 +393,11 @@ The page shows every list of the workspace with its size and where it is used, a
 | | What the List Is For | Email, Texts, or Email and Texts. | Which column the file must have (an email address, a mobile number, or both), how a new person is recognised, and how each row is judged (email consent and address status, or text consent and the number's standing). Changed later on the list's Edit Details. |
 | | Type | Production or Test. | See Type above. |
 | | CSV File | The file: CSV only, up to 50 MB and 250,000 rows, comma, semicolon, tab or pipe separated, UTF-8 or Windows-1252. **Download Sample CSV** gives a file with the recognised columns in the right shape. | The file is stored privately, read in the background and deleted as soon as its rows are staged. |
-| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. CEP guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people CEP has no answer for. Any other column is kept on the person's list entry under its header and can be used as a tag in a template (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
+| Match Your Columns | One choice per column of the file | What each column means: Email, Mobile number, First name, Last name, Postal code, Loyalty ID, Loyalty tier, Last order date, Time zone, Email consent date, Text consent date, or *keep as a custom value*. C360 guesses from the headers; confirm or correct. | The required column must be matched. A consent date column becomes an opt-in for people C360 has no answer for. Any other column is kept on the person's list entry under its header and can be used as a tag in a template (coupon columns feed the barcode and QR code blocks). Time zone is the person's own, an IANA name such as America/Chicago; journeys that wait until a time of day use it, and a name that is not recognised is left out. |
 | Where Did These People Agree? | Consent Basis | Signed up on our website or app; Enrolled in store or in the loyalty programme; Asked us directly; Existing customers under implied consent. A bought or rented list is not allowed. | Recorded on every consent written from the file and on the list's compliance record. A Texts or Email-and-Texts list cannot use implied consent: marketing texts need an express opt-in. |
 | | Where the Consent Was Collected | Optional, up to 300 characters: a form name, a store, a campaign. | Kept as the evidence, so the proof can be found later. |
 | | The attestation | A sentence the uploader confirms in their own name, worded by the workspace (Settings → Consent Policy). | The import cannot be applied without it. Who confirmed it, and when, is kept. |
-| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to CEP and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
+| Review Before Importing | The report | How many rows will be imported and how many are held back (no address, not a valid address, the same address earlier in the file, and under a strict policy, no consent date); how many people are new to C360 and how many it already knows; and how the imported people would be judged by a marketing send today: can receive, unsubscribed, bounced, complained, blocked, invalid, suppressed, no consent on record. | Nothing yet. **Import** starts the import; **Continue in the background** closes the wizard and leaves it running. |
 | List Created | Where the list is, and what to do next. | | |
 
 The other two sources are shorter: **BI or Extraction Tool** asks for the audience (the list then follows the audience: who leaves is removed and who joins is added, hourly and on *Refresh now*), **Clone a List** asks for the list to copy and the copy's name.
@@ -420,16 +430,16 @@ The upload button in the header shows the uploads running on every page and rais
 
 1. **The file is stored and queued**, never processed inside your request. Reading, checking and importing run in the background, in chunks, at most a few uploads at a time across the whole platform and never two of the same workspace at once, so one large file cannot slow everyone down. The page keeps showing progress; a hidden browser tab stops asking.
 2. **Reading** stages every row and guesses the columns from the headers.
-3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person CEP knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
+3. **Checking** holds back rows without a usable address, rows whose address appears earlier in the file, and, under a strict policy, rows without a consent date. Everyone else is matched to a person C360 knows (by loyalty ID first, then by address or number) or marked as new. Each importable row is judged exactly as a marketing send would judge that person today, with the send engine's own rules, so a word means the same at upload and in a campaign's results.
 4. **The declaration** is recorded: the basis, where it was collected, who attested and when.
-5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where CEP had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
+5. **Importing** creates the new people, adds everyone with a usable address to the list (whatever their status: people resubscribe, addresses get unblocked, and the send engine decides again for real at every run), writes an opt-in for a consent date only where C360 had no answer, and never overrides an unsubscribe. The list becomes active; under an approval policy it waits for approval first.
 6. **The compliance record** on the list's page shows, for as long as the list exists: the source, every upload with its declaration, the approval, the policy as it stands today and today's consent by channel.
 
 ## Things to know
 
-- Uploading someone does not give consent. Only a consent date in the file, a sign-up through a CEP form or a preference page, or a record from your other systems does.
+- Uploading someone does not give consent. Only a consent date in the file, a sign-up through a C360 form or a preference page, or a record from your other systems does.
 - The review's numbers add up: rows in the file = held back + ready; ready = added + already in the list. The row-by-row report is the audit trail of an upload.
-- Lists are never deleted while a campaign uses them; archive instead. People are never deleted from CEP by a list action.
+- Lists are never deleted while a campaign uses them; archive instead. People are never deleted from C360 by a list action.
 - A Test list cannot go to production. Make the real list a Production one from the start, or clone it.
 - Excel files are not accepted; save as CSV first.
 
@@ -451,7 +461,7 @@ One customer across the workspace, read from the records C360 syncs (or an uploa
 | Messages | The last 30 messages campaigns and journeys sent them, with what became of each (delivered, opened, clicked, or why it was not sent). |
 | Contact Lists | The lists they are on and how they got there. Lists a journey makes for its own sends are left out. |
 
-**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before CEP can reach them.
+**Finding a customer.** Type part of a name, an email address, a mobile number (digits only are fine) or a customer id. A customer who is not in the records does not appear: C360 has to sync them, or an upload has to add them, before C360 can reach them.
 
 Who may see it: anyone who may see contact lists, campaigns or journeys.
 
@@ -562,7 +572,7 @@ Creating and editing a campaign is the Campaign Set-Up, which has its own chapte
 
 ## What this page is for
 
-Reports shows how the workspace performed over a period, from the figures CEP already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.
+Reports shows how the workspace performed over a period, from the figures C360 already records: sends, deliveries, opens, clicks, bounces, complaints, unsubscribes and attributed revenue. Nothing is collected here that the campaigns and journeys do not already keep. Two datasets share the page: **Campaigns** (the default) and **Journeys**.
 
 ## Who can use it
 
@@ -745,7 +755,7 @@ Once published, the campaign page shows the Series Timeline: each message Sent w
 
 ## What this page is for
 
-A template is the content a campaign sends: an email design, a text message, or an e-receipt. The Templates page is the library: start a new one from a channel or from a CEP preset, and find, rename, duplicate or preview the ones you have. Each channel has its own editor, full-screen, with versions kept on every save. A campaign picks a template on its Content step; a template is used by any number of campaigns and changing it changes what those campaigns send from then on.
+A template is the content a campaign sends: an email design, a text message, or an e-receipt. The Templates page is the library: start a new one from a channel or from a C360 preset, and find, rename, duplicate or preview the ones you have. Each channel has its own editor, full-screen, with versions kept on every save. A campaign picks a template on its Content step; a template is used by any number of campaigns and changing it changes what those campaigns send from then on.
 
 ## Who can use it
 
@@ -764,7 +774,7 @@ A template is the content a campaign sends: an email design, a text message, or 
 | Your Templates | Search, a tab per channel, a Status filter (Draft, Active, Archived). | The library below. |
 | A template's card | Name, channel, status, when it was last used and by which campaign. A drip message's template says which message it is ("Loyalty Welcome Series · Message 2 of 4"); a drip's templates sit together by name, and carry Locked while the drip is live. | Opens the editor. |
 | Card menu | Preview, Rename, Duplicate (a draft copy of the latest version), Delete. | Delete is refused while a campaign uses the template, and while a drip uses it for a message ("This Template Is in Use", with the way to the campaign). |
-| Starting Point gallery | CEP's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
+| Starting Point gallery | C360's presets by category. A preset opens in a read-only preview first. | Copy This Template makes it yours as a new draft; the preset itself never changes. |
 
 ### New Template
 
@@ -864,7 +874,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 | | |
 |---|---|
 | Permission | `template.edit` to edit, save and activate. Without it a template opens read-only: the canvas can be browsed and the Preview used, nothing can be changed. |
-| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: CEP's, or your own under Settings. |
+| Features | Barcode and QR Code blocks need **dynamic_codes**; the Deliverability tab needs **deliverability_tests** and a Mailgun Inspect account: C360's, or your own under Settings. |
 
 ## The workspace, piece by piece
 
@@ -885,7 +895,7 @@ This chapter is the long form: the workspace piece by piece, every block and set
 
 ## Starting a template
 
-**New Template → Email** asks for a name and a **Starting Point**: Blank, or one of CEP's starters, which become version 1 of your template and are yours to change:
+**New Template → Email** asks for a name and a **Starting Point**: Blank, or one of C360's starters, which become version 1 of your template and are yours to change:
 
 | Starter | What it holds |
 |---|---|
@@ -935,7 +945,7 @@ Settings every block shares, in Layout: **Margin** (space outside the block), **
 
 ## Deliverability mode
 
-Run Inbox Previews renders the last saved version in real email clients through CEP's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through CEP's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
+Run Inbox Previews renders the last saved version in real email clients through C360's Mailgun Inspect account, or the workspace's own one under Settings → Sending Engines → Deliverability Testing. Every test of the template is listed on the left; a result shows the renders grouped by client kind, a render opens full size. Through C360's account, tests count against the plan's monthly number plus any tests added for the month, which Settings → Plan & Usage shows; through your own, they are not limited. Unsaved changes are not in a test: save first.
 
 ## Saving, versions and activating
 
@@ -1078,7 +1088,7 @@ Each example is a complete recipe. Names, colours and addresses are placeholders
 - Marketing mail must carry the unsubscribe link; the Footer block has it. Remove it and Activate refuses, and a marketing campaign cannot publish.
 - Images are stored once per workspace and served from the media store; the same file uploaded twice is kept once.
 - Email clients differ: Outlook for Windows has no shadows and no media queries (the phone rules use its own mechanism), Gmail clips emails over 102 KB. The Preview's clients show the common cases; Deliverability shows the real ones.
-- A design made outside CEP can be pasted as Custom HTML, but the blocks cannot edit what is inside it; rebuild with blocks where you will want to change it later.
+- A design made outside C360 can be pasted as Custom HTML, but the blocks cannot edit what is inside it; rebuild with blocks where you will want to change it later.
 - A text template has no designer: SMS and MMS open the message editor, e-receipts the receipt editor.
 
 ---
@@ -1166,7 +1176,7 @@ Every load reads the users and roles, the engines and their last check, the send
 
 ## What this page is for
 
-Nothing leaves CEP without an engine. An engine is the service that actually delivers your messages: a Postal or SendGrid account for email, Digivize for texts, your own mail server, or the Sandbox that sends nothing while you try things out. A sender is the name and address (or the number) your messages come from, on one of those engines. This page is where both are added, checked and kept healthy, and where the engine is told how to report deliveries back to CEP.
+Nothing leaves C360 without an engine. An engine is the service that actually delivers your messages: a Postal or SendGrid account for email, Digivize for texts, your own mail server, or the Sandbox that sends nothing while you try things out. A sender is the name and address (or the number) your messages come from, on one of those engines. This page is where both are added, checked and kept healthy, and where the engine is told how to report deliveries back to C360.
 
 A campaign picks a sender when it is set up; the sender decides the engine. Until a workspace has a checked email engine and a verified sender, test sends work but nothing can be published to production.
 
@@ -1185,7 +1195,7 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 |---|---|---|
 | Provider | The engine's name, its channel tag (Email or Texts) and **Default** when it is the one new senders are offered first. Under it, the engine type and its address, and *separate key for receipts* when a second credential is stored. | Nothing by itself; it is the row's identity. |
 | State | **Not Checked Yet** until the first Check; **Checked** with the date and time when the last Check passed; **Check Failed** when it did not; **Switched Off** when *In Use* is unticked. | Set-Up counts an email engine as done only when it reads Checked. A switched-off engine is skipped by every send. |
-| Callbacks | **Copy Webhook URL** copies the engine's callback address, the address the provider must post delivery results to. **Rotate Address** makes a fresh address and retires the old one at once. Under them: when the last callback arrived and how many came in the last 24 hours, or a warning that none ever has. | Without a registered callback address CEP sends but never learns what happened: no delivered, bounced, opened or clicked counts, and bounced addresses are not blocked. Rotating means registering the new address with the provider again. |
+| Callbacks | **Copy Webhook URL** copies the engine's callback address, the address the provider must post delivery results to. **Rotate Address** makes a fresh address and retires the old one at once. Under them: when the last callback arrived and how many came in the last 24 hours, or a warning that none ever has. | Without a registered callback address C360 sends but never learns what happened: no delivered, bounced, opened or clicked counts, and bounced addresses are not blocked. Rotating means registering the new address with the provider again. |
 | Check | Asks the provider to confirm the address and the credential without sending anything. With two keys on a Postal engine it checks both and names the one refused. | Sets State to Checked or Check Failed with the provider's own words. |
 | Edit | Opens the engine's form. | |
 | Remove | Deletes the engine after a confirmation. | Its senders are removed with it. A campaign that used one of them has to be given another sender before it can publish. |
@@ -1197,7 +1207,7 @@ A campaign picks a sender when it is set up; the sender decides the engine. Unti
 |---|---|---|
 | Engine | The engine type: *Email · Postal*, *Email · SendGrid*, *Texts · Digivize*, *Texts · Sandbox (sends nothing)*. The type is fixed once saved. *Email · SMTP (your mail server)* is not offered here: it is switched on from Settings → Email Server with *Offer this server as a campaign sender*. | Decides which fields follow, whether the engine reports callbacks, and the channel its senders belong to. |
 | Name | How the engine is listed in this workspace, for example *Postal (marketing)* or *Texts (short code 55123)*. | Shown on every sender and in Set-Up. |
-| The engine's own fields | What the type needs to connect. They are listed per type below. A field marked as a key or secret is write-only: once saved it is never shown again, and the form says *stored*; leave it empty to keep it, type a new one to replace it. | The credential and address CEP uses on every send. |
+| The engine's own fields | What the type needs to connect. They are listed per type below. A field marked as a key or secret is write-only: once saved it is never shown again, and the form says *stored*; leave it empty to keep it, type a new one to replace it. | The credential and address C360 uses on every send. |
 | Messages per Minute | An optional pace. Empty means as fast as the provider accepts. | Spreads a run over time. Use it when the provider has a rate limit or when a slow ramp is wanted for a new sending domain. |
 | Default Engine for Email / Texts | One engine per channel is the default. | The one offered first when a sender is added. It does not change existing senders. |
 | In Use | Whether the engine may send. | Unticked: State reads Switched Off and every send that would use it fails at once with that reason. Tick it again to resume. |
@@ -1270,14 +1280,14 @@ The Sandbox accepts every text and sends none, and is not metered against the pl
 
 | Control | What it is | What it changes |
 |---|---|---|
-| Provided by CEP | Shown when your tests run through CEP's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | |
+| Provided by C360 | Shown when your tests run through C360's Mailgun Inspect account: this month's tests against your total, and where the total comes from (your plan's number, plus any tests the platform team added for the month). | |
 | Edit Clients | The default clients every test renders in (webmail, desktop apps, phones and tablets) and whether to render with images blocked. Leave every client unchecked for the service's own default set. | |
-| Use Your Own Mailgun Account / Set Up Mailgun Inspect | Region (US or EU), your Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | Your tests run through your own account, and CEP does not limit them. |
+| Use Your Own Mailgun Account / Set Up Mailgun Inspect | Region (US or EU), your Inspect account's username and an API key (write-only, stored encrypted). Check Connection confirms them. | Your tests run through your own account, and C360 does not limit them. |
 | Edit | Your own account's settings and its default clients. | |
-| Stop Using My Own Account | Removes your account; past results stay. | Tests go back to CEP's account, within your plan. Shown as Remove when CEP's account is not available. |
+| Stop Using My Own Account | Removes your account; past results stay. | Tests go back to C360's account, within your plan. Shown as Remove when C360's account is not available. |
 | The status | Not Checked Yet, Checked, Check Failed, Switched Off. | |
 
-Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Through CEP's account, tests count against your plan's monthly number plus the tests added for the month (added tests end with the month); through your own, they are counted under Plan & Usage for information only.
+Mailgun Inspect Basic covers client previews; the spam verdict and inbox placement show as not in your plan until they exist. Through C360's account, tests count against your plan's monthly number plus the tests added for the month (added tests end with the month); through your own, they are counted under Plan & Usage for information only.
 
 ## How to
 
@@ -1294,9 +1304,9 @@ Mailgun Inspect Basic covers client previews; the spam verdict and inbox placeme
 ## What happens behind the scenes
 
 1. **Publishing** a campaign attaches the sender you chose; the sender names the engine.
-2. **At the run's time** CEP builds the audience, leaves out the people it must (no consent, unsubscribed, bounced, over the frequency cap, and so on), and hands the messages to the engine in batches, paced by Messages per Minute.
-3. **The engine answers** per message: accepted (CEP records the engine's message id), rejected (failed, never retried) or try again (retried after 1, 5, 15, 30 and 60 minutes; after five attempts it fails). A refused key or a suspended account stops the whole run with that reason.
-4. **The engine calls back** to the callback address as things happen: delivered, bounced, deferred, dropped, complained, opened, clicked, unsubscribed. CEP keeps every callback and moves the message's status forward. A hard bounce or a complaint blocks the address for every future campaign; a complaint or an unsubscribe also records an opt-out.
+2. **At the run's time** C360 builds the audience, leaves out the people it must (no consent, unsubscribed, bounced, over the frequency cap, and so on), and hands the messages to the engine in batches, paced by Messages per Minute.
+3. **The engine answers** per message: accepted (C360 records the engine's message id), rejected (failed, never retried) or try again (retried after 1, 5, 15, 30 and 60 minutes; after five attempts it fails). A refused key or a suspended account stops the whole run with that reason.
+4. **The engine calls back** to the callback address as things happen: delivered, bounced, deferred, dropped, complained, opened, clicked, unsubscribed. C360 keeps every callback and moves the message's status forward. A hard bounce or a complaint blocks the address for every future campaign; a complaint or an unsubscribe also records an opt-out.
 5. **Texts** follow the same path with their own vocabulary: delivered or failed receipts, and replies. A STOP reply opts the number out of every kind of campaign and blocks it; START lifts the block.
 
 The campaign's **Recipients** tab shows each message's story, and **Check with the Engine** on a row asks Postal directly what became of it.
@@ -1522,7 +1532,7 @@ How people sign in to the workspace: whether everyone must use multi-factor auth
 
 **Require a second step for everyone.** Set up your own under Account Security first (the account menu), then switch Require for Everyone on. From the next sign-in everyone without it is walked through the set-up.
 
-**Sign in with your company's identity provider.** Register CEP as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
+**Sign in with your company's identity provider.** Register C360 as an application at the provider, paste the issuer, client id and secret, add your domain, choose the role new accounts get, switch Use Single Sign-On on and try it from another browser before you Require it.
 
 ## What happens behind the scenes
 
@@ -1905,7 +1915,7 @@ Each call is paced by a per-minute limit (an API key's own, the plan's inbound l
 
 ## What this page is for
 
-Keys for systems that call CEP's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
+Keys for systems that call C360's API: the point of sale sending receipts, a web shop, a data warehouse. Each key has a name, the scopes it may use, optionally the addresses it may call from and an expiry. The key is shown once, when it is created.
 
 ## Who can use it
 
@@ -1954,7 +1964,7 @@ Only a hash of the key is stored; the prefix identifies it in the log. Each key 
 
 ## What this page is for
 
-E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; CEP validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
+E-receipts from the point of sale: which e-receipt campaign renders them, what to tell the register software, the stores the transactions come from, and the trail of what was received. The point of sale posts each transaction as a TransactionTree (TTDR 3.2.2) document; C360 validates it, renders the receipt on the campaign's template and sends it through the campaign's sender and engine. Nothing about the transaction or the customer is kept, only the trail.
 
 ## Who can use it
 
@@ -2063,9 +2073,9 @@ The code is time-based (TOTP); the secret is stored encrypted. A recovery code w
 
 ## What is attribution
 
-Attribution answers one question: **which campaign earned this order?** The shop sends CEP its orders (and the point of sale its store sales, if you choose). CEP matches each order to the customer, looks back at what it sent that customer, and credits the order to one campaign. Adding those orders up gives each campaign its **revenue**, and with its cost, its **ROI**.
+Attribution answers one question: **which campaign earned this order?** The shop sends C360 its orders (and the point of sale its store sales, if you choose). C360 matches each order to the customer, looks back at what it sent that customer, and credits the order to one campaign. Adding those orders up gives each campaign its **revenue**, and with its cost, its **ROI**.
 
-CEP credits an order to the first of these that applies:
+C360 credits an order to the first of these that applies:
 
 1. **A campaign code.** The order carries the campaign's code (for example CMP-2026-0042), as `campaign_code` or as one of its coupon codes. That campaign gets it, whatever else happened.
 2. **The latest click** on a campaign's link by that customer within the **Click Window** (7 days by default).
@@ -2074,7 +2084,7 @@ CEP credits an order to the first of these that applies:
 
 One campaign gets the whole amount (this is called *last touch*). An order that matches none of these is **Not Credited**, and the page says why. A refund follows its original order and takes the money back from the same campaign.
 
-Until attribution is on, every revenue figure in CEP reads *Not Set Up*: Home's Attributed Revenue, Campaign ROI, Marketing Performance and Top Campaigns, each campaign's revenue against its target, the Reports revenue column, and the e-receipts' Revenue from Receipt Offers.
+Until attribution is on, every revenue figure in C360 reads *Not Set Up*: Home's Attributed Revenue, Campaign ROI, Marketing Performance and Top Campaigns, each campaign's revenue against its target, the Reports revenue column, and the e-receipts' Revenue from Receipt Offers.
 
 ## Who can use it
 
@@ -2153,7 +2163,7 @@ Each order needs `order_id` and `amount` (revenue to count, 0 or more) and names
 
 **Credit a promotion outright.** Give the campaign's code (on the campaign's page) to the shop as the coupon, or have the shop send it as `campaign_code`. An order carrying it is credited to that campaign whatever the customer clicked.
 
-**Find out why an order earned nothing.** Latest Orders → State: **Not Credited**. The reason is under each order: no customer CEP knows, no click, open or text within the windows, or a refund whose order was not credited.
+**Find out why an order earned nothing.** Latest Orders → State: **Not Credited**. The reason is under each order: no customer C360 knows, no click, open or text within the windows, or a refund whose order was not credited.
 
 **Change a window.** It applies to new orders. **Recalculate** (in Last 30 Days) judges the last 400 days of orders again under the current windows and rewrites every campaign's figures.
 
@@ -2161,14 +2171,14 @@ Each order needs `order_id` and `amount` (revenue to count, 0 or more) and names
 
 ## What happens behind the scenes
 
-The attribute-orders job runs every five minutes. It finds the customer: the customer id, or whoever CEP emailed at the address or texted at the number in the last 120 days. It credits the order as above, then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
+The attribute-orders job runs every five minutes. It finds the customer: the customer id, or whoever C360 emailed at the address or texted at the number in the last 120 days. It credits the order as above, then writes each campaign's actuals: revenue net of refunds, orders, buyers (distinct people, plus orders without a person), delivery cost, contribution (revenue minus cost), ROI (revenue over cost), revenue per delivered message and cost per buyer.
 
 ## Things to know
 
 - Last touch is easy to explain and to check against the shop, but it gives no credit to the campaigns earlier in a customer's path.
 - Revenue counts on the campaign whenever the order happens, so a campaign's figures grow for as long as its clicks are in the window.
-- CEP keeps the amount, the customer, the store and the codes of an order, not its items or payment.
-- An order for a customer CEP never emailed or texted, and with no customer id it knows, is Not Credited: there is nobody to match.
+- C360 keeps the amount, the customer, the store and the codes of an order, not its items or payment.
+- An order for a customer C360 never emailed or texted, and with no customer id it knows, is Not Credited: there is nobody to match.
 
 ---
 
@@ -2178,7 +2188,7 @@ The attribute-orders job runs every five minutes. It finds the customer: the cus
 
 ## What is a journey
 
-A journey is an automated path that each customer walks on their own. You draw it once: **who enters**, then the **steps** they go through (wait, check something, send an email or a text, issue a coupon, change their record, call your system) and where the path **ends**. From then on CEP runs it for every customer who qualifies, one at a time, at their own pace.
+A journey is an automated path that each customer walks on their own. You draw it once: **who enters**, then the **steps** they go through (wait, check something, send an email or a text, issue a coupon, change their record, call your system) and where the path **ends**. From then on C360 runs it for every customer who qualifies, one at a time, at their own pace.
 
 A campaign sends one message to a list at one moment. A journey keeps working: a customer who abandons a cart this afternoon gets the reminder an hour later, a customer whose birthday is next week gets the reward seven days before it, and a new loyalty member gets the welcome series over their first two weeks, without anyone pressing Send.
 
@@ -2215,7 +2225,7 @@ The platform team's own chapter, **Journeys** in the Platform Guide, has the det
 1. **The feature.** Journeys is a feature of the workspace's industry profile and plan: the tenant's page → Industry and features → Journeys → On, and a plan that includes it. Without it the Journeys menu item is missing and events sent to the workspace are refused.
 2. **The scheduler.** One scheduler process (cep-jobs) runs for the platform; it enrols and moves journey customers every minute, activates scheduled journeys and rolls up the figures nightly. Nothing in a journey moves while it is stopped.
 3. **The encryption key** for secrets at rest, so a Webhook step's signing secret can be kept.
-4. **C360's feeds** into the workspace's database: the customer records, segments and their memberships, coupons and loyalty tiers. CEP does not create customers from nothing: a journey can only reach a customer who is in the records.
+4. **C360's feeds** into the workspace's database: the customer records, segments and their memberships, coupons and loyalty tiers. C360 does not create customers from nothing: a journey can only reach a customer who is in the records.
 
 ### What the workspace does (Settings)
 
@@ -2236,13 +2246,13 @@ A journey reads and writes the customer's record and reacts to what happens to t
 
 | Data | Comes from | Used by |
 |---|---|---|
-| Customer records (name, emails, phones, address, source) | C360 syncs them into the workspace; a contact list upload adds the people CEP did not know (owned by CEP, not a C360 copy). | Who can enter at all; the Customer fields in conditions; the Webhook payload. |
+| Customer records (name, emails, phones, address, source) | C360 syncs them into the workspace; a contact list upload adds the people C360 did not know (owned by C360, not a C360 copy). | Who can enter at all; the Customer fields in conditions; the Webhook payload. |
 | Custom attributes (loyalty tier, customer status, home store, lifetime value, any field C360 sends) | C360, as a JSON object on the record; the upload adds `loyalty_tier`, `loyalty_id`, `last_purchase_at`, `timezone`; the Update Profile and Update Loyalty Tier steps write them. | Conditions (text, number or date by the comparison), Split by an attribute, the attribute trigger, Wait Until a date on the record. |
 | `timezone` (an IANA name such as America/Chicago) | C360, or the upload template's Time zone column. | Wait Until a Time of Day and Until a Date on the Record, in the customer's own time; the workspace's zone otherwise. |
 | Dates on the record (YYYY-MM-DD) such as `birth_date`, `membership_date`, `renewal_date` | C360 custom attributes. | On a Date Attribute entries, Wait Until a Date on the Record, date conditions. |
 | Segments and their members | C360 (audiences the data team defined). | Enters / Exits Segment entries, Is in a Segment conditions, the Update Segment step, Who Enters on a schedule. |
-| Contact lists | Uploaded, cloned or made from a segment in CEP. | Customer List entries, Is in a List conditions, Add to / Remove from List steps, Who Enters on a schedule, the test list. |
-| Events (purchase, abandoned cart, store visit, birthday, any type you name) | `POST /api/v1/events/` from the shop, the app, the point of sale or the loyalty system, with an `events:ingest` key; CEP raises Purchase and First Purchase from orders, Email Open/Click and SMS Response from its own tracking, No Response, Preference Update, Loyalty Tier Change and Coupon Issue itself. | Event entries, Event conditions with property filters, the Goal step. |
+| Contact lists | Uploaded, cloned or made from a segment in C360. | Customer List entries, Is in a List conditions, Add to / Remove from List steps, Who Enters on a schedule, the test list. |
+| Events (purchase, abandoned cart, store visit, birthday, any type you name) | `POST /api/v1/events/` from the shop, the app, the point of sale or the loyalty system, with an `events:ingest` key; C360 raises Purchase and First Purchase from orders, Email Open/Click and SMS Response from its own tracking, No Response, Preference Update, Loyalty Tier Change and Coupon Issue itself. | Event entries, Event conditions with property filters, the Goal step. |
 | Orders | `POST /api/v1/orders/` with an `orders:ingest` key, or store transactions when POS Receipts count store sales. | Purchase events, Last Purchase Date, Number of Purchases, a Goal's attributed revenue. |
 | Coupons and loyalty tiers | C360 references synced into the workspace. | Issue Coupon (a request C360 fulfils through `coupons:issue`), Update Loyalty Tier. |
 | Consent, suppressions, preferences | The preference centre, unsubscribe links, STOP replies, imports, Settings → Suppressions. | Whether a message step sends; Preview Route shows the verdict for one customer. |
@@ -2267,7 +2277,7 @@ A journey reads and writes the customer's record and reacts to what happens to t
 
 **From scratch.** **Create Journey** (or **Start from Scratch** in the panel) opens the two-step set-up with nothing filled in.
 
-**From one of your own templates.** **Save as Template** on a journey's page keeps the journey as a template of the workspace: its entry, steps, settings and goal, as the live version has them (or the newest version, on a journey that has not gone live). Give it a name, a category (Lifecycle, Commerce, Loyalty, Engagement) and a description. Saved templates sit under **Your Templates** on the Journey Templates panel and in **View More**, tagged *Saved Template* beside CEP's *CEP Starter*; clicking one previews it like a starter, **Use This Template** copies it into a new draft, and **Delete Template** in the preview removes it (journeys made from it keep working). The template never changes after it is saved; the message steps keep their templates and senders, which the copy can change.
+**From one of your own templates.** **Save as Template** on a journey's page keeps the journey as a template of the workspace: its entry, steps, settings and goal, as the live version has them (or the newest version, on a journey that has not gone live). Give it a name, a category (Lifecycle, Commerce, Loyalty, Engagement) and a description. Saved templates sit under **Your Templates** on the Journey Templates panel and in **View More**, tagged *Saved Template* beside C360's *C360 Starter*; clicking one previews it like a starter, **Use This Template** copies it into a new draft, and **Delete Template** in the preview removes it (journeys made from it keep working). The template never changes after it is saved; the message steps keep their templates and senders, which the copy can change.
 
 **From one of yours.** **Duplicate** on a journey's page makes a new draft copy of it, steps included, to start again or try a variant. The journeys already set up in the workspace are on the Journeys page, with their status, trigger, channels and steps; open one to see how it is built and how it is doing.
 
@@ -2289,7 +2299,7 @@ Every way a customer can enter, and what each needs:
 | Entry | Enters when | Needs |
 |---|---|---|
 | Customer List | A customer is on the chosen list (newcomers to the list enter on later passes unless the population is Fixed). | A list in Contact Lists, approved if the consent policy asks for it. |
-| Event: Welcome, Birthday, Anniversary, First Purchase, Customer Creation, Purchase, Abandoned Cart, Coupon Issue, Coupon Redemption, Segment Inception, Loyalty Tier Change, Email Open/Click, SMS Response, No Response | That event arrives for the customer after the journey went live (within the last seven days at most). | The shop, app or loyalty system sending events; Attribution for purchases; nothing for Email Open/Click, SMS Response, No Response, Coupon Issue and Loyalty Tier Change, which CEP raises itself. |
+| Event: Welcome, Birthday, Anniversary, First Purchase, Customer Creation, Purchase, Abandoned Cart, Coupon Issue, Coupon Redemption, Segment Inception, Loyalty Tier Change, Email Open/Click, SMS Response, No Response | That event arrives for the customer after the journey went live (within the last seven days at most). | The shop, app or loyalty system sending events; Attribution for purchases; nothing for Email Open/Click, SMS Response, No Response, Coupon Issue and Loyalty Tier Change, which C360 raises itself. |
 | Date / Time: Daily, Weekly, Monthly, On a Specific Date | The schedule's moment comes, for the members of a list or a segment. | The list or segment. Times are the workspace's time zone; each moment fires once. |
 | Date / Time: On a Date Attribute | A date on the customer's record is the chosen number of days away (every year, or once). | A custom attribute holding a date, for example `birth_date`; the Date list shows how many records have each. |
 | Enters Segment, Exits Segment | The customer joins or leaves the segment. | The segment, synced from C360. |
@@ -2327,7 +2337,7 @@ The canvas shows the Entry at the top. Use the **+** between steps to add one; c
 | Condition | Splits into Yes and No on conditions you build (see *Conditions* below): the customer's record, this journey's messages and earlier Conditions, events, lists and segments, the goal. Optionally give the step a name, shown on its card. **Match on Entry** under the builder says how many customers in the journey would answer Yes right now. |
 | Split | Several paths. **By an Attribute**: each customer takes the first path whose values hold their attribute's value (Home Store is Lakeside Mall → Path 1; Downtown or Airport → Path 2), everyone else the last path. **At Random**: percentages that add up to 100, chosen once per customer and kept on retry. Name each path; the names show on the canvas. |
 | Email, SMS / MMS | Sends a published template through the normal send engine, as a campaign of its own (one per step per day), so consent, suppressions, caps and quiet hours apply. **Sender** chooses which of the workspace's senders the message goes from; left as *Workspace default*, it is the engine's default sender for the channel. An SMS step offers texting senders only. |
-| Issue Coupon | Asks C360 for a coupon for the customer. CEP makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
+| Issue Coupon | Asks C360 for a coupon for the customer. C360 makes no codes: C360 collects the request, issues the coupon and marks it done (Settings → Events → Coupon Requests for C360). The step also raises a Coupon Issue event. |
 | Update Loyalty Tier | Sets the customer's tier and raises a Loyalty Tier Change event. |
 | Update Profile | Sets any attribute on the customer's record to a value (Customer Status to Welcomed). |
 | Update Segment | Adds the customer to a segment, or removes them. |
@@ -2366,7 +2376,7 @@ Choose the **Test Population**: a **Random Sample of Live Audience** (up to 200 
 
 **Approve & Activate →** (needs Activate). Choose **Activate Immediately** or **Schedule for Later** (a date and a time), then **Activate Journey** or **Schedule Journey**. A scheduled journey reads *Approved* until its time; **Cancel Schedule** on its page takes it back to Test.
 
-From then on CEP enrols qualifying customers every minute. Watch them arrive on the journey's page.
+From then on C360 enrols qualifying customers every minute. Watch them arrive on the journey's page.
 
 ## How to edit a journey
 
@@ -2415,14 +2425,14 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## Things to know
 
-- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). CEP raises it at most once in 30 days per customer, while a live journey starts from it.
+- **No Response** means a customer sent at least 3 marketing emails in the last 30 days who opened, clicked and replied to none of them (security scanners left out). C360 raises it at most once in 30 days per customer, while a live journey starts from it.
 - Attribute changes enter on events: **Loyalty Tier** on a Loyalty Tier Change (from the Update Loyalty Tier step, or sent by the loyalty system), **Preference Update** on a preference-centre save that changed something, **Address Change** on the event C360 sends.
-- The dates for **On a Date Attribute** and **Until a Date on the Record** come from customer records' custom attributes holding a date (YYYY-MM-DD); CEP has no birthday field of its own. If no record holds a date yet, the Date list says so.
-- A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name CEP does not know, waits in the workspace's time zone. Test Publish skips every wait.
+- The dates for **On a Date Attribute** and **Until a Date on the Record** come from customer records' custom attributes holding a date (YYYY-MM-DD); C360 has no birthday field of its own. If no record holds a date yet, the Date list says so.
+- A customer's time zone is the `timezone` custom attribute on their record, an IANA name such as America/Chicago; C360 can send it, and the upload template has a Time zone column. A record without one, or with a name C360 does not know, waits in the workspace's time zone. Test Publish skips every wait.
 - A Fixed journey is closed to newcomers after its first pass, even if more customers would qualify later.
 - A Condition saved before the builder (made a purchase, opened an email, and so on) keeps working as it was; opening it shows the same check as a rule, which is saved in the new form when you save the step.
 - A Webhook address must be https (http only for localhost), so customer data never travels in the clear. The signing secret is kept encrypted; the Webhook Calls card never shows it.
-- A saved template belongs to the workspace, not to the journey it came from: deleting the template leaves the journeys made from it as they are, and archiving the journey leaves the template. CEP's own starters cannot be changed or deleted.
+- A saved template belongs to the workspace, not to the journey it came from: deleting the template leaves the journeys made from it as they are, and archiving the journey leaves the template. C360's own starters cannot be changed or deleted.
 - The **Journeys** dataset in Reports adds up every journey's entries, conversions, revenue and messages per day over a period, with a CSV (see *Reports*).
 - Events are explained in **Events** (Settings → Events), purchases in **Attribution**, keys in **API Keys**, who may do what in **Roles**.
 
@@ -2434,7 +2444,7 @@ Only customers in the customer records enter, since a message to someone unknown
 
 ## What this page is for
 
-What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to CEP, and CEP raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for C360.
+What happened to a customer: a purchase, an abandoned cart, a birthday, a tier change. The shop and the loyalty system send events to C360, and C360 raises some itself. A journey whose entry is an event enrols the customer within a minute, and a Condition step can check for one. This page shows what arrived, how to send events, and the coupon requests journeys leave for C360.
 
 ## Who can use it
 
@@ -2446,8 +2456,8 @@ What happened to a customer: a purchase, an abandoned cart, a birthday, a tier c
 
 | Part | What it shows |
 |---|---|
-| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer CEP does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
-| Raised by CEP Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from CEP's own tracking (security scanners left out). These need nothing sent. |
+| Last 7 Days | How many events arrived, by type, and when the last one came. Events naming a customer C360 does not have yet are counted separately: they enter journeys once the customer arrives from C360, within seven days of the event. |
+| Raised by C360 Itself | **Purchase** and **First Purchase** from every order Attribution receives (and every store sale, when Attribution counts them); **Coupon Issue** from every Issue Coupon step; **Loyalty Tier Change** from every Update Loyalty Tier step that changes the tier; **Preference Update** from every preference-centre save that changes a channel or a topic; **No Response** for lapsed engagers (below); **Email Open/Click** and **SMS Response**, read from C360's own tracking (security scanners left out). These need nothing sent. |
 | Send Events | The endpoint, the headers, the key's scope and how many keys have it, and one event as an example. |
 | Coupon Requests for C360 | How many requests are waiting, issued and failed, and how C360 reads and answers them. |
 | Latest Events | The newest 50 events, sent or raised by CEP: when it arrived, the event and its id, the customer, the source and when it happened. Filter by type; search by customer, event id or source. Opens, clicks and text replies are not listed here. |
@@ -2456,9 +2466,9 @@ What happened to a customer: a purchase, an abandoned cart, a birthday, a tier c
 
 Customer Creation (`CUSTOMER_CREATED`), Welcome (`WELCOME`), Birthday (`BIRTHDAY`), Anniversary (`ANNIVERSARY`), Purchase (`PURCHASE`), First Purchase (`FIRST_PURCHASE`), Category Purchase (`CATEGORY_PURCHASE`), Abandoned Cart (`CART_ABANDON`), Coupon Issue (`COUPON_ISSUED`), Coupon Redemption (`COUPON_REDEEMED`), Segment Inception (`SEGMENT_INCEPTION`), Segment Change (`SEGMENT_CHANGE`), Loyalty Tier Change (`LOYALTY_TIER_CHANGE`), Preference Update (`PREFERENCE_UPDATE`), Address Change (`ADDRESS_CHANGE`), No Response (`NO_RESPONSE`), Email Open/Click (`EMAIL_ENGAGEMENT`) and SMS Response (`SMS_RESPONSE`). Any other name in capitals and underscores (for example `STORE_VISIT`) is accepted too.
 
-A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. CEP does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
+A journey's **Attribute Change** entry reads these: Loyalty Tier on `LOYALTY_TIER_CHANGE`, Preference Update on `PREFERENCE_UPDATE`, Address Change on `ADDRESS_CHANGE`. C360 does not keep a history of customer records, so the loyalty system sends the tier changes it makes, and C360 sends `ADDRESS_CHANGE` when an address changes (the new address in `payload`).
 
-**No Response** is raised by CEP for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
+**No Response** is raised by C360 for a customer sent at least 3 marketing emails (not receipts) in the last 30 days who opened, clicked and replied to none of them, security scanners left out. One per customer in 30 days, and only while a live journey starts from it (checked every 15 minutes).
 
 ## How to
 
@@ -2483,5 +2493,126 @@ The enrol job reads events every minute. An event counts for a journey that was 
 
 ## Things to know
 
-- CEP keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
-- CEP never makes coupon codes; C360 does.
+- C360 keeps the event's type, customer, time, source, id and payload (up to 8,000 characters), not more.
+- C360 never makes coupon codes; C360 does.
+
+---
+
+# Insights: Reports, Dashboards and Scheduled Delivery
+
+**Where:** Insights, in the app launcher (the grid icon at the top left), and the Insights item in Engagement's menu, which opens the same reports.
+
+## What Insights is for
+
+Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.
+
+## Who can use it
+
+| Permission | What it allows |
+|---|---|
+| Reports · View (`report.view`) | Open and run the reports and dashboards shared with the workspace, export them, star favourites, switch a report's view. |
+| Reports · Edit (`report.edit`) | Make and change your own reports, dashboards, folders and schedules; delete your own. |
+| Report Admin (`report.admin`) | Everything on every report, dashboard, folder and schedule in the workspace; build on personal-data fields; see the Run Log. |
+| User Admin (`user.admin`) | Also builds on personal-data fields. |
+
+The workspace needs the Insights component switched on by the platform team; without it the menu does not offer Insights.
+
+## The datasets
+
+A report is built on one dataset. Each offers **dimensions** (things to group by, such as Campaign, Channel or Sent month) and **measures** (numbers to total, such as Sent Count or Revenue). The datasets today:
+
+| Dataset | One row per | Typical use |
+|---|---|---|
+| Messages | Every email and text a campaign sent | Sends, deliveries, opens and clicks by campaign, channel or month. |
+| Attributed Orders | Every order the shop reported and the campaign it was credited to | Revenue by campaign, channel, store or month. |
+| Contacts | Every contact in the workspace | Contacts by city, region, source or consent. |
+| Journey Enrolments | Every customer in a journey | Enrolments, completions and conversions by journey. |
+
+Fields marked **PII** carry personal data (a customer's identifier, an email address). Building on them needs Report Admin or User Admin. When you open a shared report that has such a column and you lack the right, its values are masked and the grid says so.
+
+## Reports
+
+### The list
+
+Insights → Reports lists every report you can open, grouped by the component whose data it uses, with its view, dataset, owner and last run. Your **favourites** sit first: press the star on any row to add one. **Folders** group a workspace's reports; the chips at the top filter by folder or by No Folder, and the folder shows under the report's name. Search finds a report by name.
+
+### Making a report
+
+1. Press **New Report**, pick a dataset and give it a name. It opens in the editor with the dataset's first columns.
+2. Build it with one of the two editors, switched at the top right and remembered for you:
+   - **Field Wells**: the dataset's fields on the left, the result in the middle, the wells on the right. Click or drag a field into **Rows** (one line per value), **Columns** (one dimension spread across, for the pivot and the chart's series) or **Values** (a number to total, with its calculation). **Filters**, then **Sort and Limit**, sit under them.
+   - **Steps**: the question written top to bottom as numbered steps: Data, Filter, Summarize, Group By, Sort and Limit. Each step has an Add button; the result sits under the steps.
+   A date dimension can be grouped **by Day, Week, Month, Quarter or Year**. A measure has its calculation: Sum, Count, Distinct Count, Average, Min or Max.
+3. **Filters**: one row per rule (field, operator, value), joined with **and** or **or**. A list is comma-separated, a range is from..to, "in the last days" takes a number. Dates are the workspace's time zone.
+4. The preview runs as you build, up to the preview cap. The line above it says how many rows, how long, and how fresh the data is.
+5. **Save** writes a new version. Cancel drops the changes.
+
+### The four views
+
+Any report switches between the views without losing its fields; the switch sits above the result, in the editor and in the viewer. The editor saves the choice; the viewer switches for a look.
+
+| View | What it shows | What it needs |
+|---|---|---|
+| Grid | One row per record or group, sortable and resizable columns | Anything |
+| Chart | Bars, lines or area: the first dimension along the bottom, a series per value of the dimension across (else one per measure), the legend to show and hide, Show the Numbers under it | A dimension and a measure |
+| Hierarchy | The dimensions in their order, each group folding over the next, a subtotal per group, Expand All and Collapse All | Two dimensions and a measure |
+| Pivot | The dimension across as columns, one measure in the cells (a select when there are several), a total on both edges | A dimension down, one across, a measure |
+
+Subtotals and totals come from the engine, so averages and distinct counts are exact, and a report longer than the page still totals everything.
+
+### The viewer
+
+Opening a report runs it and shows the saved view. Above the rows: the view switch; under the title: what the run says (rows, time, freshness, version) and, once scheduled, the schedule line. The buttons:
+
+| Button | What it does |
+|---|---|
+| Folder | Files the report in a folder, or in a new one (owner or administrator). |
+| Versions | Every saved version with who, when and the note. **Open** shows one as it was, read-only, with Back to Current. **Restore** makes it the current version again, as a new version; nothing is lost. |
+| Schedule | Emails the report on a schedule (below). |
+| Edit | The editor (owner or administrator). |
+| Export CSV, Export Excel, Export PDF | The report as a file: CSV the rows; Excel the view with its totals first and the rows after, with number formats; PDF the view styled for paper. |
+| Delete | Removes the report and its versions (owner or administrator). |
+
+## Dashboards
+
+A dashboard is a page of tiles, each tile a saved report in one of its views or one of its figures, on **one period** that applies to every tile.
+
+- **Insights → Dashboards** lists them, favourites first, with their tiles, owner and sharing.
+- **New Dashboard** opens an empty one in the editor. Name it, choose who can open it (only you, or the workspace), and **Add Tile**: pick a report, then how to show it, one of its views or **one figure**, a measure totalled over the period. Each new tile goes into the last row with room, else a new row.
+- A dashboard is **rows of tiles**: one to four across of equal width, or wide and narrow. The row bar sets the width and moves or removes the row; a tile's controls move it left or right, rename it or remove it. Nothing overlaps or leaves a gap. **Done** saves the layout as a version.
+- **The period**: 7 Days, 30 Days, This Month, Quarter, or Custom dates, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile says **Own dates**. **Compare With Previous Period** adds the change to every figure.
+- Viewing a dashboard, you can switch the period and the comparison for a look without saving.
+- **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
+
+## Scheduled delivery
+
+Press **Schedule** on a report or a dashboard:
+
+| Field | Meaning |
+|---|---|
+| Every | Day, Weekday, Week (on a day) or Month (on a day of the month, 1 to 28). |
+| At | The time, in the workspace's time zone. |
+| Send as | Excel, CSV or PDF for a report; a dashboard goes as PDF. |
+| To | Up to twenty addresses; Enter, a comma or a space adds one. |
+| Subject | Optional. `{date}` becomes the sending date. Empty: the report's name and the date. |
+| Note | Optional, at the top of the email. |
+
+The email goes out through the workspace's own mail server (Settings → Email Server; a workspace without one cannot schedule), built at the moment of sending with the rights and masking of whoever scheduled it, the file attached. Under the title the schedule line shows what, when, to how many, the last sending and the next, with **Change** and **Pause**. **Send a Test Now**, on a saved schedule, sends the email to you at once. **Insights → Scheduled** lists every schedule you may see, with Pause, Resume and Delete. Three failures in a row pause a schedule; Resume starts it again.
+
+## Run Log
+
+Insights → Run Log, for report administrators: every preview, run, export and delivery of the last 7 or 30 days, with the report and its version, the kind, who, the outcome with its reason when it is not OK, the rows and the time, filterable by outcome, person and report name, with a summary of the period.
+
+## How fresh is the data
+
+The line under a report's title says it. **Live data**: the report reads the workspace's database as it is. **Data as of the last quarter hour**: the workspace reports on the analytics engine, which the platform team loads from the database every fifteen minutes; new sends show on the next load. The platform team decides which engine a workspace is on; the pages and the figures are the same either way.
+
+## When something does not run
+
+| Message | What it means |
+|---|---|
+| The report took longer than 15 seconds and was stopped | Narrow it with a filter or a shorter period. |
+| X is personal data: building a report on it needs the report administration right | Ask an administrator to build that part, or to grant the right. |
+| This workspace's reports are moving to a new engine | The platform team is switching the engine; try again shortly. |
+| This workspace has no mail server yet | Set one up under Settings → Email Server before scheduling. |
+| Insights is not part of this workspace | Ask the platform team to switch the component on. |

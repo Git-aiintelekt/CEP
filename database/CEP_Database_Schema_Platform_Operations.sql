@@ -1884,7 +1884,7 @@ CREATE TABLE IF NOT EXISTS report_engine_setting (
     engine              VARCHAR(12) NOT NULL DEFAULT 'postgresql',
     connection_profile  VARCHAR(60) NOT NULL DEFAULT 'pg-reporting-shared',
     status              VARCHAR(12) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, MIGRATING, READ_ONLY
-    freshness_sla       VARCHAR(12) NOT NULL DEFAULT 'LIVE',              -- LIVE, MINUTES_5, HOURLY, DAILY
+    freshness_sla       VARCHAR(12) NOT NULL DEFAULT 'LIVE',              -- LIVE, QUARTER_HOUR (ClickHouse, the refresh job's cadence), MINUTES_5, HOURLY, DAILY
     query_limits        JSONB NOT NULL DEFAULT '{}',                      -- statement_timeout_ms, preview_rows, run_rows, export_rows, concurrent
     last_reconciled_at  TIMESTAMPTZ,
     row_version         INTEGER NOT NULL DEFAULT 1,

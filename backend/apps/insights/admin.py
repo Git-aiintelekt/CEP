@@ -61,6 +61,8 @@ class ReportEngineSettingAdmin(BaseAdmin):
     list_display = ("tenant", "engine", "status", "freshness_sla", "last_reconciled_at", "updated_at")
     fields = ("tenant", "engine", "connection_profile", "status", "freshness_sla", "query_limits", "last_reconciled_at")
     actions_detail = ("backfill_clickhouse", "reconcile_engines", "activate_clickhouse", "roll_back_postgresql")
+    list_before_template = "admin/insights/engine_help.html"                   # how the page works, and the guide chapter
+    change_form_before_template = "admin/insights/engine_help.html"
 
     def _set(self, tenant_id, request, **fields):
         from django.db import connections
