@@ -4,7 +4,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.shortcuts import redirect
 from unfold.decorators import action
-from unfold.widgets import UnfoldAdminTextInputWidget
+from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget
 from django.utils import timezone
 
 from apps.adminutils import BaseAdmin
@@ -55,8 +55,20 @@ class ReportDatasetAdmin(BaseAdmin):
         catalog.invalidate()
 
 
+ENGINES = (("postgresql", "PostgreSQL"), ("clickhouse", "ClickHouse"))
+ENGINE_STATUSES = (("ACTIVE", "Active: reports run on this engine"), ("MIGRATING", "Migrating: loading or checking, reports still run on PostgreSQL"),
+                   ("READ_ONLY", "Read only"))
+FRESHNESS = (("LIVE", "Live"), ("QUARTER_HOUR", "Every quarter hour (ClickHouse refresh)"), ("MINUTES_5", "Every 5 minutes"), ("HOURLY", "Hourly"), ("DAILY", "Daily"))
+
+
+def _select(choices, **kwargs):
+    return forms.ChoiceField(choices=choices, widget=UnfoldAdminSelectWidget, **kwargs)
+
+
 class ReportEngineConnectionForm(forms.ModelForm):
     """The password is write-only: typed to set or change it, stored encrypted, never shown."""
+    engine = _select(ENGINES, initial="clickhouse")
+    status = _select((("ACTIVE", "Active"), ("DISABLED", "Disabled")), initial="ACTIVE")
     password = forms.CharField(required=False, widget=UnfoldAdminTextInputWidget(attrs={"type": "password", "autocomplete": "new-password"}),
                                help_text="Leave empty to keep the stored password. Stored encrypted, never shown.")
 
@@ -106,7 +118,12 @@ class ReportEngineConnectionAdmin(BaseAdmin):
 
 
 class ReportEngineSettingForm(forms.ModelForm):
-    """connection_profile offers the connections the back-office knows, or the server's environment."""
+    """Engine, status and freshness are the values the table allows; connection_profile offers the connections the back-office
+    knows, or the server's environment."""
+    engine = _select(ENGINES, help_text="Where this workspace's reports run. Switch with the buttons above, not by hand: they load and check ClickHouse first.")
+    status = _select(ENGINE_STATUSES)
+    freshness_sla = _select(FRESHNESS, label="Freshness SLA", help_text="What the line under a report's title tells people.")
+
     class Meta:
         model = ReportEngineSetting
         fields = ("tenant", "engine", "connection_profile", "status", "freshness_sla", "query_limits")
@@ -123,7 +140,7 @@ class ReportEngineSettingForm(forms.ModelForm):
         choices = [("", "The server's environment (CLICKHOUSE_*)")] + [(p, f"{p} · {e}") for p, e in profiles]
         if current and current not in dict(choices):
             choices.append((current, f"{current} (no such connection)"))
-        self.fields["connection_profile"] = forms.ChoiceField(choices=choices, required=False, label="Connection profile",
+        self.fields["connection_profile"] = forms.ChoiceField(choices=choices, required=False, label="Connection profile", widget=UnfoldAdminSelectWidget,
                                                               help_text="Which ClickHouse this workspace loads into and reads from. Empty: the server's environment.")
 
     def clean_connection_profile(self):
