@@ -2377,6 +2377,77 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('ai.explain_allowed', 'true', 'BOOLEAN', 'Insights', 'Whether Explain This Report may send a report''s totals (never personal data) to the model')
 ON CONFLICT (key) DO NOTHING;
 
+-- ---- Report Databases (patch 0056; apps/insights/databases.py, external.py): a workspace's own MySQL or PostgreSQL databases, read-only, and the
+--      datasets it maps from their tables and views. A report may be built on a mapped dataset, so report.dataset_key no longer
+--      references the platform's catalogue alone.
+CREATE TABLE IF NOT EXISTS report_connection (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(100) NOT NULL,
+    engine              VARCHAR(12) NOT NULL DEFAULT 'mysql80',           -- mysql57, mysql80, postgresql
+    host                VARCHAR(200) NOT NULL,
+    port                INTEGER NOT NULL DEFAULT 3306,
+    database_name       VARCHAR(64) NOT NULL,
+    schema_name         VARCHAR(64) NOT NULL DEFAULT 'public',            -- PostgreSQL: the schema the sources live in; MySQL: the database itself
+    username            VARCHAR(100) NOT NULL,
+    password_enc        TEXT NOT NULL,                                     -- Fernet, apps/platform_ops/crypto.py; never shown again
+    ssl_mode            VARCHAR(10) NOT NULL DEFAULT 'REQUIRED',          -- REQUIRED, PREFERRED, OFF
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, DISABLED
+    last_tested_at      TIMESTAMPTZ,
+    last_test_ok        BOOLEAN,
+    last_test_error     VARCHAR(300),
+    read_only           BOOLEAN,                                           -- the grants check: NULL until tested
+    server_version      VARCHAR(40),
+    server_timezone     VARCHAR(40),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_connection_engine CHECK (engine IN ('mysql57', 'mysql80', 'postgresql')),
+    CONSTRAINT ck_report_connection_ssl CHECK (ssl_mode IN ('REQUIRED', 'PREFERRED', 'OFF')),
+    CONSTRAINT ck_report_connection_status CHECK (status IN ('ACTIVE', 'DISABLED')),
+    CONSTRAINT ck_report_connection_port CHECK (port BETWEEN 1 AND 65535)
+);
+CREATE INDEX IF NOT EXISTS ix_report_connection_tenant ON report_connection(tenant_id, name);
+
+CREATE TABLE IF NOT EXISTS report_dataset_custom (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    connection_id       UUID NOT NULL REFERENCES report_connection(id),
+    key                 VARCHAR(40) NOT NULL,                              -- x_<slug>: what a report definition names; unique in the workspace
+    label               VARCHAR(100) NOT NULL,
+    description         VARCHAR(300),
+    component_key       VARCHAR(20) NOT NULL DEFAULT 'cep' REFERENCES suite_component(key),
+    source_name         VARCHAR(64) NOT NULL,                              -- the table or view
+    primary_key         VARCHAR(60),                                       -- a field key, or none
+    time_field          VARCHAR(60),                                       -- a date field key, or none
+    fields              JSONB NOT NULL DEFAULT '[]',                       -- [{key, label, column, type, role, aggregates, format, sensitivity}]
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, HIDDEN
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    UNIQUE (tenant_id, key),
+    CONSTRAINT ck_report_dataset_custom_key CHECK (key ~ '^x_[a-z0-9_]{1,37}$'),
+    CONSTRAINT ck_report_dataset_custom_status CHECK (status IN ('ACTIVE', 'HIDDEN'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_dataset_custom_connection ON report_dataset_custom(connection_id);
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_connection', 'report_dataset_custom'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_connection, report_dataset_custom TO cep_app;
+GRANT ALL ON report_connection, report_dataset_custom TO cep_admin;
+ALTER TABLE report DROP CONSTRAINT IF EXISTS report_dataset_key_fkey;                     -- a report may be on a workspace's own dataset
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

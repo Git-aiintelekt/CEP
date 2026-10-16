@@ -101,6 +101,29 @@ function assistantReply(prompt: string, modelId: string) {
       filters: { combinator: 'and', rules: [{ field: 'submitted_at', operator: 'between', value: ['2026-09-01', '2026-09-30'] }] }, orderBy: [{ field: 'sent', direction: 'desc' }], limit: 500 },
     preview: { rows: 12, more: false }, usage: insightsAssistantNow.usage }
 }
+/** Settings → Report Databases (apps/insights/databases): the workspace's own databases and the datasets mapped from them */
+type MockDatabase = import('@/apps/insights/types').ReportDatabase
+type MockDataset = import('@/apps/insights/types').ReportDataset
+export const reportDatabasesNow: MockDatabase[] = []
+export const reportDatasetsNow: MockDataset[] = []
+const GRANTS = { mysql: "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';", postgresql: "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;" }
+const GOOD_TEST = { ok: true, version: '8.0.36', timezone: 'UTC', tables: 14, views: 6, read_only: true, offending: [] as string[], ms: 48, error: null }
+const WRITER_TEST = { ok: true, version: '8.0.31', timezone: 'UTC', tables: 31, views: 0, read_only: false, offending: ['INSERT, UPDATE on `loyalty`.*'], ms: 92, error: null }
+function mockDatabase(body: Record<string, unknown>, id: string): MockDatabase {
+  const engine = (body.engine as MockDatabase['engine']) ?? 'mysql80'
+  const test = String(body.host).includes('loyalty') ? WRITER_TEST : GOOD_TEST
+  return { id, name: String(body.name), engine, engine_name: engine === 'postgresql' ? 'PostgreSQL' : engine === 'mysql57' ? 'MySQL 5.7' : 'MySQL 8.0', host: String(body.host), port: Number(body.port ?? (engine === 'postgresql' ? 5432 : 3306)),
+    database_name: String(body.database), schema_name: String(body.schema ?? 'public'), username: String(body.username), ssl_mode: (body.ssl as MockDatabase['ssl_mode']) ?? 'REQUIRED', status: 'ACTIVE',
+    last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: test.read_only, last_test_error: test.read_only ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
+    server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test }
+}
+const SOURCES = [{ name: 'v_daily_sales', kind: 'view' as const, rows: null, columns: 4, mappable: true, mapped_as: null }, { name: 'sales_lines', kind: 'table' as const, rows: 4200000, columns: 18, mappable: true, mapped_as: null }]
+const COLUMNS = [
+  { column: 'sale_day', column_type: 'date', key: false, mappable: true, type: 'date' as const, role: 'dimension' as const, aggregates: [], format: 'date' as const },
+  { column: 'store_name', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
+  { column: 'net_sales', column_type: 'decimal(12,2)', key: false, mappable: true, type: 'number' as const, role: 'measure' as const, aggregates: ['sum' as const, 'avg' as const], format: 'money' as const },
+  { column: 'cashier_email', column_type: 'varchar(120)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
+]
 export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
   definition: { columns: [{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' as const }, { field: 'delivered', aggregate: 'sum' as const }], filters: { combinator: 'and' as const, rules: [] }, orderBy: [{ field: 'sent', direction: 'desc' as const }], limit: 500 } }
 export const insightsReportsNow: (typeof insightsSummary)[] = [insightsSummary]
@@ -805,6 +828,9 @@ export function installMockApi(options: MockOptions = {}) {
   insightsAssistantNow.usage = { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' }
   insightsAssistantNow.recent = []
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true, available: assistantProviders() })
+  Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
+  reportDatabasesNow.splice(0, reportDatabasesNow.length)
+  reportDatasetsNow.splice(0, reportDatasetsNow.length)
   insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
@@ -1184,6 +1210,51 @@ export function installMockApi(options: MockOptions = {}) {
         }
       }
       return json(workspaceAssistantNow)
+    }
+    if (path.includes('/workspace/report-databases/')) {
+      const withDatasets = (db: MockDatabase) => ({ ...db, datasets: reportDatasetsNow.filter((d) => d.connection_id === db.id) })
+      if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true })
+      if (path.endsWith('/workspace/report-databases/') && method === 'POST') {
+        const posted = body as Record<string, unknown>
+        if (!posted.password) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { password: "Give the account's password." } }, 400)
+        const made = mockDatabase(posted, `db-${reportDatabasesNow.length + 1}`)
+        reportDatabasesNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/workspace/report-databases/test/')) return json({ test: String((body as { host?: string }).host ?? '').includes('loyalty') ? WRITER_TEST : GOOD_TEST })
+      const dataset = /\/workspace\/report-databases\/datasets\/([\w-]+)\/$/.exec(path)
+      if (dataset) {
+        const at = reportDatasetsNow.findIndex((d) => d.id === dataset[1])
+        if (at < 0) return json({ type: 'about:blank', title: 'No such dataset.', status: 404 }, 404)
+        if (method === 'DELETE') { reportDatasetsNow.splice(at, 1); return new Response(null, { status: 204 }) }
+        if (method === 'PUT') { const put = body as Partial<MockDataset>; reportDatasetsNow[at] = { ...reportDatasetsNow[at], ...put, field_count: (put.fields ?? reportDatasetsNow[at].fields).length, row_version: reportDatasetsNow[at].row_version + 1 } }
+        return json(reportDatasetsNow[at])
+      }
+      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|datasets\/)?$/.exec(path)
+      if (one) {
+        const db = reportDatabasesNow.find((d) => d.id === one[1])
+        if (!db) return json({ type: 'about:blank', title: 'No such database.', status: 404 }, 404)
+        const tail = one[2] ?? ''
+        if (tail === 'test/') { db.last_tested_at = '2026-10-16T10:00:00Z'; return json({ test: db.test, database: withDatasets(db) }) }
+        if (tail === 'sources/') return json({ sources: SOURCES.map((s) => ({ ...s, mapped_as: reportDatasetsNow.find((d) => d.connection_id === db.id && d.source === s.name)?.label ?? null })) })
+        if (tail.startsWith('sources/')) return json({ source: one[3], columns: COLUMNS, sample: { columns: COLUMNS.map((c) => c.column), rows: [['2026-10-15', 'Downtown', 9420, 'ann@example.com']] }, mapped_as: null })
+        if (tail === 'preview/') {
+          const fields = ((body as { fields?: { label: string; column: string; sensitivity: string }[] }).fields ?? []).filter((f) => f.sensitivity !== 'CONFIDENTIAL')
+          const sample: Record<string, unknown> = { sale_day: '2026-10-15', store_name: 'Downtown', net_sales: 9420, cashier_email: 'ann@example.com' }
+          return json({ columns: fields.map((f) => ({ key: f.column, label: f.label, masked: f.sensitivity === 'PII' })), rows: [fields.map((f) => (f.sensitivity === 'PII' ? '•••••' : sample[f.column]))] })
+        }
+        if (tail === 'datasets/' && method === 'POST') {
+          const posted = body as { label: string; description?: string; source: string; primary_key?: string | null; time_field?: string | null; fields: MockDataset['fields'] }
+          const made: MockDataset = { id: `ds-${reportDatasetsNow.length + 1}`, connection_id: db.id, key: `x_${posted.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`, label: posted.label, description: posted.description || null, source: posted.source,
+            primary_key: posted.primary_key ?? null, time_field: posted.time_field ?? null, fields: posted.fields.map((f) => ({ ...f, key: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_') })), field_count: posted.fields.length,
+            pii_count: posted.fields.filter((f) => f.sensitivity === 'PII').length, reports: 0, status: 'ACTIVE', updated_at: '2026-10-16T10:00:00Z', row_version: 1 }
+          reportDatasetsNow.push(made)
+          return json(made, 201)
+        }
+        if (method === 'DELETE') { reportDatabasesNow.splice(reportDatabasesNow.indexOf(db), 1); return new Response(null, { status: 204 }) }
+        if (method === 'PUT') { const put = body as Record<string, unknown>; Object.assign(db, { name: put.name ?? db.name, host: put.host ?? db.host, row_version: db.row_version + 1 }) }
+        return json(withDatasets(db))
+      }
     }
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)

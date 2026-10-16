@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import clickhouse, compiler
+from . import clickhouse, compiler, external
 from .catalog import engine_of
 from .definition import signature
 
@@ -73,12 +73,20 @@ def _json_safe(value):
     return value
 
 
-def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int, dialect: str = "postgresql") -> tuple[list, int]:
+def _dialect_of(dataset: dict, engine: dict) -> str:
+    """a workspace's own dataset runs on its database, in that database's dialect; the platform's on the workspace's engine"""
+    return dataset["engine"] if dataset.get("external") else engine["dialect"]
+
+
+def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int, dialect: str = "postgresql", dataset: dict | None = None, zone: str | None = None) -> tuple[list, int]:
     """PostgreSQL: the query in a savepoint of its own: read-only, as the reporting role, with the statement timeout. The
     savepoint is rolled back on the way out (a read-only query loses nothing), so the role, the timeout and the read-only
     flag never outlive the query: the request's own transaction goes on as the app, writing its audit row and anything
     else. ClickHouse: one read-only HTTP query with max_execution_time; its timeout reads as a statement timeout."""
     started = time.monotonic()
+    if dataset and dataset.get("external"):
+        rows = [[_json_safe(v) for v in row] for row in external.query(dataset["connection"], compiled.sql, compiled.params, timeout_ms=timeout_ms, zone=zone)]
+        return rows, int((time.monotonic() - started) * 1000)
     if dialect == "clickhouse":
         try:
             rows = [[_json_safe(v) for v in row] for row in clickhouse.query(compiled.sql, compiled.params, conn=clickhouse.connection_for(tenant_id), timeout_s=max(1, timeout_ms // 1000))]
@@ -116,7 +124,7 @@ def mask(dataset: dict, columns: list[dict], rows: list[list], masked: bool) -> 
 def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout_ms: int, cap: int, mask_pii: bool, dialect: str = "postgresql") -> list[dict]:
     """The engine's totals for a hierarchy or a pivot: one entry per totalled row, its dimension keys (the ones kept) and its measures."""
     compiled = compiler.compile_totals(dataset, definition, str(tenant_id), zone, sets, limit=cap, dialect=dialect)
-    rows, _ = _execute(tenant_id, compiled, timeout_ms, dialect)
+    rows, _ = _execute(tenant_id, compiled, timeout_ms, dialect, dataset, zone)
     dims = [c for c in compiled.columns if "aggregate" not in c]
     pii = {f["key"] for f in dataset["fields"] if f["sensitivity"] == "PII"} if mask_pii else set()
     out = []
@@ -135,7 +143,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
-    if engine["status"] == "MIGRATING":
+    if engine["status"] == "MIGRATING" and not dataset.get("external"):
         raise RunRefused("REFUSED", "This workspace's reports are moving to a new engine; try again shortly.")
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
     page = min(limit or cap, cap)
@@ -146,12 +154,12 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     if cached is not None:
         return {**cached, "cached": True}
     zone = reports.zone_of(tenant).key
-    dialect = engine["dialect"]
+    dialect = _dialect_of(dataset, engine)
     compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=page + 1, offset=offset, dialect=dialect)
     slot = _slot(tenant.pk, limits["concurrent"])
     try:
         try:
-            rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
+            rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
             totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect) if sets else None
         except Exception as exc:                                    # noqa: BLE001  the reason is classified, the query never reaches the client
             message = str(exc)
@@ -159,6 +167,8 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
             _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, outcome, report_id=report_id, report_version=report_version, detail=message)
             if outcome == "TIMEOUT":
                 raise RunRefused(outcome, f"The report took longer than {limits['statement_timeout_ms'] // 1000} seconds and was stopped. Narrow it with a filter or a shorter period.") from None
+            if dataset.get("external"):
+                raise RunRefused(outcome, f"{dataset['database']['name']} did not answer: {message[:160]}") from None
             raise RunRefused(outcome, "The report could not be run. If it happens again, tell your administrator.") from None
     finally:
         _release(slot)
@@ -166,7 +176,8 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     columns, rows = mask(dataset, compiled.columns, rows[:page], mask_pii)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
     result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
-              "freshness": engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {})}
+              "freshness": "LIVE" if dataset.get("external") else engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {}),
+              **({"source": dataset["database"]["name"]} if dataset.get("external") else {})}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
 
@@ -176,7 +187,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
-    dialect = engine["dialect"]
+    dialect = _dialect_of(dataset, engine)
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
@@ -186,7 +197,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
         while offset < limits["export_rows"]:
             compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset, dialect=dialect)
             try:
-                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
+                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 return
@@ -215,7 +226,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
-    dialect = engine["dialect"]
+    dialect = _dialect_of(dataset, engine)
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
@@ -232,7 +243,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
         while offset < limits["export_rows"]:
             compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset, dialect=dialect)
             try:
-                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect)
+                rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
             except Exception as exc:                                # noqa: BLE001
                 message = str(exc)
                 outcome = "TIMEOUT" if "statement timeout" in message else "FAILED"

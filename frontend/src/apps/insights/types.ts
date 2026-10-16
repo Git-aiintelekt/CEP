@@ -35,6 +35,8 @@ export interface CatalogDataset {
   fields: CatalogField[]
   /** PII fields hidden from this person (they need the report administration right to build on them) */
   locked?: { key: string; label: string }[]
+  /** set on a dataset the workspace mapped from one of its own databases (Settings → Report Databases) */
+  database?: { id: string; name: string; engine: DatabaseEngine; engine_name: string }
 }
 
 export interface EngineInfo {
@@ -96,6 +98,8 @@ export interface ReportSummary {
   folder_name: string | null
   /** this person's star */
   favourite: boolean
+  /** the dataset is one the workspace mapped from its own database */
+  own_dataset?: boolean
 }
 
 export interface Folder {
@@ -271,6 +275,101 @@ export interface RunResult {
   limit: number
   freshness: string
   cached: boolean
+  /** the workspace's own database the rows came from, when the dataset is one of its own */
+  source?: string
+}
+
+/** Settings → Report Databases (backend apps/insights/databases.py, external.py) */
+export type DatabaseEngine = 'mysql57' | 'mysql80' | 'postgresql'
+export interface ReportDatabaseTest {
+  ok: boolean
+  version?: string
+  timezone?: string
+  tables?: number
+  views?: number
+  read_only?: boolean
+  offending?: string[]
+  ms: number
+  error: string | null
+}
+export interface ReportDatasetField {
+  /** the field's key, set by the server from the label */
+  key?: string
+  column: string
+  label: string
+  type: FieldType
+  role: 'dimension' | 'measure'
+  aggregates: Aggregate[]
+  format: CatalogField['format']
+  sensitivity: 'NORMAL' | 'PII' | 'CONFIDENTIAL'
+}
+export interface ReportDataset {
+  id: string
+  connection_id: string
+  key: string
+  label: string
+  description: string | null
+  /** the table or view */
+  source: string
+  primary_key: string | null
+  time_field: string | null
+  fields: ReportDatasetField[]
+  field_count: number
+  pii_count: number
+  /** reports built on it */
+  reports: number
+  status: 'ACTIVE' | 'HIDDEN'
+  updated_at: string
+  row_version: number
+}
+export interface ReportDatabase {
+  id: string
+  name: string
+  engine: DatabaseEngine
+  engine_name: string
+  host: string
+  port: number
+  database_name: string
+  /** PostgreSQL: the schema the sources live in */
+  schema_name: string
+  username: string
+  ssl_mode: 'REQUIRED' | 'PREFERRED' | 'OFF'
+  status: 'ACTIVE' | 'DISABLED'
+  last_tested_at: string | null
+  last_test_ok: boolean | null
+  last_test_error: string | null
+  /** the grants check: null until tested */
+  read_only: boolean | null
+  server_version: string | null
+  server_timezone: string | null
+  created_at: string
+  updated_at: string
+  row_version: number
+  /** active, with a password, and not known to be able to write */
+  usable: boolean
+  datasets?: ReportDataset[]
+  /** the test run at save time */
+  test?: ReportDatabaseTest | null
+}
+export interface ReportDatabases {
+  databases: ReportDatabase[]
+  grant_examples: { mysql: string; postgresql: string }
+  /** the tables exist (patch 0056) */
+  ready: boolean
+}
+export interface SourceInfo {
+  name: string
+  kind: 'table' | 'view'
+  rows: number | null
+  columns: number
+  mappable: boolean
+  mapped_as: string | null
+}
+export interface SourceColumns {
+  source: string
+  columns: { column: string; column_type: string; key: boolean; mappable: boolean; type: FieldType; role: 'dimension' | 'measure'; aggregates: Aggregate[]; format: CatalogField['format'] }[]
+  sample: { columns: string[]; rows: unknown[][] }
+  mapped_as: ReportDataset | null
 }
 
 /** AI · Ask for a Report (backend apps/insights/assistant.py) */

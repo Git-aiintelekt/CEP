@@ -24,6 +24,8 @@ export function NewReportPage() {
   const [dataset, setDataset] = useState<string>('')
   const [name, setName] = useState('')
   const datasets = (catalog.data?.datasets ?? []).filter((d) => !params.get('component') || d.component.key === params.get('component'))
+  const platform = datasets.filter((d) => !d.database)
+  const own = datasets.filter((d) => d.database)
   const chosen = datasets.find((d) => d.key === dataset) ?? null
   const create = useMutation({
     mutationFn: () => insightsApi.create({ name: name.trim() || `${chosen?.label} report`, dataset, definition: starterDefinition(chosen as CatalogDataset) }),
@@ -38,11 +40,11 @@ export function NewReportPage() {
         <form className="flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); if (chosen) create.mutate() }}>
           <fieldset className="flex flex-col gap-2">
             <legend className="mb-1 text-sm font-semibold text-ink-900">Dataset</legend>
-            {Array.from(new Map(datasets.map((d) => [d.component.key, d.component])).values()).map((component) => (
+            {Array.from(new Map(platform.map((d) => [d.component.key, d.component])).values()).map((component) => (
               <div key={component.key} className="flex flex-col gap-1.5">
                 <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">{component.name}</p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {datasets.filter((d) => d.component.key === component.key).map((d) => (
+                  {platform.filter((d) => d.component.key === component.key).map((d) => (
                     <label key={d.key} className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${dataset === d.key ? 'border-brand-600 bg-brand-100/40' : 'border-line bg-surface hover:bg-surface-hover'}`}>
                       <input type="radio" name="dataset" value={d.key} checked={dataset === d.key} onChange={() => setDataset(d.key)} className="mt-1" />
                       <span className="min-w-0">
@@ -55,6 +57,23 @@ export function NewReportPage() {
                 </div>
               </div>
             ))}
+            {own.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Your Databases</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {own.map((d) => (
+                    <label key={d.key} className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${dataset === d.key ? 'border-brand-600 bg-brand-100/40' : 'border-line bg-surface hover:bg-surface-hover'}`}>
+                      <input type="radio" name="dataset" value={d.key} checked={dataset === d.key} onChange={() => setDataset(d.key)} className="mt-1" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink-900">{d.label}</span>
+                        <span className="block text-xs text-ink-800">{[d.description, `${d.database?.name} (${d.database?.engine_name})`].filter(Boolean).join(' · ')}</span>
+                        <span className="mt-1 block text-xs text-ink-700">{d.fields.filter((f) => f.role === 'dimension').length} dimensions · {d.fields.filter((f) => f.role === 'measure').length} measures</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </fieldset>
           <Field label="Name" hint="You can rename it later.">
             {({ id, describedBy }) => <TextInput id={id} describedBy={describedBy} value={name} onChange={(event) => setName(event.target.value)} placeholder={chosen ? `${chosen.label} report` : 'Pick a dataset first'} maxLength={200} />}
