@@ -371,3 +371,66 @@ export interface SourceColumns {
   sample: { columns: string[]; rows: unknown[][] }
   mapped_as: ReportDataset | null
 }
+
+/** AI · Ask for a Report (backend apps/insights/assistant.py) */
+export interface AssistantModel {
+  /** provider:model, what the ask sends */
+  id: string
+  provider: 'anthropic' | 'openai'
+  provider_name: string
+  /** the one-letter mark beside the name */
+  mark: string
+  model: string
+  label: string
+  note: string
+}
+export interface AssistantUsage { used: number; limit: number | null; month: string; plan: string | null; words?: string }
+export interface AssistantRecent {
+  id: string
+  prompt: string
+  model: string
+  provider: string
+  outcome: 'DRAFT' | 'QUESTION' | 'NO_FIELD' | 'FAILED'
+  created_at: string
+  report_id: string | null
+  report_name: string | null
+}
+export interface AssistantState {
+  enabled: boolean
+  reason: 'no_right' | 'no_provider' | 'workspace_off' | 'no_provider_allowed' | null
+  models: AssistantModel[]
+  default_model: string | null
+  usage: AssistantUsage | null
+  examples?: string[]
+  recent: AssistantRecent[]
+}
+export interface AskPrompt { label: string; prompt: string }
+export interface AskResult {
+  id: string
+  kind: 'draft' | 'question' | 'no_field' | 'failed'
+  prompt: string
+  model: Pick<AssistantModel, 'id' | 'provider' | 'provider_name' | 'mark' | 'model' | 'label'>
+  duration_ms: number
+  counted: boolean
+  message: string | null
+  name?: string
+  dataset?: string
+  dataset_label?: string
+  view?: ReportView
+  definition?: ReportDefinition
+  preview?: { rows: number; more: boolean } | null
+  question?: string
+  answers?: AskPrompt[]
+  suggestions?: AskPrompt[]
+  usage: AssistantUsage
+}
+/** Settings → AI Assistant */
+export interface WorkspaceAssistant {
+  enabled: boolean
+  providers: Record<'anthropic' | 'openai', boolean>
+  explain: boolean
+  available: { key: string; name: string; mark: string; models: string[] }[]
+  explain_allowed: boolean
+  usage: AssistantUsage
+  retention_days: number
+}

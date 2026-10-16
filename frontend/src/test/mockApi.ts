@@ -67,6 +67,36 @@ function scheduleWords(every: string, onDay: number | null, at: string): string 
 }
 /** this person's stars, as "kind:id" */
 export const insightsFavourites = new Set<string>()
+/** AI · Ask for a Report (apps/insights/assistant): what the box offers, and the replies a prompt gets */
+const assistantModels = [
+  { id: 'anthropic:claude-sonnet-5-5', provider: 'anthropic', provider_name: 'Claude (Anthropic)', mark: 'A', model: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', note: 'Best for reports' },
+  { id: 'anthropic:claude-haiku-5-5', provider: 'anthropic', provider_name: 'Claude (Anthropic)', mark: 'A', model: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', note: 'Fastest' },
+  { id: 'openai:gpt-5', provider: 'openai', provider_name: 'OpenAI', mark: 'O', model: 'gpt-5', label: 'GPT-5', note: 'Best for reports' },
+  { id: 'openai:gpt-5-mini', provider: 'openai', provider_name: 'OpenAI', mark: 'O', model: 'gpt-5-mini', label: 'GPT-5 mini', note: 'Fastest' },
+]
+export const insightsAssistantNow = { enabled: true, reason: null as string | null, models: assistantModels, default_model: 'anthropic:claude-sonnet-5-5',
+  usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' },
+  examples: ['Which campaigns made the most revenue last month?', 'Delivered rate by sending engine, by week'], recent: [] as unknown[] }
+export const workspaceAssistantNow = { enabled: true, providers: { anthropic: true, openai: true }, explain: true,
+  available: [{ key: 'anthropic', name: 'Claude (Anthropic)', mark: 'A', models: ['Claude Sonnet 5.5', 'Claude Haiku 5.5'] }, { key: 'openai', name: 'OpenAI', mark: 'O', models: ['GPT-5', 'GPT-5 mini'] }],
+  explain_allowed: true, usage: { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth' }, retention_days: 90 }
+function assistantReply(prompt: string, modelId: string) {
+  const model = assistantModels.find((m) => m.id === modelId) ?? assistantModels[0]
+  const base = { prompt, model: { id: model.id, provider: model.provider, provider_name: model.provider_name, mark: model.mark, model: model.model, label: model.label }, duration_ms: 3200, message: null }
+  if (/last month\?/.test(prompt)) {
+    return { ...base, id: 'ask-q', kind: 'question', counted: false, question: 'Which period is last month?',
+      answers: [{ label: 'September 2026, the calendar month', prompt: 'Revenue by campaign for September 2026' }, { label: 'The last 30 days', prompt: 'Revenue by campaign for the last 30 days' }], usage: insightsAssistantNow.usage }
+  }
+  if (/website visits/i.test(prompt)) {
+    return { ...base, id: 'ask-n', kind: 'no_field', counted: false, message: 'No dataset has website visits. The closest fields are Delivered Count (Messages) and Amount (Attributed Orders).',
+      suggestions: [{ label: 'Clicks by Campaign', prompt: 'Delivered count by campaign for September' }], usage: insightsAssistantNow.usage }
+  }
+  insightsAssistantNow.usage = { ...insightsAssistantNow.usage, used: insightsAssistantNow.usage.used + 1, words: `${insightsAssistantNow.usage.used + 1} of 200 prompts used in October` }
+  return { ...base, id: 'ask-1', kind: 'draft', counted: true, name: 'Sent and Delivered by Campaign', dataset: 'messages', dataset_label: 'Messages', view: { type: 'grid' },
+    definition: { columns: [{ field: 'campaign_name' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }],
+      filters: { combinator: 'and', rules: [{ field: 'submitted_at', operator: 'between', value: ['2026-09-01', '2026-09-30'] }] }, orderBy: [{ field: 'sent', direction: 'desc' }], limit: 500 },
+    preview: { rows: 12, more: false }, usage: insightsAssistantNow.usage }
+}
 /** Settings → Report Databases (apps/insights/databases): the workspace's own databases and the datasets mapped from them */
 type MockDatabase = import('@/apps/insights/types').ReportDatabase
 type MockDataset = import('@/apps/insights/types').ReportDataset
@@ -789,6 +819,11 @@ export function installMockApi(options: MockOptions = {}) {
   insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
   insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
   insightsFavourites.clear()
+  insightsAssistantNow.enabled = true
+  insightsAssistantNow.reason = null
+  insightsAssistantNow.usage = { used: 38, limit: 200, month: '2026-10-01', plan: 'Growth', words: '38 of 200 prompts used in October' }
+  insightsAssistantNow.recent = []
+  Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
   reportDatabasesNow.splice(0, reportDatabasesNow.length)
   reportDatasetsNow.splice(0, reportDatasetsNow.length)
   insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
@@ -1150,6 +1185,14 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.endsWith('/roles/')) return json(roles)
     if (path.endsWith('/api-clients/scopes/')) return json({ scopes: ['campaign:view', 'campaign:edit', 'events:ingest'] })
     if (path.endsWith('/api-clients/')) return json(apiKeys)
+    if (path.endsWith('/workspace/ai-assistant/')) {
+      if (method === 'PUT') {
+        const put = (body ?? {}) as Record<string, unknown>
+        Object.assign(workspaceAssistantNow, { ...(typeof put.enabled === 'boolean' ? { enabled: put.enabled } : {}), ...(typeof put.explain === 'boolean' ? { explain: put.explain } : {}),
+          ...(put.providers ? { providers: { ...workspaceAssistantNow.providers, ...(put.providers as object) } } : {}) })
+      }
+      return json(workspaceAssistantNow)
+    }
     if (path.includes('/workspace/report-databases/')) {
       const withDatasets = (db: MockDatabase) => ({ ...db, datasets: reportDatasetsNow.filter((d) => d.connection_id === db.id) })
       if (path.endsWith('/workspace/report-databases/') && method === 'GET') return json({ databases: reportDatabasesNow.map(withDatasets), grant_examples: GRANTS, ready: true })
@@ -1197,6 +1240,17 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (path.endsWith('/insights/assistant/')) return json(insightsAssistantNow)
+      if (path.endsWith('/insights/assistant/ask/')) {
+        const asked = (body ?? {}) as { prompt: string; model: string }
+        return json(assistantReply(asked.prompt, asked.model))
+      }
+      const opened = /\/insights\/assistant\/([\w-]+)\/open\/$/.exec(path)
+      if (opened && method === 'POST') {
+        const made = { ...insightsSummary, id: 'rep-ai', name: 'Sent and Delivered by Campaign' }
+        insightsReportsNow.push(made)
+        return json({ ...insightsReport, ...made, row_version: 1, can_edit: true }, 201)
+      }
       if (path.endsWith('/insights/schedules/') && method === 'POST') {
         const posted = body as { kind?: 'report' | 'dashboard'; item_id: string; every: string; on_day: number | null; at_time: string; format: 'xlsx' | 'csv' | 'pdf'; recipients: string[]; subject: string | null; note: string | null }
         const made: InsightsSchedule = { id: `sch-${insightsSchedulesNow.length + 1}`, kind: posted.kind ?? 'report', item_id: posted.item_id,

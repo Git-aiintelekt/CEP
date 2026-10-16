@@ -37,6 +37,7 @@ import { MailServerPage } from './pages/settings/MailServerPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { PlanUsagePage } from './pages/settings/PlanUsagePage'
 import { PosReceiptsPage } from './pages/settings/PosReceiptsPage'
+import { AiAssistantPage } from './pages/settings/AiAssistantPage'
 import { MapDatasetPage } from './pages/settings/MapDatasetPage'
 import { PreferenceCenterPage } from './pages/settings/PreferenceCenterPage'
 import { ReportDatabasesPage } from './pages/settings/ReportDatabasesPage'
@@ -109,6 +110,7 @@ export default function CepRoutes() {
           <Route path="events" element={<EventsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="ai-assistant" element={<AiAssistantPage />} />
           <Route path="report-databases" element={<ReportDatabasesPage />} />
           <Route path="report-databases/:id/map" element={<MapDatasetPage />} />
           <Route path="report-databases/:id/map/:datasetId" element={<MapDatasetPage />} />

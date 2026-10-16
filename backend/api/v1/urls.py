@@ -3,6 +3,7 @@ from apps.insights import dashboards as insights_dashboards
 from apps.insights import audit as insights_audit
 from apps.insights import library as insights_library
 from apps.insights import schedules as insights_schedules
+from apps.insights import assistant as insights_assistant
 from apps.insights import databases as insights_databases
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
@@ -78,6 +79,7 @@ urlpatterns = [
     path("attribution/recalculate/", attribution_api.AttributionRecalculateView.as_view(), name="attribution-recalculate"),
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
+    path("workspace/ai-assistant/", insights_assistant.WorkspaceAssistantView.as_view(), name="workspace-ai-assistant"),
     path("workspace/report-databases/", insights_databases.DatabasesView.as_view(), name="workspace-report-databases"),
     path("workspace/report-databases/test/", insights_databases.DatabaseTestView.as_view(), name="workspace-report-database-test-new"),
     path("workspace/report-databases/datasets/<uuid:dataset_id>/", insights_databases.DatasetView.as_view(), name="workspace-report-dataset"),
@@ -140,6 +142,9 @@ urlpatterns = [
     path("insights/reports/<uuid:report_id>/export.xlsx", insights_api.ExportXlsxView.as_view(), name="insights-report-export-xlsx"),
     path("insights/reports/<uuid:report_id>/export.pdf", insights_api.ExportPdfView.as_view(), name="insights-report-export-pdf"),
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
+    path("insights/assistant/", insights_assistant.AssistantView.as_view(), name="insights-assistant"),
+    path("insights/assistant/ask/", insights_assistant.AskView.as_view(), name="insights-assistant-ask"),
+    path("insights/assistant/<uuid:prompt_id>/open/", insights_assistant.OpenDraftView.as_view(), name="insights-assistant-open"),
     path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),
     path("insights/dashboards/<uuid:dashboard_id>/", insights_dashboards.DashboardView.as_view(), name="insights-dashboard"),
     path("insights/dashboards/<uuid:dashboard_id>/tiles/<slug:tile_id>/run/", insights_dashboards.TileRunView.as_view(), name="insights-dashboard-tile-run"),
