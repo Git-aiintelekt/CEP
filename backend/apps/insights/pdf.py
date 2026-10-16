@@ -197,6 +197,8 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
     down = [(i, c) for i, c in dims if not spread or c["key"] != across]
     if not meas or not down:
         return [Paragraph("A chart needs a dimension along the bottom and a value to total.", SMALL)]
+    if not rows:
+        return [Paragraph("No rows match this report.", SMALL)]
     axis_i, axis = down[0]
     m_i, measure = meas[0]
     categories = []
@@ -243,6 +245,8 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
         chart.bars[i].fillColor = PALETTE[i % len(PALETTE)]
         chart.bars[i].strokeColor = None
     drawing.add(chart)
+    if not series or not any(any(v for v in values) for _, values in series):
+        chart.valueAxis.valueMax = 1                                  # an all-zero chart still needs an axis to draw
     if len(series) > 1:
         legend = Legend()
         legend.x, legend.y = 14 * mm, height + 8 * mm
