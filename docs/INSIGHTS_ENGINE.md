@@ -156,8 +156,10 @@ Report authors never see table or column names.
 The operator's guide to switching a workspace, with the server settings and the back-office buttons, is
 `docs/INSIGHTS_ENGINE_SWITCH.md`.
 
-`apps/insights/clickhouse.py` talks to ClickHouse over HTTP (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`,
-`CLICKHOUSE_DATABASE`, server environment; an empty URL means no ClickHouse). It creates the database and one
+`apps/insights/clickhouse.py` talks to ClickHouse over HTTP. The connection is the workspace's profile from
+Configuration → Report Engine Connections (`report_engine_connection`, patch 0054, the password encrypted) when its
+Report Engines row names one, else the server environment (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`,
+`CLICKHOUSE_DATABASE`); with neither there is no ClickHouse for that workspace. It creates the database and one
 ReplacingMergeTree table per dataset in the shape of the PostgreSQL reporting view, keyed by the workspace and the
 dataset's primary key with a load version, so a row loaded again replaces itself; queries read them `FINAL`. The loader
 copies a workspace's rows from the PostgreSQL views in batches: everything at a backfill, the recent seven days of each

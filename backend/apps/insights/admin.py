@@ -1,13 +1,15 @@
 """Insights in the back-office: the semantic catalogue (datasets, their fields and sources) the platform team maps, and
 each workspace's engine setting (the analytics engine, its limits and freshness)."""
+from django import forms
 from django.contrib import admin, messages
 from django.shortcuts import redirect
 from unfold.decorators import action
+from unfold.widgets import UnfoldAdminTextInputWidget
 from django.utils import timezone
 
 from apps.adminutils import BaseAdmin
 from . import catalog
-from .models import ReportDataset, ReportDatasetSource, ReportEngineSetting, ReportField
+from .models import ReportDataset, ReportDatasetSource, ReportEngineConnection, ReportEngineSetting, ReportField
 
 
 class ReportFieldInline(admin.TabularInline):
@@ -53,6 +55,81 @@ class ReportDatasetAdmin(BaseAdmin):
         catalog.invalidate()
 
 
+class ReportEngineConnectionForm(forms.ModelForm):
+    """The password is write-only: typed to set or change it, stored encrypted, never shown."""
+    password = forms.CharField(required=False, widget=UnfoldAdminTextInputWidget(attrs={"type": "password", "autocomplete": "new-password"}),
+                               help_text="Leave empty to keep the stored password. Stored encrypted, never shown.")
+
+    class Meta:
+        model = ReportEngineConnection
+        fields = ("profile", "engine", "url", "username", "database_name", "status", "notes")
+
+    def clean(self):
+        data = super().clean()
+        if data.get("engine") == "clickhouse" and data.get("url") and not str(data["url"]).startswith(("http://", "https://")):
+            self.add_error("url", "ClickHouse is reached over its HTTP interface: http://host:8123 or https://host:8443.")
+        if self.instance._state.adding and not self.cleaned_data.get("password"):
+            self.add_error("password", "Give the connection's password.")
+        return data
+
+    def save(self, commit=True):
+        from apps.platform_ops import crypto
+        if self.cleaned_data.get("password"):
+            self.instance.password_enc = crypto.encrypt(self.cleaned_data["password"])
+        return super().save(commit)
+
+
+@admin.register(ReportEngineConnection)
+class ReportEngineConnectionAdmin(BaseAdmin):
+    """Configuration → Report Engine Connections: the analytics engines a workspace can be pointed at. A profile named on a
+    workspace's Report Engines row wins over the server's CLICKHOUSE_* environment; the password is stored encrypted."""
+    form = ReportEngineConnectionForm
+    list_display = ("profile", "engine", "url", "database_name", "status", "last_tested_at", "last_test_ok")
+    readonly_fields = ("last_tested_at", "last_test_ok", "last_test_error", "created_at", "updated_at")
+    actions_detail = ("test_connection",)
+    fieldsets = (("Connection", {"fields": ("profile", "engine", "url", "username", "password", "database_name", "status", "notes")}),
+                 ("Last test", {"fields": ("last_tested_at", "last_test_ok", "last_test_error", "created_at", "updated_at")}))
+
+    @action(description="Test Connection: reach the server and read its version")
+    def test_connection(self, request, object_id):
+        from django.conf import settings as dj
+        from django.db import connections
+        from django.utils import timezone as tz
+        from apps.insights import clickhouse
+        row = ReportEngineConnection.objects.using(dj.PLATFORM_ALIAS).get(pk=object_id)
+        ok, message = clickhouse.test(clickhouse.from_row({"profile": row.profile, "url": row.url, "username": row.username, "password_enc": row.password_enc, "database_name": row.database_name}))
+        with connections[dj.PLATFORM_ALIAS].cursor() as cursor:
+            cursor.execute("UPDATE report_engine_connection SET last_tested_at = %s, last_test_ok = %s, last_test_error = %s, updated_at = now() WHERE id = %s",
+                           [tz.now(), ok, None if ok else message[:300], str(object_id)])
+        (messages.success if ok else messages.error)(request, message)
+        return redirect("admin:insights_reportengineconnection_change", object_id)
+
+
+class ReportEngineSettingForm(forms.ModelForm):
+    """connection_profile offers the connections the back-office knows, or the server's environment."""
+    class Meta:
+        model = ReportEngineSetting
+        fields = ("tenant", "engine", "connection_profile", "status", "freshness_sla", "query_limits")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.conf import settings as dj
+        from apps.insights import clickhouse
+        profiles = list(ReportEngineConnection.objects.using(dj.PLATFORM_ALIAS).filter(status="ACTIVE").order_by("profile").values_list("profile", "engine")) if clickhouse.table_present() else []
+        current = (self.instance.connection_profile if self.instance else "") or ""
+        if current == "pg-reporting-shared":                                    # the column's old default: the environment
+            current = ""
+            self.initial["connection_profile"] = ""
+        choices = [("", "The server's environment (CLICKHOUSE_*)")] + [(p, f"{p} · {e}") for p, e in profiles]
+        if current and current not in dict(choices):
+            choices.append((current, f"{current} (no such connection)"))
+        self.fields["connection_profile"] = forms.ChoiceField(choices=choices, required=False, label="Connection profile",
+                                                              help_text="Which ClickHouse this workspace loads into and reads from. Empty: the server's environment.")
+
+    def clean_connection_profile(self):
+        return self.cleaned_data.get("connection_profile") or ""
+
+
 @admin.register(ReportEngineSetting)
 class ReportEngineSettingAdmin(BaseAdmin):
     """Tenant Administration → Report Engine: which analytics engine runs a workspace's reports, and its limits. The switch to
@@ -60,6 +137,7 @@ class ReportEngineSettingAdmin(BaseAdmin):
     Activate ClickHouse, Roll Back to PostgreSQL (apps/insights/clickhouse.py)."""
     list_display = ("tenant", "engine", "status", "freshness_sla", "last_reconciled_at", "updated_at")
     fields = ("tenant", "engine", "connection_profile", "status", "freshness_sla", "query_limits", "last_reconciled_at")
+    form = ReportEngineSettingForm
     actions_detail = ("backfill_clickhouse", "reconcile_engines", "activate_clickhouse", "roll_back_postgresql")
     list_before_template = "admin/insights/engine_help.html"                   # how the page works, and the guide chapter
     change_form_before_template = "admin/insights/engine_help.html"
@@ -83,17 +161,18 @@ class ReportEngineSettingAdmin(BaseAdmin):
     def backfill_clickhouse(self, request, object_id):
         from apps.delivery.engine import session
         from apps.insights import clickhouse
-        if not clickhouse.configured():
-            messages.error(request, "ClickHouse is not configured on this server (CLICKHOUSE_URL).")
+        conn = clickhouse.connection_for(str(object_id))
+        if conn is None:
+            messages.error(request, "No ClickHouse for this workspace: choose a connection profile on this row, or set CLICKHOUSE_URL on the server.")
             return self._back(object_id)
         try:
             with session.tenant_scope(str(object_id)):
-                loaded = clickhouse.backfill(str(object_id))
+                loaded = clickhouse.backfill(str(object_id), conn)
         except Exception as exc:                                    # noqa: BLE001  the reason goes to the administrator
             messages.error(request, f"The backfill failed: {exc}")
             return self._back(object_id)
         self._set(object_id, request, engine="clickhouse", status="MIGRATING")
-        messages.success(request, "Loaded into ClickHouse: " + ", ".join(f"{k} {v:,}" for k, v in loaded.items()) + ". The workspace is migrating: reports still run on PostgreSQL until Activate.")
+        messages.success(request, f"Loaded into ClickHouse ({conn.source}): " + ", ".join(f"{k} {v:,}" for k, v in loaded.items()) + ". The workspace is migrating: reports still run on PostgreSQL until Activate.")
         return self._back(object_id)
 
     @action(description="Reconcile: count every dataset on both engines")
@@ -101,9 +180,13 @@ class ReportEngineSettingAdmin(BaseAdmin):
         from django.utils import timezone as tz
         from apps.delivery.engine import session
         from apps.insights import clickhouse
+        conn = clickhouse.connection_for(str(object_id))
+        if conn is None:
+            messages.error(request, "No ClickHouse for this workspace: choose a connection profile on this row, or set CLICKHOUSE_URL on the server.")
+            return self._back(object_id)
         try:
             with session.tenant_scope(str(object_id)):
-                counts = clickhouse.reconcile(str(object_id))
+                counts = clickhouse.reconcile(str(object_id), conn)
         except Exception as exc:                                    # noqa: BLE001
             messages.error(request, f"The reconcile failed: {exc}")
             return self._back(object_id)
@@ -115,6 +198,10 @@ class ReportEngineSettingAdmin(BaseAdmin):
 
     @action(description="Activate ClickHouse: reports run there from now")
     def activate_clickhouse(self, request, object_id):
+        from apps.insights import clickhouse
+        if clickhouse.connection_for(str(object_id)) is None:
+            messages.error(request, "No ClickHouse for this workspace: choose a connection profile on this row, or set CLICKHOUSE_URL on the server.")
+            return self._back(object_id)
         self._set(object_id, request, engine="clickhouse", status="ACTIVE", freshness_sla="QUARTER_HOUR")
         messages.success(request, "ClickHouse is active for this workspace. Its reports read the reporting tables, refreshed every quarter hour.")
         return self._back(object_id)

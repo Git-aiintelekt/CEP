@@ -2042,6 +2042,31 @@ GRANT SELECT, INSERT ON report_run_audit TO cep_app;
 GRANT USAGE, SELECT ON SEQUENCE report_run_audit_id_seq TO cep_app;
 GRANT ALL ON report_dataset, report_field, report_dataset_source, report_engine_setting, report_folder, report, report_version, report_share, report_run_audit TO cep_admin;
 
+-- ---- report engine connections (Phase E3): the analytics engines the back-office can point a workspace at, the password encrypted
+CREATE TABLE IF NOT EXISTS report_engine_connection (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile             VARCHAR(60) NOT NULL UNIQUE,                      -- named on report_engine_setting.connection_profile
+    engine              VARCHAR(12) NOT NULL DEFAULT 'clickhouse',
+    url                 VARCHAR(300) NOT NULL,                            -- ClickHouse: the HTTP interface, http://host:8123
+    username            VARCHAR(100),
+    password_enc        TEXT,                                             -- Fernet, apps/platform_ops/crypto.py; never shown again
+    database_name       VARCHAR(60) NOT NULL DEFAULT 'cep_reporting',
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, DISABLED
+    notes               TEXT,
+    last_tested_at      TIMESTAMPTZ,
+    last_test_ok        BOOLEAN,
+    last_test_error     VARCHAR(300),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_engine_connection_engine CHECK (engine IN ('postgresql', 'clickhouse')),
+    CONSTRAINT ck_report_engine_connection_status CHECK (status IN ('ACTIVE', 'DISABLED'))
+);
+GRANT SELECT ON report_engine_connection TO cep_app;
+GRANT ALL ON report_engine_connection TO cep_admin;
+
 -- ---- dashboards (Phase C): rows of tiles over a workspace's reports, one period for every tile (apps/insights/dashboards.py)
 CREATE TABLE IF NOT EXISTS dashboard (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),

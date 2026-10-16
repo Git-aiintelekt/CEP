@@ -1244,16 +1244,21 @@ One row per workspace. A workspace without a row runs on PostgreSQL with the def
 | Status | `ACTIVE`, `MIGRATING`, `READ_ONLY` | With ClickHouse, `MIGRATING` means the tables are being loaded or checked and reports **still run on PostgreSQL**. `ACTIVE` means reports run on the engine named. |
 | Freshness SLA | `LIVE`, `QUARTER_HOUR`, `MINUTES_5`, `HOURLY`, `DAILY` | What the line under a report's title tells people: "live data", or "data as of the last quarter hour". |
 | Query limits | JSON | `statement_timeout_ms` (15,000), `preview_rows` (200), `run_rows` (5,000), `export_rows` (100,000), `concurrent` (4). Empty means these defaults. Raise them for a workspace that needs more; the limits protect everyone else. |
-| Connection profile | text | A label for operators. The connection itself is server configuration. |
+| Connection profile | a Report Engine Connection, or empty | The ClickHouse this workspace loads into and reads from. Empty: the server's environment. |
 | Last reconciled | time | Set by Reconcile. |
 
-### What the server needs for ClickHouse
+### Where the ClickHouse connection comes from
 
-Four lines in the backend's environment, set by whoever runs the server, never in the back-office: the URL of the
-ClickHouse HTTP interface, the user, the password and the database (`cep_reporting`). An empty URL means no
-ClickHouse: the buttons below say so and every workspace stays on PostgreSQL. The database patch that adds the
-ClickHouse sources to the catalogue (0053) must be applied. The operator's guide, with the checks to run from the
-server, is `docs/INSIGHTS_ENGINE_SWITCH.md`.
+**Configuration → Report Engine Connections** holds the servers the platform can point a workspace at. One row per
+connection: a profile name, the engine, the URL of ClickHouse's HTTP interface, the user, the password (typed to set
+or change it, stored encrypted, never shown again), the database (`cep_reporting`), a status and notes. **Test
+Connection** reaches the server and shows its version; the result stays on the row. A workspace's Report Engines row
+chooses one of these in **Connection profile**; from then on its backfill, refresh, reconcile and reports use that
+server, so workspaces can be spread over several ClickHouse servers. A row with no profile uses the server's
+environment (`CLICKHOUSE_URL`, user, password, database), set by whoever runs the server; with neither, the buttons
+say so and the workspace stays on PostgreSQL. The database patches 0053 (the catalogue's ClickHouse sources) and 0054
+(the connections table) must be applied. The operator's guide, with the checks to run from the server, is
+`docs/INSIGHTS_ENGINE_SWITCH.md`.
 
 ### Switching a workspace to ClickHouse
 

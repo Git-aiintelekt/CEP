@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, compiler, dashboards, definition, excel, pdf, runner, schedules, shape
+from apps.insights import catalog, clickhouse, compiler, dashboards, definition, excel, pdf, runner, schedules, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -99,6 +99,19 @@ def test_definition_and_compiler(check):
           and ch_span.params["p1"] == "2026-09-01" and ch_span.params["p2"] == "America/New_York", ch_span.sql)
     ch_t = compiler.compile_totals(DATASET, d2 if "d2" in dir() else d, "a0000000-0000-4000-8000-000000000001", "America/New_York", [(), ("campaign_name",)], limit=100, dialect="clickhouse")
     check("the totals query keeps GROUPING SETS and GROUPING in ClickHouse", "GROUP BY GROUPING SETS ((), (\"d0\"))" in ch_t.sql and 'GROUPING("d0") AS "g"' in ch_t.sql and " FINAL WHERE " in ch_t.sql, ch_t.sql)
+
+    # the ClickHouse connection: a back-office profile row, else the server environment, else none
+    from django.test import override_settings
+    with override_settings(CLICKHOUSE_URL="", FIELD_ENCRYPTION_KEY=settings.FIELD_ENCRYPTION_KEY):
+        check("no profile and no environment: no connection", clickhouse.from_environment() is None and clickhouse.test(None)[0] is False)
+    with override_settings(CLICKHOUSE_URL="http://ch.example:8123", CLICKHOUSE_USER="reader", CLICKHOUSE_PASSWORD="x", CLICKHOUSE_DATABASE="cep_reporting"):
+        env = clickhouse.from_environment()
+        check("the environment makes a connection with its database and no profile", env.url == "http://ch.example:8123" and env.user == "reader" and env.database == "cep_reporting" and env.source == "the server environment")
+    from apps.platform_ops import crypto
+    row = {"profile": "analytics-eu", "url": "http://eu.example:8123", "username": "cep", "password_enc": crypto.encrypt("s3cret"), "database_name": "cep_eu"}
+    named = clickhouse.from_row(row)
+    check("a profile row makes a connection with its password decrypted and its own database", named.password == "s3cret" and named.database == "cep_eu" and named.source == "profile analytics-eu"
+          and clickhouse.table("messages", named) == "cep_eu.rpt_messages")
 
     # the engine's totals: the grouping sets a view needs, and their query
     d2 = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}, {"field": "messages", "aggregate": "count"}],
@@ -322,4 +335,57 @@ def test_api(check, world):
     check("a deleted report is gone from the list", gone.status_code == 204 and not any(r["id"] == rid for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))
     other = world.api("get", "/api/v1/insights/reports/00000000-0000-4000-8000-000000000000/")
     check("a report of another workspace, or none, is 404", other.status_code == 404)
+    check.done()
+
+
+def test_connections_office(check):
+    """Configuration -> Report Engine Connections: a connection added with its password stored encrypted and never shown,
+    Test Connection recording its outcome on the row, and the profile offered on a workspace's Report Engines row."""
+    from django.contrib.auth.models import update_last_login
+    from django.contrib.auth.signals import user_logged_in
+    from django.test import Client
+    from django.urls import reverse
+
+    from apps.identity.models import AppUser
+    from apps.insights import clickhouse
+    from apps.insights.models import ReportEngineConnection
+    from apps.platform_ops import crypto
+
+    if not clickhouse.table_present():
+        pytest.skip("patch 0054 has not been applied to this database")
+    staff = AppUser.objects.using(P).filter(is_staff=True, is_active=True, is_platform_admin=True).order_by("created_at").first() \
+        or AppUser.objects.using(P).filter(is_staff=True, is_active=True).order_by("created_at").first()
+    user_logged_in.disconnect(update_last_login, dispatch_uid="update_last_login")
+    try:
+        office = Client()
+        office.force_login(staff)
+        page = office.get("/admin/insights/reportengineconnection/")
+        check("the Connections page opens", page.status_code == 200, str(page.status_code))
+        form = {"profile": "analytics-test", "engine": "clickhouse", "url": "127.0.0.1:9", "username": "ch_user", "password": "s3cret", "database_name": "cep_reporting",
+                "status": "ACTIVE", "notes": "", "_save": "Save"}
+        refused = office.post("/admin/insights/reportengineconnection/add/", form)
+        check("a URL without http is refused with the reason", refused.status_code == 200 and b"HTTP interface" in refused.content, str(refused.status_code))
+        added = office.post("/admin/insights/reportengineconnection/add/", {**form, "url": "http://127.0.0.1:9"})
+        row = ReportEngineConnection.objects.using(P).filter(profile="analytics-test").first()
+        check("a connection is added with its password encrypted", added.status_code == 302 and row is not None and crypto.decrypt(row.password_enc) == "s3cret", str(added.status_code))
+        named = clickhouse.connection_named("analytics-test")
+        check("the profile resolves to a connection with the password decrypted", named is not None and named.password == "s3cret" and named.url == "http://127.0.0.1:9")
+        change = office.get(f"/admin/insights/reportengineconnection/{row.pk}/change/")
+        check("the row's page never shows the password", change.status_code == 200 and b"s3cret" not in change.content and b"Test Connection" in change.content, str(change.status_code))
+        kept = office.post(f"/admin/insights/reportengineconnection/{row.pk}/change/", {**form, "url": "http://127.0.0.1:9", "password": "", "notes": "the EU server"})
+        row.refresh_from_db(using=P)
+        check("saving without a password keeps the stored one", kept.status_code == 302 and row.notes == "the EU server" and crypto.decrypt(row.password_enc) == "s3cret", str(kept.status_code))
+        tested = office.post(reverse("admin:insights_reportengineconnection_test_connection", args=[row.pk]))
+        row.refresh_from_db(using=P)
+        check("Test Connection records the outcome on the row", tested.status_code == 302 and row.last_test_ok is False and row.last_tested_at is not None and row.last_test_error, str(tested.status_code))
+        if _tables_present():
+            with connections[P].cursor() as cursor:
+                cursor.execute("SELECT tenant_id FROM report_engine_setting LIMIT 1")
+                found = cursor.fetchone()
+            if found:
+                engines = office.get(f"/admin/insights/reportenginesetting/{found[0]}/change/")
+                check("a workspace's Report Engines row offers the profile and the environment", engines.status_code == 200 and b"analytics-test" in engines.content
+                      and b"The server&#x27;s environment" in engines.content or b"The server's environment" in engines.content, str(engines.status_code))
+    finally:
+        user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
     check.done()

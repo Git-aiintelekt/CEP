@@ -81,7 +81,7 @@ def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int, dialect: s
     started = time.monotonic()
     if dialect == "clickhouse":
         try:
-            rows = [[_json_safe(v) for v in row] for row in clickhouse.query(compiled.sql, compiled.params, timeout_s=max(1, timeout_ms // 1000))]
+            rows = [[_json_safe(v) for v in row] for row in clickhouse.query(compiled.sql, compiled.params, conn=clickhouse.connection_for(tenant_id), timeout_s=max(1, timeout_ms // 1000))]
         except clickhouse.ClickHouseError as exc:
             message = str(exc)
             raise RuntimeError(f"statement timeout: {message}" if "TIMEOUT_EXCEEDED" in message or "Timeout exceeded" in message else message) from None

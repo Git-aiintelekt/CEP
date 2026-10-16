@@ -5,7 +5,18 @@ workspace's own database) or ClickHouse (reporting tables loaded from those view
 made in the platform back-office, and can be undone at once. This is the operator's guide; the design is in
 `docs/INSIGHTS_ENGINE.md` ("ClickHouse, the second engine") and the plan in `docs/C360_INSIGHTS_SUITE_PLAN.md` (E3).
 
-## 1. What the server needs once
+## 1. Where the ClickHouse connection comes from
+
+Two places, the first winning when it is set:
+
+1. **Configuration → Report Engine Connections** in the back-office (patch 0054): a named profile with the engine, the
+   HTTP URL, the user, the password (stored encrypted, never shown again), the database and a status, with **Test
+   Connection** reading the server's version. A workspace's Report Engines row picks a profile in **Connection profile**;
+   its backfill, refresh, reconcile and reports then use that server, so different workspaces can point at different
+   ClickHouse servers.
+2. The server environment below, for every workspace without a profile.
+
+## 1a. What the server needs once, for the environment fallback
 
 The backend reads the ClickHouse connection from its environment (`/app/cep/.env` on the dev server; the same file
 every unit reads). Four lines; the password is never in the repository or in a chat:
