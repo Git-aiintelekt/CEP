@@ -2315,28 +2315,6 @@ CREATE TABLE IF NOT EXISTS ai_provider (
     last_checked_at     TIMESTAMPTZ,
     last_check_ok       BOOLEAN,
     last_check_error    VARCHAR(300),
--- ---- Report Databases (patch 0056; apps/insights/databases.py, external.py): a workspace's own MySQL or PostgreSQL databases, read-only, and the
---      datasets it maps from their tables and views. A report may be built on a mapped dataset, so report.dataset_key no longer
---      references the platform's catalogue alone.
-CREATE TABLE IF NOT EXISTS report_connection (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID NOT NULL REFERENCES tenant(id),
-    name                VARCHAR(100) NOT NULL,
-    engine              VARCHAR(12) NOT NULL DEFAULT 'mysql80',           -- mysql57, mysql80, postgresql
-    host                VARCHAR(200) NOT NULL,
-    port                INTEGER NOT NULL DEFAULT 3306,
-    database_name       VARCHAR(64) NOT NULL,
-    schema_name         VARCHAR(64) NOT NULL DEFAULT 'public',            -- PostgreSQL: the schema the sources live in; MySQL: the database itself
-    username            VARCHAR(100) NOT NULL,
-    password_enc        TEXT NOT NULL,                                     -- Fernet, apps/platform_ops/crypto.py; never shown again
-    ssl_mode            VARCHAR(10) NOT NULL DEFAULT 'REQUIRED',          -- REQUIRED, PREFERRED, OFF
-    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, DISABLED
-    last_tested_at      TIMESTAMPTZ,
-    last_test_ok        BOOLEAN,
-    last_test_error     VARCHAR(300),
-    read_only           BOOLEAN,                                           -- the grants check: NULL until tested
-    server_version      VARCHAR(40),
-    server_timezone     VARCHAR(40),
     created_by          UUID REFERENCES app_user(id),
     updated_by          UUID REFERENCES app_user(id),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2387,6 +2365,34 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('ai.default_model',   '""',   'STRING',  'Insights', 'The model preselected for people who have not chosen one, as provider:model (e.g. anthropic:claude-sonnet-5-5); empty means the first offered'),
     ('ai.explain_allowed', 'true', 'BOOLEAN', 'Insights', 'Whether Explain This Report may send a report''s totals (never personal data) to the model')
 ON CONFLICT (key) DO NOTHING;
+
+-- ---- Report Databases (patch 0056; apps/insights/databases.py, external.py): a workspace's own MySQL or PostgreSQL databases, read-only, and the
+--      datasets it maps from their tables and views. A report may be built on a mapped dataset, so report.dataset_key no longer
+--      references the platform's catalogue alone.
+CREATE TABLE IF NOT EXISTS report_connection (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    name                VARCHAR(100) NOT NULL,
+    engine              VARCHAR(12) NOT NULL DEFAULT 'mysql80',           -- mysql57, mysql80, postgresql
+    host                VARCHAR(200) NOT NULL,
+    port                INTEGER NOT NULL DEFAULT 3306,
+    database_name       VARCHAR(64) NOT NULL,
+    schema_name         VARCHAR(64) NOT NULL DEFAULT 'public',            -- PostgreSQL: the schema the sources live in; MySQL: the database itself
+    username            VARCHAR(100) NOT NULL,
+    password_enc        TEXT NOT NULL,                                     -- Fernet, apps/platform_ops/crypto.py; never shown again
+    ssl_mode            VARCHAR(10) NOT NULL DEFAULT 'REQUIRED',          -- REQUIRED, PREFERRED, OFF
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, DISABLED
+    last_tested_at      TIMESTAMPTZ,
+    last_test_ok        BOOLEAN,
+    last_test_error     VARCHAR(300),
+    read_only           BOOLEAN,                                           -- the grants check: NULL until tested
+    server_version      VARCHAR(40),
+    server_timezone     VARCHAR(40),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ck_report_connection_engine CHECK (engine IN ('mysql57', 'mysql80', 'postgresql')),
     CONSTRAINT ck_report_connection_ssl CHECK (ssl_mode IN ('REQUIRED', 'PREFERRED', 'OFF')),
     CONSTRAINT ck_report_connection_status CHECK (status IN ('ACTIVE', 'DISABLED')),
