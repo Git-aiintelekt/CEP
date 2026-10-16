@@ -353,7 +353,7 @@ def test_connections_office(check):
 
     if not clickhouse.table_present():
         pytest.skip("patch 0054 has not been applied to this database")
-    staff = AppUser.objects.using(P).filter(is_staff=True, is_active=True, is_superuser=True).order_by("created_at").first() \
+    staff = AppUser.objects.using(P).filter(is_staff=True, is_active=True, is_platform_admin=True).order_by("created_at").first() \
         or AppUser.objects.using(P).filter(is_staff=True, is_active=True).order_by("created_at").first()
     user_logged_in.disconnect(update_last_login, dispatch_uid="update_last_login")
     try:
