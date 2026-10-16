@@ -109,6 +109,11 @@ EMAIL_PRODUCT_NAME = env("EMAIL_PRODUCT_NAME", default="C360")
 FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")     # Fernet key(s), comma separated; see apps/platform_ops/crypto.py
 OWNER_DATABASE_URL = env("OWNER_DATABASE_URL", default="")         # DDL-owner login: only tenant exports / moves / offboarding use it
 TENANT_EXPORT_DIR = env("TENANT_EXPORT_DIR", default=str(BASE_DIR / "exports"))
+# Insights' second engine (apps/insights/clickhouse.py): empty URL = no ClickHouse, every workspace reports on PostgreSQL
+CLICKHOUSE_URL = env("CLICKHOUSE_URL", default="")
+CLICKHOUSE_USER = env("CLICKHOUSE_USER", default="default")
+CLICKHOUSE_PASSWORD = env("CLICKHOUSE_PASSWORD", default="")
+CLICKHOUSE_DATABASE = env("CLICKHOUSE_DATABASE", default="cep_reporting")
 DATABASE_ROUTERS = ["apps.tenants.router.TenantRouter"]
 CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
@@ -208,6 +213,7 @@ CELERY_BEAT_SCHEDULE = {
     "decide-ab-winners": {"task": "workers.campaign.decide_ab_winners", "schedule": 60},                 # subject-line tests whose decision time has come
     "send-weekly-reports": {"task": "workers.reports.send_weekly_reports", "schedule": 900},              # the Monday report, in each workspace's own time
     "deliver-report-schedules": {"task": "workers.insights_delivery.deliver_report_schedules", "schedule": 300},  # Insights reports scheduled by email
+    "refresh-clickhouse-reporting": {"task": "workers.insights_clickhouse.refresh_clickhouse_reporting", "schedule": 900},  # the ClickHouse reporting tables' recent window
     "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
     "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention
     "attribute-orders": {"task": "workers.platform.attribute_orders", "schedule": 300},                    # orders -> campaigns -> campaign_actual

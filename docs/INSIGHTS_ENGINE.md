@@ -151,6 +151,23 @@ has it still runs for them with that column masked, in the grid (named above it,
 (header `Label (masked)`). The result cache keeps masked and full results apart. CONFIDENTIAL fields are never offered.
 Report authors never see table or column names.
 
+## ClickHouse, the second engine
+
+`apps/insights/clickhouse.py` talks to ClickHouse over HTTP (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`,
+`CLICKHOUSE_DATABASE`, server environment; an empty URL means no ClickHouse). It creates the database and one
+ReplacingMergeTree table per dataset in the shape of the PostgreSQL reporting view, keyed by the workspace and the
+dataset's primary key with a load version, so a row loaded again replaces itself; queries read them `FINAL`. The loader
+copies a workspace's rows from the PostgreSQL views in batches: everything at a backfill, the recent seven days of each
+dataset (contacts whole) every quarter hour by the job `refresh-clickhouse-reporting` for workspaces on ClickHouse.
+Deletions are not propagated yet. The compiler has a ClickHouse dialect (typed `{p:Type}` placeholders, `toTimeZone`
+and `date_trunc` for buckets, local-day bounds as instants, `IN`, `ILIKE` without `ESCAPE`, `toIntervalDay`, `FINAL`);
+grouping sets and `GROUPING()` are the same. The runner sends a read-only HTTP query with `max_execution_time`; the
+audit, the cache, the masking and the totals are unchanged. The switch lives in Tenant Administration → Report Engines:
+**Backfill ClickHouse** (load every dataset; the workspace is MIGRATING and its reports still run on PostgreSQL),
+**Reconcile** (row counts per dataset on both engines, shown, `last_reconciled_at` set), **Activate ClickHouse** (reports
+run there, freshness a quarter hour) and **Roll Back to PostgreSQL**. The catalogue's ClickHouse sources come with patch
+0053. `engine_of` answers `dialect`: the engine the reports run on now.
+
 ## The analytics engine per workspace
 
 `report_engine_setting` names the engine (PostgreSQL today, ClickHouse with Phase E), its connection profile, its

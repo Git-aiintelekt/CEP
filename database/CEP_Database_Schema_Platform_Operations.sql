@@ -2194,6 +2194,13 @@ INSERT INTO report_dataset_source (dataset_key, engine, source_name) VALUES
     ('contacts', 'postgresql', 'reporting.rpt_contacts'),
     ('journey_enrollments', 'postgresql', 'reporting.rpt_journey_enrollments')
 ON CONFLICT (dataset_key, engine) DO NOTHING;
+-- the same datasets on ClickHouse (Phase E3): the reporting tables apps/insights/clickhouse.py creates and loads
+INSERT INTO report_dataset_source (dataset_key, engine, source_name) VALUES
+    ('messages', 'clickhouse', 'cep_reporting.rpt_messages'),
+    ('attributed_orders', 'clickhouse', 'cep_reporting.rpt_attributed_orders'),
+    ('contacts', 'clickhouse', 'cep_reporting.rpt_contacts'),
+    ('journey_enrollments', 'clickhouse', 'cep_reporting.rpt_journey_enrollments')
+ON CONFLICT (dataset_key, engine) DO NOTHING;
 
 INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order) VALUES
     ('messages', 'channel',        'Channel',         'channel',        'string',   'dimension', '[]', NULL, 'NORMAL', 10),

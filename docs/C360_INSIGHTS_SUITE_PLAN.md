@@ -152,9 +152,23 @@ Started 2026-10-16 with `docs/mockups/insights-scheduled-delivery.html`, two opt
   A4 with the C360 header and the period. Built 2026-10-16 on ReportLab rather than WeasyPrint: pure Python, no Pango
   or Cairo on any server (the dev server lacked Pango, the test server is SELinux-enforcing RHEL, the workstation is
   Windows). Dashboards can be scheduled, as PDF; a report in PDF too.
-- **E3, the engine switch.** ClickHouse as a second dialect of the compiler, a reporting instance fed by logical
-  replication, and the per-workspace switch workflow (backfill, reconcile, activate, roll back) behind Tenant
-  Administration → Report Engines. Needs a ClickHouse to point at; planned once there is one.
+- **E3, the engine switch.** Started 2026-10-16 against the ClickHouse the user provided (10.0.0.57, HTTP 8123,
+  reachable from the dev server). The pieces:
+  - *The reporting tables in ClickHouse* (`apps/insights/clickhouse.py`): a database `cep_reporting` with one table per
+    dataset in the shape of the PostgreSQL reporting view, ReplacingMergeTree keyed by workspace and primary key with a
+    load version, so a row loaded again replaces itself; queries read them `FINAL`. No logical replication yet: a
+    loader copies rows from the PostgreSQL views, the whole workspace at a backfill, the recent window on a schedule
+    (`refresh-clickhouse-reporting`, every 15 minutes, for workspaces on ClickHouse). Contacts reload whole.
+  - *The dialect*: the compiler takes a dialect, PostgreSQL or ClickHouse, for identifiers, parameters (ClickHouse's
+    typed `{p:Type}` placeholders over HTTP), time-zone and bucket expressions, `IN`, `ILIKE`, intervals and `FINAL`.
+    Grouping sets and `GROUPING()` are the same. The runner sends a ClickHouse query over HTTP as a read-only query
+    with its timeout; the audit, the cache, the masking and the totals are unchanged.
+  - *The switch* in Tenant Administration → Report Engines: Backfill (load every dataset into ClickHouse; runs stay on
+    PostgreSQL while the status is MIGRATING), Reconcile (row counts per dataset on both engines, the differences
+    shown, `last_reconciled_at` set), Activate ClickHouse (runs go to ClickHouse) and Roll Back to PostgreSQL. The
+    catalogue's sources for the ClickHouse engine come with patch 0053. Connection settings are server environment:
+    `CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_DATABASE`.
+  - Not yet: replication in place of the loader, deletions propagated, a per-workspace database.
 - Legacy ingestion pipelines come one source at a time, after E3.
 
 ## What stays out of the first release
