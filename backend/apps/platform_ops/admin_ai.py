@@ -54,8 +54,8 @@ class DefaultsForm(forms.Form):
 def _save_provider(provider: str, data: dict, row: dict | None, user_id) -> None:
     with connections[P].cursor() as cursor:
         if row is None:
-            cursor.execute("""INSERT INTO ai_provider (provider, api_key_enc, model_reports, model_fast, is_active, created_by, updated_by)
-                              VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            cursor.execute("""INSERT INTO ai_provider (tenant_id, provider, api_key_enc, model_reports, model_fast, is_active, created_by, updated_by)
+                              VALUES (NULL, %s, %s, %s, %s, %s, %s, %s)""",
                            [provider, crypto.encrypt(data["api_key"].strip()), data["model_reports"].strip(), data["model_fast"].strip(), data["is_active"], user_id, user_id])
             return
         sets, args = ["model_reports = %s", "model_fast = %s", "is_active = %s", "updated_by = %s", "updated_at = now()", "row_version = row_version + 1"], \
@@ -63,7 +63,7 @@ def _save_provider(provider: str, data: dict, row: dict | None, user_id) -> None
         if data.get("api_key"):
             sets += ["api_key_enc = %s", "last_checked_at = NULL", "last_check_ok = NULL", "last_check_error = NULL"]
             args.append(crypto.encrypt(data["api_key"].strip()))
-        cursor.execute(f"UPDATE ai_provider SET {', '.join(sets)} WHERE provider = %s", [*args, provider])
+        cursor.execute(f"UPDATE ai_provider SET {', '.join(sets)} WHERE provider = %s AND tenant_id IS NULL", [*args, provider])
 
 
 def _set_param(key: str, value) -> None:
@@ -74,10 +74,10 @@ def _set_param(key: str, value) -> None:
 
 
 def _month_use() -> list[dict]:
-    """This month's drafts by workspace and provider, with what each may ask for."""
+    """This month's drafts on the platform's keys by workspace and provider, with what each may ask for (a workspace's own key is not counted here)."""
     from apps.tenants.models import Tenant
     with connections[P].cursor() as cursor:
-        cursor.execute("""SELECT tenant_id, provider, count(*) FROM ai_prompt WHERE counted AND created_at >= %s GROUP BY tenant_id, provider""", [billing.month_start()])
+        cursor.execute("""SELECT tenant_id, provider, count(*) FROM ai_prompt WHERE counted AND account = 'PLATFORM' AND created_at >= %s GROUP BY tenant_id, provider""", [billing.month_start()])
         counts = {}
         for tenant_id, provider, n in cursor.fetchall():
             counts.setdefault(tenant_id, {})[provider] = int(n)
@@ -111,12 +111,12 @@ def ai_assistant_view(request):
             messages.error(request, "Save the provider first.")
         elif action == "remove":
             with connections[P].cursor() as cursor:
-                cursor.execute("DELETE FROM ai_provider WHERE provider = %s", [which])
+                cursor.execute("DELETE FROM ai_provider WHERE provider = %s AND tenant_id IS NULL", [which])
             messages.success(request, f"{assistant.PROVIDERS[which]['name']} was removed. Workspaces can no longer pick its models.")
         else:
             ok, detail = assistant.check(which, row)
             with connections[P].cursor() as cursor:
-                cursor.execute("UPDATE ai_provider SET last_checked_at = %s, last_check_ok = %s, last_check_error = %s WHERE provider = %s",
+                cursor.execute("UPDATE ai_provider SET last_checked_at = %s, last_check_ok = %s, last_check_error = %s WHERE provider = %s AND tenant_id IS NULL",
                                [timezone.now(), ok, None if ok else detail[:300], which])
             (messages.success if ok else messages.error)(request, detail)
         return redirect("admin:platform_ops_ai_assistant")

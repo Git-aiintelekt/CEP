@@ -79,6 +79,7 @@ urlpatterns = [
     path("public/preferences/", preferences_public.preferences_view, name="preferences"),
     path("workspace/preference-center/", preferences_api.PreferenceCenterView.as_view(), name="workspace-preference-center"),
     path("workspace/ai-assistant/", insights_assistant.WorkspaceAssistantView.as_view(), name="workspace-ai-assistant"),
+    path("workspace/ai-assistant/check/", insights_assistant.WorkspaceAssistantCheckView.as_view(), name="workspace-ai-assistant-check"),
     path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),
     path("workspace/setup/", setup_api.WorkspaceSetupView.as_view(), name="workspace-setup"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),

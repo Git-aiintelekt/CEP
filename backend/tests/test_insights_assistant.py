@@ -71,8 +71,8 @@ def test_api(check, world, monkeypatch):
         pytest.skip("patch 0055 (and 0049) have not been applied to this database")
     from apps.platform_ops import crypto
     with connections[P].cursor() as cursor:
-        cursor.execute("INSERT INTO ai_provider (provider, api_key_enc, model_reports, model_fast, is_active) VALUES ('anthropic', %s, 'claude-sonnet-5-5', 'claude-haiku-5-5', TRUE)", [crypto.encrypt("sk-test")])
-        cursor.execute("INSERT INTO ai_provider (provider, api_key_enc, model_reports, model_fast, is_active) VALUES ('openai', %s, 'gpt-5', 'gpt-5-mini', FALSE)", [crypto.encrypt("sk-test")])
+        cursor.execute("INSERT INTO ai_provider (tenant_id, provider, api_key_enc, model_reports, model_fast, is_active) VALUES (NULL, 'anthropic', %s, 'claude-sonnet-5-5', 'claude-haiku-5-5', TRUE)", [crypto.encrypt("sk-test")])
+        cursor.execute("INSERT INTO ai_provider (tenant_id, provider, api_key_enc, model_reports, model_fast, is_active) VALUES (NULL, 'openai', %s, 'gpt-5', 'gpt-5-mini', FALSE)", [crypto.encrypt("sk-test")])
     assistant._TABLE_SEEN = False
     calls = []
     replies = {"draft": DRAFT, "question": {"kind": "question", "question": "Which period is last month?", "answers": [{"label": "September", "prompt": "Sent by campaign for September 2026"}, {"label": "30 days", "prompt": "Sent by campaign for the last 30 days"}]}}
@@ -135,4 +135,28 @@ def test_api(check, world, monkeypatch):
     check("with every offered provider disallowed, the box says so", not state["enabled"] and state["reason"] == "no_provider_allowed")
     bad = world.api("put", "/api/v1/workspace/ai-assistant/", {"providers": {"gemini": True}})
     check("an unknown provider is refused", bad.status_code == 400)
+
+    # the workspace's own key: OpenAI is not offered by the platform, so its own key makes it available; prompts on it are not limited
+    world.api("put", "/api/v1/workspace/ai-assistant/", {"providers": {"anthropic": True}})
+    refused = world.api("put", "/api/v1/workspace/ai-assistant/", {"own": {"openai": {"model_reports": "gpt-5"}}})
+    check("an own key is needed the first time", refused.status_code == 400 and "api_key" in refused.json().get("errors", {}), str(refused.content[:200]))
+    mine = world.api("put", "/api/v1/workspace/ai-assistant/", {"own": {"openai": {"api_key": "sk-own", "model_reports": "gpt-5", "model_fast": "gpt-5-mini"}}}).json()
+    openai = next(p for p in mine["available"] if p["key"] == "openai")
+    check("the workspace's own OpenAI key is stored, encrypted and never returned", openai["own"]["configured"] and openai["own"]["model_reports"] == "gpt-5" and not openai["platform"]
+          and "sk-own" not in json.dumps(mine), json.dumps(openai))
+    state = world.api("get", "/api/v1/insights/assistant/").json()
+    check("the box now offers OpenAI's models on the workspace's own key beside the platform's Claude", [m["id"] for m in state["models"]] == ["anthropic:claude-sonnet-5-5", "anthropic:claude-haiku-5-5", "openai:gpt-5", "openai:gpt-5-mini"]
+          and state["models"][2]["source"] == "own" and state["own"] == ["openai"], json.dumps(state["models"]))
+    next_reply[0] = "draft"
+    own_ask = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign", "model": "openai:gpt-5-mini"})
+    check("a prompt on the workspace's own key goes to it and is not stopped by the plan's number", own_ask.status_code == 200 and own_ask.json()["kind"] == "draft" and calls[-1]["key"] == "sk-own"
+          and calls[-1]["provider"] == "openai" and own_ask.json()["usage"]["used"] == 2, str(own_ask.content[:200]))
+    seen = {}
+    monkeypatch.setattr(assistant.requests, "get", lambda url, **kwargs: seen.update(url=url, headers=kwargs.get("headers") or {}) or type("R", (), {"status_code": 200, "reason": "OK", "json": lambda self: {"data": [{"id": "gpt-5"}, {"id": "gpt-5-mini"}]}})())
+    checked = world.api("post", "/api/v1/workspace/ai-assistant/check/", {"provider": "openai"}).json()
+    own_after = next(p for p in world.api("get", "/api/v1/workspace/ai-assistant/").json()["available"] if p["key"] == "openai")["own"]
+    check("Check Connection on the own key reaches the provider with it and records the outcome", checked["ok"] and seen["headers"].get("Authorization") == "Bearer sk-own" and own_after["last_check_ok"] is True)
+    gone = world.api("put", "/api/v1/workspace/ai-assistant/", {"own": {"openai": None}}).json()
+    check("removing the own key takes OpenAI away again", next(p for p in gone["available"] if p["key"] == "openai")["own"] is None
+          and [m["provider"] for m in world.api("get", "/api/v1/insights/assistant/").json()["models"]] == ["anthropic", "anthropic"])
     check.done()
