@@ -2,7 +2,7 @@
  * A report, run: its rows in the saved view, with what the run says (rows, time, freshness, truncated), Edit for whoever
  * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice.
  */
-import { CalendarClock, Download, FileSpreadsheet, History, Pencil, Trash2 } from 'lucide-react'
+import { CalendarClock, Download, FileSpreadsheet, FileText, History, Pencil, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -11,12 +11,12 @@ import { buttonDanger, buttonSecondary } from '@/components/Form'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
-import { Tag } from '@/components/StatusBadge'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
-import { insightsApi, keys, schedulesApi, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
+import { insightsApi, keys, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
 import { FolderSelect } from '../components/FolderSelect'
+import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
 import { VersionsDrawer } from '../components/VersionsDrawer'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
@@ -32,17 +32,13 @@ export function ReportViewerPage() {
   const askedView = view ?? report.data?.definition.view
   const run = useRun(report.data ? id : undefined, askedView && (askedView.type === 'pivot' || askedView.type === 'hierarchy') ? { view: { type: askedView.type, across: askedView.across } } : {})
   const remove = useDeleteReport()
-  const [exporting, setExporting] = useState<'csv' | 'xlsx' | null>(null)
+  const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const { can, me } = useAuth()
   const [scheduling, setScheduling] = useState(false)
   const schedules = useSchedules({ item: id })
   const schedule = schedules.data?.schedules[0] ?? null
-  const pauseOrResume = useMutation({
-    mutationFn: (action: 'pause' | 'resume') => schedulesApi.state((schedule as NonNullable<typeof schedule>).id, action),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.schedules }),
-    onError: (error) => toast.failure(error, 'The schedule was not changed'),
-  })
+
   const [shownVersion, setShownVersion] = useState<number | null>(null)
   const versions = useVersions(versionsOpen || shownVersion !== null ? id : undefined)
   const old = shownVersion === null ? null : versions.data?.versions.find((v) => v.version === shownVersion) ?? null
@@ -63,11 +59,11 @@ export function ReportViewerPage() {
     onError: (error) => toast.failure(error, 'The report was not moved'),
   })
 
-  async function exportAs(kind: 'csv' | 'xlsx') {
+  async function exportAs(kind: 'csv' | 'xlsx' | 'pdf') {
     if (!id) return
     setExporting(kind)
     try {
-      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : insightsApi.exportXlsx(id))
+      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : kind === 'pdf' ? insightsApi.exportPdf(id) : insightsApi.exportXlsx(id))
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `${report.data?.name ?? 'report'}.${kind}`
@@ -107,21 +103,12 @@ export function ReportViewerPage() {
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             <button type="button" className={buttonSecondary} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
             <button type="button" className={buttonSecondary} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
+            <button type="button" className={buttonSecondary} onClick={() => exportAs('pdf')} disabled={exporting !== null || !info}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
             {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
           </div>
         )}
       />
-      {schedule && (
-        <div role="status" aria-label="Schedule" className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">
-          <Tag tone={schedule.status === 'ACTIVE' ? 'success' : 'warning'}>{schedule.status === 'ACTIVE' ? 'Scheduled' : 'Paused'}</Tag>
-          <span>{schedule.words} to {schedule.recipients.length} {schedule.recipients.length === 1 ? 'person' : 'people'} as {schedule.format === 'xlsx' ? 'Excel' : schedule.format.toUpperCase()}
-            {schedule.last_sent_at ? ` · last ${schedule.last_outcome === 'OK' ? 'sent' : 'failed'} ${formatDateTime(schedule.last_sent_at)}` : ''}{schedule.status === 'ACTIVE' && schedule.next_run_at ? ` · next ${formatDateTime(schedule.next_run_at)}` : ''}</span>
-          <span className="ml-auto flex gap-3 text-xs font-semibold text-brand-800">
-            <button type="button" className="hover:underline" onClick={() => setScheduling(true)}>Change</button>
-            <button type="button" className="hover:underline" disabled={pauseOrResume.isPending} onClick={() => pauseOrResume.mutate(schedule.status === 'ACTIVE' ? 'pause' : 'resume')}>{schedule.status === 'ACTIVE' ? 'Pause' : 'Resume'}</button>
-          </span>
-        </div>
-      )}
+      {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
       {old && (
         <div role="status" className="flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-subtle px-3 py-2 text-sm text-ink-900">
           <span>Showing version {old.version} of {report.data.version}, as saved {formatDateTime(old.changed_at)}. The current version is not changed.</span>

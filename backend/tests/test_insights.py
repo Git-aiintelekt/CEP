@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, compiler, dashboards, definition, excel, runner, schedules, shape
+from apps.insights import catalog, compiler, dashboards, definition, excel, pdf, runner, schedules, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -123,6 +123,16 @@ def test_definition_and_compiler(check):
     check("the workbook has the pivot sheet first and the rows after, with the labels and the values as text", "xl/worksheets/sheet1.xml" in names and "xl/worksheets/sheet2.xml" in names
           and "Pivot" in sheets and "Sent Count" in strings and "EMAIL" in strings, str(names))
 
+    # the PDF: a report in each view, and a dashboard with its tiles, as real PDF files
+    for kind, across in (("grid", None), ("pivot", "submitted_at"), ("hierarchy", None), ("chart", "submitted_at")):
+        doc = pdf.report("Monthly Sends", cols, data, {"type": kind, "across": across}, workspace="Northwind Apparel", when="16 Oct 2026")
+        check(f"the {kind} PDF is a PDF", doc[:5] == b"%PDF-" and len(doc) > 1500, str(len(doc)))
+    board = pdf.dashboard("Marketing Weekly", "Sends and revenue", "16 Sep – 15 Oct 2026", [
+        {"title": "Sent", "kind": "figure", "value": 391520, "previous": 361180, "compared": True, "column": cols[2]},
+        {"title": "Sends by Month", "kind": "view", "view": {"type": "chart", "across": "channel"}, "result": {"columns": cols, "rows": data, "row_count": 4}, "own_dates": False},
+        {"title": "Gone", "kind": "missing", "detail": "The report behind this tile is gone."}], workspace="Northwind Apparel", when="16 Oct 2026")
+    check("the dashboard PDF is a PDF with its figures, views and a missing tile", board[:5] == b"%PDF-" and len(board) > 2000, str(len(board)))
+
     # scheduled delivery: when the next sending falls, in the workspace's zone
     from datetime import datetime, time as clock
     from zoneinfo import ZoneInfo
@@ -207,6 +217,8 @@ def test_api(check, world):
     export = world.api("get", f"/api/v1/insights/reports/{rid}/export.csv")
     text = b"".join(export.streaming_content).decode() if export.status_code == 200 else ""
     check("the export streams a CSV with the labels as its header", export.status_code == 200 and text.startswith("Campaign,Channel,Sent Count,Messages") and "attachment" in export["Content-Disposition"], text[:120])
+    paper = world.api("get", f"/api/v1/insights/reports/{rid}/export.pdf")
+    check("the PDF export is a PDF named after the report", paper.status_code == 200 and paper["Content-Type"] == "application/pdf" and paper.content[:5] == b"%PDF-", str(paper.status_code))
     book = world.api("get", f"/api/v1/insights/reports/{rid}/export.xlsx")
     check("the Excel export is a workbook named after the report", book.status_code == 200 and book["Content-Type"].startswith("application/vnd.openxmlformats") and 'filename="Sends by campaign and channel.xlsx"' in book["Content-Disposition"]
           and book.content[:2] == b"PK", str(book.status_code))
@@ -218,9 +230,9 @@ def test_api(check, world):
     check("a schedule is made with its next sending computed and its addresses cleaned", made_s.status_code == 201 and sched["words"] == "Every Monday at 08:00" and sched["status"] == "ACTIVE"
           and sched["recipients"] == ["finance@northwind.example", "aby@northwind.example"] and sched["next_run_at"], made_s.content[:300])
     sid = sched.get("id")
-    check("a bad address, and PDF, are refused where they sit",
+    check("a bad address, and an unknown format, are refused where they sit",
           "recipients" in json.dumps(world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "day", "at_time": "08:00", "recipients": ["nope"]}).json())
-          and "format" in json.dumps(world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "day", "at_time": "08:00", "format": "pdf", "recipients": ["a@b.co"]}).json()))
+          and "format" in json.dumps(world.api("post", "/api/v1/insights/schedules/", {"item_id": rid, "every": "day", "at_time": "08:00", "format": "docx", "recipients": ["a@b.co"]}).json()))
     test_send = world.api("post", f"/api/v1/insights/schedules/{sid}/test/", {})
     check("Send a Test Now builds the file and sends it to the asker, recorded as a test delivery and audited as a delivery", test_send.status_code == 200 and test_send.json()["outcome"] == "OK"
           and test_send.json()["recipients"] == 1 and world.sql("SELECT trigger, outcome FROM report_delivery WHERE schedule_id = %s", [sid], fetch=True) == [("test", "OK")]
@@ -274,6 +286,13 @@ def test_api(check, world):
           and vw["bounds"] == {"from": "2026-09-01", "to": "2026-09-30", "previous_from": "2026-08-02", "previous_to": "2026-08-31"} and isinstance(vw["result"]["rows"], list), view.content[:300])
     listed_d = world.api("get", "/api/v1/insights/dashboards/").json()["dashboards"]
     check("the list counts the tiles", any(d["id"] == did and d["tiles"] == 2 and d["can_edit"] for d in listed_d), str(listed_d)[:200])
+    board_pdf = world.api("get", f"/api/v1/insights/dashboards/{did}/export.pdf")
+    check("the dashboard exports as a PDF named after it", board_pdf.status_code == 200 and board_pdf["Content-Type"] == "application/pdf" and board_pdf.content[:5] == b"%PDF-"
+          and 'filename="Marketing Weekly.pdf"' in board_pdf["Content-Disposition"], str(board_pdf.status_code))
+    dash_sched = world.api("post", "/api/v1/insights/schedules/", {"kind": "dashboard", "item_id": did, "every": "day", "at_time": "07:00", "format": "pdf", "recipients": ["ops@northwind.example"]})
+    check("a dashboard is scheduled as PDF, and Send a Test Now sends it", dash_sched.status_code == 201 and dash_sched.json()["item_name"] == "Marketing Weekly"
+          and world.api("post", f"/api/v1/insights/schedules/{dash_sched.json()['id']}/test/", {}).json().get("outcome") == "OK", dash_sched.content[:300])
+    check("a dashboard as Excel is refused", world.api("post", "/api/v1/insights/schedules/", {"kind": "dashboard", "item_id": did, "every": "day", "at_time": "07:00", "format": "xlsx", "recipients": ["ops@northwind.example"]}).status_code == 400)
     check("a deleted dashboard is gone", world.api("delete", f"/api/v1/insights/dashboards/{did}/").status_code == 204
           and not any(d["id"] == did for d in world.api("get", "/api/v1/insights/dashboards/").json()["dashboards"]))
 

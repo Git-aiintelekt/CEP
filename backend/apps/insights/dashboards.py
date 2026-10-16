@@ -266,6 +266,76 @@ class DashboardView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: bool, mask: bool, limit: int = TILE_ROWS) -> tuple[dict, int]:
+    """One tile's payload and HTTP status, for the API, the PDF and a delivery: the figure with its previous period, or the rows in the tile's view."""
+    dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
+    if dataset is None:
+        return {"kind": "missing", "detail": "The report's dataset is not available in this workspace."}, 200
+    raw = _json(report["definition"])
+    bounds = period_bounds(period, _today(tenant))
+    time_field = dataset.get("time_field")
+    own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)
+    limits = catalog.engine_of(tenant.pk)["limits"]
+    about = {"id": report["id"], "name": report["name"], "version": report["version"]}
+
+    def prepared(start, end):
+        shaped = raw if own_dates or not time_field else _with_period(raw, time_field, start, end)
+        if tile["show"] == "figure":
+            shaped = {**shaped, "columns": [c for c in raw.get("columns", []) if c.get("field") == tile.get("measure") and c.get("aggregate")], "orderBy": [], "limit": 1}
+            shaped.pop("view", None)
+        try:
+            return validate(dataset, shaped, max_limit=limits["run_rows"])
+        except DefinitionError as exc:
+            raise RunProblem(f"The report behind this tile no longer fits its dataset ({exc.field}: {exc}).") from None
+
+    try:
+        if tile["show"] == "figure":
+            now = runner.run(tenant, user, dataset, prepared(bounds["from"], bounds["to"]), "run", limit=1, report_id=report["id"], report_version=report["version"], mask_pii=mask)
+            previous = None
+            if compare and time_field and not own_dates:
+                previous = runner.run(tenant, user, dataset, prepared(bounds["previous_from"], bounds["previous_to"]), "run", limit=1, report_id=report["id"],
+                                      report_version=report["version"], mask_pii=mask)
+            return {"kind": "figure", "value": now["rows"][0][0] if now["rows"] else None, "previous": previous["rows"][0][0] if previous and previous["rows"] else None,
+                    "compared": previous is not None, "column": now["columns"][0], "own_dates": own_dates, "bounds": bounds, "report": about, "cached": now["cached"]}, 200
+        definition = prepared(bounds["from"], bounds["to"])
+        view = {**(definition.get("view") or {}), "type": tile["show"]}
+        result = runner.run(tenant, user, dataset, definition, "run", limit=min(int(limit), limits["run_rows"]), report_id=report["id"], report_version=report["version"], mask_pii=mask, totals_view=view)
+        return {"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about}, 200
+    except RunProblem as exc:
+        return {"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, 422
+    except runner.RunRefused as exc:
+        return {"kind": "refused", "detail": exc.reason, "outcome": exc.outcome}, 422
+
+
+def _report_for(report_id: str, visible_where: str, args: list) -> dict | None:
+    rows = _q(f"""SELECT r.id::text, r.name, r.dataset_key, r.definition, r.version FROM report r WHERE r.id = %s AND r.deleted_at IS NULL AND {visible_where}""", [str(report_id), *args])
+    return rows[0] if rows else None
+
+
+def tile_title(tile: dict, report: dict | None) -> str:
+    return tile.get("title") or (report["name"] if report else "A report that is gone")
+
+
+def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: list, mask: bool) -> bytes:
+    """Every tile on the dashboard's saved period, as one PDF (apps/insights/pdf.py)."""
+    from apps.insights import pdf
+    from apps.insights.dashboards import period_bounds as _bounds
+    layout, period, compare = _json(row["layout"]), _json(row["period"]), bool(row["compare"])
+    tiles = []
+    for tile in _tiles(layout):
+        report = _report_for(tile["report_id"], visible_where, visible_args)
+        if report is None:
+            tiles.append({"title": tile_title(tile, None), "kind": "missing", "detail": "The report behind this tile is gone, or cannot be opened."})
+            continue
+        payload, _status = tile_result(tenant, user, report, tile, period, compare, mask, limit=TILE_ROWS)
+        tiles.append({"title": tile_title(tile, report), **payload})
+    bounds = _bounds(period, _today(tenant))
+    start, end = date.fromisoformat(bounds["from"]), date.fromisoformat(bounds["to"])
+    period_words = f"{start.strftime('%d %b %Y').lstrip('0')} – {end.strftime('%d %b %Y').lstrip('0')}"
+    today = _today(tenant)
+    return pdf.dashboard(row["name"], row["description"], period_words, tiles, workspace=tenant.name, when=today.strftime("%d %b %Y").lstrip("0"))
+
+
 class TileRunView(APIView):
     permission_classes = VIEW
 
@@ -286,45 +356,25 @@ class TileRunView(APIView):
             report = _report_row(tile["report_id"], request)
         except NotFound:
             return Response({"kind": "missing", "detail": "The report behind this tile is gone, or you cannot open it."})
-        dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
-        if dataset is None:
-            return Response({"kind": "missing", "detail": "The report's dataset is not available in this workspace."})
-        raw = _json(report["definition"])
-        bounds = period_bounds(period, _today(tenant))
-        time_field = dataset.get("time_field")
-        own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)
-        limits = catalog.engine_of(tenant.pk)["limits"]
-        about = {"id": report["id"], "name": report["name"], "version": report["version"]}
+        payload, status_code = tile_result(tenant, request.user, report, tile, period, compare, not _can_see_pii(request), limit=int(body.get("limit") or TILE_ROWS))
+        return Response(payload, status=status_code)
 
-        def prepared(start, end):
-            shaped = raw if own_dates or not time_field else _with_period(raw, time_field, start, end)
-            if tile["show"] == "figure":
-                shaped = {**shaped, "columns": [c for c in raw.get("columns", []) if c.get("field") == tile.get("measure") and c.get("aggregate")], "orderBy": [], "limit": 1}
-                shaped.pop("view", None)
-            try:
-                return validate(dataset, shaped, max_limit=limits["run_rows"])
-            except DefinitionError as exc:
-                raise RunProblem(f"The report behind this tile no longer fits its dataset ({exc.field}: {exc}).") from None
 
-        mask = not _can_see_pii(request)
-        try:
-            if tile["show"] == "figure":
-                now = runner.run(tenant, request.user, dataset, prepared(bounds["from"], bounds["to"]), "run", limit=1, report_id=report["id"], report_version=report["version"], mask_pii=mask)
-                previous = None
-                if compare and time_field and not own_dates:
-                    previous = runner.run(tenant, request.user, dataset, prepared(bounds["previous_from"], bounds["previous_to"]), "run", limit=1, report_id=report["id"],
-                                          report_version=report["version"], mask_pii=mask)
-                return Response({"kind": "figure", "value": now["rows"][0][0] if now["rows"] else None, "previous": previous["rows"][0][0] if previous and previous["rows"] else None,
-                                 "compared": previous is not None, "column": now["columns"][0], "own_dates": own_dates, "bounds": bounds, "report": about, "cached": now["cached"]})
-            definition = prepared(bounds["from"], bounds["to"])
-            view = {**(definition.get("view") or {}), "type": tile["show"]}
-            result = runner.run(tenant, request.user, dataset, definition, "run", limit=min(int(body.get("limit") or TILE_ROWS), limits["run_rows"]), report_id=report["id"],
-                                report_version=report["version"], mask_pii=mask, totals_view=view)
-            return Response({"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about})
-        except RunProblem as exc:
-            return Response({"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, status=422)
-        except runner.RunRefused as exc:
-            return Response({"kind": "refused", "detail": exc.reason, "outcome": exc.outcome}, status=422)
+class DashboardExportPdfView(APIView):
+    """The dashboard with its tiles on its saved period, as a PDF."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, dashboard_id=None):
+        from django.http import HttpResponse
+        tenant = _tenant()
+        row = _dashboard_row(dashboard_id, request)
+        where, args = _visible_sql(request)
+        body = dashboard_pdf(tenant, request.user, row, visible_where=where, visible_args=args, mask=not _can_see_pii(request))
+        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "dashboard"
+        response = HttpResponse(body, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{safe}.pdf"'
+        return response
 
 
 class RunProblem(Exception):

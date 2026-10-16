@@ -2,7 +2,7 @@
 {% if note %}
 {{ note }}
 {% endif %}
-{{ report_name }}, as {{ fmt }}, for {{ date }}. {{ rows }} row{{ rows|pluralize }}. The file is attached.
+{{ report_name }}, as {{ fmt }}, for {{ date }}. {% if is_dashboard %}{{ rows }} tile{{ rows|pluralize }}{% else %}{{ rows }} row{{ rows|pluralize }}{% endif %}. The file is attached.
 
 Open the report: {{ frontend_url }}{{ report_link }}
 Change or stop this schedule: {{ frontend_url }}{{ schedules_link }}

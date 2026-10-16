@@ -31,7 +31,7 @@ export function ScheduledPage() {
   const mayChange = (s: Schedule) => can('report.admin') || (can('report.edit') && s.owner_user_id === principal?.id)
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Scheduled" description="Reports sent by email on a schedule." />
+      <PageHeader title="Scheduled" description="Reports and dashboards sent by email on a schedule." />
       <div role="group" aria-label="Which" className="flex flex-wrap gap-1.5">
         {([['all', 'All'], ['mine', 'Mine'], ['paused', 'Paused']] as const).map(([value, label]) => (
           <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)}
@@ -39,7 +39,7 @@ export function ScheduledPage() {
         ))}
       </div>
       {schedules.isPending ? <Spinner label="Loading the schedules" /> : schedules.isError ? <ErrorState error={schedules.error} onRetry={() => schedules.refetch()} /> : rows.length === 0 ? (
-        <EmptyState title="Nothing Scheduled Yet" hint="Open a report and press Schedule: it goes out by email on the days and at the time you choose, as Excel or CSV." action={<Link to="/insights/reports" className="text-sm font-semibold text-brand-800 hover:underline">Open Reports</Link>} />
+        <EmptyState title="Nothing Scheduled Yet" hint="Open a report or a dashboard and press Schedule: it goes out by email on the days and at the time you choose, as Excel, CSV or PDF." action={<Link to="/insights/reports" className="text-sm font-semibold text-brand-800 hover:underline">Open Reports</Link>} />
       ) : (
         <div className="overflow-x-auto rounded-md border border-line bg-surface">
           <table className="w-full text-sm" aria-label="Schedules">
@@ -52,8 +52,8 @@ export function ScheduledPage() {
               {rows.map((s) => (
                 <tr key={s.id} className="border-t border-line-subtle">
                   <td className="px-3 py-2">
-                    {s.item_gone ? <span className="font-medium text-ink-800">{s.item_name ?? 'A deleted report'}</span> : <Link to={`/insights/reports/${s.item_id}`} className="font-medium text-ink-900 hover:underline">{s.item_name}</Link>}
-                    <span className="block text-xs text-ink-800">{s.owner_name ?? '—'}</span>
+                    {s.item_gone ? <span className="font-medium text-ink-800">{s.item_name ?? 'A deleted report'}</span> : <Link to={`/insights/${s.kind === 'dashboard' ? 'dashboards' : 'reports'}/${s.item_id}`} className="font-medium text-ink-900 hover:underline">{s.item_name}</Link>}
+                    <span className="block text-xs text-ink-800">{s.kind === 'dashboard' ? 'Dashboard · ' : ''}{s.owner_name ?? '—'}</span>
                   </td>
                   <td className="px-3 py-2 text-ink-800">{s.words.replace(/^Every /, '')}</td>
                   <td className="px-3 py-2 text-ink-800">{FORMAT[s.format]}</td>

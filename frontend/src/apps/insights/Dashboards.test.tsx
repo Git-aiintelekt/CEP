@@ -50,6 +50,7 @@ test('the list shows the dashboards; the viewer runs the tiles on the period, a 
   expect(within(table).getByText('Workspace')).toBeTruthy()
   await user.click(within(table).getByRole('link', { name: 'Marketing Weekly' }))
   await screen.findByRole('heading', { name: 'Marketing Weekly' })
+  expect(screen.getByRole('button', { name: 'Export PDF' })).toBeTruthy()
   const figure = await screen.findByRole('region', { name: 'Sends by campaign' })
   await vi.waitFor(() => expect(within(figure).getByText('391,520')).toBeTruthy())
   expect(within(figure).getByText('▲ 8.4% vs previous')).toBeTruthy()
@@ -59,6 +60,20 @@ test('the list shows the dashboards; the viewer runs the tiles on the period, a 
   expect(screen.getByText(saved)).toBeTruthy()
   await user.click(screen.getByRole('radio', { name: '7 Days' }))
   await vi.waitFor(() => expect(screen.queryByText(saved)).toBeNull())            // the bar now says the last seven days
+})
+
+test('a dashboard is scheduled as PDF only; the schedule shows under its title', async () => {
+  const user = userEvent.setup()
+  await renderAppAt('/insights/dashboards/dash-1')
+  await screen.findByRole('heading', { name: 'Marketing Weekly' })
+  await user.click(await screen.findByRole('button', { name: 'Schedule' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Schedule' })
+  expect((within(dialog).getByRole('radio', { name: /^PDF/ }) as HTMLInputElement).checked).toBe(true)
+  expect((within(dialog).getByRole('radio', { name: /^Excel/ }) as HTMLInputElement).disabled).toBe(true)
+  await user.type(within(dialog).getByRole('textbox', { name: 'To' }), 'ops@northwind.example{Enter}')
+  await user.click(within(dialog).getByRole('button', { name: 'Schedule' }))
+  const banner = await screen.findByRole('status', { name: 'Schedule' })
+  expect(banner.textContent).toContain('to 1 person as PDF')
 })
 
 test('New Dashboard opens the editor; Add Tile puts a report on it as a figure; Done saves and the viewer shows it', async () => {
