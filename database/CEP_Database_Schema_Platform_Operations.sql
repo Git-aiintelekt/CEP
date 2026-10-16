@@ -2324,6 +2324,8 @@ CREATE TABLE IF NOT EXISTS ai_provider (
     row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ck_ai_provider_provider CHECK (provider IN ('anthropic', 'openai'))
 );
+ALTER TABLE ai_provider ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenant(id);          -- a table made by patch 0055's first shape
+ALTER TABLE ai_provider DROP CONSTRAINT IF EXISTS ai_provider_provider_key;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_provider_platform ON ai_provider(provider) WHERE tenant_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_provider_tenant ON ai_provider(tenant_id, provider) WHERE tenant_id IS NOT NULL;
 ALTER TABLE ai_provider ENABLE ROW LEVEL SECURITY;
@@ -2357,6 +2359,9 @@ CREATE TABLE IF NOT EXISTS ai_prompt (
     CONSTRAINT ck_ai_prompt_outcome CHECK (outcome IN ('DRAFT', 'QUESTION', 'NO_FIELD', 'FAILED')),
     CONSTRAINT ck_ai_prompt_account CHECK (account IN ('PLATFORM', 'OWN'))
 );
+ALTER TABLE ai_prompt ADD COLUMN IF NOT EXISTS account VARCHAR(10) NOT NULL DEFAULT 'PLATFORM';   -- likewise
+ALTER TABLE ai_prompt DROP CONSTRAINT IF EXISTS ck_ai_prompt_account;
+ALTER TABLE ai_prompt ADD CONSTRAINT ck_ai_prompt_account CHECK (account IN ('PLATFORM', 'OWN'));
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_tenant ON ai_prompt(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_ai_prompt_user ON ai_prompt(user_id, created_at DESC);
 ALTER TABLE ai_prompt ENABLE ROW LEVEL SECURITY;
