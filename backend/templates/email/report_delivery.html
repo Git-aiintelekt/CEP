@@ -1,10 +1,10 @@
 {% extends "email/base.html" %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
-<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">Scheduled report</p>
+<p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#64748b;">Scheduled {% if is_dashboard %}dashboard{% else %}report{% endif %}</p>
 <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#0f172a;">{{ title }}</p>
 {% if note %}<p style="margin:0 0 14px;">{{ note }}</p>{% endif %}
-<p style="margin:0 0 8px;color:#475569;">{{ report_name }}, as {{ fmt }}, for {{ date }}. {{ rows }} row{{ rows|pluralize }}. The file is attached.</p>
+<p style="margin:0 0 8px;color:#475569;">{{ report_name }}, as {{ fmt }}, for {{ date }}. {% if is_dashboard %}{{ rows }} tile{{ rows|pluralize }}{% else %}{{ rows }} row{{ rows|pluralize }}{% endif %}. The file is attached.</p>
 <p style="margin:20px 0 0;"><a href="{{ frontend_url }}{{ report_link }}" style="display:inline-block;background:#3863db;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:8px;">Open the Report</a></p>
 <p style="margin:16px 0 0;font-size:12px;color:#64748b;">Scheduled by {{ owner }} in {{ product }} Insights, {{ schedule|lower }}. <a href="{{ frontend_url }}{{ schedules_link }}" style="color:#2b4dd0;">Change or stop this schedule</a>.</p>
 {% endblock %}

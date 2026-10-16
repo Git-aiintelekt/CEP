@@ -22,6 +22,7 @@ export const insightsApi = {
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
   exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
+  exportPdf: (id: string) => api.download(`/insights/reports/${id}/export.pdf`),
 }
 
 export const dashboardsApi = {
@@ -35,6 +36,7 @@ export const dashboardsApi = {
   runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
   /** a tile as it is being edited, saved or not */
   previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+  exportPdf: (id: string) => api.download(`/insights/dashboards/${id}/export.pdf`),
 }
 
 export const libraryApi = {

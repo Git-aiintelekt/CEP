@@ -155,7 +155,7 @@ export interface Schedule {
 }
 
 export interface ScheduleBody {
-  kind: 'report'
+  kind: 'report' | 'dashboard' | 'dashboard'
   item_id: string
   every: ScheduleEvery
   on_day: number | null

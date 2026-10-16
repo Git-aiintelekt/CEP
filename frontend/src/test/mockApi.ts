@@ -1128,8 +1128,9 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
       if (path.endsWith('/insights/schedules/') && method === 'POST') {
-        const posted = body as { item_id: string; every: string; on_day: number | null; at_time: string; format: 'xlsx' | 'csv' | 'pdf'; recipients: string[]; subject: string | null; note: string | null }
-        const made: InsightsSchedule = { id: `sch-${insightsSchedulesNow.length + 1}`, kind: 'report', item_id: posted.item_id, item_name: insightsReportsNow.find((r) => r.id === posted.item_id)?.name ?? null, view_type: 'grid', item_gone: false,
+        const posted = body as { kind?: 'report' | 'dashboard'; item_id: string; every: string; on_day: number | null; at_time: string; format: 'xlsx' | 'csv' | 'pdf'; recipients: string[]; subject: string | null; note: string | null }
+        const made: InsightsSchedule = { id: `sch-${insightsSchedulesNow.length + 1}`, kind: posted.kind ?? 'report', item_id: posted.item_id,
+          item_name: (posted.kind === 'dashboard' ? insightsDashboardsNow.find((d) => d.id === posted.item_id)?.name : insightsReportsNow.find((r) => r.id === posted.item_id)?.name) ?? null, view_type: 'grid', item_gone: false,
           owner_user_id: 'u1', owner_name: 'Aby John', every: posted.every as InsightsSchedule['every'], on_day: posted.on_day, at_time: posted.at_time, format: posted.format, recipients: posted.recipients, subject: posted.subject, note: posted.note,
           status: 'ACTIVE', failures: 0, last_sent_at: null, last_outcome: null, last_detail: null, next_run_at: '2026-10-19T12:00:00Z', words: scheduleWords(posted.every, posted.on_day, posted.at_time), row_version: 1,
           created_at: '2026-10-16T10:00:00Z', updated_at: '2026-10-16T10:00:00Z' }
@@ -1244,8 +1245,9 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
           .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
-      if (/\/insights\/reports\/[\w-]+\/export\.(csv|xlsx)$/.test(path)) {
-        return new Response(path.endsWith('.csv') ? 'Campaign,Channel\n' : new Uint8Array([0x50, 0x4b, 3, 4]), { status: 200, headers: { 'Content-Type': path.endsWith('.csv') ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' } })
+      if (/\/insights\/(reports|dashboards)\/[\w-]+\/export\.(csv|xlsx|pdf)$/.test(path)) {
+        const type = path.endsWith('.csv') ? 'text/csv' : path.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        return new Response(path.endsWith('.csv') ? 'Campaign,Channel\n' : new Uint8Array([0x25, 0x50, 0x44, 0x46]), { status: 200, headers: { 'Content-Type': type } })
       }
       if (/\/insights\/reports\/[\w-]+\/versions\/$/.test(path)) {
         return json({ versions: [

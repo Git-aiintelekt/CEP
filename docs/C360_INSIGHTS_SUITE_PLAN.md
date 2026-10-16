@@ -148,9 +148,10 @@ Started 2026-10-16 with `docs/mockups/insights-scheduled-delivery.html`, two opt
   Option 1: Schedule on the viewer, Insights → Scheduled as the list. Option 2: Insights → Deliveries as the hub, with
   several reports in one email and only a note on the viewer. The user chose Option 1 (2026-10-16); built for reports
   as Excel or CSV, dashboards and PDF following with E2.
-- **E2, PDF** (WeasyPrint): `export.pdf` of a report in its view and of a dashboard (its tiles, one period), the
-  same HTML the app renders styled for paper, A4 or Letter, the C360 header and the period. The library needs Pango
-  and Cairo on the servers; checked before the slice.
+- **E2, PDF**: `export.pdf` of a report in its view and of a dashboard (its tiles, one period), styled for paper on
+  A4 with the C360 header and the period. Built 2026-10-16 on ReportLab rather than WeasyPrint: pure Python, no Pango
+  or Cairo on any server (the dev server lacked Pango, the test server is SELinux-enforcing RHEL, the workstation is
+  Windows). Dashboards can be scheduled, as PDF; a report in PDF too.
 - **E3, the engine switch.** ClickHouse as a second dialect of the compiler, a reporting instance fed by logical
   replication, and the per-workspace switch workflow (backfill, reconcile, activate, roll back) behind Tenant
   Administration → Report Engines. Needs a ClickHouse to point at; planned once there is one.

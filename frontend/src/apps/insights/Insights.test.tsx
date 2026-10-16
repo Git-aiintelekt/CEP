@@ -84,6 +84,7 @@ test('the viewer runs a saved report in the grid, with Edit and the two exports;
   const grid = await screen.findByRole('region', { name: 'Report rows' })
   await vi.waitFor(() => expect(within(grid).getByText('Fall Launch')).toBeTruthy())
   expect(screen.getByRole('button', { name: 'Export CSV' })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Export PDF' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy()
   expect(screen.getByText(/3 rows · 42 ms · live data/)).toBeTruthy()
   const urls: string[] = []

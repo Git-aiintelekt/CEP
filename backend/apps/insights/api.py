@@ -399,6 +399,32 @@ class ExportXlsxView(APIView):
         return response
 
 
+class ExportPdfView(APIView):
+    """The report in its saved view as a PDF (apps/insights/pdf.py): a pivot or a hierarchy with its totals, a chart as bars with its numbers."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, report_id=None):
+        from django.http import HttpResponse
+        from . import pdf
+        from apps.reporting import reports as reporting
+        tenant = _tenant()
+        row = _report_row(report_id, request)
+        import json
+        definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
+        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
+        try:
+            columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+        except runner.RunRefused as exc:
+            return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
+        today = timezone.now().astimezone(reporting.zone_of(tenant)).date()
+        body = pdf.report(row["name"], columns, rows, definition.get("view"), totals, workspace=tenant.name, when=today.strftime("%d %b %Y").lstrip("0"))
+        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "report"
+        response = HttpResponse(body, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{safe}.pdf"'
+        return response
+
+
 class EngineView(APIView):
     permission_classes = VIEW
 

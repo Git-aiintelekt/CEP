@@ -94,6 +94,15 @@ rows, columns and the whole. One entry per total: the dimension values kept and 
 export take the engine's total where there is one and combine the rows shown only where there is none, so averages
 and distinct counts subtotal exactly and a truncated run still totals everything. The totals are cached with the run.
 
+## The PDF export
+
+`GET /insights/reports/<id>/export.pdf` and `GET /insights/dashboards/<id>/export.pdf` (`apps/insights/pdf.py`, ReportLab,
+pure Python: no system packages on any server, which is why it replaced WeasyPrint): the report in its saved view, or
+the dashboard with its tiles on its saved period, on A4 (landscape for a wide table) with the C360 header, the
+workspace and the date, a bold header row that repeats on every page, the engine's totals in bold, and page numbers. A
+chart comes as bars with its numbers under it; a dashboard's figures come as boxes with their change; a tile that cannot
+run says why. Export PDF sits beside the other exports on the report viewer and on the dashboard viewer.
+
 ## The Excel export
 
 `GET /insights/reports/<id>/export.xlsx` (`apps/insights/excel.py`, XlsxWriter) is the report in its saved view as a
@@ -114,15 +123,15 @@ again as a new version noted "Restored from version n", checked against today's 
 
 A report goes out by email on a schedule (`report_schedule`, `report_delivery`, patch 0052; `apps/insights/schedules.py`;
 option 1 of docs/mockups/insights-scheduled-delivery.html): every day, every weekday, weekly on a day or monthly on a
-day, at a time in the workspace's zone, as Excel or CSV, to up to twenty addresses, with a subject (`{date}` is the
-sending date) and a note. Schedule sits on the viewer for `report.edit`; Insights → Scheduled lists the person's
+day, at a time in the workspace's zone, as Excel, CSV or PDF (a dashboard as PDF, on its saved period), to up to
+twenty addresses, with a subject (`{date}` is the sending date) and a note. Schedule sits on the viewer for `report.edit`; Insights → Scheduled lists the person's
 schedules (every schedule for `report.admin`) with Pause, Resume and Delete; the viewer shows the schedule in a line
 with Change and Pause. The job `deliver-report-schedules` (every 5 minutes, `workers/insights_delivery.py`) builds each
 due report through the engine with the rights and masking of whoever scheduled it (`runner.fetch_all`, audited as a
 `delivery`), sends it through the workspace's own mail server with the file attached (`mail.send` now takes
 attachments; the templates are `email/report_delivery.*`), records the sending in `report_delivery`, computes the next
 sending, and pauses the schedule after three failures in a row. Send a Test Now sends the email to the person asking at
-once. A workspace without a mail server cannot schedule; the API says so. Dashboards and PDF come with the PDF slice.
+once. A workspace without a mail server cannot schedule; the API says so. Schedule sits on the dashboard viewer too.
 
 ## The run log
 

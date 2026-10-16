@@ -1,8 +1,8 @@
 """Scheduled delivery (Phase E, option 1 of docs/mockups/insights-scheduled-delivery.html): a report emailed on a schedule,
 every day, every weekday, weekly on a day or monthly on a day, at a time in the workspace's zone, to a list of addresses,
-as Excel or CSV, with a subject and a note. Sent through the workspace's own mail server, built by the engine with the
-rights and masking of whoever scheduled it, each sending recorded (report_delivery) and audited (kind "delivery");
-three failures in a row pause the schedule. Dashboards and PDF come with the PDF slice.
+as Excel, CSV or PDF (a dashboard as PDF, on its saved period), with a subject and a note. Sent through the workspace's
+own mail server, built by the engine with the rights and masking of whoever scheduled it, each sending recorded
+(report_delivery) and audited (kind "delivery"); three failures in a row pause the schedule.
 
     GET, POST            /insights/schedules/                  the schedules this person may see (own; all for report.admin); a new one
     GET, PUT, DELETE     /insights/schedules/<id>/
@@ -33,7 +33,7 @@ from apps.reporting import reports
 from apps.tenants import context
 
 EVERY = ("day", "weekday", "week", "month")
-FORMATS = ("xlsx", "csv")
+FORMATS = ("xlsx", "csv", "pdf")
 MAX_RECIPIENTS = 20
 PAUSE_AFTER = 3
 ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -73,8 +73,9 @@ def _json(value):
 def _schedule_row(schedule_id, request=None) -> dict:
     rows = _q("""SELECT s.id::text, s.kind, s.item_id::text, s.owner_user_id::text, u.display_name AS owner_name, s.every, s.on_day, s.at_time, s.format, s.recipients, s.subject, s.note,
                         s.status, s.failures, s.last_sent_at, s.last_outcome, s.last_detail, s.next_run_at, s.row_version, s.created_at, s.updated_at,
-                        r.name AS item_name, r.view_type, r.deleted_at AS item_deleted_at
-                   FROM report_schedule s LEFT JOIN app_user u ON u.id = s.owner_user_id LEFT JOIN report r ON r.id = s.item_id
+                        COALESCE(r.name, d.name) AS item_name, r.view_type, COALESCE(r.deleted_at, d.deleted_at) AS item_deleted_at
+                   FROM report_schedule s LEFT JOIN app_user u ON u.id = s.owner_user_id LEFT JOIN report r ON r.id = s.item_id AND s.kind = 'report'
+                   LEFT JOIN dashboard d ON d.id = s.item_id AND s.kind = 'dashboard'
                   WHERE s.id = %s AND s.deleted_at IS NULL""", [str(schedule_id)])
     if not rows:
         raise NotFound("No such schedule.")
@@ -124,11 +125,12 @@ def _validated(request, body: dict, current: dict | None = None) -> dict:
         out["at_time"] = time(int(hours), int(minutes))
     except (ValueError, AttributeError):
         raise ValidationError({"at_time": "A time like 08:00."}) from None
-    fmt = str(body.get("format", current["format"] if current else "xlsx")).lower()
-    if fmt == "pdf":
-        raise ValidationError({"format": "PDF comes with the next slice; choose Excel or CSV for now."})
+    kind = str(body.get("kind", current["kind"] if current else "report"))
+    fmt = str(body.get("format", current["format"] if current else ("pdf" if kind == "dashboard" else "xlsx"))).lower()
     if fmt not in FORMATS:
-        raise ValidationError({"format": "Excel or CSV."})
+        raise ValidationError({"format": "Excel, CSV or PDF."})
+    if kind == "dashboard" and fmt != "pdf":
+        raise ValidationError({"format": "A dashboard goes as PDF."})
     out["format"] = fmt
     recipients = body.get("recipients", _json(current["recipients"]) if current else None)
     if not isinstance(recipients, list) or not recipients or len(recipients) > MAX_RECIPIENTS:
@@ -181,30 +183,47 @@ def deliver(tenant, row: dict, *, to: list[str] | None = None, trigger: str = "s
     try:
         if row["item_deleted_at"] is not None or not row["item_name"]:
             raise RuntimeError("The report behind this schedule is gone.")
-        report = _q("SELECT id::text, name, dataset_key, definition, version, view_type FROM report WHERE id = %s AND deleted_at IS NULL", [row["item_id"]])
-        if not report:
-            raise RuntimeError("The report behind this schedule is gone.")
-        report = report[0]
-        dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
-        if dataset is None:
-            raise RuntimeError("The report's dataset is not available in this workspace.")
-        try:
-            definition = validate(dataset, _json(report["definition"]), max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"])
-        except DefinitionError as exc:
-            raise RuntimeError(f"The report no longer fits its dataset ({exc.field}: {exc}).") from None
-        columns, data, totals = runner.fetch_all(tenant, owner, dataset, definition, report_id=report["id"], report_version=report["version"], mask_pii=_owner_mask(owner), kind="delivery")
-        if row["format"] == "csv":
-            body, mime, ext = _csv(columns, data), "text/csv", "csv"
-        else:
-            body, mime, ext = excel.build(report["name"], columns, data, definition.get("view"), totals), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
-        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in report["name"])[:80] or "report"
         today = started.astimezone(zone).date()
-        context_ = {"title": _subject(row, today), "report_name": report["name"], "note": row["note"], "rows": len(data), "view": report["view_type"], "fmt": "Excel" if ext == "xlsx" else "CSV",
+        when = today.strftime("%d %b %Y").lstrip("0")
+        mask = _owner_mask(owner)
+        if row["kind"] == "dashboard":
+            from apps.insights import dashboards
+            dash = _q("SELECT id::text, name, description, period, compare, layout, owner_user_id::text FROM dashboard WHERE id = %s AND deleted_at IS NULL", [row["item_id"]])
+            if not dash:
+                raise RuntimeError("The dashboard behind this schedule is gone.")
+            dash = dash[0]
+            visible = ("TRUE", []) if not mask or str(dash["owner_user_id"]) == str(row["owner_user_id"]) else ("(r.visibility = 'WORKSPACE' OR r.owner_user_id = %s)", [str(row["owner_user_id"])])
+            body, mime, ext = dashboards.dashboard_pdf(tenant, owner, dash, visible_where=visible[0], visible_args=visible[1], mask=mask), "application/pdf", "pdf"
+            name, data, view_type, link = dash["name"], [], "dashboard", f"/insights/dashboards/{dash['id']}"
+            rows_sent_hint = len(dashboards._tiles(_json(dash["layout"])))
+        else:
+            report = _q("SELECT id::text, name, dataset_key, definition, version, view_type FROM report WHERE id = %s AND deleted_at IS NULL", [row["item_id"]])
+            if not report:
+                raise RuntimeError("The report behind this schedule is gone.")
+            report = report[0]
+            dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
+            if dataset is None:
+                raise RuntimeError("The report's dataset is not available in this workspace.")
+            try:
+                definition = validate(dataset, _json(report["definition"]), max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"])
+            except DefinitionError as exc:
+                raise RuntimeError(f"The report no longer fits its dataset ({exc.field}: {exc}).") from None
+            columns, data, totals = runner.fetch_all(tenant, owner, dataset, definition, report_id=report["id"], report_version=report["version"], mask_pii=mask, kind="delivery")
+            if row["format"] == "csv":
+                body, mime, ext = _csv(columns, data), "text/csv", "csv"
+            elif row["format"] == "pdf":
+                from apps.insights import pdf
+                body, mime, ext = pdf.report(report["name"], columns, data, definition.get("view"), totals, workspace=tenant.name, when=when), "application/pdf", "pdf"
+            else:
+                body, mime, ext = excel.build(report["name"], columns, data, definition.get("view"), totals), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+            name, view_type, link, rows_sent_hint = report["name"], report["view_type"], f"/insights/reports/{report['id']}", len(data)
+        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in name)[:80] or "report"
+        context_ = {"title": _subject(row, today), "report_name": name, "note": row["note"], "rows": rows_sent_hint, "view": view_type, "fmt": {"xlsx": "Excel", "csv": "CSV", "pdf": "PDF"}[ext],
                     "date": today.strftime("%d %B %Y").lstrip("0"), "owner": row["owner_name"] or "someone in the workspace", "schedule": words(row),
-                    "report_link": f"/insights/reports/{report['id']}", "schedules_link": "/insights/scheduled"}
+                    "report_link": link, "schedules_link": "/insights/scheduled", "is_dashboard": row["kind"] == "dashboard"}
         if not mail.send("report_delivery", recipients, context_, subject=context_["title"], tenant_id=tenant.pk, attachments=[(f"{safe}.{ext}", body, mime)]):
             raise RuntimeError("The workspace's mail server did not take the email.")
-        outcome, rows_sent = "OK", len(data)
+        outcome, rows_sent = "OK", rows_sent_hint
     except runner.RunRefused as exc:
         outcome, detail = exc.outcome, exc.reason
     except Exception as exc:                                        # noqa: BLE001  one schedule's trouble is recorded, never raised into the job
@@ -244,11 +263,24 @@ class ScheduleListView(APIView):
         if not _has(request, "report.edit") and not _has(request, "report.admin"):
             raise PermissionDenied("Scheduling a report needs the report.edit permission.")
         body = request.data if isinstance(request.data, dict) else {}
-        if str(body.get("kind") or "report") != "report":
-            raise ValidationError({"kind": "Dashboards can be scheduled once they can be sent as PDF, with the next slice."})
-        report = _report_row(body.get("item_id"), request) if body.get("item_id") else None
-        if report is None:
-            raise ValidationError({"item_id": "Choose one of the reports you can open."})
+        kind = str(body.get("kind") or "report")
+        if kind not in ("report", "dashboard"):
+            raise ValidationError({"kind": "A report or a dashboard."})
+        if kind == "dashboard":
+            from apps.insights.dashboards import _dashboard_row
+            try:
+                item = _dashboard_row(body.get("item_id"), request) if body.get("item_id") else None
+            except NotFound:
+                item = None
+            if item is None:
+                raise ValidationError({"item_id": "Choose one of the dashboards you can open."})
+        else:
+            try:
+                item = _report_row(body.get("item_id"), request) if body.get("item_id") else None
+            except NotFound:
+                item = None
+            if item is None:
+                raise ValidationError({"item_id": "Choose one of the reports you can open."})
         if not mail.is_configured(context.require().tenant_id):
             raise ValidationError({"mail": "This workspace has no mail server yet (Settings → Mail Server), so nothing can be sent."})
         fields = _validated(request, body)
@@ -256,8 +288,8 @@ class ScheduleListView(APIView):
         first = next_run(fields["every"], fields["on_day"], fields["at_time"], reports.zone_of(tenant), timezone.now())
         with session.tx():
             rows = _q("""INSERT INTO report_schedule (tenant_id, kind, item_id, owner_user_id, every, on_day, at_time, format, recipients, subject, note, next_run_at, created_by, updated_by)
-                         VALUES (%s, 'report', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id::text""",
-                      [context.require().tenant_id, report["id"], str(request.user.pk), fields["every"], fields["on_day"], fields["at_time"], fields["format"], json.dumps(fields["recipients"]),
+                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id::text""",
+                      [context.require().tenant_id, kind, item["id"], str(request.user.pk), fields["every"], fields["on_day"], fields["at_time"], fields["format"], json.dumps(fields["recipients"]),
                        fields["subject"], fields["note"], first, str(request.user.pk), str(request.user.pk)])
         return Response(_serialize(_schedule_row(rows[0]["id"], request)), status=status.HTTP_201_CREATED)
 

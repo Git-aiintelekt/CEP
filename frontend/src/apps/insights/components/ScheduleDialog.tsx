@@ -1,7 +1,7 @@
 /**
- * Schedule, from a report's viewer: every day, every weekday, weekly on a day or monthly on a day, at a time in the
- * workspace's zone, as Excel or CSV, to a list of addresses, with a subject and a note. One screen; Send a Test Now on
- * a saved schedule sends it to the person at once.
+ * Schedule, from a report's or a dashboard's viewer: every day, every weekday, weekly on a day or monthly on a day, at a
+ * time in the workspace's zone, as Excel, CSV or PDF (a dashboard as PDF), to a list of addresses, with a subject and a
+ * note. One screen; Send a Test Now on a saved schedule sends it to the person at once.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type KeyboardEvent } from 'react'
@@ -16,22 +16,22 @@ import type { Schedule, ScheduleBody, ScheduleEvery, ScheduleFormat } from '../t
 
 const EVERY: { value: ScheduleEvery; label: string }[] = [{ value: 'day', label: 'Day' }, { value: 'weekday', label: 'Weekday' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const FORMATS: { value: ScheduleFormat; label: string; hint: string; off?: boolean }[] = [
-  { value: 'xlsx', label: 'Excel', hint: 'The view with its totals, the rows after' }, { value: 'csv', label: 'CSV', hint: 'The rows only' }, { value: 'pdf', label: 'PDF', hint: 'Comes with the next slice', off: true },
+const FORMATS: { value: ScheduleFormat; label: string; hint: string }[] = [
+  { value: 'xlsx', label: 'Excel', hint: 'The view with its totals, the rows after' }, { value: 'csv', label: 'CSV', hint: 'The rows only' }, { value: 'pdf', label: 'PDF', hint: 'The view, on A4' },
 ]
 
-export function ScheduleDialog({ reportId, reportName, zone, existing, onClose, onSaved }: { reportId: string; reportName: string; zone: string; existing: Schedule | null; onClose: () => void; onSaved: (schedule: Schedule) => void }) {
+export function ScheduleDialog({ reportId, reportName, zone, existing, onClose, onSaved, kind = 'report' }: { reportId: string; reportName: string; zone: string; existing: Schedule | null; onClose: () => void; onSaved: (schedule: Schedule) => void; kind?: 'report' | 'dashboard' }) {
   const client = useQueryClient()
   const toast = useToast()
   const [every, setEvery] = useState<ScheduleEvery>(existing?.every ?? 'week')
   const [onDay, setOnDay] = useState<number>(existing?.on_day ?? 1)
   const [at, setAt] = useState(existing?.at_time ?? '08:00')
-  const [format, setFormat] = useState<ScheduleFormat>(existing?.format ?? 'xlsx')
+  const [format, setFormat] = useState<ScheduleFormat>(existing?.format ?? (kind === 'dashboard' ? 'pdf' : 'xlsx'))
   const [recipients, setRecipients] = useState<string[]>(existing?.recipients ?? [])
   const [typed, setTyped] = useState('')
   const [subject, setSubject] = useState(existing?.subject ?? '')
   const [note, setNote] = useState(existing?.note ?? '')
-  const body = (): ScheduleBody => ({ kind: 'report', item_id: reportId, every, on_day: every === 'week' || every === 'month' ? onDay : null, at_time: at, format, recipients: addAll(), subject: subject.trim() || null, note: note.trim() || null })
+  const body = (): ScheduleBody => ({ kind, item_id: reportId, every, on_day: every === 'week' || every === 'month' ? onDay : null, at_time: at, format, recipients: addAll(), subject: subject.trim() || null, note: note.trim() || null })
   const addAll = () => { const more = typed.split(/[,\s;]+/).map((a) => a.trim().toLowerCase()).filter(Boolean); return Array.from(new Set([...recipients, ...more])) }
   const save = useMutation({
     mutationFn: () => (existing ? schedulesApi.update(existing.id, { ...body(), row_version: existing.row_version }) : schedulesApi.create(body())),
@@ -86,12 +86,15 @@ export function ScheduleDialog({ reportId, reportName, zone, existing, onClose, 
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1 text-sm font-semibold text-ink-900">Send as</legend>
           <div className="grid gap-2 sm:grid-cols-3">
-            {FORMATS.map((item) => (
-              <label key={item.value} className={`flex flex-col gap-0.5 rounded-md border p-3 ${item.off ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${format === item.value ? 'border-brand-600 bg-brand-100/40' : 'border-line bg-surface hover:bg-surface-hover'}`}>
-                <input type="radio" name="format" value={item.value} checked={format === item.value} disabled={item.off} onChange={() => setFormat(item.value)} className="sr-only" />
-                <span className="text-sm font-semibold">{item.label}</span><span className="text-xs text-ink-800">{item.hint}</span>
-              </label>
-            ))}
+            {FORMATS.map((item) => {
+              const off = kind === 'dashboard' && item.value !== 'pdf'
+              return (
+                <label key={item.value} className={`flex flex-col gap-0.5 rounded-md border p-3 ${off ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${format === item.value ? 'border-brand-600 bg-brand-100/40' : 'border-line bg-surface hover:bg-surface-hover'}`}>
+                  <input type="radio" name="format" value={item.value} checked={format === item.value} disabled={off} onChange={() => setFormat(item.value)} className="sr-only" />
+                  <span className="text-sm font-semibold">{item.label}</span><span className="text-xs text-ink-800">{off ? 'A dashboard goes as PDF' : item.value === 'pdf' && kind === 'dashboard' ? 'The tiles on the saved period' : item.hint}</span>
+                </label>
+              )
+            })}
           </div>
           {errors.format && <span className="text-xs text-danger-text">{errors.format}</span>}
         </fieldset>
