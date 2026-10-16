@@ -182,7 +182,12 @@ def save_workspace_settings(tenant, data: dict) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- the month's prompts
 def prompts_this_month(tenant_id) -> int:
-    """Counted live: the allowance is checked before every prompt. Only drafts count."""
+    """Counted live: the allowance is checked before every prompt. Only drafts count. Read on the workspace's own connection
+    inside a request (the one the prompts are written on), on the platform connection from the back-office."""
+    if context.current() is not None and not context.is_platform():
+        if not _q("SELECT to_regclass('public.ai_prompt') IS NOT NULL AS present")[0]["present"]:
+            return 0
+        return int(_q("SELECT count(*) AS n FROM ai_prompt WHERE tenant_id = %s AND counted AND created_at >= %s", [str(tenant_id), billing.month_start()])[0]["n"])
     with connections[P].cursor() as cursor:
         cursor.execute("SELECT to_regclass('public.ai_prompt') IS NOT NULL")
         if not cursor.fetchone()[0]:

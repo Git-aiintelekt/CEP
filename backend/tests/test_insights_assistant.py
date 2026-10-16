@@ -92,7 +92,7 @@ def test_api(check, world, monkeypatch):
     bad = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "", "model": "anthropic:claude-sonnet-5-5"})
     check("an empty prompt is refused", bad.status_code == 400)
     bad = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign", "model": "openai:gpt-5"})
-    check("a model of a provider that is switched off is refused", bad.status_code == 400 and "model" in bad.json(), str(bad.content[:200]))
+    check("a model of a provider that is switched off is refused", bad.status_code == 400 and "model" in bad.json().get("errors", {}), str(bad.content[:200]))
 
     asked = world.api("post", "/api/v1/insights/assistant/ask/", {"prompt": "Sent by campaign for September as bars", "model": "anthropic:claude-haiku-5-5"})
     body = asked.json()

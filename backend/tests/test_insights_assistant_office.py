@@ -69,9 +69,13 @@ def test_office(check, monkeypatch):
         check("a refused key is recorded with the provider's reason", rows["anthropic"]["last_check_ok"] is False and "invalid x-api-key" in rows["anthropic"]["last_check_error"])
 
         defaults = office.post(PAGE, {"action": "defaults", "defaults-default_model": "anthropic:claude-haiku-5-5", "defaults-explain_allowed": ""})
-        params.invalidate()
-        check("the defaults are saved as global parameters", defaults.status_code == 302 and params.get("ai.default_model") == "anthropic:claude-haiku-5-5" and params.get("ai.explain_allowed") is False
-              and assistant.default_model(assistant.models_of(assistant.active_providers())) == "anthropic:claude-haiku-5-5", str(params.get("ai.default_model")))
+        with connections[P].cursor() as cursor:                             # written on the platform connection; params reads the control plane's, which cannot see a rolled-back write
+            cursor.execute("SELECT key, value FROM platform_setting WHERE key IN ('ai.default_model', 'ai.explain_allowed')")
+            saved_params = {key: (json.loads(value) if isinstance(value, str) else value) for key, value in cursor.fetchall()}
+        check("the defaults are saved as global parameters", defaults.status_code == 302 and saved_params.get("ai.default_model") == "anthropic:claude-haiku-5-5" and saved_params.get("ai.explain_allowed") is False,
+              str(saved_params))
+        monkeypatch.setattr(params, "get", lambda key, default=None: saved_params.get(key, default))
+        check("the default model is the one chosen", assistant.default_model(assistant.models_of(assistant.active_providers())) == "anthropic:claude-haiku-5-5")
         with connections[P].cursor() as cursor:
             cursor.execute("INSERT INTO ai_prompt (tenant_id, user_id, provider, model, prompt, outcome, counted) VALUES (%s, %s, 'anthropic', 'claude-haiku-5-5', 'Sent by campaign', 'DRAFT', TRUE)",
                            ["a0000000-0000-4000-8000-000000000001", str(staff.pk)])
