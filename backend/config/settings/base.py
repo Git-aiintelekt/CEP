@@ -121,7 +121,7 @@ CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenan
                         "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
                         "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "tenant_quota_grant",
                         "suite_component", "plan_component", "tenant_component",
-                        "report_dataset", "report_field", "report_dataset_source", "report_engine_setting", "report_engine_connection"}
+                        "report_dataset", "report_field", "report_dataset_source", "report_engine_setting", "report_engine_connection", "ai_provider"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ---------------------------------------------------------------- auth

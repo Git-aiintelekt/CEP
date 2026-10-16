@@ -2304,6 +2304,68 @@ ON CONFLICT DO NOTHING;
 -- ---- Insights is released as Beta: every plan already includes it (0048), so workspaces see it from today
 UPDATE suite_component SET release = 'BETA', updated_at = now() WHERE key = 'insights' AND release = 'PLANNED';
 
+-- ---- AI · Ask for a Report (patch 0055; apps/insights/assistant.py): the platform's providers, each workspace's prompts, the plan's allowance
+CREATE TABLE IF NOT EXISTS ai_provider (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider            VARCHAR(12) NOT NULL UNIQUE,                       -- anthropic, openai
+    api_key_enc         TEXT,                                              -- Fernet, apps/platform_ops/crypto.py; never shown again
+    model_reports       VARCHAR(80),                                       -- the model offered as "best for reports"
+    model_fast          VARCHAR(80),                                       -- the model offered as "fastest"
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    last_checked_at     TIMESTAMPTZ,
+    last_check_ok       BOOLEAN,
+    last_check_error    VARCHAR(300),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_ai_provider_provider CHECK (provider IN ('anthropic', 'openai'))
+);
+GRANT SELECT ON ai_provider TO cep_app;
+GRANT ALL ON ai_provider TO cep_admin;
+
+CREATE TABLE IF NOT EXISTS ai_prompt (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    user_id             UUID REFERENCES app_user(id),
+    provider            VARCHAR(12) NOT NULL,
+    model               VARCHAR(80) NOT NULL,
+    kind                VARCHAR(10) NOT NULL DEFAULT 'report',             -- report (change and explain come later)
+    prompt              TEXT NOT NULL,
+    outcome             VARCHAR(10) NOT NULL,                              -- DRAFT, QUESTION, NO_FIELD, FAILED
+    counted             BOOLEAN NOT NULL DEFAULT FALSE,                    -- only a draft counts against the month
+    draft               JSONB,                                             -- {name, dataset, view, definition}
+    reply               JSONB,                                             -- the question and its answers, or the message and suggestions
+    detail              VARCHAR(300),                                      -- why it failed
+    tokens_in           INTEGER NOT NULL DEFAULT 0,
+    tokens_out          INTEGER NOT NULL DEFAULT 0,
+    duration_ms         INTEGER,
+    answer_to           UUID,                                              -- the question this prompt answers
+    report_id           UUID REFERENCES report(id) ON DELETE SET NULL,     -- the report the draft became
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_ai_prompt_outcome CHECK (outcome IN ('DRAFT', 'QUESTION', 'NO_FIELD', 'FAILED'))
+);
+CREATE INDEX IF NOT EXISTS ix_ai_prompt_tenant ON ai_prompt(tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_ai_prompt_user ON ai_prompt(user_id, created_at DESC);
+ALTER TABLE ai_prompt ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_prompt FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS rls_ai_prompt_tenant ON ai_prompt;
+CREATE POLICY rls_ai_prompt_tenant ON ai_prompt USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::uuid);
+GRANT SELECT, INSERT, UPDATE, DELETE ON ai_prompt TO cep_app;
+GRANT ALL ON ai_prompt TO cep_admin;
+
+ALTER TABLE subscription_plan ADD COLUMN IF NOT EXISTS max_ai_prompts_per_month INTEGER;    -- AI drafts a workspace may ask for in a month; NULL = unlimited
+COMMENT ON COLUMN subscription_plan.max_ai_prompts_per_month IS 'AI report drafts a workspace may ask for in a calendar month; NULL = unlimited';
+UPDATE subscription_plan SET max_ai_prompts_per_month = CASE code WHEN 'STARTER' THEN 50 WHEN 'GROWTH' THEN 200 END
+ WHERE max_ai_prompts_per_month IS NULL AND code IN ('STARTER', 'GROWTH');                   -- ENTERPRISE is unlimited
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('ai.default_model',   '""',   'STRING',  'Insights', 'The model preselected for people who have not chosen one, as provider:model (e.g. anthropic:claude-sonnet-5-5); empty means the first offered'),
+    ('ai.explain_allowed', 'true', 'BOOLEAN', 'Insights', 'Whether Explain This Report may send a report''s totals (never personal data) to the model')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

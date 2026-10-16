@@ -504,8 +504,9 @@ class MailServerAdmin(BaseAdmin):
         return form
 
     def get_urls(self):
+        from .admin_ai import ai_urls
         from .admin_deliverability import inspect_urls
-        return [*inspect_urls(self.admin_site), *super().get_urls()]
+        return [*inspect_urls(self.admin_site), *ai_urls(self.admin_site), *super().get_urls()]
 
     @display(description="Owner")
     def owner(self, obj):
