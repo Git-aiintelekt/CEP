@@ -12,7 +12,7 @@ import { runWords } from '../components/resultWords'
 import { EMPTY, setView, viewOf } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
-import type { CatalogDataset, ReportDefinition, RunResult, ViewType } from '../types'
+import type { CatalogDataset, ChartKind, ReportDefinition, RunResult, ViewType } from '../types'
 
 const DATASET: CatalogDataset = {
   key: 'messages', label: 'Messages', description: 'Every email and text a campaign sent: who, when, and what became of it', component: { key: 'cep', name: 'Engagement' },
@@ -55,7 +55,7 @@ export default function InsightsPlayground() {
   const [definition, setDefinition] = useState<ReportDefinition>(() => {
     const base = params.get('state') === 'sparse' ? EMPTY : BUSY
     const type = (params.get('view') ?? 'grid') as ViewType
-    return type === 'grid' ? base : setView(base, { type, chart: 'bar', across: params.get('across') ?? undefined })
+    return type === 'grid' ? base : setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined })
   })
   const shown: RunResult = params.get('masked')
     ? { ...RESULT, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...RESULT.columns.slice(1)], rows: RESULT.rows.map((row) => ['•••••', ...row.slice(1)]) }

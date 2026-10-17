@@ -89,6 +89,16 @@ is offered once its datasets are gone.
 6. **Save Dataset**. It is in New Report under **Your Databases**, named with its database, and Ask for a Report knows
    it by label. **Edit Fields** in the table under the cards reopens it.
 
+### Calculated measures
+
+Under the columns, **Calculated Measures** makes a measure from the others: a rate, a share, a difference or a product.
+**Add a Calculated Measure**, name it (Delivered Rate), pick the left side (a measure and its calculation, Sum of
+Delivered), the operation (Divided by, Minus, Plus, Times), the right side (another measure, or **A number…**), a scale
+(100 for a percentage) and a format. The formula reads under the label as you build it. Report authors get it as a
+measure with the one calculation Calculated; the engine computes it in every view and total, so a group's rate is the
+rate of its totals. A ratio with an empty denominator reads as empty, never as an error. Up to ten per dataset; one
+formula may read another calculated measure.
+
 ## Joining tables
 
 A dataset can read more than one table. The diagram above the fields shows the base table as a card with its columns;

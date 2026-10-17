@@ -12,10 +12,33 @@ from . import catalog
 from .models import ReportDataset, ReportDatasetSource, ReportEngineConnection, ReportEngineSetting, ReportField
 
 
+class ReportFieldForm(forms.ModelForm):
+    """A field row; a formula makes it a calculated measure, checked against the dataset's other fields as the catalogue will read them."""
+    class Meta:
+        model = ReportField
+        fields = "__all__"
+
+    def clean(self):
+        data = super().clean()
+        formula = data.get("formula")
+        if formula:
+            dataset = data.get("dataset") or getattr(self.instance, "dataset", None)
+            others = ReportField.objects.filter(dataset=dataset).exclude(pk=self.instance.pk) if dataset else ReportField.objects.none()
+            siblings = [{"key": f.key, "label": f.label, "role": f.role, "aggregates": f.aggregates or [], "formula": f.formula} for f in others]
+            message = catalog.formula_error(siblings, formula)
+            if message:
+                raise forms.ValidationError({"formula": message})
+            data["type"], data["role"], data["aggregates"] = "number", "measure", [catalog.CALC]
+            if not data.get("column_name"):
+                data["column_name"] = data.get("key") or "formula"
+        return data
+
+
 class ReportFieldInline(admin.TabularInline):
     model = ReportField
+    form = ReportFieldForm
     extra = 0
-    fields = ("key", "label", "column_name", "type", "role", "aggregates", "display_format", "sensitivity", "sort_order")
+    fields = ("key", "label", "column_name", "type", "role", "aggregates", "display_format", "sensitivity", "sort_order", "formula")
     ordering = ("sort_order", "key")
 
 

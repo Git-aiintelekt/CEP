@@ -11,7 +11,8 @@ from datetime import date, datetime
 
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.charts.legends import Legend
-from reportlab.graphics.shapes import Drawing, String
+from reportlab.graphics.charts.piecharts import Pie
+from reportlab.graphics.shapes import Drawing, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
@@ -189,8 +190,59 @@ def _hierarchy_flowables(columns: list[dict], rows: list[list], totals) -> list:
     return [Paragraph(", then ".join(level["label"] for level in table["levels"]), SMALL), Spacer(1, 3), _table(header, body, numeric, total=total, group_rows=groups, indents=indents)]
 
 
-def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, width: float) -> list:
-    """bars: the first dimension along the bottom, a series per value of the dimension across, else per measure; the numbers under it"""
+def _pie_flowables(title: str, header: str, categories: list, values: list[float], measure: dict, width: float) -> list:
+    """a pie of the first measure by the first dimension, up to eight slices and Other, the legend with the numbers beside it"""
+    if len(categories) > 8:
+        categories = [*categories[:8], ("other", "Other")]
+        values = [*values[:8], sum(values[8:])]
+    height = 64 * mm
+    drawing = Drawing(width, height + 12 * mm)
+    pie = Pie()
+    pie.x, pie.y, pie.width, pie.height = 6 * mm, 4 * mm, height - 4 * mm, height - 4 * mm
+    pie.data = [max(0.0, v) for v in values] if any(values) else [1.0]
+    pie.labels = None
+    pie.slices.strokeColor = colors.white
+    pie.slices.strokeWidth = 0.75
+    for i in range(len(pie.data)):
+        pie.slices[i].fillColor = PALETTE[i % len(PALETTE)] if any(values) else LINE
+    drawing.add(pie)
+    legend = Legend()
+    legend.x, legend.y = height + 10 * mm, height - 2 * mm
+    legend.fontName, legend.fontSize = "Helvetica", 7
+    legend.alignment = "right"
+    legend.columnMaximum = 9
+    legend.colorNamePairs = [(PALETTE[i % len(PALETTE)], f"{label}   {_number(measure, v)}") for i, ((_, label), v) in enumerate(zip(categories, values))]
+    drawing.add(legend)
+    drawing.add(String(6 * mm, height + 7 * mm, title, fontName="Helvetica-Bold", fontSize=8, fillColor=INK))
+    total = sum(values)
+    body = [[label, _number(measure, v), f"{(v / total * 100):.1f}%" if total else "—"] for (_, label), v in zip(categories, values)]
+    return [drawing, Spacer(1, 4), _table([header, measure["label"], "Share"], body, [False, True, True])]
+
+
+def _funnel_flowables(title: str, header: str, categories: list, values: list[float], measure: dict, width: float) -> list:
+    """a funnel: the stages in the report's order as centred bars, each with its number and its share of the first stage"""
+    categories, values = categories[:12], values[:12]
+    bar, gap, label_w, number_w = 6.5 * mm, 2 * mm, 42 * mm, 34 * mm
+    height = len(categories) * (bar + gap) + 2 * mm
+    drawing = Drawing(width, height + 10 * mm)
+    top = max([v for v in values if v > 0] or [1.0])
+    lane = width - label_w - number_w
+    first = values[0] if values else 0
+    for i, ((_, label), v) in enumerate(zip(categories, values)):
+        y = height - (i + 1) * (bar + gap)
+        w = lane * max(0.0, v) / top
+        drawing.add(Rect(label_w + (lane - w) / 2, y, max(w, 0.5), bar, fillColor=BRAND, strokeColor=None))
+        drawing.add(String(label_w - 2 * mm, y + 2 * mm, label[:30], fontName="Helvetica", fontSize=7, fillColor=INK, textAnchor="end"))
+        share = f"   {v / first * 100:.0f}%" if first else ""
+        drawing.add(String(label_w + lane + 2 * mm, y + 2 * mm, f"{_number(measure, v)}{share}", fontName="Helvetica", fontSize=7, fillColor=INK_800))
+    drawing.add(String(0, height + 5 * mm, title, fontName="Helvetica-Bold", fontSize=8, fillColor=INK))
+    body = [[label, _number(measure, v), f"{v / first * 100:.1f}%" if first else "—"] for (_, label), v in zip(categories, values)]
+    return [drawing, Spacer(1, 4), _table([header, measure["label"], "Of the First"], body, [False, True, True])]
+
+
+def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, width: float, kind: str = "bar") -> list:
+    """bars: the first dimension along the bottom, a series per value of the dimension across, else per measure; the numbers under it;
+    a pie or a funnel takes the first series alone"""
     dims = [(i, c) for i, c in enumerate(columns) if not c.get("aggregate")]
     meas = [(i, c) for i, c in enumerate(columns) if c.get("aggregate")]
     spread = next(((i, c) for i, c in dims if c["key"] == across), None)
@@ -226,6 +278,9 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
                 if key in at:
                     values[at[key]] += float(row[i] or 0)
             series.append((c["label"], values))
+    if kind in ("pie", "funnel") and series:
+        title = f"{measure['label']} by {axis['label']}"
+        return (_pie_flowables if kind == "pie" else _funnel_flowables)(title, axis["label"], categories, series[0][1], measure, width)
     height = 70 * mm
     drawing = Drawing(width, height + 14 * mm)
     chart = VerticalBarChart()
@@ -269,7 +324,8 @@ def _view_flowables(columns, rows, view: dict | None, totals, width: float) -> l
     if kind == "hierarchy":
         return _hierarchy_flowables(columns, rows, totals)
     if kind == "chart":
-        return _chart_flowables(columns, rows, across, width)
+        chart = (view or {}).get("chart") or "bar"
+        return _chart_flowables(columns, rows, None if chart in ("pie", "funnel") else across, width, chart)   # a pie or a funnel takes one measure by one dimension
     return _grid_flowables(columns, rows)
 
 

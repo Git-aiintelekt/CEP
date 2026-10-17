@@ -27,7 +27,7 @@ afterEach(() => {
 
 test('the starter definition: a dataset’s first dimensions, then every measure totalled, sorted by the first measure', () => {
   const definition = starterDefinition(insightsCatalog.datasets[0] as never)
-  expect(definition.columns).toEqual([{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }])
+  expect(definition.columns).toEqual([{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }, { field: 'delivered_rate', aggregate: 'calc' }])
   expect(definition.orderBy).toEqual([{ field: 'sent', direction: 'desc' }])
 })
 

@@ -1,6 +1,7 @@
 /**
- * A dashboard, edited: its name, period and comparison, and its rows of tiles with the layout controls on. Add Tile
- * puts a report on it; Done saves the lot as a new version and returns to the viewer; Cancel drops the changes.
+ * A dashboard, edited: its name, period and comparison, its slicers (dimensions of the tiles' datasets viewers filter by),
+ * and its rows of tiles with the layout controls on. Add Tile puts a report on it; Done saves the lot as a new version
+ * and returns to the viewer; Cancel drops the changes.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus } from 'lucide-react'
@@ -10,11 +11,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { buttonPrimary, buttonSecondary, Select } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
-import { dashboardsApi, keys, useDashboard } from '../api'
+import { dashboardsApi, keys, useCatalog, useDashboard, useReports } from '../api'
 import { AddTileDialog } from '../dashboards/AddTileDialog'
 import { DashboardBody } from '../dashboards/DashboardBody'
-import { addTile } from '../dashboards/layout'
+import { addTile, setSlicers, slicerCandidates } from '../dashboards/layout'
 import { PeriodBar } from '../dashboards/PeriodBar'
+import { SlicerEditor } from '../dashboards/SlicerBar'
 import type { DashboardLayout, Period } from '../types'
 
 export function DashboardEditorPage() {
@@ -29,6 +31,8 @@ export function DashboardEditorPage() {
   const [period, setPeriod] = useState<Period | null>(null)
   const [compare, setCompare] = useState<boolean | null>(null)
   const [adding, setAdding] = useState(false)
+  const reports = useReports({})
+  const catalog = useCatalog()
 
   const save = useMutation({
     mutationFn: () => dashboardsApi.update(id as string, {
@@ -52,6 +56,7 @@ export function DashboardEditorPage() {
   const shownPeriod = period ?? data.period
   const shownCompare = compare ?? data.compare
   const dirty = name !== null || visibility !== null || layout !== null || period !== null || compare !== null
+  const candidates = slicerCandidates(shownLayout, (reportId) => reports.data?.reports.find((report) => report.id === reportId)?.dataset, catalog.data?.datasets ?? [])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -68,6 +73,7 @@ export function DashboardEditorPage() {
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={save.isPending}>Done</button>
       </div>
       <PeriodBar period={shownPeriod} onPeriod={setPeriod} compare={shownCompare} onCompare={setCompare} bounds={period === null ? data.bounds : undefined} />
+      <SlicerEditor slicers={shownLayout.slicers ?? []} candidates={candidates} onChange={(slicers) => setLayout(setSlicers(shownLayout, slicers))} />
       <DashboardBody layout={shownLayout} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)}
         load={(tile, p, c) => dashboardsApi.previewTile(id as string, { tile, period: p, compare: c })}
         editing={{ onChange: setLayout, onAddTile: () => setAdding(true) }} />

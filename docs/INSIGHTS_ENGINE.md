@@ -61,10 +61,28 @@ A report is one definition shown four ways; the choice saves with the definition
 and for a chart or a pivot the dimension spread across) and `report.view_type` follows it. The grid is the rows as the
 engine returned them (AG Grid Community). The other three are reshaped in the browser from the same grouped rows: the
 **chart** (the app's chart kit) puts the first dimension along the bottom with one series per value of the dimension
-across, else one per measure; the **hierarchy** folds the dimensions in their order with a subtotal per group; the
+across, else one per measure (bars, lines or area; a **pie** or a **funnel** takes the first measure by the first dimension
+alone: the pie folds more than eight slices into Other, the funnel keeps the report's order as its stages, and both can be
+picked on a dashboard); the **hierarchy** folds the dimensions in their order with a subtotal per group; the
 **pivot** spreads the dimension across as columns with one measure in the cells and totals on both edges. Subtotals
 add sums and counts and compare minimums and maximums; an average or a distinct count cannot be combined and reads as
 an em dash. They come from the rows shown, so a truncated run totals what is on the page.
+
+### Calculated measures
+
+A field with a `formula` (`report_field.formula`, patch 0059; on a mapped dataset a field of its JSON with `column` null)
+is a calculated measure: a ratio, difference, sum or product of two sides, each another measure with one of its
+aggregates or a number, optionally scaled (`{"op": "ratio", "left": {"field": "delivered", "aggregate": "sum"}, "right":
+{"field": "sent", "aggregate": "sum"}, "scale": 100}`). The catalogue offers it as a number measure whose one aggregate
+is `calc`; a definition uses it like any measure (`{"field": "delivered_rate", "aggregate": "calc"}`). The compiler
+(`compiler.measure_expr`) writes the formula over the operands' aggregates, a ratio as `(left) * 1.0 / NULLIF((right), 0)`
+so an empty denominator reads as empty, in the select and in the totals query alike (each operand's raw column once in the
+subquery, `m0_0`, `m0_1`…), so every view and subtotal is a rate of totals, never an average of rates. A formula may read
+another calculated measure, two deep. `catalog.formula_error` checks a formula against its dataset's fields (the loader
+leaves a broken one out; the back-office form and the mapping page refuse it), and `catalog._visible` drops a calculated
+measure whose operand a reader may not see. The platform datasets seed Delivered, Open, Click and Bounce Rate, Average
+Order Value and Conversion Rate; the back-office edits the formula on the field row, a workspace adds its own under
+Calculated Measures on the mapping page. The AI assistant sees them as measures with the aggregate calc.
 
 ## Dashboards
 
@@ -76,6 +94,15 @@ applies to every tile as one more rule on its dataset's time field; a report wit
 and the tile says "Own dates". Compare With Previous Period runs each figure twice and shows the change. Tiles run
 through the same engine, limits, masking, cache and audit as reports (`POST /insights/dashboards/<id>/tiles/<tile>/run/`;
 the editor previews a tile before it is saved through `tiles/preview/run/`). The layout and the period save as a version.
+
+**Slicers** (`layout.slicers`: `[{field, label}]`, up to six) are text, yes/no or number dimensions of the tiles' datasets
+that a viewer filters the whole dashboard by; `_layout` checks each against the datasets behind the tiles. A tile run
+takes `slicers: {field: [values]}` and `tile_result` ands an IN rule onto every tile whose dataset has the field (the
+payload's `sliced` names the ones applied; a tile without the field runs unfiltered and says "Not sliced by …").
+`POST /insights/dashboards/<id>/slicers/values/` gives a slicer's values over the period: the field grouped with the first
+measure on every tile dataset that has it (up to four), united and sorted, 200 at most. Cross-filtering is the browser's:
+a click on a bar, a slice, a stage or a grid cell sends the same request with that value (a field that is not a saved
+slicer gets a chip for the visit); nothing of a selection is saved, and the PDF and deliveries run the dashboard as saved.
 
 ## Favourites and folders
 

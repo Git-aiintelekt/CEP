@@ -110,9 +110,9 @@ def custom_datasets(tenant_id) -> list[dict]:
         schema = external.schema_of(conn)
         joins = row["joins"] or []
         query = row.get("query_sql") or None
-        fields = [{"key": f["key"], "label": f["label"], "column": f["column"], **({"table": f.get("table") or "t0"} if joins or query else {}), "type": f["type"], "role": f["role"],
+        fields = [{"key": f["key"], "label": f["label"], "column": f.get("column"), **({"table": f.get("table") or "t0"} if (joins or query) and f.get("column") else {}), "type": f["type"], "role": f["role"],
                    "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
-                   "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL"} for f in row["fields"]]
+                   "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL", **({"formula": f["formula"]} if f.get("formula") else {})} for f in row["fields"]]
         data.append({"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row["component_key"], "name": "Engagement"},
                      "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
                      "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
@@ -238,10 +238,13 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
     elif len(raw) > MAX_FIELDS:
         errors["fields"] = f"A dataset has {MAX_FIELDS} fields at most."
     else:
+        calculated = []
         for i, item in enumerate(raw):
             at = f"fields[{i}]"
             if not isinstance(item, dict):
                 errors[at] = "A field names a column and a label."; continue
+            if item.get("formula") is not None:
+                calculated.append((at, item)); continue                  # resolved once every column field is known
             column = str(item.get("column") or "").strip()
             if not external.IDENT.match(column):
                 errors[f"{at}.column"] = "A column named with letters, digits and underscores."; continue
@@ -271,6 +274,24 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
             if sensitivity not in SENSITIVITIES:
                 errors[f"{at}.sensitivity"] = "Normal, Personal or Confidential."
             fields.append({"key": fkey, "label": flabel, "column": column, **({"table": table} if joins or source == "query" else {}), "type": type_, "role": role, "aggregates": aggregates, "format": format_, "sensitivity": sensitivity})
+        for at, item in calculated:
+            flabel = " ".join(str(item.get("label") or "").split())[:100]
+            if not flabel:
+                errors[f"{at}.label"] = "Name the calculated measure."; continue
+            fkey = (slugify(flabel).replace("-", "_") or "calculated")[:60]
+            if not re.match(r"^[a-z][a-z0-9_]*$", fkey):
+                fkey = "c_" + re.sub(r"[^a-z0-9_]", "_", fkey)[:58]
+            if fkey in keys:
+                errors[f"{at}.label"] = "Two fields have the same name."; continue
+            formula = _formula_body(item["formula"], fields, errors, at)
+            if formula is None:
+                continue
+            format_ = item.get("format") if item.get("format") in FORMATS else None
+            sensitivity = str(item.get("sensitivity") or "NORMAL").upper()
+            if sensitivity not in SENSITIVITIES:
+                errors[f"{at}.sensitivity"] = "Normal, Personal or Confidential."; continue
+            keys.add(fkey)
+            fields.append({"key": fkey, "label": flabel, "column": None, "formula": formula, "type": "number", "role": "measure", "aggregates": [catalog.CALC], "format": format_, "sensitivity": sensitivity})
     primary_key = str(body.get("primary_key") or "").strip() or None if "primary_key" in body else (current or {}).get("primary_key")
     time_field = str(body.get("time_field") or "").strip() or None if "time_field" in body else (current or {}).get("time_field")
     if primary_key and primary_key not in keys:
@@ -280,6 +301,37 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
     if errors:
         raise ValidationError(errors)
     return {"label": label, "description": description, "source_name": source, "fields": fields, "joins": joins, "query_sql": query_sql, "primary_key": primary_key, "time_field": time_field}
+
+
+def _formula_body(raw, fields: list[dict], errors: dict, at: str) -> dict | None:
+    """A calculated measure's formula from the request, each side a field of this dataset named by its column (and table) or
+    its key, or a number; checked against the fields as the catalogue would."""
+    if not isinstance(raw, dict):
+        errors[f"{at}.formula"] = "A formula is a ratio, a difference, a sum or a product of two sides."; return None
+    out = {"op": raw.get("op")}
+
+    def side(part):
+        if not isinstance(part, dict):
+            return {}
+        if "value" in part and "field" not in part and "column" not in part:
+            return {"value": part["value"]}
+        found = None
+        if part.get("column"):
+            found = next((f for f in fields if f.get("column") == part["column"] and (not part.get("table") or (f.get("table") or "t0") == part["table"])), None)
+        elif part.get("field"):
+            found = next((f for f in fields if f["key"] == part["field"]), None)
+        return {"field": found["key"] if found else "?", "aggregate": part.get("aggregate")}
+
+    out["left"], out["right"] = side(raw.get("left")), side(raw.get("right"))
+    if raw.get("scale") not in (None, 1, "", "1"):
+        try:
+            out["scale"] = float(raw["scale"])
+        except (TypeError, ValueError):
+            out["scale"] = raw["scale"]
+    message = catalog.formula_error(fields, out)
+    if message:
+        errors[f"{at}.formula"] = message; return None
+    return out
 
 
 def _fields_from_columns(columns: list[dict]) -> list[dict]:
@@ -470,17 +522,20 @@ class PreviewView(APIView):
         row = connection(tenant.pk, connection_id)
         _usable(row)
         data = _dataset_body(request.data if isinstance(request.data, dict) else {}, None)
+        shown = [f for f in data["fields"] if f.get("column")]           # a calculated measure has no column to sample; it shows once the dataset runs
+        if not shown:
+            raise ValidationError({"fields": "Keep at least one column."})
         try:
-            names = [(f.get("table") or "t0", f["column"]) for f in data["fields"]] if data["joins"] else [f["column"] for f in data["fields"]]
+            names = [(f.get("table") or "t0", f["column"]) for f in shown] if data["joins"] else [f["column"] for f in shown]
             rows = external.sample(row, data["source_name"], names, limit=5, zone=reports.zone_of(tenant).key, joins=data["joins"] or None)
         except external.ExternalError as exc:
             raise Conflict(str(exc)) from None
         except RuntimeError as exc:
             raise Conflict(f"The preview did not run: {exc}") from None
-        pii = {i for i, f in enumerate(data["fields"]) if f["sensitivity"] == "PII"}
-        hidden = {i for i, f in enumerate(data["fields"]) if f["sensitivity"] == "CONFIDENTIAL"}
-        keep = [i for i in range(len(data["fields"])) if i not in hidden]
-        return Response({"columns": [{"key": data["fields"][i]["key"], "label": data["fields"][i]["label"], "type": data["fields"][i]["type"], "format": data["fields"][i]["format"], "masked": i in pii} for i in keep],
+        pii = {i for i, f in enumerate(shown) if f["sensitivity"] == "PII"}
+        hidden = {i for i, f in enumerate(shown) if f["sensitivity"] == "CONFIDENTIAL"}
+        keep = [i for i in range(len(shown)) if i not in hidden]
+        return Response({"columns": [{"key": shown[i]["key"], "label": shown[i]["label"], "type": shown[i]["type"], "format": shown[i]["format"], "masked": i in pii} for i in keep],
                          "rows": [["•••••" if i in pii and r[i] is not None else _json_safe(r[i]) for i in keep] for r in rows]})
 
 

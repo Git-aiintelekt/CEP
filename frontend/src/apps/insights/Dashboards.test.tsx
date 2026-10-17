@@ -1,5 +1,5 @@
-/** Insights dashboards: the list, a new dashboard into the editor, Add Tile, Done into the viewer, the period switch and the figure's change. */
-import { cleanup, render, screen, within } from '@testing-library/react'
+/** Insights dashboards: the list, a new dashboard into the editor, Add Tile, Done into the viewer, the period switch and the figure's change, the slicers and the cross-filter. */
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -97,4 +97,51 @@ test('New Dashboard opens the editor; Add Tile puts a report on it as a figure; 
   await screen.findByRole('heading', { name: 'Revenue by Channel' })
   expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy()
   expect(await screen.findByRole('region', { name: 'Sends by campaign' })).toBeTruthy()
+})
+
+test('a saved slicer is a chip under the period: picking a value narrows every tile, Clear undoes it, and a click on a bar cross-filters the rest for the visit', async () => {
+  const user = userEvent.setup()
+  await renderAppAt('/insights/dashboards/dash-1')
+  await screen.findByRole('heading', { name: 'Marketing Weekly' })
+  const chart = screen.getByRole('region', { name: 'Sends by Campaign' })
+  await vi.waitFor(() => expect(within(chart).getByRole('group', { name: 'Sent Count by Campaign' })).toBeTruthy())
+  expect(within(chart).getAllByText('Fall Launch').length).toBeGreaterThan(0)        // on the axis and in the numbers table
+  const figure = screen.getByRole('region', { name: 'Sends by campaign' })
+  await vi.waitFor(() => expect(within(figure).getByText('391,520')).toBeTruthy())
+
+  const slicers = screen.getByRole('group', { name: 'Slicers' })
+  await user.click(within(slicers).getByRole('button', { name: 'Channel' }))
+  const menu = await screen.findByRole('listbox', { name: 'Channel' })
+  await user.click(within(menu).getByRole('option', { name: 'SMS' }))
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(within(slicers).getByRole('button', { name: 'Channel: SMS' })).toBeTruthy()
+  await vi.waitFor(() => expect(within(chart).queryAllByText('Fall Launch').length).toBe(0))   // the tiles ran again with the slicer
+  expect(within(chart).getAllByText('Weekend Flash Sale').length).toBeGreaterThan(0)
+  await vi.waitFor(() => expect(within(figure).getByText('25,100')).toBeTruthy())
+  await user.click(within(slicers).getByRole('button', { name: 'Clear' }))
+  await vi.waitFor(() => expect(within(chart).getAllByText('Fall Launch').length).toBeGreaterThan(0))
+
+  fireEvent.click(within(chart).getByRole('group', { name: 'Sent Count by Campaign' }), { clientX: 700 })   // the last bar: Weekly Newsletter
+  await vi.waitFor(() => expect(within(slicers).getByRole('button', { name: 'Campaign: Weekly Newsletter' })).toBeTruthy())
+  await vi.waitFor(() => expect(within(figure).getByText('201,500')).toBeTruthy())
+  await user.click(within(slicers).getByRole('button', { name: 'Remove the Campaign filter' }))
+  await vi.waitFor(() => expect(within(figure).getByText('391,520')).toBeTruthy())
+  expect(within(slicers).queryByRole('button', { name: /Campaign/ })).toBeNull()
+})
+
+test('the editor adds a slicer from the dimensions of the tiles\' datasets, removes one, and Done saves them with the layout', async () => {
+  const user = userEvent.setup()
+  await renderAppAt('/insights/dashboards/dash-1/edit')
+  await screen.findByRole('textbox', { name: 'Dashboard name' })
+  const editor = screen.getByRole('group', { name: 'Slicers' })
+  expect(within(editor).getByText('Channel')).toBeTruthy()
+  await user.click(within(editor).getByRole('button', { name: 'Add Slicer' }))
+  await user.selectOptions(await within(editor).findByRole('combobox', { name: 'Slicer field' }), 'campaign_name')
+  expect(within(editor).getByText('Campaign')).toBeTruthy()
+  await user.click(within(editor).getByRole('button', { name: 'Remove the Channel slicer' }))
+  await user.click(screen.getByRole('button', { name: 'Done' }))
+  await screen.findByRole('heading', { name: 'Marketing Weekly' })
+  const slicers = await screen.findByRole('group', { name: 'Slicers' })
+  expect(within(slicers).getByRole('button', { name: 'Campaign' })).toBeTruthy()
+  expect(within(slicers).queryByRole('button', { name: 'Channel' })).toBeNull()
 })

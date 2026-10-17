@@ -38,6 +38,7 @@ the engine runs as its own process, `cep-insights`, so a heavy report cannot slo
 | Status | ACTIVE datasets are offered; anything else is hidden without being deleted. |
 | Sources | One per engine: the view or table that holds the dataset on PostgreSQL and on ClickHouse. A workspace sees a dataset only when its engine has an ACTIVE source for it. |
 | Fields | Each with its key, label, the column behind it, its type (string, number, date, datetime, boolean), its role (dimension or measure), the aggregates it allows (sum, count, distinct count, average, min, max), its display format (integer, decimal, money, percent, date, datetime) and its sensitivity. |
+| Formula | Makes the field a calculated measure: `{"op": "ratio", "left": {"field": "delivered", "aggregate": "sum"}, "right": {"field": "sent", "aggregate": "sum"}, "scale": 100}`. `op` is ratio, difference, sum or product; a side is a measure of the same dataset with one of its aggregates, or `{"value": n}`; `scale` multiplies the result (100 for a percentage). The row is saved as a number measure with the aggregate `calc`; the column is a placeholder (the key is used when it is left empty). The form refuses a formula that does not fit the dataset's fields. Delivered, Open, Click and Bounce Rate, Average Order Value and Conversion Rate are seeded. |
 
 ### Sensitivity
 

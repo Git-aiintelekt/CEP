@@ -19,15 +19,18 @@ import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatNumber } from '@/lib/format'
 import type { Aggregate, DatasetJoin, FieldType, JoinCheck, ReportDatabase, ReportDataset, ReportDatasetField, SourceColumns, SourceInfo } from '@/apps/insights/types'
+import { calcFromField, calcToField, type CalcRow, type MeasureChoice } from './calculated'
+import { CalculatedMeasures } from './CalculatedMeasures'
 import { DATABASES_KEY } from './reportDatabases'
 
 const TYPE_LABEL: Record<FieldType, string> = { string: 'Text', number: 'Number', date: 'Date', datetime: 'Date and time', boolean: 'Yes/No' }
-const AGG_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct', avg: 'Average', min: 'Min', max: 'Max' }
+const AGG_LABEL: Record<Exclude<Aggregate, 'calc'>, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct', avg: 'Average', min: 'Min', max: 'Max' }
+const AGG_PICK = Object.keys(AGG_LABEL) as Exclude<Aggregate, 'calc'>[]
 const SENS_LABEL = { NORMAL: 'Normal', PII: 'Personal', CONFIDENTIAL: 'Confidential' } as const
 const MAX_JOINS = 5
 /** the table badges: the base, then one tone per join */
 const TONES = ['bg-fill-subtle text-ink-900', 'bg-brand-100 text-brand-800', 'bg-callout-bg text-callout-text', 'bg-plum-100 text-plum-700', 'bg-warning-bg text-warning-text', 'bg-success-bg text-success-text']
-type Row = ReportDatasetField & { use: boolean; column_type: string; mappable: boolean; table: string }
+type Row = Omit<ReportDatasetField, 'column' | 'formula'> & { column: string; use: boolean; column_type: string; mappable: boolean; table: string }
 type Columns = SourceColumns['columns']
 type TableRef = { alias: string; table: string; to: string | null }
 
@@ -54,6 +57,7 @@ export function MapDatasetPage() {
   const [timeField, setTimeField] = useState('')
   const [rows, setRows] = useState<Row[]>([])
   const [columnsByTable, setColumnsByTable] = useState<Record<string, Columns>>({})
+  const [calcs, setCalcs] = useState<CalcRow[] | null>(null)
   const [adding, setAdding] = useState<{ to: string } | null>(null)
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const fromQuery = existing.data?.kind === 'query'
@@ -63,18 +67,19 @@ export function MapDatasetPage() {
   useEffect(() => {                                   // a dataset from a query: its fields are the columns the query gave
     if (!fromQuery || !existing.data || rows.length) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRows(existing.data.fields.map((f) => ({ ...f, use: true, column_type: f.type, mappable: true, table: 't0' })))
+    setRows(existing.data.fields.filter((f) => f.column).map((f) => ({ ...f, column: f.column as string, use: true, column_type: f.type, mappable: true, table: 't0' })))
   }, [fromQuery, existing.data, rows.length])
   const tables = useMemo<TableRef[]>(() => [{ alias: 't0', table: chosen ?? '', to: null }, ...currentJoins.map((j) => ({ alias: j.alias, table: j.table, to: j.to }))], [chosen, currentJoins])
 
   useEffect(() => {                                   // the saved dataset fills the form once it arrives
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (existing.data && !source) { setLabel(existing.data.label); setDescription(existing.data.description ?? ''); setPrimaryKey(existing.data.primary_key ?? ''); setTimeField(existing.data.time_field ?? '') }
-  }, [existing.data, source])
+    if (existing.data && calcs === null) setCalcs(existing.data.fields.map(calcFromField).filter((row): row is CalcRow => row !== null))
+  }, [existing.data, source, calcs])
   useEffect(() => {                                   // the base's columns become editable rows once read
     if (!columns.data) return
     const got = columns.data
-    const saved = existing.data && existing.data.source === got.source ? existing.data.fields.filter((f) => !f.table || f.table === 't0') : []
+    const saved = existing.data && existing.data.source === got.source ? existing.data.fields.filter((f) => f.column && (!f.table || f.table === 't0')) : []
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setColumnsByTable((all) => ({ ...all, [got.source]: got.columns }))
     setRows((all) => [...rowsFor('t0', got.source, got.columns, saved, saved.length === 0), ...all.filter((r) => r.table !== 't0')])
@@ -85,13 +90,15 @@ export function MapDatasetPage() {
     for (const join of existing.data.joins) {
       void api.get<SourceColumns>(`/workspace/report-databases/${id}/sources/${join.table}/`).then((got) => {
         setColumnsByTable((all) => ({ ...all, [join.table]: got.columns }))
-        const saved = existing.data?.fields.filter((f) => f.table === join.alias) ?? []
+        const saved = existing.data?.fields.filter((f) => f.column && f.table === join.alias) ?? []
         setRows((all) => [...all.filter((r) => r.table !== join.alias), ...rowsFor(join.alias, join.table, got.columns, saved, false)])
       })
     }
   }, [existing.data, joins, id])
 
-  const fields = useMemo(() => rows.filter((r) => r.use).map(({ use: _use, column_type: _ct, mappable: _m, ...f }) => (currentJoins.length ? f : { ...f, table: undefined })), [rows, currentJoins.length])
+  const columnFields = useMemo(() => rows.filter((r) => r.use).map(({ use: _use, column_type: _ct, mappable: _m, ...f }): ReportDatasetField => (currentJoins.length ? f : { ...f, table: undefined })), [rows, currentJoins.length])
+  const measures = useMemo<MeasureChoice[]>(() => rows.filter((r) => r.use && r.role === 'measure').map((r) => ({ ref: `${r.table}.${r.column}`, key: r.key, label: r.label, aggregates: r.aggregates })), [rows])
+  const fields = useMemo(() => [...columnFields, ...(calcs ?? []).map(calcToField).filter((f): f is ReportDatasetField => f !== null)], [columnFields, calcs])
   const settled = useDebounced({ fields, label, joins: currentJoins }, 700)
   const preview = useQuery({
     queryKey: ['workspace', 'report-database', id, 'preview', chosen ?? existing.data?.id, settled],
@@ -109,7 +116,7 @@ export function MapDatasetPage() {
     onError: (error) => { setErrors(error instanceof ApiError ? error.fieldErrors : {}); toast.failure(error, 'The dataset was not saved') },
   })
   const update = (table: string, column: string, patch: Partial<Row>) => setRows((all) => all.map((r) => (r.table === table && r.column === column ? { ...r, ...patch } : r)))
-  const pickSource = (name: string) => { setSource(name); setJoins([]); setRows([]); setErrors({}) }
+  const pickSource = (name: string) => { setSource(name); setJoins([]); setRows([]); setCalcs([]); setErrors({}) }
   const addJoin = (join: DatasetJoin, got: Columns) => {
     setJoins([...currentJoins, join])
     setColumnsByTable((all) => ({ ...all, [join.table]: got }))
@@ -233,7 +240,7 @@ export function MapDatasetPage() {
                             <td className="px-2 py-1.5"><Select aria-label={`${r.column} role`} value={r.role} disabled={!r.use || r.type !== 'number'} onChange={(e) => { const role = e.target.value as Row['role']; update(r.table, r.column, { role, aggregates: role === 'measure' && r.aggregates.length === 0 ? ['sum'] : role === 'measure' ? r.aggregates : [] }) }} className="!mt-0 h-8"><option value="dimension">Dimension</option><option value="measure">Measure</option></Select></td>
                             <td className="px-2 py-1.5">{r.role === 'measure' && r.use ? (
                               <div className="flex flex-wrap gap-1" role="group" aria-label={`${r.column} calculations`}>
-                                {(Object.keys(AGG_LABEL) as Aggregate[]).map((a) => <button key={a} type="button" aria-pressed={r.aggregates.includes(a)} onClick={() => update(r.table, r.column, { aggregates: r.aggregates.includes(a) ? r.aggregates.filter((x) => x !== a) : [...r.aggregates, a] })} className={`h-6 rounded-control-md border px-2 text-[11px] font-semibold ${r.aggregates.includes(a) ? 'border-brand-100 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>{AGG_LABEL[a]}</button>)}
+                                {AGG_PICK.map((a) => <button key={a} type="button" aria-pressed={r.aggregates.includes(a)} onClick={() => update(r.table, r.column, { aggregates: r.aggregates.includes(a) ? r.aggregates.filter((x) => x !== a) : [...r.aggregates, a] })} className={`h-6 rounded-control-md border px-2 text-[11px] font-semibold ${r.aggregates.includes(a) ? 'border-brand-100 bg-brand-100 text-brand-800' : 'border-line bg-surface text-ink-900 hover:bg-surface-hover'}`}>{AGG_LABEL[a]}</button>)}
                               </div>
                             ) : r.type === 'date' || r.type === 'datetime' ? <span className="text-[11px] text-ink-700">day · week · month · quarter · year</span> : null}</td>
                             <td className="px-2 py-1.5"><Select aria-label={`${r.column} sensitivity`} value={r.sensitivity} disabled={!r.use} onChange={(e) => update(r.table, r.column, { sensitivity: e.target.value as Row['sensitivity'] })} className={`!mt-0 h-8 ${r.sensitivity !== 'NORMAL' ? '!border-warning-text' : ''}`}>{(Object.keys(SENS_LABEL) as Row['sensitivity'][]).map((s) => <option key={s} value={s}>{SENS_LABEL[s]}</option>)}</Select></td>
@@ -246,6 +253,7 @@ export function MapDatasetPage() {
               </div>
               {errors.fields && <p className="text-sm text-danger-text">{errors.fields}</p>}
               <p className="text-xs text-ink-800">Personal fields are masked for readers without the right, as in every dataset. Confidential hides a column from everyone. A key column is read for the join whether or not it is a field.</p>
+              <CalculatedMeasures rows={calcs ?? []} measures={measures} onChange={setCalcs} errors={Object.entries(errors).filter(([key, message]) => message && /^fields\[\d+\]\.(formula|label)$/.test(key) && Number(key.slice(7)) >= columnFields.length).map(([, message]) => message as string)} />
               {preview.isError ? <ErrorState title="The preview did not run" error={preview.error} /> : preview.data && (
                 <div className="overflow-x-auto rounded-md border border-line bg-surface">
                   <table className="w-full text-xs" aria-label="Preview">
@@ -257,7 +265,7 @@ export function MapDatasetPage() {
               )}
               <div className="flex justify-end gap-2">
                 <Link to="/settings/report-databases" className={buttonSecondary}>Cancel</Link>
-                <button type="button" className={buttonPrimary} disabled={save.isPending || !label.trim() || fields.length === 0 || !db.usable} onClick={() => save.mutate()}>{fromQuery ? 'Save Fields' : 'Save Dataset'}</button>
+                <button type="button" className={buttonPrimary} disabled={save.isPending || !label.trim() || columnFields.length === 0 || !db.usable} onClick={() => save.mutate()}>{fromQuery ? 'Save Fields' : 'Save Dataset'}</button>
               </div>
             </>
           )}
@@ -273,6 +281,7 @@ export function MapDatasetPage() {
 
 /** the rows of one table: its columns as fields, ticked by default for the base (all) or kept as saved; a joined table's labels carry its name */
 function rowsFor(alias: string, table: string, columns: Columns, saved: ReportDatasetField[], tickAll: boolean): Row[] {
+  // a calculated measure has no column and is edited in its own section
   const prefix = alias === 't0' ? '' : `${titleCase(table.replace(/^(dim_|tbl_)/, '').replace(/s$/, ''))} `
   return columns.map((c) => {
     const kept = saved.find((f) => f.column === c.column)

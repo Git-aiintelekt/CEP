@@ -126,11 +126,12 @@ def _filters(dataset: dict, node, where: str, depth: int, count: list[int]) -> d
 
 
 VIEW_TYPES = ("grid", "chart", "hierarchy", "pivot")
-CHART_KINDS = ("bar", "line", "area")
+CHART_KINDS = ("bar", "line", "area", "pie", "funnel")
 
 
 def _view(raw, out_columns: list[dict]) -> dict | None:
-    """How the report is shown: the view, the chart's kind, and the dimension spread across (one of the report's own)."""
+    """How the report is shown: the view, the chart's kind (bars, lines, area, a pie of the first measure by the first dimension,
+    or a funnel of its stages in the report's order), and the dimension spread across (one of the report's own)."""
     if raw is None:
         return None
     if not isinstance(raw, dict) or raw.get("type") not in VIEW_TYPES:
@@ -139,7 +140,7 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     chart = raw.get("chart")
     if chart is not None:
         if chart not in CHART_KINDS:
-            raise DefinitionError("view.chart", "Use bar, line or area.")
+            raise DefinitionError("view.chart", "Use bar, line, area, pie or funnel.")
         out["chart"] = chart
     across = raw.get("across")
     if across is not None:

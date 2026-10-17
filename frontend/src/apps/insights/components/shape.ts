@@ -62,9 +62,12 @@ export function distinct(result: RunResult, index: number): unknown[] {
 
 export interface ChartShape {
   categoryHeader: string
-  categories: { key: string; label: string }[]
+  /** value: as the run gave it, for a filter on the dimension */
+  categories: { key: string; label: string; value: unknown }[]
   series: { key: string; label: string; values: number[] }[]
   measure: ResultColumn
+  /** the dimension along the bottom */
+  axis: ResultColumn
   /** why the chart cannot be drawn from these columns, when it cannot */
   reason?: string
 }
@@ -73,12 +76,12 @@ export interface ChartShape {
 export function chartShape(result: RunResult, across?: string): ChartShape {
   const { meas, spread, down } = split(result, across)
   const measure = meas[0]
-  const empty = { categoryHeader: '', categories: [], series: [], measure: measure?.column ?? result.columns[0] }
+  const empty = { categoryHeader: '', categories: [], series: [], measure: measure?.column ?? result.columns[0], axis: down[0]?.column ?? result.columns[0] }
   if (!measure) return { ...empty, reason: 'A chart needs a value: add a number to total, such as Sent Count.' }
   if (down.length === 0) return { ...empty, reason: spread ? 'A chart needs a row field under the series: add a second dimension, such as Sent by Month.' : 'A chart needs a dimension along the bottom: add one, such as Sent by Month or Channel.' }
   const axis = down[0]
   const categoryValues = distinct(result, axis.index)
-  const categories = categoryValues.map((value) => ({ key: String(value ?? ''), label: cellText(axis.column, value) }))
+  const categories = categoryValues.map((value) => ({ key: String(value ?? ''), label: cellText(axis.column, value), value }))
   const at = new Map(categoryValues.map((value, i) => [String(value ?? ''), i]))
   const series: ChartShape['series'] = []
   if (spread) {
@@ -98,7 +101,7 @@ export function chartShape(result: RunResult, across?: string): ChartShape {
       series.push({ key: item.column.key, label: item.column.label, values })
     }
   }
-  return { categoryHeader: axis.column.label, categories, series, measure: measure.column }
+  return { categoryHeader: axis.column.label, categories, series, measure: measure.column, axis: axis.column }
 }
 
 // ---------------------------------------------------------------------------------------------------- hierarchy

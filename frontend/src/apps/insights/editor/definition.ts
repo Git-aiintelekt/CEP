@@ -4,7 +4,7 @@
  */
 import type { Aggregate, Bucket, CatalogDataset, CatalogField, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
 
-export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max' }
+export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max', calc: 'Calculated' }
 export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year' }
 export const OPERATOR_LABEL: Record<string, string> = {
   '=': 'is', '!=': 'is not', '>': 'more than', '>=': 'at least', '<': 'less than', '<=': 'at most', between: 'between', in: 'is one of',
