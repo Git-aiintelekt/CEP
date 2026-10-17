@@ -53,6 +53,39 @@ def test_mysql_dialect(check):
     pg = compiler.compile(OWN, d, "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=51, dialect="postgresql")
     check("without a workspace field the PostgreSQL query carries only the filters", pg.sql.count("WHERE (") == 1 and "tenant_id" not in pg.sql)
 
+    # joins: the base as t0, each join as its alias on its keys, every field's column qualified
+    joined = {**OWN, "source": "nwa_ops.sales_lines", "joins": [{"alias": "t1", "table": "nwa_ops.stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]},
+                                                              {"alias": "t2", "table": "nwa_ops.regions", "type": "inner", "to": "t1", "on": [["region_id", "id"], ["country", "country"]]}],
+              "fields": [{**OWN["fields"][0], "table": "t0"}, {**OWN["fields"][1], "key": "store_name", "column": "name", "table": "t1"}, {**OWN["fields"][2], "key": "region", "label": "Region", "column": "name", "table": "t2"},
+                         {**OWN["fields"][3], "table": "t0"}]}
+    dj = definition.validate(joined, {"columns": [{"field": "store_name"}, {"field": "region"}, {"field": "net_sales", "aggregate": "sum"}], "filters": {"combinator": "and", "rules": [{"field": "sale_day", "operator": "last_days", "value": 30}]}})
+    out = compiler.compile(joined, dj, "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=10, dialect="mysql")
+    check("a joined dataset reads FROM the base AS t0 with its joins ON the key pairs, every column qualified by its table",
+          out.sql.startswith("SELECT `t1`.`name` AS `c0`, `t2`.`name` AS `c1`, sum(`t0`.`net_sales`) AS `c2` FROM `nwa_ops`.`sales_lines` AS `t0` LEFT JOIN `nwa_ops`.`stores` AS `t1` ON `t0`.`store_id` = `t1`.`id` "
+                             "INNER JOIN `nwa_ops`.`regions` AS `t2` ON `t1`.`region_id` = `t2`.`id` AND `t1`.`country` = `t2`.`country` WHERE (`t0`.`sale_day` >= NOW() - INTERVAL %s DAY) GROUP BY 1, 2"), out.sql)
+    pgj = compiler.compile(joined, dj, "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=10, dialect="postgresql")
+    check("the same on PostgreSQL with double quotes", '"nwa_ops"."sales_lines" AS "t0" LEFT JOIN "nwa_ops"."stores" AS "t1" ON "t0"."store_id" = "t1"."id"' in pgj.sql and 'sum("t0"."net_sales")' in pgj.sql, pgj.sql)
+    tj = compiler.compile_totals(joined, dj, "a0000000-0000-4000-8000-000000000001", "America/New_York", [(), ("store_name",)], limit=100, dialect="mysql")
+    check("the totals of a joined dataset read the same FROM", tj.sql.count("LEFT JOIN `nwa_ops`.`stores` AS `t1`") == 2 and "`t1`.`name` AS `d0`" in tj.sql, tj.sql)
+    errors = {}
+    joins_ok = databases._joins_body([{"table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}, {"table": "regions", "type": "inner", "to": "t1", "on": [["region_id", "id"]]}], errors)
+    check("joins are read in order with aliases t1.., each to the base or an earlier join", not errors and [j["alias"] for j in joins_ok] == ["t1", "t2"] and joins_ok[1]["to"] == "t1" and joins_ok[0]["on"] == [["store_id", "id"]])
+    errors = {}
+    databases._joins_body([{"table": "sto res", "type": "full", "to": "t3", "on": []}], errors)
+    check("a bad join is refused on every count", {"joins[0].table", "joins[0].type", "joins[0].to", "joins[0].on"} <= set(errors), str(errors))
+    errors = {}
+    databases._joins_body([{"table": f"t{i}", "type": "left", "to": "t0", "on": [["a", "b"]]} for i in range(6)], errors)
+    check("more than five joins are refused", "joins" in errors)
+    try:
+        databases._dataset_body({"label": "Sales with Store", "source": "sales_lines", "joins": [{"table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}],
+                                 "fields": [{"column": "x", "label": "Elsewhere", "type": "string", "role": "dimension", "table": "t9"}]}, None)
+        check("a field on a table that is not in the dataset is refused", False)
+    except Exception as exc:                                        # noqa: BLE001
+        check("a field on a table that is not in the dataset is refused", "fields[0].table" in getattr(exc, "detail", {}))
+    body = databases._dataset_body({"label": "Sales with Store", "source": "sales_lines", "joins": [{"table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}],
+                                    "fields": [{"column": "net_sales", "label": "Net Sales", "type": "number", "role": "measure", "aggregates": ["sum"]}, {"column": "name", "label": "Store Name", "type": "string", "role": "dimension", "table": "t1"}]}, None)
+    check("a joined mapping keeps each field's table, the base by default", [(f["table"], f["column"]) for f in body["fields"]] == [("t0", "net_sales"), ("t1", "name")] and body["joins"][0]["alias"] == "t1")
+
     read_only, offending = external._grants(_Cursor([("GRANT USAGE ON *.* TO `cep_reader`@`%`",), ("GRANT SELECT, SHOW VIEW ON `nwa_ops`.* TO `cep_reader`@`%`",)]))
     check("an account with SELECT, SHOW VIEW and USAGE is read-only", read_only and offending == [])
     read_only, offending = external._grants(_Cursor([("GRANT USAGE ON *.* TO 'loyalty_app'@'%'",), ("GRANT SELECT, INSERT, UPDATE ON `loyalty`.* TO 'loyalty_app'@'%'",),
@@ -195,6 +228,7 @@ def test_api(check, world, monkeypatch):
     gone = world.api("delete", f"/api/v1/workspace/report-databases/{cid}/")
     check("then the database can be removed", gone.status_code == 204 and world.api("get", "/api/v1/workspace/report-databases/").json()["databases"] == [])
 
+    # a dataset with a join: checked, mapped, run with the FROM the mapping says (after the PostgreSQL connection below)
     # a PostgreSQL database: the port and the schema, the PostgreSQL dialect on a run
     outcome.update(version="16.4", timezone="UTC")
     pg = world.api("post", "/api/v1/workspace/report-databases/", {"name": "Loyalty Warehouse", "engine": "postgresql", "host": "loyalty.example.com", "database": "loyalty", "schema": "analytics",
@@ -207,4 +241,19 @@ def test_api(check, world, monkeypatch):
     world.api("post", f"/api/v1/insights/reports/{pg_report['id']}/run/", {})
     query = next(c for c in calls if c[0] == "query")
     check("a run on it is written in the PostgreSQL dialect against the schema, with that connection's key", query[1].startswith('SELECT "store_name" AS "c0", sum("net_sales") AS "c1" FROM "analytics"."v_points" WHERE 1 = 1') and query[3] == "pg-secret", query[1])
+
+    monkeypatch.setattr(external, "join_check", lambda row, source, joins, zone=None: {"base_rows": 1284, "joined_rows": 1284, "matched_rows": 1280, "multiplies": False, "factor": 1.0})
+    pg_check = world.api("post", f"/api/v1/workspace/report-databases/{pg['id']}/join-check/", {"source": "v_points", "joins": [{"table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}]}).json()
+    check("Check the Join answers with the counts", pg_check["matched_rows"] == 1280 and not pg_check["multiplies"], json.dumps(pg_check))
+    joined = world.api("post", f"/api/v1/workspace/report-databases/{pg['id']}/datasets/", {"label": "Points with Store", "source": "v_points", "joins": [{"table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}],
+                                                                                            "fields": [{"column": "name", "label": "Store Name", "type": "string", "role": "dimension", "table": "t1"},
+                                                                                                       {"column": "net_sales", "label": "Points", "type": "number", "role": "measure", "aggregates": ["sum"], "table": "t0"}]}).json()
+    check("a joined dataset is mapped with its join kept", joined.get("joins") == [{"alias": "t1", "table": "stores", "type": "left", "to": "t0", "on": [["store_id", "id"]]}] and joined["fields"][0]["table"] == "t1", json.dumps(joined)[:300])
+    own = next(d for d in world.api("get", "/api/v1/insights/catalog/").json()["datasets"] if d["key"] == joined["key"])
+    check("the catalogue carries the join with the schema on its table and the fields' tables", own["joins"][0]["table"] == "analytics.stores" and own["fields"][0]["table"] == "t1", json.dumps(own)[:300])
+    jr = world.api("post", "/api/v1/insights/reports/", {"name": "Points by Store Name", "dataset": joined["key"], "definition": {"columns": [{"field": "store_name"}, {"field": "points", "aggregate": "sum"}], "filters": {"combinator": "and", "rules": []}}}).json()
+    calls.clear()
+    world.api("post", f"/api/v1/insights/reports/{jr['id']}/run/", {})
+    query = next(c for c in calls if c[0] == "query")
+    check("a run on it joins the tables as mapped", query[1].startswith('SELECT "t1"."name" AS "c0", sum("t0"."net_sales") AS "c1" FROM "analytics"."v_points" AS "t0" LEFT JOIN "analytics"."stores" AS "t1" ON "t0"."store_id" = "t1"."id" WHERE 1 = 1'), query[1])
     check.done()

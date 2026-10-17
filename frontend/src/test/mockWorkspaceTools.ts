@@ -274,7 +274,7 @@ export function handleWorkspaceTools({ path, url, method, body }: Request, state
     return json({ ...state.pos, stores: state.stores.length })
   }
   if (path.endsWith('/stores/import/')) { state.stores = [...state.stores, { ...state.stores[0], id: 'st-802', store_number: '802', name: 'Northwind Apparel Midtown' }]; return json({ added: 1, updated: 0, problems: [] }) }
-  if (path.endsWith('/stores/')) {
+  if (path.endsWith('/stores/') && !path.includes('/report-databases/')) {
     if (method === 'POST') {
       const input = body as Partial<Store>
       if (!input.store_number) return invalid({ store_number: ['Give the store its number, as the point of sale sends it.'] })
@@ -285,7 +285,7 @@ export function handleWorkspaceTools({ path, url, method, body }: Request, state
     }
     return json(state.stores)
   }
-  const store = path.match(/\/stores\/([^/]+)\/$/)
+  const store = path.includes('/report-databases/') ? null : path.match(/\/stores\/([^/]+)\/$/)
   if (store) {
     const index = state.stores.findIndex((row) => row.id === store[1])
     if (index < 0) return json({ detail: 'Not found.' }, 404)

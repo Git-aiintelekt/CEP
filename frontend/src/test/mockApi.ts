@@ -117,12 +117,19 @@ function mockDatabase(body: Record<string, unknown>, id: string): MockDatabase {
     last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: test.read_only, last_test_error: test.read_only ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
     server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test }
 }
-const SOURCES = [{ name: 'v_daily_sales', kind: 'view' as const, rows: null, columns: 4, mappable: true, mapped_as: null }, { name: 'sales_lines', kind: 'table' as const, rows: 4200000, columns: 18, mappable: true, mapped_as: null }]
+const SOURCES = [{ name: 'v_daily_sales', kind: 'view' as const, rows: null, columns: 5, mappable: true, mapped_as: null }, { name: 'sales_lines', kind: 'table' as const, rows: 4200000, columns: 18, mappable: true, mapped_as: null },
+  { name: 'stores', kind: 'table' as const, rows: 1204, columns: 3, mappable: true, mapped_as: null }]
 const COLUMNS = [
   { column: 'sale_day', column_type: 'date', key: false, mappable: true, type: 'date' as const, role: 'dimension' as const, aggregates: [], format: 'date' as const },
   { column: 'store_name', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
   { column: 'net_sales', column_type: 'decimal(12,2)', key: false, mappable: true, type: 'number' as const, role: 'measure' as const, aggregates: ['sum' as const, 'avg' as const], format: 'money' as const },
   { column: 'cashier_email', column_type: 'varchar(120)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
+  { column: 'store_id', column_type: 'int', key: false, mappable: true, type: 'number' as const, role: 'dimension' as const, aggregates: [], format: 'integer' as const },
+]
+const STORE_COLUMNS = [
+  { column: 'id', column_type: 'int', key: true, mappable: true, type: 'number' as const, role: 'dimension' as const, aggregates: [], format: 'integer' as const },
+  { column: 'name', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
+  { column: 'city', column_type: 'varchar(80)', key: false, mappable: true, type: 'string' as const, role: 'dimension' as const, aggregates: [], format: null },
 ]
 export const insightsReport = { ...insightsSummary, row_version: 3, folder_id: null, created_at: '2026-10-14T08:00:00Z',
   definition: { columns: [{ field: 'campaign_name' }, { field: 'channel' }, { field: 'sent', aggregate: 'sum' as const }, { field: 'delivered', aggregate: 'sum' as const }], filters: { combinator: 'and' as const, rules: [] }, orderBy: [{ field: 'sent', direction: 'desc' as const }], limit: 500 } }
@@ -1230,23 +1237,27 @@ export function installMockApi(options: MockOptions = {}) {
         if (method === 'PUT') { const put = body as Partial<MockDataset>; reportDatasetsNow[at] = { ...reportDatasetsNow[at], ...put, field_count: (put.fields ?? reportDatasetsNow[at].fields).length, row_version: reportDatasetsNow[at].row_version + 1 } }
         return json(reportDatasetsNow[at])
       }
-      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|datasets\/)?$/.exec(path)
+      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|join-check\/|datasets\/)?$/.exec(path)
       if (one) {
         const db = reportDatabasesNow.find((d) => d.id === one[1])
         if (!db) return json({ type: 'about:blank', title: 'No such database.', status: 404 }, 404)
         const tail = one[2] ?? ''
         if (tail === 'test/') { db.last_tested_at = '2026-10-16T10:00:00Z'; return json({ test: db.test, database: withDatasets(db) }) }
         if (tail === 'sources/') return json({ sources: SOURCES.map((s) => ({ ...s, mapped_as: reportDatasetsNow.find((d) => d.connection_id === db.id && d.source === s.name)?.label ?? null })) })
-        if (tail.startsWith('sources/')) return json({ source: one[3], columns: COLUMNS, sample: { columns: COLUMNS.map((c) => c.column), rows: [['2026-10-15', 'Downtown', 9420, 'ann@example.com']] }, mapped_as: null })
+        if (tail.startsWith('sources/')) {
+          const cols = one[3] === 'stores' ? STORE_COLUMNS : COLUMNS
+          return json({ source: one[3], columns: cols, sample: { columns: cols.map((c) => c.column), rows: [one[3] === 'stores' ? [12, 'Downtown', 'Portland'] : ['2026-10-15', 'Downtown', 9420, 'ann@example.com', 12]] }, mapped_as: null })
+        }
+        if (tail === 'join-check/') return json({ base_rows: 1284, joined_rows: 1284, matched_rows: 1280, multiplies: false, factor: 1 })
         if (tail === 'preview/') {
-          const fields = ((body as { fields?: { label: string; column: string; sensitivity: string }[] }).fields ?? []).filter((f) => f.sensitivity !== 'CONFIDENTIAL')
-          const sample: Record<string, unknown> = { sale_day: '2026-10-15', store_name: 'Downtown', net_sales: 9420, cashier_email: 'ann@example.com' }
-          return json({ columns: fields.map((f) => ({ key: f.column, label: f.label, masked: f.sensitivity === 'PII' })), rows: [fields.map((f) => (f.sensitivity === 'PII' ? '•••••' : sample[f.column]))] })
+          const fields = ((body as { fields?: { label: string; column: string; table?: string; sensitivity: string }[] }).fields ?? []).filter((f) => f.sensitivity !== 'CONFIDENTIAL')
+          const sample: Record<string, unknown> = { sale_day: '2026-10-15', store_name: 'Downtown', net_sales: 9420, cashier_email: 'ann@example.com', store_id: 12, 'id': 12, 'name': 'Downtown', 'city': 'Portland' }
+          return json({ columns: fields.map((f) => ({ key: `${f.table ?? 't0'}.${f.column}`, label: f.label, masked: f.sensitivity === 'PII' })), rows: [fields.map((f) => (f.sensitivity === 'PII' ? '•••••' : sample[f.column]))] })
         }
         if (tail === 'datasets/' && method === 'POST') {
-          const posted = body as { label: string; description?: string; source: string; primary_key?: string | null; time_field?: string | null; fields: MockDataset['fields'] }
+          const posted = body as { label: string; description?: string; source: string; joins?: MockDataset['joins']; primary_key?: string | null; time_field?: string | null; fields: MockDataset['fields'] }
           const made: MockDataset = { id: `ds-${reportDatasetsNow.length + 1}`, connection_id: db.id, key: `x_${posted.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`, label: posted.label, description: posted.description || null, source: posted.source,
-            primary_key: posted.primary_key ?? null, time_field: posted.time_field ?? null, fields: posted.fields.map((f) => ({ ...f, key: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_') })), field_count: posted.fields.length,
+            joins: posted.joins ?? [], primary_key: posted.primary_key ?? null, time_field: posted.time_field ?? null, fields: posted.fields.map((f) => ({ ...f, key: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_') })), field_count: posted.fields.length,
             pii_count: posted.fields.filter((f) => f.sensitivity === 'PII').length, reports: 0, status: 'ACTIVE', updated_at: '2026-10-16T10:00:00Z', row_version: 1 }
           reportDatasetsNow.push(made)
           return json(made, 201)

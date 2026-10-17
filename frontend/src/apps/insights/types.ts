@@ -296,6 +296,8 @@ export interface ReportDatasetField {
   /** the field's key, set by the server from the label */
   key?: string
   column: string
+  /** the table's alias when the dataset joins tables: t0 the base, t1.. the joins */
+  table?: string
   label: string
   type: FieldType
   role: 'dimension' | 'measure'
@@ -311,6 +313,8 @@ export interface ReportDataset {
   description: string | null
   /** the table or view */
   source: string
+  /** the tables joined to the base, in order */
+  joins: DatasetJoin[]
   primary_key: string | null
   time_field: string | null
   fields: ReportDatasetField[]
@@ -356,6 +360,21 @@ export interface ReportDatabases {
   grant_examples: { mysql: string; postgresql: string }
   /** the tables exist (patch 0056) */
   ready: boolean
+}
+/** a join in a mapped dataset: alias t1.., the table, Left or Inner, the alias it joins to (t0 the base), the key pairs [parent column, table column] */
+export interface DatasetJoin {
+  alias: string
+  table: string
+  type: 'left' | 'inner'
+  to: string
+  on: [string, string][]
+}
+export interface JoinCheck {
+  base_rows: number
+  joined_rows: number
+  matched_rows: number
+  multiplies: boolean
+  factor: number | null
 }
 export interface SourceInfo {
   name: string

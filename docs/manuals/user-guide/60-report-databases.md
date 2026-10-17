@@ -57,6 +57,22 @@ is offered once its datasets are gone.
 6. **Save Dataset**. It is in New Report under **Your Databases**, named with its database, and Ask for a Report knows
    it by label. **Edit Fields** in the table under the cards reopens it.
 
+## Joining tables
+
+A dataset can read more than one table. The diagram above the fields shows the base table as a card with its columns;
+**Add a Join** (or **Join to this** on a card) brings another table in:
+
+1. Pick what to join to: the base, or a table already joined, which makes a chain such as sales → stores → regions.
+2. Pick the table, and whether to keep every row of the table joined to (**Left**: a row with no match still shows, with
+   the joined fields empty) or only the rows that match (**Inner**).
+3. Say which columns are equal, one pair or more. The first pair is suggested from the names (store_id = id).
+4. **Check the Join** before adding it: how many rows match, and a warning when the join multiplies rows, which would
+   count the base's rows more than once in totals.
+
+The joined table appears as a card with the key drawn to it, its columns ticked as fields and labelled with the table's
+name ("Store Name", "Store City"). A key column is read for the join whether or not it is a field. Up to five joins;
+removing a join removes the ones chained to it. The engine still writes one SELECT, read-only, under the same limits.
+
 A dataset with reports built on it cannot be deleted until those reports are; a database with datasets cannot be removed
 until they are.
 

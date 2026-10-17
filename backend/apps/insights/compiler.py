@@ -32,6 +32,23 @@ def _source(name: str, dialect: str = "postgresql") -> str:
     return ".".join(f"`{part}`" if dialect == "mysql" else f'"{part}"' for part in parts)
 
 
+def _col(field: dict, dialect: str) -> str:
+    """a field's column, qualified by its table's alias when the dataset joins tables"""
+    column = _ident(field["column"], dialect)
+    return f"{_ident(field['table'], dialect)}.{column}" if field.get("table") else column
+
+
+def join_clause(source: str, joins: list[dict], dialect: str) -> str:
+    """The FROM of a dataset that joins tables: the base as t0, each join as its alias, ON the key pairs. Every name is checked as
+    an identifier; the join type is left or inner and nothing else."""
+    out = f"{_source(source, dialect)} AS {_ident('t0', dialect)}"
+    for join in joins:
+        kind = {"left": "LEFT JOIN", "inner": "INNER JOIN"}[join["type"]]
+        on = " AND ".join(f"{_ident(join['to'], dialect)}.{_ident(a, dialect)} = {_ident(join['alias'], dialect)}.{_ident(b, dialect)}" for a, b in join["on"])
+        out += f" {kind} {_source(join['table'], dialect)} AS {_ident(join['alias'], dialect)} ON {on}"
+    return out
+
+
 class Compiled:
     def __init__(self, sql: str, params, columns: list[dict]):
         self.sql, self.params, self.columns = sql, params, columns
@@ -72,7 +89,7 @@ def _ch_type(value) -> str:
 
 def _dimension_expr(field: dict, bucket: str | None, zone: str, params: Params) -> str:
     """A dimension as selected: a bucketed date is the start of its day, week, month, quarter or year, in the workspace's zone."""
-    col = _ident(field["column"], params.dialect)
+    col = _col(field, params.dialect)
     if not bucket:
         return col
     unit = BUCKET_UNIT[bucket]
@@ -114,7 +131,7 @@ def _filter_sql(dataset: dict, node: dict, zone: str, params: Params) -> str:
                 parts.append(f"({inner})")
             continue
         field = next(f for f in dataset["fields"] if f["key"] == rule["field"])
-        col = _ident(field["column"], params.dialect)
+        col = _col(field, params.dialect)
         op, value = rule["operator"], rule["value"]
         temporal = field["type"] in ("date", "datetime")
         local = temporal and field["type"] == "datetime"
@@ -148,6 +165,8 @@ def _escape_like(value: str) -> str:
 
 
 def _from(dataset: dict, dialect: str) -> str:
+    if dataset.get("joins"):
+        return join_clause(dataset["source"], dataset["joins"], dialect)
     return f"{_source(dataset['source'])} FINAL" if dialect == "clickhouse" else _source(dataset["source"], dialect)
 
 
@@ -197,7 +216,7 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
             inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params)} AS {_ident(f'd{i}', dialect)}")
         for j, column in enumerate(meas):
             field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-            inner.append(f"{_ident(field['column'], dialect)} AS {_ident(f'm{j}', dialect)}")
+            inner.append(f"{_col(field, dialect)} AS {_ident(f'm{j}', dialect)}")
         return f"(SELECT {', '.join(inner)} FROM {_from(dataset, dialect)} WHERE {_where(dataset, definition, tenant_id, zone, params)}) AS base"
 
     index = {c["field"]: i for i, c in enumerate(dims)}
@@ -227,7 +246,7 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
         alias = _ident(f"c{index}", dialect)
         if "aggregate" in column:
-            expr = AGGREGATES[column["aggregate"]].format(col=_ident(field["column"], dialect))
+            expr = AGGREGATES[column["aggregate"]].format(col=_col(field, dialect))
         else:
             expr = _dimension_expr(field, column.get("bucket"), zone, params)
             if definition["grouped"]:

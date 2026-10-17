@@ -88,7 +88,7 @@ test('Map a Dataset: views first, a source’s columns typed with labels from th
   expect(await screen.findByRole('heading', { name: 'Map a Dataset · Store Operations' }, { timeout: 5000 })).toBeTruthy()
   const aside = screen.getByRole('complementary', { name: 'Tables and views' })
   const buttons = await within(aside).findAllByRole('button')
-  expect(buttons.map((b) => b.textContent)).toEqual(['v_daily_sales4 columns', 'sales_lines18 columns · 4.2 M rows'])
+  expect(buttons.map((b) => b.textContent)).toEqual(['v_daily_sales5 columns', 'sales_lines18 columns · 4.2 M rows', 'stores3 columns · 1,204 rows'])
   await user.click(buttons[0])
   const columns = await screen.findByRole('table', { name: 'Columns' })
   expect((within(columns).getByRole('textbox', { name: 'net_sales label' }) as HTMLInputElement).value).toBe('Net Sales')
@@ -97,6 +97,7 @@ test('Map a Dataset: views first, a source’s columns typed with labels from th
   expect((screen.getByRole('textbox', { name: /Dataset Name/ }) as HTMLInputElement).value).toBe('Daily Sales')
   await user.selectOptions(within(columns).getByRole('combobox', { name: 'cashier_email sensitivity' }), 'PII')
   await user.click(within(columns).getByRole('checkbox', { name: 'Use sale_day' }))                              // leave one column out
+  await user.click(within(columns).getByRole('checkbox', { name: 'Use store_id' }))
   const preview = await screen.findByRole('table', { name: 'Preview' }, { timeout: 4000 })
   expect(await within(preview).findByText('Cashier Email (masked)', {}, { timeout: 4000 })).toBeTruthy()
   expect(within(preview).getByText('•••••')).toBeTruthy()
@@ -112,4 +113,41 @@ test('Map a Dataset: views first, a source’s columns typed with labels from th
   expect(posted.fields[2].sensitivity).toBe('PII')
   expect(within(table).getByText('Store Sales')).toBeTruthy()
   expect(within(table).getByText('3 · 1 personal')).toBeTruthy()
+})
+
+test('Option J2: Add a Join brings a second table in on a suggested key, checks it, draws it as a card with the key marked, groups the fields by table, and Save posts the joins and the fields with their tables', async () => {
+  const calls = await renderAppAt('/settings/report-databases/db-1/map', () => {
+    reportDatabasesNow.push({ id: 'db-1', name: 'Store Operations', engine: 'mysql80', engine_name: 'MySQL 8.0', host: 'ops-db.northwind.local', port: 3306, database_name: 'nwa_ops', schema_name: 'nwa_ops', username: 'cep_reader', ssl_mode: 'REQUIRED', status: 'ACTIVE',
+      last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [] })
+  })
+  const user = userEvent.setup()
+  await screen.findByRole('heading', { name: 'Map a Dataset · Store Operations' }, { timeout: 5000 })
+  const aside = screen.getByRole('complementary', { name: 'Tables and views' })
+  await user.click((await within(aside).findAllByRole('button'))[0])                                           // v_daily_sales as the base
+  const diagram = await screen.findByRole('group', { name: 'Tables in this dataset' })
+  expect(within(diagram).getByLabelText('v_daily_sales, the base')).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Add a Join' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Add a Join' })
+  await user.selectOptions(within(dialog).getByLabelText(/^Table/), 'stores')
+  expect((await within(dialog).findByRole('combobox', { name: 'Key 1 of v_daily_sales' }) as HTMLSelectElement).value).toBe('store_id')   // suggested: store_id = id
+  expect((within(dialog).getByRole('combobox', { name: 'Key 1 of stores' }) as HTMLSelectElement).value).toBe('id')
+  await user.click(within(dialog).getByRole('button', { name: 'Check the Join' }))
+  expect(await within(dialog).findByText(/1,284 v_daily_sales rows, 1,280 with a match/)).toBeTruthy()
+  const checked = calls.find((call) => call.url.endsWith('/join-check/'))?.body as { joins: unknown[] } | undefined
+  expect(checked?.joins).toEqual([{ alias: 't1', table: 'stores', type: 'left', to: 't0', on: [['store_id', 'id']] }])
+  await user.click(within(dialog).getByRole('button', { name: 'Add' }))
+  const card = await within(diagram).findByLabelText('stores, joined left')
+  expect(within(card).getByLabelText('key')).toBeTruthy()
+  const columns = screen.getByRole('table', { name: 'Columns' })
+  expect(within(columns).getByText(/Left on store_id = id/)).toBeTruthy()
+  expect((within(columns).getByRole('textbox', { name: 'name label' }) as HTMLInputElement).value).toBe('Store Name')          // the joined table's name in the label
+  await user.click(within(columns).getByRole('checkbox', { name: 'Use id of stores' }))                                          // the key need not be a field
+  await user.clear(screen.getByRole('textbox', { name: /Dataset Name/ }))
+  await user.type(screen.getByRole('textbox', { name: /Dataset Name/ }), 'Sales with Store')
+  await user.click(screen.getByRole('button', { name: 'Save Dataset' }))
+  await screen.findByText('Sales with Store is ready', {}, { timeout: 5000 })
+  const posted = calls.find((call) => call.url.endsWith('/workspace/report-databases/db-1/datasets/') && call.method === 'POST')?.body as { joins: unknown[]; fields: { table: string; column: string; label: string }[] }
+  expect(posted.joins).toEqual([{ alias: 't1', table: 'stores', type: 'left', to: 't0', on: [['store_id', 'id']] }])
+  expect(posted.fields.filter((f) => f.table === 't1').map((f) => [f.column, f.label])).toEqual([['name', 'Store Name'], ['city', 'Store City']])
+  expect(posted.fields.filter((f) => f.table === 't0').length).toBe(5)
 })
