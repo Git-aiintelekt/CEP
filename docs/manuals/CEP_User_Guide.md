@@ -212,6 +212,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Things to know
 - Insights: Reports, Dashboards and Scheduled Delivery
   - Step by step: the AI features
+  - Step by step: measures, charts and slicers
   - What Insights is for
   - Who can use it
   - The datasets
@@ -2530,6 +2531,43 @@ The enrol job reads events every minute. An event counts for a journey that was 
 
 **Write It for Me** in the query window is described in the Report Databases chapter.
 
+## Step by step: measures, charts and slicers
+
+**Use a calculated measure in a report** (anyone who can build reports)
+
+1. Open Insights → Reports → **New Report** and pick a dataset, such as Messages.
+2. Drag a rate, such as Delivered Rate, into **Values**. Its calculation reads **Calculated** and is the only choice.
+3. Add a dimension to **Rows**, such as Channel. The rate is worked out per row and in every total, as a rate of the totals.
+4. A rate with nothing to divide by shows as empty.
+
+Workspace administrators add calculated measures to their own datasets (Report Databases chapter); your platform team adds them to the platform's datasets.
+
+**Show a report as a pie or a funnel**
+
+1. In the report editor or viewer, choose **Chart**, then **Pie** or **Funnel**.
+2. **Pie** shows the first measure by the first dimension. The total sits in the middle, and the legend gives each value with its share. More than eight slices fold into Other.
+3. **Funnel** shows each row as a stage, in the report's sort order, with its value, its share of the first stage and the change from the stage before. Sort the report into the order the stages should run.
+4. Press **Save** in the editor to keep the choice.
+
+**Add slicers to a dashboard** (its owner or a report administrator)
+
+1. Open the dashboard and press **Edit**.
+2. Under the period, press **Add Slicer** and choose a dimension, such as Channel or Store. The list shows the dimensions of the tiles' datasets, up to six.
+3. Remove one with its cross, then press **Done**.
+
+**Filter a dashboard with slicers**
+
+1. Each slicer is a chip under the period. Open it, search, tick values and press **Apply**.
+2. Every tile whose data has that field narrows to those values. A tile without the field says **Not sliced by** that field.
+3. **Clear** takes the values off.
+
+**Cross-filter by clicking**
+
+1. Click a bar, a pie slice, a funnel stage or a cell in a grid tile. The other tiles narrow to that value.
+2. If the field is not one of the dashboard's slicers, a chip appears for it; its cross takes the filter off.
+3. Clicking the same value again clears it. Dates cannot be clicked this way, since the period already covers them.
+4. Slicer and click selections are never saved. A PDF export or a scheduled delivery always shows the dashboard as saved.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.
@@ -2686,6 +2724,17 @@ The line under a report's title says it. **Live data**: the report reads the wor
 2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
+
+**Add a calculated measure** (workspace administrator)
+
+1. On the database's card press **Map a Dataset**, or **Edit Fields** beside an existing dataset.
+2. Mark the numbers you need as **Measure**.
+3. Under **Calculated Measures**, press **Add a Calculated Measure** and give it a label, such as Delivered Rate.
+4. Pick the left side and its calculation, such as Sum of Delivered.
+5. Pick the operation: **Divided by**, **Minus**, **Plus** or **Times**.
+6. Pick the right side: another measure, or **A number…** to type a value.
+7. Set the **Scale** (100 for a percentage) and the **Format**, and mark it Personal if it uses personal data. The formula is spelled out under the label as you build it.
+8. Press **Save Dataset**, or **Save Fields** for a dataset made from a query. Report authors find it among the measures with the calculation **Calculated**.
 
 **Join tables in a dataset**
 

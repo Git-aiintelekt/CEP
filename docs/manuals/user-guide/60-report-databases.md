@@ -18,6 +18,17 @@
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
 
+**Add a calculated measure** (workspace administrator)
+
+1. On the database's card press **Map a Dataset**, or **Edit Fields** beside an existing dataset.
+2. Mark the numbers you need as **Measure**.
+3. Under **Calculated Measures**, press **Add a Calculated Measure** and give it a label, such as Delivered Rate.
+4. Pick the left side and its calculation, such as Sum of Delivered.
+5. Pick the operation: **Divided by**, **Minus**, **Plus** or **Times**.
+6. Pick the right side: another measure, or **A number…** to type a value.
+7. Set the **Scale** (100 for a percentage) and the **Format**, and mark it Personal if it uses personal data. The formula is spelled out under the label as you build it.
+8. Press **Save Dataset**, or **Save Fields** for a dataset made from a query. Report authors find it among the measures with the calculation **Calculated**.
+
 **Join tables in a dataset**
 
 1. On the mapping page, press **Add a Join**, or **Join to this** on a table's card in the diagram.
