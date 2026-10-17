@@ -838,6 +838,7 @@ export function installMockApi(options: MockOptions = {}) {
   Object.assign(workspaceAssistantNow, { enabled: true, providers: { anthropic: true, openai: true }, explain: true })
   reportDatabasesNow.splice(0, reportDatabasesNow.length)
   reportDatasetsNow.splice(0, reportDatasetsNow.length)
+  insightsCatalog.datasets.splice(2)                                                 // a query dataset added by a test is forgotten
   insightsSchedulesNow.splice(0, insightsSchedulesNow.length)
   const campaign = options.campaign ?? makeCampaign()
   let mfaEnabled = options.mfaEnabled ?? false
@@ -1229,6 +1230,7 @@ export function installMockApi(options: MockOptions = {}) {
         return json(made, 201)
       }
       if (path.endsWith('/workspace/report-databases/test/')) return json({ test: String((body as { host?: string }).host ?? '').includes('loyalty') ? WRITER_TEST : GOOD_TEST })
+      if (path.endsWith('/workspace/report-databases/targets/')) return json({ databases: reportDatabasesNow.filter((d) => d.usable).map((d) => ({ id: d.id, name: d.name, engine: d.engine, engine_name: d.engine_name, database_name: d.database_name, schema_name: d.schema_name })) })
       const dataset = /\/workspace\/report-databases\/datasets\/([\w-]+)\/$/.exec(path)
       if (dataset) {
         const at = reportDatasetsNow.findIndex((d) => d.id === dataset[1])
@@ -1237,7 +1239,7 @@ export function installMockApi(options: MockOptions = {}) {
         if (method === 'PUT') { const put = body as Partial<MockDataset>; reportDatasetsNow[at] = { ...reportDatasetsNow[at], ...put, field_count: (put.fields ?? reportDatasetsNow[at].fields).length, row_version: reportDatasetsNow[at].row_version + 1 } }
         return json(reportDatasetsNow[at])
       }
-      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|join-check\/|datasets\/)?$/.exec(path)
+      const one = /\/workspace\/report-databases\/([\w-]+)\/(test\/|sources\/|sources\/([\w]+)\/|preview\/|join-check\/|datasets\/|query\/run\/|query\/write\/|query\/dataset\/)?$/.exec(path)
       if (one) {
         const db = reportDatabasesNow.find((d) => d.id === one[1])
         if (!db) return json({ type: 'about:blank', title: 'No such database.', status: 404 }, 404)
@@ -1249,6 +1251,22 @@ export function installMockApi(options: MockOptions = {}) {
           return json({ source: one[3], columns: cols, sample: { columns: cols.map((c) => c.column), rows: [one[3] === 'stores' ? [12, 'Downtown', 'Portland'] : ['2026-10-15', 'Downtown', 9420, 'ann@example.com', 12]] }, mapped_as: null })
         }
         if (tail === 'join-check/') return json({ base_rows: 1284, joined_rows: 1284, matched_rows: 1280, multiplies: false, factor: 1 })
+        if (tail === 'query/run/' || tail === 'query/dataset/') {
+          const sql = String((body as { sql?: string }).sql ?? '').trim()
+          if (/;\s*\S/.test(sql.replace(/;\s*$/, ''))) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { sql: 'One statement at a time: a second statement after a semicolon is not allowed.' } }, 400)
+          if (/\bdelete\b/i.test(sql)) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { sql: 'The word DELETE is not allowed in a report query. The account could not write anyway, and the engine will not try.' } }, 400)
+          const fields = [{ column: 'store_name', label: 'Store Name', type: 'string' as const, role: 'dimension' as const, aggregates: [] as const, format: null, sensitivity: 'NORMAL' as const, table: 't0' },
+            { column: 'net_sales', label: 'Net Sales', type: 'number' as const, role: 'measure' as const, aggregates: ['sum' as const, 'avg' as const, 'min' as const, 'max' as const], format: 'money' as const, sensitivity: 'NORMAL' as const, table: 't0' }]
+          if (tail === 'query/run/') return json({ columns: fields.map((f) => ({ column: f.column, column_type: f.type === 'number' ? 'decimal' : 'varchar', mappable: true, type: f.type, role: f.role, aggregates: f.aggregates, format: f.format })), rows: [['Downtown', 28660], ['Riverside', 19802]], truncated: false, ms: 212, sql, fields })
+          const posted = body as { label: string }
+          const made: MockDataset = { id: `ds-${reportDatasetsNow.length + 1}`, connection_id: db.id, key: `x_${posted.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`, label: posted.label, description: null, source: 'query', joins: [], kind: 'query', query_sql: sql,
+            primary_key: null, time_field: null, fields: fields.map((f) => ({ ...f, aggregates: [...f.aggregates], key: f.column })), field_count: 2, pii_count: 0, reports: 0, status: 'ACTIVE', updated_at: '2026-10-17T10:00:00Z', row_version: 1 }
+          reportDatasetsNow.push(made)
+          insightsCatalog.datasets.push({ key: made.key, label: made.label, description: null, component: { key: 'cep', name: 'Engagement' }, primary_key: 'store_name', time_field: null, freshness: 'LIVE',
+            fields: made.fields.map((f) => ({ key: f.key as string, label: f.label, type: f.type, role: f.role, aggregates: [...f.aggregates], operators: ['=', '!='], buckets: [], format: f.format, sensitivity: 'NORMAL' })) } as never)
+          return json(made, 201)
+        }
+        if (tail === 'query/write/') return json({ id: 'ask-sql', sql: "SELECT s.name AS store_name, SUM(l.net_amount) AS net_sales\nFROM sales_lines l JOIN stores s ON s.id = l.store_id\nGROUP BY s.name", note: 'Paid lines only was read as status = PAID.', message: null })
         if (tail === 'preview/') {
           const fields = ((body as { fields?: { label: string; column: string; table?: string; sensitivity: string }[] }).fields ?? []).filter((f) => f.sensitivity !== 'CONFIDENTIAL')
           const sample: Record<string, unknown> = { sale_day: '2026-10-15', store_name: 'Downtown', net_sales: 9420, cashier_email: 'ann@example.com', store_id: 12, 'id': 12, 'name': 'Downtown', 'city': 'Portland' }
@@ -1257,7 +1275,7 @@ export function installMockApi(options: MockOptions = {}) {
         if (tail === 'datasets/' && method === 'POST') {
           const posted = body as { label: string; description?: string; source: string; joins?: MockDataset['joins']; primary_key?: string | null; time_field?: string | null; fields: MockDataset['fields'] }
           const made: MockDataset = { id: `ds-${reportDatasetsNow.length + 1}`, connection_id: db.id, key: `x_${posted.label.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`, label: posted.label, description: posted.description || null, source: posted.source,
-            joins: posted.joins ?? [], primary_key: posted.primary_key ?? null, time_field: posted.time_field ?? null, fields: posted.fields.map((f) => ({ ...f, key: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_') })), field_count: posted.fields.length,
+            joins: posted.joins ?? [], kind: 'table', query_sql: null, primary_key: posted.primary_key ?? null, time_field: posted.time_field ?? null, fields: posted.fields.map((f) => ({ ...f, key: f.label.toLowerCase().replace(/[^a-z0-9]+/g, '_') })), field_count: posted.fields.length,
             pii_count: posted.fields.filter((f) => f.sensitivity === 'PII').length, reports: 0, status: 'ACTIVE', updated_at: '2026-10-16T10:00:00Z', row_version: 1 }
           reportDatasetsNow.push(made)
           return json(made, 201)

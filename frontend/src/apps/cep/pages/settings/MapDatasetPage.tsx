@@ -56,9 +56,15 @@ export function MapDatasetPage() {
   const [columnsByTable, setColumnsByTable] = useState<Record<string, Columns>>({})
   const [adding, setAdding] = useState<{ to: string } | null>(null)
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
-  const chosen = source ?? existing.data?.source ?? null
+  const fromQuery = existing.data?.kind === 'query'
+  const chosen = source ?? (fromQuery ? null : existing.data?.source ?? null)
   const currentJoins = useMemo(() => joins ?? existing.data?.joins ?? [], [joins, existing.data])
-  const columns = useQuery({ queryKey: ['workspace', 'report-database', id, 'source', chosen], queryFn: ({ signal }) => api.get<SourceColumns>(`/workspace/report-databases/${id}/sources/${chosen}/`, undefined, signal), enabled: Boolean(id && chosen) })
+  const columns = useQuery({ queryKey: ['workspace', 'report-database', id, 'source', chosen], queryFn: ({ signal }) => api.get<SourceColumns>(`/workspace/report-databases/${id}/sources/${chosen}/`, undefined, signal), enabled: Boolean(id && chosen && !fromQuery) })
+  useEffect(() => {                                   // a dataset from a query: its fields are the columns the query gave
+    if (!fromQuery || !existing.data || rows.length) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRows(existing.data.fields.map((f) => ({ ...f, use: true, column_type: f.type, mappable: true, table: 't0' })))
+  }, [fromQuery, existing.data, rows.length])
   const tables = useMemo<TableRef[]>(() => [{ alias: 't0', table: chosen ?? '', to: null }, ...currentJoins.map((j) => ({ alias: j.alias, table: j.table, to: j.to }))], [chosen, currentJoins])
 
   useEffect(() => {                                   // the saved dataset fills the form once it arrives
@@ -88,13 +94,15 @@ export function MapDatasetPage() {
   const fields = useMemo(() => rows.filter((r) => r.use).map(({ use: _use, column_type: _ct, mappable: _m, ...f }) => (currentJoins.length ? f : { ...f, table: undefined })), [rows, currentJoins.length])
   const settled = useDebounced({ fields, label, joins: currentJoins }, 700)
   const preview = useQuery({
-    queryKey: ['workspace', 'report-database', id, 'preview', chosen, settled],
-    queryFn: () => api.post<{ columns: { key: string; label: string; masked: boolean }[]; rows: unknown[][] }>(`/workspace/report-databases/${id}/preview/`, { label: settled.label || 'Dataset', source: chosen, joins: settled.joins, fields: settled.fields }),
-    enabled: Boolean(id && chosen && settled.fields.length > 0), retry: false, placeholderData: (previous) => previous,
+    queryKey: ['workspace', 'report-database', id, 'preview', chosen ?? existing.data?.id, settled],
+    queryFn: () => api.post<{ columns: { key: string; label: string; masked: boolean }[]; rows: unknown[][] }>(`/workspace/report-databases/${id}/preview/`,
+      fromQuery ? { label: settled.label || 'Dataset', sql: existing.data?.query_sql, fields: settled.fields } : { label: settled.label || 'Dataset', source: chosen, joins: settled.joins, fields: settled.fields }),
+    enabled: Boolean(id && (chosen || fromQuery) && settled.fields.length > 0), retry: false, placeholderData: (previous) => previous,
   })
   const save = useMutation({
     mutationFn: () => {
-      const body = { label: label.trim(), description: description.trim(), source: chosen, joins: currentJoins, primary_key: primaryKey || null, time_field: timeField || null, fields }
+      const body = fromQuery && existing.data ? { label: label.trim(), description: description.trim(), sql: existing.data.query_sql, primary_key: primaryKey || null, time_field: timeField || null, fields }
+        : { label: label.trim(), description: description.trim(), source: chosen, joins: currentJoins, primary_key: primaryKey || null, time_field: timeField || null, fields }
       return existing.data ? api.put<ReportDataset>(`/workspace/report-databases/datasets/${existing.data.id}/`, { ...body, row_version: existing.data.row_version }) : api.post<ReportDataset>(`/workspace/report-databases/${id}/datasets/`, body)
     },
     onSuccess: (saved) => { toast.success(existing.data ? 'The dataset was saved' : `${saved.label} is ready`, existing.data ? undefined : 'It is in New Report for this workspace.'); void queryClient.invalidateQueries({ queryKey: DATABASES_KEY }); void queryClient.invalidateQueries({ queryKey: ['insights', 'catalog'] }); navigate('/settings/report-databases') },
@@ -135,8 +143,15 @@ export function MapDatasetPage() {
       </div>
       {!db.usable && <ErrorState title="This database cannot be read yet" error={new Error(db.read_only === false ? 'The account can write. Give the engine a SELECT-only account and test the connection again.' : 'Test the connection first.')} />}
 
-      <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside aria-label="Tables and views" className="flex flex-col gap-2">
+      <div className={`grid gap-4 ${fromQuery ? '' : 'lg:grid-cols-[300px_minmax(0,1fr)]'}`}>
+        {fromQuery && existing.data && (
+          <div className="rounded-md border border-line bg-surface-subtle p-3 text-sm">
+            <p className="font-semibold text-ink-900">From a query <Link to={`/settings/report-databases/${id}/query/${existing.data.id}`} className="ml-2 text-xs font-normal text-brand-800 hover:underline">Edit Query</Link></p>
+            <pre className="mt-1 max-h-40 overflow-auto font-mono text-xs leading-relaxed text-ink-800">{existing.data.query_sql}</pre>
+            <p className="mt-1 text-xs text-ink-800">The columns below are what the query gives. Name them, choose their calculations and mark personal ones; the engine reads the query as the dataset's source.</p>
+          </div>
+        )}
+        {!fromQuery && <aside aria-label="Tables and views" className="flex flex-col gap-2">
           <label className="relative">
             <span className="sr-only">Search tables and views</span>
             <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-700" />
@@ -167,14 +182,14 @@ export function MapDatasetPage() {
             </div>
           )}
           <p className="text-xs text-ink-800">The base table is the first you pick; Add a Join brings in another table's columns on a key. A view that already joins the tables is the simplest source.</p>
-        </aside>
+        </aside>}
 
         <section className="min-w-0 space-y-3">
-          {!chosen ? (
+          {!chosen && !fromQuery ? (
             <EmptyState title="Pick a table or view" hint="Its columns appear here, each one a field you name. Join other tables to it when a report needs their columns." />
-          ) : columns.isError ? (
+          ) : !fromQuery && columns.isError ? (
             <ErrorState title="The columns could not be read" error={columns.error} onRetry={() => void columns.refetch()} />
-          ) : columns.isPending ? (
+          ) : !fromQuery && columns.isPending ? (
             <Spinner label="Reading the columns" />
           ) : (
             <>
@@ -183,12 +198,12 @@ export function MapDatasetPage() {
                 <Field label="Description" error={errors.description}>{({ id: fid, describedBy, invalid }) => <TextInput id={fid} describedBy={describedBy} invalid={invalid} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} />}</Field>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {!fromQuery && <div className="flex flex-wrap items-center gap-2">
                 {tables.map((t) => <span key={t.alias} className={`inline-flex h-6 items-center rounded-sm px-2 font-mono text-xs font-semibold ${toneOf(t.alias)}`}>{t.table}{t.alias === 't0' ? ' · base' : ''}</span>)}
                 <span className="text-xs text-ink-800">{currentJoins.length === 0 ? 'No join yet.' : `${currentJoins.length} of up to ${MAX_JOINS} joins`}</span>
                 <Button variant="secondary" size="sm" className="ml-auto" disabled={currentJoins.length >= MAX_JOINS || !db.usable} onClick={() => setAdding({ to: 't0' })}><Plus size={14} strokeWidth={1.5} aria-hidden />Add a Join</Button>
-              </div>
-              <Diagram tables={tables} joins={currentJoins} rows={rows} columnsByTable={columnsByTable} toneOf={toneOf} onToggle={(table, column, use) => update(table, column, { use })} onRemove={removeJoin} onJoinTo={(alias) => setAdding({ to: alias })} canJoin={currentJoins.length < MAX_JOINS && db.usable} />
+              </div>}
+              {!fromQuery && <Diagram tables={tables} joins={currentJoins} rows={rows} columnsByTable={columnsByTable} toneOf={toneOf} onToggle={(table, column, use) => update(table, column, { use })} onRemove={removeJoin} onJoinTo={(alias) => setAdding({ to: alias })} canJoin={currentJoins.length < MAX_JOINS && db.usable} />}
               {errors.joins && <p className="text-sm text-danger-text">{errors.joins}</p>}
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -242,7 +257,7 @@ export function MapDatasetPage() {
               )}
               <div className="flex justify-end gap-2">
                 <Link to="/settings/report-databases" className={buttonSecondary}>Cancel</Link>
-                <button type="button" className={buttonPrimary} disabled={save.isPending || !label.trim() || fields.length === 0 || !db.usable} onClick={() => save.mutate()}>Save Dataset</button>
+                <button type="button" className={buttonPrimary} disabled={save.isPending || !label.trim() || fields.length === 0 || !db.usable} onClick={() => save.mutate()}>{fromQuery ? 'Save Fields' : 'Save Dataset'}</button>
               </div>
             </>
           )}

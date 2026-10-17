@@ -86,6 +86,45 @@ def test_mysql_dialect(check):
                                     "fields": [{"column": "net_sales", "label": "Net Sales", "type": "number", "role": "measure", "aggregates": ["sum"]}, {"column": "name", "label": "Store Name", "type": "string", "role": "dimension", "table": "t1"}]}, None)
     check("a joined mapping keeps each field's table, the base by default", [(f["table"], f["column"]) for f in body["fields"]] == [("t0", "net_sales"), ("t1", "name")] and body["joins"][0]["alias"] == "t1")
 
+    # the query window's guard
+    ok_sql = external.check_sql("SELECT s.name, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id WHERE l.note = 'set; delete' -- into the night\nGROUP BY s.name ORDER BY net_sales DESC;")
+    check("one SELECT passes, with its trailing semicolon trimmed and words inside strings and comments ignored", ok_sql.endswith("ORDER BY net_sales DESC") and "delete" in ok_sql)
+    check("a WITH … SELECT passes", external.check_sql("WITH t AS (SELECT 1 AS x) SELECT x FROM t").startswith("WITH"))
+    refusals = {}
+    for sql in ("SELECT * FROM stores; DELETE FROM stores WHERE id = 12", "DELETE FROM stores", "SELECT name, LOAD_FILE('/etc/passwd') FROM stores", "SELECT * INTO OUTFILE '/tmp/x' FROM stores",
+                "SELECT pg_sleep(10)", "", "UPDATE stores SET name = 'x'", "SELECT * FROM stores LOCK IN SHARE MODE"):
+        try:
+            external.check_sql(sql)
+            refusals[sql] = None
+        except external.ExternalError as exc:
+            refusals[sql] = str(exc)
+    check("a second statement, a write, a file function, INTO OUTFILE, pg_sleep, an empty window, UPDATE and LOCK are refused with the reason",
+          all(refusals.values()) and "second statement" in refusals["SELECT * FROM stores; DELETE FROM stores WHERE id = 12"] and "one SELECT" in refusals["DELETE FROM stores"] and "UPDATE" in refusals["UPDATE stores SET name = 'x'"] if False else
+          all(refusals.values()) and "second statement" in refusals["SELECT * FROM stores; DELETE FROM stores WHERE id = 12"] and "one SELECT" in refusals["DELETE FROM stores"] and "one SELECT" in refusals["UPDATE stores SET name = 'x'"]
+          and "LOAD_FILE" in refusals["SELECT name, LOAD_FILE('/etc/passwd') FROM stores"] and "INTO" in refusals["SELECT * INTO OUTFILE '/tmp/x' FROM stores"]
+          and "pg_sleep" in refusals["SELECT pg_sleep(10)"] and "LOCK" in refusals["SELECT * FROM stores LOCK IN SHARE MODE"], str(refusals))
+    check("REPLACE() the function and OFFSET are fine", external.check_sql("SELECT REPLACE(name, 'a', 'b') AS n FROM stores OFFSET 10").startswith("SELECT"))
+
+    # a dataset from a query: the compiler wraps the SELECT, keeping its % out of the parameter marks
+    q_own = {**OWN, "source": "nwa_ops.query", "query": "SELECT s.name AS store_name, DATE(l.sold_at) AS sale_day, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id WHERE s.name LIKE '%town%' GROUP BY 1, 2",
+             "fields": [{**OWN["fields"][0], "table": "t0"}, {**OWN["fields"][1], "table": "t0"}, {**OWN["fields"][3], "table": "t0"}]}
+    dq = definition.validate(q_own, {"columns": [{"field": "store_name"}, {"field": "net_sales", "aggregate": "sum"}], "filters": {"combinator": "and", "rules": [{"field": "store_name", "operator": "contains", "value": "Down"}]}})
+    oq = compiler.compile(q_own, dq, "a0000000-0000-4000-8000-000000000001", "America/New_York", limit=10, dialect="mysql")
+    check("the engine reads FROM (the query) AS t0 with the report's own WHERE, GROUP BY and LIMIT around it, the query's % doubled for the driver",
+          oq.sql.startswith("SELECT `t0`.`store_name` AS `c0`, sum(`t0`.`net_sales`) AS `c1` FROM (SELECT s.name AS store_name, DATE(l.sold_at) AS sale_day, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id WHERE s.name LIKE '%%town%%' GROUP BY 1, 2) AS `t0` WHERE (`t0`.`store_name` LIKE %s) GROUP BY 1")
+          and oq.params[0] == "%Down%", oq.sql)
+    body = databases._dataset_body({"label": "Paid Sales", "sql": "SELECT name AS store_name, SUM(x) AS total FROM t GROUP BY name", "fields": [{"column": "store_name", "label": "Store Name", "type": "string", "role": "dimension"}, {"column": "total", "label": "Total", "type": "number", "role": "measure", "aggregates": ["sum"]}]}, None)
+    check("a query mapping keeps the checked SQL, no table and no joins, every field on t0", body["query_sql"].startswith("SELECT name") and body["source_name"] == "query" and body["joins"] == [] and all(f["table"] == "t0" for f in body["fields"]))
+    try:
+        databases._dataset_body({"label": "Bad", "sql": "DROP TABLE t", "fields": [{"column": "a", "label": "A", "type": "string", "role": "dimension"}]}, None)
+        check("a query mapping with a refused SELECT is refused", False)
+    except Exception as exc:                                        # noqa: BLE001
+        check("a query mapping with a refused SELECT is refused", "sql" in getattr(exc, "detail", {}))
+    fields = databases._fields_from_columns([{"column": "store_name", "type": "string", "role": "dimension", "aggregates": [], "format": None, "mappable": True},
+                                             {"column": "net_sales", "type": "number", "role": "measure", "aggregates": ["sum", "avg", "min", "max"], "format": "money", "mappable": True},
+                                             {"column": "sum(x)", "type": "number", "role": "measure", "aggregates": ["sum"], "format": "integer", "mappable": False}])
+    check("a query's result gives default fields: labels from the names, only columns that can be named", [(f["column"], f["label"]) for f in fields] == [("store_name", "Store Name"), ("net_sales", "Net Sales")] and fields[1]["role"] == "measure")
+
     read_only, offending = external._grants(_Cursor([("GRANT USAGE ON *.* TO `cep_reader`@`%`",), ("GRANT SELECT, SHOW VIEW ON `nwa_ops`.* TO `cep_reader`@`%`",)]))
     check("an account with SELECT, SHOW VIEW and USAGE is read-only", read_only and offending == [])
     read_only, offending = external._grants(_Cursor([("GRANT USAGE ON *.* TO 'loyalty_app'@'%'",), ("GRANT SELECT, INSERT, UPDATE ON `loyalty`.* TO 'loyalty_app'@'%'",),
@@ -256,4 +295,32 @@ def test_api(check, world, monkeypatch):
     world.api("post", f"/api/v1/insights/reports/{jr['id']}/run/", {})
     query = next(c for c in calls if c[0] == "query")
     check("a run on it joins the tables as mapped", query[1].startswith('SELECT "t1"."name" AS "c0", sum("t0"."net_sales") AS "c1" FROM "analytics"."v_points" AS "t0" LEFT JOIN "analytics"."stores" AS "t1" ON "t0"."store_id" = "t1"."id" WHERE 1 = 1'), query[1])
+
+    # the query window: Run, a dataset from the query, the catalogue hiding the SQL, a report run wrapping it
+    def fake_run_sql(row, sql, *, limit=200, timeout_ms=15000, zone=None):
+        clean = external.check_sql(sql)
+        calls.append(("run_sql", clean, limit))
+        return {"columns": [{"column": "store_name", "column_type": "varchar", "key": False, "mappable": True, "type": "string", "role": "dimension", "aggregates": [], "format": None},
+                            {"column": "net_sales", "column_type": "decimal", "key": False, "mappable": True, "type": "number", "role": "measure", "aggregates": ["sum", "avg", "min", "max"], "format": "money"}],
+                "rows": [["Downtown", 28660.0], ["Riverside", 19802.0]][:limit], "truncated": False, "ms": 212, "sql": clean}
+
+    monkeypatch.setattr(external, "run_sql", fake_run_sql)
+    targets = world.api("get", "/api/v1/workspace/report-databases/targets/").json()
+    check("a report author sees the databases to query by name, nothing of the account", [t["name"] for t in targets["databases"]] == ["Loyalty Warehouse"] and "username" not in json.dumps(targets))
+    refused = world.api("post", f"/api/v1/workspace/report-databases/{pg['id']}/query/run/", {"sql": "SELECT * FROM stores; DROP TABLE stores"})
+    check("Run refuses a second statement with the reason under sql", refused.status_code == 400 and "second statement" in refused.json()["errors"]["sql"], str(refused.content[:200]))
+    ran = world.api("post", f"/api/v1/workspace/report-databases/{pg['id']}/query/run/", {"sql": "SELECT s.name AS store_name, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id GROUP BY s.name;"}).json()
+    check("Run gives the typed columns, the rows, the time and the default fields", ran["rows"] == [["Downtown", 28660.0], ["Riverside", 19802.0]] and ran["ms"] == 212 and [f["label"] for f in ran["fields"]] == ["Store Name", "Net Sales"]
+          and calls[-1][0] == "run_sql" and calls[-1][2] == 200, json.dumps(ran)[:300])
+    made = world.api("post", f"/api/v1/workspace/report-databases/{pg['id']}/query/dataset/", {"label": "Paid Sales by Store", "sql": "SELECT s.name AS store_name, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id GROUP BY s.name"})
+    qd = made.json()
+    check("Create Report's first step: a dataset from the query with default fields", made.status_code == 201 and qd["kind"] == "query" and qd["source"] == "query" and [f["key"] for f in qd["fields"]] == ["store_name", "net_sales"]
+          and qd["fields"][1]["role"] == "measure" and qd["query_sql"].startswith("SELECT s.name"), str(made.content[:300]))
+    own = next(d for d in world.api("get", "/api/v1/insights/catalog/").json()["datasets"] if d["key"] == qd["key"])
+    check("the catalogue offers it without the SQL", own["kind"] == "query" and "query" not in own and own["fields"][0]["table"] == "t0", json.dumps(own)[:300])
+    qr = world.api("post", "/api/v1/insights/reports/", {"name": "Paid Sales by Store", "dataset": qd["key"], "definition": {"columns": [{"field": "store_name"}, {"field": "net_sales", "aggregate": "sum"}], "filters": {"combinator": "and", "rules": []}}}).json()
+    calls.clear()
+    world.api("post", f"/api/v1/insights/reports/{qr['id']}/run/", {})
+    query = next(c for c in calls if c[0] == "query")
+    check("a report on it runs the engine's SELECT around the query", query[1].startswith('SELECT "t0"."store_name" AS "c0", sum("t0"."net_sales") AS "c1" FROM (SELECT s.name AS store_name, SUM(l.net_amount) AS net_sales FROM sales_lines l JOIN stores s ON s.id = l.store_id GROUP BY s.name) AS "t0" WHERE 1 = 1'), query[1])
     check.done()

@@ -165,6 +165,9 @@ def _escape_like(value: str) -> str:
 
 
 def _from(dataset: dict, dialect: str) -> str:
+    if dataset.get("query"):                                     # a dataset from a query: the checked SELECT as a subquery, its % kept out of the parameter marks
+        text = dataset["query"].replace("%", "%%") if dialect in POSITIONAL else dataset["query"]
+        return f"({text}) AS {_ident('t0', dialect)}"
     if dataset.get("joins"):
         return join_clause(dataset["source"], dataset["joins"], dialect)
     return f"{_source(dataset['source'])} FINAL" if dialect == "clickhouse" else _source(dataset["source"], dialect)

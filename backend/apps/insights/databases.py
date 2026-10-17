@@ -11,6 +11,10 @@ Report see it like any dataset; the runner reads it through apps/insights/extern
     GET             /workspace/report-databases/<id>/sources/<name>/   its columns, typed, with a few rows
     POST            /workspace/report-databases/<id>/preview/          {source, joins, fields} the first rows with the labels applied
     POST            /workspace/report-databases/<id>/join-check/       {source, joins} what the last join does to the rows
+    GET             /workspace/report-databases/targets/               the databases a report author may query (report.edit)
+    POST            /workspace/report-databases/<id>/query/run/        {sql} the query window's Run: one SELECT checked, wrapped, the first rows typed
+    POST            /workspace/report-databases/<id>/query/write/      {prompt, model} Write It for Me: SQL from the AI assistant, never run
+    POST            /workspace/report-databases/<id>/query/dataset/    {label, sql, fields?} a dataset from the query (report.edit)
     POST            /workspace/report-databases/<id>/datasets/         a dataset mapped from a table or view
     GET, PUT, DELETE /workspace/report-databases/datasets/<id>/
 
@@ -40,6 +44,7 @@ from apps.reporting import reports
 from apps.tenants import context
 
 ADMIN = [IsAuthenticated, SameTenant, HasPermissionCode.for_("user.admin")]
+BUILDER = [IsAuthenticated, SameTenant, HasPermissionCode.for_("report.edit") | HasPermissionCode.for_("user.admin")]   # the query window and the schema it reads
 ENGINES = ("mysql57", "mysql80", "postgresql")
 SSL_MODES = ("REQUIRED", "PREFERRED", "OFF")
 TYPES = ("string", "number", "date", "datetime", "boolean")
@@ -76,7 +81,7 @@ def datasets(tenant_id, connection_id=None) -> list[dict]:
     where, args = "tenant_id = %s", [str(tenant_id)]
     if connection_id:
         where += " AND connection_id = %s"; args.append(str(connection_id))
-    rows = _q(f"""SELECT id::text, connection_id::text, key, label, description, component_key, source_name, primary_key, time_field, fields, joins, status, created_at, updated_at, row_version
+    rows = _q(f"""SELECT id::text, connection_id::text, key, label, description, component_key, source_name, primary_key, time_field, fields, joins, query_sql, status, created_by::text, created_at, updated_at, row_version
                     FROM report_dataset_custom WHERE {where} ORDER BY label""", args)
     for row in rows:
         row["fields"] = json.loads(row["fields"]) if isinstance(row["fields"], str) else (row["fields"] or [])
@@ -104,12 +109,13 @@ def custom_datasets(tenant_id) -> list[dict]:
             continue
         schema = external.schema_of(conn)
         joins = row["joins"] or []
-        fields = [{"key": f["key"], "label": f["label"], "column": f["column"], **({"table": f.get("table") or "t0"} if joins else {}), "type": f["type"], "role": f["role"],
+        query = row.get("query_sql") or None
+        fields = [{"key": f["key"], "label": f["label"], "column": f["column"], **({"table": f.get("table") or "t0"} if joins or query else {}), "type": f["type"], "role": f["role"],
                    "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
                    "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL"} for f in row["fields"]]
         data.append({"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row["component_key"], "name": "Engagement"},
                      "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
-                     "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins],
+                     "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
                      "workspace_field": None, "engine": "postgresql" if external.is_pg(conn) else "mysql", "external": True, "fields": fields,
                      "database": {"id": conn["id"], "name": conn["name"], "engine": conn["engine"], "engine_name": external.ENGINES.get(conn["engine"], conn["engine"])},
                      "connection": conn})
@@ -135,7 +141,8 @@ def serialize_connection(row: dict, with_datasets: list[dict] | None = None, cou
 def serialize_dataset(row: dict, counts: dict | None = None) -> dict:
     fields = row["fields"]
     return {"id": row["id"], "connection_id": row["connection_id"], "key": row["key"], "label": row["label"], "description": row["description"], "source": row["source_name"],
-            "joins": row.get("joins") or [], "primary_key": row["primary_key"], "time_field": row["time_field"], "fields": fields, "field_count": len(fields), "pii_count": sum(1 for f in fields if f.get("sensitivity") == "PII"),
+            "joins": row.get("joins") or [], "kind": "query" if row.get("query_sql") else "table", "query_sql": row.get("query_sql"), "created_by": row.get("created_by"),
+            "primary_key": row["primary_key"], "time_field": row["time_field"], "fields": fields, "field_count": len(fields), "pii_count": sum(1 for f in fields if f.get("sensitivity") == "PII"),
             "reports": (counts or {}).get(row["key"], 0), "status": row["status"], "updated_at": row["updated_at"], "row_version": row["row_version"]}
 
 
@@ -213,10 +220,16 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
     if not label or len(label) > 100:
         errors["label"] = "Give the dataset a name of up to 100 characters."
     description = " ".join(str(body.get("description") or "").split())[:300] or None if "description" in body else (current or {}).get("description")
-    source = str(body.get("source") or (current or {}).get("source_name") or "").strip()
-    if not external.IDENT.match(source):
+    query_sql = None
+    if "sql" in body or (current or {}).get("query_sql"):
+        try:
+            query_sql = external.check_sql(str(body.get("sql") if "sql" in body else (current or {}).get("query_sql") or ""))
+        except external.ExternalError as exc:
+            errors["sql"] = str(exc)
+    source = "query" if query_sql or "sql" in body else str(body.get("source") or (current or {}).get("source_name") or "").strip()
+    if source != "query" and not external.IDENT.match(source):
         errors["source"] = "A table or view named with letters, digits and underscores."
-    joins = _joins_body(body.get("joins") if "joins" in body else (current or {}).get("joins"), errors)
+    joins = [] if source == "query" else _joins_body(body.get("joins") if "joins" in body else (current or {}).get("joins"), errors)
     aliases = {"t0", *(j["alias"] for j in joins)}
     raw = body.get("fields") if "fields" in body else (current or {}).get("fields")
     fields, keys = [], set()
@@ -257,7 +270,7 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
                 errors[f"{at}.aggregates"] = "Pick at least one calculation."
             if sensitivity not in SENSITIVITIES:
                 errors[f"{at}.sensitivity"] = "Normal, Personal or Confidential."
-            fields.append({"key": fkey, "label": flabel, "column": column, **({"table": table} if joins else {}), "type": type_, "role": role, "aggregates": aggregates, "format": format_, "sensitivity": sensitivity})
+            fields.append({"key": fkey, "label": flabel, "column": column, **({"table": table} if joins or source == "query" else {}), "type": type_, "role": role, "aggregates": aggregates, "format": format_, "sensitivity": sensitivity})
     primary_key = str(body.get("primary_key") or "").strip() or None if "primary_key" in body else (current or {}).get("primary_key")
     time_field = str(body.get("time_field") or "").strip() or None if "time_field" in body else (current or {}).get("time_field")
     if primary_key and primary_key not in keys:
@@ -266,7 +279,15 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
         errors["time_field"] = "The time field is a date field."
     if errors:
         raise ValidationError(errors)
-    return {"label": label, "description": description, "source_name": source, "fields": fields, "joins": joins, "primary_key": primary_key, "time_field": time_field}
+    return {"label": label, "description": description, "source_name": source, "fields": fields, "joins": joins, "query_sql": query_sql, "primary_key": primary_key, "time_field": time_field}
+
+
+def _fields_from_columns(columns: list[dict]) -> list[dict]:
+    """the fields a query's result gives by default: every mappable column, labelled from its name, typed from its values"""
+    def words(name: str) -> str:
+        return " ".join(part.capitalize() for part in re.split(r"[_\s]+", name) if part)
+    return [{"column": c["column"], "label": words(c["column"]), "type": c["type"], "role": c["role"], "aggregates": c["aggregates"], "format": c["format"], "sensitivity": "NORMAL", "table": "t0"}
+            for c in columns if c.get("mappable")]
 
 
 def _joins_body(raw, errors: dict) -> list[dict]:
@@ -406,7 +427,7 @@ class DatabaseView(APIView):
 
 
 class SourcesView(APIView):
-    permission_classes = ADMIN
+    permission_classes = BUILDER
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None, connection_id=None, source=None):
@@ -463,6 +484,103 @@ class PreviewView(APIView):
                          "rows": [["•••••" if i in pii and r[i] is not None else _json_safe(r[i]) for i in keep] for r in rows]})
 
 
+class QueryTargetsView(APIView):
+    """The databases a report author may query: the usable ones, by name; nothing of the account."""
+    permission_classes = BUILDER
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None):
+        tenant = _tenant()
+        if not _present():
+            return Response({"databases": []})
+        rows = [r for r in connections(tenant.pk) if r["status"] == "ACTIVE" and r["password_enc"] and r["read_only"] is not False]
+        return Response({"databases": [{"id": r["id"], "name": r["name"], "engine": r["engine"], "engine_name": external.ENGINES.get(r["engine"], r["engine"]), "database_name": r["database_name"],
+                                        "schema_name": r["schema_name"]} for r in rows]})
+
+
+class QueryRunView(APIView):
+    """The query window's Run."""
+    permission_classes = BUILDER
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None, connection_id=None):
+        tenant = _tenant()
+        row = connection(tenant.pk, connection_id)
+        _usable(row)
+        body = request.data if isinstance(request.data, dict) else {}
+        sql = str(body.get("sql") or "")
+        if len(sql) > 20_000:
+            raise ValidationError({"sql": "A query of up to 20,000 characters."})
+        limits = catalog.engine_of(tenant.pk)["limits"]
+        try:
+            out = external.run_sql(row, sql, limit=min(int(body.get("limit") or external.QUERY_ROWS), limits["preview_rows"]), timeout_ms=limits["statement_timeout_ms"], zone=reports.zone_of(tenant).key)
+        except external.ExternalError as exc:
+            raise ValidationError({"sql": str(exc)}) from None
+        return Response({**out, "rows": [[_json_safe(v) for v in r] for r in out["rows"]], "fields": _fields_from_columns(out["columns"])})
+
+
+class QueryWriteView(APIView):
+    """Write It for Me: SQL from the AI assistant, put in the window and never run by itself."""
+    permission_classes = BUILDER
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None, connection_id=None):
+        from apps.insights import assistant
+        tenant = _tenant()
+        row = connection(tenant.pk, connection_id)
+        _usable(row)
+        body = request.data if isinstance(request.data, dict) else {}
+        prompt = " ".join(str(body.get("prompt") or "").split())
+        if not prompt or len(prompt) > assistant.PROMPT_MAX:
+            raise ValidationError({"prompt": f"Say what the query should give, in up to {assistant.PROMPT_MAX} characters."})
+        try:
+            schema = external.sources(row)
+        except external.ExternalError as exc:
+            raise Conflict(str(exc)) from None
+        wanted = [s["name"] for s in schema if s["mappable"]][:60]
+        described = []
+        for name in wanted:
+            try:
+                cols = external.columns(row, name)
+            except external.ExternalError:
+                continue
+            described.append(f"- {name}: " + ", ".join(f"{c['column']} {c['column_type']}" for c in cols[:60]))
+        try:
+            out = assistant.write_sql(tenant, request, prompt, str(body.get("model") or ""), dialect_name=external.ENGINES.get(row["engine"], row["engine"]), schema_text="\n".join(described))
+        except assistant.AssistantError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response(out)
+
+
+class QueryDatasetView(APIView):
+    """A dataset from the query: its fields from the result when none are given (New Report's Create Report), else as mapped."""
+    permission_classes = BUILDER
+
+    @extend_schema(request=None, responses={201: None})
+    def post(self, request, version=None, connection_id=None):
+        tenant = _tenant()
+        row = connection(tenant.pk, connection_id)
+        _usable(row)
+        body = dict(request.data) if isinstance(request.data, dict) else {}
+        if not body.get("fields"):
+            try:
+                out = external.run_sql(row, str(body.get("sql") or ""), limit=20, timeout_ms=catalog.engine_of(tenant.pk)["limits"]["statement_timeout_ms"], zone=reports.zone_of(tenant).key)
+            except external.ExternalError as exc:
+                raise ValidationError({"sql": str(exc)}) from None
+            body["fields"] = _fields_from_columns(out["columns"])
+            if not body["fields"]:
+                raise ValidationError({"sql": "The query gives no column that can be a field: name each column with letters, digits and underscores (AS total_sales)."})
+        data = _dataset_body({**body, "sql": str(body.get("sql") or "")}, None)
+        dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
+        with session.tx():
+            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+               [dataset_id, str(tenant.pk), str(connection_id), key, data["label"], data["description"], "query", data["primary_key"], data["time_field"], json.dumps(data["fields"]),
+                "[]", data["query_sql"], str(request.user.pk), str(request.user.pk)])
+        invalidate(tenant.pk)
+        return Response(serialize_dataset(next(d for d in datasets(tenant.pk, connection_id) if d["id"] == dataset_id)), status=status.HTTP_201_CREATED)
+
+
 class JoinCheckView(APIView):
     """What the last join in the list does to the rows, before it is added."""
     permission_classes = ADMIN
@@ -501,10 +619,10 @@ class DatasetsView(APIView):
         data = _dataset_body(request.data if isinstance(request.data, dict) else {}, None)
         dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
         with session.tx():
-            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, created_by, updated_by)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                [dataset_id, str(tenant.pk), str(connection_id), key, data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]),
-                json.dumps(data["joins"]), str(request.user.pk), str(request.user.pk)])
+                json.dumps(data["joins"]), data["query_sql"], str(request.user.pk), str(request.user.pk)])
         invalidate(tenant.pk)
         return Response(serialize_dataset(next(d for d in datasets(tenant.pk, connection_id) if d["id"] == dataset_id)), status=status.HTTP_201_CREATED)
 
@@ -532,9 +650,9 @@ class DatasetView(APIView):
             raise Conflict("The dataset changed since you opened it. Reload and try again.")
         data = _dataset_body(body, current)
         with session.tx():
-            _q("""UPDATE report_dataset_custom SET label = %s, description = %s, source_name = %s, primary_key = %s, time_field = %s, fields = %s, joins = %s, updated_by = %s, updated_at = now(),
+            _q("""UPDATE report_dataset_custom SET label = %s, description = %s, source_name = %s, primary_key = %s, time_field = %s, fields = %s, joins = %s, query_sql = %s, updated_by = %s, updated_at = now(),
                          row_version = row_version + 1 WHERE tenant_id = %s AND id = %s""",
-               [data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]), json.dumps(data["joins"]), str(request.user.pk), str(tenant.pk), str(dataset_id)])
+               [data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]), json.dumps(data["joins"]), data["query_sql"], str(request.user.pk), str(tenant.pk), str(dataset_id)])
         invalidate(tenant.pk)
         return Response(serialize_dataset(self._row(tenant.pk, dataset_id), _report_counts(tenant.pk)))
 

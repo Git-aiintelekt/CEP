@@ -38,6 +38,7 @@ import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { PlanUsagePage } from './pages/settings/PlanUsagePage'
 import { PosReceiptsPage } from './pages/settings/PosReceiptsPage'
 import { AiAssistantPage } from './pages/settings/AiAssistantPage'
+import { QueryBuilderPage } from '@/apps/insights/pages/QueryBuilderPage'
 import { MapDatasetPage } from './pages/settings/MapDatasetPage'
 import { PreferenceCenterPage } from './pages/settings/PreferenceCenterPage'
 import { ReportDatabasesPage } from './pages/settings/ReportDatabasesPage'
@@ -114,6 +115,8 @@ export default function CepRoutes() {
           <Route path="report-databases" element={<ReportDatabasesPage />} />
           <Route path="report-databases/:id/map" element={<MapDatasetPage />} />
           <Route path="report-databases/:id/map/:datasetId" element={<MapDatasetPage />} />
+          <Route path="report-databases/:dbId/query" element={<QueryBuilderPage settings />} />
+          <Route path="report-databases/:dbId/query/:datasetId" element={<QueryBuilderPage settings />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>
