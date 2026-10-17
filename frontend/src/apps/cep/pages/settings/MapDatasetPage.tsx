@@ -26,7 +26,7 @@ const AGG_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count
 const SENS_LABEL = { NORMAL: 'Normal', PII: 'Personal', CONFIDENTIAL: 'Confidential' } as const
 const MAX_JOINS = 5
 /** the table badges: the base, then one tone per join */
-const TONES = ['bg-fill-subtle text-ink-900', 'bg-brand-100 text-brand-800', 'bg-teal-100 text-teal-700', 'bg-plum-100 text-plum-700', 'bg-warning-bg text-warning-text', 'bg-success-bg text-success-text']
+const TONES = ['bg-fill-subtle text-ink-900', 'bg-brand-100 text-brand-800', 'bg-callout-bg text-callout-text', 'bg-plum-100 text-plum-700', 'bg-warning-bg text-warning-text', 'bg-success-bg text-success-text']
 type Row = ReportDatasetField & { use: boolean; column_type: string; mappable: boolean; table: string }
 type Columns = SourceColumns['columns']
 type TableRef = { alias: string; table: string; to: string | null }

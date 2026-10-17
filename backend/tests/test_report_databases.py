@@ -157,7 +157,7 @@ def test_api(check, world, monkeypatch):
     monkeypatch.setattr(external, "columns", lambda row, source: [{"column": "sale_day", "column_type": "date", "key": False, "mappable": True, "type": "date", "role": "dimension", "aggregates": [], "format": "date"},
                                                                   {"column": "store_name", "column_type": "varchar(80)", "key": False, "mappable": True, "type": "string", "role": "dimension", "aggregates": [], "format": None},
                                                                   {"column": "net_sales", "column_type": "decimal(12,2)", "key": False, "mappable": True, "type": "number", "role": "measure", "aggregates": ["sum", "avg", "min", "max"], "format": "money"}])
-    monkeypatch.setattr(external, "sample", lambda row, source, names, limit=5, zone=None: [["2026-10-15", "Downtown", 9420.0]][:limit])
+    monkeypatch.setattr(external, "sample", lambda row, source, names, limit=5, zone=None, joins=None: [["2026-10-15", "Downtown", 9420.0]][:limit])
 
     def fake_query(row, sql, params, *, timeout_ms, zone=None):
         calls.append(("query", sql, list(params), crypto.decrypt(row["password_enc"]), zone))
