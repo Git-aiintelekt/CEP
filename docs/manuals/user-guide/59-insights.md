@@ -2,6 +2,24 @@
 
 **Where:** Insights, in the app launcher (the grid icon at the top left), and the Insights item in Engagement's menu, which opens the same reports.
 
+## Step by step: the AI features
+
+**Ask for a Report** (anyone who can build reports)
+
+1. Open Insights → Reports. The Ask for a Report box sits above the list; it is there once your platform has switched on an AI provider and your workspace allows it.
+2. Write what you want to see in your own words, pick a model beside Generate, and press **Generate Report** (or Ctrl+Enter).
+3. Read what comes back. A **draft**: check its name, view, data, rows, columns, values and filter, then **Open in Editor** to make it a private report of yours and open the editor. **One question first**: press the answer that fits; answering does not cost a prompt. **No field for this**: pick one of the closest prompts, or ask your platform team to map the data.
+4. Your recent prompts sit under the box, each with the report it became. The line at the top right counts the month's prompts against your plan; only a draft counts.
+
+**Use AI in your workspace** (workspace administrator)
+
+1. Open Settings → AI Assistant. **Use AI in Reports** is on by default; switch it off to hide every AI feature and keep every prompt inside CEP.
+2. For each provider, allow or disallow it with its switch, or press **Use Your Own Key** (or **Add Your Own Key** when the platform does not offer it) to enter the workspace's own key and the two models, then **Check Connection**. The workspace's key wins over the platform's, and prompts on it are not counted against the plan.
+3. **Explain This Report** decides whether a report's totals may be sent to the model; personal-data fields are never sent.
+4. **AI Prompts This Month** shows the count against the plan.
+
+**Write It for Me** in the query window is described in the Report Databases chapter.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.
