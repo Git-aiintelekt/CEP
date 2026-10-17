@@ -138,6 +138,7 @@ For the platform team in the back-office. Built from `docs/manuals/platform-guid
   - Troubleshooting
   - Things to know
 - Report Datasets and Report Engines
+  - Step by step: a calculated measure
   - What these pages are for
   - How a report runs
   - Report Datasets
@@ -1194,6 +1195,16 @@ The jobs log (`jobs.log` on the application server) carries one line per pass wi
 # Report Datasets and Report Engines
 
 **Where:** Configuration → Report Datasets, and Configuration → Report Engines.
+
+## Step by step: a calculated measure
+
+1. Open Configuration → Report Datasets and open the dataset, such as Messages.
+2. On a new field row, give the key (delivered_rate) and the label (Delivered Rate), put the key in **Column name** too (a formula reads no column), set **Type** to number, **Role** to measure and the **Display format** (percent for a rate).
+3. Fill in **Formula**, for example:
+   `{"op": "ratio", "left": {"field": "delivered", "aggregate": "sum"}, "right": {"field": "sent", "aggregate": "sum"}, "scale": 100}`.
+   `op` is ratio, difference, sum or product; a side is a measure of the same dataset with one of its aggregates, or `{"value": 2}`; `scale` multiplies the result.
+4. Press **Save**. The form refuses a formula that does not fit the dataset's fields, and sets the row's aggregates to `calc` itself.
+5. Within a minute every workspace on the dataset finds it among the measures, with the calculation **Calculated**. Delivered, Open, Click and Bounce Rate, Average Order Value and Conversion Rate are already there.
 
 ## What these pages are for
 
