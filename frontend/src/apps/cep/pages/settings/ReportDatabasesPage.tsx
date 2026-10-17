@@ -88,6 +88,7 @@ export function ReportDatabasesPage() {
               <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
                 <Button variant="secondary" size="sm" loading={test.isPending && test.variables === db.id} onClick={() => test.mutate(db.id)}>Test Connection</Button>
                 {db.usable && <Link to={`/settings/report-databases/${db.id}/map`} className={`${buttonSecondary} h-8 px-3 text-xs`}>Map a Dataset</Link>}
+                {db.usable && <Link to={`/settings/report-databases/${db.id}/query`} className={`${buttonSecondary} h-8 px-3 text-xs`}>Query</Link>}
                 <Button variant="secondary" size="sm" onClick={() => setEditing(db)}>Edit</Button>
                 {!db.datasets?.length && <Button variant="danger" size="sm" disabled={remove.isPending} onClick={() => window.confirm(`Remove ${db.name}? The engine forgets the connection and its password.`) && remove.mutate(db.id)}>Remove</Button>}
               </div>
@@ -105,13 +106,13 @@ export function ReportDatabasesPage() {
               <tbody>
                 {datasets.map((d) => (
                   <tr key={d.id} className="border-t border-line-subtle">
-                    <td className="px-3 py-2"><span className="font-medium text-ink-900">{d.label}</span>{d.description && <span className="block text-xs text-ink-800">{d.description}</span>}</td>
+                    <td className="px-3 py-2"><span className="font-medium text-ink-900">{d.label}</span><span className="block text-xs text-ink-800">{[d.description, d.kind === 'query' ? 'From a query' : null].filter(Boolean).join(' · ')}</span></td>
                     <td className="px-3 py-2 text-ink-800">{d.database.name}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-ink-800">{d.source}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-ink-800">{d.kind === 'query' ? `query · ${d.field_count} columns` : d.joins.length ? `${d.source} + ${d.joins.length} join${d.joins.length === 1 ? '' : 's'}` : d.source}</td>
                     <td className="cep-num px-3 py-2 text-ink-800">{d.field_count}{d.pii_count ? ` · ${d.pii_count} personal` : ''}</td>
                     <td className="cep-num px-3 py-2 text-ink-800">{formatNumber(d.reports)}</td>
                     <td className="px-3 py-2"><Tag tone="success">Live</Tag></td>
-                    <td className="px-3 py-2 text-right"><Link to={`/settings/report-databases/${d.connection_id}/map/${d.id}`} className={`${buttonSecondary} h-8 px-3 text-xs`}>Edit Fields</Link></td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{d.kind === 'query' && <Link to={`/settings/report-databases/${d.connection_id}/query/${d.id}`} className={`${buttonSecondary} mr-1.5 h-8 px-3 text-xs`}>Edit Query</Link>}<Link to={`/settings/report-databases/${d.connection_id}/map/${d.id}`} className={`${buttonSecondary} h-8 px-3 text-xs`}>Edit Fields</Link></td>
                   </tr>
                 ))}
               </tbody>

@@ -205,4 +205,9 @@ write is recorded `read_only = false` and the connection cannot be used until it
 (requirements.txt); PostgreSQL uses the psycopg Django already has. A mapped dataset may join up to five tables
 (`report_dataset_custom.joins`, patch 0057: alias, table, left or inner, the alias joined to, the key pairs; each field
 carries its table's alias): `compiler.join_clause` writes the FROM as the base AS t0 with each join ON its keys, every
-column qualified, and `external.join_check` counts what a join does to the rows before it is added.
+column qualified, and `external.join_check` counts what a join does to the rows before it is added. A dataset may also be a
+query (`query_sql`, patch 0058): `external.check_sql` admits one SELECT (no second statement, no write, schema or file words,
+no file or system functions), `external.run_sql` runs it wrapped as `SELECT * FROM (…) AS q LIMIT n` on the read-only session and
+types the result's columns, and the compiler writes `FROM (query) AS t0` with the report's own clauses around it (the query's
+`%` doubled for the positional drivers). Report authors reach it from New Report → Query a Database (`QueryTargetsView`,
+`QueryRunView`, `QueryDatasetView`; `assistant.write_sql` for Write It for Me); the catalogue never carries the SQL.

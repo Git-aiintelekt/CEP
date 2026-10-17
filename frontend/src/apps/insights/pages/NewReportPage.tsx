@@ -3,7 +3,7 @@
  * columns (its dimensions, then its measures totalled) and opened in the viewer; the editor (the option still to be
  * chosen from docs/mockups/report-builder.html) takes it from there.
  */
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -12,14 +12,16 @@ import { PageHelp } from '@/apps/cep/help/HelpPanel'
 import { PageHeader } from '@/components/ResourceList'
 import { ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
+import { api } from '@/lib/api'
 import { insightsApi, useCatalog } from '../api'
 import { starterDefinition } from '../starter'
-import type { CatalogDataset } from '../types'
+import type { CatalogDataset, QueryTarget } from '../types'
 
 export function NewReportPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const catalog = useCatalog()
+  const targets = useQuery({ queryKey: ['workspace', 'report-databases', 'targets'], queryFn: ({ signal }) => api.get<{ databases: QueryTarget[] }>('/workspace/report-databases/targets/', undefined, signal), retry: false })
   const toast = useToast()
   const [dataset, setDataset] = useState<string>('')
   const [name, setName] = useState('')
@@ -57,6 +59,22 @@ export function NewReportPage() {
                 </div>
               </div>
             ))}
+            {(targets.data?.databases.length ?? 0) > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Query a Database</p>
+                <ul className="grid gap-2 sm:grid-cols-2" aria-label="Query a Database">
+                  {targets.data?.databases.map((t) => (
+                    <li key={t.id}><button type="button" onClick={() => navigate(`/insights/reports/new/query/${t.id}`)} className="flex w-full items-start gap-3 rounded-md border border-line bg-surface p-3 text-left transition-colors hover:bg-surface-hover">
+                      <span aria-hidden className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-100 text-[10px] leading-tight font-bold text-brand-800">{t.engine === 'postgresql' ? 'PG' : 'MY'}</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink-900">Query {t.name}</span>
+                        <span className="block text-xs text-ink-800">{t.engine_name} · {t.database_name}. Pick tables, joins, columns and calculations, or write the SELECT; the report is built on the result.</span>
+                      </span>
+                    </button></li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {own.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-semibold tracking-wide text-ink-800 uppercase">Your Databases</p>
@@ -66,7 +84,7 @@ export function NewReportPage() {
                       <input type="radio" name="dataset" value={d.key} checked={dataset === d.key} onChange={() => setDataset(d.key)} className="mt-1" />
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold text-ink-900">{d.label}</span>
-                        <span className="block text-xs text-ink-800">{[d.description, `${d.database?.name} (${d.database?.engine_name})`].filter(Boolean).join(' · ')}</span>
+                        <span className="block text-xs text-ink-800">{[d.description, `${d.database?.name} (${d.database?.engine_name})`, d.kind === 'query' ? 'from a query' : null].filter(Boolean).join(' · ')}</span>
                         <span className="mt-1 block text-xs text-ink-700">{d.fields.filter((f) => f.role === 'dimension').length} dimensions · {d.fields.filter((f) => f.role === 'measure').length} measures</span>
                       </span>
                     </label>

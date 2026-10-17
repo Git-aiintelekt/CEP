@@ -151,3 +151,59 @@ test('Option J2: Add a Join brings a second table in on a suggested key, checks 
   expect(posted.fields.filter((f) => f.table === 't1').map((f) => [f.column, f.label])).toEqual([['name', 'Store Name'], ['city', 'Store City']])
   expect(posted.fields.filter((f) => f.table === 't0').length).toBe(5)
 })
+
+const DB = { id: 'db-1', name: 'Store Operations', engine: 'mysql80' as const, engine_name: 'MySQL 8.0', host: 'ops-db.northwind.local', port: 3306, database_name: 'nwa_ops', schema_name: 'nwa_ops', username: 'cep_reader', ssl_mode: 'REQUIRED' as const, status: 'ACTIVE' as const,
+  last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: true, last_test_error: null, read_only: true, server_version: '8.0.36', server_timezone: 'UTC', created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: true, datasets: [] }
+
+test('Query a Database from New Report: the visual builder writes the SQL, Run previews the rows, a second statement is refused, Write It for Me fills the window, and Create Report builds the report on the query and opens the editor', async () => {
+  const { me } = await import('@/test/mockApi')
+  const withRights = { ...me, principal: { ...me.principal, permissions: [...(me.principal.permissions ?? []), 'report.edit'] }, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights' } }
+  const calls = installMockApi({ me: withRights as never })
+  reportDatabasesNow.push({ ...DB })
+  signIn('/insights/reports/new')
+  vi.resetModules()
+  const { default: App } = await import('@/App').then(cepReady)
+  render(<App />)
+  const user = userEvent.setup()
+  await screen.findByRole('heading', { name: 'New Report' }, { timeout: 5000 })
+  await user.click(await screen.findByRole('button', { name: /Query Store Operations/ }, { timeout: 5000 }))
+  await screen.findByRole('heading', { name: 'Query · Store Operations' }, { timeout: 5000 })
+  const aside = screen.getByRole('complementary', { name: 'Tables and columns' })
+  await user.click(await within(aside).findByRole('button', { name: 'Use sales_lines' }))                        // From
+  const builder = await screen.findByRole('group', { name: 'Visual builder' })
+  await user.click(within(builder).getByRole('button', { name: '+ column' }))
+  await user.selectOptions(await within(builder).findByRole('combobox', { name: 'Column 1' }), 'b.store_name')
+  await user.click(within(builder).getByRole('button', { name: '+ column' }))
+  await user.selectOptions(within(builder).getByRole('combobox', { name: 'Column 2' }), 'b.net_sales')
+  await user.selectOptions(within(builder).getByRole('combobox', { name: 'Column 2 calculation' }), 'sum')
+  const window_ = screen.getByRole('textbox', { name: 'SQL' }) as HTMLTextAreaElement
+  expect(window_.value).toBe('SELECT `store_name` AS `store_name`,\n       SUM(`net_sales`) AS `net_sales`\nFROM `sales_lines` b\nGROUP BY `store_name`'.replace(/`store_name` AS `store_name`/, '`b`.`store_name` AS `store_name`').replace(/SUM\(`net_sales`\)/, 'SUM(`b`.`net_sales`)').replace(/GROUP BY `store_name`/, 'GROUP BY `b`.`store_name`'))
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  const result = await screen.findByRole('table', { name: 'Result' })
+  expect(within(result).getByText('Downtown')).toBeTruthy()
+  expect(screen.getByText(/in 212 ms/)).toBeTruthy()
+  expect(screen.getByText('2 rows')).toBeTruthy()
+  // a pasted second statement is refused with the server's reason
+  await user.click(screen.getByRole('radio', { name: 'SQL' }))
+  await user.clear(window_)
+  await user.type(window_, 'SELECT * FROM stores; DELETE FROM stores')
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('second statement'))
+  // Write It for Me puts SQL in the window
+  await user.type(screen.getByRole('textbox', { name: 'What should the query give?' }), 'Net sales by store')
+  await user.click(screen.getByRole('button', { name: 'Write It for Me' }))
+  await screen.findByText('The query is in the window')
+  expect(window_.value.startsWith('SELECT s.name AS store_name')).toBe(true)
+  const written = calls.find((c) => c.url.endsWith('/query/write/'))?.body as { prompt: string } | undefined
+  expect(written?.prompt).toBe('Net sales by store')
+  await user.click(screen.getByRole('button', { name: 'Run' }))
+  await screen.findByRole('table', { name: 'Result' })
+  await user.type(screen.getByRole('textbox', { name: 'Report name' }), 'Net Sales by Store')
+  await user.click(screen.getByRole('button', { name: 'Create Report' }))
+  await screen.findByRole('textbox', { name: 'Report name' }, { timeout: 5000 })                                   // the editor
+  const made = calls.find((c) => c.url.endsWith('/query/dataset/') && c.method === 'POST')?.body as { label: string; sql: string }
+  expect(made.label).toBe('Net Sales by Store')
+  expect(made.sql.startsWith('SELECT s.name AS store_name')).toBe(true)
+  const report = calls.find((c) => c.url.endsWith('/insights/reports/') && c.method === 'POST')?.body as { dataset: string; name: string }
+  expect(report).toMatchObject({ dataset: 'x_net_sales_by_store', name: 'Net Sales by Store' })
+})

@@ -7,6 +7,7 @@ import { DashboardEditorPage } from './pages/DashboardEditorPage'
 import { DashboardListPage } from './pages/DashboardListPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { NewReportPage } from './pages/NewReportPage'
+import { QueryBuilderPage } from './pages/QueryBuilderPage'
 import { ReportEditorPage } from './pages/ReportEditorPage'
 import { ReportListPage } from './pages/ReportListPage'
 import { ReportViewerPage } from './pages/ReportViewerPage'
@@ -20,6 +21,7 @@ export default function InsightsRoutes() {
         <Route index element={<Navigate to="reports" replace />} />
         <Route path="reports" element={<ReportListPage />} />
         <Route path="reports/new" element={<NewReportPage />} />
+        <Route path="reports/new/query/:dbId" element={<QueryBuilderPage />} />
         <Route path="reports/:id" element={<ReportViewerPage />} />
         <Route path="reports/:id/edit" element={<ReportEditorPage />} />
         <Route path="dashboards" element={<DashboardListPage />} />

@@ -28,6 +28,12 @@ ENGINES = {"mysql57": "MySQL 5.7", "mysql80": "MySQL 8.0", "postgresql": "Postgr
 DEFAULT_PORT = {"mysql57": 3306, "mysql80": 3306, "postgresql": 5432}
 MAX_EXECUTION_ERROR = 3024
 MONEY = re.compile(r"amount|price|sales|revenue|cost|total|fee|paid|value", re.I)
+# the query window's guard: words that write, change the schema or the server, or move data out; and functions that read files or wait
+FORBIDDEN_WORDS = re.compile(r"\b(insert|update|delete|drop|alter|create|grant|revoke|truncate|call|set|lock|unlock|rename|merge|copy|execute|exec|prepare|handler|load|outfile|dumpfile|into"
+                             r"|kill|shutdown|flush|reset|purge|install|uninstall|vacuum|cluster|reindex|listen|notify|refresh|discard|analyze|optimize|repair)\b", re.I)
+FORBIDDEN_FUNCTIONS = re.compile(r"\b(load_file|sleep|benchmark|get_lock|release_lock|master_pos_wait|pg_sleep|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|pg_terminate_backend"
+                                 r"|pg_cancel_backend|pg_reload_conf|dblink\w*|lo_import|lo_export|lo_unlink|xp_cmdshell|sys_eval|sys_exec|set_config|query_to_xml)\s*\(", re.I)
+QUERY_ROWS = 200
 
 
 class ExternalError(Exception):
@@ -292,6 +298,95 @@ def join_check(row: dict, source: str, joins: list[dict], *, zone: str | None = 
     base_rows, joined_rows, matched_rows = query(row, sql, [], timeout_ms=10_000, zone=zone)[0]
     return {"base_rows": int(base_rows), "joined_rows": int(joined_rows), "matched_rows": int(matched_rows),
             "multiplies": int(joined_rows) > int(base_rows), "factor": round(int(joined_rows) / int(base_rows), 2) if int(base_rows) else None}
+
+
+# ---------------------------------------------------------------------------------------------------- the query window
+def _bare(sql: str) -> str:
+    """the SQL without its comments and string literals, for the guard to read"""
+    text = re.sub(r"/\*.*?\*/", " ", sql, flags=re.S)
+    text = re.sub(r"--[^\n]*|#[^\n]*", " ", text)
+    text = re.sub(r"'(?:[^'\\]|\\.|'')*'", "''", text)
+    text = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
+    return text
+
+
+def check_sql(sql: str) -> str:
+    """One SELECT and nothing else: the query trimmed, or ExternalError with the reason in plain words."""
+    text = (sql or "").strip()
+    if text.endswith(";"):
+        text = text[:-1].rstrip()
+    if not text:
+        raise ExternalError("Write a SELECT.")
+    bare = _bare(text)
+    if ";" in bare:
+        raise ExternalError("One statement at a time: a second statement after a semicolon is not allowed.")
+    first = bare.split(None, 1)[0].lower() if bare.split() else ""
+    if first not in ("select", "with"):
+        raise ExternalError("The window takes one SELECT (or WITH … SELECT).")
+    found = FORBIDDEN_WORDS.search(bare)
+    if found:
+        raise ExternalError(f"The word {found.group(1).upper()} is not allowed in a report query. The account could not write anyway, and the engine will not try.")
+    found = FORBIDDEN_FUNCTIONS.search(bare)
+    if found:
+        raise ExternalError(f"{found.group(1)}() is not allowed in a report query: it reads the server's files or holds it up.")
+    return text
+
+
+def _python_type(value) -> str:
+    from datetime import date, datetime
+    from decimal import Decimal
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "bigint"
+    if isinstance(value, Decimal):
+        return "decimal"
+    if isinstance(value, float):
+        return "double"
+    if isinstance(value, datetime):
+        return "datetime"
+    if isinstance(value, date):
+        return "date"
+    return "varchar"
+
+
+def run_sql(row: dict, sql: str, *, limit: int = QUERY_ROWS, timeout_ms: int = 15_000, zone: str | None = None) -> dict:
+    """The query window's Run: the checked SELECT wrapped as SELECT * FROM (…) AS q LIMIT n on the read-only session; the result's
+    columns typed from the values, the first rows, whether there were more, and the time."""
+    clean = check_sql(sql)
+    wrapped = f"SELECT * FROM ({clean}) AS {quote('q', row)} LIMIT %s"
+    started = time.monotonic()
+    conn = connect(row, timeout_ms=timeout_ms, zone=zone)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(wrapped, [int(limit) + 1])
+            names = [d[0] for d in cursor.description or []]
+            rows = [list(r) for r in cursor.fetchall()]
+    except psycopg.errors.QueryCanceled:
+        raise ExternalError(f"Stopped after {timeout_ms // 1000} seconds: the query took longer than the workspace's limit. Narrow it with a WHERE, or put the heavy part in a view.") from None
+    except pymysql.err.OperationalError as exc:
+        code = exc.args[0] if exc.args and isinstance(exc.args[0], int) else None
+        if code == MAX_EXECUTION_ERROR or "max_execution_time" in str(exc).lower():
+            raise ExternalError(f"Stopped after {timeout_ms // 1000} seconds: the query took longer than the workspace's limit. Narrow it with a WHERE, or put the heavy part in a view.") from None
+        raise ExternalError("The server did not accept the query: " + _message(exc)) from None
+    except (pymysql.err.MySQLError, psycopg.Error) as exc:
+        raise ExternalError("The server did not accept the query: " + _message(exc)) from None
+    finally:
+        conn.close()
+    ms = int((time.monotonic() - started) * 1000)
+    seen: dict[str, int] = {}
+    columns = []
+    for i, name in enumerate(names):
+        sample = next((r[i] for r in rows if r[i] is not None), None)
+        kind = _python_type(sample)
+        seen[name] = seen.get(name, 0) + 1
+        columns.append({"column": name, "column_type": kind, "key": False, "mappable": bool(IDENT.match(name)) and seen[name] == 1, **_typed(kind, kind, name)})
+    for name, n in seen.items():
+        if n > 1:
+            for c in columns:
+                if c["column"] == name:
+                    c["mappable"] = False
+    return {"columns": columns, "rows": rows[:limit], "truncated": len(rows) > limit, "ms": ms, "sql": clean}
 
 
 # ---------------------------------------------------------------------------------------------------- the runner's path

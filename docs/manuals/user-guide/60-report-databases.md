@@ -76,6 +76,32 @@ removing a join removes the ones chained to it. The engine still writes one SELE
 A dataset with reports built on it cannot be deleted until those reports are; a database with datasets cannot be removed
 until they are.
 
+## Query a Database: a report from a query
+
+New Report offers **Query a Database** for every database your workspace has connected. Anyone who can build reports
+can use it; the connection, its SELECT-only account and the limits are the administrator's.
+
+- **Visual** builds the query from the tables and columns on the left: From (a table, then joins on a key), Columns
+  with a calculation (Sum, Count, Count Distinct, Average, Min, Max) and an alias, Where conditions, Order by. Group
+  by is set from the columns without a calculation. The SQL the builder writes shows underneath.
+- **SQL** is the same window as text: write, paste or correct. Click a table or column on the left to put its name at
+  the cursor. **Write It for Me** sends your request and the table and column names (never rows) to the AI assistant
+  and puts the SQL in the window for you to read; it counts as one prompt. A query edited by hand stays in SQL; Start
+  Over returns to Visual.
+- **Run** shows the first rows with the time and the typed columns, under the workspace's limits.
+- **Create Report** makes a dataset from the result (labels from the column names, numbers as measures) and opens the
+  report in the editor, where you group, sort, switch views, export and schedule as with any report.
+
+The window takes one SELECT and nothing else: a second statement, a write or schema word (INSERT, UPDATE, DELETE,
+DROP, CREATE, ALTER, GRANT, SET, INTO …) or a file or system function is refused with the reason before anything runs.
+The engine runs the query wrapped, `SELECT * FROM (your query) AS q` with the limit, on the read-only session; a query
+that outgrows the time limit is stopped with advice to narrow it or put the heavy part in a view. A query never runs
+against CEP's own database.
+
+Under Settings → Report Databases, **Query** on a database card does the same for administrators and ends with **Use
+as Dataset**, which opens the fields to name; a dataset from a query shows "From a query" with **Edit Query** beside
+Edit Fields.
+
 ## When a report runs
 
 The freshness line under a report on one of your datasets reads "live from <database>": the engine reads your database

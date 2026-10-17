@@ -345,15 +345,20 @@ def _key_of(row: dict) -> str:
     return crypto.decrypt(row["api_key_enc"]) or ""
 
 
-def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S) -> tuple[dict, dict]:
+SQL_SCHEMA = {"type": "object", "properties": {"sql": {"type": "string", "description": "One SELECT statement, no semicolon"}, "note": {"type": "string", "description": "One sentence on an assumption made, or empty"}},
+              "required": ["sql"]}
+
+
+def call_model(provider: str, row: dict, model: str, system: str, user: str, *, timeout_s: int = TIMEOUT_S, schema: dict | None = None, tool: str = "propose_report") -> tuple[dict, dict]:
     """One exchange with the provider, forced into the schema: the reply as a dict, and the usage {"in", "out"}."""
     base = PROVIDERS[provider]["base"]
     key = _key_of(row)
+    schema = schema or SCHEMA
     try:
         if provider == "anthropic":
             body = {"model": model, "max_tokens": 2000, "system": system, "messages": [{"role": "user", "content": user}],
-                    "tools": [{"name": "propose_report", "description": "A draft report, one question, or no field for this.", "input_schema": SCHEMA}],
-                    "tool_choice": {"type": "tool", "name": "propose_report"}}
+                    "tools": [{"name": tool, "description": "The reply, in the shape asked for.", "input_schema": schema}],
+                    "tool_choice": {"type": "tool", "name": tool}}
             response = requests.post(f"{base}/v1/messages", json=body, timeout=timeout_s,
                                      headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
             data = _json_of(response)
@@ -361,7 +366,7 @@ def call_model(provider: str, row: dict, model: str, system: str, user: str, *, 
             usage = data.get("usage") or {}
             return reply or {}, {"in": int(usage.get("input_tokens") or 0), "out": int(usage.get("output_tokens") or 0)}
         body = {"model": model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                "response_format": {"type": "json_schema", "json_schema": {"name": "propose_report", "schema": SCHEMA}}}
+                "response_format": {"type": "json_schema", "json_schema": {"name": tool, "schema": schema}}}
         response = requests.post(f"{base}/v1/chat/completions", json=body, timeout=timeout_s, headers={"Authorization": f"Bearer {key}"})
         data = _json_of(response)
         content = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "{}"
@@ -511,18 +516,65 @@ def _preview(tenant, request, datasets: list[dict], draft: dict) -> dict | None:
     return {"rows": rows, "more": bool(out.get("truncated"))}
 
 
-def _record(tenant_id, user_id, chosen: dict, prompt: str, outcome: str, result: dict | None, failure: str | None, usage: dict, duration_ms: int, answer_to) -> str:
+def _record(tenant_id, user_id, chosen: dict, prompt: str, outcome: str, result: dict | None, failure: str | None, usage: dict, duration_ms: int, answer_to, kind: str = "report") -> str:
     prompt_id = str(uuid.uuid4())
-    draft = {k: result[k] for k in ("name", "dataset", "view", "definition") if k in result} if result and result["kind"] == "draft" else None
+    draft = {k: result[k] for k in ("name", "dataset", "view", "definition", "sql") if k in result} if result and result["kind"] in ("draft", "sql") else None
     reply = {k: v for k, v in (result or {}).items() if k in ("question", "answers", "message", "suggestions")} or None
     with session.tx():
         _q("DELETE FROM ai_prompt WHERE tenant_id = %s AND created_at < %s", [str(tenant_id), timezone.now() - timedelta(days=RETENTION_DAYS)])
         _q("""INSERT INTO ai_prompt (id, tenant_id, user_id, provider, model, kind, prompt, outcome, counted, account, draft, reply, detail, tokens_in, tokens_out, duration_ms, answer_to)
-              VALUES (%s, %s, %s, %s, %s, 'report', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-           [prompt_id, str(tenant_id), str(user_id), chosen["provider"], chosen["model"], prompt, outcome, outcome == "DRAFT", "OWN" if chosen.get("source") == "own" else "PLATFORM",
+              VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+           [prompt_id, str(tenant_id), str(user_id), chosen["provider"], chosen["model"], kind, prompt, outcome, outcome == "DRAFT", "OWN" if chosen.get("source") == "own" else "PLATFORM",
             json.dumps(draft) if draft else None, json.dumps(reply) if reply else None, (failure or "")[:300] or None, usage["in"], usage["out"], duration_ms,
             str(answer_to) if answer_to else None])
     return prompt_id
+
+
+def write_sql(tenant, request, prompt: str, model_id: str, *, dialect_name: str, schema_text: str) -> dict:
+    """Write It for Me in the query window: one SELECT for the workspace's own database, from the request and the schema (table and
+    column names, never rows). Checked by the query guard before it is handed back; never run here. Counts like a draft."""
+    from apps.insights import external
+    state = offer(tenant, request)
+    if not state["enabled"]:
+        raise AssistantError({"no_right": "Writing a query needs the report.edit permission.", "no_provider": "No AI provider is switched on for the platform.",
+                              "workspace_off": "AI is switched off for this workspace (Settings → AI Assistant).",
+                              "no_provider_allowed": "This workspace allows no AI provider (Settings → AI Assistant)."}[state["reason"]])
+    chosen = next((m for m in state["models"] if m["id"] == model_id), None)
+    if chosen is None:
+        raise ValidationError({"model": "Pick one of the models offered."})
+    use = state["usage"]
+    if chosen["source"] == "platform" and use["limit"] is not None and use["used"] >= use["limit"]:
+        raise AssistantError(f"The workspace has used its {use['limit']} prompts for {timezone.now().strftime('%B')}. Ask the platform team for more, or write the query by hand.")
+    row = effective_providers(tenant)[chosen["provider"]]
+    system = f"""You write one SQL SELECT for {dialect_name}, for a reporting tool that will run it read-only and wrap it as a subquery.
+
+Rules:
+- Use only the tables and columns listed in the schema, by their exact names. Never invent a table or a column.
+- One SELECT (a WITH … SELECT is fine). No semicolon, no INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, GRANT, SET, INTO, no file or system functions, no LIMIT (the tool adds its own).
+- Give every calculated column a short alias in snake_case (AS net_sales). Prefer explicit column lists to SELECT *.
+- Dates: today is {timezone.now().astimezone(reports.zone_of(tenant)).date().isoformat()} in the {reports.zone_of(tenant).key} time zone; write dates as 'YYYY-MM-DD'.
+- When the request is ambiguous, choose the most useful reading and say so in one sentence in "note".
+
+Schema:
+{schema_text}"""
+    started = time.monotonic()
+    usage = {"in": 0, "out": 0}
+    sql, note, failure = None, "", None
+    try:
+        reply, usage = call_model(chosen["provider"], row, chosen["model"], system, prompt, schema=SQL_SCHEMA, tool="write_sql")
+        candidate = str(reply.get("sql") or "").strip()
+        note = " ".join(str(reply.get("note") or "").split())[:300]
+        try:
+            sql = external.check_sql(candidate)
+        except external.ExternalError as exc:
+            failure = f"The model wrote a query the window refuses ({exc}). Try putting the request differently."
+    except ProviderError as exc:
+        failure = str(exc)
+    duration_ms = int((time.monotonic() - started) * 1000)
+    result = {"kind": "sql", "sql": sql} if sql else None
+    prompt_id = _record(tenant.pk, request.user.pk, chosen, prompt, "DRAFT" if sql else "FAILED", result, failure, usage, duration_ms, None, kind="sql")
+    return {"id": prompt_id, "sql": sql, "note": note, "message": failure, "model": {k: chosen[k] for k in ("id", "provider", "provider_name", "mark", "model", "label", "source")},
+            "duration_ms": duration_ms, "usage": allowance(tenant.pk)}
 
 
 def recent(user_id) -> list[dict]:

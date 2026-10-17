@@ -127,9 +127,9 @@ class CatalogView(APIView):
             found = catalog.dataset(tenant_id, dataset, _can_see_pii(request))
             if found is None:
                 raise NotFound("No such dataset.")
-            return Response({k: v for k, v in found.items() if k not in ("source", "workspace_field", "connection")})
+            return Response({k: v for k, v in found.items() if k not in ("source", "workspace_field", "connection", "query")})
         datasets = catalog.for_tenant(tenant_id, _can_see_pii(request))
-        return Response({"datasets": [{k: v for k, v in d.items() if k not in ("source", "workspace_field", "connection")} for d in datasets],
+        return Response({"datasets": [{k: v for k, v in d.items() if k not in ("source", "workspace_field", "connection", "query")} for d in datasets],
                          "engine": {k: v for k, v in catalog.engine_of(tenant_id).items() if k != "limits"} | {"limits": catalog.engine_of(tenant_id)["limits"]}})
 
 

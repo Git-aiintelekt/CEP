@@ -37,6 +37,8 @@ export interface CatalogDataset {
   locked?: { key: string; label: string }[]
   /** set on a dataset the workspace mapped from one of its own databases (Settings → Report Databases) */
   database?: { id: string; name: string; engine: DatabaseEngine; engine_name: string }
+  /** a dataset from a query, or from a table (and its joins) */
+  kind?: 'table' | 'query'
 }
 
 export interface EngineInfo {
@@ -315,6 +317,10 @@ export interface ReportDataset {
   source: string
   /** the tables joined to the base, in order */
   joins: DatasetJoin[]
+  /** a dataset from a query reads the SELECT; a table dataset reads its source and joins */
+  kind: 'table' | 'query'
+  query_sql: string | null
+  created_by?: string | null
   primary_key: string | null
   time_field: string | null
   fields: ReportDatasetField[]
@@ -368,6 +374,24 @@ export interface DatasetJoin {
   type: 'left' | 'inner'
   to: string
   on: [string, string][]
+}
+/** a database a report author may query (Settings connected it) */
+export interface QueryTarget {
+  id: string
+  name: string
+  engine: DatabaseEngine
+  engine_name: string
+  database_name: string
+  schema_name: string
+}
+/** the query window's Run */
+export interface QueryRun {
+  columns: { column: string; column_type: string; mappable: boolean; type: FieldType; role: 'dimension' | 'measure'; aggregates: Aggregate[]; format: CatalogField['format'] }[]
+  rows: unknown[][]
+  truncated: boolean
+  ms: number
+  sql: string
+  fields: ReportDatasetField[]
 }
 export interface JoinCheck {
   base_rows: number
