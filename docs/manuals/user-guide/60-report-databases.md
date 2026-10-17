@@ -2,6 +2,38 @@
 
 **Where:** Settings → Report Databases. Needs the user administration right.
 
+## Step by step
+
+**Connect a database** (workspace administrator)
+
+1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL and PostgreSQL.
+2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0 or PostgreSQL), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
+3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
+4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
+
+**Map a dataset from a table** (workspace administrator)
+
+1. On the database's card, press **Map a Dataset**. Pick a table or view on the left; views come first.
+2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
+3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
+4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
+
+**Join tables in a dataset**
+
+1. On the mapping page, press **Add a Join**, or **Join to this** on a table's card in the diagram.
+2. Choose what to join to (the base, or a table already joined), the table, and whether to keep every row (**Left**) or only the rows that match (**Inner**).
+3. Say which columns are equal; the first pair is suggested from the names. Press **Check the Join** to see how many rows match and whether the join multiplies rows, then **Add**.
+4. The joined table appears as a card with the key drawn to it; its columns are fields labelled with the table's name. Up to five joins; removing one removes the joins chained to it.
+
+**Build a report from a query** (anyone who can build reports)
+
+1. Open Insights → Reports → **New Report** and, under **Query a Database**, press the database.
+2. **Visual**: press **From** beside a table on the left, add columns with their calculations and aliases, add conditions and sorts; the group by is set for you and the SQL shows underneath. **SQL**: write or paste the SELECT; click a table or column on the left to insert its name.
+3. **Write It for Me**: describe the query in words, pick the model, and press it; the SQL lands in the window for you to read. It counts as one prompt.
+4. Press **Run** to preview the rows. A second statement, a write word or a file function is refused with the reason before anything runs.
+5. Name the report and press **Create Report**. The report opens in the editor on the query's result, where you group, sort, switch views, export and schedule as with any report.
+6. Administrators reach the same window from **Query** on a database card; there it ends with **Use as Dataset**, and a dataset from a query shows **Edit Query** beside **Edit Fields**.
+
 ## What it is for
 
 Insights builds reports on the data the platform already keeps. Report Databases adds your own: a MySQL 5.7, MySQL 8.0

@@ -2,6 +2,14 @@
 
 **Where:** Configuration → AI Assistant.
 
+## Step by step: switching AI on
+
+1. Open Configuration → AI Assistant in the back-office.
+2. On the Claude (Anthropic) or OpenAI card, paste the API key from the provider's console, keep or change the two model names, leave **Workspaces May Use This Provider** on, and press **Save**.
+3. Press **Check Connection**. The card shows Connected with the time, or Failed with the provider's reason; the check also says when a model name is not in the account's list.
+4. Under the cards, choose the **Default Model** and whether **Explain This Report May Send Totals**, then **Save**. The plans' prompts a month are set on each plan.
+5. From then on every workspace on a plan with prompts sees Ask for a Report above its report list, unless its administrator switches AI off under Settings → AI Assistant. The table at the bottom counts this month's drafts by workspace.
+
 ## What this page is for
 
 Insights can turn a prompt into a report: a person writes what they want to see above the report list, picks a
