@@ -179,6 +179,57 @@ def test_definition_and_compiler(check):
     check("the period is and-ed onto the report's own rules, and a report with its own rule on the time field is left alone",
           shaped["filters"]["rules"][-1] == {"field": "submitted_at", "operator": "between", "value": ["2026-09-01", "2026-09-30"]} and len(shaped["filters"]["rules"]) == 4
           and dashboards._has_time_rule(raw["filters"], "submitted_at") and not dashboards._has_time_rule({"rules": [{"field": "channel", "operator": "=", "value": "x"}]}, "submitted_at"))
+
+    # calculated measures: a formula over other measures, compiled in the select and in the totals, checked against the dataset
+    T = "a0000000-0000-4000-8000-000000000001"
+    RATE = {"key": "delivered_rate", "label": "Delivered Rate", "column": None, "type": "number", "role": "measure", "aggregates": ["calc"], "operators": [], "buckets": [], "format": "percent", "sensitivity": "NORMAL",
+            "formula": {"op": "ratio", "left": {"field": "sent", "aggregate": "sum"}, "right": {"field": "messages", "aggregate": "count"}, "scale": 100}}
+    calc_ds = {**DATASET, "fields": [*DATASET["fields"], RATE]}
+    dc = definition.validate(calc_ds, {"columns": [{"field": "channel"}, {"field": "delivered_rate", "aggregate": "calc"}]})
+    cc = compiler.compile(calc_ds, dc, T, "America/New_York", limit=10)
+    check("a calculated measure compiles to its formula over the operands' aggregates, dividing by NULLIF so an empty denominator reads as empty",
+          '((sum("sent_n")) * 1.0 / NULLIF((count("message_id")), 0)) * 100.0 AS "c1"' in cc.sql and cc.columns[1] == {"key": "delivered_rate", "label": "Delivered Rate", "type": "number", "format": "percent", "aggregate": "calc"}, cc.sql)
+    tc = compiler.compile_totals(calc_ds, dc, T, "America/New_York", [(), ("channel",)], limit=100)
+    check("the totals query carries each operand's raw column once and totals the formula in the outer query",
+          '"sent_n" AS "m0_0", "message_id" AS "m0_1"' in tc.sql and '((sum("m0_0")) * 1.0 / NULLIF((count("m0_1")), 0)) * 100.0 AS "v0"' in tc.sql, tc.sql)
+    check("MySQL backticks the operands; ClickHouse writes nullIf",
+          '(sum(`sent_n`)) * 1.0 / NULLIF((count(`message_id`)), 0)' in compiler.compile(calc_ds, dc, T, "America/New_York", limit=10, dialect="mysql").sql
+          and 'nullIf((count("message_id")), 0)' in compiler.compile(calc_ds, dc, T, "America/New_York", limit=10, dialect="clickhouse").sql)
+    diff = {**RATE, "key": "net", "label": "Net", "formula": {"op": "difference", "left": {"field": "sent", "aggregate": "sum"}, "right": {"value": 10}}}
+    nested = {**RATE, "key": "net_rate", "label": "Net Rate", "formula": {"op": "ratio", "left": {"field": "net", "aggregate": "calc"}, "right": {"field": "sent", "aggregate": "sum"}}}
+    nested_ds = {**DATASET, "fields": [*DATASET["fields"], diff, nested]}
+    nc = compiler.compile(nested_ds, definition.validate(nested_ds, {"columns": [{"field": "net_rate", "aggregate": "calc"}]}), T, "America/New_York", limit=1)
+    check("a formula may read another calculated measure and a number", '((sum("sent_n")) - (10.0)) * 1.0 / NULLIF((sum("sent_n")), 0) AS "c0"' in nc.sql, nc.sql)
+    check("a formula is checked against the dataset's fields: an operand that is not a measure, an aggregate it does not take, a side that is neither a field nor a number, an unknown op",
+          catalog.formula_error(calc_ds["fields"], RATE["formula"]) is None
+          and catalog.formula_error(calc_ds["fields"], {"op": "ratio", "left": {"field": "channel", "aggregate": "sum"}, "right": {"value": 2}}) == "The left side names a measure of this dataset."
+          and catalog.formula_error(calc_ds["fields"], {"op": "ratio", "left": {"field": "sent", "aggregate": "avg"}, "right": {"value": 2}}) == "Sent Count does not take avg."
+          and catalog.formula_error(calc_ds["fields"], {"op": "ratio", "left": {"field": "sent", "aggregate": "sum"}, "right": {"value": "x"}}) == "The right side names a measure or a number."
+          and catalog.formula_error(calc_ds["fields"], {"op": "modulo", "left": {}, "right": {}}) is not None)
+    customers = {"key": "customers", "label": "Customers", "column": "party_id", "type": "number", "role": "measure", "aggregates": ["count_distinct"], "operators": [], "buckets": [], "format": "integer", "sensitivity": "PII"}
+    per_customer = {**RATE, "key": "per_customer", "label": "Sends per Customer", "format": "decimal", "formula": {"op": "ratio", "left": {"field": "sent", "aggregate": "sum"}, "right": {"field": "customers", "aggregate": "count_distinct"}}}
+    seen_keys = [f["key"] for f in catalog._visible({**DATASET, "fields": [*DATASET["fields"], customers, per_customer, RATE]}, can_see_pii=False)["fields"]]
+    check("a calculated measure over personal data goes with it for a reader without the right; the others stay", "per_customer" not in seen_keys and "customers" not in seen_keys and "delivered_rate" in seen_keys, str(seen_keys))
+
+    # pie and funnel are chart kinds; the PDF draws them
+    shown = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "pie"}})
+    check("pie and funnel are chart kinds, and nothing else is", shown["view"] == {"type": "chart", "chart": "pie"} and refused({"columns": [{"field": "channel"}], "view": {"type": "chart", "chart": "donut"}}, "view.chart"))
+    for kind in ("pie", "funnel"):
+        doc = pdf.report("Sends by Channel", cols, data, {"type": "chart", "chart": kind}, workspace="Northwind Apparel", when="16 Oct 2026")
+        check(f"the {kind} PDF is a PDF", doc[:5] == b"%PDF-" and len(doc) > 1500, str(len(doc)))
+
+    # dashboard slicers: the request's values become IN rules on the datasets that have the field, and nothing on the others
+    rules = dashboards._slicer_rules(DATASET, {"channel": ["EMAIL", "SMS"], "store": ["Downtown"], "sent": [1]})
+    check("a slicer becomes an IN rule on a dimension the dataset has; a field it lacks, or a measure, is skipped", rules == [{"field": "channel", "operator": "in", "value": ["EMAIL", "SMS"]}], str(rules))
+    check("the request's slicers are read as fields to lists of scalars", dashboards._slicers_body({"channel": ["EMAIL", {"x": 1}], "empty": [], "n": "x"}) == {"channel": ["EMAIL"]})
+    check("a slicer in the layout is a text, yes/no or number dimension of the tiles' datasets, labelled from the field",
+          dashboards._slicers_layout([{"field": "channel"}], [DATASET]) == [{"field": "channel", "label": "Channel"}])
+    for bad in ([{"field": "sent"}], [{"field": "submitted_at"}], [{"field": "channel"}, {"field": "channel"}]):
+        try:
+            dashboards._slicers_layout(bad, [DATASET])
+            check("a measure, a date or a repeated field is refused as a slicer", False, str(bad))
+        except Exception as exc:                                                       # noqa: BLE001
+            check("a measure, a date or a repeated field is refused as a slicer", "layout.slicers" in str(exc), str(exc))
     check.done()
 
 

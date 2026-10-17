@@ -1,16 +1,23 @@
 /** The Insights API's shapes (backend apps/insights): the catalogue, a report definition, a saved report, a run's result. */
 
 export type FieldType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'
-export type Aggregate = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max'
+/** calc: a calculated measure's one aggregate; its formula over the other measures does the totalling */
+export type Aggregate = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'calc'
+export type ChartKind = 'bar' | 'line' | 'area' | 'pie' | 'funnel'
 export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
 export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot'
 
 /** how the report is shown: the view, the chart's kind, and for a chart or a pivot which dimension goes across */
 export interface ReportView {
   type: ViewType
-  chart?: 'bar' | 'line' | 'area'
+  chart?: ChartKind
   across?: string
 }
+
+/** a calculated measure's formula: two sides, each a measure with one of its aggregates or a number, optionally scaled (100 for a percentage) */
+export type FormulaOp = 'ratio' | 'difference' | 'sum' | 'product'
+export type FormulaSide = { field: string; aggregate: Aggregate } | { value: number }
+export interface MeasureFormula { op: FormulaOp; left: FormulaSide; right: FormulaSide; scale?: number }
 
 export interface CatalogField {
   key: string
@@ -22,6 +29,8 @@ export interface CatalogField {
   buckets: Bucket[]
   format: 'integer' | 'decimal' | 'money' | 'percent' | 'date' | 'datetime' | null
   sensitivity: 'NORMAL' | 'PII' | 'CONFIDENTIAL'
+  /** a calculated measure: the formula the engine totals; aggregates is ['calc'] */
+  formula?: MeasureFormula
 }
 
 export interface CatalogDataset {
@@ -228,7 +237,14 @@ export interface DashboardTile {
   measure?: string
 }
 export interface DashboardRow { width: RowWidth; tiles: DashboardTile[] }
-export interface DashboardLayout { rows: DashboardRow[] }
+/** a dimension of the tiles' datasets the whole dashboard is filtered by */
+export interface DashboardSlicer { field: string; label: string }
+export interface DashboardLayout { rows: DashboardRow[]; slicers?: DashboardSlicer[] }
+/** what is picked on each slicer: field key to values; an empty list is no filter */
+export type SlicerSelection = Record<string, unknown[]>
+export interface SlicerValues { field: string; label: string; values: unknown[]; datasets: number }
+/** a dimension the editor offers as a slicer, and the datasets it is in */
+export interface SlicerCandidate { field: string; label: string; datasets: string[] }
 
 export interface DashboardSummary {
   id: string
@@ -254,8 +270,8 @@ export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'>
 }
 
 export type TileResult =
-  | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean }
-  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number } }
+  | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[] }
+  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[] }
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }
 
@@ -294,10 +310,17 @@ export interface ReportDatabaseTest {
   ms: number
   error: string | null
 }
+/** on a mapped dataset a side may name the measure by its column (and table) until the dataset is saved */
+export type DatasetFormulaSide = FormulaSide | { column: string; table?: string; aggregate: Aggregate }
+export interface DatasetFormula { op: FormulaOp; left: DatasetFormulaSide; right: DatasetFormulaSide; scale?: number | null }
+
 export interface ReportDatasetField {
   /** the field's key, set by the server from the label */
   key?: string
-  column: string
+  /** null on a calculated measure */
+  column: string | null
+  /** a calculated measure: its formula over the dataset's other measures */
+  formula?: DatasetFormula
   /** the table's alias when the dataset joins tables: t0 the base, t1.. the joins */
   table?: string
   label: string

@@ -2598,11 +2598,13 @@ Any report switches between the views without losing its fields; the switch sits
 | View | What it shows | What it needs |
 |---|---|---|
 | Grid | One row per record or group, sortable and resizable columns | Anything |
-| Chart | Bars, lines or area: the first dimension along the bottom, a series per value of the dimension across (else one per measure), the legend to show and hide, Show the Numbers under it | A dimension and a measure |
+| Chart | Bars, lines or area: the first dimension along the bottom, a series per value of the dimension across (else one per measure), the legend to show and hide, Show the Numbers under it. **Pie**: the first measure by the first dimension as shares, the total in the middle, more than eight slices folded into Other. **Funnel**: the rows in the report's order as stages, each with its share of the first and the drop from the one before | A dimension and a measure |
 | Hierarchy | The dimensions in their order, each group folding over the next, a subtotal per group, Expand All and Collapse All | Two dimensions and a measure |
 | Pivot | The dimension across as columns, one measure in the cells (a select when there are several), a total on both edges | A dimension down, one across, a measure |
 
 Subtotals and totals come from the engine, so averages and distinct counts are exact, and a report longer than the page still totals everything.
+
+**Calculated measures.** Some measures are made from others: Delivered Rate is Delivered ÷ Sent × 100, Average Order Value is Amount ÷ Orders. They sit among the measures with the one calculation **Calculated**, and the engine computes the formula in every view, subtotal and figure, so a rate of a group is the rate of its totals, never an average of rates. A rate with nothing to divide by reads as empty. Your platform team adds them to the platform datasets; a workspace administrator adds them to a mapped dataset under **Calculated Measures** on the mapping page (Report Databases chapter).
 
 ### The viewer
 
@@ -2625,7 +2627,9 @@ A dashboard is a page of tiles, each tile a saved report in one of its views or 
 - **New Dashboard** opens an empty one in the editor. Name it, choose who can open it (only you, or the workspace), and **Add Tile**: pick a report, then how to show it, one of its views or **one figure**, a measure totalled over the period. Each new tile goes into the last row with room, else a new row.
 - A dashboard is **rows of tiles**: one to four across of equal width, or wide and narrow. The row bar sets the width and moves or removes the row; a tile's controls move it left or right, rename it or remove it. Nothing overlaps or leaves a gap. **Done** saves the layout as a version.
 - **The period**: 7 Days, 30 Days, This Month, Quarter, or Custom dates, in the workspace's time zone, applied to every tile through its dataset's date. A report with its own date filter keeps it and the tile says **Own dates**. **Compare With Previous Period** adds the change to every figure.
-- Viewing a dashboard, you can switch the period and the comparison for a look without saving.
+- **Slicers**: in the editor, **Add Slicer** picks a dimension the tiles' datasets share (Channel, Store, Campaign…), up to six. Viewing, each slicer is a chip under the period; open it, tick values and **Apply**, and every tile whose data has that field runs narrowed to them. A tile without the field says **Not sliced by** it. **Clear** takes the values off.
+- **Cross-filtering**: click a bar, a slice of a pie, a stage of a funnel or a cell in a grid tile, and the other tiles narrow to that value. When the field is not one of the dashboard's slicers, a chip appears for it with a cross to take it off. Clicking the same value again clears it.
+- Viewing a dashboard, you can switch the period, the comparison and the slicers for a look without saving; nothing of a selection is saved, and a PDF or a scheduled delivery is the dashboard as saved.
 - **Export PDF** gives the dashboard with its tiles on its saved period; **Schedule** emails it as PDF.
 
 ## Scheduled delivery
@@ -2753,6 +2757,16 @@ is offered once its datasets are gone.
 5. The preview underneath shows the first rows with your labels applied, masked where you said so.
 6. **Save Dataset**. It is in New Report under **Your Databases**, named with its database, and Ask for a Report knows
    it by label. **Edit Fields** in the table under the cards reopens it.
+
+### Calculated measures
+
+Under the columns, **Calculated Measures** makes a measure from the others: a rate, a share, a difference or a product.
+**Add a Calculated Measure**, name it (Delivered Rate), pick the left side (a measure and its calculation, Sum of
+Delivered), the operation (Divided by, Minus, Plus, Times), the right side (another measure, or **A number…**), a scale
+(100 for a percentage) and a format. The formula reads under the label as you build it. Report authors get it as a
+measure with the one calculation Calculated; the engine computes it in every view and total, so a group's rate is the
+rate of its totals. A ratio with an empty denominator reads as empty, never as an error. Up to ten per dataset; one
+formula may read another calculated measure.
 
 ## Joining tables
 

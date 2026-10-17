@@ -3,7 +3,7 @@
  * README): the legend that shows and hides series, horizontal gridlines over a darker baseline, 13px axis labels, a guide line and tooltip
  * on hover, arrow keys and touch, the numbers as a table, and the same loading, empty and error states.
  */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react'
 
 import { SkeletonLine } from '@/components/States'
 import { formatNumber } from '@/lib/format'
@@ -67,6 +67,8 @@ interface ChartProps {
   labelStep?: number
   /** the series keys hidden from outside (useChartLegend); the chart's own legend manages this itself */
   hidden?: ReadonlySet<string>
+  /** a category was picked, by a click or Enter on the active one (cross-filtering on a dashboard) */
+  onSelect?: (index: number) => void
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -161,7 +163,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -222,6 +224,9 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const onPointerLeave = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'mouse') setActive(null)
   }
+  const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (onSelect) onSelect(nearest(event.clientX, event.currentTarget))
+  }
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const moves: Record<string, () => number> = {
       ArrowRight: () => (active === null ? 0 : Math.min(count - 1, active + 1)),
@@ -235,6 +240,9 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
     } else if (event.key === 'Escape' && active !== null) {
       event.preventDefault()
       setActive(null)
+    } else if ((event.key === 'Enter' || event.key === ' ') && active !== null && onSelect) {
+      event.preventDefault()
+      onSelect(active)
     }
   }
 
@@ -252,8 +260,8 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
 
       <div ref={box} className="relative">
         <div tabIndex={0} role="group" aria-label={title} aria-describedby={hintId} data-chart-plot
-          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerLeave={onPointerLeave} onKeyDown={onKeyDown} onBlur={() => setActive(null)}
-          className="touch-pan-y rounded-sm outline-none focus-visible:shadow-focus">
+          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerLeave={onPointerLeave} onClick={onClick} onKeyDown={onKeyDown} onBlur={() => setActive(null)}
+          className={`touch-pan-y rounded-sm outline-none focus-visible:shadow-focus ${onSelect ? 'cursor-pointer' : ''}`}>
           <svg width={width} height={height} aria-hidden className="block overflow-visible" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {ticks.map((tick) => (
               <g key={tick}>
@@ -273,7 +281,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
             {reference && <ReferenceLine plot={plot} keyName={reference.key} values={reference.values} color={REFERENCE_COLOR} />}
           </svg>
         </div>
-        <p id={hintId} className="sr-only">Use the left and right arrow keys to read each point; Escape hides it.</p>
+        <p id={hintId} className="sr-only">Use the left and right arrow keys to read each point{onSelect ? ', Enter to pick it' : ''}; Escape hides it.</p>
         <p className="sr-only" aria-live="polite">{said}</p>
 
         {point && (

@@ -14,8 +14,14 @@ workspace's own database, apps/insights/external.py) binds positional %s like Po
 has no workspace restriction (the database is the workspace's), writes its buckets with DATE arithmetic in the session's
 zone, uses LIKE (case-insensitive by collation), IN with one placeholder per value, "IS NULL" ordering instead of NULLS LAST,
 and totals by one query per grouping set joined with UNION ALL instead of GROUPING SETS.
+
+A calculated measure (a catalogue field with a `formula` and the one aggregate `calc`) is a ratio, difference, sum or product
+of two sides, each another measure with one of its aggregates or a number, optionally scaled: Delivered Rate is
+sum(delivered) / NULLIF(sum(sent), 0) * 100. It compiles in the select and in the totals, so every view gets it exact.
 """
 AGGREGATES = {"sum": "sum({col})", "count": "count({col})", "count_distinct": "count(DISTINCT {col})", "avg": "avg({col})", "min": "min({col})", "max": "max({col})"}
+CALC = "calc"
+FORMULA_OPS = {"ratio": "/", "difference": "-", "sum": "+", "product": "*"}
 BUCKET_UNIT = {"day": "day", "week": "week", "month": "month", "quarter": "quarter", "year": "year"}
 DIALECTS = ("postgresql", "clickhouse", "mysql")
 POSITIONAL = ("postgresql", "mysql")
@@ -36,6 +42,48 @@ def _col(field: dict, dialect: str) -> str:
     """a field's column, qualified by its table's alias when the dataset joins tables"""
     column = _ident(field["column"], dialect)
     return f"{_ident(field['table'], dialect)}.{column}" if field.get("table") else column
+
+
+def _field_of(dataset: dict, key: str) -> dict:
+    return next(f for f in dataset["fields"] if f["key"] == key)
+
+
+def operands(dataset: dict, field: dict, aggregate: str) -> list[tuple[dict, str]]:
+    """The (field, aggregate) pairs a measure column reads: the field itself, or every column operand of a calculated
+    measure's formula, through nested calculated measures; each field once."""
+    if aggregate != CALC:
+        return [(field, aggregate)]
+    out, seen = [], set()
+    for side in (field["formula"]["left"], field["formula"]["right"]):
+        if "field" not in side:
+            continue
+        for pair in operands(dataset, _field_of(dataset, side["field"]), side["aggregate"]):
+            if pair[0]["key"] not in seen:
+                seen.add(pair[0]["key"])
+                out.append(pair)
+    return out
+
+
+def measure_expr(dataset: dict, field: dict, aggregate: str, raw, dialect: str) -> str:
+    """One measure's SQL: the aggregate over the raw column (`raw(field)` says where that column is), or a calculated
+    measure's formula over its operands' aggregates. A ratio divides by NULLIF(.., 0): an empty denominator reads as
+    empty, never as an error; `* 1.0` keeps integer sums from dividing as integers."""
+    if aggregate != CALC:
+        return AGGREGATES[aggregate].format(col=raw(field))
+    formula = field["formula"]
+
+    def side(part) -> str:
+        if "field" not in part:
+            return repr(float(part["value"]))
+        return measure_expr(dataset, _field_of(dataset, part["field"]), part["aggregate"], raw, dialect)
+
+    left, right = side(formula["left"]), side(formula["right"])
+    if formula["op"] == "ratio":
+        expr = f"({left}) * 1.0 / {'nullIf' if dialect == 'clickhouse' else 'NULLIF'}(({right}), 0)"
+    else:
+        expr = f"({left}) {FORMULA_OPS[formula['op']]} ({right})"
+    scale = formula.get("scale")
+    return f"({expr}) * {float(scale)!r}" if scale not in (None, 1) else expr
 
 
 def join_clause(source: str, joins: list[dict], dialect: str) -> str:
@@ -219,12 +267,19 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
             inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params)} AS {_ident(f'd{i}', dialect)}")
         for j, column in enumerate(meas):
             field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-            inner.append(f"{_col(field, dialect)} AS {_ident(f'm{j}', dialect)}")
+            for k, (operand, _aggregate) in enumerate(operands(dataset, field, column["aggregate"])):
+                inner.append(f"{_col(operand, dialect)} AS {_ident(_raw_alias(j, k, column), dialect)}")
         return f"(SELECT {', '.join(inner)} FROM {_from(dataset, dialect)} WHERE {_where(dataset, definition, tenant_id, zone, params)}) AS base"
+
+    def totalled(j: int, column: dict) -> str:
+        """one measure over the raw columns of the subquery: a plain aggregate, or a calculated measure's formula"""
+        field = next(f for f in dataset["fields"] if f["key"] == column["field"])
+        at = {operand["key"]: _raw_alias(j, k, column) for k, (operand, _aggregate) in enumerate(operands(dataset, field, column["aggregate"]))}
+        return measure_expr(dataset, field, column["aggregate"], lambda f: _ident(at[f["key"]], dialect), dialect) + f" AS {_ident(f'v{j}', dialect)}"
 
     index = {c["field"]: i for i, c in enumerate(dims)}
     kept = [i for i, c in enumerate(dims) if any(c["field"] in s for s in sets)]   # a dimension in no set is always totalled away: it cannot be selected or marked
-    measures = [AGGREGATES[c["aggregate"]].format(col=_ident(f"m{j}", dialect)) + f" AS {_ident(f'v{j}', dialect)}" for j, c in enumerate(meas)]
+    measures = [totalled(j, c) for j, c in enumerate(meas)]
     if dialect == "mysql":
         pieces = []
         for s in sets:
@@ -241,6 +296,11 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     return Compiled(sql, params.out(), [columns[i] for i in kept] + columns[len(dims):])
 
 
+def _raw_alias(j: int, k: int, column: dict) -> str:
+    """the subquery's alias for a measure's raw column: m0 for a plain measure, m0_0, m0_1.. for a calculated one's operands"""
+    return f"m{j}" if column["aggregate"] != CALC else f"m{j}_{k}"
+
+
 def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit: int, offset: int = 0, dialect: str = "postgresql") -> Compiled:
     assert dialect in DIALECTS, dialect
     params = Params(dialect)
@@ -249,7 +309,7 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
         alias = _ident(f"c{index}", dialect)
         if "aggregate" in column:
-            expr = AGGREGATES[column["aggregate"]].format(col=_col(field, dialect))
+            expr = measure_expr(dataset, field, column["aggregate"], lambda f: _col(f, dialect), dialect)
         else:
             expr = _dimension_expr(field, column.get("bucket"), zone, params)
             if definition["grouped"]:

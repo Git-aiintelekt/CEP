@@ -11,26 +11,33 @@ import { Tag } from '@/components/StatusBadge'
 import { ApiError } from '@/lib/api'
 import { ReportResult } from '../components/ReportViews'
 import { formatCell } from '../components/resultWords'
-import type { DashboardTile, Period, TileResult } from '../types'
-import { SHOW_LABEL } from './layout'
+import type { DashboardSlicer, DashboardTile, Period, ResultColumn, SlicerSelection, TileResult } from '../types'
+import { activeSlicers, SHOW_LABEL } from './layout'
 
-export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean) => Promise<TileResult>
+export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection) => Promise<TileResult>
 
-export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle }: {
+export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle, selection, slicers, onPick }: {
   tile: DashboardTile; period: Period; compare: boolean; load: TileLoader; keyPrefix: readonly unknown[]
   /** the editing controls at the right of the header */
   controls?: ReactNode
   /** when given, the title is an input (editing) */
   onTitle?: (title: string) => void
+  /** the slicers' picked values, sent with the run; the tile says when its dataset lacks a picked field */
+  selection?: SlicerSelection
+  slicers?: DashboardSlicer[]
+  /** a dimension value clicked on the tile: the dashboard's cross-filter */
+  onPick?: (column: ResultColumn, value: unknown) => void
 }) {
+  const active = activeSlicers(selection ?? {})
   const query = useQuery({
-    queryKey: [...keyPrefix, tile.id, tile.report_id, tile.show, tile.measure ?? '', period, compare],
-    queryFn: () => load(tile, period, compare).catch((error: unknown) => (error instanceof ApiError && error.status === 422 ? (error.problem as unknown as TileResult) : Promise.reject(error))),
+    queryKey: [...keyPrefix, tile.id, tile.report_id, tile.show, tile.measure ?? '', period, compare, active],
+    queryFn: () => load(tile, period, compare, Object.keys(active).length ? active : undefined).catch((error: unknown) => (error instanceof ApiError && error.status === 422 ? (error.problem as unknown as TileResult) : Promise.reject(error))),
     retry: false,
     placeholderData: (previous) => previous,
   })
   const data = query.data
   const name = tile.title || (data && 'report' in data ? data.report.name : '')
+  const unfiltered = data && 'sliced' in data ? Object.keys(active).filter((field) => !(data.sliced ?? []).includes(field)).map((field) => slicers?.find((item) => item.field === field)?.label ?? field) : []
   return (
     <section aria-label={name || 'Tile'} className="flex min-w-0 flex-col rounded-md border border-line bg-surface">
       <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
@@ -40,18 +47,19 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
         ) : <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-900">{name || ' '}</h3>}
         <span className="text-xs whitespace-nowrap text-ink-700">{SHOW_LABEL[tile.show]}</span>
         {data && 'own_dates' in data && data.own_dates && <Tag tone="warning">Own dates</Tag>}
+        {unfiltered.length > 0 && <span className="text-xs whitespace-nowrap text-ink-700" title={`This tile's data has no ${unfiltered.join(', ')} field, so that slicer does not narrow it.`}>Not sliced by {unfiltered.join(', ')}</span>}
         {controls}
       </header>
       <div className={`min-w-0 flex-1 ${tile.show === 'figure' ? 'p-3' : 'p-2'}`}>
         {query.isPending ? <div className="flex min-h-24 items-center justify-center"><Spinner label="Running the tile" /></div>
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
-          : <TileBody data={data as TileResult} tile={tile} />}
+          : <TileBody data={data as TileResult} tile={tile} onPick={onPick} />}
       </div>
     </section>
   )
 }
 
-function TileBody({ data, tile }: { data: TileResult; tile: DashboardTile }) {
+function TileBody({ data, tile, onPick }: { data: TileResult; tile: DashboardTile; onPick?: (column: ResultColumn, value: unknown) => void }) {
   if (data.kind === 'missing' || data.kind === 'refused') {
     return <p className="flex min-h-24 items-center justify-center text-center text-sm text-ink-800">{data.detail}</p>
   }
@@ -70,5 +78,5 @@ function TileBody({ data, tile }: { data: TileResult; tile: DashboardTile }) {
       </div>
     )
   }
-  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show }} label={`${tile.title || data.report.name} rows`} minHeight={200} />
+  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} />
 }

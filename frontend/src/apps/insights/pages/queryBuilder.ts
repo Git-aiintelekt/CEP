@@ -1,11 +1,13 @@
 /** The visual builder's model and the SQL it writes (Query a Database). Identifiers are quoted by the engine's dialect; the server checks the whole. */
 import type { Aggregate } from '../types'
 
-export const CALC: Record<'' | Aggregate, string> = { '': '—', sum: 'SUM', count: 'COUNT', count_distinct: 'COUNT DISTINCT', avg: 'AVG', min: 'MIN', max: 'MAX' }
+/** the SQL aggregates a column can take; a catalogue's calculated measure (calc) is not one */
+export type SqlAggregate = Exclude<Aggregate, 'calc'>
+export const CALC: Record<'' | SqlAggregate, string> = { '': '—', sum: 'SUM', count: 'COUNT', count_distinct: 'COUNT DISTINCT', avg: 'AVG', min: 'MIN', max: 'MAX' }
 export const OPS = ['=', '!=', '>', '>=', '<', '<=', 'LIKE', 'IS NULL', 'IS NOT NULL'] as const
 export type Op = (typeof OPS)[number]
 export type VisualJoin = { table: string; alias: string; type: 'JOIN' | 'LEFT JOIN'; left: string; right: string }
-export type VisualColumn = { expr: string; calc: '' | Aggregate; alias: string }
+export type VisualColumn = { expr: string; calc: '' | SqlAggregate; alias: string }
 export type VisualWhere = { expr: string; op: Op; value: string }
 export type Visual = { base: string; joins: VisualJoin[]; columns: VisualColumn[]; where: VisualWhere[]; order: { expr: string; dir: 'ASC' | 'DESC' }[] }
 export const EMPTY_VISUAL: Visual = { base: '', joins: [], columns: [], where: [], order: [] }

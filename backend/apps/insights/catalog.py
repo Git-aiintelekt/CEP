@@ -19,6 +19,8 @@ OPERATORS = {
     "boolean":  ["=", "is_null", "is_not_null"],
 }
 BUCKETS = ["day", "week", "month", "quarter", "year"]
+CALC = "calc"
+FORMULA_OPS = ("ratio", "difference", "sum", "product")
 DEFAULT_LIMITS = {"statement_timeout_ms": 15_000, "preview_rows": 200, "run_rows": 5_000, "export_rows": 100_000, "concurrent": 4}
 
 
@@ -51,14 +53,17 @@ def _load(engine: str) -> list[dict]:
                           FROM report_dataset d JOIN suite_component c ON c.key = d.component_key
                           JOIN report_dataset_source s ON s.dataset_key = d.key AND s.engine = %s AND s.status = 'ACTIVE'
                          WHERE d.status = 'ACTIVE' ORDER BY d.sort_order, d.key""", [engine])
-    fields = _rows("""SELECT dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity
-                        FROM report_field ORDER BY dataset_key, sort_order, key""")
+    fields = _rows("""SELECT f.dataset_key, f.key, f.label, f.column_name, f.type, f.role, f.aggregates, f.display_format, f.sensitivity, to_jsonb(f) -> 'formula'
+                        FROM report_field f ORDER BY f.dataset_key, f.sort_order, f.key""")    # to_jsonb: the formula column may not be there yet (patch 0059)
     by_dataset: dict[str, list[dict]] = {}
-    for dataset_key, key, label, column, type_, role, aggregates, display_format, sensitivity in fields:
+    for dataset_key, key, label, column, type_, role, aggregates, display_format, sensitivity, formula in fields:
         aggregates = (json.loads(aggregates) if isinstance(aggregates, str) else aggregates) or []
-        by_dataset.setdefault(dataset_key, []).append({"key": key, "label": label, "column": column, "type": type_, "role": role, "aggregates": aggregates,
-                                                       "operators": OPERATORS[type_], "buckets": BUCKETS if type_ in ("date", "datetime") else [],
-                                                       "format": display_format, "sensitivity": sensitivity})
+        formula = json.loads(formula) if isinstance(formula, str) else formula
+        field = {"key": key, "label": label, "column": column, "type": type_, "role": role, "aggregates": aggregates,
+                 "operators": OPERATORS[type_], "buckets": BUCKETS if type_ in ("date", "datetime") else [], "format": display_format, "sensitivity": sensitivity}
+        by_dataset.setdefault(dataset_key, []).append(calculated(field, formula) if formula else field)
+    for dataset_key, items in by_dataset.items():                       # a calculated measure whose formula does not fit its dataset is not offered broken
+        by_dataset[dataset_key] = [f for f in items if not f.get("formula") or formula_error(items, f["formula"]) is None]
     data = [{"key": key, "label": label, "description": description, "component": {"key": component_key, "name": component_name}, "primary_key": primary_key,
              "time_field": time_field, "freshness": freshness, "source": source, "workspace_field": workspace_field, "fields": by_dataset.get(key, [])}
             for key, label, description, component_key, component_name, primary_key, time_field, freshness, source, workspace_field in datasets]
@@ -66,10 +71,54 @@ def _load(engine: str) -> list[dict]:
     return data
 
 
+def formula_error(fields: list[dict], formula, *, depth: int = 0) -> str | None:
+    """Why a calculated measure's formula cannot be used with these fields, or None when it can: an op, a left and a right
+    side, each a measure field with one of its aggregates (a calculated one nests two deep at most) or a number, and an
+    optional scale."""
+    if not isinstance(formula, dict) or formula.get("op") not in FORMULA_OPS:
+        return "A formula is a ratio, a difference, a sum or a product of two sides."
+    for name in ("left", "right"):
+        side = formula.get(name)
+        if not isinstance(side, dict):
+            return f"The {name} side names a measure or a number."
+        if "field" in side:
+            field = next((f for f in fields if f["key"] == side["field"]), None)
+            if field is None or field.get("role") != "measure":
+                return f"The {name} side names a measure of this dataset."
+            if side.get("aggregate") not in field.get("aggregates", []):
+                return f"{field['label']} does not take {side.get('aggregate') or 'that calculation'}."
+            if field.get("formula"):
+                if depth >= 2:
+                    return "A formula nests calculated measures two deep at most."
+                nested = formula_error(fields, field["formula"], depth=depth + 1)
+                if nested:
+                    return nested
+        elif isinstance(side.get("value"), bool) or not isinstance(side.get("value"), (int, float)):
+            return f"The {name} side names a measure or a number."
+    scale = formula.get("scale")
+    if scale is not None and (isinstance(scale, bool) or not isinstance(scale, (int, float)) or scale == 0):
+        return "The scale is a number other than zero."
+    return None
+
+
+def formula_fields(formula) -> set[str]:
+    """the keys of the measures a formula reads, this level only"""
+    return {side["field"] for side in (formula.get("left"), formula.get("right")) if isinstance(side, dict) and "field" in side}
+
+
+def calculated(field: dict, formula: dict) -> dict:
+    """a calculated measure as the catalogue offers it: a number, a measure, no column, the one aggregate calc"""
+    return {**field, "column": None, "formula": formula, "type": "number", "role": "measure", "aggregates": [CALC]}
+
+
 def _visible(dataset: dict, can_see_pii: bool) -> dict:
     offered = [f for f in dataset["fields"] if f["sensitivity"] != "CONFIDENTIAL"]
     fields = [f for f in offered if can_see_pii or f["sensitivity"] != "PII"]
     locked = [{"key": f["key"], "label": f["label"]} for f in offered if f not in fields]
+    keys = {f["key"] for f in fields}
+    for _ in range(3):                                                 # a calculated measure over a field this reader cannot see goes with it
+        fields = [f for f in fields if not f.get("formula") or formula_fields(f["formula"]) <= keys]
+        keys = {f["key"] for f in fields}
     return {**dataset, "fields": fields, "locked": locked}
 
 

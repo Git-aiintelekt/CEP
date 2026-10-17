@@ -44,6 +44,8 @@ class ReportField(models.Model):
     display_format = models.CharField(max_length=20, null=True, blank=True)
     sensitivity = models.CharField(max_length=10, default='NORMAL')
     sort_order = models.IntegerField(default=0)
+    formula = models.JSONField(null=True, blank=True, help_text='A calculated measure: {"op": "ratio" | "difference" | "sum" | "product", "left": {"field": "delivered", "aggregate": "sum"}, '
+                                                               '"right": {"field": "sent", "aggregate": "sum"} or {"value": 100}, "scale": 100}. The column is then ignored.')
 
     class Meta:
         managed = False

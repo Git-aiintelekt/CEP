@@ -154,6 +154,7 @@ urlpatterns = [
     path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),
     path("insights/dashboards/<uuid:dashboard_id>/", insights_dashboards.DashboardView.as_view(), name="insights-dashboard"),
     path("insights/dashboards/<uuid:dashboard_id>/tiles/<slug:tile_id>/run/", insights_dashboards.TileRunView.as_view(), name="insights-dashboard-tile-run"),
+    path("insights/dashboards/<uuid:dashboard_id>/slicers/values/", insights_dashboards.SlicerValuesView.as_view(), name="insights-dashboard-slicer-values"),
     path("insights/dashboards/<uuid:dashboard_id>/export.pdf", insights_dashboards.DashboardExportPdfView.as_view(), name="insights-dashboard-export-pdf"),
     path("insights/favourites/<slug:kind>/<uuid:item_id>/", insights_library.FavouriteView.as_view(), name="insights-favourite"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),

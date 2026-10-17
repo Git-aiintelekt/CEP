@@ -3,7 +3,7 @@
  * change returns a new layout; nothing overlaps or leaves a gap because a row never holds more tiles than its width.
  * Also the period's bounds for display; the server computes the real ones in the workspace's zone.
  */
-import type { Dashboard, DashboardLayout, DashboardRow, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, TileShow } from '../types'
+import type { CatalogDataset, Dashboard, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerSelection, TileShow } from '../types'
 
 export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
   { value: '1', label: 'One across', capacity: 1 }, { value: '2', label: 'Two across', capacity: 2 }, { value: '3', label: 'Three across', capacity: 3 },
@@ -101,7 +101,56 @@ export function setRowWidth(layout: DashboardLayout, index: number, width: RowWi
 
 /** rows without a tile, which the server keeps but a viewer need not see */
 export function filled(layout: DashboardLayout): DashboardLayout {
-  return { rows: layout.rows.filter((row) => row.tiles.length > 0) }
+  return { ...layout, rows: layout.rows.filter((row) => row.tiles.length > 0) }
+}
+
+// ---------------------------------------------------------------------------------------------------- slicers
+
+export const MAX_SLICERS = 6
+const SLICER_TYPES = ['string', 'boolean', 'number']
+
+export function setSlicers(layout: DashboardLayout, slicers: DashboardSlicer[]): DashboardLayout {
+  return slicers.length ? { ...layout, slicers } : (({ slicers: _gone, ...rest }) => rest)(layout)
+}
+
+/** the dimensions the tiles' reports' datasets offer as slicers: text, yes/no or number, with the datasets each is in */
+export function slicerCandidates(layout: DashboardLayout, datasetOf: (reportId: string) => string | undefined, datasets: CatalogDataset[]): SlicerCandidate[] {
+  const keys = new Set(tiles(layout).map((tile) => datasetOf(tile.report_id)).filter((key): key is string => Boolean(key)))
+  const out = new Map<string, SlicerCandidate>()
+  for (const dataset of datasets.filter((item) => keys.has(item.key))) {
+    for (const field of dataset.fields) {
+      if (field.role !== 'dimension' || !SLICER_TYPES.includes(field.type)) continue
+      const found = out.get(field.key)
+      if (found) found.datasets.push(dataset.label)
+      else out.set(field.key, { field: field.key, label: field.label, datasets: [dataset.label] })
+    }
+  }
+  return [...out.values()].sort((a, b) => b.datasets.length - a.datasets.length || a.label.localeCompare(b.label))
+}
+
+/** the chip's words: the field, then what is picked */
+export function slicerWords(slicer: DashboardSlicer, values: unknown[] | undefined): string {
+  if (!values || values.length === 0) return slicer.label
+  if (values.length === 1) return `${slicer.label}: ${valueWords(values[0])}`
+  return `${slicer.label}: ${values.length} values`
+}
+
+export function valueWords(value: unknown): string {
+  if (value === true) return 'Yes'
+  if (value === false) return 'No'
+  return String(value)
+}
+
+/** a click on a value: that value alone, or nothing when it was already the only one picked */
+export function toggleValue(selection: SlicerSelection, field: string, value: unknown): SlicerSelection {
+  const now = selection[field] ?? []
+  const only = now.length === 1 && String(now[0]) === String(value)
+  return { ...selection, [field]: only ? [] : [value] }
+}
+
+/** the slicers with a value picked, as the tile run sends them */
+export function activeSlicers(selection: SlicerSelection): SlicerSelection {
+  return Object.fromEntries(Object.entries(selection).filter(([, values]) => values.length > 0))
 }
 
 // ---------------------------------------------------------------------------------------------------- the period

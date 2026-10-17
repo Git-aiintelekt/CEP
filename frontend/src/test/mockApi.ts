@@ -45,6 +45,8 @@ export const insightsCatalog = {
         { key: 'submitted_at', label: 'Sent', type: 'datetime', role: 'dimension', aggregates: [], operators: ['between', 'last_days'], buckets: ['day', 'week', 'month'], format: 'datetime', sensitivity: 'NORMAL' },
         { key: 'sent', label: 'Sent Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
         { key: 'delivered', label: 'Delivered Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
+        { key: 'delivered_rate', label: 'Delivered Rate', type: 'number', role: 'measure', aggregates: ['calc'], operators: [], buckets: [], format: 'percent', sensitivity: 'NORMAL',
+          formula: { op: 'ratio', left: { field: 'delivered', aggregate: 'sum' }, right: { field: 'sent', aggregate: 'sum' }, scale: 100 } },
       ] },
     { key: 'attributed_orders', label: 'Attributed Orders', description: 'Orders the shop reported', component: { key: 'cep', name: 'Engagement' }, primary_key: 'order_id', time_field: 'ordered_at', freshness: 'LIVE',
       fields: [
@@ -143,7 +145,8 @@ export const insightsResult = {
 /** a dashboard (apps/insights/dashboards): rows of tiles over the saved report */
 export const insightsDashboard: InsightsDashboard = {
   id: 'dash-1', name: 'Marketing Weekly', description: 'Sends, revenue and the top campaigns, by week', visibility: 'WORKSPACE' as const, period: { preset: '30d' as const }, compare: true,
-  layout: { rows: [{ width: '2-1' as const, tiles: [{ id: 't1', report_id: 'rep-1', show: 'chart' as const, title: 'Sends by Campaign' }, { id: 't2', report_id: 'rep-1', show: 'figure' as const, measure: 'sent' }] }] },
+  layout: { rows: [{ width: '2-1' as const, tiles: [{ id: 't1', report_id: 'rep-1', show: 'chart' as const, title: 'Sends by Campaign' }, { id: 't2', report_id: 'rep-1', show: 'figure' as const, measure: 'sent' }] }],
+            slicers: [{ field: 'channel', label: 'Channel' }] },
   version: 2, row_version: 2, owner_user_id: 'u1', owner_name: 'Aby John', created_at: '2026-10-14T08:00:00Z', updated_at: '2026-10-15T09:12:00Z', can_edit: true,
   bounds: { from: '2026-09-16', to: '2026-10-15', previous_from: '2026-08-17', previous_to: '2026-09-15' },
 }
@@ -1370,13 +1373,25 @@ export function installMockApi(options: MockOptions = {}) {
       const tileRun = /\/insights\/dashboards\/([\w-]+)\/tiles\/([\w-]+)\/run\/$/.exec(path)
       if (tileRun && method === 'POST') {
         const found = insightsDashboardsNow.find((d) => d.id === tileRun[1])
-        const asked = body as { tile?: InsightsDashboard['layout']['rows'][number]['tiles'][number]; period?: { preset: string }; compare?: boolean }
+        const asked = body as { tile?: InsightsDashboard['layout']['rows'][number]['tiles'][number]; period?: { preset: string }; compare?: boolean; slicers?: Record<string, unknown[]> }
         const tile = tileRun[2] === 'preview' ? asked.tile : found?.layout.rows.flatMap((row) => row.tiles).find((t) => t.id === tileRun[2])
         if (!found || !tile) return json({ detail: 'No such tile.' }, 404)
         const bounds = asked.period?.preset === '7d' ? BOUNDS_7D : found.bounds
         const about = { id: 'rep-1', name: insightsSummary.name, version: 2 }
-        if (tile.show === 'figure') return json({ kind: 'figure', value: 391520, previous: 361180, compared: asked.compare ?? found.compare, column: insightsResult.columns[2], own_dates: false, bounds, report: about, cached: false })
-        return json({ kind: 'view', view: { type: tile.show }, result: insightsResult, own_dates: false, bounds, report: about })
+        // the slicers narrow the sample rows as the engine would: an IN rule per field the dataset has
+        const sliced = Object.entries(asked.slicers ?? {}).filter(([field, values]) => values.length && insightsResult.columns.some((c) => c.key === field && !('aggregate' in c)))
+        const rows = insightsResult.rows.filter((row) => sliced.every(([field, values]) => values.some((v) => String(v) === String(row[insightsResult.columns.findIndex((c) => c.key === field)]))))
+        const result = { ...insightsResult, rows, row_count: rows.length }
+        if (tile.show === 'figure') return json({ kind: 'figure', value: sliced.length ? rows.reduce((n, row) => n + Number(row[2]), 0) : 391520, previous: 361180, compared: asked.compare ?? found.compare, column: insightsResult.columns[2], own_dates: false, bounds, report: about, cached: false, sliced: sliced.map(([field]) => field) })
+        return json({ kind: 'view', view: { type: tile.show }, result, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field) })
+      }
+      const slicerValues = /\/insights\/dashboards\/([\w-]+)\/slicers\/values\/$/.exec(path)
+      if (slicerValues && method === 'POST') {
+        const field = (body as { field?: string }).field ?? ''
+        const at = insightsResult.columns.findIndex((c) => c.key === field)
+        if (at < 0) return json({ detail: 'No tile has that field.' }, 404)
+        const values = [...new Set(insightsResult.rows.map((row) => row[at]))].sort()
+        return json({ field, label: insightsResult.columns[at].label, values, datasets: 1 })
       }
       const oneDashboard = /\/insights\/dashboards\/([\w-]+)\/$/.exec(path)
       if (oneDashboard && method === 'PUT') {

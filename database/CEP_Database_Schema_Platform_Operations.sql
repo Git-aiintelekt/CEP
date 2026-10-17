@@ -1862,11 +1862,13 @@ CREATE TABLE IF NOT EXISTS report_field (
     display_format      VARCHAR(20),                                      -- integer, decimal, money, percent, date, datetime
     sensitivity         VARCHAR(10) NOT NULL DEFAULT 'NORMAL',            -- NORMAL, PII (masked for roles without the right), CONFIDENTIAL (never offered)
     sort_order          INTEGER NOT NULL DEFAULT 0,
+    formula             JSONB,                                            -- a calculated measure (patch 0059): {op, left, right, scale}; the compiler ignores column_name
     UNIQUE (dataset_key, key),
     CONSTRAINT ck_report_field_type CHECK (type IN ('string', 'number', 'date', 'datetime', 'boolean')),
     CONSTRAINT ck_report_field_role CHECK (role IN ('dimension', 'measure')),
     CONSTRAINT ck_report_field_sensitivity CHECK (sensitivity IN ('NORMAL', 'PII', 'CONFIDENTIAL'))
 );
+ALTER TABLE report_field ADD COLUMN IF NOT EXISTS formula JSONB;
 
 CREATE TABLE IF NOT EXISTS report_dataset_source (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2282,6 +2284,22 @@ INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggr
     ('journey_enrollments', 'active',         'Active',         'active_n',           'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 100),
     ('journey_enrollments', 'converted',      'Converted',      'converted_n',        'number',   'measure',   '["sum"]', 'integer', 'NORMAL', 110),
     ('journey_enrollments', 'revenue',        'Revenue',        'attributed_revenue', 'number',   'measure',   '["sum", "avg"]', 'money', 'NORMAL', 120)
+ON CONFLICT (dataset_key, key) DO NOTHING;
+
+-- ---- calculated measures (patch 0059): a formula over the dataset's other measures; the column is a placeholder
+INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggregates, display_format, sensitivity, sort_order, formula) VALUES
+    ('messages', 'delivered_rate', 'Delivered Rate', 'delivered_rate', 'number', 'measure', '["calc"]', 'percent', 'NORMAL', 180,
+     '{"op": "ratio", "left": {"field": "delivered", "aggregate": "sum"}, "right": {"field": "sent", "aggregate": "sum"}, "scale": 100}'),
+    ('messages', 'open_rate',      'Open Rate',      'open_rate',      'number', 'measure', '["calc"]', 'percent', 'NORMAL', 190,
+     '{"op": "ratio", "left": {"field": "opened", "aggregate": "sum"}, "right": {"field": "delivered", "aggregate": "sum"}, "scale": 100}'),
+    ('messages', 'click_rate',     'Click Rate',     'click_rate',     'number', 'measure', '["calc"]', 'percent', 'NORMAL', 200,
+     '{"op": "ratio", "left": {"field": "clicked", "aggregate": "sum"}, "right": {"field": "delivered", "aggregate": "sum"}, "scale": 100}'),
+    ('messages', 'bounce_rate',    'Bounce Rate',    'bounce_rate',    'number', 'measure', '["calc"]', 'percent', 'NORMAL', 210,
+     '{"op": "ratio", "left": {"field": "bounced", "aggregate": "sum"}, "right": {"field": "sent", "aggregate": "sum"}, "scale": 100}'),
+    ('attributed_orders', 'average_order', 'Average Order Value', 'average_order', 'number', 'measure', '["calc"]', 'money', 'NORMAL', 140,
+     '{"op": "ratio", "left": {"field": "amount", "aggregate": "sum"}, "right": {"field": "orders", "aggregate": "count"}}'),
+    ('journey_enrollments', 'conversion_rate', 'Conversion Rate', 'conversion_rate', 'number', 'measure', '["calc"]', 'percent', 'NORMAL', 130,
+     '{"op": "ratio", "left": {"field": "converted", "aggregate": "sum"}, "right": {"field": "enrollments", "aggregate": "count"}, "scale": 100}')
 ON CONFLICT (dataset_key, key) DO NOTHING;
 
 -- ---- the Insights global parameters (Platform admin -> Global Parameters)

@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, TileResult } from './types'
+import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, SlicerSelection, SlicerValues, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -32,10 +32,12 @@ export const dashboardsApi = {
   update: (id: string, body: { row_version: number; name?: string; description?: string | null; visibility?: 'PRIVATE' | 'WORKSPACE'; period?: Period; compare?: boolean; layout?: DashboardLayout; note?: string }) =>
     api.put<Dashboard>(`/insights/dashboards/${id}/`, body),
   remove: (id: string) => api.delete(`/insights/dashboards/${id}/`),
-  /** a saved tile */
-  runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
+  /** a saved tile, narrowed by the slicers' values where its dataset has the field */
+  runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean; slicers?: SlicerSelection }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
   /** a tile as it is being edited, saved or not */
-  previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+  previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean; slicers?: SlicerSelection }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+  /** the values a slicer offers over the period */
+  slicerValues: (id: string, body: { field: string; period?: Period }) => api.post<SlicerValues>(`/insights/dashboards/${id}/slicers/values/`, body),
   exportPdf: (id: string) => api.download(`/insights/dashboards/${id}/export.pdf`),
 }
 

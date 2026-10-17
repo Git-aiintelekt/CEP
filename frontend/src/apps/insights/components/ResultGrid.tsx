@@ -7,7 +7,7 @@ import { AgGridReact } from 'ag-grid-react'
 import { Lock } from 'lucide-react'
 import { useMemo } from 'react'
 
-import type { RunResult } from '../types'
+import type { ResultColumn, RunResult } from '../types'
 import { formatCell, maskedWords } from './resultWords'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -33,18 +33,18 @@ const theme = themeQuartz.withParams({
   cellHorizontalPadding: 12,
 })
 
-export function ResultGrid({ result, label = 'Report rows', minHeight = 360 }: { result: RunResult; label?: string; minHeight?: number }) {
+export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
   const columnDefs = useMemo<ColDef[]>(() => result.columns.map((column, index) => ({
     headerName: column.masked ? `${column.label} (masked)` : column.label,
     field: `c${index}`,
     type: column.type === 'number' && !column.masked ? 'numericColumn' : undefined,
-    cellClass: column.masked ? 'text-ink-700' : undefined,
+    cellClass: column.masked ? 'text-ink-700' : onPick && !column.aggregate ? 'cursor-pointer' : undefined,
     valueFormatter: (p) => formatCell(column, p.value),
     sortable: true,
     resizable: true,
     minWidth: 120,
     flex: 1,
-  })), [result.columns])
+  })), [result.columns, onPick])
   const rowData = useMemo(() => result.rows.map((row) => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))), [result.rows])
   const masked = maskedWords(result)
   return (
@@ -55,7 +55,8 @@ export function ResultGrid({ result, label = 'Report rows', minHeight = 360 }: {
         </p>
       )}
       <div className="overflow-hidden rounded-md border border-line" style={{ minHeight }} role="region" aria-label={label}>
-        <AgGridReact theme={theme} columnDefs={columnDefs} rowData={rowData} domLayout="autoHeight" suppressCellFocus animateRows={false} overlayNoRowsTemplate="<span>No rows match this report.</span>" />
+        <AgGridReact theme={theme} columnDefs={columnDefs} rowData={rowData} domLayout="autoHeight" suppressCellFocus animateRows={false} overlayNoRowsTemplate="<span>No rows match this report.</span>"
+          onCellClicked={onPick ? (event) => { const column = result.columns[Number(String(event.colDef.field).slice(1))]; if (column && !column.aggregate && !column.masked) onPick(column, event.value) } : undefined} />
       </div>
     </div>
   )

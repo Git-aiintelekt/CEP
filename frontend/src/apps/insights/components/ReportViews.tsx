@@ -1,17 +1,20 @@
 /**
  * The four views of one report, and the bar that switches them. Grid: the rows (ResultGrid). Chart: the chart kit on the
- * first dimension, one series per value of the dimension across, else one per measure. Hierarchy: the dimensions as
+ * first dimension, one series per value of the dimension across, else one per measure; a pie or a funnel of the first
+ * measure by the first dimension. Hierarchy: the dimensions as
  * levels that fold, with subtotals. Pivot: the dimension across as columns, one measure in the cells, totals on both
  * edges. Any report switches between them without losing its fields; the chosen view and its settings save with the
  * definition (`view`).
  */
-import { ChartArea, ChartColumn, ChartLine, ChevronDown, ChevronRight, Grid3x3, ListTree, Table2 } from 'lucide-react'
+import { ChartArea, ChartColumn, ChartLine, ChartPie, ChevronDown, ChevronRight, Funnel, Grid3x3, ListTree, Table2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Chart } from '@/components/charts/Chart'
+import { FunnelChart } from '@/components/charts/FunnelChart'
+import { PieChart } from '@/components/charts/PieChart'
 import { Select } from '@/components/Form'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
-import type { ReportView, ResultColumn, RunResult, ViewType } from '../types'
+import type { ChartKind, ReportView, ResultColumn, RunResult, ViewType } from '../types'
 import { ResultGrid } from './ResultGrid'
 import { formatCell } from './resultWords'
 import { chartShape, hierarchyShape, pivotShape, split, type HierarchyNode } from './shape'
@@ -21,7 +24,12 @@ const VIEWS: SegmentOption<ViewType>[] = [
   { value: 'grid', label: 'Grid', icon: Table2 }, { value: 'chart', label: 'Chart', icon: ChartColumn },
   { value: 'hierarchy', label: 'Hierarchy', icon: ListTree }, { value: 'pivot', label: 'Pivot', icon: Grid3x3 },
 ]
-const CHARTS: SegmentOption<'bar' | 'line' | 'area'>[] = [{ value: 'bar', label: 'Bars', icon: ChartColumn }, { value: 'line', label: 'Lines', icon: ChartLine }, { value: 'area', label: 'Area', icon: ChartArea }]
+const CHARTS: SegmentOption<ChartKind>[] = [
+  { value: 'bar', label: 'Bars', icon: ChartColumn }, { value: 'line', label: 'Lines', icon: ChartLine }, { value: 'area', label: 'Area', icon: ChartArea },
+  { value: 'pie', label: 'Pie', icon: ChartPie }, { value: 'funnel', label: 'Funnel', icon: Funnel },
+]
+/** a pie or a funnel takes one measure by one dimension: the series dimension does not apply */
+const ONE_SERIES: ChartKind[] = ['pie', 'funnel']
 
 export const DEFAULT_VIEW: ReportView = { type: 'grid' }
 
@@ -30,7 +38,7 @@ const number = (column: ResultColumn) => (value: number) => formatCell(column, v
 /** The view switch, the chart's kind, and for a chart or a pivot which dimension goes across: the controls above the result. */
 export function ViewBar({ view, onChange, columns, dimensions }: { view: ReportView; onChange: (next: ReportView) => void; columns?: ResultColumn[]; dimensions: { key: string; label: string }[] }) {
   const dims = columns ? columns.filter((column) => !column.aggregate).map((column) => ({ key: column.key, label: column.label })) : dimensions
-  const acrossNeeded = view.type === 'chart' || view.type === 'pivot'
+  const acrossNeeded = (view.type === 'chart' && !ONE_SERIES.includes(view.chart ?? 'bar')) || view.type === 'pivot'
   return (
     <div className="flex flex-wrap items-center gap-2">
       <SegmentedControl label="View" options={VIEWS} value={view.type} onChange={(type) => onChange({ ...view, type })} />
@@ -52,23 +60,36 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
   return <div className="flex items-center justify-center rounded-md border border-dashed border-line p-6 text-center text-sm text-ink-800" style={{ minHeight }}>{children}</div>
 }
 
-/** The result in the chosen view. */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360 }: { result: RunResult; view: ReportView; label?: string; minHeight?: number }) {
+/** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell. */
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick: pickAny }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
+  // a date, bucketed or not, is the period's business, not a slicer's: only text, yes/no and number dimensions can be picked
+  const onPick = pickAny ? (column: ResultColumn, value: unknown) => { if (!column.bucket && column.type !== 'date' && column.type !== 'datetime' && value !== null && value !== undefined) pickAny(column, value) } : undefined
   switch (view.type) {
-    case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} />
+    case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} />
     case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} />
     case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} />
-    default: return <ResultGrid result={result} label={label} minHeight={minHeight} />
+    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} />
   }
 }
 
-function ReportChart({ result, view, minHeight }: { result: RunResult; view: ReportView; minHeight: number }) {
-  const shape = useMemo(() => chartShape(result, view.across), [result, view.across])
+function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
+  const kind = view.chart ?? 'bar'
+  const shape = useMemo(() => chartShape(result, ONE_SERIES.includes(kind) ? undefined : view.across), [result, view.across, kind])
   if (shape.reason) return <Reason minHeight={minHeight}>{shape.reason}</Reason>
   const title = `${shape.measure.label} by ${shape.categoryHeader}`
+  const pick = onPick ? (index: number) => onPick(shape.axis, shape.categories[index].value) : undefined
+  const first = shape.series[0]
   return (
     <div className="rounded-md border border-line p-4">
-      <Chart title={title} categoryHeader={shape.categoryHeader} categories={shape.categories} series={shape.series} type={view.chart ?? 'bar'} height={Math.max(240, minHeight - 80)} formatValue={number(shape.measure)} />
+      {kind === 'pie' ? (
+        <PieChart title={title} categoryHeader={shape.categoryHeader} valueLabel={shape.measure.label} height={Math.max(200, Math.min(280, minHeight - 120))} formatValue={number(shape.measure)} onSelect={pick}
+          slices={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
+      ) : kind === 'funnel' ? (
+        <FunnelChart title={title} valueLabel={shape.measure.label} formatValue={number(shape.measure)} onSelect={pick}
+          stages={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
+      ) : (
+        <Chart title={title} categoryHeader={shape.categoryHeader} categories={shape.categories} series={shape.series} type={kind} height={Math.max(240, minHeight - 80)} formatValue={number(shape.measure)} onSelect={pick} />
+      )}
     </div>
   )
 }
