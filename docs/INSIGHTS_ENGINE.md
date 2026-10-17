@@ -202,4 +202,7 @@ IN with one placeholder a value, `IS NULL` ordering, and one query per grouping 
 Test Connection reads the server's version, what the account may read and its rights (`SHOW GRANTS`; on PostgreSQL the
 role's attributes, `information_schema.role_table_grants` beyond SELECT and CREATE on the schema); an account that could
 write is recorded `read_only = false` and the connection cannot be used until it is fixed. `pymysql` is the MySQL client
-(requirements.txt); PostgreSQL uses the psycopg Django already has.
+(requirements.txt); PostgreSQL uses the psycopg Django already has. A mapped dataset may join up to five tables
+(`report_dataset_custom.joins`, patch 0057: alias, table, left or inner, the alias joined to, the key pairs; each field
+carries its table's alias): `compiler.join_clause` writes the FROM as the base AS t0 with each join ON its keys, every
+column qualified, and `external.join_check` counts what a join does to the rows before it is added.

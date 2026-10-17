@@ -89,6 +89,7 @@ urlpatterns = [
     path("workspace/report-databases/<uuid:connection_id>/sources/", insights_databases.SourcesView.as_view(), name="workspace-report-database-sources"),
     path("workspace/report-databases/<uuid:connection_id>/sources/<str:source>/", insights_databases.SourcesView.as_view(), name="workspace-report-database-source"),
     path("workspace/report-databases/<uuid:connection_id>/preview/", insights_databases.PreviewView.as_view(), name="workspace-report-database-preview"),
+    path("workspace/report-databases/<uuid:connection_id>/join-check/", insights_databases.JoinCheckView.as_view(), name="workspace-report-database-join-check"),
     path("workspace/report-databases/<uuid:connection_id>/datasets/", insights_databases.DatasetsView.as_view(), name="workspace-report-database-datasets"),
     path("workspace/consent-policy/", consent_api.ConsentPolicyView.as_view(), name="workspace-consent-policy"),
     path("workspace/setup/", setup_api.WorkspaceSetupView.as_view(), name="workspace-setup"),

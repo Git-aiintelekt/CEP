@@ -260,11 +260,38 @@ def columns(row: dict, source: str) -> list[dict]:
     return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)), **_typed(data_type, column_type, name)} for name, data_type, column_type, column_key in rows]
 
 
-def sample(row: dict, source: str, names: list[str], *, limit: int = 5, zone: str | None = None) -> list[list]:
-    if not IDENT.match(source) or not all(IDENT.match(n) for n in names) or not names:
+def _from(row: dict, source: str, joins: list[dict] | None) -> str:
+    """the FROM for a sample or a check: the base alone, or the base as t0 with its joins (compiler.join_clause)"""
+    from apps.insights import compiler
+    schema = schema_of(row)
+    if not joins:
+        return f"{quote(schema, row)}.{quote(source, row)}"
+    dialect = "postgresql" if is_pg(row) else "mysql"
+    return compiler.join_clause(f"{schema}.{source}", [{**j, "table": f"{schema}.{j['table']}"} for j in joins], dialect)
+
+
+def sample(row: dict, source: str, names: list, *, limit: int = 5, zone: str | None = None, joins: list[dict] | None = None) -> list[list]:
+    """The first rows: names are columns of the base, or (alias, column) pairs when the dataset joins tables."""
+    pairs = [(n if isinstance(n, (list, tuple)) else ("t0" if joins else None, n)) for n in names]
+    if not IDENT.match(source) or not names or not all(IDENT.match(c) and (a is None or IDENT.match(a)) for a, c in pairs):
         raise ExternalError("Only columns named with letters, digits and underscores can be read.")
-    sql = f"SELECT {', '.join(quote(n, row) for n in names)} FROM {quote(schema_of(row), row)}.{quote(source, row)} LIMIT %s"
+    selected = ", ".join(f"{quote(a, row)}.{quote(c, row)}" if a else quote(c, row) for a, c in pairs)
+    sql = f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT %s"
     return query(row, sql, [int(limit)], timeout_ms=10_000, zone=zone)
+
+
+def join_check(row: dict, source: str, joins: list[dict], *, zone: str | None = None) -> dict:
+    """What a join does to the rows: the base's count, the joined count, the share of base rows that match the last join."""
+    if not IDENT.match(source) or not joins:
+        raise ExternalError("Only tables named with letters, digits and underscores can be joined.")
+    last = joins[-1]
+    with_last = _from(row, source, joins)
+    without_last = _from(row, source, joins[:-1])
+    probe = f"{quote(last['alias'], row)}.{quote(last['on'][0][1], row)}"
+    sql = (f"SELECT (SELECT count(*) FROM {without_last}) AS base_rows, count(*) AS joined_rows, count({probe}) AS matched_rows FROM {with_last}")
+    base_rows, joined_rows, matched_rows = query(row, sql, [], timeout_ms=10_000, zone=zone)[0]
+    return {"base_rows": int(base_rows), "joined_rows": int(joined_rows), "matched_rows": int(matched_rows),
+            "multiplies": int(joined_rows) > int(base_rows), "factor": round(int(joined_rows) / int(base_rows), 2) if int(base_rows) else None}
 
 
 # ---------------------------------------------------------------------------------------------------- the runner's path

@@ -2427,7 +2427,8 @@ CREATE TABLE IF NOT EXISTS report_dataset_custom (
     source_name         VARCHAR(64) NOT NULL,                              -- the table or view
     primary_key         VARCHAR(60),                                       -- a field key, or none
     time_field          VARCHAR(60),                                       -- a date field key, or none
-    fields              JSONB NOT NULL DEFAULT '[]',                       -- [{key, label, column, type, role, aggregates, format, sensitivity}]
+    fields              JSONB NOT NULL DEFAULT '[]',                       -- [{key, label, column, table?, type, role, aggregates, format, sensitivity}]; table: a join's alias (t1..), else the base
+    joins               JSONB NOT NULL DEFAULT '[]',                       -- [{alias, table, type: left|inner, to: the alias joined to (t0 = the base), on: [[parent column, table column], ...]}]
     status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, HIDDEN
     created_by          UUID REFERENCES app_user(id),
     updated_by          UUID REFERENCES app_user(id),
@@ -2438,6 +2439,7 @@ CREATE TABLE IF NOT EXISTS report_dataset_custom (
     CONSTRAINT ck_report_dataset_custom_key CHECK (key ~ '^x_[a-z0-9_]{1,37}$'),
     CONSTRAINT ck_report_dataset_custom_status CHECK (status IN ('ACTIVE', 'HIDDEN'))
 );
+ALTER TABLE report_dataset_custom ADD COLUMN IF NOT EXISTS joins JSONB NOT NULL DEFAULT '[]';     -- patch 0057 on a table made by 0056
 CREATE INDEX IF NOT EXISTS ix_report_dataset_custom_connection ON report_dataset_custom(connection_id);
 DO $$ DECLARE t text;
 BEGIN

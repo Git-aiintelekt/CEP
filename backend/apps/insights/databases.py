@@ -9,7 +9,8 @@ Report see it like any dataset; the runner reads it through apps/insights/extern
     POST            /workspace/report-databases/<id>/test/             the saved connection tested, the outcome kept on it
     GET             /workspace/report-databases/<id>/sources/          the tables and views the account can read
     GET             /workspace/report-databases/<id>/sources/<name>/   its columns, typed, with a few rows
-    POST            /workspace/report-databases/<id>/preview/          {source, fields} the first rows with the labels applied
+    POST            /workspace/report-databases/<id>/preview/          {source, joins, fields} the first rows with the labels applied
+    POST            /workspace/report-databases/<id>/join-check/       {source, joins} what the last join does to the rows
     POST            /workspace/report-databases/<id>/datasets/         a dataset mapped from a table or view
     GET, PUT, DELETE /workspace/report-databases/datasets/<id>/
 
@@ -46,6 +47,8 @@ AGGREGATES = ("sum", "count", "count_distinct", "avg", "min", "max")
 FORMATS = ("integer", "decimal", "money", "percent", "date", "datetime")
 SENSITIVITIES = ("NORMAL", "PII", "CONFIDENTIAL")
 MAX_FIELDS = 60
+MAX_JOINS = 5
+JOIN_TYPES = ("left", "inner")
 GRANT_EXAMPLES = {
     "mysql": "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';",
     "postgresql": "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT CONNECT ON DATABASE your_db TO cep_reader;\nGRANT USAGE ON SCHEMA public TO cep_reader;\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;",
@@ -73,10 +76,11 @@ def datasets(tenant_id, connection_id=None) -> list[dict]:
     where, args = "tenant_id = %s", [str(tenant_id)]
     if connection_id:
         where += " AND connection_id = %s"; args.append(str(connection_id))
-    rows = _q(f"""SELECT id::text, connection_id::text, key, label, description, component_key, source_name, primary_key, time_field, fields, status, created_at, updated_at, row_version
+    rows = _q(f"""SELECT id::text, connection_id::text, key, label, description, component_key, source_name, primary_key, time_field, fields, joins, status, created_at, updated_at, row_version
                     FROM report_dataset_custom WHERE {where} ORDER BY label""", args)
     for row in rows:
         row["fields"] = json.loads(row["fields"]) if isinstance(row["fields"], str) else (row["fields"] or [])
+        row["joins"] = json.loads(row["joins"]) if isinstance(row["joins"], str) else (row["joins"] or [])
     return rows
 
 
@@ -98,11 +102,14 @@ def custom_datasets(tenant_id) -> list[dict]:
         conn = by_connection.get(row["connection_id"])
         if row["status"] != "ACTIVE" or conn is None or conn["status"] != "ACTIVE":
             continue
-        fields = [{"key": f["key"], "label": f["label"], "column": f["column"], "type": f["type"], "role": f["role"], "aggregates": f.get("aggregates") or [],
-                   "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [], "format": f.get("format"),
-                   "sensitivity": f.get("sensitivity") or "NORMAL"} for f in row["fields"]]
+        schema = external.schema_of(conn)
+        joins = row["joins"] or []
+        fields = [{"key": f["key"], "label": f["label"], "column": f["column"], **({"table": f.get("table") or "t0"} if joins else {}), "type": f["type"], "role": f["role"],
+                   "aggregates": f.get("aggregates") or [], "operators": catalog.OPERATORS[f["type"]], "buckets": catalog.BUCKETS if f["type"] in ("date", "datetime") else [],
+                   "format": f.get("format"), "sensitivity": f.get("sensitivity") or "NORMAL"} for f in row["fields"]]
         data.append({"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row["component_key"], "name": "Engagement"},
-                     "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{external.schema_of(conn)}.{row['source_name']}",
+                     "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
+                     "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins],
                      "workspace_field": None, "engine": "postgresql" if external.is_pg(conn) else "mysql", "external": True, "fields": fields,
                      "database": {"id": conn["id"], "name": conn["name"], "engine": conn["engine"], "engine_name": external.ENGINES.get(conn["engine"], conn["engine"])},
                      "connection": conn})
@@ -128,7 +135,7 @@ def serialize_connection(row: dict, with_datasets: list[dict] | None = None, cou
 def serialize_dataset(row: dict, counts: dict | None = None) -> dict:
     fields = row["fields"]
     return {"id": row["id"], "connection_id": row["connection_id"], "key": row["key"], "label": row["label"], "description": row["description"], "source": row["source_name"],
-            "primary_key": row["primary_key"], "time_field": row["time_field"], "fields": fields, "field_count": len(fields), "pii_count": sum(1 for f in fields if f.get("sensitivity") == "PII"),
+            "joins": row.get("joins") or [], "primary_key": row["primary_key"], "time_field": row["time_field"], "fields": fields, "field_count": len(fields), "pii_count": sum(1 for f in fields if f.get("sensitivity") == "PII"),
             "reports": (counts or {}).get(row["key"], 0), "status": row["status"], "updated_at": row["updated_at"], "row_version": row["row_version"]}
 
 
@@ -209,6 +216,8 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
     source = str(body.get("source") or (current or {}).get("source_name") or "").strip()
     if not external.IDENT.match(source):
         errors["source"] = "A table or view named with letters, digits and underscores."
+    joins = _joins_body(body.get("joins") if "joins" in body else (current or {}).get("joins"), errors)
+    aliases = {"t0", *(j["alias"] for j in joins)}
     raw = body.get("fields") if "fields" in body else (current or {}).get("fields")
     fields, keys = [], set()
     if not isinstance(raw, list) or not raw:
@@ -223,6 +232,9 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
             column = str(item.get("column") or "").strip()
             if not external.IDENT.match(column):
                 errors[f"{at}.column"] = "A column named with letters, digits and underscores."; continue
+            table = str(item.get("table") or "t0")
+            if table not in aliases:
+                errors[f"{at}.table"] = "The field's table is the base or one of the joins."; continue
             flabel = " ".join(str(item.get("label") or column).split())[:100]
             fkey = (slugify(flabel).replace("-", "_") or column.lower())[:60]
             if not re.match(r"^[a-z][a-z0-9_]*$", fkey):
@@ -245,7 +257,7 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
                 errors[f"{at}.aggregates"] = "Pick at least one calculation."
             if sensitivity not in SENSITIVITIES:
                 errors[f"{at}.sensitivity"] = "Normal, Personal or Confidential."
-            fields.append({"key": fkey, "label": flabel, "column": column, "type": type_, "role": role, "aggregates": aggregates, "format": format_, "sensitivity": sensitivity})
+            fields.append({"key": fkey, "label": flabel, "column": column, **({"table": table} if joins else {}), "type": type_, "role": role, "aggregates": aggregates, "format": format_, "sensitivity": sensitivity})
     primary_key = str(body.get("primary_key") or "").strip() or None if "primary_key" in body else (current or {}).get("primary_key")
     time_field = str(body.get("time_field") or "").strip() or None if "time_field" in body else (current or {}).get("time_field")
     if primary_key and primary_key not in keys:
@@ -254,7 +266,44 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
         errors["time_field"] = "The time field is a date field."
     if errors:
         raise ValidationError(errors)
-    return {"label": label, "description": description, "source_name": source, "fields": fields, "primary_key": primary_key, "time_field": time_field}
+    return {"label": label, "description": description, "source_name": source, "fields": fields, "joins": joins, "primary_key": primary_key, "time_field": time_field}
+
+
+def _joins_body(raw, errors: dict) -> list[dict]:
+    """[{alias, table, type, to, on: [[a, b], ...]}], aliases t1.. in order, each joined to the base or an earlier join"""
+    if raw in (None, []):
+        return []
+    if not isinstance(raw, list):
+        errors["joins"] = "Joins are a list."; return []
+    if len(raw) > MAX_JOINS:
+        errors["joins"] = f"A dataset has {MAX_JOINS} joins at most."; return []
+    out, known = [], {"t0"}
+    for i, item in enumerate(raw):
+        at = f"joins[{i}]"
+        if not isinstance(item, dict):
+            errors[at] = "A join names a table, a type and its keys."; continue
+        alias = f"t{i + 1}"
+        table = str(item.get("table") or "").strip()
+        kind = str(item.get("type") or "left").lower()
+        to = str(item.get("to") or "t0")
+        on = item.get("on")
+        if not external.IDENT.match(table):
+            errors[f"{at}.table"] = "A table named with letters, digits and underscores."
+        if kind not in JOIN_TYPES:
+            errors[f"{at}.type"] = "Left or Inner."
+        if to not in known:
+            errors[f"{at}.to"] = "Join to the base or to an earlier join."
+        pairs = []
+        if not isinstance(on, list) or not on:
+            errors[f"{at}.on"] = "Give at least one pair of key columns."
+        else:
+            for pair in on[:4]:
+                if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and all(isinstance(p, str) and external.IDENT.match(p) for p in pair)):
+                    errors[f"{at}.on"] = "Each key is a column of the table joined to and a column of the table."; break
+                pairs.append([pair[0], pair[1]])
+        known.add(alias)
+        out.append({"alias": alias, "table": table, "type": kind, "to": to, "on": pairs})
+    return out
 
 
 # ---------------------------------------------------------------------------------------------------- the API
@@ -401,14 +450,44 @@ class PreviewView(APIView):
         _usable(row)
         data = _dataset_body(request.data if isinstance(request.data, dict) else {}, None)
         try:
-            rows = external.sample(row, data["source_name"], [f["column"] for f in data["fields"]], limit=5, zone=reports.zone_of(tenant).key)
+            names = [(f.get("table") or "t0", f["column"]) for f in data["fields"]] if data["joins"] else [f["column"] for f in data["fields"]]
+            rows = external.sample(row, data["source_name"], names, limit=5, zone=reports.zone_of(tenant).key, joins=data["joins"] or None)
         except external.ExternalError as exc:
             raise Conflict(str(exc)) from None
+        except RuntimeError as exc:
+            raise Conflict(f"The preview did not run: {exc}") from None
         pii = {i for i, f in enumerate(data["fields"]) if f["sensitivity"] == "PII"}
         hidden = {i for i, f in enumerate(data["fields"]) if f["sensitivity"] == "CONFIDENTIAL"}
         keep = [i for i in range(len(data["fields"])) if i not in hidden]
         return Response({"columns": [{"key": data["fields"][i]["key"], "label": data["fields"][i]["label"], "type": data["fields"][i]["type"], "format": data["fields"][i]["format"], "masked": i in pii} for i in keep],
                          "rows": [["•••••" if i in pii and r[i] is not None else _json_safe(r[i]) for i in keep] for r in rows]})
+
+
+class JoinCheckView(APIView):
+    """What the last join in the list does to the rows, before it is added."""
+    permission_classes = ADMIN
+
+    @extend_schema(request=None, responses={200: None})
+    def post(self, request, version=None, connection_id=None):
+        tenant = _tenant()
+        row = connection(tenant.pk, connection_id)
+        _usable(row)
+        body = request.data if isinstance(request.data, dict) else {}
+        errors: dict = {}
+        source = str(body.get("source") or "").strip()
+        if not external.IDENT.match(source):
+            errors["source"] = "A table or view named with letters, digits and underscores."
+        joins = _joins_body(body.get("joins"), errors)
+        if not joins and "joins" not in errors:
+            errors["joins"] = "Give the join to check."
+        if errors:
+            raise ValidationError(errors)
+        try:
+            return Response(external.join_check(row, source, joins, zone=reports.zone_of(tenant).key))
+        except external.ExternalError as exc:
+            raise Conflict(str(exc)) from None
+        except RuntimeError as exc:
+            raise Conflict(f"The join could not be checked: {exc}") from None
 
 
 class DatasetsView(APIView):
@@ -422,10 +501,10 @@ class DatasetsView(APIView):
         data = _dataset_body(request.data if isinstance(request.data, dict) else {}, None)
         dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
         with session.tx():
-            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, created_by, updated_by)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, created_by, updated_by)
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                [dataset_id, str(tenant.pk), str(connection_id), key, data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]),
-                str(request.user.pk), str(request.user.pk)])
+                json.dumps(data["joins"]), str(request.user.pk), str(request.user.pk)])
         invalidate(tenant.pk)
         return Response(serialize_dataset(next(d for d in datasets(tenant.pk, connection_id) if d["id"] == dataset_id)), status=status.HTTP_201_CREATED)
 
@@ -453,9 +532,9 @@ class DatasetView(APIView):
             raise Conflict("The dataset changed since you opened it. Reload and try again.")
         data = _dataset_body(body, current)
         with session.tx():
-            _q("""UPDATE report_dataset_custom SET label = %s, description = %s, source_name = %s, primary_key = %s, time_field = %s, fields = %s, updated_by = %s, updated_at = now(),
+            _q("""UPDATE report_dataset_custom SET label = %s, description = %s, source_name = %s, primary_key = %s, time_field = %s, fields = %s, joins = %s, updated_by = %s, updated_at = now(),
                          row_version = row_version + 1 WHERE tenant_id = %s AND id = %s""",
-               [data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]), str(request.user.pk), str(tenant.pk), str(dataset_id)])
+               [data["label"], data["description"], data["source_name"], data["primary_key"], data["time_field"], json.dumps(data["fields"]), json.dumps(data["joins"]), str(request.user.pk), str(tenant.pk), str(dataset_id)])
         invalidate(tenant.pk)
         return Response(serialize_dataset(self._row(tenant.pk, dataset_id), _report_counts(tenant.pk)))
 
