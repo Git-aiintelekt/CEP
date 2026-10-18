@@ -10,7 +10,7 @@ import { formatNumber } from '@/lib/format'
 
 import { useChartLegend } from './legend'
 import { colorSeries, labelEvery, niceTicks, REFERENCE_COLOR } from './scale'
-import { BarSeries, LineSeries, ReferenceLine, type Plot } from './series'
+import { BarSeries, LineSeries, ReferenceLine, StackedBarSeries, type Plot } from './series'
 
 export interface ChartSeries {
   key: string
@@ -24,6 +24,10 @@ export interface ChartSeries {
   gradient?: [string, string]
   /** a line with its 12% area under it, whatever the chart's type */
   area?: boolean
+  /** a line read on the right-hand scale: a combo's line whose size or format differs from the bars */
+  axis?: 'right'
+  /** this series' numbers, when they read differently from the chart's (a percent line over count bars) */
+  format?: (value: number) => string
 }
 
 /** a dashed Gray 400 line to read the series against (target pace): not a series, so it takes no colour, and it can't be hidden */
@@ -69,6 +73,8 @@ interface ChartProps {
   hidden?: ReadonlySet<string>
   /** a category was picked, by a click or Enter on the active one (cross-filtering on a dashboard) */
   onSelect?: (index: number) => void
+  /** the bars stacked in each category, bottom to top, instead of side by side */
+  stacked?: boolean
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -163,7 +169,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -174,18 +180,28 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const frame = useRef<HTMLDivElement>(null)
   const hintId = useId()
 
-  const markOf = (item: ChartSeries) => item.mark ?? (type === 'bar' ? 'bar' : 'line')
+  const markOf = (item: ChartSeries) => item.mark ?? (type === 'bar' || stacked ? 'bar' : 'line')
   const colored = colorSeries(series)
   const shown = colored.filter((item) => !hidden.has(item.key))
+  const leftShown = shown.filter((item) => item.axis !== 'right')
+  const rightShown = shown.filter((item) => item.axis === 'right')
   const count = categories.length
-  const plotted = [...shown.flatMap((item) => item.values), ...(reference?.values ?? [])]
+  const stackedBars = stacked ? leftShown.filter((item) => markOf(item) === 'bar') : []
+  const stackTotals = categories.map((_, index) => stackedBars.reduce((sum, item) => sum + Math.max(0, item.values[index] || 0), 0))
+  const plotted = [...(stacked ? [...stackTotals, ...leftShown.filter((item) => markOf(item) !== 'bar').flatMap((item) => item.values)] : leftShown.flatMap((item) => item.values)), ...(reference?.values ?? [])]
   const whole = plotted.every(Number.isInteger)
   const ticks = niceTicks(Math.max(0, ...plotted), 4, whole)
   const top = ticks.at(-1)!
   const left = Math.max(36, Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7.5 + 14)
+  // a combo's other scale, read on the right
+  const rightValues = rightShown.flatMap((item) => item.values)
+  const rightFormat = rightShown[0]?.format ?? formatTick
+  const rightTicks = rightShown.length ? niceTicks(Math.max(0, ...rightValues), 4, rightValues.every(Number.isInteger)) : []
+  const rightTop = rightTicks.at(-1) ?? 1
+  const rightPad = rightShown.length ? Math.max(36, Math.max(...rightTicks.map((tick) => rightFormat(tick).length)) * 7.5 + 14) : 0
   // any bars put every category in a band, so a line among bars runs through the bars' centres
   const bars = colored.some((item) => markOf(item) === 'bar')
-  const plotWidth = Math.max(1, width - left - PAD.right)
+  const plotWidth = Math.max(1, width - left - PAD.right - rightPad)
   const plotHeight = Math.max(1, height - PAD.top - PAD.bottom)
   const band = bars ? plotWidth / count : count > 1 ? plotWidth / (count - 1) : plotWidth
   const plot: Plot = {
@@ -193,6 +209,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
     x: (index) => (bars ? left + band * (index + 0.5) : count === 1 ? left + plotWidth / 2 : left + band * index),
     y: (value) => PAD.top + plotHeight * (1 - value / top),
   }
+  const rightPlot: Plot = { ...plot, y: (value) => PAD.top + plotHeight * (1 - value / rightTop) }
   const labelWidth = Math.max(...categories.map((category) => category.label.length)) * 7 + 24
   const every = Math.max(labelStep ?? 1, labelEvery(count, plotWidth - labelWidth, labelWidth))
 
@@ -249,10 +266,10 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const guideX = active === null ? 0 : plot.x(active)
   const flip = guideX + TOOLTIP_GAP + tipWidth > width
   const point = active === null ? null : categories[active]
-  const readings = (index: number) => [...shown.map((item) => ({ key: item.key, label: item.label, value: item.values[index], color: item.color, shape: shapeOf(item) })),
-    ...(reference ? [{ key: reference.key, label: reference.label, value: reference.values[index], color: REFERENCE_COLOR, shape: 'dashed' as const }] : [])]
-  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${formatValue(item.value)}`).join(', ')}` : ''
-  const columns = [...colored.map((item) => ({ key: item.key, label: item.label, values: item.values })), ...(reference ? [reference] : [])]
+  const readings = (index: number) => [...shown.map((item) => ({ key: item.key, label: item.label, value: item.values[index], color: item.color, shape: shapeOf(item), format: item.format ?? formatValue })),
+    ...(reference ? [{ key: reference.key, label: reference.label, value: reference.values[index], color: REFERENCE_COLOR, shape: 'dashed' as const, format: formatValue }] : [])]
+  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${item.format(item.value)}`).join(', ')}` : ''
+  const columns = [...colored.map((item) => ({ key: item.key, label: item.label, values: item.values, format: item.format ?? formatValue })), ...(reference ? [{ ...reference, format: formatValue }] : [])]
 
   return (
     <figure ref={frame} className="flex flex-col gap-4">
@@ -265,7 +282,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
           <svg width={width} height={height} aria-hidden className="block overflow-visible" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {ticks.map((tick) => (
               <g key={tick}>
-                <line x1={left} x2={width - PAD.right} y1={plot.y(tick)} y2={plot.y(tick)} stroke={tick === 0 ? 'var(--color-line)' : 'var(--color-line-subtle)'} strokeWidth={tick === 0 ? 1.5 : 1} shapeRendering="crispEdges" />
+                <line x1={left} x2={left + plotWidth} y1={plot.y(tick)} y2={plot.y(tick)} stroke={tick === 0 ? 'var(--color-line)' : 'var(--color-line-subtle)'} strokeWidth={tick === 0 ? 1.5 : 1} shapeRendering="crispEdges" />
                 <text x={left - 10} y={plot.y(tick) + 4} textAnchor="end" fontSize={13} fill="var(--color-ink-800)">{formatTick(tick)}</text>
               </g>
             ))}
@@ -276,8 +293,9 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
             {active !== null && (
               <line data-guide x1={guideX} x2={guideX} y1={PAD.top} y2={PAD.top + plotHeight} stroke="var(--color-ink-300)" strokeWidth={1} shapeRendering="crispEdges" />
             )}
-            <BarSeries plot={plot} series={shown.filter((item) => markOf(item) === 'bar')} active={active} />
-            {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={plot} series={item} area={item.area ?? (type === 'area' && !item.mark)} active={active} />)}
+            {rightTicks.map((tick) => <text key={`right-${tick}`} data-axis="right" x={left + plotWidth + 10} y={rightPlot.y(tick) + 4} textAnchor="start" fontSize={13} fill="var(--color-ink-800)">{rightFormat(tick)}</text>)}
+            {stacked ? <StackedBarSeries plot={plot} series={stackedBars} active={active} /> : <BarSeries plot={plot} series={leftShown.filter((item) => markOf(item) === 'bar')} active={active} />}
+            {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={item.axis === 'right' ? rightPlot : plot} series={item} area={item.area ?? (type === 'area' && !item.mark)} active={active} />)}
             {reference && <ReferenceLine plot={plot} keyName={reference.key} values={reference.values} color={REFERENCE_COLOR} />}
           </svg>
         </div>
@@ -293,7 +311,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
               <span key={item.key} className="flex items-center gap-2 text-helper whitespace-nowrap">
                 <Swatch color={item.color} shape={item.shape} />
                 <span className="text-ink-800">{item.label}</span>
-                <span className="cep-num ml-auto pl-3 font-semibold text-ink-900">{formatValue(item.value)}</span>
+                <span className="cep-num ml-auto pl-3 font-semibold text-ink-900">{item.format(item.value)}</span>
               </span>
             ))}
           </div>
@@ -315,7 +333,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
               {categories.map((category, index) => (
                 <tr key={category.key} className="h-10">
                   <th scope="row" className="px-4 text-left font-normal text-ink-800">{category.detail ?? category.label}</th>
-                  {columns.map((item) => <td key={item.key} className="cep-num px-4 text-right text-ink-900">{formatValue(item.values[index])}</td>)}
+                  {columns.map((item) => <td key={item.key} className="cep-num px-4 text-right text-ink-900">{item.format(item.values[index])}</td>)}
                 </tr>
               ))}
             </tbody>

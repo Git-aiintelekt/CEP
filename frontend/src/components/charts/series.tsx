@@ -82,6 +82,29 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
   )
 }
 
+/** each category's bars stacked bottom to top in the series' order, parted by a hairline; while a category is active the others fade to 40% */
+export function StackedBarSeries({ plot, series, active = null }: { plot: Plot; series: DrawnSeries[]; active?: number | null }) {
+  if (series.length === 0) return null
+  const width = Math.max(4, plot.band * 0.56)
+  const starts = series.map((_, place) => series[0].values.map((__, index) => series.slice(0, place).reduce((sum, item) => sum + Math.max(0, item.values[index] || 0), 0)))
+  return (
+    <g>
+      {series.map((item, place) => (
+        <g key={item.key} data-series={item.key}>
+          {item.values.map((raw, index) => {
+            const value = Math.max(0, raw || 0)
+            if (value === 0) return null
+            const from = starts[place][index]
+            const top = plot.y(from + value)
+            return <rect key={index} data-bar-mark data-stacked x={plot.x(index) - width / 2} y={top} width={width} height={Math.max(0, plot.y(from) - top)} fill={item.color}
+              stroke="var(--color-surface)" strokeWidth={1} fillOpacity={active === null || active === index ? 1 : 0.4} className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
+          })}
+        </g>
+      ))}
+    </g>
+  )
+}
+
 /** a dashed grey line through a reference such as target pace: drawn over the series, never faded */
 export function ReferenceLine({ plot, keyName, values, color }: { plot: Plot; keyName: string; values: number[]; color: string }) {
   if (values.length === 0) return null

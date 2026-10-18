@@ -6,7 +6,7 @@
  * edges. Any report switches between them without losing its fields; the chosen view and its settings save with the
  * definition (`view`).
  */
-import { ChartArea, ChartColumn, ChartLine, ChartPie, ChevronDown, ChevronRight, Funnel, Grid3x3, ListTree, Table2 } from 'lucide-react'
+import { ChartArea, ChartBarStacked, ChartColumn, ChartColumnStacked, ChartLine, ChartNoAxesCombined, ChartPie, ChevronDown, ChevronRight, Funnel, Grid3x3, ListTree, Paintbrush, Table2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Chart } from '@/components/charts/Chart'
@@ -14,7 +14,8 @@ import { FunnelChart } from '@/components/charts/FunnelChart'
 import { PieChart } from '@/components/charts/PieChart'
 import { Select } from '@/components/Form'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
-import type { ChartKind, ReportView, ResultColumn, RunResult, ViewType } from '../types'
+import type { ChartKind, ColumnFormat, ReportView, ResultColumn, RunResult, ViewType } from '../types'
+import { fillOf, formatOf, rangeOf, toneClass } from './formats'
 import { ResultGrid } from './ResultGrid'
 import { formatCell } from './resultWords'
 import { chartShape, hierarchyShape, pivotShape, split, type HierarchyNode } from './shape'
@@ -26,17 +27,19 @@ const VIEWS: SegmentOption<ViewType>[] = [
 ]
 const CHARTS: SegmentOption<ChartKind>[] = [
   { value: 'bar', label: 'Bars', icon: ChartColumn }, { value: 'line', label: 'Lines', icon: ChartLine }, { value: 'area', label: 'Area', icon: ChartArea },
-  { value: 'pie', label: 'Pie', icon: ChartPie }, { value: 'funnel', label: 'Funnel', icon: Funnel },
+  { value: 'stacked', label: 'Stacked', icon: ChartColumnStacked }, { value: 'stacked100', label: '100% Stacked', icon: ChartBarStacked },
+  { value: 'combo', label: 'Combo', icon: ChartNoAxesCombined }, { value: 'pie', label: 'Pie', icon: ChartPie }, { value: 'funnel', label: 'Funnel', icon: Funnel },
 ]
-/** a pie or a funnel takes one measure by one dimension: the series dimension does not apply */
-const ONE_SERIES: ChartKind[] = ['pie', 'funnel']
+/** a pie, a funnel or a combo reads the measures by one dimension: the series dimension does not apply */
+const ONE_SERIES: ChartKind[] = ['pie', 'funnel', 'combo']
+const percent = (value: number) => `${value.toFixed(1)}%`
 
 export const DEFAULT_VIEW: ReportView = { type: 'grid' }
 
 const number = (column: ResultColumn) => (value: number) => formatCell(column, value)
 
 /** The view switch, the chart's kind, and for a chart or a pivot which dimension goes across: the controls above the result. */
-export function ViewBar({ view, onChange, columns, dimensions }: { view: ReportView; onChange: (next: ReportView) => void; columns?: ResultColumn[]; dimensions: { key: string; label: string }[] }) {
+export function ViewBar({ view, onChange, columns, dimensions, onFormat }: { view: ReportView; onChange: (next: ReportView) => void; columns?: ResultColumn[]; dimensions: { key: string; label: string }[]; onFormat?: () => void }) {
   const dims = columns ? columns.filter((column) => !column.aggregate).map((column) => ({ key: column.key, label: column.label })) : dimensions
   const acrossNeeded = (view.type === 'chart' && !ONE_SERIES.includes(view.chart ?? 'bar')) || view.type === 'pivot'
   return (
@@ -52,6 +55,11 @@ export function ViewBar({ view, onChange, columns, dimensions }: { view: ReportV
           </Select></span>
         </label>
       )}
+      {onFormat && view.type !== 'chart' && (
+        <button type="button" onClick={onFormat} className="inline-flex h-8 items-center gap-1.5 rounded-control-md border border-line bg-surface px-2.5 text-xs font-semibold text-ink-900 hover:bg-surface-hover">
+          <Paintbrush size={14} strokeWidth={1.5} aria-hidden />Format Values{view.formats?.length ? ` · ${view.formats.length}` : ''}
+        </button>
+      )}
     </div>
   )
 }
@@ -64,9 +72,9 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
   switch (view.type) {
     case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} />
-    case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} />
+    case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} formats={view.formats} />
     case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} />
-    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} />
+    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} />
   }
 }
 
@@ -77,6 +85,22 @@ function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; v
   const title = `${shape.measure.label} by ${shape.categoryHeader}`
   const pick = onPick ? (index: number) => onPick(shape.axis, shape.categories[index].value) : undefined
   const first = shape.series[0]
+  if (kind === 'combo' && shape.series.length < 2) return <Reason minHeight={minHeight}>A combo chart needs two values: the first as bars, the others as lines.</Reason>
+  const measureOf = (key: string) => result.columns.find((column) => column.key === key && column.aggregate) ?? shape.measure
+  const peak = (values: number[]) => Math.max(0, ...values.map((value) => Math.abs(value)))
+  // a combo: the first value as bars; the others as lines, read on the right when their format or size differs from the bars'
+  const comboSeries = kind === 'combo' ? shape.series.map((item, index) => {
+    if (index === 0) return { ...item, mark: 'bar' as const }
+    const column = measureOf(item.key)
+    const ratio = peak(item.values) && peak(first.values) ? peak(item.values) / peak(first.values) : 1
+    const right = column.format !== shape.measure.format || ratio > 4 || ratio < 0.25
+    return { ...item, mark: 'line' as const, format: number(column), ...(right ? { axis: 'right' as const } : {}) }
+  }) : null
+  // 100% stacked: each category's series as their share of it
+  const shareSeries = kind === 'stacked100' ? shape.series.map((item) => ({ ...item, values: item.values.map((value, index) => {
+    const total = shape.series.reduce((sum, other) => sum + Math.max(0, other.values[index] || 0), 0)
+    return total ? (Math.max(0, value) / total) * 100 : 0
+  }) })) : null
   return (
     <div className="rounded-md border border-line p-4">
       {kind === 'pie' ? (
@@ -86,7 +110,9 @@ function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; v
         <FunnelChart title={title} valueLabel={shape.measure.label} formatValue={number(shape.measure)} onSelect={pick}
           stages={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
       ) : (
-        <Chart title={title} categoryHeader={shape.categoryHeader} categories={shape.categories} series={shape.series} type={kind} height={Math.max(240, minHeight - 80)} formatValue={number(shape.measure)} onSelect={pick} />
+        <Chart title={kind === 'stacked100' ? `${title}, as shares` : title} categoryHeader={shape.categoryHeader} categories={shape.categories} series={comboSeries ?? shareSeries ?? shape.series}
+          type={kind === 'line' || kind === 'area' ? kind : 'bar'} stacked={kind === 'stacked' || kind === 'stacked100'} height={Math.max(240, minHeight - 80)}
+          formatValue={kind === 'stacked100' ? percent : number(shape.measure)} formatTick={kind === 'stacked100' ? (value) => `${Math.round(value)}%` : undefined} onSelect={pick} />
       )}
     </div>
   )
@@ -95,7 +121,7 @@ function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; v
 const cell = 'cep-num px-3 text-right whitespace-nowrap'
 const dash = '—'
 
-function Hierarchy({ result, label, minHeight }: { result: RunResult; label: string; minHeight: number }) {
+function Hierarchy({ result, label, minHeight, formats }: { result: RunResult; label: string; minHeight: number; formats?: ColumnFormat[] }) {
   const shape = useMemo(() => hierarchyShape(result), [result])
   const [allOpen, setAllOpen] = useState(false)
   const [toggled, setToggled] = useState<Set<string>>(() => new Set())
@@ -115,6 +141,8 @@ function Hierarchy({ result, label, minHeight }: { result: RunResult; label: str
   }
   walk(shape.roots, '')
   const format = (column: ResultColumn, value: number | null) => (value === null ? dash : formatCell(column, value))
+  const leafValues = (m: number) => { const out: unknown[] = []; const visit = (nodes: HierarchyNode[]) => nodes.forEach((n) => (n.children.length ? visit(n.children) : out.push(n.row?.[m]))); visit(shape.roots); return out }
+  const ranges = shape.measures.map((measure, m) => (formatOf(formats, measure.key) ? rangeOf(leafValues(m)) : null))
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 text-xs text-ink-800">
@@ -144,7 +172,10 @@ function Hierarchy({ result, label, minHeight }: { result: RunResult; label: str
                       </button>
                     ) : <span className="inline-flex items-center gap-1"><span className="inline-block w-3.5" aria-hidden />{node.label}</span>}
                   </td>
-                  {shape.measures.map((measure, m) => <td key={measure.key} className={cell}>{group ? format(measure, node.totals[m]) : formatCell(measure, node.row?.[m])}</td>)}
+                  {shape.measures.map((measure, m) => {
+                    const rule = group ? undefined : formatOf(formats, measure.key)
+                    return <td key={measure.key} className={`${cell} ${toneClass(rule, node.row?.[m])}`} style={group ? undefined : fillOf(rule, node.row?.[m], ranges[m])}>{group ? format(measure, node.totals[m]) : formatCell(measure, node.row?.[m])}</td>
+                  })}
                 </tr>
               )
             })}
@@ -165,6 +196,8 @@ function Pivot({ result, view, label, minHeight }: { result: RunResult; view: Re
   const shape = useMemo(() => pivotShape(result, view.across, measureKey), [result, view.across, measureKey])
   if (shape.reason) return <Reason minHeight={minHeight}>{shape.reason}</Reason>
   const format = (value: number | null) => (value === null ? dash : formatCell(shape.measure, value))
+  const rule = formatOf(view.formats, shape.measure.key)
+  const range = rule ? rangeOf(shape.rows.flatMap((row) => row.cells)) : null
   const edge = 'border-l border-line'
   return (
     <div className="flex flex-col gap-2">
@@ -189,7 +222,7 @@ function Pivot({ result, view, label, minHeight }: { result: RunResult; view: Re
             {shape.rows.map((row) => (
               <tr key={row.key} className="h-9 border-b border-line-subtle text-ink-900">
                 <th scope="row" className="px-3 text-left font-normal whitespace-nowrap">{row.label}</th>
-                {row.cells.map((value, c) => <td key={shape.columns[c].key} className={cell}>{format(value)}</td>)}
+                {row.cells.map((value, c) => <td key={shape.columns[c].key} className={`${cell} ${toneClass(rule, value)}`} style={fillOf(rule, value, range)}>{format(value)}</td>)}
                 <td className={`${cell} ${edge} font-semibold`}>{format(row.total)}</td>
               </tr>
             ))}

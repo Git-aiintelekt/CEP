@@ -20,7 +20,7 @@
 
 **Write It for Me** in the query window is described in the Report Databases chapter.
 
-## Step by step: measures, comparisons, charts and slicers
+## Step by step: measures, comparisons, charts, formatting and slicers
 
 **Use a calculated measure in a report** (anyone who can build reports)
 
@@ -45,6 +45,19 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. The line above the chart says what a click drills to. Click a bar, a slice or a stage: the chart shows the level below for that value, such as the quarters of 2026, then their months, then their days, then the next dimension.
 3. The path above the chart shows where you are. Click any step to go back to it, or **Up One Level**.
 4. On a dashboard, turn on **Drill Down** in a chart tile's header first: while it is on, a click drills that tile instead of filtering the others. Turn it off to go back to the top and to cross-filtering.
+
+**Stack the bars, or combine bars and a line**
+
+1. Choose **Chart**, then **Stacked** to put each series on top of the other in one bar per category, or **100% Stacked** to show each series as its share of the bar.
+2. The series come from the dimension in **Columns** (for example Channel), else from the values.
+3. Choose **Combo** to show the first value as bars and the others as lines, such as Sent Count as bars with Open Rate as a line. A line in another format or of a very different size is read on a scale on the right.
+
+**Colour the numbers**
+
+1. In the editor, with the Grid, Pivot or Hierarchy view, press **Format Values**.
+2. For each value (and each of its comparisons), choose **Colour Scale** (light to strong blue from the lowest to the highest), **Data Bars** (a bar behind each number) or **Rules**.
+3. For rules, say when and how: **More than**, **At least**, **Less than**, **At most** or **Equal to** a number, shown as **Good**, **Warning** or **Bad**. **Add Rule** adds up to five; the first rule a number meets colours its cell. A change or a share is in percent: 10 means 10%.
+4. Press **Apply**, then **Save**. The formatting shows in the viewer and on dashboards; totals stay plain, and exports carry the numbers without the colours.
 
 **Show a report as a pie or a funnel**
 
@@ -140,7 +153,7 @@ Any report switches between the views without losing its fields; the switch sits
 | View | What it shows | What it needs |
 |---|---|---|
 | Grid | One row per record or group, sortable and resizable columns | Anything |
-| Chart | Bars, lines or area: the first dimension along the bottom, a series per value of the dimension across (else one per measure), the legend to show and hide, Show the Numbers under it. **Pie**: the first measure by the first dimension as shares, the total in the middle, more than eight slices folded into Other. **Funnel**: the rows in the report's order as stages, each with its share of the first and the drop from the one before | A dimension and a measure |
+| Chart | Bars, lines or area: the first dimension along the bottom, a series per value of the dimension across (else one per measure), the legend to show and hide, Show the Numbers under it. **Stacked** and **100% Stacked**: the series on top of each other in one bar per category, as numbers or as shares. **Combo**: the first value as bars and the others as lines, a line in another format (such as a rate) read on a scale on the right. **Pie**: the first measure by the first dimension as shares, the total in the middle, more than eight slices folded into Other. **Funnel**: the rows in the report's order as stages, each with its share of the first and the drop from the one before | A dimension and a measure |
 | Hierarchy | The dimensions in their order, each group folding over the next, a subtotal per group, Expand All and Collapse All | Two dimensions and a measure |
 | Pivot | The dimension across as columns, one measure in the cells (a select when there are several), a total on both edges | A dimension down, one across, a measure |
 

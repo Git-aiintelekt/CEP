@@ -7,7 +7,8 @@ import { AgGridReact } from 'ag-grid-react'
 import { Lock } from 'lucide-react'
 import { useMemo } from 'react'
 
-import type { ResultColumn, RunResult } from '../types'
+import type { ColumnFormat, ResultColumn, RunResult } from '../types'
+import { fillOf, formatOf, rangeOf, toneClass } from './formats'
 import { formatCell, maskedWords } from './resultWords'
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -33,18 +34,23 @@ const theme = themeQuartz.withParams({
   cellHorizontalPadding: 12,
 })
 
-export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
-  const columnDefs = useMemo<ColDef[]>(() => result.columns.map((column, index) => ({
+export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick, formats }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; formats?: ColumnFormat[] }) {
+  const columnDefs = useMemo<ColDef[]>(() => result.columns.map((column, index) => {
+    const rule = column.masked ? undefined : formatOf(formats, column.key)
+    const range = rule ? rangeOf(result.rows.map((row) => row[index])) : null
+    const base = column.masked ? 'text-ink-700' : onPick && !column.aggregate ? 'cursor-pointer' : ''
+    return {
     headerName: column.masked ? `${column.label} (masked)` : column.label,
     field: `c${index}`,
     type: column.type === 'number' && !column.masked ? 'numericColumn' : undefined,
-    cellClass: column.masked ? 'text-ink-700' : onPick && !column.aggregate ? 'cursor-pointer' : undefined,
+    cellClass: rule ? (p: { value: unknown }) => [base, toneClass(rule, p.value)].filter(Boolean).join(' ') || undefined : base || undefined,
+    cellStyle: rule && rule.style !== 'rules' ? (p: { value: unknown }) => (fillOf(rule, p.value, range) ?? null) as never : undefined,
     valueFormatter: (p) => formatCell(column, p.value),
     sortable: true,
     resizable: true,
     minWidth: 120,
     flex: 1,
-  })), [result.columns, onPick])
+  } }), [result.columns, result.rows, onPick, formats])
   const rowData = useMemo(() => result.rows.map((row) => Object.fromEntries(row.map((value, index) => [`c${index}`, value]))), [result.rows])
   const masked = maskedWords(result)
   return (

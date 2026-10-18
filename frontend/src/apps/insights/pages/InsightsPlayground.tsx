@@ -1,7 +1,8 @@
 /**
  * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
  * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views,
- * &compare=1 for Sent Count compared with the month before and with last year.
+ * &compare=1 for Sent Count compared with the month before and with last year, &format=1 for conditional formatting (rules on
+ * Sent Count, data bars on Opened), &chart=stacked | stacked100 | combo for the chart kinds.
  * For design review and screenshots; the real editor is ReportEditorPage.
  */
 import { useState } from 'react'
@@ -64,7 +65,10 @@ export default function InsightsPlayground() {
   const [definition, setDefinition] = useState<ReportDefinition>(() => {
     const base = params.get('state') === 'sparse' ? EMPTY : params.get('compare') === '1' ? setCompare(BUSY, 'sent', ['previous_period', 'change_previous_year']) : BUSY
     const type = (params.get('view') ?? 'grid') as ViewType
-    return type === 'grid' ? base : setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined })
+    const formats = params.get('format') === '1' ? { formats: [{ column: 'sent', style: 'rules' as const, rules: [{ op: '<' as const, value: 30000, tone: 'bad' as const }, { op: '<' as const, value: 300000, tone: 'warning' as const }, { op: '>=' as const, value: 300000, tone: 'good' as const }] },
+      { column: 'opened', style: 'bars' as const }] } : {}
+    if (type === 'grid') return params.get('format') === '1' ? setView(base, { type, ...formats }) : base
+    return setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined, ...formats })
   })
   const compared = params.get('compare') === '1'
   const base: RunResult = compared ? COMPARED : RESULT
