@@ -21,12 +21,14 @@ interface FunnelChartProps {
   emptyText?: string
   /** a stage was picked: its index among the stages given */
   onSelect?: (index: number) => void
+  /** a right-click on a stage, where it was */
+  onContext?: (index: number, at: { x: number; y: number }) => void
 }
 
 const MAX_STAGES = 12
 const BAR = 'var(--color-chart-1)'
 
-export function FunnelChart({ title, valueLabel, stages, formatValue = formatNumber, emptyText = 'Nothing to show yet.', onSelect }: FunnelChartProps) {
+export function FunnelChart({ title, valueLabel, stages, formatValue = formatNumber, emptyText = 'Nothing to show yet.', onSelect, onContext }: FunnelChartProps) {
   const shown = stages.slice(0, MAX_STAGES).map((stage) => ({ ...stage, value: Math.max(0, Number(stage.value) || 0) }))
   const widest = Math.max(...shown.map((stage) => stage.value), 0)
   if (shown.length === 0 || widest <= 0) {
@@ -53,7 +55,7 @@ export function FunnelChart({ title, valueLabel, stages, formatValue = formatNum
             </>
           )
           return (
-            <li key={stage.key} data-funnel-stage={stage.key}>
+            <li key={stage.key} data-funnel-stage={stage.key} onContextMenu={onContext ? (event) => { event.preventDefault(); onContext(index, { x: event.clientX, y: event.clientY }) } : undefined}>
               {onSelect ? (
                 <button type="button" aria-label={words} onClick={() => onSelect(index)} className="flex w-full items-center gap-3 rounded-control-sm px-1.5 py-0.5 text-left transition-colors duration-fast ease-standard hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none">{row}</button>
               ) : (

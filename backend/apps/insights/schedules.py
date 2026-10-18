@@ -192,7 +192,8 @@ def deliver(tenant, row: dict, *, to: list[str] | None = None, trigger: str = "s
             if not dash:
                 raise RuntimeError("The dashboard behind this schedule is gone.")
             dash = dash[0]
-            visible = ("TRUE", []) if not mask or str(dash["owner_user_id"]) == str(row["owner_user_id"]) else ("(r.visibility = 'WORKSPACE' OR r.owner_user_id = %s)", [str(row["owner_user_id"])])
+            from apps.insights import access
+            visible = ("TRUE", []) if not mask or str(dash["owner_user_id"]) == str(row["owner_user_id"]) else access.visible_sql("report", "r", str(row["owner_user_id"]), False)
             body, mime, ext = dashboards.dashboard_pdf(tenant, owner, dash, visible_where=visible[0], visible_args=visible[1], mask=mask), "application/pdf", "pdf"
             name, data, view_type, link = dash["name"], [], "dashboard", f"/insights/dashboards/{dash['id']}"
             rows_sent_hint = len(dashboards._tiles(_json(dash["layout"])))

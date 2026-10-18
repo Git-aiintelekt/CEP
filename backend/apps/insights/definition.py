@@ -239,13 +239,19 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
                     or any(kind not in comparisons.KINDS for kind in kinds)):
                 raise DefinitionError(f"{at}.compare", f"Compare with up to {comparisons.MAX_PER_MEASURE} of {', '.join(comparisons.KINDS)}, each once.")
             if any(kind in comparisons.ADDITIVE_KINDS for kind in kinds) and aggregate not in comparisons.ADDITIVE:
-                raise DefinitionError(f"{at}.compare", f"A running total and a share of the total add up sums and counts; {field['label']} is totalled as {aggregate}.")
+                raise DefinitionError(f"{at}.compare", f"A running total, a year or quarter to date and a share of the total add up sums and counts; {field['label']} is totalled as {aggregate}.")
+        target = column.get("target")
+        if kinds and any(kind in comparisons.TARGET_KINDS for kind in kinds):
+            if isinstance(target, bool) or not isinstance(target, (int, float)):
+                raise DefinitionError(f"{at}.target", "Give the target, a number, to compare with.")
+        else:
+            target = None
         key = (field["key"], aggregate, bucket)
         if key in seen:
             raise DefinitionError(at, f"{field['label']} is already a column.")
         seen.add(key)
         out_columns.append({"field": field["key"], **({"aggregate": aggregate} if aggregate else {}), **({"bucket": bucket} if bucket else {}),
-                            **({"label": label} if label else {}), **({"compare": list(kinds)} if kinds else {})})
+                            **({"label": label} if label else {}), **({"compare": list(kinds)} if kinds else {}), **({"target": target} if target is not None else {})})
     timed = next((i for i, c in enumerate(out_columns) if any(kind in comparisons.TIMED for kind in c.get("compare", []))), None)
     if timed is not None and comparisons.axis(dataset, out_columns) is None:
         raise DefinitionError(f"columns[{timed}].compare", "Comparing with an earlier period, or adding up along the dates, needs a date in the report, such as Sent by Month.")
@@ -271,8 +277,17 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
             raise DefinitionError("limit", "The limit is a whole number of rows.")
         limit = min(limit, max_limit)
     view = _view(raw.get("view"), out_columns)
+    through = raw.get("drillthrough")
+    if through not in (None, []):
+        if not isinstance(through, list) or len(through) > 10:
+            raise DefinitionError("drillthrough", "A report takes up to 10 fields from other reports.")
+        for i, key in enumerate(through):
+            field = next((f for f in dataset["fields"] if f["key"] == key and f["role"] == "dimension"), None)
+            if field is None:
+                raise DefinitionError(f"drillthrough[{i}]", "A report takes dimensions of its dataset from other reports.")
+        through = list(dict.fromkeys(through))
     return {"dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
-            **({"view": view} if view else {})}
+            **({"view": view} if view else {}), **({"drillthrough": through} if through else {})}
 
 
 def signature(definition: dict) -> str:

@@ -12,8 +12,9 @@ import { useState, type ReactNode } from 'react'
 import { ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { ApiError } from '@/lib/api'
-import { canDrill, deeper } from '../components/drill'
+import { canDrill, deeper, throughable } from '../components/drill'
 import { DrillBar } from '../components/DrillBar'
+import { DrillThroughMenu, type ThroughTarget } from '../components/DrillThroughMenu'
 import { ReportResult } from '../components/ReportViews'
 import { formatCell } from '../components/resultWords'
 import type { DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SlicerSelection, TileResult } from '../types'
@@ -36,6 +37,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
   const active = activeSlicers(selection ?? {})
   const [drilling, setDrilling] = useState(false)
   const [path, setPath] = useState<DrillStep[]>([])
+  const [menu, setMenu] = useState<ThroughTarget | null>(null)
   const query = useQuery({
     queryKey: [...keyPrefix, tile.id, tile.report_id, tile.show, tile.measure ?? '', period, compare, active, path],
     queryFn: () => load(tile, period, compare, Object.keys(active).length ? active : undefined, path.length ? path : undefined).catch((error: unknown) => (error instanceof ApiError && error.status === 422 ? (error.problem as unknown as TileResult) : Promise.reject(error))),
@@ -53,6 +55,9 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
     } else if (crossFilterable(column, value)) onPick?.(column, value)
   }
   const toggleDrill = () => { setDrilling((on) => !on); if (drilling) setPath([]) }
+  const context = data?.kind === 'view' && data.report.dataset && !onTitle ? (column: ResultColumn, value: unknown, at: { x: number; y: number }) => {
+    if (throughable(column)) setMenu({ dataset: data.report.dataset as string, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id: data.report.id, name: tile.title || data.report.name } })
+  } : undefined
   return (
     <section aria-label={name || 'Tile'} className="flex min-w-0 flex-col rounded-md border border-line bg-surface">
       <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
@@ -77,15 +82,16 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
           : (
             <div className="flex flex-col gap-1.5">
               {drilling && info && <DrillBar info={info} onPath={setPath} compact />}
-              <TileBody data={data as TileResult} tile={tile} onPick={onPick || drilling ? pick : undefined} />
+              <TileBody data={data as TileResult} tile={tile} onPick={onPick || drilling ? pick : undefined} onContext={context} />
             </div>
           )}
+        {menu && <DrillThroughMenu target={menu} onClose={() => setMenu(null)} />}
       </div>
     </section>
   )
 }
 
-function TileBody({ data, tile, onPick }: { data: TileResult; tile: DashboardTile; onPick?: (column: ResultColumn, value: unknown) => void }) {
+function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: DashboardTile; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
   if (data.kind === 'missing' || data.kind === 'refused') {
     return <p className="flex min-h-24 items-center justify-center text-center text-sm text-ink-800">{data.detail}</p>
   }
@@ -104,5 +110,5 @@ function TileBody({ data, tile, onPick }: { data: TileResult; tile: DashboardTil
       </div>
     )
   }
-  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} />
+  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} onContext={onContext} />
 }

@@ -64,7 +64,7 @@ function Rows({ name, dashboards }: { name?: string; dashboards: DashboardSummar
           <td className="px-3 py-2"><Link to={`/insights/dashboards/${dashboard.id}`} className="font-medium text-ink-900 hover:underline">{dashboard.name}</Link>{dashboard.description && <span className="block text-xs text-ink-800">{dashboard.description}</span>}</td>
           <td className="cep-num px-3 py-2 text-ink-800">{dashboard.tiles}</td>
           <td className="px-3 py-2 text-ink-800">{dashboard.owner_name ?? '\u2014'}</td>
-          <td className="px-3 py-2">{dashboard.visibility === 'WORKSPACE' ? <Tag tone="brand">Workspace</Tag> : <Tag>Private</Tag>}</td>
+          <td className="px-3 py-2">{dashboard.visibility === 'WORKSPACE' ? <Tag tone="brand">Workspace</Tag> : dashboard.shared ? <Tag tone="brand">Shared</Tag> : <Tag>Private</Tag>}</td>
           <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-800">{formatDateTime(dashboard.updated_at)}</td>
         </tr>
       ))}

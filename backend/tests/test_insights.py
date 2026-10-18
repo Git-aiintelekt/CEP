@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, clickhouse, compare, compiler, dashboards, definition, drill, excel, pdf, runner, schedules, shape
+from apps.insights import access, catalog, clickhouse, compare, compiler, dashboards, definition, drill, excel, pdf, runner, schedules, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -293,6 +293,65 @@ def test_definition_and_compiler(check):
         doc = pdf.report("Sends by Month", sample_cols, sample_rows, {"type": "chart", "chart": kind, "across": "channel"}, workspace="Northwind Apparel", when="18 Oct 2026")
         check(f"the {kind} PDF is a PDF", doc[:5] == b"%PDF-" and len(doc) > 1500, str(len(doc)))
 
+    # the time measures: year and quarter to date, a moving average, a rank, a target
+    measured = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "month"}, {"field": "channel"},
+                                                         {"field": "sent", "aggregate": "sum", "compare": ["year_to_date", "quarter_to_date", "moving_average", "rank", "percent_of_target", "difference_to_target"], "target": 100}],
+                                             "filters": {"combinator": "and", "rules": [{"field": "submitted_at", "operator": "between", "value": ["2026-08-01", "2026-09-30"]}]}})
+    check("a measure takes up to six comparisons and keeps its target", len(measured["columns"][2]["compare"]) == 6 and measured["columns"][2]["target"] == 100)
+    check("a target comparison needs the target; year to date adds up sums and counts only",
+          refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_target"]}]}, "columns[1].target")
+          and refused({"columns": [{"field": "submitted_at", "bucket": "month"}, {"field": "messages", "aggregate": "count", "compare": ["rank"]}, {"field": "sent", "aggregate": "sum", "compare": ["year_to_date"]}]}, "") is False)
+    wide = compare.widened(measured, "submitted_at", compare.reach_back(["year_to_date", "moving_average"], "month"), date(2026, 10, 17))
+    check("to reach back, the lower bound moves to the year's start or two months back, whichever is earlier; the upper bound stays",
+          wide["filters"]["rules"][0]["value"] == ["2026-01-01", "2026-09-30"] and compare.reach_back(["moving_average"], "month")(date(2026, 8, 1)) == date(2026, 6, 1))
+    rows_m = [["2026-08-01", "EMAIL", 150], ["2026-09-01", "EMAIL", 120], ["2026-08-01", "SMS", 50], ["2026-09-01", "SMS", 80]]
+    reached = [["2026-01-01", "EMAIL", 10], ["2026-06-01", "EMAIL", 30], ["2026-07-01", "EMAIL", 100], *rows_m, ["2026-07-01", "SMS", 20]]
+    out_m = compare.apply(DATASET, measured, rows_m, {}, None, reached)
+    ytd, qtd, mavg, rank, pct, diff = ([r[i] for r in out_m] for i in range(3, 9))
+    check("year to date adds every month of the year so far, from before the report's first month", ytd == [290.0, 410.0, 70.0, 150.0], str(ytd))
+    check("quarter to date restarts at July and October", qtd == [250.0, 370.0, 70.0, 150.0], str(qtd))
+    check("the moving average is of the month and the two before, a missing month counting as nothing", [round(v, 1) for v in mavg] == [93.3, 123.3, 23.3, 50.0], str(mavg))
+    check("the rank is per month among the channels, the largest first", rank == [1, 1, 2, 2], str(rank))
+    check("against a target of 100: the percentage and the difference", pct == [150.0, 120.0, 50.0, 80.0] and diff == [50.0, 20.0, -50.0, -20.0], str((pct, diff)))
+    labels = [c["label"] for c in compare.columns(DATASET, measured, [{"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"},
+                                                                        {"key": "channel", "label": "Channel", "type": "string", "format": None},
+                                                                        {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}])[3:]]
+    check("the new columns are named in words", labels == ["Sent Count, Year to Date", "Sent Count, Quarter to Date", "Sent Count, Moving Average (3 Months)", "Sent Count, Rank",
+                                                           "Sent Count, % of Target", "Sent Count, Difference to Target"], str(labels))
+    flat_rank = compare.apply(DATASET, definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["rank"]}]}), [["EMAIL", 5], ["SMS", 9], ["PUSH", 5]], {}, None)
+    check("without a date, the rank is across the whole report, ties sharing a place", [r[2] for r in flat_rank] == [2, 1, 2])
+
+    # drill-through: the fields a report takes from others, checked against the dataset
+    detail = definition.validate(DATASET, {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}], "drillthrough": ["channel", "channel", "submitted_at"]})
+    check("a detail report names the dimensions it takes from other reports, each once", detail["drillthrough"] == ["channel", "submitted_at"])
+    check("a measure, or an unknown field, cannot be taken", refused({"columns": [{"field": "channel"}], "drillthrough": ["sent"]}, "drillthrough[0]")
+          and refused({"columns": [{"field": "channel"}], "drillthrough": ["nope"]}, "drillthrough[0]"))
+
+    # row access: a person's rules and-ed onto the report's own filters, typed as the field
+    original = access.rules_for
+    try:
+        access.rules_for = lambda tenant_id, user_id, key: {"channel": ["SMS", "EMAIL"]}
+        base = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "filters": {"combinator": "or", "rules": [{"field": "channel", "operator": "=", "value": "PUSH"}]}})
+        limited, notes = access.restrict(T, type("U", (), {"pk": "u1"})(), DATASET, base)
+        check("a rule adds an IN rule beside the report's own filters, never inside its or-group", limited["filters"] == {"combinator": "and", "rules": [base["filters"], {"field": "channel", "operator": "in", "value": ["SMS", "EMAIL"]}]}
+              and notes == [{"field": "channel", "label": "Channel", "values": ["SMS", "EMAIL"]}], str(limited["filters"]))
+        lc = compiler.compile(DATASET, limited, T, "America/New_York", limit=10)
+        check("the compiled query keeps the rule", "= ANY(%s)" in lc.sql and ["SMS", "EMAIL"] in lc.params, lc.sql)
+        access.rules_for = lambda tenant_id, user_id, key: {"gone_field": ["x"]}
+        try:
+            access.restrict(T, type("U", (), {"pk": "u1"})(), DATASET, base)
+            check("a rule on a field the dataset no longer offers refuses the run", False)
+        except access.AccessError:
+            check("a rule on a field the dataset no longer offers refuses the run", True)
+        access.rules_for = lambda tenant_id, user_id, key: {}
+        check("no rule, nothing added", access.restrict(T, type("U", (), {"pk": "u1"})(), DATASET, base) == (base, []))
+    finally:
+        access.rules_for = original
+    where_sql, where_args = access.visible_sql("report", "r", "u1", False)
+    check("a report is visible to the workspace, its owner, or a share reaching the person or one of their roles",
+          "r.visibility = 'WORKSPACE'" in where_sql and "r.owner_user_id = %s" in where_sql and (not access.present("report_share") or "user_role" in where_sql) and where_args[0] == "u1")
+    check("an administrator sees everything", access.visible_sql("report", "r", "u1", True) == ("TRUE", []))
+
     # drill-down: the levels, and the definition of the level under a path
     yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
@@ -386,6 +445,41 @@ def test_api(check, world):
     check("a drill path that does not fit the report is refused under drill", wrong.status_code == 400 and "drill" in json.dumps(wrong.json()), wrong.content[:200])
     csv_cmp = world.api("get", f"/api/v1/insights/reports/{mid}/export.csv")
     check("the CSV export carries the comparison columns", csv_cmp.status_code == 200 and "Sent Count, Change vs Last Year" in b"".join(csv_cmp.streaming_content).decode(), str(csv_cmp.status_code))
+    # drill-through through the API: a detail report taking Channel, listed for the field, opened filtered to a value
+    detail_r = world.api("post", "/api/v1/insights/reports/", {"name": "Campaigns for a channel", "dataset": "messages", "definition": {
+        "columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}], "drillthrough": ["channel"]}})
+    did_r = detail_r.json().get("id") if detail_r.status_code == 201 else None
+    listed_dt = world.api("get", "/api/v1/insights/reports/?dataset=messages&detail_for=channel").json()["reports"]
+    check("the detail reports for a field are listed for it, and only those", detail_r.status_code == 201 and [r["id"] for r in listed_dt] == [did_r], str([r["name"] for r in listed_dt]))
+    through = world.api("post", f"/api/v1/insights/reports/{did_r}/run/", {"through": [{"field": "channel", "value": "EMAIL"}]})
+    check("opened from another report, the detail report runs filtered to the value and says so", through.status_code == 200
+          and through.json()["through"] == [{"field": "channel", "label": "Channel", "value": "EMAIL"}], through.content[:300])
+    refused_through = world.api("post", f"/api/v1/insights/reports/{did_r}/run/", {"through": [{"field": "campaign_name", "value": "x"}]})
+    check("a field the detail report does not take is refused", refused_through.status_code == 400 and "through[0]" in json.dumps(refused_through.json()), refused_through.content[:200])
+
+    # sharing and row access (patch 0060): only where its tables are there
+    if access.present("report_row_rule") and access.present("dashboard_share"):
+        people = world.api("get", "/api/v1/insights/principals/?q=").json()
+        me_id = me["user"]["id"] if "user" in me else me.get("principal", {}).get("user_id")
+        check("people and roles to share with are listed", isinstance(people.get("people"), list) and isinstance(people.get("roles"), list), str(people)[:200])
+        role_id = people["roles"][0]["id"] if people["roles"] else None
+        if role_id:
+            put = world.api("put", f"/api/v1/insights/reports/{did_r}/shares/", {"visibility": "PRIVATE", "shares": [{"kind": "role", "id": role_id, "permission": "edit"}]})
+            check("a report is shared with a role to edit, and kept private", put.status_code == 200 and put.json()["visibility"] == "PRIVATE"
+                  and [(s["kind"], s["permission"]) for s in put.json()["shares"]] == [("role", "edit")], put.content[:300])
+            check("the list marks it shared", any(r["id"] == did_r and r["shared"] for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))
+            bad_share = world.api("put", f"/api/v1/insights/reports/{did_r}/shares/", {"shares": [{"kind": "role", "id": "00000000-0000-4000-8000-000000000000"}]})
+            check("a role of no one is refused where it sits", bad_share.status_code == 400 and "shares[0]" in json.dumps(bad_share.json()))
+        rules = world.api("get", "/api/v1/insights/row-rules/").json()
+        choices = next(d for d in rules["datasets"] if d["key"] == "messages")
+        check("the datasets offer their text, number and yes/no dimensions for a rule", any(f["key"] == "channel" for f in choices["fields"]) and not any(f["key"] == "sent" for f in choices["fields"]))
+        user_id = people["people"][0]["id"] if people["people"] else None
+        made_rule = world.api("post", "/api/v1/insights/row-rules/", {"dataset": "messages", "field": "channel", "principal": {"kind": "user", "id": user_id}, "values": ["SMS"]})
+        check("a rule limits a person to SMS", made_rule.status_code == 201 and made_rule.json()["values"] == ["SMS"], made_rule.content[:300])
+        twice = world.api("post", "/api/v1/insights/row-rules/", {"dataset": "messages", "field": "channel", "principal": {"kind": "user", "id": user_id}, "values": ["EMAIL"]})
+        check("a second rule for the same person and field is refused", twice.status_code == 400)
+        if made_rule.status_code == 201:
+            check("the rule goes", world.api("delete", f"/api/v1/insights/row-rules/{made_rule.json()['id']}/").status_code == 204)
     changed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Sends by campaign and channel", "visibility": "WORKSPACE",
                                                                    "definition": {**draft["definition"], "limit": 100, "view": {"type": "pivot", "across": "channel"}}, "note": "Shared with the workspace"})
     check("the report's view follows the definition", changed.status_code == 200 and changed.json()["view_type"] == "pivot" and changed.json()["definition"]["view"] == {"type": "pivot", "across": "channel"}, changed.content[:200])

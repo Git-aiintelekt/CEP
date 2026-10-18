@@ -114,7 +114,7 @@ function GroupRows({ name, count, reports }: { name: string; count: number; repo
             {(report.description || report.folder_name) && <span className="block text-xs text-ink-800">{[report.folder_name, report.description].filter(Boolean).join(' · ')}</span>}</td>
           <td className="px-3 py-2"><Tag tone="brand">{VIEW_LABEL[report.view_type]}</Tag></td>
           <td className="px-3 py-2 text-ink-800">{report.dataset_label}</td>
-          <td className="px-3 py-2 text-ink-800">{report.owner_name ?? '—'}{report.visibility === 'PRIVATE' && <span className="ml-1.5 text-xs text-ink-700">· private</span>}</td>
+          <td className="px-3 py-2 text-ink-800">{report.owner_name ?? '—'}{report.visibility === 'PRIVATE' && <span className="ml-1.5 text-xs text-ink-700">· {report.shared ? 'shared' : 'private'}</span>}</td>
           <td className="cep-num px-3 py-2 whitespace-nowrap text-ink-800">{report.last_run_at ? formatDateTime(report.last_run_at) : '—'}</td>
         </tr>
       ))}

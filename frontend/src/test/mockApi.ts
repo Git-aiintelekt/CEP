@@ -147,10 +147,22 @@ export const insightsDashboard: InsightsDashboard = {
   id: 'dash-1', name: 'Marketing Weekly', description: 'Sends, revenue and the top campaigns, by week', visibility: 'WORKSPACE' as const, period: { preset: '30d' as const }, compare: true,
   layout: { rows: [{ width: '2-1' as const, tiles: [{ id: 't1', report_id: 'rep-1', show: 'chart' as const, title: 'Sends by Campaign' }, { id: 't2', report_id: 'rep-1', show: 'figure' as const, measure: 'sent' }] }],
             slicers: [{ field: 'channel', label: 'Channel' }] },
-  version: 2, row_version: 2, owner_user_id: 'u1', owner_name: 'Aby John', created_at: '2026-10-14T08:00:00Z', updated_at: '2026-10-15T09:12:00Z', can_edit: true,
+  version: 2, row_version: 2, owner_user_id: 'u1', owner_name: 'Aby John', created_at: '2026-10-14T08:00:00Z', updated_at: '2026-10-15T09:12:00Z', can_edit: true, can_share: true,
   bounds: { from: '2026-09-16', to: '2026-10-15', previous_from: '2026-08-17', previous_to: '2026-09-15' },
 }
 export const insightsDashboardsNow: InsightsDashboard[] = [insightsDashboard]
+/** sharing (apps/insights/access.py): who each report and dashboard is shared with, and the workspace's people, roles and row rules */
+type MockShare = { kind: 'user' | 'role'; id: string; name: string; detail: string; permission: 'view' | 'edit' }
+export const insightsSharesNow: Record<string, MockShare[]> = {}
+export const insightsPrincipals = {
+  people: [{ kind: 'user' as const, id: 'u2', name: 'Maya Chen', detail: 'maya@northwind.example' }, { kind: 'user' as const, id: 'u3', name: 'Sam Ortiz', detail: 'sam@northwind.example' }],
+  roles: [{ kind: 'role' as const, id: 'r1', name: 'Store Managers', detail: '4 people' }, { kind: 'role' as const, id: 'r2', name: 'Marketing', detail: '6 people' }],
+}
+type MockRule = { id: string; dataset: string; dataset_label: string; field: string; field_label: string; broken: boolean; principal: { kind: 'user' | 'role'; id: string; name: string; detail: string };
+  values: (string | number | boolean)[]; note: string | null; updated_at: string; row_version: number }
+export const insightsRowRulesNow: MockRule[] = []
+/** merged into every saved report's run, for a test that needs more of it (the access note) */
+export const insightsRunExtras: Record<string, unknown> = {}
 const BOUNDS_7D = { from: '2026-10-09', to: '2026-10-15', previous_from: '2026-10-02', previous_to: '2026-10-08' }
 
 /** the engine's totals for a view, summed from the rows (the mock's engine): hierarchy prefixes, or the pivot's rows, columns and the whole */
@@ -831,6 +843,10 @@ export function installMockApi(options: MockOptions = {}) {
   const calls: Call[] = []
   insightsReportsNow.splice(0, insightsReportsNow.length, { ...insightsSummary })      // every test starts with the one saved report
   insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
+  for (const key of Object.keys(insightsSharesNow)) delete insightsSharesNow[key]
+  for (const key of Object.keys(insightsRunExtras)) delete insightsRunExtras[key]
+  insightsRowRulesNow.splice(0, insightsRowRulesNow.length, { id: 'rule-1', dataset: 'messages', dataset_label: 'Messages', field: 'channel', field_label: 'Channel', broken: false,
+    principal: { kind: 'role', id: 'r1', name: 'Store Managers', detail: '4 people' }, values: ['SMS'], note: null, updated_at: '2026-10-18T09:00:00Z', row_version: 1 })
   insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
   insightsFavourites.clear()
   insightsAssistantNow.enabled = true
@@ -1421,6 +1437,41 @@ export function installMockApi(options: MockOptions = {}) {
         return found ? json(found) : json({ detail: 'No such dashboard.' }, 404)
       }
       if (/\/insights\/catalog\/[a-z_]+\/$/.test(path)) return json(insightsCatalog.datasets.find((d) => path.endsWith(`/${d.key}/`)) ?? { detail: 'No such dataset.' })
+      const shares = /\/insights\/(reports|dashboards)\/([\w-]+)\/shares\/$/.exec(path)
+      if (shares) {
+        const key = `${shares[1]}:${shares[2]}`
+        if (method === 'PUT') {
+          const put = body as { visibility: string; shares: { kind: 'user' | 'role'; id: string; permission: 'view' | 'edit' }[] }
+          const everyone = [...insightsPrincipals.people, ...insightsPrincipals.roles]
+          insightsSharesNow[key] = put.shares.map((s) => ({ ...(everyone.find((p) => p.kind === s.kind && p.id === s.id) as MockShare), permission: s.permission }))
+          return json({ visibility: put.visibility, shares: insightsSharesNow[key], can_share: true })
+        }
+        return json({ visibility: 'WORKSPACE', shares: insightsSharesNow[key] ?? [], can_share: true })
+      }
+      if (path.endsWith('/insights/principals/')) {
+        const q = (new URL(url, 'http://test.local').searchParams.get('q') ?? '').toLowerCase()
+        return json({ people: insightsPrincipals.people.filter((p) => p.name.toLowerCase().includes(q)), roles: insightsPrincipals.roles.filter((p) => p.name.toLowerCase().includes(q)) })
+      }
+      if (path.endsWith('/insights/row-rules/')) {
+        if (method === 'POST') {
+          const posted = body as { dataset: string; field: string; principal: { kind: 'user' | 'role'; id: string }; values: string[]; note: string }
+          const who = [...insightsPrincipals.people, ...insightsPrincipals.roles].find((p) => p.kind === posted.principal.kind && p.id === posted.principal.id)!
+          const made: MockRule = { id: `rule-${insightsRowRulesNow.length + 1}`, dataset: posted.dataset, dataset_label: 'Messages', field: posted.field, field_label: posted.field === 'channel' ? 'Channel' : 'Campaign',
+            broken: false, principal: who, values: posted.values, note: posted.note || null, updated_at: '2026-10-18T10:00:00Z', row_version: 1 }
+          insightsRowRulesNow.push(made)
+          return json(made, 201)
+        }
+        return json({ rules: insightsRowRulesNow, datasets: [{ key: 'messages', label: 'Messages', fields: [{ key: 'campaign_name', label: 'Campaign', type: 'string' }, { key: 'channel', label: 'Channel', type: 'string' }] }] })
+      }
+      const oneRule = /\/insights\/row-rules\/([\w-]+)\/$/.exec(path)
+      if (oneRule) {
+        const at = insightsRowRulesNow.findIndex((r) => r.id === oneRule[1])
+        if (at < 0) return json({ detail: 'No such rule.' }, 404)
+        if (method === 'DELETE') { insightsRowRulesNow.splice(at, 1); return new Response(null, { status: 204 }) }
+        const put = body as { values: string[] }
+        insightsRowRulesNow[at] = { ...insightsRowRulesNow[at], values: put.values, row_version: insightsRowRulesNow[at].row_version + 1 }
+        return json(insightsRowRulesNow[at])
+      }
       if (path.endsWith('/insights/reports/preview/') && method === 'POST') {
         const draft = body as { definition: { columns: { field: string; aggregate?: string }[] } }
         if (draft.definition.columns.length === 1 && draft.definition.columns[0].aggregate === 'count') return json({ ...insightsResult, columns: [insightsResult.columns[3]], rows: [[670680]], row_count: 1 })
@@ -1436,6 +1487,9 @@ export function installMockApi(options: MockOptions = {}) {
         const query = new URL(url, 'http://test.local').searchParams
         const component = query.get('component')
         const folder = query.get('folder')
+        if (query.get('detail_for')) {                                                   // the detail reports a field can be drilled through to
+          return json({ reports: query.get('detail_for') === 'channel' ? [{ ...insightsSummary, id: 'rep-detail', name: 'Campaigns for a Channel', favourite: false, folder_name: null }] : [] })
+        }
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
           .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
@@ -1456,7 +1510,13 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
-        const base = permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult
+        const opened = (body as { through?: { field: string; value: unknown }[] } | null)?.through ?? []
+        if (opened.length) {                                                              // opened through a value of another report: its rows narrowed to it
+          const at = insightsResult.columns.findIndex((c) => c.key === opened[0].field)
+          const rows = insightsResult.rows.filter((row) => row[at] === opened[0].value)
+          return json({ ...insightsResult, rows, row_count: rows.length, through: opened.map((t) => ({ ...t, label: t.field === 'channel' ? 'Channel' : t.field })), ...insightsRunExtras })
+        }
+        const base = { ...(permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult), ...insightsRunExtras }
         // the saved report's levels: Campaign, then Channel; drilled into a campaign, its rows by channel
         const steps = (body as { drill?: { path: { field: string; value: unknown }[] } } | null)?.drill?.path ?? []
         const levels = [{ field: 'campaign_name', label: 'Campaign' }, { field: 'channel', label: 'Channel' }]
@@ -1486,7 +1546,8 @@ export function installMockApi(options: MockOptions = {}) {
       if (/\/insights\/reports\/[\w-]+\/$/.test(path)) {
         const id = path.split('/').at(-2)
         const found = insightsReportsNow.find((r) => r.id === id)
-        return found ? json({ ...insightsReport, id: found.id, name: found.name, dataset: found.dataset, can_edit: true }) : json({ detail: 'No such report.' }, 404)
+        if (id === 'rep-detail') return json({ ...insightsReport, id: 'rep-detail', name: 'Campaigns for a Channel', definition: { ...insightsReport.definition, drillthrough: ['channel'] }, can_edit: true, can_share: true })
+        return found ? json({ ...insightsReport, id: found.id, name: found.name, dataset: found.dataset, can_edit: true, can_share: true, shared: Boolean(insightsSharesNow[`reports:${found.id}`]?.length) }) : json({ detail: 'No such report.' }, 404)
       }
     }
     if (path.endsWith('/me/')) return json({ ...me, ...options.me })

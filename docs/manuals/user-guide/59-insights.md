@@ -20,7 +20,7 @@
 
 **Write It for Me** in the query window is described in the Report Databases chapter.
 
-## Step by step: measures, comparisons, charts, formatting and slicers
+## Step by step: measures, comparisons, charts, formatting, sharing and slicers
 
 **Use a calculated measure in a report** (anyone who can build reports)
 
@@ -39,12 +39,40 @@ Workspace administrators add calculated measures to their own datasets (Report D
 4. Up to four per measure; the cross on a comparison removes it. Running Total and % of Total add up sums and counts only, and an option the report cannot take says why.
 5. The earlier figures come from the same report moved back in time, so the first month of the period has its previous month too.
 
+**Year to date, a moving average, a rank, a target**
+
+1. With the report grouped by a date, open **Add a Comparison** under a measure and pick **Year to Date** or **Quarter to Date** (the measure added up from the start of each year or quarter), or **Moving Average (3 Months)** (the month and the two before it).
+2. **Rank** numbers the rows from the largest, per month when the report has other dimensions too.
+3. **% of Target** and **Difference to Target** compare with a number: type it in **Target** beside the comparisons.
+4. Year and quarter to date add up sums and counts only, and start from the year's or the quarter's first day even when the report's dates start later.
+
 **Drill down in a chart**
 
 1. Open a report with more than one level, such as Sent by Year then Channel, and choose **Chart**.
 2. The line above the chart says what a click drills to. Click a bar, a slice or a stage: the chart shows the level below for that value, such as the quarters of 2026, then their months, then their days, then the next dimension.
 3. The path above the chart shows where you are. Click any step to go back to it, or **Up One Level**.
 4. On a dashboard, turn on **Drill Down** in a chart tile's header first: while it is on, a click drills that tile instead of filtering the others. Turn it off to go back to the top and to cross-filtering.
+
+**Open a detail report from a value (drill-through)**
+
+1. Make the detail report: in its editor press **Detail Report**, tick the fields it can be opened through (such as Channel or Store), **Apply**, then **Save**.
+2. In any other report or dashboard tile on the same data, right-click a value of that field: a bar, a slice, a stage or a cell in a grid.
+3. The menu lists the detail reports for the field. Pick one: it opens filtered to that value, and the line above the rows says where it was opened from.
+4. **Show All Rows** shows the detail report without the filter.
+
+**Share a report or a dashboard**
+
+1. Open it and press **Share** (the owner, or a report administrator).
+2. Choose who can open it: **You and the people and roles below**, or **Everyone in the workspace**.
+3. Find a person or a role and add them. Give each **Can View** or **Can Edit**; Can Edit lets someone who builds reports change it. A role reaches everyone holding it.
+4. Press **Save**. The list shows a private report as shared.
+
+**Limit what a person sees (Report Access)**
+
+1. Open **Settings → Report Access** (report administrators).
+2. Press **Add a Rule**, find the person or the role, choose the dataset and the field (such as Store), and write the values they may see, one per line.
+3. Press **Add Rule**. From then on, every report, dashboard, export and delivery on that dataset shows them only those rows, and the viewer tells them so.
+4. **Edit** changes the values; **Remove** lets them see every row again. People without a rule see every row of what they can open.
 
 **Stack the bars, or combine bars and a line**
 

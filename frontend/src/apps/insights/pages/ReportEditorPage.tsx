@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
 import { ReportResult, ViewBar } from '../components/ReportViews'
+import { DetailReportDialog } from '../editor/DetailReportDialog'
 import { FormatDialog } from '../editor/FormatDialog'
 import { runWords } from '../components/resultWords'
 import { dimensions, EMPTY, fieldOf, isComplete, setView, viewOf } from '../editor/definition'
@@ -53,6 +54,7 @@ export function ReportEditorPage() {
   const report = useReport(id)
   const catalog = useCatalog()
   const [formatting, setFormatting] = useState(false)
+  const [detail, setDetail] = useState(false)
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
@@ -112,6 +114,8 @@ export function ReportEditorPage() {
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}
+      {detail && <DetailReportDialog dataset={dataset} fields={definition.drillthrough ?? []} onClose={() => setDetail(false)}
+        onApply={(fields) => { const { drillthrough: _old, ...rest } = definition; setDraft(fields.length ? { ...rest, drillthrough: fields } : rest); setDetail(false) }} />}
       {formatting && <FormatDialog dataset={dataset} definition={definition} formats={viewOf(definition).formats ?? []} onClose={() => setFormatting(false)}
         onApply={(formats) => { const { formats: _old, ...rest } = viewOf(definition); setDraft(setView(definition, formats.length ? { ...rest, formats } : rest)); setFormatting(false) }} />}
     </div>
@@ -125,6 +129,7 @@ export function ReportEditorPage() {
           className="min-w-0 flex-1 rounded-control-md border border-transparent bg-transparent px-2 font-display text-page-title font-semibold text-ink-900 hover:border-line focus:border-focus focus:outline-none" />
         <span className="text-xs text-ink-800">{dirty ? 'Not saved yet' : `Saved ${formatDateTime(report.data.updated_at)} · version ${report.data.version}`}</span>
         <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={setLayout} />
+        <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>
       </div>

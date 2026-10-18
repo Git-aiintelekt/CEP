@@ -27,7 +27,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.insights import catalog, drill, runner
+from apps.insights import access, catalog, drill, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql, favourite_sql
 from apps.insights.definition import DefinitionError, validate
 from apps.reporting import reports
@@ -228,19 +228,26 @@ def _tiles(layout: dict) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------------------------------- rows
+def _dashboard_visible(request) -> tuple[str, list]:
+    return access.visible_sql("dashboard", "d", str(request.user.pk), _has(request, "report.admin"))
+
+
 def _dashboard_row(dashboard_id, request) -> dict:
-    where, args = _visible_sql(request)
+    where, args = _dashboard_visible(request)
+    edit, edit_args = access.shared_edit_sql("dashboard", "d", str(request.user.pk))
+    shared = access.shared_any_sql("dashboard", "d")
     rows = _q(f"""SELECT d.id::text, d.name, d.description, d.visibility, d.period, d.compare, d.layout, d.version, d.row_version,
-                         d.owner_user_id::text, u.display_name AS owner_name, d.created_at, d.updated_at
+                         d.owner_user_id::text, u.display_name AS owner_name, d.created_at, d.updated_at, {edit} AS shared_edit, {shared} AS shared
                     FROM dashboard d LEFT JOIN app_user u ON u.id = d.owner_user_id
-                   WHERE d.id = %s AND d.deleted_at IS NULL AND {where.replace('r.', 'd.')}""", [str(dashboard_id), *args])
+                   WHERE d.id = %s AND d.deleted_at IS NULL AND {where}""", [*edit_args, str(dashboard_id), *args])
     if not rows:
         raise NotFound("No such dashboard.")
     return rows[0]
 
 
 def _may_edit(request, row: dict) -> bool:
-    return _has(request, "report.admin") or (_has(request, "report.edit") and str(row.get("owner_user_id")) == str(request.user.pk))
+    """report administrators; the owner, or someone it is shared with to edit, with report.edit"""
+    return _has(request, "report.admin") or (_has(request, "report.edit") and (str(row.get("owner_user_id")) == str(request.user.pk) or bool(row.get("shared_edit"))))
 
 
 def _serialize(row: dict, request, today: date) -> dict:
@@ -248,6 +255,7 @@ def _serialize(row: dict, request, today: date) -> dict:
     return {"id": row["id"], "name": row["name"], "description": row["description"], "visibility": row["visibility"], "period": period, "compare": bool(row["compare"]),
             "layout": _json(row["layout"]), "version": row["version"], "row_version": row["row_version"], "owner_user_id": row["owner_user_id"],
             "owner_name": row["owner_name"], "created_at": row["created_at"], "updated_at": row["updated_at"], "can_edit": _may_edit(request, row),
+            "can_share": _has(request, "report.admin") or str(row.get("owner_user_id")) == str(request.user.pk), "shared": bool(row.get("shared")),
             "bounds": period_bounds(period, today)}
 
 
@@ -260,15 +268,17 @@ class DashboardListView(APIView):
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
-        where, args = _visible_sql(request)
+        where, args = _dashboard_visible(request)
         starred, star_args = favourite_sql(str(request.user.pk), "dashboard", "d.id")
+        edit, edit_args = access.shared_edit_sql("dashboard", "d", str(request.user.pk))
+        shared = access.shared_any_sql("dashboard", "d")
         rows = _q(f"""SELECT d.id::text, d.name, d.description, d.visibility, d.layout, d.version, d.owner_user_id::text, u.display_name AS owner_name, d.updated_at,
-                             {starred} AS favourite
+                             {starred} AS favourite, {edit} AS shared_edit, {shared} AS shared
                         FROM dashboard d LEFT JOIN app_user u ON u.id = d.owner_user_id
-                       WHERE d.deleted_at IS NULL AND {where.replace('r.', 'd.')} ORDER BY d.updated_at DESC""", [*star_args, *args])
+                       WHERE d.deleted_at IS NULL AND {where} ORDER BY d.updated_at DESC""", [*star_args, *edit_args, *args])
         return Response({"dashboards": [{"id": r["id"], "name": r["name"], "description": r["description"], "visibility": r["visibility"], "tiles": len(_tiles(_json(r["layout"]))),
                                          "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "updated_at": r["updated_at"],
-                                         "can_edit": _may_edit(request, r), "favourite": bool(r["favourite"])} for r in rows]})
+                                         "can_edit": _may_edit(request, r), "favourite": bool(r["favourite"]), "shared": bool(r["shared"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):
@@ -353,7 +363,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
     time_field = dataset.get("time_field")
     own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)
     limits = catalog.engine_of(tenant.pk)["limits"]
-    about = {"id": report["id"], "name": report["name"], "version": report["version"]}
+    about = {"id": report["id"], "name": report["name"], "version": report["version"], "dataset": report["dataset_key"]}
     levels = None
     if tile["show"] == "chart":                                       # a chart tile drills: the levels for the browser, the level under the path to run
         try:

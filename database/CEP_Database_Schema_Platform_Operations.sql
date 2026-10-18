@@ -2119,6 +2119,57 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard, dashboard_version TO cep_app;
 GRANT ALL ON dashboard, dashboard_version TO cep_admin;
 
+-- ---- sharing a dashboard with people and roles (patch 0060), as report_share does for a report (apps/insights/access.py)
+CREATE TABLE IF NOT EXISTS dashboard_share (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dashboard_id        UUID NOT NULL REFERENCES dashboard(id) ON DELETE CASCADE,
+    principal_kind      VARCHAR(10) NOT NULL,                             -- user, role
+    principal_id        UUID NOT NULL,
+    permission          VARCHAR(10) NOT NULL,                             -- view, edit
+    created_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (dashboard_id, principal_kind, principal_id),
+    CONSTRAINT ck_dashboard_share_kind CHECK (principal_kind IN ('user', 'role')),
+    CONSTRAINT ck_dashboard_share_permission CHECK (permission IN ('view', 'edit'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_share_principal ON report_share(principal_kind, principal_id);
+CREATE INDEX IF NOT EXISTS ix_dashboard_share_principal ON dashboard_share(principal_kind, principal_id);
+
+-- ---- row access (patch 0060): the values of one field of a dataset a person or a role may see, in every report, tile, export and delivery
+CREATE TABLE IF NOT EXISTS report_row_rule (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dataset_key         VARCHAR(80) NOT NULL,                             -- a platform dataset, or a workspace's own (x_...)
+    field_key           VARCHAR(60) NOT NULL,
+    principal_kind      VARCHAR(10) NOT NULL,                             -- user, role
+    principal_id        UUID NOT NULL,
+    allowed             JSONB NOT NULL DEFAULT '[]',                      -- the values, typed as the field
+    note                VARCHAR(200),
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    UNIQUE (tenant_id, dataset_key, field_key, principal_kind, principal_id),
+    CONSTRAINT ck_report_row_rule_kind CHECK (principal_kind IN ('user', 'role'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_row_rule_lookup ON report_row_rule(tenant_id, dataset_key, principal_kind, principal_id);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['dashboard_share', 'report_row_rule'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard_share, report_row_rule TO cep_app;
+GRANT ALL ON dashboard_share, report_row_rule TO cep_admin;
+
 -- ---- favourites (Phase C): a person's starred reports and dashboards, first in their lists (apps/insights/library.py)
 CREATE TABLE IF NOT EXISTS report_favourite (
     tenant_id           UUID NOT NULL REFERENCES tenant(id),

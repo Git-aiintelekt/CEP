@@ -41,6 +41,7 @@ export type HelpChapter = keyof typeof HELP_CHAPTERS
 export const HELP_FOR_PAGE: Partial<Record<string, HelpChapter>> = {
   '/insights': 'insights',
   '/settings/report-databases': 'report-databases',
+  '/settings/report-access': 'insights',
   '/': 'home',
   '/campaigns': 'campaigns',
   '/campaigns/new': 'campaign-setup',

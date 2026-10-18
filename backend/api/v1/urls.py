@@ -5,6 +5,7 @@ from apps.insights import library as insights_library
 from apps.insights import schedules as insights_schedules
 from apps.insights import assistant as insights_assistant
 from apps.insights import databases as insights_databases
+from apps.insights import access as insights_access
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -144,6 +145,11 @@ urlpatterns = [
     path("insights/reports/<uuid:report_id>/versions/", insights_api.ReportVersionsView.as_view(), name="insights-report-versions"),
     path("insights/reports/<uuid:report_id>/versions/<int:number>/restore/", insights_api.ReportVersionRestoreView.as_view(), name="insights-report-version-restore"),
     path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
+    path("insights/reports/<uuid:item_id>/shares/", insights_access.ReportSharesView.as_view(), name="insights-report-shares"),
+    path("insights/dashboards/<uuid:item_id>/shares/", insights_access.DashboardSharesView.as_view(), name="insights-dashboard-shares"),
+    path("insights/principals/", insights_access.PrincipalsView.as_view(), name="insights-principals"),
+    path("insights/row-rules/", insights_access.RowRulesView.as_view(), name="insights-row-rules"),
+    path("insights/row-rules/<uuid:rule_id>/", insights_access.RowRuleView.as_view(), name="insights-row-rule"),
     path("insights/reports/<uuid:report_id>/export.csv", insights_api.ExportView.as_view(), name="insights-report-export"),
     path("insights/reports/<uuid:report_id>/export.xlsx", insights_api.ExportXlsxView.as_view(), name="insights-report-export-xlsx"),
     path("insights/reports/<uuid:report_id>/export.pdf", insights_api.ExportPdfView.as_view(), name="insights-report-export-pdf"),
