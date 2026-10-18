@@ -145,3 +145,27 @@ test('the editor adds a slicer from the dimensions of the tiles\' datasets, remo
   expect(within(slicers).getByRole('button', { name: 'Campaign' })).toBeTruthy()
   expect(within(slicers).queryByRole('button', { name: 'Channel' })).toBeNull()
 })
+
+test('Drill Down on a chart tile: a click drills that tile instead of filtering the others, the path goes back up, and turning it off leaves the drill', async () => {
+  const user = userEvent.setup()
+  await renderAppAt('/insights/dashboards/dash-1')
+  await screen.findByRole('heading', { name: 'Marketing Weekly' })
+  const chart = screen.getByRole('region', { name: 'Sends by Campaign' })
+  await vi.waitFor(() => expect(within(chart).getByRole('group', { name: 'Sent Count by Campaign' })).toBeTruthy())
+  const figure = screen.getByRole('region', { name: 'Sends by campaign' })
+  await vi.waitFor(() => expect(within(figure).getByText('391,520')).toBeTruthy())
+  const toggle = within(chart).getByRole('button', { name: 'Drill Down' })
+  await user.click(toggle)
+  expect(toggle.getAttribute('aria-pressed')).toBe('true')
+  fireEvent.click(within(chart).getByRole('group', { name: 'Sent Count by Campaign' }), { clientX: 80 })     // the first bar: Fall Launch
+  const path = await within(chart).findByRole('navigation', { name: 'Drill path' })
+  expect(within(path).getByText('Fall Launch')).toBeTruthy()
+  await vi.waitFor(() => expect(within(chart).getByRole('group', { name: 'Sent Count by Channel' })).toBeTruthy())
+  expect(within(figure).getByText('391,520')).toBeTruthy()                                                     // the other tiles were not filtered
+  expect(within(screen.getByRole('group', { name: 'Slicers' })).queryByRole('button', { name: /Campaign/ })).toBeNull()
+  await user.click(within(path).getByRole('button', { name: 'Campaign' }))
+  await vi.waitFor(() => expect(within(chart).getByRole('group', { name: 'Sent Count by Campaign' })).toBeTruthy())
+  await user.click(toggle)
+  expect(toggle.getAttribute('aria-pressed')).toBe('false')
+  expect(within(chart).queryByText(/Click a value/)).toBeNull()
+})

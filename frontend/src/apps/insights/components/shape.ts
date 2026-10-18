@@ -33,6 +33,9 @@ export function exact(result: RunResult, keys: Record<string, unknown>, measureI
   return typeof value === 'number' ? value : value === null || value === undefined ? null : Number(value)
 }
 
+/** the aggregate a subtotal combines by; a time comparison (a running total, a change, a share) is never combined */
+const agg = (column: ResultColumn): Aggregate | undefined => (column.compare ? undefined : column.aggregate)
+
 export function combine(aggregate: Aggregate | undefined, values: unknown[]): number | null {
   const numbers = values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
   if (numbers.length === 0) return null
@@ -154,14 +157,14 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
     for (const node of nodes) {
       if (node.children.length) {
         total(node.children)
-        node.totals = meas.map(({ column }, m) => exact(result, paths.get(node) ?? {}, m) ?? combine(column.aggregate, node.children.map((child) => (child.row ? child.row[m] : child.totals[m]))))
+        node.totals = meas.map(({ column }, m) => exact(result, paths.get(node) ?? {}, m) ?? combine(agg(column), node.children.map((child) => (child.row ? child.row[m] : child.totals[m]))))
       } else {
         node.totals = meas.map((_, m) => (typeof node.row?.[m] === 'number' ? (node.row[m] as number) : null))
       }
     }
   }
   total(roots)
-  const grand = meas.map(({ column }, m) => exact(result, {}, m) ?? combine(column.aggregate, roots.map((node) => node.totals[m])))
+  const grand = meas.map(({ column }, m) => exact(result, {}, m) ?? combine(agg(column), roots.map((node) => node.totals[m])))
   return { levels: dims.map((d) => d.column), measures: meas.map((m) => m.column), roots, grand }
 }
 
@@ -199,10 +202,10 @@ export function pivotShape(result: RunResult, across: string | undefined, measur
     }
     const value = row[measure.index]
     const column = at.get(String(row[spread.index] ?? '')) as number
-    line.cells[column] = combine(measure.column.aggregate, [line.cells[column], value])
+    line.cells[column] = combine(agg(measure.column), [line.cells[column], value])
   }
   const m = meas.findIndex((item) => item.index === measure.index)
-  const lines = [...rows.values()].map(({ keys, ...line }) => ({ ...line, total: exact(result, keys, m) ?? combine(measure.column.aggregate, line.cells) }))
-  const columnTotals = columns.map((_, c) => exact(result, { [spread.column.key]: columnValues[c] }, m) ?? combine(measure.column.aggregate, lines.map((line) => line.cells[c])))
-  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: exact(result, {}, m) ?? combine(measure.column.aggregate, columnTotals), measure: measure.column }
+  const lines = [...rows.values()].map(({ keys, ...line }) => ({ ...line, total: exact(result, keys, m) ?? combine(agg(measure.column), line.cells) }))
+  const columnTotals = columns.map((_, c) => exact(result, { [spread.column.key]: columnValues[c] }, m) ?? combine(agg(measure.column), lines.map((line) => line.cells[c])))
+  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: exact(result, {}, m) ?? combine(agg(measure.column), columnTotals), measure: measure.column }
 }

@@ -13,6 +13,7 @@ import { useSingleDropdown } from '@/lib/useSingleDropdown'
 import type { CatalogField } from '../types'
 import { addField, AGGREGATE_LABEL, BUCKET_LABEL, columnWords, dimensions, fieldOf, measures, removeField, rules, setAggregate, setBucket, setLimit, setRules, setSort } from './definition'
 import type { EditorLayoutProps } from './FieldWells'
+import { CompareControl } from './CompareControl'
 import { FilterBuilder } from './FilterBuilder'
 
 function Step({ number, title, children, end }: { number: number; title: string; children: ReactNode; end?: ReactNode }) {
@@ -87,6 +88,7 @@ export function Steps({ dataset, definition, onChange, result, rowCount }: Edito
                   {(field?.aggregates ?? []).map((aggregate) => <option key={aggregate} value={aggregate}>{AGGREGATE_LABEL[aggregate]}</option>)}
                 </Select></span>
                 <span>of {field?.label}</span>
+                <CompareControl dataset={dataset} definition={definition} column={column} onChange={onChange} label={field?.label ?? column.field} />
               </Token>
             )
           })}

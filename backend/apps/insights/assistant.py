@@ -72,7 +72,9 @@ SCHEMA = {
         "view": {"type": "object", "properties": {"type": {"type": "string", "enum": list(VIEWS)}, "chart": {"type": "string", "enum": ["bar", "line", "area", "pie", "funnel"]},
                                                   "across": {"type": "string", "description": "a dimension key spread across the columns (pivot) or as the series (chart)"}}},
         "definition": {"type": "object", "properties": {
-            "columns": {"type": "array", "items": {"type": "object", "properties": {"field": {"type": "string"}, "aggregate": {"type": "string"}, "bucket": {"type": "string"}}, "required": ["field"]}},
+            "columns": {"type": "array", "items": {"type": "object", "properties": {"field": {"type": "string"}, "aggregate": {"type": "string"}, "bucket": {"type": "string"},
+                                                                               "compare": {"type": "array", "items": {"type": "string", "enum": ["previous_period", "previous_year", "change_previous_period", "change_previous_year", "running_total", "percent_of_total"]}}},
+                                                       "required": ["field"]}},
             "filters": {"type": "object", "properties": {"combinator": {"type": "string", "enum": ["and", "or"]},
                                                          "rules": {"type": "array", "items": {"type": "object", "properties": {"field": {"type": "string"}, "operator": {"type": "string"}, "value": {}},
                                                                                               "required": ["field", "operator"]}}}},
@@ -331,6 +333,7 @@ Rules:
 - A report is grouped when it has a measure: every dimension column is a group-by key. A date dimension may carry a bucket (day, week, month, quarter, year). A measure column needs an aggregate the field allows.
 - Filters: {{"combinator": "and" | "or", "rules": [{{"field", "operator", "value"}}]}} with an operator the field allows. Dates are written YYYY-MM-DD. "between" takes [from, to]; "last_days" takes a number of days; "in" takes a list; "is_null" and "is_not_null" take no value.
 - The view: grid (one row per group), chart (bar, line or area over a date or a dimension; "across" names the series dimension when there is one; pie for shares of one measure by one dimension; funnel for stages in order), hierarchy (dimensions nested, with totals), pivot ("across" names the dimension spread across the columns). "Months across" or "by X across" means a pivot across that dimension.
+- A measure column may carry "compare": previous_period, previous_year, change_previous_period, change_previous_year (these four and running_total need a date dimension with a bucket in the report), running_total and percent_of_total (sum or count measures only). "vs last year", "growth", "running total" and "share" mean these.
 - A measure whose only aggregate is calc is a calculated measure (a rate, a share, an average per something): use it with aggregate "calc" when the person asks for that rate.
 - Sort by the first measure descending unless the person asks otherwise; limit 500 unless asked.
 - If the request needs data no field holds, answer kind "no_field": one sentence saying what is missing and which fields come closest, and up to three suggestions, each a complete request the catalogue can answer.

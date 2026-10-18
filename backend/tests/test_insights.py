@@ -9,7 +9,7 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import catalog, clickhouse, compiler, dashboards, definition, excel, pdf, runner, schedules, shape
+from apps.insights import catalog, clickhouse, compare, compiler, dashboards, definition, drill, excel, pdf, runner, schedules, shape
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -230,6 +230,74 @@ def test_definition_and_compiler(check):
             check("a measure, a date or a repeated field is refused as a slicer", False, str(bad))
         except Exception as exc:                                                       # noqa: BLE001
             check("a measure, a date or a repeated field is refused as a slicer", "layout.slicers" in str(exc), str(exc))
+    # time comparisons: checked with the definition, worked out from the rows and the shifted run
+    timed = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "month"}, {"field": "channel"},
+                                                      {"field": "sent", "aggregate": "sum", "compare": ["previous_period", "change_previous_year", "running_total", "percent_of_total"]}],
+                                          "filters": {"combinator": "and", "rules": [{"field": "submitted_at", "operator": "between", "value": ["2026-07-01", "2026-09-30"]}]}})
+    check("a measure keeps its comparisons, in order", timed["columns"][2]["compare"] == ["previous_period", "change_previous_year", "running_total", "percent_of_total"])
+    check("comparing with an earlier period needs a date in the report", refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["previous_year"]}]}, "columns[1].compare"))
+    check("a share of the total needs a sum or a count, and an unknown or repeated comparison is refused",
+          refused({"columns": [{"field": "channel"}, {"field": "messages", "aggregate": "count", "compare": ["percent_of_total", "percent_of_total"]}]}, "columns[1].compare")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["yesterday"]}]}, "columns[1].compare")
+          and refused({"columns": [{"field": "channel", "compare": ["percent_of_total"]}]}, "columns[0].compare"))
+    check("the time axis is the first bucketed date", compare.axis(DATASET, timed["columns"]) == (0, "submitted_at", "month"))
+    moved = compare.shifted(timed, "submitted_at", 12, 0, date(2026, 10, 17))
+    check("a year back, the date rule moves and the last day of a month stays the last day",
+          moved["filters"]["rules"] == [{"field": "submitted_at", "operator": "between", "value": ["2025-07-01", "2025-09-30"]}]
+          and compare.shifted(timed, "submitted_at", 1, 0, date(2026, 10, 17))["filters"]["rules"][0]["value"] == ["2026-06-01", "2026-08-31"], str(moved["filters"]))
+    check("in the last 30 days becomes the same days a year earlier",
+          compare.shifted({"filters": {"combinator": "and", "rules": [{"field": "submitted_at", "operator": "last_days", "value": 30}]}}, "submitted_at", 12, 0, date(2026, 10, 17))["filters"]["rules"][0]["value"] == ["2025-09-17", "2025-10-17"])
+    check("no rule on the date: the rows serve as they are; a date rule inside an or-group cannot be moved",
+          compare.shifted({"filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "=", "value": "SMS"}]}}, "submitted_at", 12, 0, date(2026, 10, 17)) is None)
+    try:
+        compare.shifted({"filters": {"combinator": "or", "rules": [{"field": "submitted_at", "operator": "last_days", "value": 7}, {"field": "channel", "operator": "=", "value": "SMS"}]}}, "submitted_at", 12, 0, date(2026, 10, 17))
+        check("a date rule inside an or-group is refused", False)
+    except compare.CompareError:
+        check("a date rule inside an or-group is refused", True)
+    rows = [["2026-07-01", "EMAIL", 100], ["2026-08-01", "EMAIL", 150], ["2026-09-01", "EMAIL", 120], ["2026-08-01", "SMS", 50], ["2026-09-01", "SMS", 80]]
+    june = [["2026-06-01", "EMAIL", 80], *rows]                                           # the shifted run (a month back) reaches June
+    last_year = [["2025-07-01", "EMAIL", 50], ["2025-09-01", "SMS", 0]]
+    out = compare.apply(DATASET, timed, rows, {"period": june, "year": last_year}, {2: 500.0})
+    check("the previous month comes from the shifted run, so July has June's figure", [r[3] for r in out] == [80, 100, 150, None, 50], str(out))
+    check("the change against last year is in percent, empty where last year had nothing to divide by", out[0][4] == 100.0 and out[4][4] is None and out[1][4] is None, str([r[4] for r in out]))
+    check("the running total adds up along the dates per channel", [r[5] for r in out] == [100.0, 250.0, 370.0, 50.0, 130.0], str([r[5] for r in out]))
+    check("the share of the total is of the report's whole", [round(r[6], 1) for r in out] == [20.0, 30.0, 24.0, 10.0, 16.0])
+    cols = compare.columns(DATASET, timed, [{"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"}, {"key": "channel", "label": "Channel", "type": "string", "format": None},
+                                            {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}])
+    check("each comparison is a column after its measure, labelled in words, a change and a share as percentages",
+          [c["label"] for c in cols[2:]] == ["Sent Count", "Sent Count, Previous Month", "Sent Count, Change vs Last Year", "Sent Count, Running Total", "Sent Count, % of Total"]
+          and [c.get("compare") for c in cols[3:]] == ["previous_period", "change_previous_year", "running_total", "percent_of_total"] and cols[4]["format"] == "percent" and cols[3]["format"] == "integer")
+    check("the engine's totals line up with the measure columns, empty for each comparison",
+          compare.expand_totals(timed, [{"keys": {}, "values": [500]}]) == [{"keys": {}, "values": [500, None, None, None, None]}])
+    check("a subtotal never adds up a running total or a share", shape._agg({"aggregate": "sum", "compare": "running_total"}) is None and shape._agg({"aggregate": "sum"}) == "sum")
+    check("a week compares with the same week 52 weeks earlier; a month with the month before", compare.offset("year", "week") == (0, 364) and compare.offset("period", "month") == (1, 0)
+          and compare.add_months(date(2024, 2, 29), 12) == date(2025, 2, 28))
+
+    # drill-down: the levels, and the definition of the level under a path
+    yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
+                                           "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
+                                           "view": {"type": "chart", "chart": "bar", "across": "channel"}})
+    found = drill.levels(DATASET, yearly)
+    check("a year drills to quarters, months and days, then the next dimension; the one spread across stays the series",
+          [(l["field"], l.get("bucket")) for l in found] == [("submitted_at", "year"), ("submitted_at", "quarter"), ("submitted_at", "month"), ("submitted_at", "day"), ("campaign_name", None)]
+          and found[1]["label"] == "Sent by Quarter")
+    below = definition.validate(DATASET, drill.drilled(DATASET, yearly, [{"field": "submitted_at", "bucket": "year", "value": "2026-01-01"}, {"field": "submitted_at", "bucket": "quarter", "value": "2026-07-01"}]))
+    check("under 2026 and Q3: months as the rows, the series kept, the measure kept, the quarter's dates as a rule on top of the report's own",
+          [(c["field"], c.get("bucket")) for c in below["columns"]] == [("submitted_at", "month"), ("channel", None), ("sent", None)]
+          and below["filters"]["rules"][-2:] == [{"field": "submitted_at", "operator": "between", "value": ["2026-01-01", "2026-12-31"]}, {"field": "submitted_at", "operator": "between", "value": ["2026-07-01", "2026-09-30"]}]
+          and below["filters"]["rules"][0]["field"] == "channel" and below["orderBy"] == [{"field": "submitted_at", "direction": "asc"}] and below["view"]["across"] == "channel", str(below))
+    by_campaign = definition.validate(DATASET, drill.drilled(DATASET, yearly, [{"field": "submitted_at", "bucket": "year", "value": "2026-01-01"}, {"field": "submitted_at", "bucket": "quarter", "value": "2026-07-01"},
+                                                                              {"field": "submitted_at", "bucket": "month", "value": "2026-09-01"}, {"field": "submitted_at", "bucket": "day", "value": "2026-09-15"}]))
+    check("past the days, the next dimension, sorted as the report was; a share of the total survives the drill", by_campaign["columns"][0]["field"] == "campaign_name"
+          and by_campaign["orderBy"] == [{"field": "sent", "direction": "desc"}] and by_campaign["columns"][2]["compare"] == ["percent_of_total"])
+    for path, why in (([{"field": "channel", "value": "EMAIL"}], "a step that is not the level"), ([{"field": "submitted_at", "bucket": "year", "value": "x"}], "a date step that is not a date")):
+        try:
+            drill.drilled(DATASET, yearly, path)
+            check(f"{why} is refused", False)
+        except drill.DrillError:
+            check(f"{why} is refused", True)
+    check("one level is nothing to drill", drill.info(DATASET, definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}]}), []) is None
+          and drill.bucket_end(date(2026, 7, 1), "quarter") == date(2026, 9, 30) and drill.bucket_end(date(2026, 2, 1), "month") == date(2026, 2, 28))
     check.done()
 
 
@@ -278,6 +346,26 @@ def test_api(check, world):
     pv_body = as_pivot.json() if as_pivot.status_code == 200 else {}
     check("run as a pivot, the engine totals the rows, the columns and the whole", as_pivot.status_code == 200 and isinstance(pv_body.get("totals"), list)
           and any(t["keys"] == {} and len(t["values"]) == 2 for t in pv_body["totals"]) and all(set(t["keys"]) <= {"campaign_name", "channel"} for t in pv_body["totals"]), as_pivot.content[:300])
+    # time comparisons and drill-down through the API: a monthly report compared with the month before and last year, then drilled
+    monthly = world.api("post", "/api/v1/insights/reports/", {"name": "Sends by year and channel", "dataset": "messages", "definition": {
+        "columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["previous_period", "change_previous_year", "percent_of_total"]}],
+        "filters": {"combinator": "and", "rules": [{"field": "submitted_at", "operator": "last_days", "value": 400}]}, "orderBy": [{"field": "submitted_at", "direction": "asc"}], "view": {"type": "chart", "chart": "bar"}}})
+    mid = monthly.json().get("id") if monthly.status_code == 201 else None
+    compared = world.api("post", f"/api/v1/insights/reports/{mid}/run/", {"limit": 50})
+    cmp_body = compared.json() if compared.status_code == 200 else {}
+    check("a compared report runs: each comparison a column after its measure, the drill levels beside the rows", compared.status_code == 200
+          and [c["key"] for c in cmp_body["columns"]] == ["submitted_at", "channel", "sent", "sent__previous_period", "sent__change_previous_year", "sent__percent_of_total"]
+          and all(len(r) == 6 for r in cmp_body["rows"]) and [l["label"] for l in cmp_body["drill"]["levels"]][:2] == ["Sent by Year", "Sent by Quarter"] and cmp_body["drill"]["depth"] == 0, compared.content[:400])
+    first = (cmp_body.get("rows") or [["2026-01-01"]])[0][0] or "2026-01-01"
+    drilled_run = world.api("post", f"/api/v1/insights/reports/{mid}/run/", {"limit": 50, "drill": {"path": [{"field": "submitted_at", "bucket": "year", "value": first}]}})
+    dr_body = drilled_run.json() if drilled_run.status_code == 200 else {}
+    check("drilled into a year, the rows are its quarters and the comparisons are against the quarter before", drilled_run.status_code == 200
+          and [c["key"] for c in dr_body["columns"]][:3] == ["submitted_at", "sent", "sent__previous_period"] and dr_body["columns"][0].get("bucket") == "quarter" and dr_body["columns"][2]["label"] == "Sent Count, Previous Quarter" and dr_body["drill"]["depth"] == 1
+          and all(str(r[0]) >= str(first)[:4] for r in dr_body["rows"]), drilled_run.content[:400])
+    wrong = world.api("post", f"/api/v1/insights/reports/{mid}/run/", {"drill": {"path": [{"field": "channel", "value": "EMAIL"}]}})
+    check("a drill path that does not fit the report is refused under drill", wrong.status_code == 400 and "drill" in json.dumps(wrong.json()), wrong.content[:200])
+    csv_cmp = world.api("get", f"/api/v1/insights/reports/{mid}/export.csv")
+    check("the CSV export carries the comparison columns", csv_cmp.status_code == 200 and "Sent Count, Change vs Last Year" in b"".join(csv_cmp.streaming_content).decode(), str(csv_cmp.status_code))
     changed = world.api("put", f"/api/v1/insights/reports/{rid}/", {"row_version": report["row_version"], "name": "Sends by campaign and channel", "visibility": "WORKSPACE",
                                                                    "definition": {**draft["definition"], "limit": 100, "view": {"type": "pivot", "across": "channel"}}, "note": "Shared with the workspace"})
     check("the report's view follows the definition", changed.status_code == 200 and changed.json()["view_type"] == "pivot" and changed.json()["definition"]["view"] == {"type": "pivot", "across": "channel"}, changed.content[:200])

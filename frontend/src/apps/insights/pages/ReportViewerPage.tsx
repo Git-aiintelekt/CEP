@@ -1,6 +1,8 @@
 /**
  * A report, run: its rows in the saved view, with what the run says (rows, time, freshness, truncated), Edit for whoever
- * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice.
+ * may, Export CSV, and Delete for the owner. The view can be switched here for a look; the editor saves the choice. In the
+ * chart, a click on a bar, a slice or a stage drills one level down (the report's next dimension, or a date's next
+ * bucket); the drill path above it goes back up. Switching the view leaves the drill.
  */
 import { CalendarClock, Download, FileSpreadsheet, FileText, History, Pencil, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -20,18 +22,24 @@ import { FolderSelect } from '../components/FolderSelect'
 import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
 import { VersionsDrawer } from '../components/VersionsDrawer'
+import { canDrill, deeper } from '../components/drill'
+import { DrillBar } from '../components/DrillBar'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
-import type { ReportView } from '../types'
+import type { DrillStep, ReportView } from '../types'
 
 export function ReportViewerPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
   const report = useReport(id)
-  const [view, setView] = useState<ReportView | null>(null)
+  const [view, setViewOnly] = useState<ReportView | null>(null)
+  const [path, setPath] = useState<DrillStep[]>([])
+  const setView = (next: ReportView | null) => { setViewOnly(next); if (next?.type !== 'chart') setPath([]) }
   const askedView = view ?? report.data?.definition.view
-  const run = useRun(report.data ? id : undefined, askedView && (askedView.type === 'pivot' || askedView.type === 'hierarchy') ? { view: { type: askedView.type, across: askedView.across } } : {})
+  const charted = (askedView?.type ?? 'grid') === 'chart'
+  const run = useRun(report.data ? id : undefined, askedView && (askedView.type === 'pivot' || askedView.type === 'hierarchy') ? { view: { type: askedView.type, across: askedView.across } }
+    : charted && path.length ? { drill: { path } } : {})
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
@@ -133,7 +141,9 @@ export function ReportViewerPage() {
       ) : (
         <div className="flex flex-col gap-3">
           <ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} />
-          <ReportResult result={run.data} view={shownView} />
+          {shownView.type === 'chart' && run.data.drill && <DrillBar info={run.data.drill} onPath={setPath} />}
+          <ReportResult result={run.data} view={shownView}
+            onPick={shownView.type === 'chart' && canDrill(run.data.drill) ? (column, value) => { if (run.data?.drill && canDrill(run.data.drill, column)) setPath(deeper(run.data.drill, value)) } : undefined} />
         </div>
       )}
       {scheduling && <ScheduleDialog reportId={id as string} reportName={report.data.name} zone={me?.tenant.timezone ?? 'UTC'} existing={schedule} onClose={() => setScheduling(false)} onSaved={() => setScheduling(false)} />}

@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, SlicerSelection, SlicerValues, TileResult } from './types'
+import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RunLog, RunResult, Schedule, ScheduleBody, SlicerSelection, SlicerValues, TileResult } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -18,7 +18,8 @@ export const insightsApi = {
   versions: (id: string, signal?: AbortSignal) => api.get<{ versions: ReportVersion[] }>(`/insights/reports/${id}/versions/`, undefined, signal),
   restore: (id: string, version: number) => api.post<Report>(`/insights/reports/${id}/versions/${version}/restore/`, {}),
   preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number; view?: ReportView }) => api.post<RunResult>('/insights/reports/preview/', body),
-  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
+  /** drill: the values clicked at the levels above the one to run */
+  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] } } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
   exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
@@ -33,9 +34,9 @@ export const dashboardsApi = {
     api.put<Dashboard>(`/insights/dashboards/${id}/`, body),
   remove: (id: string) => api.delete(`/insights/dashboards/${id}/`),
   /** a saved tile, narrowed by the slicers' values where its dataset has the field */
-  runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean; slicers?: SlicerSelection }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
+  runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean; slicers?: SlicerSelection; drill?: { path: DrillStep[] } }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
   /** a tile as it is being edited, saved or not */
-  previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean; slicers?: SlicerSelection }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+  previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean; slicers?: SlicerSelection; drill?: { path: DrillStep[] } }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
   /** the values a slicer offers over the period */
   slicerValues: (id: string, body: { field: string; period?: Period }) => api.post<SlicerValues>(`/insights/dashboards/${id}/slicers/values/`, body),
   exportPdf: (id: string) => api.download(`/insights/dashboards/${id}/export.pdf`),
@@ -80,7 +81,7 @@ export const keys = {
   reports: (query: { component?: string; dataset?: string; q?: string; folder?: string }) => ['insights', 'reports', query] as const,
   report: (id: string) => ['insights', 'report', id] as const,
   versions: (id: string) => ['insights', 'versions', id] as const,
-  run: (id: string, page: { limit?: number; offset?: number; view?: ReportView }) => ['insights', 'run', id, page] as const,
+  run: (id: string, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] } }) => ['insights', 'run', id, page] as const,
 }
 
 export function useAssistant() {
@@ -115,8 +116,8 @@ export function useVersions(id: string | undefined) {
   return useQuery({ queryKey: keys.versions(id ?? ''), queryFn: ({ signal }) => insightsApi.versions(id as string, signal), enabled: Boolean(id) })
 }
 
-export function useRun(id: string | undefined, page: { limit?: number; offset?: number; view?: ReportView }) {
-  return useQuery({ queryKey: keys.run(id ?? '', page), queryFn: () => insightsApi.run(id as string, page), enabled: Boolean(id), retry: false })
+export function useRun(id: string | undefined, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] } }) {
+  return useQuery({ queryKey: keys.run(id ?? '', page), queryFn: () => insightsApi.run(id as string, page), enabled: Boolean(id), retry: false, placeholderData: (previous) => previous })
 }
 
 export function useDashboards() {

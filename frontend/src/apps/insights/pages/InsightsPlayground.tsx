@@ -1,6 +1,7 @@
 /**
  * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
- * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views.
+ * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views,
+ * &compare=1 for Sent Count compared with the month before and with last year.
  * For design review and screenshots; the real editor is ReportEditorPage.
  */
 import { useState } from 'react'
@@ -9,7 +10,7 @@ import { useSearchParams } from 'react-router-dom'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
 import { ReportResult, ViewBar } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
-import { EMPTY, setView, viewOf } from '../editor/definition'
+import { EMPTY, setCompare, setView, viewOf } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
 import type { CatalogDataset, ChartKind, ReportDefinition, RunResult, ViewType } from '../types'
@@ -46,6 +47,14 @@ const RESULT: RunResult = {
   row_count: 4, duration_ms: 812, truncated: false, offset: 0, limit: 500, freshness: 'LIVE', cached: false,
 }
 
+/** the same rows with Sent Count against the month before and against last year, as the engine returns them */
+const COMPARED: RunResult = {
+  ...RESULT,
+  columns: [...RESULT.columns.slice(0, 3), { key: 'sent__previous_period', label: 'Sent Count, Previous Month', type: 'number', format: 'integer', aggregate: 'sum', compare: 'previous_period' },
+            { key: 'sent__change_previous_year', label: 'Sent Count, Change vs Last Year', type: 'number', format: 'percent', aggregate: 'sum', compare: 'change_previous_year' }, RESULT.columns[3]],
+  rows: [['EMAIL', '2026-09-01', 356920, 247250, 18.4, 134210], ['EMAIL', '2026-08-01', 247250, 230110, -4.2, 91880], ['SMS', '2026-09-01', 29580, 27810, 61.0, 0], ['SMS', '2026-08-01', 27810, 19940, 12.7, 0]],
+}
+
 type Layout = 'wells' | 'steps'
 const LAYOUTS: SegmentOption<Layout>[] = [{ value: 'wells', label: 'Field Wells' }, { value: 'steps', label: 'Steps' }]
 
@@ -53,13 +62,15 @@ export default function InsightsPlayground() {
   const [params, setParams] = useSearchParams()
   const layout = (params.get('layout') === 'steps' ? 'steps' : 'wells') as Layout
   const [definition, setDefinition] = useState<ReportDefinition>(() => {
-    const base = params.get('state') === 'sparse' ? EMPTY : BUSY
+    const base = params.get('state') === 'sparse' ? EMPTY : params.get('compare') === '1' ? setCompare(BUSY, 'sent', ['previous_period', 'change_previous_year']) : BUSY
     const type = (params.get('view') ?? 'grid') as ViewType
     return type === 'grid' ? base : setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined })
   })
+  const compared = params.get('compare') === '1'
+  const base: RunResult = compared ? COMPARED : RESULT
   const shown: RunResult = params.get('masked')
-    ? { ...RESULT, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...RESULT.columns.slice(1)], rows: RESULT.rows.map((row) => ['•••••', ...row.slice(1)]) }
-    : RESULT
+    ? { ...base, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...base.columns.slice(1)], rows: base.rows.map((row) => ['•••••', ...row.slice(1)]) }
+    : base
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">

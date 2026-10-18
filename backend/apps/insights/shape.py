@@ -20,6 +20,11 @@ def _exact(totals, keys: dict, index: int):
     return None
 
 
+def _agg(column: dict):
+    """the aggregate a subtotal combines by; a time comparison (a running total, a change, a share) is never combined"""
+    return None if column.get("compare") else column.get("aggregate")
+
+
 def _combine(aggregate, values):
     numbers = [v for v in values if isinstance(v, Number) and not isinstance(v, bool)]
     if not numbers:
@@ -69,14 +74,14 @@ def pivot(columns: list[dict], rows: list[list], across: str | None, measure_key
         key = tuple(str(row[i]) if row[i] is not None else "" for i, _ in down)
         line = lines.setdefault(key, {"labels": [row[i] for i, _ in down], "cells": [None] * len(column_values)})
         c = at[str(row[s_index]) if row[s_index] is not None else ""]
-        line["cells"][c] = _combine(m_col["aggregate"], [line["cells"][c], row[m_index]])
+        line["cells"][c] = _combine(_agg(m_col), [line["cells"][c], row[m_index]])
     m_at = [i for i, _ in meas].index(m_index)
     exact = (lambda keys: _exact(totals, keys, m_at)) if totals else (lambda keys: None)
-    out_rows = [[*line["labels"], *line["cells"], (lambda e: e if e is not None else _combine(m_col["aggregate"], line["cells"]))(exact(dict(zip([c["key"] for _, c in down], line["labels"]))))]
+    out_rows = [[*line["labels"], *line["cells"], (lambda e: e if e is not None else _combine(_agg(m_col), line["cells"]))(exact(dict(zip([c["key"] for _, c in down], line["labels"]))))]
                 for line in lines.values()]
-    column_totals = [(lambda e: e if e is not None else _combine(m_col["aggregate"], [line["cells"][c] for line in lines.values()]))(exact({s_col["key"]: column_values[c]}))
+    column_totals = [(lambda e: e if e is not None else _combine(_agg(m_col), [line["cells"][c] for line in lines.values()]))(exact({s_col["key"]: column_values[c]}))
                      for c in range(len(column_values))]
-    grand = (lambda e: e if e is not None else _combine(m_col["aggregate"], column_totals))(exact({}))
+    grand = (lambda e: e if e is not None else _combine(_agg(m_col), column_totals))(exact({}))
     return {"row_columns": [c for _, c in down], "across": s_col, "measure": m_col, "column_values": column_values,
             "header": [*(c["label"] for _, c in down), *column_values, "Total"], "rows": out_rows, "total": ["Total", *([None] * (len(down) - 1)), *column_totals, grand]}
 
@@ -105,7 +110,7 @@ def hierarchy(columns: list[dict], rows: list[list], totals: list[dict] | None =
         for node in nodes:
             if node["children"]:
                 total(node["children"])
-                node["totals"] = [(lambda e: e if e is not None else _combine(c["aggregate"], [(child["row"][m] if child["row"] else child["totals"][m]) for child in node["children"]]))(_exact(totals, node["path"], m))
+                node["totals"] = [(lambda e: e if e is not None else _combine(_agg(c), [(child["row"][m] if child["row"] else child["totals"][m]) for child in node["children"]]))(_exact(totals, node["path"], m))
                                   for m, (_, c) in enumerate(meas)]
             else:
                 node["totals"] = [v if isinstance(v, Number) else None for v in (node["row"] or [])]
@@ -120,6 +125,6 @@ def hierarchy(columns: list[dict], rows: list[list], totals: list[dict] | None =
             walk(node["children"])
 
     walk(roots)
-    grand = [(lambda e: e if e is not None else _combine(c["aggregate"], [node["totals"][m] for node in roots]))(_exact(totals, {}, m)) for m, (_, c) in enumerate(meas)]
+    grand = [(lambda e: e if e is not None else _combine(_agg(c), [node["totals"][m] for node in roots]))(_exact(totals, {}, m)) for m, (_, c) in enumerate(meas)]
     return {"levels": [c for _, c in dims], "measures": [c for _, c in meas], "header": [" / ".join(c["label"] for _, c in dims), *(c["label"] for _, c in meas)],
             "rows": lines, "total": ["Total", *grand]}

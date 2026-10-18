@@ -10,6 +10,7 @@ import { useState, type DragEvent, type ReactNode } from 'react'
 import { Select } from '@/components/Form'
 import type { CatalogDataset, CatalogField, ReportDefinition } from '../types'
 import { addField, AGGREGATE_LABEL, BUCKET_LABEL, dimensions, fieldOf, inUse, measures, moveField, removeField, rules, setAcross, setAggregate, setBucket, setLimit, setRules, setSort, viewOf } from './definition'
+import { CompareControl } from './CompareControl'
 import { FilterBuilder } from './FilterBuilder'
 
 const TYPE_ICON = { string: Type, number: Hash, date: Calendar, datetime: Calendar, boolean: ToggleLeft } as const
@@ -130,9 +131,12 @@ export function FieldWells({ dataset, definition, onChange, result }: EditorLayo
               <Chip key={column.field} label={field?.label ?? column.field} onRemove={() => onChange(removeField(definition, column.field))}
                 onUp={() => onChange(moveField(definition, column.field, -1))} onDown={() => onChange(moveField(definition, column.field, 1))}
                 control={(
-                  <Select aria-label={`${field?.label} calculation`} controlSize="sm" value={column.aggregate} onChange={(event) => onChange(setAggregate(definition, column.field, event.target.value as never))}>
-                    {(field?.aggregates ?? []).map((aggregate) => <option key={aggregate} value={aggregate}>{AGGREGATE_LABEL[aggregate]}</option>)}
-                  </Select>
+                  <>
+                    <Select aria-label={`${field?.label} calculation`} controlSize="sm" value={column.aggregate} onChange={(event) => onChange(setAggregate(definition, column.field, event.target.value as never))}>
+                      {(field?.aggregates ?? []).map((aggregate) => <option key={aggregate} value={aggregate}>{AGGREGATE_LABEL[aggregate]}</option>)}
+                    </Select>
+                    <CompareControl dataset={dataset} definition={definition} column={column} onChange={onChange} label={field?.label ?? column.field} />
+                  </>
                 )}>
                 {field?.label}
               </Chip>
