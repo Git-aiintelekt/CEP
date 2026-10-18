@@ -281,12 +281,21 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
     if kind in ("pie", "funnel") and series:
         title = f"{measure['label']} by {axis['label']}"
         return (_pie_flowables if kind == "pie" else _funnel_flowables)(title, axis["label"], categories, series[0][1], measure, width)
+    share = kind == "stacked100"
+    if share:                                                         # each category's series as their share of it
+        sums = [sum(values[i] for _, values in series) for i in range(len(categories))]
+        series = [(label, [values[i] / sums[i] * 100 if sums[i] else 0.0 for i in range(len(categories))]) for label, values in series]
+    combo = kind == "combo" and len(series) > 1
     height = 70 * mm
-    drawing = Drawing(width, height + 14 * mm)
+    drawing = Drawing(width, height + 20 * mm)                      # the legend and the title sit above the plot, never on it
     chart = VerticalBarChart()
     chart.x, chart.y, chart.width, chart.height = 14 * mm, 12 * mm, width - 20 * mm, height - 6 * mm
-    chart.data = [values for _, values in series]
+    chart.data = [series[0][1]] if combo else [values for _, values in series]
     chart.categoryAxis.categoryNames = [label for _, label in categories]
+    if kind in ("stacked", "stacked100"):
+        chart.categoryAxis.style = "stacked"
+    if share:
+        chart.valueAxis.valueMax = 100
     chart.categoryAxis.labels.fontName, chart.categoryAxis.labels.fontSize = "Helvetica", 7
     chart.categoryAxis.labels.angle = 30 if len(categories) > 8 else 0
     chart.categoryAxis.labels.dy = -8 if len(categories) > 8 else -2
@@ -300,19 +309,36 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
         chart.bars[i].fillColor = PALETTE[i % len(PALETTE)]
         chart.bars[i].strokeColor = None
     drawing.add(chart)
+    if combo:                                                         # the other measures as lines, on their own scale read on the right
+        from reportlab.graphics.charts.linecharts import HorizontalLineChart
+        lines = HorizontalLineChart()
+        lines.x, lines.y, lines.width, lines.height = chart.x, chart.y, chart.width, chart.height
+        lines.data = [values for _, values in series[1:]]
+        lines.categoryAxis.visible = False
+        lines.valueAxis.valueMin = 0
+        lines.valueAxis.visibleAxis = False
+        lines.valueAxis.visibleGrid = False
+        lines.valueAxis.labels.fontName, lines.valueAxis.labels.fontSize = "Helvetica", 7
+        lines.valueAxis.labels.boxAnchor = "w"
+        lines.valueAxis.labels.dx = chart.width + 4
+        for i in range(len(series) - 1):
+            lines.lines[i].strokeColor = PALETTE[(i + 1) % len(PALETTE)]
+            lines.lines[i].strokeWidth = 1.5
+        drawing.add(lines)
     if not series or not any(any(v for v in values) for _, values in series):
         chart.valueAxis.valueMax = 1                                  # an all-zero chart still needs an axis to draw
     if len(series) > 1:
         legend = Legend()
-        legend.x, legend.y = 14 * mm, height + 8 * mm
+        legend.x, legend.y = 14 * mm, height + 13 * mm
         legend.fontName, legend.fontSize = "Helvetica", 7
         legend.alignment = "right"
         legend.columnMaximum = 1
         legend.colorNamePairs = [(PALETTE[i % len(PALETTE)], label) for i, (label, _) in enumerate(series)]
         drawing.add(legend)
-    drawing.add(String(14 * mm, height + 10 * mm if len(series) <= 1 else height + 13 * mm, f"{measure['label']} by {axis['label']}", fontName="Helvetica-Bold", fontSize=8, fillColor=INK))
+    drawing.add(String(14 * mm, height + 10 * mm if len(series) <= 1 else height + 17 * mm, f"{measure['label']} by {axis['label']}", fontName="Helvetica-Bold", fontSize=8, fillColor=INK))
     header = [axis["label"], *(label for label, _ in series)]
-    body = [[label, *(_number(measure, values[i]) for _, values in series)] for i, (_, label) in enumerate(categories)]
+    cell = (lambda value: f"{value:.1f}%") if share else (lambda value: _number(measure, value))
+    body = [[label, *(cell(values[i]) for _, values in series)] for i, (_, label) in enumerate(categories)]
     return [drawing, Spacer(1, 4), _table(header, body, [False] + [True] * len(series))]
 
 
@@ -325,7 +351,7 @@ def _view_flowables(columns, rows, view: dict | None, totals, width: float) -> l
         return _hierarchy_flowables(columns, rows, totals)
     if kind == "chart":
         chart = (view or {}).get("chart") or "bar"
-        return _chart_flowables(columns, rows, None if chart in ("pie", "funnel") else across, width, chart)   # a pie or a funnel takes one measure by one dimension
+        return _chart_flowables(columns, rows, None if chart in ("pie", "funnel", "combo") else across, width, chart)   # a pie, a funnel or a combo: the measures by one dimension
     return _grid_flowables(columns, rows)
 
 

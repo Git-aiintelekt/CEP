@@ -47,11 +47,36 @@ export function compareOptions(dataset: CatalogDataset, definition: ReportDefini
 
 /** a measure's comparisons, in the order given; none removes the key */
 export function setCompare(definition: ReportDefinition, key: string, kinds: CompareKind[]): ReportDefinition {
-  return { ...definition, columns: definition.columns.map((column) => {
+  return pruneFormats({ ...definition, columns: definition.columns.map((column) => {
     if (column.field !== key) return column
     const { compare: _old, ...rest } = column
     return kinds.length ? { ...rest, compare: kinds } : rest
-  }) }
+  }) })
+}
+
+/** the keys a result names the report's totalled columns by: each measure, then <field>__<kind> for its comparisons */
+export function measureKeys(definition: ReportDefinition): string[] {
+  return measures(definition).flatMap((column) => [column.field, ...(column.compare ?? []).map((kind) => `${column.field}__${kind}`)])
+}
+
+/** the view's formatting, kept only for columns the report still has */
+export function pruneFormats(definition: ReportDefinition): ReportDefinition {
+  const formats = definition.view?.formats
+  if (!formats?.length) return definition
+  const keys = new Set(measureKeys(definition))
+  const kept = formats.filter((format) => keys.has(format.column))
+  if (kept.length === formats.length) return definition
+  const { formats: _old, ...view } = definition.view as ReportView
+  return { ...definition, view: kept.length ? { ...view, formats: kept } : view }
+}
+
+/** the report's totalled columns with their names, for Format Values */
+export function formattableColumns(dataset: CatalogDataset, definition: ReportDefinition): { key: string; label: string }[] {
+  const bucket = timeAxis(dataset, definition)?.bucket ?? null
+  return measures(definition).flatMap((column) => {
+    const label = column.label ?? fieldOf(dataset, column.field)?.label ?? column.field
+    return [{ key: column.field, label }, ...(column.compare ?? []).map((kind) => ({ key: `${column.field}__${kind}`, label: `${label}, ${compareLabel(kind, bucket)}` }))]
+  })
 }
 
 export function fieldOf(dataset: CatalogDataset, key: string): CatalogField | undefined {
@@ -87,9 +112,9 @@ function removeColumn(definition: ReportDefinition, key: string): ReportDefiniti
   return { ...definition, columns: definition.columns.filter((column) => column.field !== key), orderBy: (definition.orderBy ?? []).filter((item) => item.field !== key) }
 }
 
-/** the field goes, and with it the spread across when it was that field */
+/** the field goes, and with it the spread across when it was that field, and its formatting */
 export function removeField(definition: ReportDefinition, key: string): ReportDefinition {
-  const next = removeColumn(definition, key)
+  const next = pruneFormats(removeColumn(definition, key))
   return next.view?.across === key ? { ...next, view: { ...next.view, across: undefined } } : next
 }
 
@@ -109,12 +134,12 @@ export function setAcross(definition: ReportDefinition, key: string | null): Rep
 /** a new calculation drops the comparisons that only add up sums and counts when it is neither */
 export function setAggregate(definition: ReportDefinition, key: string, aggregate: Aggregate): ReportDefinition {
   const additive = aggregate === 'sum' || aggregate === 'count'
-  return { ...definition, columns: definition.columns.map((column) => {
+  return pruneFormats({ ...definition, columns: definition.columns.map((column) => {
     if (column.field !== key) return column
     const kept = (column.compare ?? []).filter((kind) => additive || (kind !== 'running_total' && kind !== 'percent_of_total'))
     const { compare: _old, ...rest } = column
     return kept.length ? { ...rest, aggregate, compare: kept } : { ...rest, aggregate }
-  }) }
+  }) })
 }
 
 export function setBucket(definition: ReportDefinition, key: string, bucket: Bucket | null): ReportDefinition {

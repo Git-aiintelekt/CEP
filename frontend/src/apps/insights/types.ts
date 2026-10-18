@@ -3,7 +3,13 @@
 export type FieldType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'
 /** calc: a calculated measure's one aggregate; its formula over the other measures does the totalling */
 export type Aggregate = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'calc'
-export type ChartKind = 'bar' | 'line' | 'area' | 'pie' | 'funnel'
+export type ChartKind = 'bar' | 'line' | 'area' | 'pie' | 'funnel' | 'stacked' | 'stacked100' | 'combo'
+
+/** conditional formatting of a totalled column (a measure, or <field>__<kind> for one of its comparisons) */
+export type FormatStyle = 'scale' | 'bars' | 'rules'
+export type FormatTone = 'good' | 'warning' | 'bad'
+export interface FormatRule { op: '>' | '>=' | '<' | '<=' | '='; value: number; tone: FormatTone }
+export interface ColumnFormat { column: string; style: FormatStyle; rules?: FormatRule[] }
 export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
 export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot'
 
@@ -12,6 +18,8 @@ export interface ReportView {
   type: ViewType
   chart?: ChartKind
   across?: string
+  /** conditional formatting in the grid, the pivot and the hierarchy */
+  formats?: ColumnFormat[]
 }
 
 /** a calculated measure's formula: two sides, each a measure with one of its aggregates or a number, optionally scaled (100 for a percentage) */

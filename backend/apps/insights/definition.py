@@ -128,7 +128,52 @@ def _filters(dataset: dict, node, where: str, depth: int, count: list[int]) -> d
 
 
 VIEW_TYPES = ("grid", "chart", "hierarchy", "pivot")
-CHART_KINDS = ("bar", "line", "area", "pie", "funnel")
+CHART_KINDS = ("bar", "line", "area", "pie", "funnel", "stacked", "stacked100", "combo")
+FORMAT_STYLES = ("scale", "bars", "rules")
+RULE_OPS = (">", ">=", "<", "<=", "=")
+TONES = ("good", "warning", "bad")
+MAX_FORMATS, MAX_FORMAT_RULES = 20, 5
+
+
+def _formats(raw, out_columns: list[dict]) -> list[dict]:
+    """Conditional formatting: per totalled column (a measure, or one of its comparisons, <field>__<kind>) a colour scale,
+    data bars, or up to five rules, each a comparison with a number and a tone (good, warning, bad); the first rule that
+    matches a cell colours it."""
+    if raw in (None, []):
+        return []
+    if not isinstance(raw, list) or len(raw) > MAX_FORMATS:
+        raise DefinitionError("view.formats", f"Formatting is a list of up to {MAX_FORMATS} columns.")
+    keys = set()
+    for column in out_columns:
+        if "aggregate" in column:
+            keys.add(column["field"])
+            keys.update(f"{column['field']}__{kind}" for kind in column.get("compare", []))
+    out, seen = [], set()
+    for i, item in enumerate(raw):
+        at = f"view.formats[{i}]"
+        if not isinstance(item, dict) or item.get("column") not in keys:
+            raise DefinitionError(f"{at}.column", "Format one of the report's totalled columns.")
+        if item["column"] in seen:
+            raise DefinitionError(f"{at}.column", "Each column is formatted once.")
+        seen.add(item["column"])
+        style = item.get("style")
+        if style not in FORMAT_STYLES:
+            raise DefinitionError(f"{at}.style", "Use a colour scale, data bars or rules.")
+        entry = {"column": item["column"], "style": style}
+        if style == "rules":
+            rules = item.get("rules")
+            if not isinstance(rules, list) or not 1 <= len(rules) <= MAX_FORMAT_RULES:
+                raise DefinitionError(f"{at}.rules", f"Give 1 to {MAX_FORMAT_RULES} rules.")
+            checked = []
+            for j, rule in enumerate(rules):
+                where = f"{at}.rules[{j}]"
+                value = rule.get("value") if isinstance(rule, dict) else None
+                if not isinstance(rule, dict) or rule.get("op") not in RULE_OPS or isinstance(value, bool) or not isinstance(value, (int, float)) or rule.get("tone") not in TONES:
+                    raise DefinitionError(where, "A rule is more than, at least, less than, at most or equal to a number, and good, warning or bad.")
+                checked.append({"op": rule["op"], "value": value, "tone": rule["tone"]})
+            entry["rules"] = checked
+        out.append(entry)
+    return out
 
 
 def _view(raw, out_columns: list[dict]) -> dict | None:
@@ -142,13 +187,16 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     chart = raw.get("chart")
     if chart is not None:
         if chart not in CHART_KINDS:
-            raise DefinitionError("view.chart", "Use bar, line, area, pie or funnel.")
+            raise DefinitionError("view.chart", "Use bar, line, area, pie, funnel, stacked, stacked100 or combo.")
         out["chart"] = chart
     across = raw.get("across")
     if across is not None:
         if not any(c["field"] == across and "aggregate" not in c for c in out_columns):
             raise DefinitionError("view.across", "Spread one of the report's dimensions across.")
         out["across"] = across
+    formats = _formats(raw.get("formats"), out_columns)
+    if formats:
+        out["formats"] = formats
     return out
 
 

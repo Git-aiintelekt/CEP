@@ -17,6 +17,7 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
 import { ReportResult, ViewBar } from '../components/ReportViews'
+import { FormatDialog } from '../editor/FormatDialog'
 import { runWords } from '../components/resultWords'
 import { dimensions, EMPTY, fieldOf, isComplete, setView, viewOf } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
@@ -51,6 +52,7 @@ export function ReportEditorPage() {
   const client = useQueryClient()
   const report = useReport(id)
   const catalog = useCatalog()
+  const [formatting, setFormatting] = useState(false)
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
@@ -99,7 +101,7 @@ export function ReportEditorPage() {
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
-        <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data?.columns}
+        <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data?.columns} onFormat={() => setFormatting(true)}
           dimensions={dimensions(definition).map((column) => ({ key: column.field, label: fieldOf(dataset, column.field)?.label ?? column.field }))} />
         <span>{preview.data ? runWords(preview.data) : preview.isFetching ? 'Running…' : complete ? '' : 'Finish the filters to run'}</span>
       </div>
@@ -110,6 +112,8 @@ export function ReportEditorPage() {
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}
+      {formatting && <FormatDialog dataset={dataset} definition={definition} formats={viewOf(definition).formats ?? []} onClose={() => setFormatting(false)}
+        onApply={(formats) => { const { formats: _old, ...rest } = viewOf(definition); setDraft(setView(definition, formats.length ? { ...rest, formats } : rest)); setFormatting(false) }} />}
     </div>
   )
 

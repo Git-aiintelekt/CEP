@@ -68,6 +68,23 @@ picked on a dashboard); the **hierarchy** folds the dimensions in their order wi
 add sums and counts and compare minimums and maximums; an average or a distinct count cannot be combined and reads as
 an em dash. They come from the rows shown, so a truncated run totals what is on the page.
 
+### Chart kinds and conditional formatting
+
+`view.chart` is bar, line, area, pie, funnel, **stacked** (each category's series stacked bottom to top), **stacked100** (the
+same as shares of each category, read in percent) or **combo** (the first measure as bars, the others as lines; a line
+whose format differs from the bars', or whose size is more than four times larger or smaller, is read on a right-hand
+scale). Pie, funnel and combo read the measures by the first dimension, so the dimension across does not apply. The PDF
+draws stacked bars with ReportLab's stacked style, the 100% chart on a 0 to 100 scale, and a combo as a line chart over the
+bars with its scale on the right.
+
+`view.formats` is conditional formatting: per totalled column (a measure, or `<field>__<kind>` for one of its comparisons)
+a colour scale (Blue 600 mixed from 6% to 40% across the column's values), data bars (a bar behind the number, as long as
+its share of the column's largest) or up to five rules (`>`, `>=`, `<`, `<=`, `=` a number; tone good, warning or bad;
+the first that matches gives the cell the success, warning or danger pair). The validator refuses a dimension, a column
+twice, or a rule without a number or with another tone. The grid, the pivot's body and the hierarchy's rows show it; totals
+and subtotals stay plain; exports carry the values without the colours. Removing a measure or a comparison in the editor
+removes its formatting.
+
 ### Time comparisons
 
 A measure column may carry `compare`, up to four of `previous_period`, `previous_year`, `change_previous_period`,

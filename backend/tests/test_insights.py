@@ -273,6 +273,26 @@ def test_definition_and_compiler(check):
     check("a week compares with the same week 52 weeks earlier; a month with the month before", compare.offset("year", "week") == (0, 364) and compare.offset("period", "month") == (1, 0)
           and compare.add_months(date(2024, 2, 29), 12) == date(2025, 2, 28))
 
+    # conditional formatting and the new chart kinds
+    formatted = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}, {"field": "messages", "aggregate": "count"}],
+                                              "view": {"type": "grid", "formats": [{"column": "sent", "style": "bars"}, {"column": "sent__percent_of_total", "style": "rules",
+                                                                                                                     "rules": [{"op": "<", "value": 10, "tone": "bad"}, {"op": ">=", "value": 50, "tone": "good"}]},
+                                                                                    {"column": "messages", "style": "scale"}]}})
+    check("formatting saves with the view: bars, rules on a comparison column, a colour scale",
+          [f["style"] for f in formatted["view"]["formats"]] == ["bars", "rules", "scale"] and formatted["view"]["formats"][1]["rules"][1] == {"op": ">=", "value": 50, "tone": "good"})
+    check("a dimension, a column twice, a rule without a number or with an unknown tone are refused where they sit",
+          refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "grid", "formats": [{"column": "channel", "style": "scale"}]}}, "view.formats[0].column")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "grid", "formats": [{"column": "sent", "style": "bars"}, {"column": "sent", "style": "scale"}]}}, "view.formats[1].column")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "grid", "formats": [{"column": "sent", "style": "rules", "rules": [{"op": "<", "value": "ten", "tone": "bad"}]}]}}, "view.formats[0].rules[0]")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "grid", "formats": [{"column": "sent", "style": "rules", "rules": [{"op": "<", "value": 1, "tone": "red"}]}]}}, "view.formats[0].rules[0]"))
+    sample_cols = [{"key": "channel", "label": "Channel", "type": "string", "format": None}, {"key": "submitted_at", "label": "Sent", "type": "date", "format": "datetime", "bucket": "month"},
+                   {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}, {"key": "opened", "label": "Opened", "type": "number", "format": "integer", "aggregate": "sum"}]
+    sample_rows = [["EMAIL", "2026-09-01", 356920, 134210], ["EMAIL", "2026-08-01", 247250, 91880], ["SMS", "2026-09-01", 29580, 0], ["SMS", "2026-08-01", 27810, 0]]
+    for kind in ("stacked", "stacked100", "combo"):
+        check(f"{kind} is a chart kind", definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": kind}})["view"]["chart"] == kind)
+        doc = pdf.report("Sends by Month", sample_cols, sample_rows, {"type": "chart", "chart": kind, "across": "channel"}, workspace="Northwind Apparel", when="18 Oct 2026")
+        check(f"the {kind} PDF is a PDF", doc[:5] == b"%PDF-" and len(doc) > 1500, str(len(doc)))
+
     # drill-down: the levels, and the definition of the level under a path
     yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
