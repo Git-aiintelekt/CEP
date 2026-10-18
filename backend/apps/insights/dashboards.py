@@ -27,7 +27,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.insights import catalog, runner
+from apps.insights import catalog, drill, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql, favourite_sql
 from apps.insights.definition import DefinitionError, validate
 from apps.reporting import reports
@@ -341,7 +341,8 @@ class DashboardView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: bool, mask: bool, limit: int = TILE_ROWS, slicers: dict | None = None) -> tuple[dict, int]:
+def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: bool, mask: bool, limit: int = TILE_ROWS, slicers: dict | None = None,
+                drill_path: list | None = None) -> tuple[dict, int]:
     """One tile's payload and HTTP status, for the API, the PDF and a delivery: the figure with its previous period, or the
     rows in the tile's view; `slicers` ({field: [values]}) narrow it where the dataset has the field (`sliced` says which)."""
     dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
@@ -353,6 +354,15 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
     own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)
     limits = catalog.engine_of(tenant.pk)["limits"]
     about = {"id": report["id"], "name": report["name"], "version": report["version"]}
+    levels = None
+    if tile["show"] == "chart":                                       # a chart tile drills: the levels for the browser, the level under the path to run
+        try:
+            base = validate(dataset, raw, max_limit=limits["run_rows"])
+            levels = drill.info(dataset, base, drill_path or [])
+            below = drill.drilled(dataset, base, drill_path or [])
+            raw = below if below else raw
+        except (DefinitionError, drill.DrillError) as exc:
+            return {"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, 422
     sliced_rules = _slicer_rules(dataset, slicers)
     sliced = [r["field"] for r in sliced_rules if "field" in r] + [r["rules"][0]["field"] for r in sliced_rules if "rules" in r]
 
@@ -380,7 +390,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
         definition = prepared(bounds["from"], bounds["to"])
         view = {**(definition.get("view") or {}), "type": tile["show"]}
         result = runner.run(tenant, user, dataset, definition, "run", limit=min(int(limit), limits["run_rows"]), report_id=report["id"], report_version=report["version"], mask_pii=mask, totals_view=view)
-        return {"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about, "sliced": sliced}, 200
+        return {"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about, "sliced": sliced, **({"drill": levels} if levels else {})}, 200
     except RunProblem as exc:
         return {"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, 422
     except runner.RunRefused as exc:
@@ -436,8 +446,12 @@ class TileRunView(APIView):
             report = _report_row(tile["report_id"], request)
         except NotFound:
             return Response({"kind": "missing", "detail": "The report behind this tile is gone, or you cannot open it."})
+        try:
+            path = drill.path_body(body.get("drill"))
+        except drill.DrillError as exc:
+            raise ValidationError({"drill": str(exc)}) from None
         payload, status_code = tile_result(tenant, request.user, report, tile, period, compare, not _can_see_pii(request), limit=int(body.get("limit") or TILE_ROWS),
-                                           slicers=_slicers_body(body.get("slicers")))
+                                           slicers=_slicers_body(body.get("slicers")), drill_path=path)
         return Response(payload, status=status_code)
 
 

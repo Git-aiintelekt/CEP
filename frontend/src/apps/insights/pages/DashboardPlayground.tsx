@@ -8,7 +8,7 @@ import { DashboardBody } from '../dashboards/DashboardBody'
 import { PeriodBar } from '../dashboards/PeriodBar'
 import { SlicerBar } from '../dashboards/SlicerBar'
 import { activeSlicers, periodBounds, periodWords, toggleValue } from '../dashboards/layout'
-import type { DashboardLayout, DashboardTile, Period, ResultColumn, RunResult, SlicerSelection, TileResult } from '../types'
+import type { DashboardLayout, DashboardTile, DrillStep, Period, ResultColumn, RunResult, SlicerSelection, TileResult } from '../types'
 
 const LAYOUT: DashboardLayout = {
   rows: [
@@ -74,12 +74,27 @@ function sliced(result: RunResult, slicers?: SlicerSelection): RunResult {
   return { ...result, rows, row_count: rows.length }
 }
 
-async function load(tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection): Promise<TileResult> {
+/** Sends by Week and Channel drills from weeks to their days: the week's figures spread over its seven days */
+const WEEKLY_LEVELS = [{ field: 'submitted_at', bucket: 'week' as const, label: 'Sent by Week' }, { field: 'submitted_at', bucket: 'day' as const, label: 'Sent by Day' }]
+function daysOf(week: string): RunResult {
+  const start = new Date(`${week}T00:00:00Z`)
+  const share = [0.18, 0.17, 0.16, 0.15, 0.14, 0.11, 0.09]
+  const rows = SENDS.rows.filter((row) => row[0] === week).flatMap((row) => share.map((part, d) => [new Date(start.getTime() + d * 86_400_000).toISOString().slice(0, 10), row[1], Math.round(Number(row[2]) * part)]))
+  return { ...SENDS, columns: [{ ...SENDS.columns[0], bucket: 'day' }, ...SENDS.columns.slice(1)], rows, row_count: rows.length }
+}
+
+async function load(tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]): Promise<TileResult> {
   const bounds = periodBounds(period, new Date('2026-10-15T12:00:00Z'))
   const figure = FIGURES[tile.id]
   const channelSlice = slicers?.channel?.length ? ['channel'] : []
   if (figure) return { kind: 'figure', value: figure.value, previous: figure.previous, compared: compare, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
   const view = VIEWS[tile.id] ?? VIEWS.t6
+  if (tile.id === 't5') {
+    const path = drill ?? []
+    const rows = path.length ? daysOf(String(path[0].value)) : view.result
+    return { kind: 'view', view: { type: 'chart', chart: 'bar', across: 'channel' }, result: sliced(rows, slicers), own_dates: false, bounds, report: report(tile.report_id, view.name),
+      sliced: slicers?.channel?.length ? ['channel'] : [], drill: { levels: WEEKLY_LEVELS, path, depth: path.length } }
+  }
   const has = view.result.columns.some((column) => column.key === 'channel')
   return { kind: 'view', view: { type: tile.show === 'figure' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
     report: report(tile.report_id, view.name), sliced: has ? channelSlice : [] }

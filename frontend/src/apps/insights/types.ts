@@ -64,12 +64,21 @@ export interface Catalog {
   engine: EngineInfo
 }
 
+/** a measure's time comparisons (apps/insights/compare.py): each one more result column after the measure */
+export type CompareKind = 'previous_period' | 'previous_year' | 'change_previous_period' | 'change_previous_year' | 'running_total' | 'percent_of_total'
+
 export interface ReportColumn {
   field: string
   aggregate?: Aggregate
   bucket?: Bucket
   label?: string
+  compare?: CompareKind[]
 }
+
+/** drill-down (apps/insights/drill.py): the value clicked at a level, and where a run is among the report's levels */
+export interface DrillStep { field: string; bucket?: Bucket; value: string | number | boolean | null }
+export interface DrillLevel { field: string; bucket?: Bucket; label: string }
+export interface DrillInfo { levels: DrillLevel[]; path: DrillStep[]; depth: number }
 
 export interface FilterRule {
   field: string
@@ -218,6 +227,8 @@ export interface ResultColumn {
   bucket?: Bucket
   /** personal data this reader may not see: every value is the mask */
   masked?: boolean
+  /** a time comparison of the measure before it: never combined into a subtotal */
+  compare?: CompareKind
 }
 
 // ---------------------------------------------------------------------------------------------------- dashboards
@@ -271,7 +282,7 @@ export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'>
 
 export type TileResult =
   | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[] }
-  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[] }
+  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[]; drill?: DrillInfo }
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }
 
@@ -295,6 +306,8 @@ export interface RunResult {
   cached: boolean
   /** the workspace's own database the rows came from, when the dataset is one of its own */
   source?: string
+  /** a saved report with more than one level: where this run is, for drilling */
+  drill?: DrillInfo
 }
 
 /** Settings → Report Databases (backend apps/insights/databases.py, external.py) */

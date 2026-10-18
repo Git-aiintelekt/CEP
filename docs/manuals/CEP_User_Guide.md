@@ -212,7 +212,7 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - Things to know
 - Insights: Reports, Dashboards and Scheduled Delivery
   - Step by step: the AI features
-  - Step by step: measures, charts and slicers
+  - Step by step: measures, comparisons, charts and slicers
   - What Insights is for
   - Who can use it
   - The datasets
@@ -2531,7 +2531,7 @@ The enrol job reads events every minute. An event counts for a journey that was 
 
 **Write It for Me** in the query window is described in the Report Databases chapter.
 
-## Step by step: measures, charts and slicers
+## Step by step: measures, comparisons, charts and slicers
 
 **Use a calculated measure in a report** (anyone who can build reports)
 
@@ -2541,6 +2541,21 @@ The enrol job reads events every minute. An event counts for a journey that was 
 4. A rate with nothing to divide by shows as empty.
 
 Workspace administrators add calculated measures to their own datasets (Report Databases chapter); your platform team adds them to the platform's datasets.
+
+**Compare a measure with an earlier period**
+
+1. In the editor, group the report by a date: drag the date into **Rows** and choose **by Month** (or Day, Week, Quarter, Year).
+2. Under a measure in **Values** (or in **Summarize** in Steps), open **Add a Comparison** and pick one: **Previous Month**, **Last Year**, **Change vs Previous Month**, **Change vs Last Year**, **Running Total** or **% of Total**. The names follow the date's grouping: Previous Week on a weekly report.
+3. Each comparison is a column after its measure, named in words, such as Sent Count, Change vs Last Year. A change and a share read as percentages.
+4. Up to four per measure; the cross on a comparison removes it. Running Total and % of Total add up sums and counts only, and an option the report cannot take says why.
+5. The earlier figures come from the same report moved back in time, so the first month of the period has its previous month too.
+
+**Drill down in a chart**
+
+1. Open a report with more than one level, such as Sent by Year then Channel, and choose **Chart**.
+2. The line above the chart says what a click drills to. Click a bar, a slice or a stage: the chart shows the level below for that value, such as the quarters of 2026, then their months, then their days, then the next dimension.
+3. The path above the chart shows where you are. Click any step to go back to it, or **Up One Level**.
+4. On a dashboard, turn on **Drill Down** in a chart tile's header first: while it is on, a click drills that tile instead of filtering the others. Turn it off to go back to the top and to cross-filtering.
 
 **Show a report as a pie or a funnel**
 
@@ -2608,7 +2623,7 @@ Insights → Reports lists every report you can open, grouped by the component w
 2. Build it with one of the two editors, switched at the top right and remembered for you:
    - **Field Wells**: the dataset's fields on the left, the result in the middle, the wells on the right. Click or drag a field into **Rows** (one line per value), **Columns** (one dimension spread across, for the pivot and the chart's series) or **Values** (a number to total, with its calculation). **Filters**, then **Sort and Limit**, sit under them.
    - **Steps**: the question written top to bottom as numbered steps: Data, Filter, Summarize, Group By, Sort and Limit. Each step has an Add button; the result sits under the steps.
-   A date dimension can be grouped **by Day, Week, Month, Quarter or Year**. A measure has its calculation: Sum, Count, Distinct Count, Average, Min or Max.
+   A date dimension can be grouped **by Day, Week, Month, Quarter or Year**. A measure has its calculation: Sum, Count, Distinct Count, Average, Min or Max, and under it **Add a Comparison** (the steps are at the top of this chapter).
 3. **Filters**: one row per rule (field, operator, value), joined with **and** or **or**. A list is comma-separated, a range is from..to, "in the last days" takes a number. Dates are the workspace's time zone.
 4. The preview runs as you build, up to the preview cap. The line above it says how many rows, how long, and how fresh the data is.
 5. **Save** writes a new version. Cancel drops the changes.
@@ -2640,7 +2655,7 @@ Any report switches between the views without losing its fields; the switch sits
 | Hierarchy | The dimensions in their order, each group folding over the next, a subtotal per group, Expand All and Collapse All | Two dimensions and a measure |
 | Pivot | The dimension across as columns, one measure in the cells (a select when there are several), a total on both edges | A dimension down, one across, a measure |
 
-Subtotals and totals come from the engine, so averages and distinct counts are exact, and a report longer than the page still totals everything.
+Subtotals and totals come from the engine, so averages and distinct counts are exact, and a report longer than the page still totals everything. A comparison column is not added up into a subtotal.
 
 **Calculated measures.** Some measures are made from others: Delivered Rate is Delivered ÷ Sent × 100, Average Order Value is Amount ÷ Orders. They sit among the measures with the one calculation **Calculated**, and the engine computes the formula in every view, subtotal and figure, so a rate of a group is the rate of its totals, never an average of rates. A rate with nothing to divide by reads as empty. Your platform team adds them to the platform datasets; a workspace administrator adds them to a mapped dataset under **Calculated Measures** on the mapping page (Report Databases chapter).
 

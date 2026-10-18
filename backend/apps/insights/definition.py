@@ -11,12 +11,14 @@ name: fields are catalogue keys, operators and aggregates come from allow-lists,
     }
 
 A column with an aggregate makes the report grouped: every column without one is a group-by key. A date or datetime
-column may carry a bucket (day, week, month, quarter, year), applied in the workspace's time zone.
+column may carry a bucket (day, week, month, quarter, year), applied in the workspace's time zone. A measure column may
+carry `compare`: up to four time comparisons (apps/insights/compare.py), each one more result column after it.
 """
 import hashlib
 import json
 from datetime import date
 
+from . import compare as comparisons
 from .catalog import BUCKETS
 
 MAX_COLUMNS = 40
@@ -181,12 +183,24 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
         label = column.get("label")
         if label is not None and (not isinstance(label, str) or len(label) > 100):
             raise DefinitionError(f"{at}.label", "A label is text of up to 100 characters.")
+        kinds = column.get("compare")
+        if kinds is not None:
+            if aggregate is None:
+                raise DefinitionError(f"{at}.compare", "Only a totalled column can be compared.")
+            if (not isinstance(kinds, list) or len(kinds) > comparisons.MAX_PER_MEASURE or len(set(map(str, kinds))) != len(kinds)
+                    or any(kind not in comparisons.KINDS for kind in kinds)):
+                raise DefinitionError(f"{at}.compare", f"Compare with up to {comparisons.MAX_PER_MEASURE} of {', '.join(comparisons.KINDS)}, each once.")
+            if any(kind in comparisons.ADDITIVE_KINDS for kind in kinds) and aggregate not in comparisons.ADDITIVE:
+                raise DefinitionError(f"{at}.compare", f"A running total and a share of the total add up sums and counts; {field['label']} is totalled as {aggregate}.")
         key = (field["key"], aggregate, bucket)
         if key in seen:
             raise DefinitionError(at, f"{field['label']} is already a column.")
         seen.add(key)
         out_columns.append({"field": field["key"], **({"aggregate": aggregate} if aggregate else {}), **({"bucket": bucket} if bucket else {}),
-                            **({"label": label} if label else {})})
+                            **({"label": label} if label else {}), **({"compare": list(kinds)} if kinds else {})})
+    timed = next((i for i, c in enumerate(out_columns) if any(kind in comparisons.TIMED for kind in c.get("compare", []))), None)
+    if timed is not None and comparisons.axis(dataset, out_columns) is None:
+        raise DefinitionError(f"columns[{timed}].compare", "Comparing with an earlier period, or adding up along the dates, needs a date in the report, such as Sent by Month.")
     grouped = any("aggregate" in c for c in out_columns)
     filters = _filters(dataset, raw.get("filters"), "filters", 0, [0])
     order = raw.get("orderBy", [])

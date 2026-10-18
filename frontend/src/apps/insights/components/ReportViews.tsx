@@ -61,9 +61,7 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 }
 
 /** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell. */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick: pickAny }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
-  // a date, bucketed or not, is the period's business, not a slicer's: only text, yes/no and number dimensions can be picked
-  const onPick = pickAny ? (column: ResultColumn, value: unknown) => { if (!column.bucket && column.type !== 'date' && column.type !== 'datetime' && value !== null && value !== undefined) pickAny(column, value) } : undefined
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
   switch (view.type) {
     case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} />
     case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} />

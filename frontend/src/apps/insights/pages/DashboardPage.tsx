@@ -99,7 +99,7 @@ export function DashboardPage() {
           action={data.can_edit ? <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}>Edit</button> : undefined} />
       ) : (
         <DashboardBody layout={data.layout} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
-          load={(tile, p, c, s) => dashboardsApi.runTile(id as string, tile.id, { period: p, compare: c, ...(s ? { slicers: s } : {}) })} />
+          load={(tile, p, c, s, d) => dashboardsApi.runTile(id as string, tile.id, { period: p, compare: c, ...(s ? { slicers: s } : {}), ...(d ? { drill: { path: d } } : {}) })} />
       )}
     </div>
   )

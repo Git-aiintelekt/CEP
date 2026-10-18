@@ -68,6 +68,34 @@ picked on a dashboard); the **hierarchy** folds the dimensions in their order wi
 add sums and counts and compare minimums and maximums; an average or a distinct count cannot be combined and reads as
 an em dash. They come from the rows shown, so a truncated run totals what is on the page.
 
+### Time comparisons
+
+A measure column may carry `compare`, up to four of `previous_period`, `previous_year`, `change_previous_period`,
+`change_previous_year`, `running_total` and `percent_of_total` (`apps/insights/compare.py`); each is one more result
+column right after the measure, keyed `<field>__<kind>`, labelled in words ("Sent Count, Change vs Last Year") and marked
+`compare`. All but the share of the total need a time axis, the report's first date dimension (a date field, or a date and
+time with a bucket), and the running total and the share add up sums and counts only; the validator says so where it
+sits. The runner fetches every grouped row up to the run cap and cuts the page after: the earlier periods come from a
+second run of the same definition with its rules on the axis moved back (a month, a quarter, a year; 52 weeks for weekly
+rows; "in the last N days" becomes those days a year earlier), matched to the rows by the other dimensions and the bucket
+moved forward, so the first month of a range has its previous month too. Without a rule on the axis the rows serve as
+they are. A rule on the date inside an or-group cannot be moved and the run says so. The running total adds up along the
+dates per value of the other dimensions; the share is of the report's whole (the engine's grand total when the rows were
+capped). The engine's subtotals carry an empty value for each comparison, and the hierarchy and the pivot never combine
+one. CSV, Excel and PDF exports carry the columns; the AI assistant may ask for them.
+
+### Drill-down
+
+`apps/insights/drill.py`: a chart's levels are the report's dimensions in order (the one spread across stays as the
+series); a date by year drills to quarters, months and days, a quarter to months and days, a month to days, a week to
+days. `POST /insights/reports/<id>/run/` and a dashboard tile's run take `drill: {"path": [{field, bucket?, value}]}`,
+the value clicked at each level above the one wanted; the server checks the path against the levels, builds the level
+below (that level as the rows, the series kept, the measures kept with their comparisons when the level is a date, one
+rule per step and-ed with the report's own filters, sorted by date or as the report was) and validates and runs it like
+any report. Every run of a saved report with more than one level carries `drill: {levels, path, depth}`. The viewer drills
+in the chart view with a click; a dashboard chart tile has Drill Down, which turns its clicks from cross-filtering into
+drilling. Nothing of a drill is saved; exports and deliveries run the report as saved.
+
 ### Calculated measures
 
 A field with a `formula` (`report_field.formula`, patch 0059; on a mapped dataset a field of its JSON with `column` null)

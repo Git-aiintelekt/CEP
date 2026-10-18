@@ -30,7 +30,7 @@ from apps.delivery.engine import session
 from apps.platform_ops import components
 from apps.tenants import context
 from apps.tenants.models import Tenant
-from . import catalog, runner
+from . import catalog, drill, runner
 from .definition import DefinitionError, validate
 
 
@@ -337,17 +337,26 @@ class RunView(APIView):
     def post(self, request, version=None, report_id=None):
         tenant = _tenant()
         row = _report_row(report_id, request)
+        run_rows = catalog.engine_of(tenant.pk)["limits"]["run_rows"]
         dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": row["definition"] if not isinstance(row["definition"], str) else __import__("json").loads(row["definition"])},
-                                         max_limit=catalog.engine_of(tenant.pk)["limits"]["run_rows"], reading=True)
+                                         max_limit=run_rows, reading=True)
         limit, offset = _run_body(request)
+        body = request.data if isinstance(request.data, dict) else {}
+        try:                                                          # a drill path: the level under it, filtered to the values clicked
+            path = drill.path_body(body.get("drill"))
+            below = drill.drilled(dataset, definition, path)
+            shown = validate(dataset, below, max_limit=run_rows) if below else definition
+        except (drill.DrillError, DefinitionError) as exc:
+            raise ValidationError({"drill": str(exc)}) from None
         try:
-            result = runner.run(tenant, request.user, dataset, definition, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
-                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, definition))
+            result = runner.run(tenant, request.user, dataset, shown, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
+                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, shown))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():
             runner.touch_last_run(report_id)
-        return Response(result)
+        levels = drill.info(dataset, definition, path)
+        return Response({**result, **({"drill": levels} if levels else {})})
 
 
 class ExportView(APIView):

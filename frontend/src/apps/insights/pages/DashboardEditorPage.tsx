@@ -75,7 +75,7 @@ export function DashboardEditorPage() {
       <PeriodBar period={shownPeriod} onPeriod={setPeriod} compare={shownCompare} onCompare={setCompare} bounds={period === null ? data.bounds : undefined} />
       <SlicerEditor slicers={shownLayout.slicers ?? []} candidates={candidates} onChange={(slicers) => setLayout(setSlicers(shownLayout, slicers))} />
       <DashboardBody layout={shownLayout} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)}
-        load={(tile, p, c) => dashboardsApi.previewTile(id as string, { tile, period: p, compare: c })}
+        load={(tile, p, c, _s, d) => dashboardsApi.previewTile(id as string, { tile, period: p, compare: c, ...(d ? { drill: { path: d } } : {}) })}
         editing={{ onChange: setLayout, onAddTile: () => setAdding(true) }} />
       {adding && <AddTileDialog onClose={() => setAdding(false)} onAdd={(tile) => { setLayout(addTile(shownLayout, tile)); setAdding(false) }} />}
     </div>

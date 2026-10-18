@@ -2,7 +2,7 @@
  * The editor's state: one report definition, changed the same way by both editors (field wells, steps). Every change
  * returns a new definition; nothing here talks to the server. The validator on the server has the last word.
  */
-import type { Aggregate, Bucket, CatalogDataset, CatalogField, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
+import type { Aggregate, Bucket, CatalogDataset, CatalogField, CompareKind, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
 
 export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max', calc: 'Calculated' }
 export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year' }
@@ -12,6 +12,47 @@ export const OPERATOR_LABEL: Record<string, string> = {
 }
 
 export const EMPTY: ReportDefinition = { columns: [], filters: { combinator: 'and', rules: [] }, orderBy: [], limit: 500 }
+
+const UNIT_WORDS: Record<Bucket, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' }
+const COMPARE_KINDS: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total', 'percent_of_total']
+const TIMED: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total']
+
+/** the report's time axis: its first dimension that is a date (a date field, or a date and time with a bucket), and its bucket */
+export function timeAxis(dataset: CatalogDataset, definition: ReportDefinition): { field: string; bucket: Bucket } | null {
+  for (const column of dimensions(definition)) {
+    const field = fieldOf(dataset, column.field)
+    if (field?.type === 'date') return { field: field.key, bucket: column.bucket ?? 'day' }
+    if (field?.type === 'datetime' && column.bucket) return { field: field.key, bucket: column.bucket }
+  }
+  return null
+}
+
+/** a comparison's name in the editor and on its column: "Previous Month", "Change vs Last Year" */
+export function compareLabel(kind: CompareKind, bucket: Bucket | null): string {
+  const unit = bucket ? UNIT_WORDS[bucket] : 'Period'
+  return { previous_period: `Previous ${unit}`, previous_year: 'Last Year', change_previous_period: `Change vs Previous ${unit}`, change_previous_year: 'Change vs Last Year',
+    running_total: 'Running Total', percent_of_total: '% of Total' }[kind]
+}
+
+/** every comparison a measure column could take, with why not when it cannot */
+export function compareOptions(dataset: CatalogDataset, definition: ReportDefinition, column: ReportColumn): { kind: CompareKind; label: string; reason?: string }[] {
+  const axis = timeAxis(dataset, definition)
+  return COMPARE_KINDS.map((kind) => {
+    const reason = TIMED.includes(kind) && !axis ? 'needs a date by day, week, month, quarter or year'
+      : (kind === 'running_total' || kind === 'percent_of_total') && column.aggregate !== 'sum' && column.aggregate !== 'count' ? 'adds up sums and counts only'
+      : undefined
+    return { kind, label: compareLabel(kind, axis?.bucket ?? null), ...(reason ? { reason } : {}) }
+  })
+}
+
+/** a measure's comparisons, in the order given; none removes the key */
+export function setCompare(definition: ReportDefinition, key: string, kinds: CompareKind[]): ReportDefinition {
+  return { ...definition, columns: definition.columns.map((column) => {
+    if (column.field !== key) return column
+    const { compare: _old, ...rest } = column
+    return kinds.length ? { ...rest, compare: kinds } : rest
+  }) }
+}
 
 export function fieldOf(dataset: CatalogDataset, key: string): CatalogField | undefined {
   return dataset.fields.find((field) => field.key === key)
@@ -65,8 +106,15 @@ export function setAcross(definition: ReportDefinition, key: string | null): Rep
   return { ...definition, view: { ...viewOf(definition), across: key ?? undefined } }
 }
 
+/** a new calculation drops the comparisons that only add up sums and counts when it is neither */
 export function setAggregate(definition: ReportDefinition, key: string, aggregate: Aggregate): ReportDefinition {
-  return { ...definition, columns: definition.columns.map((column) => (column.field === key ? { ...column, aggregate } : column)) }
+  const additive = aggregate === 'sum' || aggregate === 'count'
+  return { ...definition, columns: definition.columns.map((column) => {
+    if (column.field !== key) return column
+    const kept = (column.compare ?? []).filter((kind) => additive || (kind !== 'running_total' && kind !== 'percent_of_total'))
+    const { compare: _old, ...rest } = column
+    return kept.length ? { ...rest, aggregate, compare: kept } : { ...rest, aggregate }
+  }) }
 }
 
 export function setBucket(definition: ReportDefinition, key: string, bucket: Bucket | null): ReportDefinition {

@@ -148,6 +148,11 @@ export function toggleValue(selection: SlicerSelection, field: string, value: un
   return { ...selection, [field]: only ? [] : [value] }
 }
 
+/** a value a click can cross-filter by: a text, yes/no or number dimension; a date is the period's business */
+export function crossFilterable(column: { bucket?: string; type: string; aggregate?: string }, value: unknown): boolean {
+  return !column.aggregate && !column.bucket && column.type !== 'date' && column.type !== 'datetime' && value !== null && value !== undefined
+}
+
 /** the slicers with a value picked, as the tile run sends them */
 export function activeSlicers(selection: SlicerSelection): SlicerSelection {
   return Object.fromEntries(Object.entries(selection).filter(([, values]) => values.length > 0))

@@ -1383,7 +1383,15 @@ export function installMockApi(options: MockOptions = {}) {
         const rows = insightsResult.rows.filter((row) => sliced.every(([field, values]) => values.some((v) => String(v) === String(row[insightsResult.columns.findIndex((c) => c.key === field)]))))
         const result = { ...insightsResult, rows, row_count: rows.length }
         if (tile.show === 'figure') return json({ kind: 'figure', value: sliced.length ? rows.reduce((n, row) => n + Number(row[2]), 0) : 391520, previous: 361180, compared: asked.compare ?? found.compare, column: insightsResult.columns[2], own_dates: false, bounds, report: about, cached: false, sliced: sliced.map(([field]) => field) })
-        return json({ kind: 'view', view: { type: tile.show }, result, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field) })
+        // a chart tile drills: Campaign, then Channel; drilled into a campaign, its rows by channel
+        const steps = (body as { drill?: { path: { field: string; value: unknown }[] } }).drill?.path ?? []
+        const levels = [{ field: 'campaign_name', label: 'Campaign' }, { field: 'channel', label: 'Channel' }]
+        const drill = tile.show === 'chart' ? { drill: { levels, path: steps, depth: steps.length } } : {}
+        if (tile.show === 'chart' && steps.length === 1) {
+          const under = result.rows.filter((row) => row[0] === steps[0].value).map((row) => [row[1], row[2], row[3]])
+          return json({ kind: 'view', view: { type: tile.show }, result: { ...result, columns: result.columns.slice(1), rows: under, row_count: under.length }, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field), ...drill })
+        }
+        return json({ kind: 'view', view: { type: tile.show }, result, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field), ...drill })
       }
       const slicerValues = /\/insights\/dashboards\/([\w-]+)\/slicers\/values\/$/.exec(path)
       if (slicerValues && method === 'POST') {
@@ -1449,7 +1457,15 @@ export function installMockApi(options: MockOptions = {}) {
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
         const base = permissions.includes('user.admin') || permissions.includes('report.admin') ? insightsResult : insightsMaskedResult
-        return json({ ...base, ...mockTotals(base as typeof insightsResult, (body as { view?: { type?: string; across?: string } } | null)?.view ?? (insightsReport.definition as { view?: { type?: string; across?: string } }).view) })
+        // the saved report's levels: Campaign, then Channel; drilled into a campaign, its rows by channel
+        const steps = (body as { drill?: { path: { field: string; value: unknown }[] } } | null)?.drill?.path ?? []
+        const levels = [{ field: 'campaign_name', label: 'Campaign' }, { field: 'channel', label: 'Channel' }]
+        if (steps.length === 1) {
+          const rows = base.rows.filter((row) => row[0] === steps[0].value).map((row) => [row[1], row[2], row[3]])
+          return json({ ...base, columns: base.columns.slice(1), rows, row_count: rows.length, drill: { levels, path: steps, depth: 1 } })
+        }
+        return json({ ...base, ...mockTotals(base as typeof insightsResult, (body as { view?: { type?: string; across?: string } } | null)?.view ?? (insightsReport.definition as { view?: { type?: string; across?: string } }).view),
+                      drill: { levels, path: [], depth: 0 } })
       }
       if (/\/insights\/reports\/[\w-]+\/$/.test(path) && method === 'PUT') {
         const id = path.split('/').at(-2)
