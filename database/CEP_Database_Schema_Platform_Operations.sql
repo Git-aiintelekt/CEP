@@ -2163,7 +2163,8 @@ BEGIN
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
         EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
-        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), )::uuid) WITH CHECK (tenant_id = NULLIF(current_setting(app.current_tenant, true), )::uuid)', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
     END LOOP;
 END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard_share, report_row_rule TO cep_app;
