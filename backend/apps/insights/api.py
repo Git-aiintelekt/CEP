@@ -30,7 +30,7 @@ from apps.delivery.engine import session
 from apps.platform_ops import components
 from apps.tenants import context
 from apps.tenants.models import Tenant
-from . import catalog, drill, runner
+from . import access, catalog, drill, runner
 from .definition import DefinitionError, validate
 
 
@@ -68,8 +68,13 @@ def _q(sql, args=()):
 
 
 def _may_edit(request, row: dict) -> bool:
+    """report administrators; the owner, or someone it is shared with to edit, with report.edit"""
     user_id = str(request.user.pk)
-    return _has(request, "report.admin") or (_has(request, "report.edit") and str(row.get("owner_user_id")) == user_id)
+    return _has(request, "report.admin") or (_has(request, "report.edit") and (str(row.get("owner_user_id")) == user_id or bool(row.get("shared_edit"))))
+
+
+def _may_share(request, row: dict) -> bool:
+    return _has(request, "report.admin") or str(row.get("owner_user_id")) == str(request.user.pk)
 
 
 def favourite_sql(user_id: str, kind: str, item: str) -> tuple[str, list]:
@@ -78,18 +83,19 @@ def favourite_sql(user_id: str, kind: str, item: str) -> tuple[str, list]:
 
 
 def _visible_sql(request) -> tuple[str, list]:
-    """Private reports are the owner's; shared ones everyone's with report.view; admins see all."""
-    if _has(request, "report.admin"):
-        return "TRUE", []
-    return "(r.visibility = 'WORKSPACE' OR r.owner_user_id = %s)", [str(request.user.pk)]
+    """The workspace's reports, a person's own, and the ones shared with them or their roles; administrators see all."""
+    return access.visible_sql("report", "r", str(request.user.pk), _has(request, "report.admin"))
 
 
 def _report_row(report_id, request) -> dict:
     where, args = _visible_sql(request)
+    edit, edit_args = access.shared_edit_sql("report", "r", str(request.user.pk))
+    shared = access.shared_any_sql("report", "r")
     rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, r.view_type, r.definition, r.visibility, r.version, r.row_version,
-                         r.owner_user_id::text, u.display_name AS owner_name, r.folder_id::text, r.last_run_at, r.created_at, r.updated_at
+                         r.owner_user_id::text, u.display_name AS owner_name, r.folder_id::text, r.last_run_at, r.created_at, r.updated_at,
+                         {edit} AS shared_edit, {shared} AS shared
                     FROM report r LEFT JOIN app_user u ON u.id = r.owner_user_id
-                   WHERE r.id = %s AND r.deleted_at IS NULL AND {where}""", [str(report_id), *args])
+                   WHERE r.id = %s AND r.deleted_at IS NULL AND {where}""", [*edit_args, str(report_id), *args])
     if not rows:
         raise NotFound("No such report.")
     return rows[0]
@@ -142,6 +148,8 @@ class ReportListView(APIView):
         filters, params = [where], list(args)
         if request.query_params.get("dataset"):
             filters.append("r.dataset_key = %s"); params.append(request.query_params["dataset"])
+        if request.query_params.get("detail_for"):                  # the detail reports another report can drill through to, by the field clicked
+            filters.append("jsonb_exists(COALESCE(r.definition->'drillthrough', '[]'::jsonb), %s)"); params.append(request.query_params["detail_for"])
         if request.query_params.get("component"):
             filters.append("COALESCE(d.component_key, x.component_key, 'cep') = %s"); params.append(request.query_params["component"])
         if request.query_params.get("q", "").strip():
@@ -152,9 +160,12 @@ class ReportListView(APIView):
         elif folder:
             filters.append("r.folder_id = %s"); params.append(folder)
         starred, star_args = favourite_sql(str(request.user.pk), "report", "r.id")
+        edit, edit_args = access.shared_edit_sql("report", "r", str(request.user.pk))
+        shared = access.shared_any_sql("report", "r")
+        star_args = [*star_args, *edit_args]
         rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, COALESCE(d.label, x.label, r.dataset_key) AS dataset_label, c.key AS component_key, c.name AS component_name, r.view_type,
                              r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at,
-                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id
+                             r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id, {edit} AS shared_edit, {shared} AS shared
                         FROM report r LEFT JOIN report_dataset d ON d.key = r.dataset_key
                         LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id
                         JOIN suite_component c ON c.key = COALESCE(d.component_key, x.component_key, 'cep')
@@ -164,7 +175,7 @@ class ReportListView(APIView):
                                       "component": {"key": r["component_key"], "name": r["component_name"]}, "view_type": r["view_type"], "visibility": r["visibility"],
                                       "version": r["version"], "owner_user_id": r["owner_user_id"], "owner_name": r["owner_name"], "last_run_at": r["last_run_at"],
                                       "updated_at": r["updated_at"], "can_edit": _may_edit(request, r), "folder_id": r["folder_id"], "folder_name": r["folder_name"],
-                                      "favourite": bool(r["favourite"]), "own_dataset": bool(r["own_dataset_id"])} for r in rows]})
+                                      "favourite": bool(r["favourite"]), "own_dataset": bool(r["own_dataset_id"]), "shared": bool(r["shared"])} for r in rows]})
 
     @extend_schema(responses={201: None})
     def post(self, request, version=None):
@@ -201,7 +212,7 @@ class ReportView(APIView):
     @extend_schema(responses={200: None})
     def get(self, request, version=None, report_id=None):
         row = _report_row(report_id, request)
-        return Response({**_serialize(row), "can_edit": _may_edit(request, row)})
+        return Response({**_serialize(row), "can_edit": _may_edit(request, row), "can_share": _may_share(request, row), "shared": bool(row.get("shared"))})
 
     @extend_schema(responses={200: None})
     def put(self, request, version=None, report_id=None):
@@ -330,6 +341,35 @@ class PreviewView(APIView):
             return Response({"type": "about:blank", "title": "The preview did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
 
 
+def _through(dataset: dict, definition: dict, raw, max_limit: int) -> tuple[dict, list[dict]]:
+    """Drill-through: the values another report was clicked on, each on a field this report takes (its `drillthrough`), and-ed
+    onto its filters; the definition, and the values in words for the note above the rows."""
+    if raw in (None, []):
+        return definition, []
+    if not isinstance(raw, list) or len(raw) > 5:
+        raise ValidationError({"through": "Up to five values from another report."})
+    taken = definition.get("drillthrough", [])
+    rules, words = [], []
+    for i, item in enumerate(raw):
+        key = item.get("field") if isinstance(item, dict) else None
+        if key not in taken:
+            raise ValidationError({f"through[{i}]": "This report does not take that field from another report."})
+        field = next((f for f in dataset["fields"] if f["key"] == key), None)
+        if field is None:
+            raise ValidationError({f"through[{i}]": "Not a field of this report's dataset."})
+        value = item.get("value")
+        rules.append({"field": key, "operator": "is_null"} if value is None else {"field": key, "operator": "=", "value": value})
+        words.append({"field": key, "label": field["label"], "value": value})
+    filters = definition.get("filters") or {"combinator": "and", "rules": []}
+    combined = {**definition, "filters": {"combinator": "and", "rules": [filters, *rules]} if filters.get("rules") else {"combinator": "and", "rules": rules}}
+    combined.pop("grouped", None)
+    combined.pop("dataset", None)
+    try:
+        return validate(dataset, combined, max_limit=max_limit), words
+    except DefinitionError as exc:
+        raise ValidationError({"through": f"{exc.field}: {exc}"}) from None
+
+
 class RunView(APIView):
     permission_classes = VIEW
 
@@ -342,10 +382,11 @@ class RunView(APIView):
                                          max_limit=run_rows, reading=True)
         limit, offset = _run_body(request)
         body = request.data if isinstance(request.data, dict) else {}
+        through, through_words = _through(dataset, definition, body.get("through"), run_rows)
         try:                                                          # a drill path: the level under it, filtered to the values clicked
             path = drill.path_body(body.get("drill"))
-            below = drill.drilled(dataset, definition, path)
-            shown = validate(dataset, below, max_limit=run_rows) if below else definition
+            below = drill.drilled(dataset, through, path)
+            shown = validate(dataset, below, max_limit=run_rows) if below else through
         except (drill.DrillError, DefinitionError) as exc:
             raise ValidationError({"drill": str(exc)}) from None
         try:
@@ -355,8 +396,8 @@ class RunView(APIView):
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():
             runner.touch_last_run(report_id)
-        levels = drill.info(dataset, definition, path)
-        return Response({**result, **({"drill": levels} if levels else {})})
+        levels = drill.info(dataset, through, path)
+        return Response({**result, **({"drill": levels} if levels else {}), **({"through": through_words} if through_words else {})})
 
 
 class ExportView(APIView):

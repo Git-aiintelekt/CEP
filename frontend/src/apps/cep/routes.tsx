@@ -41,6 +41,7 @@ import { AiAssistantPage } from './pages/settings/AiAssistantPage'
 import { QueryBuilderPage } from '@/apps/insights/pages/QueryBuilderPage'
 import { MapDatasetPage } from './pages/settings/MapDatasetPage'
 import { PreferenceCenterPage } from './pages/settings/PreferenceCenterPage'
+import { ReportAccessPage } from './pages/settings/ReportAccessPage'
 import { ReportDatabasesPage } from './pages/settings/ReportDatabasesPage'
 import { RolesPage } from './pages/settings/RolesPage'
 import { SecurityPage } from './pages/settings/SecurityPage'
@@ -113,6 +114,7 @@ export default function CepRoutes() {
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="ai-assistant" element={<AiAssistantPage />} />
           <Route path="report-databases" element={<ReportDatabasesPage />} />
+          <Route path="report-access" element={<ReportAccessPage />} />
           <Route path="report-databases/:id/map" element={<MapDatasetPage />} />
           <Route path="report-databases/:id/map/:datasetId" element={<MapDatasetPage />} />
           <Route path="report-databases/:dbId/query" element={<QueryBuilderPage settings />} />

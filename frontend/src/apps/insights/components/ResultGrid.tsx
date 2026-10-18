@@ -34,7 +34,7 @@ const theme = themeQuartz.withParams({
   cellHorizontalPadding: 12,
 })
 
-export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick, formats }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; formats?: ColumnFormat[] }) {
+export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onPick, formats, onContext }: { result: RunResult; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; formats?: ColumnFormat[]; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
   const columnDefs = useMemo<ColDef[]>(() => result.columns.map((column, index) => {
     const rule = column.masked ? undefined : formatOf(formats, column.key)
     const range = rule ? rangeOf(result.rows.map((row) => row[index])) : null
@@ -62,7 +62,13 @@ export function ResultGrid({ result, label = 'Report rows', minHeight = 360, onP
       )}
       <div className="overflow-hidden rounded-md border border-line" style={{ minHeight }} role="region" aria-label={label}>
         <AgGridReact theme={theme} columnDefs={columnDefs} rowData={rowData} domLayout="autoHeight" suppressCellFocus animateRows={false} overlayNoRowsTemplate="<span>No rows match this report.</span>"
-          onCellClicked={onPick ? (event) => { const column = result.columns[Number(String(event.colDef.field).slice(1))]; if (column && !column.aggregate && !column.masked) onPick(column, event.value) } : undefined} />
+          onCellClicked={onPick ? (event) => { const column = result.columns[Number(String(event.colDef.field).slice(1))]; if (column && !column.aggregate && !column.masked) onPick(column, event.value) } : undefined}
+          preventDefaultOnContextMenu={Boolean(onContext)}
+          onCellContextMenu={onContext ? (event) => {
+            const column = result.columns[Number(String(event.colDef.field).slice(1))]
+            const mouse = event.event as MouseEvent | null | undefined
+            if (column && mouse) onContext(column, event.value, { x: mouse.clientX, y: mouse.clientY })
+          } : undefined} />
       </div>
     </div>
   )

@@ -75,6 +75,8 @@ interface ChartProps {
   onSelect?: (index: number) => void
   /** the bars stacked in each category, bottom to top, instead of side by side */
   stacked?: boolean
+  /** a right-click on a category, where it was (drill-through on a report) */
+  onContext?: (index: number, at: { x: number; y: number }) => void
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -169,7 +171,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -244,6 +246,11 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const onClick = (event: MouseEvent<HTMLDivElement>) => {
     if (onSelect) onSelect(nearest(event.clientX, event.currentTarget))
   }
+  const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
+    if (!onContext) return
+    event.preventDefault()
+    onContext(nearest(event.clientX, event.currentTarget), { x: event.clientX, y: event.clientY })
+  }
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const moves: Record<string, () => number> = {
       ArrowRight: () => (active === null ? 0 : Math.min(count - 1, active + 1)),
@@ -277,7 +284,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
 
       <div ref={box} className="relative">
         <div tabIndex={0} role="group" aria-label={title} aria-describedby={hintId} data-chart-plot
-          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerLeave={onPointerLeave} onClick={onClick} onKeyDown={onKeyDown} onBlur={() => setActive(null)}
+          onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerLeave={onPointerLeave} onClick={onClick} onContextMenu={onContextMenu} onKeyDown={onKeyDown} onBlur={() => setActive(null)}
           className={`touch-pan-y rounded-sm outline-none focus-visible:shadow-focus ${onSelect ? 'cursor-pointer' : ''}`}>
           <svg width={width} height={height} aria-hidden className="block overflow-visible" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {ticks.map((tick) => (

@@ -14,8 +14,12 @@ export const OPERATOR_LABEL: Record<string, string> = {
 export const EMPTY: ReportDefinition = { columns: [], filters: { combinator: 'and', rules: [] }, orderBy: [], limit: 500 }
 
 const UNIT_WORDS: Record<Bucket, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' }
-const COMPARE_KINDS: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total', 'percent_of_total']
-const TIMED: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total']
+const COMPARE_KINDS: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'year_to_date', 'quarter_to_date', 'running_total',
+  'moving_average', 'percent_of_total', 'rank', 'percent_of_target', 'difference_to_target']
+const TIMED: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total', 'year_to_date', 'quarter_to_date', 'moving_average']
+const ADDING: CompareKind[] = ['running_total', 'percent_of_total', 'year_to_date', 'quarter_to_date']
+export const TARGET_KINDS: CompareKind[] = ['percent_of_target', 'difference_to_target']
+export const MAX_COMPARISONS = 6
 
 /** the report's time axis: its first dimension that is a date (a date field, or a date and time with a bucket), and its bucket */
 export function timeAxis(dataset: CatalogDataset, definition: ReportDefinition): { field: string; bucket: Bucket } | null {
@@ -31,7 +35,8 @@ export function timeAxis(dataset: CatalogDataset, definition: ReportDefinition):
 export function compareLabel(kind: CompareKind, bucket: Bucket | null): string {
   const unit = bucket ? UNIT_WORDS[bucket] : 'Period'
   return { previous_period: `Previous ${unit}`, previous_year: 'Last Year', change_previous_period: `Change vs Previous ${unit}`, change_previous_year: 'Change vs Last Year',
-    running_total: 'Running Total', percent_of_total: '% of Total' }[kind]
+    running_total: 'Running Total', percent_of_total: '% of Total', year_to_date: 'Year to Date', quarter_to_date: 'Quarter to Date',
+    moving_average: `Moving Average (3 ${unit}s)`, rank: 'Rank', percent_of_target: '% of Target', difference_to_target: 'Difference to Target' }[kind]
 }
 
 /** every comparison a measure column could take, with why not when it cannot */
@@ -39,7 +44,7 @@ export function compareOptions(dataset: CatalogDataset, definition: ReportDefini
   const axis = timeAxis(dataset, definition)
   return COMPARE_KINDS.map((kind) => {
     const reason = TIMED.includes(kind) && !axis ? 'needs a date by day, week, month, quarter or year'
-      : (kind === 'running_total' || kind === 'percent_of_total') && column.aggregate !== 'sum' && column.aggregate !== 'count' ? 'adds up sums and counts only'
+      : ADDING.includes(kind) && column.aggregate !== 'sum' && column.aggregate !== 'count' ? 'adds up sums and counts only'
       : undefined
     return { kind, label: compareLabel(kind, axis?.bucket ?? null), ...(reason ? { reason } : {}) }
   })
@@ -52,6 +57,15 @@ export function setCompare(definition: ReportDefinition, key: string, kinds: Com
     const { compare: _old, ...rest } = column
     return kinds.length ? { ...rest, compare: kinds } : rest
   }) })
+}
+
+/** the number a measure's % of Target and Difference to Target compare with */
+export function setTarget(definition: ReportDefinition, key: string, target: number | undefined): ReportDefinition {
+  return { ...definition, columns: definition.columns.map((column) => {
+    if (column.field !== key) return column
+    const { target: _old, ...rest } = column
+    return target === undefined ? rest : { ...rest, target }
+  }) }
 }
 
 /** the keys a result names the report's totalled columns by: each measure, then <field>__<kind> for its comparisons */
@@ -136,7 +150,7 @@ export function setAggregate(definition: ReportDefinition, key: string, aggregat
   const additive = aggregate === 'sum' || aggregate === 'count'
   return pruneFormats({ ...definition, columns: definition.columns.map((column) => {
     if (column.field !== key) return column
-    const kept = (column.compare ?? []).filter((kind) => additive || (kind !== 'running_total' && kind !== 'percent_of_total'))
+    const kept = (column.compare ?? []).filter((kind) => additive || !ADDING.includes(kind))
     const { compare: _old, ...rest } = column
     return kept.length ? { ...rest, aggregate, compare: kept } : { ...rest, aggregate }
   }) })

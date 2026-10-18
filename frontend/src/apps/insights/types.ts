@@ -74,6 +74,7 @@ export interface Catalog {
 
 /** a measure's time comparisons (apps/insights/compare.py): each one more result column after the measure */
 export type CompareKind = 'previous_period' | 'previous_year' | 'change_previous_period' | 'change_previous_year' | 'running_total' | 'percent_of_total'
+  | 'year_to_date' | 'quarter_to_date' | 'moving_average' | 'rank' | 'percent_of_target' | 'difference_to_target'
 
 export interface ReportColumn {
   field: string
@@ -81,6 +82,8 @@ export interface ReportColumn {
   bucket?: Bucket
   label?: string
   compare?: CompareKind[]
+  /** the number % of Target and Difference to Target compare with */
+  target?: number
 }
 
 /** drill-down (apps/insights/drill.py): the value clicked at a level, and where a run is among the report's levels */
@@ -105,6 +108,8 @@ export interface ReportDefinition {
   orderBy?: { field: string; direction: 'asc' | 'desc' }[]
   limit?: number
   view?: ReportView
+  /** a detail report: the fields other reports on its dataset can open it through */
+  drillthrough?: string[]
 }
 
 export interface ReportSummary {
@@ -128,7 +133,34 @@ export interface ReportSummary {
   favourite: boolean
   /** the dataset is one the workspace mapped from its own database */
   own_dataset?: boolean
+  /** shared with people or roles */
+  shared?: boolean
+  /** the owner, or a report administrator: may change who it is shared with */
+  can_share?: boolean
 }
+
+/** sharing (apps/insights/access.py) */
+export type ShareKind = 'report' | 'dashboard'
+export interface Principal { kind: 'user' | 'role'; id: string; name: string; detail: string }
+export interface Share extends Principal { permission: 'view' | 'edit' }
+export interface SharesState { visibility: 'PRIVATE' | 'WORKSPACE'; shares: Share[]; can_share: boolean }
+
+/** a row access rule: a person or a role sees only these values of one field of a dataset */
+export interface RowRule {
+  id: string
+  dataset: string
+  dataset_label: string
+  field: string
+  field_label: string
+  /** the dataset no longer offers the field: the person's runs on it are refused */
+  broken: boolean
+  principal: Principal
+  values: (string | number | boolean)[]
+  note: string | null
+  updated_at: string
+  row_version: number
+}
+export interface RowRules { rules: RowRule[]; datasets: { key: string; label: string; fields: { key: string; label: string; type: string }[] }[] }
 
 export interface Folder {
   id: string
@@ -277,9 +309,11 @@ export interface DashboardSummary {
   updated_at: string
   can_edit: boolean
   favourite: boolean
+  shared?: boolean
 }
 
 export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'> {
+  can_share?: boolean
   period: Period
   compare: boolean
   layout: DashboardLayout
@@ -290,7 +324,7 @@ export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'>
 
 export type TileResult =
   | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[] }
-  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[]; drill?: DrillInfo }
+  | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number; dataset?: string }; sliced?: string[]; drill?: DrillInfo }
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }
 
@@ -316,6 +350,10 @@ export interface RunResult {
   source?: string
   /** a saved report with more than one level: where this run is, for drilling */
   drill?: DrillInfo
+  /** this person's row access rules that narrowed the rows */
+  access?: { field: string; label: string; values: unknown[] }[]
+  /** opened from another report: the values it was opened through */
+  through?: { field: string; label: string; value: unknown }[]
 }
 
 /** Settings → Report Databases (backend apps/insights/databases.py, external.py) */

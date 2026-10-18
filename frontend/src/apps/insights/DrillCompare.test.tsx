@@ -34,10 +34,11 @@ test('comparisons: the time axis is the first date by a bucket, an option says w
   const monthly: ReportDefinition = { columns: [{ field: 'submitted_at', bucket: 'month' }, { field: 'sent', aggregate: 'sum' }] }
   expect(timeAxis(messages, monthly)).toEqual({ field: 'submitted_at', bucket: 'month' })
   const options = compareOptions(messages, monthly, monthly.columns[1])
-  expect(options.map((o) => o.label)).toEqual(['Previous Month', 'Last Year', 'Change vs Previous Month', 'Change vs Last Year', 'Running Total', '% of Total'])
+  expect(options.map((o) => o.label)).toEqual(['Previous Month', 'Last Year', 'Change vs Previous Month', 'Change vs Last Year', 'Year to Date', 'Quarter to Date', 'Running Total',
+    'Moving Average (3 Months)', '% of Total', 'Rank', '% of Target', 'Difference to Target'])
   expect(options.every((o) => !o.reason)).toBe(true)
   const without = compareOptions(messages, flat, flat.columns[1])
-  expect(without.filter((o) => o.reason).map((o) => o.kind)).toEqual(['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total'])
+  expect(without.filter((o) => o.reason).map((o) => o.kind)).toEqual(['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'year_to_date', 'quarter_to_date', 'running_total', 'moving_average'])
   const compared = setCompare(monthly, 'sent', ['previous_year', 'running_total'])
   expect(compared.columns[1]).toEqual({ field: 'sent', aggregate: 'sum', compare: ['previous_year', 'running_total'] })
   expect(setAggregate(compared, 'sent', 'avg').columns[1]).toEqual({ field: 'sent', aggregate: 'avg', compare: ['previous_year'] })

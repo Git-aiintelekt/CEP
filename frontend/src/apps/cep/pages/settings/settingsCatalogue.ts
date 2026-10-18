@@ -27,6 +27,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     { to: '/settings/approvals', label: 'Approvals', icon: CheckCircle2 },
     { to: '/settings/ai-assistant', label: 'AI Assistant', icon: Sparkles },
     { to: '/settings/report-databases', label: 'Report Databases', icon: Database },
+    { to: '/settings/report-access', label: 'Report Access', icon: Lock },
     { to: '/settings/plan', label: 'Plan & Usage', icon: CircleDollarSign },
   ] },
   { key: 'sending', label: 'Sending', icon: Send, pages: [

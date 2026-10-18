@@ -87,7 +87,9 @@ removes its formatting.
 
 ### Time comparisons
 
-A measure column may carry `compare`, up to four of `previous_period`, `previous_year`, `change_previous_period`,
+A measure column may carry `compare`, up to six of `year_to_date`, `quarter_to_date`, `moving_average` (the bucket and the
+two before it), `rank` (1 for the largest, per bucket of the time axis when there are other dimensions), `percent_of_target`
+and `difference_to_target` (against the column's `target`, a number), and of `previous_period`, `previous_year`, `change_previous_period`,
 `change_previous_year`, `running_total` and `percent_of_total` (`apps/insights/compare.py`); each is one more result
 column right after the measure, keyed `<field>__<kind>`, labelled in words ("Sent Count, Change vs Last Year") and marked
 `compare`. All but the share of the total need a time axis, the report's first date dimension (a date field, or a date and
@@ -97,9 +99,38 @@ second run of the same definition with its rules on the axis moved back (a month
 rows; "in the last N days" becomes those days a year earlier), matched to the rows by the other dimensions and the bucket
 moved forward, so the first month of a range has its previous month too. Without a rule on the axis the rows serve as
 they are. A rule on the date inside an or-group cannot be moved and the run says so. The running total adds up along the
-dates per value of the other dimensions; the share is of the report's whole (the engine's grand total when the rows were
+dates per value of the other dimensions; year and quarter to date restart with each year or quarter, and they and the
+moving average read from a third run whose lower date bounds move back to the start of the year, the quarter or two
+buckets, so the first month of a range has its year to date; the share is of the report's whole (the engine's grand total when the rows were
 capped). The engine's subtotals carry an empty value for each comparison, and the hierarchy and the pivot never combine
 one. CSV, Excel and PDF exports carry the columns; the AI assistant may ask for them.
+
+### Sharing and row access
+
+`apps/insights/access.py`. A report or a dashboard is its owner's, or the workspace's (`visibility`), and can besides be
+shared with named people and roles, each with view or edit (`report_share`, and `dashboard_share` from patch 0060). A share
+with a role reaches everyone holding it. Who may open an item is one SQL condition (`access.visible_sql`): the workspace's,
+the person's own, or shared with them or one of their roles; report administrators open everything. A share with edit lets
+someone holding report.edit change it; the owner and report administrators share (`GET/PUT /insights/reports/<id>/shares/`,
+the same for dashboards, the list replaced as a whole; `GET /insights/principals/?q=` finds people and roles for anyone
+who builds reports). Lists mark a private item that is shared.
+
+Row access rules (`report_row_rule`, patch 0060; Settings → Report Access, report.admin; `/insights/row-rules/`) let a
+person or a role see only some values of one text, number or yes/no dimension of a dataset. Every run for that person
+(`runner.run`, `fetch_all`, `stream_csv`, so reports, dashboard tiles, slicer values, exports, the assistant's preview and
+deliveries made in their name) gets an IN rule per field, and-ed beside the report's own filters: values of all their rules
+on a field together, different fields all applying. A rule on a field the dataset no longer offers refuses the run rather
+than showing everything. The run says which rules narrowed it (`access`), and the viewer shows it. The query window of a
+workspace's own database runs its SQL as written and is not limited. Until patch 0060 is applied the code finds the tables
+missing and shares nothing through dashboard_share and applies no rule.
+
+### Drill-through
+
+A report can be a detail report: `definition.drillthrough` names up to 10 dimensions of its dataset that other reports can
+open it through (the editor's Detail Report). A right-click on a value of such a field, in a chart or a grid of another
+report or dashboard tile on the same dataset, lists them (`GET /insights/reports/?dataset=&detail_for=`); the one picked
+opens at `/insights/reports/<id>?through=[{field, value}]&from=<name>`, and its run takes `through`, checked against its
+`drillthrough`, as `=` rules on top of its own filters. The viewer says where it was opened from, with Show All Rows.
 
 ### Drill-down
 

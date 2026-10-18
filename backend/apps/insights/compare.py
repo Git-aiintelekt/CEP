@@ -7,6 +7,15 @@ column right after the measure:
     change_previous_year    the change against the same bucket last year, in percent
     running_total           the measure added up along the dates, per value of the other dimensions (sums and counts)
     percent_of_total        the row's share of the report's total (sums and counts)
+    year_to_date            the measure added up from the start of the bucket's year (sums and counts)
+    quarter_to_date         the same from the start of its quarter
+    moving_average          the average of the bucket and the two before it (missing buckets count as 0 for sums and counts)
+    rank                    1 for the largest value, per bucket of the time axis when there is one and other dimensions
+    percent_of_target       the measure as a percentage of the column's `target`
+    difference_to_target    the measure less the column's `target`
+
+Year and quarter to date and the moving average reach before the report's first date: a third run moves the date rules'
+lower bound back to the start of the year, the quarter, or two buckets, whichever is earliest.
 
 All but the last need a time axis: the report's first dimension that is a date (a date field, or a date and time bucketed
 by day, week, month, quarter or year). The earlier periods come from a second run of the same definition with its date
@@ -17,12 +26,16 @@ here is pure: the runner runs the queries and hands the rows in.
 import calendar
 from datetime import date, timedelta
 
-KINDS = ("previous_period", "previous_year", "change_previous_period", "change_previous_year", "running_total", "percent_of_total")
-TIMED = ("previous_period", "previous_year", "change_previous_period", "change_previous_year", "running_total")
-ADDITIVE_KINDS = ("running_total", "percent_of_total")
+KINDS = ("previous_period", "previous_year", "change_previous_period", "change_previous_year", "running_total", "percent_of_total",
+         "year_to_date", "quarter_to_date", "moving_average", "rank", "percent_of_target", "difference_to_target")
+TIMED = ("previous_period", "previous_year", "change_previous_period", "change_previous_year", "running_total", "year_to_date", "quarter_to_date", "moving_average")
+ADDITIVE_KINDS = ("running_total", "percent_of_total", "year_to_date", "quarter_to_date")
+TARGET_KINDS = ("percent_of_target", "difference_to_target")
+REACH_BACK = ("year_to_date", "quarter_to_date", "moving_average")
 ADDITIVE = ("sum", "count")
-PERCENT = ("change_previous_period", "change_previous_year", "percent_of_total")
-MAX_PER_MEASURE = 4
+PERCENT = ("change_previous_period", "change_previous_year", "percent_of_total", "percent_of_target")
+MAX_PER_MEASURE = 6
+WINDOW = 3
 UNIT_WORDS = {"day": "Day", "week": "Week", "month": "Month", "quarter": "Quarter", "year": "Year"}
 GROUP = {"previous_period": "period", "change_previous_period": "period", "previous_year": "year", "change_previous_year": "year"}
 
@@ -53,7 +66,9 @@ def kinds_of(definition: dict) -> list[str]:
 def label(base: str, kind: str, unit: str | None) -> str:
     words = UNIT_WORDS.get(unit or "", "Period")
     return {"previous_period": f"{base}, Previous {words}", "previous_year": f"{base}, Last Year", "change_previous_period": f"{base}, Change vs Previous {words}",
-            "change_previous_year": f"{base}, Change vs Last Year", "running_total": f"{base}, Running Total", "percent_of_total": f"{base}, % of Total"}[kind]
+            "change_previous_year": f"{base}, Change vs Last Year", "running_total": f"{base}, Running Total", "percent_of_total": f"{base}, % of Total",
+            "year_to_date": f"{base}, Year to Date", "quarter_to_date": f"{base}, Quarter to Date", "moving_average": f"{base}, Moving Average ({WINDOW} {words}s)",
+            "rank": f"{base}, Rank", "percent_of_target": f"{base}, % of Target", "difference_to_target": f"{base}, Difference to Target"}[kind]
 
 
 def columns(dataset: dict, definition: dict, base: list[dict]) -> list[dict]:
@@ -65,7 +80,8 @@ def columns(dataset: dict, definition: dict, base: list[dict]) -> list[dict]:
         out.append(column)
         for kind in spec.get("compare", []):
             out.append({"key": f"{column['key']}__{kind}", "label": label(column["label"], kind, unit), "type": "number",
-                        "format": "percent" if kind in PERCENT else column["format"], "aggregate": column["aggregate"], "compare": kind})
+                        "format": "percent" if kind in PERCENT else "integer" if kind == "rank" else column["format"], "aggregate": column["aggregate"], "compare": kind,
+                        **({"target": spec["target"]} if kind in TARGET_KINDS and "target" in spec else {})})
     return out
 
 
@@ -123,14 +139,101 @@ def shifted(definition: dict, field: str, months: int, days: int, today: date) -
     return {**definition, "filters": {"combinator": "and", "rules": rules}}
 
 
+def period_start(day: date, kind: str) -> date:
+    """the first day of the year or the quarter a day is in"""
+    if kind == "year_to_date":
+        return date(day.year, 1, 1)
+    return date(day.year, ((day.month - 1) // 3) * 3 + 1, 1)
+
+
+def reach_back(kinds, unit: str):
+    """how far before a date the reaching comparisons need rows: the earliest of the year's start, the quarter's, two buckets back"""
+    wanted = [k for k in kinds if k in REACH_BACK]
+
+    def back(day: date) -> date:
+        found = [period_start(day, k) for k in wanted if k != "moving_average"]
+        if "moving_average" in wanted:
+            months, days = offset("period", unit)
+            found.append(move(day, months * (WINDOW - 1), days * (WINDOW - 1), -1))
+        return min(found) if found else day
+    return back
+
+
+def widened(definition: dict, field: str, back, today: date) -> dict | None:
+    """The definition with its lower bounds on the time axis moved back by `back`; None when it has no rule on the axis."""
+    filters = definition.get("filters") or {"combinator": "and", "rules": []}
+
+    def touches(node) -> bool:
+        return any(touches(rule) if "rules" in rule else rule.get("field") == field for rule in node.get("rules", []))
+
+    if not touches(filters):
+        return None
+    if filters.get("combinator") != "and" or any("rules" in rule and touches(rule) for rule in filters["rules"]):
+        raise CompareError("A year or quarter to date, or a moving average, needs the date's filters joined with and, not inside an or-group.")
+    rules = []
+    for rule in filters["rules"]:
+        if "rules" in rule or rule.get("field") != field:
+            rules.append(rule)
+            continue
+        op, value = rule["operator"], rule.get("value")
+        if op == "last_days":
+            start = today - timedelta(days=int(value))
+            rules.append({"field": field, "operator": "between", "value": [back(start).isoformat(), today.isoformat()]})
+        elif op == "between":
+            rules.append({**rule, "value": [back(date.fromisoformat(str(value[0])[:10])).isoformat(), value[1]]})
+        elif op in (">", ">="):
+            rules.append({**rule, "operator": ">=", "value": back(date.fromisoformat(str(value)[:10])).isoformat()})
+        elif op == "=":
+            day = date.fromisoformat(str(value)[:10])
+            rules.append({"field": field, "operator": "between", "value": [back(day).isoformat(), day.isoformat()]})
+        else:
+            rules.append(rule)
+    return {**definition, "filters": {"combinator": "and", "rules": rules}}
+
+
 # ---------------------------------------------------------------------------------------------------- the figures
 def _num(value):
     return None if value is None or isinstance(value, bool) else float(value)
 
 
-def apply(dataset: dict, definition: dict, rows: list[list], earlier: dict[str, list[list]], grand: dict[int, float] | None) -> list[list]:
+def _reaching(dataset: dict, definition: dict, source: list[list], found, others: list[int]) -> dict:
+    """year and quarter to date and the moving average per measure, keyed by (the other dimensions, the bucket), from rows that reach back"""
+    at, _, unit = found
+    out = {}
+    for m, spec in enumerate(definition["columns"]):
+        kinds = [k for k in spec.get("compare", []) if k in REACH_BACK]
+        if not kinds:
+            continue
+        additive = spec.get("aggregate") in ADDITIVE
+        series: dict[tuple, dict[str, float | None]] = {}
+        for row in source:
+            if row[at] is None:
+                continue
+            series.setdefault(tuple(str(row[i]) for i in others), {})[str(row[at])[:10]] = _num(row[m])
+        for kind in kinds:
+            table = {}
+            for part, points in series.items():
+                if kind == "moving_average":
+                    months, days = offset("period", unit)
+                    for bucket in points:
+                        day = date.fromisoformat(bucket)
+                        window = [points.get(move(day, months * k, days * k, -1).isoformat()) for k in range(WINDOW)]
+                        known = [v if v is not None else 0.0 for v in window] if additive else [v for v in window if v is not None]
+                        table[(part, bucket)] = sum(known) / len(known) if known else None
+                else:
+                    totals = {}
+                    for bucket in sorted(points):
+                        start = period_start(date.fromisoformat(bucket), kind).isoformat()
+                        totals[start] = totals.get(start, 0.0) + (points[bucket] or 0.0)
+                        table[(part, bucket)] = totals[start]
+            out[(m, kind)] = table
+    return out
+
+
+def apply(dataset: dict, definition: dict, rows: list[list], earlier: dict[str, list[list]], grand: dict[int, float] | None, reached: list[list] | None = None) -> list[list]:
     """The rows with each measure's comparisons after it. `earlier`: the rows of the shifted run per group ("period", "year");
-    `grand`: the report's total per measure index, for the share of total."""
+    `grand`: the report's total per measure index, for the share of total; `reached`: the rows that reach back far enough for
+    year and quarter to date and the moving average (the rows themselves when the report has no date rule)."""
     specs = definition["columns"]
     found = axis(dataset, specs)
     dims = [i for i, c in enumerate(specs) if "aggregate" not in c]
@@ -159,6 +262,23 @@ def apply(dataset: dict, definition: dict, rows: list[list], earlier: dict[str, 
                 totals[part] = totals.get(part, 0.0) + (_num(rows[r][m]) or 0.0)
                 out[r] = totals[part]
             running[m] = out
+    reaching = _reaching(dataset, definition, reached if reached is not None else rows, found, others) if found else {}
+    ranks = {}
+    for m, spec in enumerate(specs):
+        if "rank" not in spec.get("compare", []):
+            continue
+        parts: dict[str, list[tuple[float, int]]] = {}
+        for r, row in enumerate(rows):
+            value = _num(row[m])
+            if value is not None:
+                parts.setdefault(str(row[found[0]]) if found and others else "", []).append((value, r))
+        table = {}
+        for items in parts.values():
+            distinct = sorted({v for v, _ in items}, reverse=True)
+            place = {v: i + 1 for i, v in enumerate(distinct)}
+            for value, r in items:
+                table[r] = place[value]
+        ranks[m] = table
     result = []
     for r, row in enumerate(rows):
         line = []
@@ -177,6 +297,16 @@ def apply(dataset: dict, definition: dict, rows: list[list], earlier: dict[str, 
                         line.append(before)
                 elif kind == "running_total":
                     line.append(running.get(m, {}).get(r))
+                elif kind in REACH_BACK:
+                    line.append(reaching.get((m, kind), {}).get((key_others, bucket)) if bucket else None)
+                elif kind == "rank":
+                    line.append(ranks.get(m, {}).get(r))
+                elif kind == "percent_of_target":
+                    target = _num(spec.get("target"))
+                    line.append(None if current is None or not target else current / target * 100)
+                elif kind == "difference_to_target":
+                    target = _num(spec.get("target"))
+                    line.append(None if current is None or target is None else current - target)
                 else:                                                     # percent_of_total
                     total = (grand or {}).get(m)
                     line.append(None if current is None or not total else current / total * 100)

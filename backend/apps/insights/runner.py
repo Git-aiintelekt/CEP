@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import clickhouse, compare, compiler, external
+from . import access, clickhouse, compare, compiler, external
 from .catalog import engine_of
 from .definition import signature
 
@@ -143,6 +143,10 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
+    try:                                                              # the person's row access rules, before anything else
+        definition, limited = access.restrict(tenant.pk, user, dataset, definition)
+    except access.AccessError as exc:
+        raise RunRefused("REFUSED", str(exc)) from None
     if engine["status"] == "MIGRATING" and not dataset.get("external"):
         raise RunRefused("REFUSED", "This workspace's reports are moving to a new engine; try again shortly.")
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
@@ -191,7 +195,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
     result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
               "freshness": "LIVE" if dataset.get("external") else engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {}),
-              **({"source": dataset["database"]["name"]} if dataset.get("external") else {})}
+              **({"source": dataset["database"]["name"]} if dataset.get("external") else {}), **({"access": limited} if limited else {})}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
 
@@ -227,11 +231,22 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
             whole, _ = _execute(tenant_id, compiler.compile_totals(dataset, definition, str(tenant_id), zone, [()], limit=1, dialect=dialect), timeout_ms, dialect, dataset, zone)
             first = whole[0] if whole else None
             grand = {m: (float(first[measures.index(m)]) if first and first[measures.index(m)] is not None else None) for m in wanted}
-    return compare.columns(dataset, definition, base_columns), compare.apply(dataset, definition, rows, earlier, grand), int((time.monotonic() - started) * 1000), over
+    reached = None
+    if found and kinds & set(compare.REACH_BACK):                    # year and quarter to date, the moving average: rows from before the report's first date
+        today = timezone.now().astimezone(ZoneInfo(zone)).date()
+        wide = compare.widened(definition, found[1], compare.reach_back(kinds, found[2]), today)
+        if wide is not None:
+            reached, _ = _execute(tenant_id, compiler.compile(dataset, wide, str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
+    return compare.columns(dataset, definition, base_columns), compare.apply(dataset, definition, rows, earlier, grand, reached), int((time.monotonic() - started) * 1000), over
 
 
 def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False):
     """The export: the rows in pages of 5,000 up to the export cap, as CSV text chunks, one audit row for the whole file."""
+    try:
+        definition, _ = access.restrict(tenant.pk, user, dataset, definition)
+    except access.AccessError as exc:
+        yield f"{exc}\n"                                              # the file says why it is empty
+        return
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
@@ -287,6 +302,10 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
 def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False, kind: str = "export") -> tuple[list[dict], list[list], list[dict] | None]:
     """Every row up to the export cap, in pages, for a file built in memory (the Excel export), with the engine's totals when the
     definition's view has them; one audit row for the whole."""
+    try:
+        definition, _ = access.restrict(tenant.pk, user, dataset, definition)
+    except access.AccessError as exc:
+        raise RunRefused("REFUSED", str(exc)) from None
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key

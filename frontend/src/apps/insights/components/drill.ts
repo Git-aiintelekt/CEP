@@ -17,6 +17,16 @@ export function canDrill(info: DrillInfo | undefined, column?: ResultColumn): bo
   return !column || column.key === info.levels[info.depth].field
 }
 
+/** the address of a detail report opened through a value of another report */
+export function throughPath(reportId: string, field: string, value: unknown, from: string): string {
+  return `/insights/reports/${reportId}?through=${encodeURIComponent(JSON.stringify([{ field, value }]))}&from=${encodeURIComponent(from)}`
+}
+
+/** a value a right-click can open a detail report through: a text, yes/no or number dimension, not a date */
+export function throughable(column: { bucket?: string; type: string; aggregate?: string; masked?: boolean }): boolean {
+  return !column.aggregate && !column.bucket && !column.masked && column.type !== 'date' && column.type !== 'datetime'
+}
+
 /** the path one level further down, through the value clicked */
 export function deeper(info: DrillInfo, value: unknown): DrillStep[] {
   const level = info.levels[info.depth]

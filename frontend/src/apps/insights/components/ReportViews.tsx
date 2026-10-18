@@ -69,21 +69,22 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 }
 
 /** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell. */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
   switch (view.type) {
-    case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} />
+    case 'chart': return <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} />
     case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} formats={view.formats} />
     case 'pivot': return <Pivot result={result} view={view} label={label} minHeight={minHeight} />
-    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} />
+    default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} onContext={onContext} />
   }
 }
 
-function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void }) {
+function ReportChart({ result, view, minHeight, onPick, onContext }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void }) {
   const kind = view.chart ?? 'bar'
   const shape = useMemo(() => chartShape(result, ONE_SERIES.includes(kind) ? undefined : view.across), [result, view.across, kind])
   if (shape.reason) return <Reason minHeight={minHeight}>{shape.reason}</Reason>
   const title = `${shape.measure.label} by ${shape.categoryHeader}`
   const pick = onPick ? (index: number) => onPick(shape.axis, shape.categories[index].value) : undefined
+  const context = onContext ? (index: number, at: { x: number; y: number }) => onContext(shape.axis, shape.categories[index].value, at) : undefined
   const first = shape.series[0]
   if (kind === 'combo' && shape.series.length < 2) return <Reason minHeight={minHeight}>A combo chart needs two values: the first as bars, the others as lines.</Reason>
   const measureOf = (key: string) => result.columns.find((column) => column.key === key && column.aggregate) ?? shape.measure
@@ -104,15 +105,15 @@ function ReportChart({ result, view, minHeight, onPick }: { result: RunResult; v
   return (
     <div className="rounded-md border border-line p-4">
       {kind === 'pie' ? (
-        <PieChart title={title} categoryHeader={shape.categoryHeader} valueLabel={shape.measure.label} height={Math.max(200, Math.min(280, minHeight - 120))} formatValue={number(shape.measure)} onSelect={pick}
+        <PieChart title={title} categoryHeader={shape.categoryHeader} valueLabel={shape.measure.label} height={Math.max(200, Math.min(280, minHeight - 120))} formatValue={number(shape.measure)} onSelect={pick} onContext={context}
           slices={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
       ) : kind === 'funnel' ? (
-        <FunnelChart title={title} valueLabel={shape.measure.label} formatValue={number(shape.measure)} onSelect={pick}
+        <FunnelChart title={title} valueLabel={shape.measure.label} formatValue={number(shape.measure)} onSelect={pick} onContext={context}
           stages={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
       ) : (
         <Chart title={kind === 'stacked100' ? `${title}, as shares` : title} categoryHeader={shape.categoryHeader} categories={shape.categories} series={comboSeries ?? shareSeries ?? shape.series}
           type={kind === 'line' || kind === 'area' ? kind : 'bar'} stacked={kind === 'stacked' || kind === 'stacked100'} height={Math.max(240, minHeight - 80)}
-          formatValue={kind === 'stacked100' ? percent : number(shape.measure)} formatTick={kind === 'stacked100' ? (value) => `${Math.round(value)}%` : undefined} onSelect={pick} />
+          formatValue={kind === 'stacked100' ? percent : number(shape.measure)} formatTick={kind === 'stacked100' ? (value) => `${Math.round(value)}%` : undefined} onSelect={pick} onContext={context} />
       )}
     </div>
   )

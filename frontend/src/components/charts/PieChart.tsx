@@ -4,7 +4,7 @@
  * the arrow keys read one slice in the middle, and the numbers as a table, like every chart in the kit. More than eight
  * slices fold into Other. A slice can be picked (cross-filtering on a dashboard).
  */
-import { useId, useState, type KeyboardEvent } from 'react'
+import { useId, useState, type KeyboardEvent, type MouseEvent } from 'react'
 
 import { formatNumber } from '@/lib/format'
 
@@ -26,6 +26,8 @@ interface PieChartProps {
   emptyText?: string
   /** a slice was picked: its index among the slices given (Other, when folded, is never picked) */
   onSelect?: (index: number) => void
+  /** a right-click on a slice, where it was */
+  onContext?: (index: number, at: { x: number; y: number }) => void
 }
 
 function arc(cx: number, cy: number, outer: number, inner: number, from: number, to: number): string {
@@ -41,7 +43,7 @@ function arc(cx: number, cy: number, outer: number, inner: number, from: number,
   return `M${ax} ${ay} A${outer} ${outer} 0 ${large} 1 ${bx} ${by} L${cxi} ${cyi} A${inner} ${inner} 0 ${large} 0 ${dx} ${dy} Z`
 }
 
-export function PieChart({ title, categoryHeader, valueLabel, slices, formatValue = formatNumber, height = 240, emptyText = 'Nothing to show yet.', onSelect }: PieChartProps) {
+export function PieChart({ title, categoryHeader, valueLabel, slices, formatValue = formatNumber, height = 240, emptyText = 'Nothing to show yet.', onSelect, onContext }: PieChartProps) {
   const [active, setActive] = useState<number | null>(null)
   const [showNumbers, setShowNumbers] = useState(false)
   const hintId = useId()
@@ -59,6 +61,11 @@ export function PieChart({ title, categoryHeader, valueLabel, slices, formatValu
   }, [])
   const pick = (index: number) => {
     if (onSelect && drawn[index]?.key !== OTHER) onSelect(index)
+  }
+  const context = (index: number) => (event: MouseEvent) => {
+    if (!onContext || drawn[index]?.key === OTHER) return
+    event.preventDefault()
+    onContext(index, { x: event.clientX, y: event.clientY })
   }
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const moves: Record<string, () => number> = {
@@ -88,7 +95,7 @@ export function PieChart({ title, categoryHeader, valueLabel, slices, formatValu
             {pieces.map((piece) => (
               <path key={piece.slice.key} d={arc(size / 2, size / 2, outer, inner, piece.from, piece.to)} fill={piece.color} data-slice={piece.slice.key}
                 fillOpacity={active === null || active === piece.index ? 1 : 0.4} stroke="var(--color-surface)" strokeWidth={1.5}
-                onPointerEnter={() => setActive(piece.index)} onClick={() => pick(piece.index)} style={{ transition: 'fill-opacity 110ms' }} />
+                onPointerEnter={() => setActive(piece.index)} onClick={() => pick(piece.index)} onContextMenu={context(piece.index)} style={{ transition: 'fill-opacity 110ms' }} />
             ))}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
@@ -100,7 +107,7 @@ export function PieChart({ title, categoryHeader, valueLabel, slices, formatValu
         <ul aria-label="Slices" className="flex min-w-0 flex-1 flex-col gap-1">
           {pieces.map((piece) => (
             <li key={piece.slice.key}>
-              <button type="button" onClick={() => pick(piece.index)} onPointerEnter={() => setActive(piece.index)} onPointerLeave={() => setActive(null)} aria-pressed={active === piece.index}
+              <button type="button" onClick={() => pick(piece.index)} onContextMenu={context(piece.index)} onPointerEnter={() => setActive(piece.index)} onPointerLeave={() => setActive(null)} aria-pressed={active === piece.index}
                 className={`flex h-7 w-full items-center gap-2 rounded-control-sm px-1.5 text-left text-sm text-ink-800 transition-colors duration-fast ease-standard hover:bg-surface-hover ${onSelect && piece.slice.key !== OTHER ? '' : 'cursor-default'}`}>
                 <Swatch color={piece.color} />
                 <span className="min-w-0 flex-1 truncate">{piece.slice.label}</span>
