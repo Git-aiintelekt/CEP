@@ -1918,7 +1918,7 @@ CREATE TABLE IF NOT EXISTS report (
     dataset_key         VARCHAR(40) NOT NULL REFERENCES report_dataset(key),
     name                VARCHAR(200) NOT NULL,
     description         TEXT,
-    view_type           VARCHAR(10) NOT NULL DEFAULT 'grid',              -- grid, chart, pivot, hierarchy
+    view_type           VARCHAR(20) NOT NULL DEFAULT 'grid',              -- grid, chart, pivot, hierarchy, influencers, decomposition
     definition          JSONB NOT NULL,                                   -- apps/insights/definition.py: columns, filters, groupBy, orderBy, views
     owner_user_id       UUID REFERENCES app_user(id),
     visibility          VARCHAR(10) NOT NULL DEFAULT 'PRIVATE',           -- PRIVATE (owner and shares), WORKSPACE (everyone with report.view)
@@ -1931,7 +1931,7 @@ CREATE TABLE IF NOT EXISTS report (
     deleted_at          TIMESTAMPTZ,
     row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ck_report_name CHECK (btrim(name) <> ''),
-    CONSTRAINT ck_report_view_type CHECK (view_type IN ('grid', 'chart', 'pivot', 'hierarchy')),
+    CONSTRAINT ck_report_view_type CHECK (view_type IN ('grid', 'chart', 'pivot', 'hierarchy', 'influencers', 'decomposition')),
     CONSTRAINT ck_report_visibility CHECK (visibility IN ('PRIVATE', 'WORKSPACE'))
 );
 CREATE INDEX IF NOT EXISTS ix_report_tenant_live ON report(tenant_id, updated_at DESC) WHERE deleted_at IS NULL;
@@ -1942,7 +1942,7 @@ CREATE TABLE IF NOT EXISTS report_version (
     report_id           UUID NOT NULL REFERENCES report(id) ON DELETE CASCADE,
     version             INTEGER NOT NULL,
     definition          JSONB NOT NULL,
-    view_type           VARCHAR(10) NOT NULL,
+    view_type           VARCHAR(20) NOT NULL,
     note                VARCHAR(300),
     changed_by          UUID REFERENCES app_user(id),
     changed_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -2746,6 +2746,12 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON report_upload, report_upload_row TO cep_app;
 GRANT ALL ON report_upload, report_upload_row TO cep_admin;
 GRANT SELECT ON report_upload_row TO cep_reporting;                        -- the engine reads the rows as the reporting role, the workspace's only (RLS)
+
+-- ---- Key Influencers and Decomposition Tree (patch 0064): the two views PR 157 added fit the report's view type
+ALTER TABLE report ALTER COLUMN view_type TYPE VARCHAR(20);
+ALTER TABLE report_version ALTER COLUMN view_type TYPE VARCHAR(20);
+ALTER TABLE report DROP CONSTRAINT IF EXISTS ck_report_view_type;
+ALTER TABLE report ADD CONSTRAINT ck_report_view_type CHECK (view_type IN ('grid', 'chart', 'pivot', 'hierarchy', 'influencers', 'decomposition'));
 
 -- =====================================================================================
 -- End of platform operations layer.

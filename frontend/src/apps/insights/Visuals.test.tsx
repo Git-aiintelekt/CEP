@@ -6,7 +6,8 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { cepReady, insightsDashboardsNow, installMockApi, me, signIn } from '@/test/mockApi'
 import { ReportResult } from './components/ReportViews'
-import type { ReportView, RunResult } from './types'
+import { removeField } from './editor/definition'
+import type { ReportDefinition, ReportView, RunResult } from './types'
 import { guess, match } from './visuals/geo'
 import { squarify, waterfallSteps } from './visuals/layout'
 
@@ -99,6 +100,14 @@ test('a pivot of every value side by side, with a trend per row; small multiples
   const multiples = show(result, { type: 'chart', chart: 'bar', multiples: 'channel' })
   expect(multiples.container.querySelectorAll('[data-multiple]')).toHaveLength(2)
   expect(screen.getByText('One chart per Channel, all on one scale.')).toBeTruthy()
+})
+
+test('removing the value Key Influencers explains, or the dimension a chart repeats by, takes it out of the view', () => {
+  const definition: ReportDefinition = { columns: [{ field: 'channel' }, { field: 'campaign_name' }, { field: 'sent', aggregate: 'sum' }, { field: 'delivered', aggregate: 'sum' }],
+    view: { type: 'influencers', measure: 'delivered', multiples: 'campaign_name' } }
+  expect(removeField(definition, 'delivered').view).toEqual({ type: 'influencers', multiples: 'campaign_name' })
+  expect(removeField(definition, 'campaign_name').view).toEqual({ type: 'influencers', measure: 'delivered' })
+  expect(removeField(definition, 'sent').view).toEqual(definition.view)
 })
 
 test('the viewer: Analyse opens Key Influencers, then the Decomposition Tree splits by channel and lets AI pick the next field', async () => {

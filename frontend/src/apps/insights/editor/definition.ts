@@ -192,10 +192,16 @@ function removeColumn(definition: ReportDefinition, key: string): ReportDefiniti
   return { ...definition, columns: definition.columns.filter((column) => column.field !== key), orderBy: (definition.orderBy ?? []).filter((item) => item.field !== key) }
 }
 
-/** the field goes, and with it the spread across when it was that field, and its formatting */
+/** the field goes, and with it its formatting and any part of the view that named it: the spread across, the repeat by,
+ * the value Key Influencers or the Decomposition Tree analyses */
 export function removeField(definition: ReportDefinition, key: string): ReportDefinition {
   const next = pruneFormats(removeColumn(definition, key))
-  return next.view?.across === key ? { ...next, view: { ...next.view, across: undefined } } : next
+  if (!next.view) return next
+  const view = { ...next.view }
+  if (view.across === key) view.across = undefined
+  if (view.multiples === key) delete view.multiples
+  if (view.measure === key) delete view.measure
+  return { ...next, view }
 }
 
 export function viewOf(definition: ReportDefinition): ReportView {
