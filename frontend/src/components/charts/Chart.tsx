@@ -85,6 +85,8 @@ interface ChartProps {
   onContext?: (index: number, at: { x: number; y: number }) => void
   /** points of the first series to mark as unusual */
   flags?: ChartFlag[]
+  /** the top of the scale at least this high: small multiples read on one scale */
+  yMax?: number
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -187,7 +189,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext, flags = [] }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext, flags = [], yMax }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -208,7 +210,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const stackTotals = categories.map((_, index) => stackedBars.reduce((sum, item) => sum + Math.max(0, item.values[index] || 0), 0))
   const plotted = [...(stacked ? [...stackTotals, ...leftShown.filter((item) => markOf(item) !== 'bar').flatMap((item) => item.values)] : leftShown.flatMap((item) => item.values)), ...(reference?.values ?? [])].filter(Number.isFinite)
   const whole = plotted.every(Number.isInteger)
-  const ticks = niceTicks(Math.max(0, ...plotted), 4, whole)
+  const ticks = niceTicks(Math.max(0, yMax ?? 0, ...plotted), 4, whole && Number.isInteger(yMax ?? 0))
   const top = ticks.at(-1)!
   const left = Math.max(36, Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7.5 + 14)
   // a combo's other scale, read on the right

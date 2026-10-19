@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { ChangeResult, EmbedLink, Explanation, SqlStatements, UsageReport } from './types'
+import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
 export const insightsApi = {
@@ -28,6 +28,11 @@ export const insightsApi = {
   /** the statements the engine runs for a definition, the values written in (nothing runs) */
   sql: (body: { dataset: string; definition: ReportDefinition }) => api.post<SqlStatements>('/insights/reports/sql/', body),
   explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean } }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
+  /** Key Influencers and the Decomposition Tree, on a saved report or a draft */
+  influencers: (source: AnalysisSource, measure?: string) =>
+    api.post<InfluencersResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...('reportId' in source ? {} : source), kind: 'influencers', ...(measure ? { measure } : {}) }),
+  decompose: (source: AnalysisSource, body: { measure?: string; path: { field: string; value: unknown }[]; by?: string }) =>
+    api.post<DecomposeResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...('reportId' in source ? {} : source), kind: 'decompose', ...body }),
 }
 
 export const dashboardsApi = {

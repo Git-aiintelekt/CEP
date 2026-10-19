@@ -15,9 +15,10 @@ import { ApiError } from '@/lib/api'
 import { canDrill, deeper, throughable } from '../components/drill'
 import { DrillBar } from '../components/DrillBar'
 import { DrillThroughMenu, type ThroughTarget } from '../components/DrillThroughMenu'
+import { AiPill } from '../components/AskForReport'
 import { ReportResult } from '../components/ReportViews'
 import { formatCell } from '../components/resultWords'
-import type { DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SlicerSelection, TileResult } from '../types'
+import type { DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SlicerSelection, TileResult, ViewType } from '../types'
 import { activeSlicers, crossFilterable, SHOW_LABEL } from './layout'
 
 export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]) => Promise<TileResult>
@@ -116,5 +117,16 @@ function TileBody({ data, tile, onPick, onContext }: { data: TileResult; tile: D
       </div>
     )
   }
-  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} onContext={onContext} />
+  if (data.kind === 'summary') {
+    if (!data.summary) return <p className="flex min-h-24 items-center justify-center text-center text-sm text-ink-800">{data.detail ?? 'No summary yet.'}</p>
+    return (
+      <div className="flex flex-col gap-2 p-1">
+        <p className="text-sm text-ink-900">{data.summary}</p>
+        {data.points && data.points.length > 0 && <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-ink-900">{data.points.map((point, index) => <li key={index}>{point}</li>)}</ul>}
+        {data.caution && <p className="text-xs text-ink-800">{data.caution}</p>}
+        <p className="flex items-center gap-1.5 text-xs text-ink-700"><AiPill />{data.model ? `Written by ${data.model.label}` : 'Written by AI'} from {data.report.name}{data.cached ? ', kept from earlier today' : ''}. Check the figures before you act on them.</p>
+      </div>
+    )
+  }
+  return <ReportResult result={data.result} view={{ ...data.view, type: tile.show === 'figure' ? 'grid' : tile.show as ViewType }} label={`${tile.title || data.report.name} rows`} minHeight={200} onPick={onPick} onContext={onContext} />
 }

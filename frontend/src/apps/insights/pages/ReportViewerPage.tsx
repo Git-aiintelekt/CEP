@@ -62,6 +62,7 @@ export function ReportViewerPage() {
   const tabled = askedView?.type === 'pivot' || askedView?.type === 'hierarchy'
   const run = useRun(report.data ? id : undefined, {
     ...(askedView && tabled ? { view: { type: askedView.type, across: askedView.across } } : {}),
+    ...(askedView && charted && (askedView.chart === 'kpi' || askedView.chart === 'gauge') ? { view: { type: 'chart' as const, chart: askedView.chart } } : {}),
     ...((charted || tabled) && path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}),
     ...(through.length ? { through } : {}),
   })
@@ -221,7 +222,7 @@ export function ReportViewerPage() {
         <div className="flex flex-col gap-3">
           <ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} />
           {shownView.type !== 'grid' && run.data.drill && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}
-          <ReportResult result={run.data} view={shownView}
+          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string }}
             onPick={shownView.type !== 'grid' && canDrill(run.data.drill) ? (column, value) => { if (run.data?.drill && canDrill(run.data.drill, column)) setPath(deeper(run.data.drill, value)) } : undefined}
             onContext={(column: ResultColumn, value, at) => { if (throughable(column)) setMenu({ dataset: report.data.dataset, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id, name: report.data.name } }) }} />
         </div>

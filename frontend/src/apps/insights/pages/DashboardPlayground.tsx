@@ -102,7 +102,7 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
       sliced: channelSlice, drill: { levels: WEEKLY_LEVELS, path, depth: path.length } }
   }
   const has = view.result.columns.some((column) => column.key === 'channel')
-  return { kind: 'view', view: { type: tile.show === 'figure' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
+  return { kind: 'view', view: { type: tile.show === 'figure' || tile.show === 'summary' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
     report: report(tile.report_id, view.name), sliced: has ? channelSlice : [] }
 }
 

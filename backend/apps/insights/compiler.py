@@ -240,6 +240,8 @@ def totals_sets(definition: dict, view: dict | None) -> list[tuple[str, ...]] | 
         return None
     if view.get("type") == "hierarchy" and len(dims) >= 2:
         return [tuple(dims[:n]) for n in range(len(dims))]
+    if view.get("type") == "chart" and view.get("chart") in ("kpi", "gauge"):      # one figure: the whole period's total, worked out by the engine
+        return [()]
     if view.get("type") == "pivot" and view.get("across") in dims and len(dims) >= 2:
         across = view["across"]
         return [(), tuple(d for d in dims if d != across), (across,)]

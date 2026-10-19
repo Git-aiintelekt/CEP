@@ -371,3 +371,32 @@ returned once and only its sha256 is kept. The public address is `/embed/<worksp
 the address like a delivery webhook, the views are AllowAny with no authentication, a link answers 120 requests a minute,
 runs as its maker (who must still be active; their row access rules apply) with personal data always masked, counts its
 uses and records an embed opening. A revoked or expired link, or a gone item, is 404.
+
+## Chart kinds, the matrix, small multiples and the analysing views
+
+**Chart kinds** (`definition.CHART_KINDS`): scatter, bubble, treemap, waterfall, gauge, kpi and map join bar, line, area,
+pie, funnel, stacked, stacked100 and combo. They are drawn in the browser (`frontend/src/apps/insights/visuals/`) from the
+same rows. A KPI card or a gauge reads the engine's grand total (`compiler.totals_sets` asks for the `()` set for those
+two kinds; the run body's `view.chart` carries it when the viewer switches unsaved) and `view.target`. The map's shapes
+are generated once into `components/geo/shapes.ts` (us-atlas states in Albers USA, world-atlas countries in Natural Earth,
+ISO codes from world-countries) and load as their own chunk the first time a map is shown; `view.geo` (us, world) settles
+the geography when the field's name and the values do not.
+
+**The view's other settings**: `multiples` (a dimension of the report other than the one across: the chart repeated per
+value, up to 12, on one scale), `matrix` and `sparklines` (a pivot of every measure side by side, with a trend line per
+row), and `measure` (the value the analysing views read).
+
+**Key Influencers and the Decomposition Tree** (`analyze.py`, view types `influencers` and `decomposition`):
+`POST /insights/reports/<id>/analyze/` (a saved report) and `POST /insights/reports/analyze/` (a draft). Key Influencers runs
+the report's measure overall and grouped by each candidate dimension (the report's own first, then the dataset's, eight at
+most, without the dataset's key, a field fixed by an `=` rule, or personal data the person may not see; dates by month),
+reads a sum per row of the dataset's count, and keeps the segments furthest from the whole weighted by the square root of
+their share of the rows (at least 10 rows and 1%). The Decomposition Tree runs the measure under a path of chosen values
+split by a field; `auto_high` and `auto_low` try each field left and keep the one whose top or bottom part goes furthest.
+Every run goes through the runner: row access rules, masking, the engine's limits and the audit apply.
+
+**The written summary tile** (`dashboards.SHOWS` has `summary`): `tile_result(..., ai=True)` from the tile run (the viewer
+and the editor's preview) runs the tile's rows and asks the workspace's default model through `ai_report.written` (the same
+prompt as Explain This Report, recorded as a prompt of kind explain); the reply is kept six hours per report version,
+period, slicers and masking. The PDF, a delivery and an embed never ask a model: they show the kept summary or say there is
+none.

@@ -1340,6 +1340,22 @@ export function installMockApi(options: MockOptions = {}) {
       if (path.endsWith('/insights/embeds/')) return json({ ready: true, embeds: insightsEmbedsNow.filter((e) => e.item === new URL(url, 'http://test.local').searchParams.get('item')) })
       const embedOne = /\/insights\/embeds\/([\w-]+)\/$/.exec(path)
       if (embedOne && method === 'DELETE') { const found = insightsEmbedsNow.find((e) => e.id === embedOne[1]); if (found) found.revoked_at = '2026-10-19T09:05:00Z'; return new Response(null, { status: 204 }) }
+      if (path.endsWith('/insights/reports/analyze/') || /\/insights\/reports\/[\w-]+\/analyze\/$/.test(path)) {
+        const asked = body as { kind: string; measure?: string; path?: { field: string; value: unknown }[]; by?: string }
+        const column = { key: 'sent', label: 'Sent Count', type: 'number', format: 'integer', aggregate: 'sum' }
+        if (asked.kind === 'influencers') {
+          return json({ kind: 'influencers', measure: { field: 'sent', label: 'Sent Count per message', column: { ...column, format: 'decimal' } }, overall: 1.2, rows: 2000, points: false, explained_by: ['Campaign', 'Channel', 'Sent'],
+            higher: [{ field: 'channel', field_label: 'Channel', value: 'EMAIL', value_label: 'EMAIL', measure: 1.5, effect: 0.3, rows: 1800, share: 0.9, score: 0.28 }],
+            lower: [{ field: 'channel', field_label: 'Channel', value: 'SMS', value_label: 'SMS', measure: 0.4, effect: -0.8, rows: 200, share: 0.1, score: 0.21 }] })
+        }
+        const steps = asked.path ?? []
+        const base = { kind: 'decompose', measure: { field: 'sent', label: 'Sent Count', column }, total: steps.length ? 1500 : 2000, path: steps,
+          explain_by: [{ field: 'campaign_name', label: 'Campaign' }, { field: 'channel', label: 'Channel' }].filter((o) => !steps.some((st) => st.field === o.field)) }
+        if (!asked.by) return json(base)
+        const by = asked.by === 'auto_high' ? (steps.some((st) => st.field === 'campaign_name') ? 'channel' : 'campaign_name') : asked.by
+        const rows = by === 'channel' ? [{ value: 'EMAIL', label: 'EMAIL', measure: 1800 }, { value: 'SMS', label: 'SMS', measure: 200 }] : [{ value: 'Fall Launch', label: 'Fall Launch', measure: 1500 }, { value: 'Weekly Newsletter', label: 'Weekly Newsletter', measure: 500 }]
+        return json({ ...base, by, by_label: by === 'channel' ? 'Channel' : 'Campaign', rows, more: false, ...(asked.by.startsWith('auto') ? { chosen: asked.by } : {}) })
+      }
       if (path.endsWith('/insights/reports/sql/')) {
         return json({ note: 'The values are written in for reading; the engine sends them separately, and runs the statement read-only with a time limit.',
           statements: [{ label: 'Messages', dialect: 'postgresql', sql: 'SELECT "campaign_name" AS "c0", sum("sent_n") AS "c1" FROM "reporting"."rpt_messages" WHERE "tenant_id" = \'t-1\' GROUP BY 1 ORDER BY "c1" DESC NULLS LAST LIMIT 5000 OFFSET 0' }] })
@@ -1444,6 +1460,7 @@ export function installMockApi(options: MockOptions = {}) {
         const sliced = Object.entries(asked.slicers ?? {}).filter(([field, values]) => values.length && insightsResult.columns.some((c) => c.key === field && !('aggregate' in c)))
         const rows = insightsResult.rows.filter((row) => sliced.every(([field, values]) => values.some((v) => String(v) === String(row[insightsResult.columns.findIndex((c) => c.key === field)]))))
         const result = { ...insightsResult, rows, row_count: rows.length }
+        if (tile.show === 'summary') return json({ kind: 'summary', summary: 'Email carried nine in ten sends; Fall Launch led.', points: ['Text sends stayed small.'], caution: '', model: { label: 'Claude Sonnet 5.5' }, cached: false, bounds, report: about, sliced: [] })
         if (tile.show === 'figure') return json({ kind: 'figure', value: sliced.length ? rows.reduce((n, row) => n + Number(row[2]), 0) : 391520, previous: 361180, compared: asked.compare ?? found.compare, column: insightsResult.columns[2], own_dates: false, bounds, report: about, cached: false, sliced: sliced.map(([field]) => field) })
         // a chart tile drills: Campaign, then Channel; drilled into a campaign, its rows by channel
         const steps = (body as { drill?: { path: { field: string; value: unknown }[] } }).drill?.path ?? []

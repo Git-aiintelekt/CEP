@@ -41,7 +41,7 @@ from apps.delivery.engine import session
 from apps.tenants import context
 
 WIDTHS = {"1": 1, "2": 2, "3": 3, "4": 4, "2-1": 2}
-SHOWS = ("grid", "chart", "hierarchy", "pivot", "figure")
+SHOWS = ("grid", "chart", "hierarchy", "pivot", "figure", "summary")
 PRESETS = ("7d", "30d", "month", "quarter", "custom")
 MAX_ROWS, MAX_TILES = 20, 40
 MAX_SLICERS, SLICER_VALUES = 6, 200
@@ -242,7 +242,7 @@ def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
         for j, tile in enumerate(tiles):
             where = f"{at}.tiles[{j}]"
             if not isinstance(tile, dict) or not TILE_ID.match(str(tile.get("id", ""))) or tile.get("show") not in SHOWS:
-                raise ValidationError({where: "A tile has an id, a report and how to show it (grid, chart, hierarchy, pivot or figure)."})
+                raise ValidationError({where: "A tile has an id, a report and how to show it (grid, chart, hierarchy, pivot, figure or summary)."})
             if tile["id"] in ids:
                 raise ValidationError({where: "Tile ids are unique."})
             ids.add(tile["id"])
@@ -414,7 +414,7 @@ class DashboardView(APIView):
 
 
 def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: bool, mask: bool, limit: int = TILE_ROWS, slicers: dict | None = None,
-                drill_path: list | None = None) -> tuple[dict, int]:
+                drill_path: list | None = None, ai: bool = False) -> tuple[dict, int]:
     """One tile's payload and HTTP status, for the API, the PDF and a delivery: the figure with its previous period, or the
     rows in the tile's view; `slicers` ({field: [values]}) narrow it where the dataset has the field (`sliced` says which)."""
     dataset = catalog.dataset(tenant.pk, report["dataset_key"], True)
@@ -460,6 +460,8 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
             return {"kind": "figure", "value": now["rows"][0][0] if now["rows"] else None, "previous": previous["rows"][0][0] if previous and previous["rows"] else None,
                     "compared": previous is not None, "column": now["columns"][0], "own_dates": own_dates, "bounds": bounds, "report": about, "cached": now["cached"], "sliced": sliced}, 200
         definition = prepared(bounds["from"], bounds["to"])
+        if tile["show"] == "summary":
+            return _summary_tile(tenant, user, report, definition, dataset, bounds, about, sliced, mask, ai), 200
         view = {**(definition.get("view") or {}), "type": tile["show"]}
         result = runner.run(tenant, user, dataset, definition, "run", limit=min(int(limit), limits["run_rows"]), report_id=report["id"], report_version=report["version"], mask_pii=mask, totals_view=view)
         return {"kind": "view", "view": view, "result": result, "own_dates": own_dates, "bounds": bounds, "report": about, "sliced": sliced, **({"drill": levels} if levels else {})}, 200
@@ -467,6 +469,31 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
         return {"kind": "refused", "detail": str(exc), "outcome": "FAILED"}, 422
     except runner.RunRefused as exc:
         return {"kind": "refused", "detail": exc.reason, "outcome": exc.outcome}, 422
+
+
+def _summary_tile(tenant, user, report: dict, definition: dict, dataset: dict, bounds: dict, about: dict, sliced: list, mask: bool, ai: bool) -> dict:
+    """a few sentences from the AI on the tile's rows over the period, kept six hours per report version, period and slicers;
+    written on screen only (ai), a PDF or a delivery shows the kept one when there is one"""
+    from . import ai_report, analyze, assistant
+    key = analyze.summary_key(tenant.pk, report, {**definition, "masked": mask}, bounds)
+    kept = analyze.cached_summary(key)
+    base = {"kind": "summary", "bounds": bounds, "report": about, "sliced": sliced}
+    if kept:
+        return {**base, **kept, "cached": True}
+    if not ai:
+        return {**base, "summary": None, "detail": "The written summary is made when the dashboard is opened in Insights."}
+    try:
+        chosen, provider = ai_report.default_choice(tenant)
+        result = runner.run(tenant, user, dataset, definition, "run", limit=ai_report.EXPLAIN_ROWS, report_id=report["id"], report_version=report["version"], mask_pii=mask)
+        written = ai_report.written(tenant, getattr(user, "pk", None), chosen, provider, report["name"], dataset["label"], result)
+    except runner.RunRefused as exc:
+        return {"kind": "refused", "detail": exc.reason, "outcome": exc.outcome}
+    except assistant.AssistantError as exc:
+        return {"kind": "refused", "detail": str(exc), "outcome": "REFUSED"}
+    payload = {k: written[k] for k in ("summary", "points", "caution", "model", "rows_sent") if k in written}
+    if written.get("counted"):
+        analyze.keep_summary(key, payload)
+    return {**base, **payload, "cached": False}
 
 
 def _report_for(report_id: str, visible_where: str, args: list) -> dict | None:
@@ -527,7 +554,7 @@ class TileRunView(APIView):
         except drill.DrillError as exc:
             raise ValidationError({"drill": str(exc)}) from None
         payload, status_code = tile_result(tenant, request.user, report, tile, period, compare, not _can_see_pii(request), limit=int(body.get("limit") or TILE_ROWS),
-                                           slicers=_slicers_body(body.get("slicers")), drill_path=path)
+                                           slicers=_slicers_body(body.get("slicers")), drill_path=path, ai=True)
         return Response(payload, status=status_code)
 
 

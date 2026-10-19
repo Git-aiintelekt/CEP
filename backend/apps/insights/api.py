@@ -322,7 +322,8 @@ def _totals_view(request, definition: dict) -> dict | None:
         return None
     dims = [c["field"] for c in definition["columns"] if "aggregate" not in c]
     across = view.get("across")
-    return {"type": str(view.get("type") or "grid"), **({"across": across} if across in dims else {})}
+    return {"type": str(view.get("type") or "grid"), **({"across": across} if across in dims else {}),
+            **({"chart": view["chart"]} if view.get("chart") in ("kpi", "gauge") else {})}
 
 
 class PreviewView(APIView):

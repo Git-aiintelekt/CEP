@@ -23,7 +23,7 @@ import { columnWords, ruleWords } from '../editor/definition'
 import type { AskResult, AssistantModel, CatalogDataset, ReportSummary } from '../types'
 
 const MODEL_KEY = 'insights.ai.model'
-const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy' }
+const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy', influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
 
 function readModel(): string | null {
   try {

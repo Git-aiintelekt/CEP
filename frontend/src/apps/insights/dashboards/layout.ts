@@ -12,7 +12,8 @@ export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
 export const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' }, { value: 'custom', label: 'Custom' },
 ]
-export const SHOW_LABEL: Record<TileShow, string> = { grid: 'Grid', chart: 'Chart', hierarchy: 'Hierarchy', pivot: 'Pivot', figure: 'Figure' }
+export const SHOW_LABEL: Record<TileShow, string> = { grid: 'Grid', chart: 'Chart', hierarchy: 'Hierarchy', pivot: 'Pivot', figure: 'Figure', summary: 'Written Summary',
+  influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
 export const EMPTY_LAYOUT: DashboardLayout = { rows: [] }
 
 export function capacity(width: RowWidth): number {
