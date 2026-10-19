@@ -62,7 +62,7 @@ export function nextDates(last: string, bucket: Bucket, n = HORIZON): string[] {
       const date = new Date(Date.UTC(year, month - 1, day + step * (bucket === 'week' ? 7 : 1)))
       out.push(`${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`)
     } else {
-      const months = (bucket === 'month' ? 1 : bucket === 'quarter' ? 3 : 12) * step
+      const months = (bucket === 'month' ? 1 : bucket === 'quarter' || bucket === 'fiscal_quarter' ? 3 : 12) * step
       const index = year * 12 + month - 1 + months
       out.push(`${Math.floor(index / 12)}-${pad((index % 12) + 1)}-01`)
     }

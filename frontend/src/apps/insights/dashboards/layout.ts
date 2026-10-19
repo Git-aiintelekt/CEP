@@ -4,14 +4,22 @@
  * Also the period's bounds for display; the server computes the real ones in the workspace's zone.
  */
 import type { CatalogDataset, Dashboard, DashboardContainer, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerRange, SlicerSelection, TileShow } from '../types'
+import { fiscalQuarterStart, fiscalYearStart } from '../components/fiscal'
 
 export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
   { value: '1', label: 'One across', capacity: 1 }, { value: '2', label: 'Two across', capacity: 2 }, { value: '3', label: 'Three across', capacity: 3 },
   { value: '4', label: 'Four across', capacity: 4 }, { value: '2-1', label: 'Wide and narrow', capacity: 2 },
 ]
 export const PRESETS: { value: PeriodPreset; label: string }[] = [
-  { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' }, { value: 'custom', label: 'Custom' },
+  { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' },
+  { value: 'fquarter', label: 'Fiscal Quarter' }, { value: 'fyear', label: 'Fiscal Year' }, { value: 'custom', label: 'Custom' },
 ]
+
+/** the presets a workspace is offered: with a calendar year, This Year to date in place of the two fiscal ones */
+export function presetsFor(fiscalStart: number): { value: PeriodPreset; label: string }[] {
+  if (fiscalStart !== 1) return PRESETS
+  return PRESETS.filter((p) => p.value !== 'fquarter').map((p) => (p.value === 'fyear' ? { ...p, label: 'This Year' } : p))
+}
 export const SHOW_LABEL: Record<TileShow, string> = { grid: 'Grid', chart: 'Chart', hierarchy: 'Hierarchy', pivot: 'Pivot', figure: 'Figure', summary: 'Written Summary',
   influencers: 'Key Influencers', decomposition: 'Decomposition Tree', text: 'Text', button: 'Button' }
 export const EMPTY_LAYOUT: DashboardLayout = { rows: [] }
@@ -181,7 +189,7 @@ const day = (date: Date) => date.toISOString().slice(0, 10)
 const shift = (date: Date, days: number) => new Date(date.getTime() + days * 86_400_000)
 
 /** for display while the period is unsaved; the server's bounds (in the workspace's zone) win once a tile has run */
-export function periodBounds(period: Period, today = new Date()): PeriodBounds {
+export function periodBounds(period: Period, today = new Date(), fiscalStart = 1): PeriodBounds {
   const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
   let start = end
   switch (period.preset) {
@@ -189,6 +197,8 @@ export function periodBounds(period: Period, today = new Date()): PeriodBounds {
     case '30d': start = shift(end, -29); break
     case 'month': start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1)); break
     case 'quarter': start = new Date(Date.UTC(end.getUTCFullYear(), Math.floor(end.getUTCMonth() / 3) * 3, 1)); break
+    case 'fquarter': start = fiscalQuarterStart(end, fiscalStart); break
+    case 'fyear': start = fiscalYearStart(end, fiscalStart); break
     default: {
       const from = period.from ? new Date(`${period.from}T00:00:00Z`) : end
       const to = period.to ? new Date(`${period.to}T00:00:00Z`) : end

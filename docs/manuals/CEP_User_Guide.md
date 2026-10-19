@@ -2823,6 +2823,29 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. Choose the **Paper** (A4 or Letter) and the **Orientation**. Tick **A section per** the first field to start each value on a new page with its subtotals.
 3. Press **Download PDF**: every row (up to 20,000), the header row on each page, the filters on the first page, and Page 3 of 12 at the foot of each page.
 
+**Report on a CSV or Excel file (Uploaded Files)** (anyone who can build reports)
+
+1. Open Insights → **Uploaded Files** and press **Upload a File**, or drop the file on the page. The first row names the columns; in an Excel workbook the first sheet is read. Up to 100,000 rows, 50 columns and 20 MB; save an older .xls as .xlsx first.
+2. **Review the Columns** opens. Each column's type was read from its values: Text, Number, Date, Date and Time, or Yes or No. Rename a column under **Label**, make it **Text** if it is a code, and set a number to **A Dimension (Groups)** when it should group rather than add up, such as a year or a store number. The first values show beside each column.
+3. Give the dataset a **Name** and press **Save as Dataset**. New Report opens with your file picked under **Your Files**. It also offers **Upload a File**.
+4. Dates like 03/04/2026 are read with the day first when any day in the column is over 12, otherwise with the month first. A date and time with no zone is your workspace's time. Codes with leading zeros, such as 007, stay text.
+5. To refresh the rows, open the file's menu (the three dots) and choose **Replace File**. The new file must have the same column names, in any order, and the reports on it read the new rows at once. A file with reports built on it cannot be deleted.
+
+**Ask a question before a report runs (Parameters)**
+
+1. In the editor, press **Parameters**, then **Add Parameter**. Choose the **Field**, then how it is **Asked As**: Any of Several Values, One Value, At Least, At Most, A Range or The Last Few Days.
+2. Give it a **Label**, an optional **Default**, and tick **An Answer Is Required** if the report should not run without one. A report asks up to five questions. Press **Apply**, then **Save**.
+3. People opening the report see the questions above the rows. A text field offers its own values to pick from. They choose the answers and press **Run Report**. A required question with no answer and no default waits for one.
+4. The answers are kept in the page's address, so a link opens the report with them. Exports, the Print-Ready PDF and Explain use the answers too.
+5. A dashboard tile, a schedule or an alert runs the report with the defaults. A question with no default then leaves its filter out.
+
+**Set your fiscal year (Settings → Fiscal Year)** (workspace administrators)
+
+1. Open Settings → **Fiscal Year** and choose the month it **Starts In**, such as April. It saves at once.
+2. Choose whether to **Name a Fiscal Year By** the year it ends in (April 2026 to March 2027 is FY2027) or the year it starts in (FY2026). The page shows an example.
+3. In the editor, a date then also groups **by Fiscal Quarter** and **by Fiscal Year**, read as FY2027 Q1. Filters offer **in this fiscal year**, **in last fiscal year**, **in this fiscal quarter** and **in last fiscal quarter**.
+4. **Year to Date** and **Quarter to Date** comparisons count from the fiscal year's first day. Dashboards offer **Fiscal Quarter** and **Fiscal Year** periods (to date).
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.

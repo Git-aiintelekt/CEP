@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import access, catalog, clickhouse, compare, compiler, derived, external, links, topn
+from . import access, catalog, clickhouse, compare, compiler, derived, external, fiscal, links, parameters, topn
 from .catalog import engine_of
 from .definition import signature
 
@@ -74,8 +74,9 @@ def _json_safe(value):
 
 
 def _dialect_of(dataset: dict, engine: dict) -> str:
-    """a workspace's own dataset runs on its database, in that database's dialect; the platform's on the workspace's engine"""
-    return dataset["engine"] if dataset.get("external") else engine["dialect"]
+    """a workspace's own dataset runs on its database, in that database's dialect; an uploaded file on PostgreSQL, where its rows
+    are; the platform's on the workspace's engine"""
+    return dataset["engine"] if dataset.get("external") or dataset.get("upload") else engine["dialect"]
 
 
 def _execute(tenant_id, compiled: compiler.Compiled, timeout_ms: int, dialect: str = "postgresql", dataset: dict | None = None, zone: str | None = None) -> tuple[list, int]:
@@ -139,8 +140,9 @@ def _totals(tenant_id, dataset: dict, definition: dict, sets, zone: str, timeout
 
 
 def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int | None = None, offset: int = 0, report_id=None, report_version=None,
-        mask_pii: bool = False, totals_view: dict | None = None) -> dict:
-    """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view."""
+        mask_pii: bool = False, totals_view: dict | None = None, params: dict | None = None) -> dict:
+    """totals_view: the view to total for (a hierarchy or a pivot), else the definition's own view. params: the answers to the
+    report's parameters (apps/insights/parameters.py); without them, the defaults."""
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     try:                                                              # the person's row access rules, before anything else
@@ -148,12 +150,16 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     except access.AccessError as exc:
         raise RunRefused("REFUSED", str(exc)) from None
     dataset = derived.augment(dataset, definition)
-    if engine["status"] == "MIGRATING" and not dataset.get("external"):
+    definition = _bound(dataset, definition, params)
+    calendar_ = fiscal.settings_of(tenant)
+    definition = fiscal.prepared(tenant, definition)
+    if engine["status"] == "MIGRATING" and not dataset.get("external") and not dataset.get("upload"):
         raise RunRefused("REFUSED", "This workspace's reports are moving to a new engine; try again shortly.")
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
     page = min(limit or cap, cap)
     sets = None if definition.get("blend") else compiler.totals_sets(definition, totals_view or definition.get("view"))
-    sig = signature({**definition, "limit": page, "offset": offset, "totals": [list(s) for s in sets] if sets else None})
+    sig = signature({**definition, "limit": page, "offset": offset, "totals": [list(s) for s in sets] if sets else None,
+                     **({"_upload": dataset["upload"]["version"]} if dataset.get("upload") else {})})     # a replaced or reviewed file is new rows
     cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -192,14 +198,28 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     else:
         truncated = len(rows) > page
         rows = rows[:page]
-    columns, rows = mask(dataset, out_columns, rows, mask_pii)
+    columns, rows = mask(dataset, _fiscal_named(out_columns, calendar_), rows, mask_pii)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
     result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
               "freshness": "LIVE" if dataset.get("external") else engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {}),
               **({"source": dataset["database"]["name"]} if dataset.get("external") else {}), **({"access": limited} if limited else {}),
-              **({"linked": _linked_words(dataset, definition)} if definition.get("blend") else {})}
+              **({"upload": dataset["upload"]["file_name"]} if dataset.get("upload") else {}),
+              **({"linked": _linked_words(dataset, definition)} if definition.get("blend") else {}),
+              **({"parameters": parameters.words(definition)} if definition.get("_params") else {})}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
+
+
+def _bound(dataset: dict, definition: dict, params: dict | None) -> dict:
+    try:
+        return parameters.bind(dataset, definition, params)
+    except parameters.ParameterError as exc:
+        raise RunRefused("REFUSED", str(exc)) from None
+
+
+def _fiscal_named(columns: list[dict], calendar_: dict) -> list[dict]:
+    """a fiscal quarter's or year's column carries how the workspace names it (FY2027 Q1)"""
+    return [{**c, "fiscal": fiscal.label_of(calendar_)} if c.get("bucket") in fiscal.BUCKETS else c for c in columns]
 
 
 def _whole(definition: dict) -> bool:
@@ -283,7 +303,7 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
     reached = None
     if found and kinds & set(compare.REACH_BACK):                    # year and quarter to date, the moving average: rows from before the report's first date
         today = timezone.now().astimezone(ZoneInfo(zone)).date()
-        wide = compare.widened(definition, found[1], compare.reach_back(kinds, found[2]), today)
+        wide = compare.widened(definition, found[1], compare.reach_back(kinds, found[2], definition.get("_fiscal", 1)), today)
         if wide is not None:
             reached, _ = _execute(tenant_id, compiler.compile(dataset, wide, str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
     columns = compare.columns(dataset, definition, base_columns)
@@ -291,13 +311,14 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
     return columns, worked, int((time.monotonic() - started) * 1000), over
 
 
-def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False):
+def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False, params: dict | None = None):
     """The export: the rows in pages of 5,000 up to the export cap, as CSV text chunks, one audit row for the whole file."""
     try:
         definition, _ = access.restrict(tenant.pk, user, dataset, definition)
     except access.AccessError as exc:
         yield f"{exc}\n"                                              # the file says why it is empty
         return
+    definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
@@ -351,13 +372,15 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=total)
 
 
-def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False, kind: str = "export") -> tuple[list[dict], list[list], list[dict] | None]:
+def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False, kind: str = "export",
+              params: dict | None = None) -> tuple[list[dict], list[list], list[dict] | None]:
     """Every row up to the export cap, in pages, for a file built in memory (the Excel export), with the engine's totals when the
     definition's view has them; one audit row for the whole."""
     try:
         definition, _ = access.restrict(tenant.pk, user, dataset, definition)
     except access.AccessError as exc:
         raise RunRefused("REFUSED", str(exc)) from None
+    definition = fiscal.prepared(tenant, _bound(derived.augment(dataset, definition), definition, params))
     engine = engine_of(tenant.pk)
     limits = engine["limits"]
     zone = reports.zone_of(tenant).key
@@ -412,7 +435,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
         _release(slot)
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version,
            duration_ms=int((time.monotonic() - started) * 1000), row_count=len(out))
-    return columns or [], out, totals
+    return _fiscal_named(columns or [], fiscal.settings_of(tenant)), out, totals
 
 
 def touch_last_run(report_id) -> None:

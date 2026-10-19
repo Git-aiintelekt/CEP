@@ -24,11 +24,13 @@ import { SqlDialog } from '../components/SqlDialog'
 import { TooltipReportDialog } from '../editor/TooltipReportDialog'
 import { DetailReportDialog } from '../editor/DetailReportDialog'
 import { FormatDialog } from '../editor/FormatDialog'
+import { ParametersDialog } from '../editor/ParametersDialog'
+import { ParameterBar } from '../components/ParameterBar'
 import { runWords } from '../components/resultWords'
 import { dimensions, EMPTY, fieldOf, isComplete, setBlend, setView, viewOf, withCustom } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
-import type { ReportDefinition, RunResult } from '../types'
+import type { ParameterValues, ReportDefinition, RunResult } from '../types'
 
 type Layout = 'wells' | 'steps'
 const LAYOUT_KEY = 'insights.editor'
@@ -64,6 +66,8 @@ export function ReportEditorPage() {
   const [linking, setLinking] = useState(false)
   const [showSql, setShowSql] = useState(false)
   const [tooltipping, setTooltipping] = useState(false)
+  const [asking, setAsking] = useState(false)
+  const [answers, setAnswers] = useState<ParameterValues>({})
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
@@ -77,8 +81,8 @@ export function ReportEditorPage() {
   const settled = useDebounced(definition, 500)
 
   const preview = useQuery({
-    queryKey: ['insights', 'preview', report.data?.dataset, settled],
-    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: settled }),
+    queryKey: ['insights', 'preview', report.data?.dataset, settled, answers],
+    queryFn: () => insightsApi.preview({ dataset: report.data?.dataset as string, definition: settled, ...(settled.parameters?.length ? { params: answers } : {}) }),
     enabled: Boolean(dataset) && isComplete(dataset as never, settled) && settled.columns.length > 0,
     retry: false,
     placeholderData: (previous) => previous,
@@ -122,10 +126,13 @@ export function ReportEditorPage() {
         </span>
       </div>
       <ChangeWithPrompt dataset={report.data.dataset} definition={definition} onChange={setDraft} />
+      {(settled.parameters?.length ?? 0) > 0 && (
+        <ParameterBar key={JSON.stringify(settled.parameters)} dataset={report.data.dataset} fields={dataset.fields} parameters={settled.parameters ?? []} values={answers} onRun={setAnswers} running={preview.isFetching} />
+      )}
       {refused ? (
         <ErrorState title={refused.problem?.title ?? 'The preview did not run'} detail={refused.problem?.detail} shownFields={Object.keys(refused.problem?.errors ?? {})} onRetry={() => preview.refetch()} />
       ) : preview.data ? (
-        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} analysis={{ dataset: report.data.dataset, definition: settled }} />
+        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} analysis={{ dataset: report.data.dataset, definition: settled, ...(settled.parameters?.length ? { params: answers } : {}) }} />
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}
@@ -136,6 +143,8 @@ export function ReportEditorPage() {
       {customs && base && <CustomFieldsDialog dataset={base} definition={definition} onChange={setDraft} onClose={() => setCustoms(false)} />}
       {detail && <DetailReportDialog dataset={dataset} fields={definition.drillthrough ?? []} onClose={() => setDetail(false)}
         onApply={(fields) => { const { drillthrough: _old, ...rest } = definition; setDraft(fields.length ? { ...rest, drillthrough: fields } : rest); setDetail(false) }} />}
+      {asking && <ParametersDialog dataset={dataset} parameters={definition.parameters ?? []} onClose={() => setAsking(false)}
+        onApply={(parameters) => { const { parameters: _old, ...rest } = definition; setDraft(parameters.length ? { ...rest, parameters } : rest); setAnswers({}); setAsking(false) }} />}
       {formatting && <FormatDialog dataset={dataset} definition={definition} formats={viewOf(definition).formats ?? []} onClose={() => setFormatting(false)}
         onApply={(formats) => { const { formats: _old, ...rest } = viewOf(definition); setDraft(setView(definition, formats.length ? { ...rest, formats } : rest)); setFormatting(false) }} />}
     </div>
@@ -152,6 +161,7 @@ export function ReportEditorPage() {
         <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>
         {(base?.links?.length ?? 0) > 0 && <button type="button" className={buttonSecondary} onClick={() => setLinking(true)}>Linked Measures{definition.blend?.columns.length ? ` · ${definition.blend.columns.length}` : ''}</button>}
         {viewOf(definition).type === 'chart' && axis && <button type="button" className={buttonSecondary} onClick={() => setTooltipping(true)}>Tooltip Report{viewOf(definition).tooltip ? ' · 1' : ''}</button>}
+        <button type="button" className={buttonSecondary} onClick={() => setAsking(true)}>Parameters{definition.parameters?.length ? ` · ${definition.parameters.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>

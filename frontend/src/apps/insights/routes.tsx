@@ -15,6 +15,7 @@ const ReportEditorPage = lazy(() => import('./pages/ReportEditorPage').then((m) 
 const DashboardEditorPage = lazy(() => import('./pages/DashboardEditorPage').then((m) => ({ default: m.DashboardEditorPage })))
 const QueryBuilderPage = lazy(() => import('./pages/QueryBuilderPage').then((m) => ({ default: m.QueryBuilderPage })))
 const UsagePage = lazy(() => import('./pages/UsagePage').then((m) => ({ default: m.UsagePage })))
+const UploadsPage = lazy(() => import('./pages/UploadsPage').then((m) => ({ default: m.UploadsPage })))
 const later = (page: ReactNode) => <Suspense fallback={<Spinner label="Loading" />}>{page}</Suspense>
 import { ReportViewerPage } from './pages/ReportViewerPage'
 import { RunLogPage } from './pages/RunLogPage'
@@ -35,6 +36,7 @@ export default function InsightsRoutes() {
         <Route path="dashboards/:id/edit" element={later(<DashboardEditorPage />)} />
         <Route path="runs" element={<RunLogPage />} />
         <Route path="usage" element={later(<UsagePage />)} />
+        <Route path="uploads" element={later(<UploadsPage />)} />
         <Route path="scheduled" element={<ScheduledPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

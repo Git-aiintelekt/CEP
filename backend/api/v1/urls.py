@@ -8,6 +8,9 @@ from apps.insights import databases as insights_databases
 from apps.insights import access as insights_access
 from apps.insights import ai_report as insights_ai
 from apps.insights import alerts as insights_alerts
+from apps.insights import fiscal as insights_fiscal
+from apps.insights import parameters as insights_parameters
+from apps.insights import uploads as insights_uploads
 from apps.insights import analyze as insights_analyze
 from apps.insights import comments as insights_comments
 from apps.insights import embeds as insights_embeds
@@ -54,6 +57,7 @@ urlpatterns = [
     path("auth/support-session/end/", auth_api.SupportSessionEndView.as_view(), name="support_session_end"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("workspace/usage/", workspace_api.UsageView.as_view(), name="workspace_usage"),
+    path("workspace/fiscal-year/", insights_fiscal.FiscalYearView.as_view(), name="workspace_fiscal_year"),
     path("workspace/invoices/", workspace_api.InvoicesView.as_view(), name="workspace_invoices"),
     path("workspace/security/", workspace_api.SecurityView.as_view(), name="workspace_security"),
     path("workspace/support-access/", workspace_api.SupportAccessView.as_view(), name="workspace_support_access"),
@@ -184,6 +188,10 @@ urlpatterns = [
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),
     path("insights/usage/", insights_usage.UsageView.as_view(), name="insights-usage"),
+    path("insights/uploads/", insights_uploads.UploadsView.as_view(), name="insights-uploads"),
+    path("insights/uploads/<uuid:upload_id>/", insights_uploads.UploadView.as_view(), name="insights-upload"),
+    path("insights/uploads/<uuid:upload_id>/replace/", insights_uploads.UploadReplaceView.as_view(), name="insights-upload-replace"),
+    path("insights/parameters/values/", insights_parameters.ParameterValuesView.as_view(), name="insights-parameter-values"),
     path("insights/alerts/", insights_alerts.AlertsView.as_view(), name="insights-alerts"),
     path("insights/alerts/<uuid:alert_id>/", insights_alerts.AlertView.as_view(), name="insights-alert"),
     path("insights/alerts/<uuid:alert_id>/check/", insights_alerts.AlertCheckView.as_view(), name="insights-alert-check"),

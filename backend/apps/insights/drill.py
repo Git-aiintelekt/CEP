@@ -13,8 +13,9 @@ from datetime import date, timedelta
 
 from .compare import TIMED, add_months
 
-CHAIN = {"year": ["year", "quarter", "month", "day"], "quarter": ["quarter", "month", "day"], "month": ["month", "day"], "week": ["week", "day"], "day": ["day"]}
-BUCKET_WORDS = {"day": "Day", "week": "Week", "month": "Month", "quarter": "Quarter", "year": "Year"}
+CHAIN = {"year": ["year", "quarter", "month", "day"], "quarter": ["quarter", "month", "day"], "month": ["month", "day"], "week": ["week", "day"], "day": ["day"],
+         "fiscal_year": ["fiscal_year", "fiscal_quarter", "month", "day"], "fiscal_quarter": ["fiscal_quarter", "month", "day"]}
+BUCKET_WORDS = {"day": "Day", "week": "Week", "month": "Month", "quarter": "Quarter", "year": "Year", "fiscal_quarter": "Fiscal Quarter", "fiscal_year": "Fiscal Year"}
 MAX_PATH = 8
 
 
@@ -84,8 +85,10 @@ def bucket_end(start: date, bucket: str) -> date:
         return start + timedelta(days=6)
     if bucket == "month":
         return start.replace(day=calendar.monthrange(start.year, start.month)[1])
-    if bucket == "quarter":
+    if bucket in ("quarter", "fiscal_quarter"):
         return add_months(start.replace(day=1), 3) - timedelta(days=1)
+    if bucket == "fiscal_year":
+        return add_months(start.replace(day=1), 12) - timedelta(days=1)
     return date(start.year, 12, 31)
 
 

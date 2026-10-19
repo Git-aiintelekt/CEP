@@ -33,7 +33,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.insights import access, catalog, drill, runner
+from apps.insights import access, catalog, drill, fiscal, runner
 from apps.insights.api import VIEW, _can_see_pii, _has, _q, _report_row, _tenant, _visible_sql, favourite_sql
 from apps.insights.definition import DefinitionError, validate
 from apps.reporting import reports
@@ -47,7 +47,7 @@ BUTTON_ACTIONS = ("view", "page", "report")
 THEMES = ("default", "navy", "earth", "berry", "greyscale")
 GRID_COLUMNS, MAX_CELL_ROW, MAX_CELL_HEIGHT = 12, 200, 12
 MAX_TEXT, MAX_LABEL = 4000, 60
-PRESETS = ("7d", "30d", "month", "quarter", "custom")
+PRESETS = ("7d", "30d", "month", "quarter", "fquarter", "fyear", "custom")
 MAX_ROWS, MAX_TILES = 20, 40
 MAX_SLICERS, SLICER_VALUES = 6, 200
 SLICER_TYPES = ("string", "boolean", "number")
@@ -62,8 +62,9 @@ def _json(value):
 
 
 # ---------------------------------------------------------------------------------------------------- the period
-def period_bounds(period: dict, today: date) -> dict:
-    """The period's first and last day, and the period of the same length just before it."""
+def period_bounds(period: dict, today: date, fiscal_start: int = 1) -> dict:
+    """The period's first and last day, and the period of the same length just before it. fquarter and fyear run from the start
+    of the workspace's fiscal quarter or year to today."""
     preset = period.get("preset", "30d")
     if preset == "7d":
         start, end = today - timedelta(days=6), today
@@ -73,6 +74,10 @@ def period_bounds(period: dict, today: date) -> dict:
         start, end = today.replace(day=1), today
     elif preset == "quarter":
         start, end = date(today.year, ((today.month - 1) // 3) * 3 + 1, 1), today
+    elif preset == "fquarter":
+        start, end = fiscal.quarter_start(today, fiscal_start), today
+    elif preset == "fyear":
+        start, end = fiscal.year_start(today, fiscal_start), today
     else:
         start, end = date.fromisoformat(period["from"]), date.fromisoformat(period["to"])
     days = (end - start).days + 1
@@ -84,7 +89,7 @@ def _period(raw) -> dict:
     if raw is None:
         return {"preset": "30d"}
     if not isinstance(raw, dict) or raw.get("preset") not in PRESETS:
-        raise ValidationError({"period": "Use 7d, 30d, month, quarter or custom."})
+        raise ValidationError({"period": "Use 7d, 30d, month, quarter, fquarter, fyear or custom."})
     out = {"preset": raw["preset"]}
     if raw["preset"] == "custom":
         try:
@@ -370,13 +375,17 @@ def _may_edit(request, row: dict) -> bool:
     return _has(request, "report.admin") or (_has(request, "report.edit") and (str(row.get("owner_user_id")) == str(request.user.pk) or bool(row.get("shared_edit"))))
 
 
-def _serialize(row: dict, request, today: date) -> dict:
+def _serialize(row: dict, request, tenant) -> dict:
     period = _json(row["period"])
     return {"id": row["id"], "name": row["name"], "description": row["description"], "visibility": row["visibility"], "period": period, "compare": bool(row["compare"]),
             "layout": _json(row["layout"]), "version": row["version"], "row_version": row["row_version"], "owner_user_id": row["owner_user_id"],
             "owner_name": row["owner_name"], "created_at": row["created_at"], "updated_at": row["updated_at"], "can_edit": _may_edit(request, row),
             "can_share": _has(request, "report.admin") or str(row.get("owner_user_id")) == str(request.user.pk), "shared": bool(row.get("shared")),
-            "bounds": period_bounds(period, today)}
+            "bounds": bounds_for(tenant, period)}
+
+
+def bounds_for(tenant, period: dict) -> dict:
+    return period_bounds(period, _today(tenant), fiscal.settings_of(tenant)["start"])
 
 
 def _today(tenant) -> date:
@@ -420,7 +429,7 @@ class DashboardListView(APIView):
             dashboard_id = rows[0]["id"]
             _q("INSERT INTO dashboard_version (tenant_id, dashboard_id, version, layout, period, note, changed_by) VALUES (%s, %s, 1, %s, %s, %s, %s)",
                [tenant_id, dashboard_id, json.dumps(layout), json.dumps(period), "Created", user_id])
-        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _today(_tenant())), status=status.HTTP_201_CREATED)
+        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _tenant()), status=status.HTTP_201_CREATED)
 
 
 class DashboardView(APIView):
@@ -428,7 +437,7 @@ class DashboardView(APIView):
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None, dashboard_id=None):
-        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _today(_tenant())))
+        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _tenant()))
 
     @extend_schema(responses={200: None})
     def put(self, request, version=None, dashboard_id=None):
@@ -459,7 +468,7 @@ class DashboardView(APIView):
             if changed:
                 _q("INSERT INTO dashboard_version (tenant_id, dashboard_id, version, layout, period, note, changed_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                    [tenant_id, str(dashboard_id), new_version, json.dumps(layout), json.dumps(period), (str(body.get("note") or "")[:300] or None), user_id])
-        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _today(_tenant())))
+        return Response(_serialize(_dashboard_row(dashboard_id, request), request, _tenant()))
 
     @extend_schema(responses={204: None})
     def delete(self, request, version=None, dashboard_id=None):
@@ -479,7 +488,7 @@ def tile_result(tenant, user, report: dict, tile: dict, period: dict, compare: b
     if dataset is None:
         return {"kind": "missing", "detail": "The report's dataset is not available in this workspace."}, 200
     raw = _json(report["definition"])
-    bounds = period_bounds(period, _today(tenant))
+    bounds = bounds_for(tenant, period)
     time_field = dataset.get("time_field")
     own_dates = bool(time_field) and _has_time_rule(raw.get("filters"), time_field)
     limits = catalog.engine_of(tenant.pk)["limits"]
@@ -575,7 +584,6 @@ def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: 
 def dashboard_document(tenant, user, row: dict, *, visible_where: str, visible_args: list, mask: bool, fmt: str = "pdf") -> bytes:
     """Every tile on the dashboard's saved period, as a PDF or a PowerPoint deck (apps/insights/slides.py)."""
     from apps.insights import pdf, slides
-    from apps.insights.dashboards import period_bounds as _bounds
     layout, period, compare = _json(row["layout"]), _json(row["period"]), bool(row["compare"])
     tiles = []
     for tile in _tiles(layout):
@@ -590,7 +598,7 @@ def dashboard_document(tenant, user, row: dict, *, visible_where: str, visible_a
             continue
         payload, _status = tile_result(tenant, user, report, tile, period, compare, mask, limit=TILE_ROWS)
         tiles.append({"title": _paged(tile, tile_title(tile, report)), **payload})
-    bounds = _bounds(period, _today(tenant))
+    bounds = bounds_for(tenant, period)
     start, end = date.fromisoformat(bounds["from"]), date.fromisoformat(bounds["to"])
     period_words = f"{start.strftime('%d %b %Y').lstrip('0')} – {end.strftime('%d %b %Y').lstrip('0')}"
     today = _today(tenant)
@@ -640,7 +648,7 @@ class SlicerValuesView(APIView):
         body = request.data if isinstance(request.data, dict) else {}
         key = str(body.get("field") or "")
         period = _period(body["period"]) if body.get("period") is not None else _json(row["period"])
-        bounds = period_bounds(period, _today(tenant))
+        bounds = bounds_for(tenant, period)
         report_ids = list({t["report_id"] for t in report_tiles(_json(row["layout"]))})
         where_sql, args = _visible_sql(request)
         dataset_keys = [r["dataset_key"] for r in _q(f"SELECT DISTINCT r.dataset_key FROM report r WHERE r.id::text = ANY(%s) AND r.deleted_at IS NULL AND {where_sql}", [report_ids, *args])] if report_ids else []

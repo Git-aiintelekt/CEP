@@ -74,6 +74,9 @@ def _date_words(column: dict, value) -> str:
     except ValueError:
         return text
     bucket = column.get("bucket")
+    if bucket in ("fiscal_quarter", "fiscal_year"):
+        from .fiscal import name
+        return name(d, bucket, column.get("fiscal"))
     if bucket == "month":
         return d.strftime("%b %Y")
     if bucket == "quarter":

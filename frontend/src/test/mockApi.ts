@@ -173,6 +173,24 @@ export const insightsEmbedsNow: { id: string; label: string | null; created_at: 
 export const insightsViewsNow: { id: string; name: string; state: Record<string, unknown>; shared: boolean; owner_name: string; mine: boolean; updated_at: string }[] = []
 /** merged into every saved report's run, for a test that needs more of it (the access note) */
 export const insightsRunExtras: Record<string, unknown> = {}
+/** fiscal calendars, parameters and uploaded files as the mock keeps them */
+export const fiscalYearNow = { start: 1, named_by: 'end' as 'end' | 'start' }
+/** a saved report that asks for a Channel before it runs (GET /insights/reports/rep-asked/) */
+export const askedParameters = [{ key: 'channel', label: 'Channel', field: 'channel', operator: 'in' as const, required: true }]
+type MockUpload = { id: string; key: string; name: string; description: string | null; file_name: string; file_kind: 'csv' | 'xlsx'; row_count: number; status: 'DRAFT' | 'READY'; created_at: string; updated_at: string;
+  replaced_at: string | null; row_version: number; reports: number; sample: Record<string, unknown>[];
+  columns: { key: string; label: string; column: string; source: string; type: string; inferred: string; types: string[]; role: 'dimension' | 'measure' }[] }
+export const insightsUploadsNow: MockUpload[] = []
+function mockUpload(fileName: string): MockUpload {
+  return { id: `upl-${insightsUploadsNow.length + 1}`, key: 'upl_store_sales', name: fileName.replace(/\.(csv|xlsx)$/i, '').replace(/[-_]+/g, ' '), description: null, file_name: fileName, file_kind: fileName.endsWith('.xlsx') ? 'xlsx' : 'csv',
+    row_count: 3, status: 'DRAFT', created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z', replaced_at: null, row_version: 1, reports: 0,
+    columns: [
+      { key: 'store', label: 'Store', column: 'c1', source: 'Store', type: 'string', inferred: 'string', types: ['string'], role: 'dimension' },
+      { key: 'sales', label: 'Sales', column: 'c2', source: 'Sales', type: 'number', inferred: 'number', types: ['number', 'string'], role: 'measure' },
+      { key: 'opened', label: 'Opened', column: 'c3', source: 'Opened', type: 'date', inferred: 'date', types: ['date', 'string'], role: 'dimension' },
+    ],
+    sample: [{ c1: 'Downtown', c2: 1234.5, c3: '2026-10-19' }, { c1: 'Mall', c2: 12, c3: '2026-04-03' }, { c1: 'Airport', c2: 88 }] }
+}
 const BOUNDS_7D = { from: '2026-10-09', to: '2026-10-15', previous_from: '2026-10-02', previous_to: '2026-10-08' }
 
 /** the engine's totals for a view, summed from the rows (the mock's engine): hierarchy prefixes, or the pivot's rows, columns and the whole */
@@ -858,6 +876,8 @@ export function installMockApi(options: MockOptions = {}) {
   insightsViewsNow.splice(0, insightsViewsNow.length)
   insightsOpenedNow.splice(0, insightsOpenedNow.length)
   insightsAlertsNow.splice(0, insightsAlertsNow.length)
+  insightsUploadsNow.splice(0, insightsUploadsNow.length)
+  Object.assign(fiscalYearNow, { start: 1, named_by: 'end' })
   insightsCommentsNow.splice(0, insightsCommentsNow.length)
   insightsEmbedsNow.splice(0, insightsEmbedsNow.length)
   insightsRowRulesNow.splice(0, insightsRowRulesNow.length, { id: 'rule-1', dataset: 'messages', dataset_label: 'Messages', field: 'channel', field_label: 'Channel', broken: false,
@@ -1241,6 +1261,10 @@ export function installMockApi(options: MockOptions = {}) {
       if (provider?.own) provider.own = { ...provider.own, last_check_ok: true, last_checked_at: '2026-10-16T10:00:00Z', last_check_error: null }
       return json({ ok: true, detail: 'Connected. gpt-5, gpt-5-mini available.' })
     }
+    if (path.endsWith('/workspace/fiscal-year/')) {
+      if (method === 'PUT') Object.assign(fiscalYearNow, body as object)
+      return json({ ...fiscalYearNow, months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] })
+    }
     if (path.endsWith('/workspace/ai-assistant/')) {
       if (method === 'PUT') {
         const put = (body ?? {}) as Record<string, unknown>
@@ -1324,7 +1348,38 @@ export function installMockApi(options: MockOptions = {}) {
       }
     }
     if (path.includes('/insights/')) {
-      if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
+      if (path.endsWith('/insights/catalog/')) {
+        const files = insightsUploadsNow.filter((u) => u.status === 'READY').map((u) => ({ key: u.key, label: u.name, description: `Uploaded from ${u.file_name}`, component: { key: 'cep', name: 'Engagement' }, primary_key: null,
+          time_field: 'opened', freshness: 'LIVE', kind: 'upload', upload: { id: u.id, file_name: u.file_name, row_count: u.row_count, updated_at: u.updated_at },
+          fields: [...u.columns.map((c) => ({ key: c.key, label: c.label, type: c.type, role: c.role, aggregates: c.role === 'measure' ? ['sum', 'avg', 'min', 'max', 'count'] : [], operators: ['='], buckets: [], format: null, sensitivity: 'NORMAL' })),
+            { key: 'rows', label: 'Rows', type: 'number', role: 'measure', aggregates: ['count'], operators: ['>'], buckets: [], format: 'integer', sensitivity: 'NORMAL' }] }))
+        return json({ ...insightsCatalog, datasets: [...insightsCatalog.datasets, ...files] })
+      }
+      if (path.endsWith('/insights/parameters/values/') && method === 'POST') {
+        const field = (body as { field: string }).field
+        return json(field === 'channel' ? { field, label: 'Channel', values: ['EMAIL', 'SMS'], choosable: true, more: false } : { field, values: [], choosable: false })
+      }
+      if (path.endsWith('/insights/uploads/') && method === 'POST') {
+        const file = (init.body as FormData).get('file') as File
+        if (/\.xls$/i.test(file.name)) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { file: 'This is an older Excel file. Save it as .xlsx (Excel Workbook) or .csv and upload it again.' } }, 400)
+        const made = mockUpload(file.name)
+        insightsUploadsNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/uploads/')) return json({ ready: true, uploads: insightsUploadsNow.map(({ sample: _s, ...u }) => u), limits: { bytes: 20971520, rows: 100000, columns: 50 } })
+      const uploadOne = /\/insights\/uploads\/([\w-]+)\/(replace\/)?$/.exec(path)
+      if (uploadOne) {
+        const found = insightsUploadsNow.find((u) => u.id === uploadOne[1])
+        if (!found) return json({ detail: 'No such file.' }, 404)
+        if (uploadOne[2]) { const file = (init.body as FormData).get('file') as File; Object.assign(found, { file_name: file.name, row_count: 5, replaced_at: '2026-10-19T10:00:00Z', row_version: found.row_version + 1 }); return json(found) }
+        if (method === 'DELETE') { insightsUploadsNow.splice(insightsUploadsNow.indexOf(found), 1); return new Response(null, { status: 204 }) }
+        if (method === 'PUT') {
+          const put = body as { name?: string; description?: string | null; ready?: boolean; columns?: { key: string; label: string; type: string; role: 'dimension' | 'measure' }[] }
+          Object.assign(found, { name: put.name ?? found.name, description: put.description ?? null, status: put.ready ? 'READY' : found.status, row_version: found.row_version + 1,
+            columns: found.columns.map((c) => ({ ...c, ...(put.columns?.find((p) => p.key === c.key) ?? {}) })) })
+        }
+        return json(found)
+      }
       if (path.endsWith('/insights/assistant/')) return json({ ...insightsAssistantNow, explain: { enabled: workspaceAssistantNow.explain, model: { id: assistantModels[0].id, label: assistantModels[0].label, provider_name: assistantModels[0].provider_name } } })
       if (path.endsWith('/insights/alerts/') && method === 'POST') {
         const posted = body as { report_id: string; measure: string; op: string; threshold: number; every: string; at_time?: string; recipients: string[]; name?: string }
@@ -1633,6 +1688,11 @@ export function installMockApi(options: MockOptions = {}) {
       }
       if (/\/insights\/reports\/[\w-]+\/run\/$/.test(path) && method === 'POST') {
         const permissions: string[] = options.me?.principal?.permissions ?? me.principal.permissions
+        const asked = (body as { params?: { channel?: string[] } } | null)?.params
+        if (path.includes('/rep-asked/')) {                                                // the report that asks: its rows on the channels chosen
+          const rows = insightsResult.rows.filter((row) => (asked?.channel ?? []).includes(row[1] as string))
+          return json({ ...insightsResult, rows, row_count: rows.length, parameters: [{ key: 'channel', label: 'Channel', value: asked?.channel ?? [] }] })
+        }
         const opened = (body as { through?: { field: string; value: unknown }[] } | null)?.through ?? []
         if (opened.length) {                                                              // opened through a value of another report: its rows narrowed to it
           const at = insightsResult.columns.findIndex((c) => c.key === opened[0].field)
@@ -1670,6 +1730,7 @@ export function installMockApi(options: MockOptions = {}) {
         const id = path.split('/').at(-2)
         const found = insightsReportsNow.find((r) => r.id === id)
         if (id === 'rep-detail') return json({ ...insightsReport, id: 'rep-detail', name: 'Campaigns for a Channel', definition: { ...insightsReport.definition, drillthrough: ['channel'] }, can_edit: true, can_share: true })
+        if (id === 'rep-asked') return json({ ...insightsReport, id: 'rep-asked', name: 'Sends for a Channel', definition: { ...insightsReport.definition, parameters: askedParameters }, can_edit: true, can_share: true })
         return found ? json({ ...insightsReport, id: found.id, name: found.name, dataset: found.dataset, can_edit: true, can_share: true, shared: Boolean(insightsSharesNow[`reports:${found.id}`]?.length) }) : json({ detail: 'No such report.' }, 404)
       }
     }

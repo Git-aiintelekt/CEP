@@ -2,14 +2,16 @@
 import { TextInput } from '@/components/Form'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { Switch } from '@/components/Switch'
+import { useFiscalYear } from '../api'
 import type { Period, PeriodBounds, PeriodPreset } from '../types'
-import { periodBounds, periodWords, PRESETS } from './layout'
+import { periodBounds, periodWords, presetsFor } from './layout'
 
 export function PeriodBar({ period, onPeriod, compare, onCompare, bounds }: { period: Period; onPeriod: (next: Period) => void; compare: boolean; onCompare: (next: boolean) => void; bounds?: PeriodBounds }) {
-  const shown = bounds ?? periodBounds(period)
+  const start = useFiscalYear().data?.start ?? 1
+  const shown = bounds ?? periodBounds(period, new Date(), start)
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <SegmentedControl label="Period" options={PRESETS} value={period.preset} onChange={(preset: PeriodPreset) => onPeriod(preset === 'custom' ? { preset, from: shown.from, to: shown.to } : { preset })} />
+      <SegmentedControl label="Period" options={presetsFor(start)} value={period.preset} onChange={(preset: PeriodPreset) => onPeriod(preset === 'custom' ? { preset, from: shown.from, to: shown.to } : { preset })} />
       {period.preset === 'custom' && (
         <span className="flex items-center gap-1.5 text-xs text-ink-800">
           <span className="w-36"><TextInput aria-label="From" type="date" controlSize="sm" value={period.from ?? ''} max={period.to} onChange={(event) => onPeriod({ ...period, from: event.target.value })} /></span>

@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor } from './types'
+import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, FiscalYear, ParameterChoices, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
@@ -19,25 +19,53 @@ export const insightsApi = {
   remove: (id: string) => api.delete(`/insights/reports/${id}/`),
   versions: (id: string, signal?: AbortSignal) => api.get<{ versions: ReportVersion[] }>(`/insights/reports/${id}/versions/`, undefined, signal),
   restore: (id: string, version: number) => api.post<Report>(`/insights/reports/${id}/versions/${version}/restore/`, {}),
-  preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number; view?: ReportView }) => api.post<RunResult>('/insights/reports/preview/', body),
+  /** params: the answers to the report's parameters */
+  preview: (body: { dataset: string; definition: ReportDefinition; limit?: number; offset?: number; view?: ReportView; params?: ParameterValues }) => api.post<RunResult>('/insights/reports/preview/', body),
   /** drill: the values clicked at the levels above the one to run */
-  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[] } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
+  run: (id: string, body: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues } = {}) => api.post<RunResult>(`/insights/reports/${id}/run/`, body),
   exportUrl: (id: string) => `/insights/reports/${id}/export.csv`,
-  exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
-  exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
-  exportPdf: (id: string) => api.download(`/insights/reports/${id}/export.pdf`),
-  exportPptx: (id: string) => api.download(`/insights/reports/${id}/export.pptx`),
+  exportCsv: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.csv`, answersQuery(params)),
+  exportXlsx: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.xlsx`, answersQuery(params)),
+  exportPdf: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.pdf`, answersQuery(params)),
+  exportPptx: (id: string, params?: ParameterValues) => api.download(`/insights/reports/${id}/export.pptx`, answersQuery(params)),
   /** the print-ready PDF: every row, the paper and the way round, a section per value of the first field */
-  exportPrint: (id: string, options: { size: 'a4' | 'letter'; orientation: 'portrait' | 'landscape'; group: boolean }) =>
-    api.download(`/insights/reports/${id}/export.pdf?layout=print&size=${options.size}&orientation=${options.orientation}${options.group ? '&group=1' : ''}`),
+  exportPrint: (id: string, options: { size: 'a4' | 'letter'; orientation: 'portrait' | 'landscape'; group: boolean }, params?: ParameterValues) =>
+    api.download(`/insights/reports/${id}/export.pdf`, { layout: 'print', size: options.size, orientation: options.orientation, ...(options.group ? { group: '1' } : {}), ...answersQuery(params) }),
   /** the statements the engine runs for a definition, the values written in (nothing runs) */
   sql: (body: { dataset: string; definition: ReportDefinition }) => api.post<SqlStatements>('/insights/reports/sql/', body),
-  explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean } }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
+  explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean }; params?: ParameterValues }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
   /** Key Influencers and the Decomposition Tree, on a saved report or a draft */
   influencers: (source: AnalysisSource, measure?: string) =>
-    api.post<InfluencersResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...('reportId' in source ? {} : source), kind: 'influencers', ...(measure ? { measure } : {}) }),
+    api.post<InfluencersResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...analysisBody(source), kind: 'influencers', ...(measure ? { measure } : {}) }),
   decompose: (source: AnalysisSource, body: { measure?: string; path: { field: string; value: unknown }[]; by?: string }) =>
-    api.post<DecomposeResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...('reportId' in source ? {} : source), kind: 'decompose', ...body }),
+    api.post<DecomposeResult>('reportId' in source ? `/insights/reports/${source.reportId}/analyze/` : '/insights/reports/analyze/', { ...analysisBody(source), kind: 'decompose', ...body }),
+}
+
+/** what an analysis sends: a draft's dataset and definition, and the answers to the report's parameters */
+function analysisBody(source: AnalysisSource): Record<string, unknown> {
+  if ('reportId' in source) return source.params ? { params: source.params } : {}
+  return source
+}
+
+/** a file's answers, as JSON in its address */
+function answersQuery(params?: ParameterValues): Record<string, string> | undefined {
+  return params && Object.keys(params).length ? { params: JSON.stringify(params) } : undefined
+}
+
+/** the values a parameter offers (apps/insights/parameters.py) */
+export const parametersApi = {
+  values: (body: { dataset: string; field: string }) => api.post<ParameterChoices>('/insights/parameters/values/', body),
+}
+
+/** Insights → Uploaded Files (apps/insights/uploads.py) */
+export const uploadsApi = {
+  list: (signal?: AbortSignal) => api.get<{ uploads: UploadedFile[]; ready: boolean; limits?: { bytes: number; rows: number; columns: number } }>('/insights/uploads/', undefined, signal),
+  get: (id: string, signal?: AbortSignal) => api.get<UploadedFile>(`/insights/uploads/${id}/`, undefined, signal),
+  upload: (file: File, name?: string) => { const body = new FormData(); body.append('file', file); if (name) body.append('name', name); return api.post<UploadedFile>('/insights/uploads/', body) },
+  update: (id: string, body: { row_version?: number; name?: string; description?: string | null; ready?: boolean; confirm?: boolean; columns?: Pick<UploadColumn, 'key' | 'label' | 'type' | 'role'>[] }) =>
+    api.put<UploadedFile>(`/insights/uploads/${id}/`, body),
+  replace: (id: string, file: File) => { const body = new FormData(); body.append('file', file); return api.post<UploadedFile>(`/insights/uploads/${id}/replace/`, body) },
+  remove: (id: string) => api.delete(`/insights/uploads/${id}/`),
 }
 
 export const dashboardsApi = {
@@ -139,7 +167,15 @@ export const keys = {
   reports: (query: { component?: string; dataset?: string; q?: string; folder?: string; detail_for?: string }) => ['insights', 'reports', query] as const,
   report: (id: string) => ['insights', 'report', id] as const,
   versions: (id: string) => ['insights', 'versions', id] as const,
-  run: (id: string, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[] }) => ['insights', 'run', id, page] as const,
+  run: (id: string, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues }) => ['insights', 'run', id, page] as const,
+  uploads: ['insights', 'uploads'] as const,
+}
+
+export const fiscalKey = ['workspace', 'fiscal-year'] as const
+
+/** the workspace's fiscal year; January, named by the year it ends in, until someone sets it */
+export function useFiscalYear() {
+  return useQuery({ queryKey: fiscalKey, queryFn: ({ signal }) => api.get<FiscalYear>('/workspace/fiscal-year/', undefined, signal), staleTime: 300_000, retry: false })
 }
 
 export function useAssistant() {
@@ -174,7 +210,7 @@ export function useVersions(id: string | undefined) {
   return useQuery({ queryKey: keys.versions(id ?? ''), queryFn: ({ signal }) => insightsApi.versions(id as string, signal), enabled: Boolean(id) })
 }
 
-export function useRun(id: string | undefined, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[] }) {
+export function useRun(id: string | undefined, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues }) {
   return useQuery({ queryKey: keys.run(id ?? '', page), queryFn: () => insightsApi.run(id as string, page), enabled: Boolean(id), retry: false, placeholderData: (previous) => previous })
 }
 

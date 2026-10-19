@@ -7,7 +7,7 @@ import { Plus, X } from 'lucide-react'
 
 import { Select, TextInput } from '@/components/Form'
 import type { CatalogDataset, FilterRule } from '../types'
-import { coerceValue, fieldOf, OPERATOR_LABEL, valueText } from './definition'
+import { coerceValue, fieldOf, OPERATOR_LABEL, valueless, valueText } from './definition'
 
 export interface FilterBuilderProps {
   dataset: CatalogDataset
@@ -33,7 +33,7 @@ export function FilterBuilder({ dataset, rules, combinator, onChange, compact = 
     <div className="flex flex-col gap-2" role="group" aria-label="Filters">
       {rules.map((rule, index) => {
         const field = fieldOf(dataset, rule.field) ?? fields[0]
-        const noValue = rule.operator === 'is_null' || rule.operator === 'is_not_null'
+        const noValue = valueless(rule.operator)
         return (
           <div key={index} className="flex flex-wrap items-center gap-2">
             {index > 0 && (
@@ -46,7 +46,7 @@ export function FilterBuilder({ dataset, rules, combinator, onChange, compact = 
               {fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
             </Select></span>
             <span className={compact ? 'w-full sm:w-36' : 'w-40'}><Select aria-label={`Filter ${index + 1} operator`} controlSize="sm" value={rule.operator}
-              onChange={(event) => update(index, { operator: event.target.value, value: event.target.value === 'last_days' ? 30 : noValue ? '' : rule.value })}>
+              onChange={(event) => update(index, { operator: event.target.value, value: event.target.value === 'last_days' ? 30 : noValue || valueless(event.target.value) ? '' : rule.value })}>
               {field.operators.map((op) => <option key={op} value={op}>{OPERATOR_LABEL[op] ?? op}</option>)}
             </Select></span>
             {!noValue && (field.type === 'boolean' ? (
