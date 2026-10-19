@@ -1,8 +1,8 @@
 /**
- * The navigation rail's parts, shared by the app shell and the template editors' bar so the two look and behave
- * the same: the brand mark, a link (with its tooltip while the rail is collapsed) and the divider between groups.
+ * The parts of the template editors' slim navy rail: the brand mark (the top bar's "C") and icon-only links with
+ * their tooltips. The tooltip is shared with the shell's collapsed component menu.
  */
-import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, NavLink } from 'react-router-dom'
 
@@ -12,21 +12,12 @@ type OnNavigate = (to: string, event: MouseEvent) => void
 
 const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent'
 
-/** "C360" on a 32px brand-blue square, and the component's name, Engagement, beside it when there is room */
-export function RailMark({ expanded, onNavigate, end }: { expanded: boolean; onNavigate?: OnNavigate; end?: ReactNode }) {
-  const go = (event: MouseEvent<HTMLAnchorElement>) => onNavigate?.('/', event)
+/** the suite's "C" on a 32px brand-blue square, as in the top bar */
+export function RailMark({ onNavigate }: { onNavigate?: OnNavigate }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Link to="/" aria-label="C360 home" onClick={go} className={`flex w-fit items-center rounded-sm ${FOCUS}`}>
-          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-brand-600 font-display text-helper font-semibold tracking-[-0.02em] text-on-brand">C360</span>
-        </Link>
-        {end}
-      </div>
-      {expanded && (
-        <Link to="/" aria-hidden tabIndex={-1} onClick={go} className="w-fit font-display text-card-title font-semibold tracking-[-0.02em] whitespace-nowrap text-on-brand">Engagement</Link>
-      )}
-    </div>
+    <Link to="/" aria-label="C360 home" onClick={(event) => onNavigate?.('/', event)} className={`flex w-fit items-center rounded-md ${FOCUS}`}>
+      <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-600 font-display text-base font-bold text-on-brand">C</span>
+    </Link>
   )
 }
 
@@ -37,7 +28,7 @@ const TOOLTIP_DELAY = 300
  * box can't clip it. It never outlives what it labels: a press, a scroll, a resize or the rail opening or closing puts
  * it away, and a hover that ended before the delay shows nothing.
  */
-function useTooltip(enabled: boolean) {
+export function useTooltip(enabled: boolean) {
   const [at, setAt] = useState<{ left: number; top: number } | null>(null)
   const timer = useRef<number | undefined>(undefined)
   // a focus that follows a press is a click, not the keyboard: those get the hover delay instead
@@ -98,9 +89,21 @@ function useTooltip(enabled: boolean) {
   }
 }
 
-export function RailLink({ item, expanded, onNavigate }: { item: NavItem; expanded: boolean; onNavigate?: OnNavigate }) {
+/** the dark label beside an icon-only item, outside any scroll box */
+export function RailTooltip({ at, label }: { at: { left: number; top: number }; label: string }) {
+  return createPortal(
+    <span aria-hidden data-rail-tooltip className="pointer-events-none fixed z-50 -translate-y-1/2 rounded-sm bg-toast px-2 py-1 text-xs font-medium whitespace-nowrap text-on-brand"
+      style={{ left: at.left, top: at.top }}>
+      {label}
+    </span>,
+    document.body,
+  )
+}
+
+/** an icon-only link; its label shows as a tooltip */
+export function RailLink({ item, onNavigate }: { item: NavItem; onNavigate?: OnNavigate }) {
   const Icon = item.icon
-  const tooltip = useTooltip(!expanded)
+  const tooltip = useTooltip(true)
   return (
     <>
       <NavLink
@@ -110,7 +113,7 @@ export function RailLink({ item, expanded, onNavigate }: { item: NavItem; expand
         onClick={(event) => onNavigate?.(item.to, event)}
         {...tooltip.props}
         className={({ isActive }) =>
-          `group relative flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-sm px-2.5 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${FOCUS} ${expanded ? 'w-full' : 'w-10'} ${
+          `group relative flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-sm px-2.5 text-sm whitespace-nowrap transition-colors duration-fast ease-standard ${FOCUS} w-10 ${
             isActive ? 'bg-sidebar-selected font-semibold text-on-brand hover:bg-sidebar-selected-hover' : 'font-medium text-sidebar-text hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed'
           }`
         }
@@ -119,30 +122,20 @@ export function RailLink({ item, expanded, onNavigate }: { item: NavItem; expand
           <>
             {isActive && <span aria-hidden data-current-bar className="absolute inset-y-0 left-0 w-[3px] bg-sidebar-accent" />}
             <Icon size={20} strokeWidth={1.5} aria-hidden className={`shrink-0 ${isActive ? 'text-on-brand' : 'text-sidebar-icon group-hover:text-on-brand'}`} />
-            {expanded && <span>{item.label}</span>}
           </>
         )}
       </NavLink>
-      {tooltip.shown && createPortal(
-        <span aria-hidden data-rail-tooltip className="pointer-events-none fixed z-50 -translate-y-1/2 rounded-sm bg-toast px-2 py-1 text-xs font-medium whitespace-nowrap text-on-brand"
-          style={{ left: tooltip.shown.left, top: tooltip.shown.top }}>
-          {item.label}
-        </span>,
-        document.body,
-      )}
+      {tooltip.shown && <RailTooltip at={tooltip.shown} label={item.label} />}
     </>
   )
 }
 
-/** a group of links: a plain list, the divider above it when it isn't the first */
-export function RailGroup({ label, items, expanded, divided = false, onNavigate }: { label: string; items: NavItem[]; expanded: boolean; divided?: boolean; onNavigate?: OnNavigate }) {
+/** a group of links, as a plain list */
+export function RailGroup({ label, items, onNavigate }: { label: string; items: NavItem[]; onNavigate?: OnNavigate }) {
   if (items.length === 0) return null
   return (
-    <>
-      {divided && <div aria-hidden className="mx-2 my-4 h-px shrink-0 bg-sidebar-divider" />}
-      <ul aria-label={label} className="flex flex-col gap-0.5">
-        {items.map((item) => <li key={item.to}><RailLink item={item} expanded={expanded} onNavigate={onNavigate} /></li>)}
-      </ul>
-    </>
+    <ul aria-label={label} className="flex flex-col gap-0.5">
+      {items.map((item) => <li key={item.to}><RailLink item={item} onNavigate={onNavigate} /></li>)}
+    </ul>
   )
 }

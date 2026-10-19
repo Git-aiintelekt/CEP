@@ -24,7 +24,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const cardNames = () => Array.from(document.querySelectorAll('ul > li .truncate')).map((node) => node.textContent)
+const cardNames = () => Array.from(document.querySelectorAll('main ul > li .truncate')).map((node) => node.textContent)
 
 /** A preset opens its preview; the copy is the preview's footer button. */
 async function copyPreset(user: ReturnType<typeof userEvent.setup>, name: string) {

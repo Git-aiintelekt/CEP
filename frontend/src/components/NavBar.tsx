@@ -17,8 +17,8 @@ export function NavBar({ onNavigate }: NavBarProps) {
 
   return (
     <nav aria-label="Main" className="flex w-16 shrink-0 flex-col items-center bg-sidebar py-5">
-      <div className="mb-8"><RailMark expanded={false} onNavigate={onNavigate} /></div>
-      <RailGroup label="Pages" items={items} expanded={false} onNavigate={onNavigate} />
+      <div className="mb-8"><RailMark onNavigate={onNavigate} /></div>
+      <RailGroup label="Pages" items={items} onNavigate={onNavigate} />
     </nav>
   )
 }
