@@ -8,8 +8,8 @@ from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget
 from django.utils import timezone
 
 from apps.adminutils import BaseAdmin
-from . import catalog
-from .models import ReportDataset, ReportDatasetSource, ReportEngineConnection, ReportEngineSetting, ReportField
+from . import catalog, links
+from .models import ReportDataset, ReportDatasetLink, ReportDatasetSource, ReportEngineConnection, ReportEngineSetting, ReportField
 
 
 class ReportFieldForm(forms.ModelForm):
@@ -75,6 +75,80 @@ class ReportDatasetAdmin(BaseAdmin):
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
+        catalog.invalidate()
+
+
+LINK_STATUSES = (("ACTIVE", "Active: report authors can add the measures"), ("HIDDEN", "Hidden"))
+
+
+class ReportDatasetLinkForm(forms.ModelForm):
+    """The pairs must name dimensions of the two datasets, of one type each; the time pair two dates."""
+    status = forms.ChoiceField(choices=LINK_STATUSES, widget=UnfoldAdminSelectWidget)
+
+    class Meta:
+        model = ReportDatasetLink
+        fields = ("from_dataset", "to_dataset", "label", "pairs", "time_pair", "status", "sort_order")
+
+    def clean(self):
+        data = super().clean()
+        first, second = data.get("from_dataset"), data.get("to_dataset")
+        if not first or not second:
+            return data
+        if first == second:
+            raise forms.ValidationError({"to_dataset": "Link a dataset to another one."})
+        fields = {f.dataset_id + "." + f.key: f for f in ReportField.objects.filter(dataset__in=[first, second])}
+
+        def field(dataset, key, where):
+            found = fields.get(f"{dataset.pk}.{key}")
+            if found is None or found.role != "dimension":
+                raise forms.ValidationError({where: f"{key} is not a dimension of {dataset.label}."})
+            return found
+        pairs = data.get("pairs")
+        if not isinstance(pairs, list) or any(not isinstance(p, list) or len(p) != 2 for p in pairs):
+            raise forms.ValidationError({"pairs": "A list of pairs, each [first dataset's field, second dataset's field]."})
+        for a, b in pairs:
+            left, right = field(first, a, "pairs"), field(second, b, "pairs")
+            if left.type != right.type:
+                raise forms.ValidationError({"pairs": f"{a} is {left.type} and {b} is {right.type}; a pair is of one type."})
+        time_pair = data.get("time_pair")
+        if time_pair not in (None, [], ""):
+            if not isinstance(time_pair, list) or len(time_pair) != 2:
+                raise forms.ValidationError({"time_pair": "Two dates: [first dataset's, second dataset's]."})
+            for dataset, key in zip((first, second), time_pair):
+                if field(dataset, key, "time_pair").type not in ("date", "datetime"):
+                    raise forms.ValidationError({"time_pair": f"{key} is not a date."})
+        else:
+            data["time_pair"] = None
+        if not pairs and not data["time_pair"]:
+            raise forms.ValidationError({"pairs": "Give at least one shared dimension, or the dates."})
+        return data
+
+
+@admin.register(ReportDatasetLink)
+class ReportDatasetLinkAdmin(BaseAdmin):
+    """Configuration → Dataset Links: two datasets that share dimensions, so a report on the first adds measures from the second."""
+    form = ReportDatasetLinkForm
+    list_display = ("from_dataset", "to_dataset", "label", "show_pairs", "status", "sort_order")
+    ordering = ("from_dataset", "sort_order")
+
+    @admin.display(description="Shared")
+    def show_pairs(self, obj):
+        shared = [a if a == b else f"{a} = {b}" for a, b in obj.pairs or []]
+        if obj.time_pair:
+            shared.append(f"{obj.time_pair[0]} = {obj.time_pair[1]} (dates)")
+        return ", ".join(shared) or "—"
+
+    def save_model(self, request, obj, form, change):
+        obj.updated_at = timezone.now()
+        if change:
+            obj.row_version = (obj.row_version or 1) + 1
+        super().save_model(request, obj, form, change)
+        links.invalidate()
+        catalog.invalidate()
+
+    def delete_model(self, request, obj):
+        super().delete_model(request, obj)
+        links.invalidate()
         catalog.invalidate()
 
 

@@ -39,7 +39,10 @@ def _source(name: str, dialect: str = "postgresql") -> str:
 
 
 def _col(field: dict, dialect: str) -> str:
-    """a field's column, qualified by its table's alias when the dataset joins tables"""
+    """a field's column, qualified by its table's alias when the dataset joins tables; a custom field's CASE over its sources"""
+    if field.get("derived"):
+        from . import derived
+        return derived.case_sql(field, dialect, lambda source: _col(source, dialect))
     column = _ident(field["column"], dialect)
     return f"{_ident(field['table'], dialect)}.{column}" if field.get("table") else column
 
@@ -247,6 +250,10 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     """The dimensions and raw measures once, in a subquery (so every placeholder binds once), totalled by GROUPING SETS
     over the dimension aliases. A result row is the dimensions, the measures, then GROUPING(dims): a bit per dimension,
     1 where that dimension is totalled away, the first dimension the most significant bit."""
+    from . import derived
+    dataset = derived.augment(dataset, definition)
+    from . import derived
+    dataset = derived.augment(dataset, definition)
     params = Params(dialect)
     dims = [c for c in definition["columns"] if "aggregate" not in c]
     meas = [c for c in definition["columns"] if "aggregate" in c]
@@ -303,6 +310,8 @@ def _raw_alias(j: int, k: int, column: dict) -> str:
 
 def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit: int, offset: int = 0, dialect: str = "postgresql") -> Compiled:
     assert dialect in DIALECTS, dialect
+    from . import derived
+    dataset = derived.augment(dataset, definition)
     params = Params(dialect)
     selects, groups, columns = [], [], []
     for index, column in enumerate(definition["columns"]):
@@ -321,7 +330,9 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     where = _where(dataset, definition, tenant_id, zone, params)
     order = []
     for item in definition["orderBy"]:
-        index = next(i for i, c in enumerate(definition["columns"]) if c["field"] == item["field"])
+        index = next((i for i, c in enumerate(definition["columns"]) if c["field"] == item["field"]), None)
+        if index is None:                                           # a measure from a linked dataset: sorted once the two sides are matched
+            continue
         alias = _ident(f"c{index}", dialect)
         order.append(f"{alias} IS NULL, {alias} {item['direction'].upper()}" if dialect == "mysql" else f"{alias} {item['direction'].upper()} NULLS LAST")
     if not order:

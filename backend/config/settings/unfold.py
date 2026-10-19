@@ -105,6 +105,7 @@ UNFOLD = {
                 _link("Global Parameters", "tune", "platform_ops_platformsetting"),
                 _link("Component Registry", "widgets", "platform_ops_suitecomponent"),
                 _link("Report Datasets", "dataset", "insights_reportdataset"),
+                _link("Dataset Links", "link", "insights_reportdatasetlink"),
                 _link("Report Engines", "memory", "insights_reportenginesetting"),
                 _link("Report Engine Connections", "cable", "insights_reportengineconnection"),
                 _link("Mail Server", "outgoing_mail", "platform_ops_mailserver"),

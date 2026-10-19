@@ -9,7 +9,7 @@ import { SkeletonLine } from '@/components/States'
 import { formatNumber } from '@/lib/format'
 
 import { useChartLegend } from './legend'
-import { colorSeries, labelEvery, niceTicks, REFERENCE_COLOR } from './scale'
+import { barCentre, colorSeries, labelEvery, niceTicks, REFERENCE_COLOR } from './scale'
 import { BarSeries, LineSeries, ReferenceLine, StackedBarSeries, type Plot } from './series'
 
 export interface ChartSeries {
@@ -35,6 +35,12 @@ export interface ChartReference {
   key: string
   label: string
   values: number[]
+}
+
+/** a point of the first series marked as unusual: a red ring on it, and why in the tooltip */
+export interface ChartFlag {
+  index: number
+  label: string
 }
 
 export interface ChartCategory {
@@ -77,6 +83,8 @@ interface ChartProps {
   stacked?: boolean
   /** a right-click on a category, where it was (drill-through on a report) */
   onContext?: (index: number, at: { x: number; y: number }) => void
+  /** points of the first series to mark as unusual */
+  flags?: ChartFlag[]
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -116,10 +124,12 @@ interface ChartLegendProps {
   reference?: ChartReference
   hidden: ReadonlySet<string>
   onToggle: (key: string) => void
+  /** the chart marks unusual points: the ring is explained */
+  flagged?: boolean
 }
 
 /** The legend: a toggle per series (pressed = shown) and the reference as a plain label. Drawn above the chart, or anywhere with legend="none". */
-export function ChartLegend({ series, reference, hidden, onToggle }: ChartLegendProps) {
+export function ChartLegend({ series, reference, hidden, onToggle, flagged = false }: ChartLegendProps) {
   return (
     <div role="group" aria-label="Series" className="flex flex-wrap items-center gap-x-4 gap-y-2">
       {colorSeries(series).map((item) => {
@@ -136,6 +146,12 @@ export function ChartLegend({ series, reference, hidden, onToggle }: ChartLegend
         <span data-legend-reference className="inline-flex h-7 items-center gap-2 px-1.5 text-sm text-ink-800">
           <Swatch color={REFERENCE_COLOR} shape="dashed" />
           {reference.label}
+        </span>
+      )}
+      {flagged && (
+        <span data-legend-flag className="inline-flex h-7 items-center gap-2 px-1.5 text-sm text-ink-800">
+          <span aria-hidden className="h-3 w-3 shrink-0 rounded-full border-2 border-danger" />
+          Unusual Point
         </span>
       )}
     </div>
@@ -171,7 +187,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext, flags = [] }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -190,13 +206,13 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const count = categories.length
   const stackedBars = stacked ? leftShown.filter((item) => markOf(item) === 'bar') : []
   const stackTotals = categories.map((_, index) => stackedBars.reduce((sum, item) => sum + Math.max(0, item.values[index] || 0), 0))
-  const plotted = [...(stacked ? [...stackTotals, ...leftShown.filter((item) => markOf(item) !== 'bar').flatMap((item) => item.values)] : leftShown.flatMap((item) => item.values)), ...(reference?.values ?? [])]
+  const plotted = [...(stacked ? [...stackTotals, ...leftShown.filter((item) => markOf(item) !== 'bar').flatMap((item) => item.values)] : leftShown.flatMap((item) => item.values)), ...(reference?.values ?? [])].filter(Number.isFinite)
   const whole = plotted.every(Number.isInteger)
   const ticks = niceTicks(Math.max(0, ...plotted), 4, whole)
   const top = ticks.at(-1)!
   const left = Math.max(36, Math.max(...ticks.map((tick) => formatTick(tick).length)) * 7.5 + 14)
   // a combo's other scale, read on the right
-  const rightValues = rightShown.flatMap((item) => item.values)
+  const rightValues = rightShown.flatMap((item) => item.values).filter(Number.isFinite)
   const rightFormat = rightShown[0]?.format ?? formatTick
   const rightTicks = rightShown.length ? niceTicks(Math.max(0, ...rightValues), 4, rightValues.every(Number.isInteger)) : []
   const rightTop = rightTicks.at(-1) ?? 1
@@ -274,13 +290,21 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
   const flip = guideX + TOOLTIP_GAP + tipWidth > width
   const point = active === null ? null : categories[active]
   const readings = (index: number) => [...shown.map((item) => ({ key: item.key, label: item.label, value: item.values[index], color: item.color, shape: shapeOf(item), format: item.format ?? formatValue })),
-    ...(reference ? [{ key: reference.key, label: reference.label, value: reference.values[index], color: REFERENCE_COLOR, shape: 'dashed' as const, format: formatValue }] : [])]
-  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${item.format(item.value)}`).join(', ')}` : ''
+    ...(reference ? [{ key: reference.key, label: reference.label, value: reference.values[index], color: REFERENCE_COLOR, shape: 'dashed' as const, format: formatValue }] : [])].filter((item) => Number.isFinite(item.value))
+  // the unusual points sit on the first series shown on the left
+  const flagged = flags.length && !stacked ? leftShown[0] : undefined
+  const flagX = (index: number) => {
+    if (!flagged || markOf(flagged) !== 'bar') return plot.x(index)
+    const barred = leftShown.filter((item) => markOf(item) === 'bar')
+    return barCentre(plot, barred.length, barred.indexOf(flagged), index)
+  }
+  const flagAt = (index: number | null) => (flagged && index !== null ? flags.find((flag) => flag.index === index) : undefined)
+  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${item.format(item.value)}`).join(', ')}${flagAt(active) ? `. Unusual: ${flagAt(active)!.label}` : ''}` : ''
   const columns = [...colored.map((item) => ({ key: item.key, label: item.label, values: item.values, format: item.format ?? formatValue })), ...(reference ? [{ ...reference, format: formatValue }] : [])]
 
   return (
     <figure ref={frame} className="flex flex-col gap-4">
-      {legend === 'top' && <ChartLegend series={series} reference={reference} hidden={hidden} onToggle={own.toggle} />}
+      {legend === 'top' && <ChartLegend series={series} reference={reference} hidden={hidden} onToggle={own.toggle} flagged={Boolean(flagged)} />}
 
       <div ref={box} className="relative">
         <div tabIndex={0} role="group" aria-label={title} aria-describedby={hintId} data-chart-plot
@@ -304,6 +328,9 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
             {stacked ? <StackedBarSeries plot={plot} series={stackedBars} active={active} /> : <BarSeries plot={plot} series={leftShown.filter((item) => markOf(item) === 'bar')} active={active} />}
             {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={item.axis === 'right' ? rightPlot : plot} series={item} area={item.area ?? (type === 'area' && !item.mark)} active={active} />)}
             {reference && <ReferenceLine plot={plot} keyName={reference.key} values={reference.values} color={REFERENCE_COLOR} />}
+            {flagged && flags.map((flag) => Number.isFinite(flagged.values[flag.index]) && (
+              <circle key={`flag-${flag.index}`} data-flag={flag.index} cx={flagX(flag.index)} cy={plot.y(flagged.values[flag.index])} r={6} fill="none" stroke="var(--color-danger)" strokeWidth={2} />
+            ))}
           </svg>
         </div>
         <p id={hintId} className="sr-only">Use the left and right arrow keys to read each point{onSelect ? ', Enter to pick it' : ''}; Escape hides it.</p>
@@ -321,6 +348,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
                 <span className="cep-num ml-auto pl-3 font-semibold text-ink-900">{item.format(item.value)}</span>
               </span>
             ))}
+            {flagAt(active) && <span data-tooltip-flag className="max-w-60 text-helper text-danger-text">Unusual: {flagAt(active)!.label}</span>}
           </div>
         )}
       </div>
@@ -340,7 +368,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
               {categories.map((category, index) => (
                 <tr key={category.key} className="h-10">
                   <th scope="row" className="px-4 text-left font-normal text-ink-800">{category.detail ?? category.label}</th>
-                  {columns.map((item) => <td key={item.key} className="cep-num px-4 text-right text-ink-900">{item.format(item.values[index])}</td>)}
+                  {columns.map((item) => <td key={item.key} className="cep-num px-4 text-right text-ink-900">{Number.isFinite(item.values[index]) ? item.format(item.values[index]) : '—'}</td>)}
                 </tr>
               ))}
             </tbody>

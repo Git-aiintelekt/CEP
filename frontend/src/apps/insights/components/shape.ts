@@ -119,6 +119,8 @@ export interface HierarchyNode {
   /** a leaf: the row's own measures, as the run gave them */
   row?: unknown[]
   rows: number
+  /** the value as the run gave it, for a drill */
+  value: unknown
 }
 
 export interface HierarchyShape {
@@ -144,7 +146,7 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
       const key = String(row[index] ?? '')
       node = siblings.find((n) => n.key === key)
       if (!node) {
-        node = { key, label: cellText(column, row[index]), depth, totals: [], children: [], rows: 0 }
+        node = { key, label: cellText(column, row[index]), depth, totals: [], children: [], rows: 0, value: row[index] }
         siblings.push(node)
         paths.set(node, Object.fromEntries(dims.slice(0, depth + 1).map((d) => [d.column.key, row[d.index]])))
       }
@@ -173,7 +175,10 @@ export function hierarchyShape(result: RunResult): HierarchyShape {
 export interface PivotShape {
   rowHeader: string
   columns: { key: string; label: string }[]
-  rows: { key: string; label: string; cells: (number | null)[]; total: number | null }[]
+  /** value: the first row dimension's, as the run gave it, for a drill */
+  rows: { key: string; label: string; cells: (number | null)[]; total: number | null; value?: unknown }[]
+  /** the first dimension down the rows */
+  rowColumn?: ResultColumn
   columnTotals: (number | null)[]
   grand: number | null
   measure: ResultColumn
@@ -191,13 +196,13 @@ export function pivotShape(result: RunResult, across: string | undefined, measur
   const columnValues = distinct(result, spread.index)
   const columns = columnValues.map((value) => ({ key: String(value ?? ''), label: cellText(spread.column, value) }))
   const at = new Map(columnValues.map((value, i) => [String(value ?? ''), i]))
-  const rows = new Map<string, { key: string; label: string; cells: (number | null)[]; total: number | null; keys: Record<string, unknown> }>()
+  const rows = new Map<string, { key: string; label: string; cells: (number | null)[]; total: number | null; keys: Record<string, unknown>; value: unknown }>()
   for (const row of result.rows) {
     const key = down.map(({ index }) => String(row[index] ?? '')).join('\u001f')
     let line = rows.get(key)
     if (!line) {
       line = { key, label: down.map(({ column, index }) => cellText(column, row[index])).join(' · '), cells: new Array(columns.length).fill(null), total: null,
-               keys: Object.fromEntries(down.map(({ column, index }) => [column.key, row[index]])) }
+               keys: Object.fromEntries(down.map(({ column, index }) => [column.key, row[index]])), value: row[down[0].index] }
       rows.set(key, line)
     }
     const value = row[measure.index]
@@ -207,5 +212,5 @@ export function pivotShape(result: RunResult, across: string | undefined, measur
   const m = meas.findIndex((item) => item.index === measure.index)
   const lines = [...rows.values()].map(({ keys, ...line }) => ({ ...line, total: exact(result, keys, m) ?? combine(agg(measure.column), line.cells) }))
   const columnTotals = columns.map((_, c) => exact(result, { [spread.column.key]: columnValues[c] }, m) ?? combine(agg(measure.column), lines.map((line) => line.cells[c])))
-  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: exact(result, {}, m) ?? combine(agg(measure.column), columnTotals), measure: measure.column }
+  return { rowHeader: down.map(({ column }) => column.label).join(' · '), columns, rows: lines, columnTotals, grand: exact(result, {}, m) ?? combine(agg(measure.column), columnTotals), measure: measure.column, rowColumn: down[0].column }
 }

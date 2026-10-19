@@ -1,6 +1,8 @@
 /** What the chart frame draws its series with: lines (optionally with an area under them) and grouped bars. */
 import { useId } from 'react'
 
+import { BAR_GAP, barGeometry } from './scale'
+
 export interface Plot {
   left: number
   top: number
@@ -25,23 +27,36 @@ function ActiveDot({ cx, cy, color }: { cx: number; cy: number; color: string })
   return <circle cx={cx} cy={cy} r={3} fill={color} stroke="var(--color-surface)" strokeWidth={2} paintOrder="stroke" data-active-dot />
 }
 
+/** a path through the values, lifting the pen over a value that is not a number (a period with nothing yet, such as a forecast's) */
+function tracePath(plot: Plot, values: number[]): string {
+  let pen = false
+  return values.map((value, index) => {
+    if (!Number.isFinite(value)) { pen = false; return '' }
+    const step = `${pen ? 'L' : 'M'}${plot.x(index).toFixed(1)} ${plot.y(value).toFixed(1)}`
+    pen = true
+    return step
+  }).filter(Boolean).join(' ')
+}
+
 export function LineSeries({ plot, series, area = false, active }: { plot: Plot; series: DrawnSeries; area?: boolean; active: number | null }) {
   const points = series.values.map((value, index) => [plot.x(index), plot.y(value)] as const)
-  const line = points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
+  const drawn = series.values.filter(Number.isFinite).length
+  const whole = drawn === series.values.length
+  const line = tracePath(plot, series.values)
   const floor = plot.top + plot.height
+  const only = series.values.findIndex(Number.isFinite)
   return (
     <g data-series={series.key}>
-      {area && points.length > 1 && (
+      {area && whole && points.length > 1 && (
         <path d={`${line} L${points.at(-1)![0].toFixed(1)} ${floor} L${points[0][0].toFixed(1)} ${floor} Z`} fill={series.color} fillOpacity={0.12} stroke="none" />
       )}
-      {points.length > 1 && <path d={line} fill="none" stroke={series.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
-      {points.length === 1 && active === null && <circle cx={points[0][0]} cy={points[0][1]} r={3} fill={series.color} />}
-      {active !== null && points[active] && <ActiveDot cx={points[active][0]} cy={points[active][1]} color={series.color} />}
+      {drawn > 1 && <path d={line} fill="none" stroke={series.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
+      {drawn === 1 && active === null && <circle cx={points[only][0]} cy={points[only][1]} r={3} fill={series.color} />}
+      {active !== null && points[active] && Number.isFinite(series.values[active]) && <ActiveDot cx={points[active][0]} cy={points[active][1]} color={series.color} />}
     </g>
   )
 }
 
-const BAR_GAP = 4
 
 /** a bar standing on the axis with both ends fully rounded: a pill as wide as the bar */
 function barPath(x: number, y: number, width: number, bottom: number): string {
@@ -56,8 +71,7 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
   // useId's colons don't survive inside url(#…)
   const gradientId = `bar${useId().replace(/[^\w-]/g, '')}`
   if (series.length === 0) return null
-  const group = Math.max(series.length * 2, plot.band * 0.78)
-  const width = Math.max(2, (group - BAR_GAP * (series.length - 1)) / series.length)
+  const { group, width } = barGeometry(plot, series.length)
   const bottom = plot.top + plot.height
   return (
     <g>
@@ -72,6 +86,7 @@ export function BarSeries({ plot, series, active = null }: { plot: Plot; series:
       {series.map((item, place) => (
         <g key={item.key} data-series={item.key}>
           {item.values.map((value, index) => {
+            if (!Number.isFinite(value)) return null
             const x = plot.x(index) - group / 2 + place * (width + BAR_GAP)
             return <path key={index} data-bar-mark d={barPath(x, plot.y(value), width, bottom)} fill={item.gradient ? `url(#${gradientId}-${place})` : item.color} fillOpacity={active === null || active === index ? 1 : 0.4}
               className="transition-[fill-opacity] duration-fast ease-standard motion-reduce:transition-none" />
@@ -108,7 +123,6 @@ export function StackedBarSeries({ plot, series, active = null }: { plot: Plot; 
 /** a dashed grey line through a reference such as target pace: drawn over the series, never faded */
 export function ReferenceLine({ plot, keyName, values, color }: { plot: Plot; keyName: string; values: number[]; color: string }) {
   if (values.length === 0) return null
-  const points = values.map((value, index) => `${index ? 'L' : 'M'}${plot.x(index).toFixed(1)} ${plot.y(value).toFixed(1)}`)
-  const line = values.length === 1 ? `M${plot.left} ${plot.y(values[0])} H${plot.left + plot.width}` : points.join(' ')
+  const line = values.length === 1 ? `M${plot.left} ${plot.y(values[0])} H${plot.left + plot.width}` : tracePath(plot, values)
   return <g data-reference={keyName}><path d={line} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="5 4" /></g>
 }

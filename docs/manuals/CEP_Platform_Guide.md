@@ -145,6 +145,7 @@ For the platform team in the back-office. Built from `docs/manuals/platform-guid
   - Report Engines
   - When something goes wrong
   - Related chapters
+  - Dataset Links
 - AI Assistant
   - Step by step: switching AI on
   - What this page is for
@@ -1329,6 +1330,22 @@ views again. The ClickHouse tables keep their rows, so a later switch is Backfil
 
 Jobs, Alerts and System Checks (the refresh and delivery jobs on the health page); Tenants (switching the Insights
 component on for a workspace); People and Access (the Reports · View, Edit and Admin permissions).
+
+## Dataset Links
+
+**Where:** Configuration → Dataset Links.
+
+Two of the platform's datasets that share dimensions, so a report on the first can add measures from the second. Messages and Attributed Orders come linked both ways: they share Campaign and Channel, and a period on the send date is the same period on the order date.
+
+| Control | What it is | What it changes |
+|---|---|---|
+| From dataset, To dataset | the report's dataset, and the one its measures come from | one link per pair, each way set on its own |
+| Label | a sentence report authors read in the editor | the Linked Measures dialog |
+| Pairs | the shared dimensions, each `[first dataset's field, second dataset's field]` | what a blended report may group by, and which filters apply to both sides |
+| Time pair | the two dates that mean the same period, or empty | lets the report group by the date by a period |
+| Status | Active, or Hidden | Hidden takes the link out of the editor; saved reports that use it are refused until it is active again |
+
+Each pair must name dimensions of one type; the time pair two dates. Personal and confidential measures of the second dataset are never offered. A change shows in the editor within a minute.
 
 ---
 

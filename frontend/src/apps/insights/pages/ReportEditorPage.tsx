@@ -5,7 +5,7 @@
  * preview cap; Save writes a new version. The four views come in turn: the grid first.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Columns3, ListOrdered } from 'lucide-react'
+import { ArrowLeft, Code2, Columns3, ListOrdered } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -17,10 +17,14 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { insightsApi, keys, useCatalog, useReport } from '../api'
 import { ReportResult, ViewBar } from '../components/ReportViews'
+import { ChangeWithPrompt } from '../editor/ChangeWithPrompt'
+import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
+import { LinkedMeasuresDialog } from '../editor/LinkedMeasuresDialog'
+import { SqlDialog } from '../components/SqlDialog'
 import { DetailReportDialog } from '../editor/DetailReportDialog'
 import { FormatDialog } from '../editor/FormatDialog'
 import { runWords } from '../components/resultWords'
-import { dimensions, EMPTY, fieldOf, isComplete, setView, viewOf } from '../editor/definition'
+import { dimensions, EMPTY, fieldOf, isComplete, setBlend, setView, viewOf, withCustom } from '../editor/definition'
 import { FieldWells } from '../editor/FieldWells'
 import { Steps } from '../editor/Steps'
 import type { ReportDefinition, RunResult } from '../types'
@@ -55,12 +59,16 @@ export function ReportEditorPage() {
   const catalog = useCatalog()
   const [formatting, setFormatting] = useState(false)
   const [detail, setDetail] = useState(false)
+  const [customs, setCustoms] = useState(false)
+  const [linking, setLinking] = useState(false)
+  const [showSql, setShowSql] = useState(false)
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
   const [draft, setDraft] = useState<ReportDefinition | null>(null)
-  const dataset = useMemo(() => catalog.data?.datasets.find((d) => d.key === report.data?.dataset) ?? null, [catalog.data, report.data])
   const definition = draft ?? report.data?.definition ?? EMPTY
+  const base = useMemo(() => catalog.data?.datasets.find((d) => d.key === report.data?.dataset) ?? null, [catalog.data, report.data])
+  const dataset = useMemo(() => (base ? withCustom(base, definition) : null), [base, definition])
   const title = name ?? report.data?.name ?? ''
   const dirty = draft !== null || (name !== null && name !== report.data?.name)
   const complete = dataset ? isComplete(dataset, definition) : false
@@ -105,8 +113,12 @@ export function ReportEditorPage() {
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
         <ViewBar view={viewOf(definition)} onChange={(view) => setDraft(setView(definition, view))} columns={preview.data?.columns} onFormat={() => setFormatting(true)}
           dimensions={dimensions(definition).map((column) => ({ key: column.field, label: fieldOf(dataset, column.field)?.label ?? column.field }))} />
-        <span>{preview.data ? runWords(preview.data) : preview.isFetching ? 'Running…' : complete ? '' : 'Finish the filters to run'}</span>
+        <span className="flex items-center gap-3">
+          {preview.data ? runWords(preview.data) : preview.isFetching ? 'Running…' : complete ? '' : 'Finish the filters to run'}
+          {complete && definition.columns.length > 0 && <button type="button" className="inline-flex items-center gap-1 font-semibold text-brand-800 hover:underline" onClick={() => setShowSql(true)}><Code2 size={14} strokeWidth={1.5} aria-hidden />Show the SQL</button>}
+        </span>
       </div>
+      <ChangeWithPrompt dataset={report.data.dataset} definition={definition} onChange={setDraft} />
       {refused ? (
         <ErrorState title={refused.problem?.title ?? 'The preview did not run'} detail={refused.problem?.detail} shownFields={Object.keys(refused.problem?.errors ?? {})} onRetry={() => preview.refetch()} />
       ) : preview.data ? (
@@ -114,6 +126,9 @@ export function ReportEditorPage() {
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}
+      {showSql && <SqlDialog dataset={report.data.dataset} definition={definition} name={title} onClose={() => setShowSql(false)} />}
+      {linking && base && <LinkedMeasuresDialog dataset={base} definition={definition} onClose={() => setLinking(false)} onApply={(blend) => { setDraft(setBlend(definition, blend)); setLinking(false) }} />}
+      {customs && base && <CustomFieldsDialog dataset={base} definition={definition} onChange={setDraft} onClose={() => setCustoms(false)} />}
       {detail && <DetailReportDialog dataset={dataset} fields={definition.drillthrough ?? []} onClose={() => setDetail(false)}
         onApply={(fields) => { const { drillthrough: _old, ...rest } = definition; setDraft(fields.length ? { ...rest, drillthrough: fields } : rest); setDetail(false) }} />}
       {formatting && <FormatDialog dataset={dataset} definition={definition} formats={viewOf(definition).formats ?? []} onClose={() => setFormatting(false)}
@@ -129,6 +144,8 @@ export function ReportEditorPage() {
           className="min-w-0 flex-1 rounded-control-md border border-transparent bg-transparent px-2 font-display text-page-title font-semibold text-ink-900 hover:border-line focus:border-focus focus:outline-none" />
         <span className="text-xs text-ink-800">{dirty ? 'Not saved yet' : `Saved ${formatDateTime(report.data.updated_at)} · version ${report.data.version}`}</span>
         <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={setLayout} />
+        <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>
+        {(base?.links?.length ?? 0) > 0 && <button type="button" className={buttonSecondary} onClick={() => setLinking(true)}>Linked Measures{definition.blend?.columns.length ? ` · ${definition.blend.columns.length}` : ''}</button>}
         <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>

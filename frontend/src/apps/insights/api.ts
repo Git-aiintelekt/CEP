@@ -2,7 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult } from './types'
+import type { ChangeResult, EmbedLink, Explanation, SqlStatements, UsageReport } from './types'
+import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
 export const insightsApi = {
   catalog: (signal?: AbortSignal) => api.get<Catalog>('/insights/catalog/', undefined, signal),
@@ -24,6 +25,9 @@ export const insightsApi = {
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
   exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
   exportPdf: (id: string) => api.download(`/insights/reports/${id}/export.pdf`),
+  /** the statements the engine runs for a definition, the values written in (nothing runs) */
+  sql: (body: { dataset: string; definition: ReportDefinition }) => api.post<SqlStatements>('/insights/reports/sql/', body),
+  explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean } }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
 }
 
 export const dashboardsApi = {
@@ -37,6 +41,9 @@ export const dashboardsApi = {
   runTile: (id: string, tile: string, body: { period?: Period; compare?: boolean; slicers?: SlicerSelection; drill?: { path: DrillStep[] } }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/${tile}/run/`, body),
   /** a tile as it is being edited, saved or not */
   previewTile: (id: string, body: { tile: DashboardTile; period?: Period; compare?: boolean; slicers?: SlicerSelection; drill?: { path: DrillStep[] } }) => api.post<TileResult>(`/insights/dashboards/${id}/tiles/preview/run/`, body),
+  views: (id: string) => api.get<{ views: SavedView[] }>(`/insights/dashboards/${id}/views/`),
+  saveView: (id: string, body: { name: string; shared: boolean; state: ViewState }) => api.post<SavedView>(`/insights/dashboards/${id}/views/`, body),
+  deleteView: (id: string, view: string) => api.delete(`/insights/dashboards/${id}/views/${view}/`),
   /** the values a slicer offers over the period */
   slicerValues: (id: string, body: { field: string; period?: Period }) => api.post<SlicerValues>(`/insights/dashboards/${id}/slicers/values/`, body),
   exportPdf: (id: string) => api.download(`/insights/dashboards/${id}/export.pdf`),
@@ -79,6 +86,16 @@ export const assistantApi = {
   ask: (body: { prompt: string; model: string; answer_to?: string }) => api.post<AskResult>('/insights/assistant/ask/', body),
   /** the draft becomes a private report, opened in the editor */
   open: (id: string) => api.post<Report>(`/insights/assistant/${id}/open/`, {}),
+  change: (body: { dataset: string; definition: ReportDefinition; prompt: string; model?: string }) => api.post<ChangeResult>('/insights/assistant/change/', body),
+}
+
+/** opening figures and embed links (apps/insights/usage.py, embeds.py) */
+export const usageApi = {
+  opened: (kind: 'report' | 'dashboard', id: string) => api.post('/insights/usage/', { kind, id }),
+  report: (days: number, signal?: AbortSignal) => api.get<UsageReport>('/insights/usage/', { days: String(days) }, signal),
+  embeds: (kind: 'report' | 'dashboard', item: string) => api.get<{ embeds: EmbedLink[]; ready: boolean }>('/insights/embeds/', { kind, item }),
+  createEmbed: (body: { kind: 'report' | 'dashboard'; item_id: string; label?: string; days?: number | null }) => api.post<EmbedLink>('/insights/embeds/', body),
+  revokeEmbed: (id: string) => api.delete(`/insights/embeds/${id}/`),
 }
 
 export const keys = {

@@ -47,7 +47,9 @@ export const insightsCatalog = {
         { key: 'delivered', label: 'Delivered Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
         { key: 'delivered_rate', label: 'Delivered Rate', type: 'number', role: 'measure', aggregates: ['calc'], operators: [], buckets: [], format: 'percent', sensitivity: 'NORMAL',
           formula: { op: 'ratio', left: { field: 'delivered', aggregate: 'sum' }, right: { field: 'sent', aggregate: 'sum' }, scale: 100 } },
-      ] },
+      ],
+      links: [{ to: 'attributed_orders', to_label: 'Attributed Orders', label: 'Orders credited to the campaign', pairs: [['campaign_name', 'campaign_name'], ['channel', 'channel']], time_pair: ['submitted_at', 'ordered_at'],
+        measures: [{ key: 'amount', label: 'Amount', type: 'number', aggregates: ['sum', 'avg'], format: 'money' }] }] },
     { key: 'attributed_orders', label: 'Attributed Orders', description: 'Orders the shop reported', component: { key: 'cep', name: 'Engagement' }, primary_key: 'order_id', time_field: 'ordered_at', freshness: 'LIVE',
       fields: [
         { key: 'campaign_name', label: 'Credited To', type: 'string', role: 'dimension', aggregates: [], operators: ['=', '!='], buckets: [], format: null, sensitivity: 'NORMAL' },
@@ -161,6 +163,11 @@ export const insightsPrincipals = {
 type MockRule = { id: string; dataset: string; dataset_label: string; field: string; field_label: string; broken: boolean; principal: { kind: 'user' | 'role'; id: string; name: string; detail: string };
   values: (string | number | boolean)[]; note: string | null; updated_at: string; row_version: number }
 export const insightsRowRulesNow: MockRule[] = []
+/** a dashboard's saved views */
+/** the smaller gaps: openings, embed links, Explain and Change with a Prompt as the mock answers them */
+export const insightsOpenedNow: { kind: string; id: string }[] = []
+export const insightsEmbedsNow: { id: string; label: string | null; created_at: string; expires_at: string | null; revoked_at: string | null; last_used_at: string | null; uses: number; created_by_name: string | null; kind: string; item: string }[] = []
+export const insightsViewsNow: { id: string; name: string; state: Record<string, unknown>; shared: boolean; owner_name: string; mine: boolean; updated_at: string }[] = []
 /** merged into every saved report's run, for a test that needs more of it (the access note) */
 export const insightsRunExtras: Record<string, unknown> = {}
 const BOUNDS_7D = { from: '2026-10-09', to: '2026-10-15', previous_from: '2026-10-02', previous_to: '2026-10-08' }
@@ -845,6 +852,9 @@ export function installMockApi(options: MockOptions = {}) {
   insightsDashboardsNow.splice(0, insightsDashboardsNow.length, structuredClone(insightsDashboard))
   for (const key of Object.keys(insightsSharesNow)) delete insightsSharesNow[key]
   for (const key of Object.keys(insightsRunExtras)) delete insightsRunExtras[key]
+  insightsViewsNow.splice(0, insightsViewsNow.length)
+  insightsOpenedNow.splice(0, insightsOpenedNow.length)
+  insightsEmbedsNow.splice(0, insightsEmbedsNow.length)
   insightsRowRulesNow.splice(0, insightsRowRulesNow.length, { id: 'rule-1', dataset: 'messages', dataset_label: 'Messages', field: 'channel', field_label: 'Channel', broken: false,
     principal: { kind: 'role', id: 'r1', name: 'Store Managers', detail: '4 people' }, values: ['SMS'], note: null, updated_at: '2026-10-18T09:00:00Z', row_version: 1 })
   insightsFolders.splice(0, insightsFolders.length, { id: 'fold-1', name: 'Finance', owner_user_id: 'u1', reports: 0, row_version: 1, updated_at: '2026-10-14T08:00:00Z' })
@@ -928,6 +938,10 @@ export function installMockApi(options: MockOptions = {}) {
     calls.push(call)
     const path = url.split('?')[0]
 
+    if (/\/public\/embed\/NWA\/s3cret-token\/$/.test(path)) {                 // an embed link, opened without signing in
+      return json({ kind: 'report', name: 'Sends by campaign', workspace: 'Northwind', view: { type: 'grid' }, result: insightsResult })
+    }
+    if (/\/public\/embed\//.test(path)) return json({ detail: 'This link was revoked or has expired.' }, 404)
     if (/\/campaigns\/[^/]+\/suppressions\/export\.csv$/.test(path)) return new Response('contact,channel,reason\n', { status: 200, headers: { 'Content-Type': 'text/csv' } })
     if (/\/campaigns\/[^/]+\/suppressions\/$/.test(path)) {                    // the campaign page's own view of the Suppressions rows
       const reason = new URL(url, 'http://test.local').searchParams.get('reason')
@@ -1306,7 +1320,39 @@ export function installMockApi(options: MockOptions = {}) {
     }
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
-      if (path.endsWith('/insights/assistant/')) return json(insightsAssistantNow)
+      if (path.endsWith('/insights/assistant/')) return json({ ...insightsAssistantNow, explain: { enabled: workspaceAssistantNow.explain, model: { id: assistantModels[0].id, label: assistantModels[0].label, provider_name: assistantModels[0].provider_name } } })
+      if (path.endsWith('/insights/usage/') && method === 'POST') { insightsOpenedNow.push(body as { kind: string; id: string }); return new Response(null, { status: 204 }) }
+      if (path.endsWith('/insights/usage/')) {
+        return json({ days: Number(new URL(url, 'http://test.local').searchParams.get('days') ?? 30), ready: true,
+          items: [{ kind: 'report', item_id: 'rep-1', name: 'Sends by campaign', opens: 42, people: 6, embedded: 9, last_opened: '2026-10-19T08:10:00Z' },
+                  { kind: 'dashboard', item_id: 'dash-1', name: 'Marketing Weekly', opens: 17, people: 4, embedded: 0, last_opened: '2026-10-18T16:00:00Z' }],
+          unopened: [{ id: 'rep-old', name: 'Spring Promo Clicks', owner_name: 'Aby John', updated_at: '2026-04-02T10:00:00Z' }],
+          people: [{ user_id: 'u1', name: 'Aby John', opens: 30, items: 2, last_opened: '2026-10-19T08:10:00Z' }, { user_id: 'u2', name: 'Mira Shah', opens: 12, items: 1, last_opened: '2026-10-17T11:00:00Z' }],
+          daily: [{ day: '2026-10-17', opens: 14 }, { day: '2026-10-18', opens: 22 }, { day: '2026-10-19', opens: 23 }] })
+      }
+      if (path.endsWith('/insights/embeds/') && method === 'POST') {
+        const posted = body as { kind: string; item_id: string; label?: string; days?: number | null }
+        const made = { id: `emb-${insightsEmbedsNow.length + 1}`, label: posted.label ?? null, created_at: '2026-10-19T09:00:00Z', expires_at: posted.days ? '2027-01-17T09:00:00Z' : null, revoked_at: null, last_used_at: null, uses: 0,
+          created_by_name: 'Aby John', kind: posted.kind, item: posted.item_id }
+        insightsEmbedsNow.push(made)
+        return json({ ...made, secret: 's3cret-token', path: '/embed/NWA/s3cret-token' }, 201)
+      }
+      if (path.endsWith('/insights/embeds/')) return json({ ready: true, embeds: insightsEmbedsNow.filter((e) => e.item === new URL(url, 'http://test.local').searchParams.get('item')) })
+      const embedOne = /\/insights\/embeds\/([\w-]+)\/$/.exec(path)
+      if (embedOne && method === 'DELETE') { const found = insightsEmbedsNow.find((e) => e.id === embedOne[1]); if (found) found.revoked_at = '2026-10-19T09:05:00Z'; return new Response(null, { status: 204 }) }
+      if (path.endsWith('/insights/reports/sql/')) {
+        return json({ note: 'The values are written in for reading; the engine sends them separately, and runs the statement read-only with a time limit.',
+          statements: [{ label: 'Messages', dialect: 'postgresql', sql: 'SELECT "campaign_name" AS "c0", sum("sent_n") AS "c1" FROM "reporting"."rpt_messages" WHERE "tenant_id" = \'t-1\' GROUP BY 1 ORDER BY "c1" DESC NULLS LAST LIMIT 5000 OFFSET 0' }] })
+      }
+      if (/\/insights\/reports\/[\w-]+\/explain\/$/.test(path)) {
+        return json({ summary: 'Fall Launch sent the most, 1,200 of the 2,000 messages; Weekly Newsletter sent the rest.', points: ['Email carried nine in ten sends.', 'Text sends were small all month.'],
+          caution: 'The rows cover one month only.', counted: true, model: { id: assistantModels[0].id, provider_name: assistantModels[0].provider_name, label: assistantModels[0].label, source: 'platform' }, rows_sent: 3, left_out: [] })
+      }
+      if (path.endsWith('/insights/assistant/change/')) {
+        const asked = body as { prompt: string; definition: { columns: { field: string; aggregate?: string }[] } }
+        if (/website/i.test(asked.prompt)) return json({ kind: 'no_field', message: 'No dataset has website visits.', suggestions: [], counted: false })
+        return json({ kind: 'draft', counted: true, view: { type: 'chart', chart: 'bar' }, definition: { ...asked.definition, columns: [{ field: 'channel' }, ...asked.definition.columns.filter((c) => c.aggregate)], view: { type: 'chart', chart: 'bar' } } })
+      }
       if (path.endsWith('/insights/assistant/ask/')) {
         const asked = (body ?? {}) as { prompt: string; model: string }
         return json(assistantReply(asked.prompt, asked.model))
@@ -1408,6 +1454,17 @@ export function installMockApi(options: MockOptions = {}) {
           return json({ kind: 'view', view: { type: tile.show }, result: { ...result, columns: result.columns.slice(1), rows: under, row_count: under.length }, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field), ...drill })
         }
         return json({ kind: 'view', view: { type: tile.show }, result, own_dates: false, bounds, report: about, sliced: sliced.map(([field]) => field), ...drill })
+      }
+      const savedViews = /\/insights\/dashboards\/([\w-]+)\/views\/(?:([\w-]+)\/)?$/.exec(path)
+      if (savedViews) {
+        if (method === 'POST') {
+          const posted = body as { name: string; shared: boolean; state: Record<string, unknown> }
+          const made = { id: `view-${insightsViewsNow.length + 1}`, name: posted.name, state: posted.state, shared: posted.shared, owner_name: 'Aby John', mine: true, updated_at: '2026-10-19T09:00:00Z' }
+          insightsViewsNow.push(made)
+          return json(made, 201)
+        }
+        if (method === 'DELETE') { const at = insightsViewsNow.findIndex((v) => v.id === savedViews[2]); if (at >= 0) insightsViewsNow.splice(at, 1); return new Response(null, { status: 204 }) }
+        return json({ views: insightsViewsNow })
       }
       const slicerValues = /\/insights\/dashboards\/([\w-]+)\/slicers\/values\/$/.exec(path)
       if (slicerValues && method === 'POST') {

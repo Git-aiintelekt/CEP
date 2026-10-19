@@ -37,6 +37,9 @@ def resolve_tenant(request):
     if request.path.startswith("/api/v1/webhooks/delivery/"):  # a provider's callback: the workspace code is part of the address
         parts = request.path.split("/")
         return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None
+    if request.path.startswith("/api/v1/public/embed/"):      # an Insights embed: the workspace code is part of the address
+        parts = request.path.split("/")
+        return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None
     if request.path.startswith(PUBLIC_LINK_PREFIXES):          # a link in an email: the signed token names the workspace
         from apps.delivery.engine import unsubscribe
         claims = unsubscribe.read(request.GET.get("t", ""))

@@ -111,7 +111,7 @@ test('the viewer switches the views: a pivot with totals on both edges, a hierar
   expect(asked.at(-1)).toEqual({ type: 'pivot', across: 'channel' })                   // the engine totals for the view shown
   await user.click(screen.getByRole('radio', { name: 'Hierarchy' }))
   const tree = screen.getByRole('region', { name: 'Report rows' })
-  const fall = within(tree).getByRole('button', { name: /Fall Launch/ })
+  const fall = within(tree).getByRole('button', { name: /^Fall Launch/ })
   expect(fall.getAttribute('aria-expanded')).toBe('true')
   expect(within(tree).getAllByRole('row').length).toBe(1 + 6 + 1)                   // the header, three campaigns each with one channel, the total
   await user.click(fall)

@@ -2,7 +2,7 @@
  * The editor's state: one report definition, changed the same way by both editors (field wells, steps). Every change
  * returns a new definition; nothing here talks to the server. The validator on the server has the last word.
  */
-import type { Aggregate, Bucket, CatalogDataset, CatalogField, CompareKind, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
+import type { Aggregate, Blend, Bucket, CatalogDataset, CatalogField, CompareKind, CustomField, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
 
 export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max', calc: 'Calculated' }
 export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year' }
@@ -91,6 +91,52 @@ export function formattableColumns(dataset: CatalogDataset, definition: ReportDe
     const label = column.label ?? fieldOf(dataset, column.field)?.label ?? column.field
     return [{ key: column.field, label }, ...(column.compare ?? []).map((kind) => ({ key: `${column.field}__${kind}`, label: `${label}, ${compareLabel(kind, bucket)}` }))]
   })
+}
+
+const TEXT_OPERATORS = ['=', '!=', 'contains', 'starts_with', 'in', 'is_null', 'is_not_null']
+
+/** a custom field's key from its name, as the server makes it */
+export function customKey(label: string): string {
+  return `c_${label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+}
+
+/** the dataset with the report's custom fields among its dimensions, so the editors treat them as fields */
+export function withCustom(dataset: CatalogDataset, definition: ReportDefinition): CatalogDataset {
+  const customs = definition.derived ?? []
+  if (!customs.length) return dataset
+  const extra: CatalogField[] = customs.map((custom) => ({ key: custom.key ?? customKey(custom.label), label: custom.label, type: 'string', role: 'dimension', aggregates: [], operators: TEXT_OPERATORS,
+    buckets: [], format: null, sensitivity: 'NORMAL', custom: true }))
+  return { ...dataset, fields: [...dataset.fields, ...extra.filter((field) => !dataset.fields.some((f) => f.key === field.key))] }
+}
+
+/** adds a custom field, or replaces the one with its key */
+export function setCustom(definition: ReportDefinition, custom: CustomField): ReportDefinition {
+  const key = custom.key ?? customKey(custom.label)
+  const all = definition.derived ?? []
+  const next = all.some((c) => (c.key ?? customKey(c.label)) === key) ? all.map((c) => ((c.key ?? customKey(c.label)) === key ? { ...custom, key } : c)) : [...all, { ...custom, key }]
+  return { ...definition, derived: next }
+}
+
+/** removes a custom field, and the columns and filter rules that used it */
+export function removeCustom(definition: ReportDefinition, key: string): ReportDefinition {
+  const rest = (definition.derived ?? []).filter((c) => (c.key ?? customKey(c.label)) !== key)
+  const without = removeField(setRules(definition, rules(definition).filter((rule) => rule.field !== key)), key)
+  const { derived: _old, ...base } = without
+  return rest.length ? { ...base, derived: rest } : base
+}
+
+/** measures from a linked dataset, or none; a sort on one that goes goes with it */
+export function setBlend(definition: ReportDefinition, blend: Blend | null): ReportDefinition {
+  const { blend: _old, ...rest } = definition
+  const kept = new Set((blend?.columns ?? []).map((c) => `${blend?.dataset}.${c.field}`))
+  const orderBy = (rest.orderBy ?? []).filter((o) => !o.field.includes('.') || kept.has(o.field))
+  return blend ? { ...rest, orderBy, blend } : { ...rest, orderBy }
+}
+
+/** Top N: keep n values of the first dimension, the rest as Others or left out; null keeps every value */
+export function setTop(definition: ReportDefinition, n: number | null, others: boolean): ReportDefinition {
+  const { top: _old, ...rest } = definition
+  return n ? { ...rest, top: { n, others } } : rest
 }
 
 export function fieldOf(dataset: CatalogDataset, key: string): CatalogField | undefined {

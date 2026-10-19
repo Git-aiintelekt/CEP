@@ -20,7 +20,10 @@ export interface ReportView {
   across?: string
   /** conditional formatting in the grid, the pivot and the hierarchy */
   formats?: ColumnFormat[]
+  /** a chart's forecast line and anomaly flags, worked out in the browser from the rows */
+  signals?: ChartSignal[]
 }
+export type ChartSignal = 'forecast' | 'anomalies'
 
 /** a calculated measure's formula: two sides, each a measure with one of its aggregates or a number, optionally scaled (100 for a percentage) */
 export type FormulaOp = 'ratio' | 'difference' | 'sum' | 'product'
@@ -39,6 +42,8 @@ export interface CatalogField {
   sensitivity: 'NORMAL' | 'PII' | 'CONFIDENTIAL'
   /** a calculated measure: the formula the engine totals; aggregates is ['calc'] */
   formula?: MeasureFormula
+  /** one of the report's own custom fields, not the dataset's */
+  custom?: boolean
 }
 
 export interface CatalogDataset {
@@ -56,6 +61,25 @@ export interface CatalogDataset {
   database?: { id: string; name: string; engine: DatabaseEngine; engine_name: string }
   /** a dataset from a query, or from a table (and its joins) */
   kind?: 'table' | 'query'
+  /** the platform's datasets this one is linked to: a report on it adds their measures (apps/insights/links.py) */
+  links?: DatasetLink[]
+}
+
+export interface DatasetLink {
+  to: string
+  to_label: string
+  label: string
+  /** [this dataset's field, the other's]: what both share */
+  pairs: [string, string][]
+  /** the dates that mean the same period */
+  time_pair: [string, string] | null
+  measures: Pick<CatalogField, 'key' | 'label' | 'type' | 'aggregates' | 'format'>[]
+}
+
+/** measures added from a linked dataset, totalled on its own by the report's groups */
+export interface Blend {
+  dataset: string
+  columns: { field: string; aggregate: Aggregate; label?: string }[]
 }
 
 export interface EngineInfo {
@@ -110,6 +134,24 @@ export interface ReportDefinition {
   view?: ReportView
   /** a detail report: the fields other reports on its dataset can open it through */
   drillthrough?: string[]
+  /** the report's own dimensions worked out from each row (apps/insights/derived.py) */
+  derived?: CustomField[]
+  /** keep the first dimension's top values, the rest left out or folded into Others */
+  top?: { n: number; others: boolean }
+  /** measures from a linked dataset */
+  blend?: Blend
+}
+
+export interface CustomField {
+  key?: string
+  label: string
+  kind: 'group' | 'band' | 'rule'
+  field?: string
+  groups?: { label: string; values: (string | number)[] }[]
+  edges?: number[]
+  labels?: string[]
+  rules?: { field: string; op: '=' | '!=' | '>' | '>=' | '<' | '<='; value: string | number | boolean; label: string }[]
+  other?: string
 }
 
 export interface ReportSummary {
@@ -269,6 +311,8 @@ export interface ResultColumn {
   masked?: boolean
   /** a time comparison of the measure before it: never combined into a subtotal */
   compare?: CompareKind
+  /** a measure from this linked dataset */
+  linked?: string
 }
 
 // ---------------------------------------------------------------------------------------------------- dashboards
@@ -289,13 +333,20 @@ export interface DashboardTile {
 }
 export interface DashboardRow { width: RowWidth; tiles: DashboardTile[] }
 /** a dimension of the tiles' datasets the whole dashboard is filtered by */
-export interface DashboardSlicer { field: string; label: string }
-export interface DashboardLayout { rows: DashboardRow[]; slicers?: DashboardSlicer[] }
+export interface DashboardSlicer { field: string; label: string; kind?: 'values' | 'range'; type?: FieldType }
+/** a page of a dashboard with tabs */
+export interface DashboardPageT { id: string; title: string; rows: DashboardRow[] }
+export interface DashboardLayout { rows: DashboardRow[]; slicers?: DashboardSlicer[]; pages?: DashboardPageT[] }
+/** a range slicer's ends, either may be empty */
+export interface SlicerRange { from?: string | number; to?: string | number }
 /** what is picked on each slicer: field key to values; an empty list is no filter */
-export type SlicerSelection = Record<string, unknown[]>
+export type SlicerSelection = Record<string, unknown[] | SlicerRange>
+/** what a saved view keeps of a dashboard */
+export interface ViewState { period?: Period; compare?: boolean; page?: string; selection?: SlicerSelection; extra?: DashboardSlicer[]; drills?: Record<string, DrillStep[]> }
+export interface SavedView { id: string; name: string; state: ViewState; shared: boolean; owner_name: string | null; mine: boolean; updated_at: string }
 export interface SlicerValues { field: string; label: string; values: unknown[]; datasets: number }
 /** a dimension the editor offers as a slicer, and the datasets it is in */
-export interface SlicerCandidate { field: string; label: string; datasets: string[] }
+export interface SlicerCandidate { field: string; label: string; datasets: string[]; kind: 'values' | 'range'; type: FieldType }
 
 export interface DashboardSummary {
   id: string
@@ -354,6 +405,8 @@ export interface RunResult {
   access?: { field: string; label: string; values: unknown[] }[]
   /** opened from another report: the values it was opened through */
   through?: { field: string; label: string; value: unknown }[]
+  /** measures from a linked dataset: its name, and the filters that applied to the report's own dataset only */
+  linked?: { dataset: string; label?: string; own_rules?: string[] }
 }
 
 /** Settings → Report Databases (backend apps/insights/databases.py, external.py) */
@@ -532,6 +585,8 @@ export interface AssistantState {
   own?: string[]
   examples?: string[]
   recent: AssistantRecent[]
+  /** Explain This Report: any reader, when the platform and the workspace allow it */
+  explain?: { enabled: boolean; model: { id: string; label: string; provider_name: string } | null }
 }
 export interface AskPrompt { label: string; prompt: string }
 export interface AskResult {
@@ -574,4 +629,64 @@ export interface WorkspaceAssistant {
   explain_allowed: boolean
   usage: AssistantUsage
   retention_days: number
+}
+
+// ---------------------------------------------------------------------------------------------------- the smaller gaps
+
+/** Show the SQL: the statements as the engine runs them, the values written in */
+export interface SqlStatements {
+  statements: { label: string; dialect: string; sql: string; access?: { field: string; label: string; values: unknown[] }[] }[]
+  note: string
+}
+
+/** Explain This Report */
+export interface Explanation {
+  summary: string
+  points: string[]
+  caution: string
+  counted: boolean
+  model?: { id: string; provider_name: string; label: string; source: string }
+  rows_sent?: number
+  left_out?: string[]
+}
+
+/** Change with a Prompt: the changed definition, or the model's one question, or what no field holds */
+export interface ChangeResult {
+  kind: 'draft' | 'question' | 'no_field'
+  definition?: ReportDefinition
+  view?: ReportView
+  question?: string
+  answers?: AskPrompt[]
+  message?: string
+  suggestions?: AskPrompt[]
+  counted: boolean
+}
+
+/** an embed link: the secret shows once, when it is made */
+export interface EmbedLink {
+  id: string
+  label: string | null
+  created_at: string
+  expires_at: string | null
+  revoked_at: string | null
+  last_used_at: string | null
+  uses: number
+  created_by_name: string | null
+  secret?: string
+  path?: string
+}
+
+/** what an embed link opens, for anyone with it */
+export type PublicEmbed =
+  | { kind: 'report'; name: string; workspace: string; view: ReportView; result: RunResult }
+  | { kind: 'dashboard'; name: string; description: string | null; workspace: string; period: Period; compare: boolean; layout: DashboardLayout; bounds: PeriodBounds }
+
+/** the usage page: what is opened, by whom, and what nobody opens */
+export interface UsageReport {
+  days: number
+  ready: boolean
+  items: { kind: 'report' | 'dashboard'; item_id: string; name: string; opens: number; people: number; embedded: number; last_opened: string }[]
+  unopened: { id: string; name: string; owner_name: string | null; updated_at: string }[]
+  people: { user_id: string; name: string; opens: number; items: number; last_opened: string }[]
+  daily: { day: string; opens: number }[]
 }

@@ -57,6 +57,31 @@ class ReportField(models.Model):
         return f"{self.dataset_id}.{self.key}"
 
 
+class ReportDatasetLink(models.Model):
+    """Two datasets that share dimensions: a report on the first adds measures from the second (apps/insights/links.py, patch 0061)."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    from_dataset = models.ForeignKey(ReportDataset, on_delete=models.CASCADE, db_column='from_dataset', related_name='links_out')
+    to_dataset = models.ForeignKey(ReportDataset, on_delete=models.CASCADE, db_column='to_dataset', related_name='links_in')
+    label = models.CharField(max_length=100)
+    pairs = models.JSONField(default=list, help_text='The shared dimensions, each [field of the first dataset, field of the second]: [["campaign_name", "campaign_name"], ["channel", "channel"]]')
+    time_pair = models.JSONField(null=True, blank=True, help_text='The dates that mean the same period: [first dataset\'s date, second dataset\'s date], or empty')
+    status = models.CharField(max_length=10, default='ACTIVE')
+    sort_order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(db_default=Now())
+    updated_at = models.DateTimeField(db_default=Now())
+    row_version = models.IntegerField(default=1)
+
+    class Meta:
+        managed = False
+        db_table = 'report_dataset_link'
+        ordering = ('from_dataset', 'sort_order')
+        unique_together = (('from_dataset', 'to_dataset'),)
+        verbose_name = 'dataset link'
+
+    def __str__(self):
+        return f"{self.from_dataset_id} → {self.to_dataset_id}"
+
+
 class ReportDatasetSource(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dataset = models.ForeignKey(ReportDataset, on_delete=models.CASCADE, db_column='dataset_key', related_name='sources')

@@ -27,6 +27,7 @@ const CepRoutes = lazy(() => cepRoutesChunk)
 export const cepReady: Promise<unknown> = cepRoutesChunk
 /** Insights' pages: a chunk of their own, loaded the first time the component is opened */
 const InsightsRoutes = lazy(() => import('@/apps/insights/routes'))
+const EmbedPage = lazy(() => import('@/apps/insights/pages/EmbedPage'))
 const DesignerPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/DesignerPlayground')) : null
 const MessagePlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/MessagePlayground')) : null
 const ReceiptPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/cep/pages/ReceiptPlayground')) : null
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/set-password" element={<SetPasswordPage />} />
             <Route path="/sso/complete" element={<TokenLandingPage kind="sso" />} />
             <Route path="/support-session" element={<TokenLandingPage kind="support" />} />
+            <Route path="/embed/:code/:secret" element={<Suspense fallback={<FullPageSpinner label="Loading" />}><EmbedPage /></Suspense>} />
             {DesignerPlayground && (
               <Route path="/dev/designer" element={<EditorScope><Suspense fallback={<FullPageSpinner label="Loading the designer" />}><DesignerPlayground /></Suspense></EditorScope>} />
             )}

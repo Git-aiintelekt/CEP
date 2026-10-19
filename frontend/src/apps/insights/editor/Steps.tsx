@@ -14,6 +14,7 @@ import type { CatalogField } from '../types'
 import { addField, AGGREGATE_LABEL, BUCKET_LABEL, columnWords, dimensions, fieldOf, measures, removeField, rules, setAggregate, setBucket, setLimit, setRules, setSort } from './definition'
 import type { EditorLayoutProps } from './FieldWells'
 import { CompareControl } from './CompareControl'
+import { TopControl } from './TopControl'
 import { FilterBuilder } from './FilterBuilder'
 
 function Step({ number, title, children, end }: { number: number; title: string; children: ReactNode; end?: ReactNode }) {
@@ -120,6 +121,7 @@ export function Steps({ dataset, definition, onChange, result, rowCount }: Edito
           <span className="w-36"><Select aria-label="Limit" controlSize="sm" value={String(definition.limit ?? '')} onChange={(event) => onChange(setLimit(definition, Number(event.target.value) || undefined))}>
             <option value="">All rows</option>{[100, 500, 1000, 5000].map((n) => <option key={n} value={n}>First {n.toLocaleString()}</option>)}
           </Select></span>
+          <TopControl definition={definition} onChange={onChange} />
         </Step>
       </div>
       {definition.columns.length === 0 ? (

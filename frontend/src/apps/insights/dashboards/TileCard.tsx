@@ -22,7 +22,7 @@ import { activeSlicers, crossFilterable, SHOW_LABEL } from './layout'
 
 export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]) => Promise<TileResult>
 
-export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle, selection, slicers, onPick }: {
+export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle, selection, slicers, onPick, drillState }: {
   tile: DashboardTile; period: Period; compare: boolean; load: TileLoader; keyPrefix: readonly unknown[]
   /** the editing controls at the right of the header */
   controls?: ReactNode
@@ -33,10 +33,16 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
   slicers?: DashboardSlicer[]
   /** a dimension value clicked on the tile: the dashboard's cross-filter */
   onPick?: (column: ResultColumn, value: unknown) => void
+  /** the drill, held by the dashboard (a saved view keeps it); without it the tile holds its own */
+  drillState?: { on: boolean; path: DrillStep[]; set: (next: { on: boolean; path: DrillStep[] }) => void }
 }) {
   const active = activeSlicers(selection ?? {})
-  const [drilling, setDrilling] = useState(false)
-  const [path, setPath] = useState<DrillStep[]>([])
+  const [ownDrilling, setOwnDrilling] = useState(false)
+  const [ownPath, setOwnPath] = useState<DrillStep[]>([])
+  const drilling = drillState ? drillState.on : ownDrilling
+  const path = drillState ? drillState.path : ownPath
+  const setPath = (next: DrillStep[]) => (drillState ? drillState.set({ on: true, path: next }) : setOwnPath(next))
+  const setDrilling = (on: boolean) => (drillState ? drillState.set({ on, path: on ? path : [] }) : setOwnDrilling(on))
   const [menu, setMenu] = useState<ThroughTarget | null>(null)
   const query = useQuery({
     queryKey: [...keyPrefix, tile.id, tile.report_id, tile.show, tile.measure ?? '', period, compare, active, path],
@@ -54,7 +60,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
       if (canDrill(info, column)) setPath(deeper(info, value))
     } else if (crossFilterable(column, value)) onPick?.(column, value)
   }
-  const toggleDrill = () => { setDrilling((on) => !on); if (drilling) setPath([]) }
+  const toggleDrill = () => { if (drilling && !drillState) setOwnPath([]); setDrilling(!drilling) }
   const context = data?.kind === 'view' && data.report.dataset && !onTitle ? (column: ResultColumn, value: unknown, at: { x: number; y: number }) => {
     if (throughable(column)) setMenu({ dataset: data.report.dataset as string, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id: data.report.id, name: tile.title || data.report.name } })
   } : undefined

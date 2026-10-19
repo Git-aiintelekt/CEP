@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from apps.delivery.engine import session
 from apps.reporting import reports
-from . import access, clickhouse, compare, compiler, external
+from . import access, catalog, clickhouse, compare, compiler, derived, external, links, topn
 from .catalog import engine_of
 from .definition import signature
 
@@ -147,11 +147,12 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
         definition, limited = access.restrict(tenant.pk, user, dataset, definition)
     except access.AccessError as exc:
         raise RunRefused("REFUSED", str(exc)) from None
+    dataset = derived.augment(dataset, definition)
     if engine["status"] == "MIGRATING" and not dataset.get("external"):
         raise RunRefused("REFUSED", "This workspace's reports are moving to a new engine; try again shortly.")
     cap = limits["preview_rows"] if kind == "preview" else limits["run_rows"]
     page = min(limit or cap, cap)
-    sets = compiler.totals_sets(definition, totals_view or definition.get("view"))
+    sets = None if definition.get("blend") else compiler.totals_sets(definition, totals_view or definition.get("view"))
     sig = signature({**definition, "limit": page, "offset": offset, "totals": [list(s) for s in sets] if sets else None})
     cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
     cached = cache.get(cache_key)
@@ -159,7 +160,7 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
         return {**cached, "cached": True}
     zone = reports.zone_of(tenant).key
     dialect = _dialect_of(dataset, engine)
-    compared = bool(compare.kinds_of(definition))                   # the comparisons need every row up to the cap, then the page is cut from them
+    compared = _whole(definition)                                    # comparisons and Top N need every row up to the cap, then the page is cut from them
     compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=(cap + 1) if compared else page + 1, offset=0 if compared else offset, dialect=dialect)
     slot = _slot(tenant.pk, limits["concurrent"])
     try:
@@ -167,10 +168,10 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
             rows, duration = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
             out_columns, over = compiled.columns, False
             if compared:
-                out_columns, rows, more, over = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], cap, dialect)
+                out_columns, rows, more, over = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], cap, dialect, user=user)
                 duration += more
             totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect) if sets else None
-            totals = compare.expand_totals(definition, totals) if compared else totals
+            totals = compare.expand_totals(definition, totals) if compared and totals is not None else totals
         except compare.CompareError as exc:
             _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
             raise RunRefused("FAILED", str(exc)) from None
@@ -195,17 +196,65 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "OK", report_id=report_id, report_version=report_version, duration_ms=duration, row_count=len(rows))
     result = {"columns": columns, "rows": rows, "row_count": len(rows), "duration_ms": duration, "truncated": truncated, "offset": offset, "limit": page,
               "freshness": "LIVE" if dataset.get("external") else engine["freshness_sla"], "cached": False, **({"totals": totals} if totals is not None else {}),
-              **({"source": dataset["database"]["name"]} if dataset.get("external") else {}), **({"access": limited} if limited else {})}
+              **({"source": dataset["database"]["name"]} if dataset.get("external") else {}), **({"access": limited} if limited else {}),
+              **({"linked": _linked_words(dataset, definition)} if definition.get("blend") else {})}
     cache.set(cache_key, result, CACHE_SECONDS)
     return result
 
 
+def _whole(definition: dict) -> bool:
+    """whether the rows are worked on as a whole after the query: comparisons, Top N with Others, or measures from a linked dataset"""
+    return bool(compare.kinds_of(definition)) or bool(definition.get("top")) or bool(definition.get("blend"))
+
+
+def _linked_words(dataset: dict, definition: dict) -> dict:
+    """what the result says about the linked side: its name, and the rules that applied to the report's own dataset only"""
+    link = next((l for l in dataset.get("links", []) if l["to"] == definition["blend"]["dataset"]), None)
+    if link is None:
+        return {"dataset": definition["blend"]["dataset"]}
+    _, own = links.other_definition(dataset, definition)
+    labels = {f["key"]: f["label"] for f in dataset["fields"]}
+    return {"dataset": link["to"], "label": link["to_label"], "own_rules": list(dict.fromkeys(labels.get(k, k) for k in own))}
+
+
+def _blended(tenant_id, user, dataset: dict, definition: dict, base_columns: list[dict], rows: list[list], zone: str, timeout_ms: int, cap: int,
+             dialect: str) -> tuple[list[dict], list[list], int, bool]:
+    """the report's rows with the linked dataset's measures (apps/insights/links.py), sorted when the sort is on one of them"""
+    started = time.monotonic()
+    over = len(rows) > cap
+    rows = rows[:cap]
+    other = catalog.dataset(tenant_id, definition["blend"]["dataset"], True)
+    if other is None:
+        raise compare.CompareError("The linked dataset is not available in this workspace.")
+    other_definition, _ = links.other_definition(dataset, definition)
+    if user is not None:
+        try:
+            other_definition, _ = access.restrict(tenant_id, user, other, other_definition)
+        except access.AccessError as exc:
+            raise compare.CompareError(str(exc)) from None
+    other = derived.augment(other, other_definition)
+    compiled = compiler.compile(other, other_definition, str(tenant_id), zone, limit=cap * 4, offset=0, dialect=dialect)
+    other_rows, _ = _execute(tenant_id, compiled, timeout_ms, dialect, other, zone)
+    merged = links.merge(definition, rows, other_rows)
+    columns = [*base_columns, *links.columns(dataset, definition, other)]
+    keys = [c["key"] for c in columns]
+    for item in reversed(definition.get("orderBy") or []):
+        if item["field"] in keys and "." in item["field"]:
+            at = keys.index(item["field"])
+            filled = [r for r in merged if r[at] is not None]
+            empty = [r for r in merged if r[at] is None]
+            merged = sorted(filled, key=lambda r: r[at], reverse=item["direction"] == "desc") + empty
+    return columns, merged, int((time.monotonic() - started) * 1000), over
+
+
 def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dict], rows: list[list], zone: str, timeout_ms: int, cap: int,
-              dialect: str) -> tuple[list[dict], list[list], int, bool]:
+              dialect: str, user=None) -> tuple[list[dict], list[list], int, bool]:
     """The rows with their time comparisons (apps/insights/compare.py): the earlier periods from a second run with the date rules
     moved back, the share of the total from the rows (or the engine's grand total when the rows were capped). Returns the
     columns, the rows (up to the cap), the extra milliseconds and whether there were more rows than the cap."""
     from zoneinfo import ZoneInfo
+    if definition.get("blend"):
+        return _blended(tenant_id, user, dataset, definition, base_columns, rows, zone, timeout_ms, cap, dialect)
     started = time.monotonic()
     kinds = set(compare.kinds_of(definition))
     over = len(rows) > cap
@@ -237,7 +286,9 @@ def _compared(tenant_id, dataset: dict, definition: dict, base_columns: list[dic
         wide = compare.widened(definition, found[1], compare.reach_back(kinds, found[2]), today)
         if wide is not None:
             reached, _ = _execute(tenant_id, compiler.compile(dataset, wide, str(tenant_id), zone, limit=cap, offset=0, dialect=dialect), timeout_ms, dialect, dataset, zone)
-    return compare.columns(dataset, definition, base_columns), compare.apply(dataset, definition, rows, earlier, grand, reached), int((time.monotonic() - started) * 1000), over
+    columns = compare.columns(dataset, definition, base_columns)
+    worked = topn.apply(definition, columns, compare.apply(dataset, definition, rows, earlier, grand, reached))
+    return columns, worked, int((time.monotonic() - started) * 1000), over
 
 
 def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None, report_version=None, mask_pii: bool = False):
@@ -254,13 +305,14 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
     sig = signature(definition)
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
+    dataset = derived.augment(dataset, definition)
     total, columns = 0, None
     try:
-        if compare.kinds_of(definition):
+        if _whole(definition):
             try:
                 compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=limits["export_rows"], offset=0, dialect=dialect)
                 rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
-                cols, rows, _, _ = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], limits["export_rows"], dialect)
+                cols, rows, _, _ = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], limits["export_rows"], dialect, user=user)
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], "export", sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 return
@@ -272,7 +324,7 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
                 writer.writerow(["" if v is None else v for v in row])
             total = len(rows)
             yield buffer.getvalue()
-        offset, page = (limits["export_rows"], 5_000) if compare.kinds_of(definition) else (0, 5_000)
+        offset, page = (limits["export_rows"], 5_000) if _whole(definition) else (0, 5_000)
         while offset < limits["export_rows"]:
             compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=min(page, limits["export_rows"] - offset), offset=offset, dialect=dialect)
             try:
@@ -314,13 +366,14 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
     slot = _slot(tenant.pk, limits["concurrent"])
     started = time.monotonic()
     columns, out, totals = None, [], None
-    sets = compiler.totals_sets(definition, definition.get("view"))
-    compared = bool(compare.kinds_of(definition))
+    sets = None if definition.get("blend") else compiler.totals_sets(definition, definition.get("view"))
+    dataset = derived.augment(dataset, definition)
+    compared = _whole(definition)
     try:
         if sets:
             try:
                 totals = _totals(tenant.pk, dataset, definition, sets, zone, limits["statement_timeout_ms"], limits["run_rows"], mask_pii, dialect)
-                totals = compare.expand_totals(definition, totals) if compared else totals
+                totals = compare.expand_totals(definition, totals) if compared and totals is not None else totals
             except Exception as exc:                                # noqa: BLE001
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 raise RunRefused("FAILED", "The export could not be run. If it happens again, tell your administrator.") from None
@@ -328,7 +381,7 @@ def fetch_all(tenant, user, dataset: dict, definition: dict, *, report_id=None, 
             try:
                 compiled = compiler.compile(dataset, definition, str(tenant.pk), zone, limit=limits["export_rows"], offset=0, dialect=dialect)
                 rows, _ = _execute(tenant.pk, compiled, limits["statement_timeout_ms"], dialect, dataset, zone)
-                cols, rows, _, _ = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], limits["export_rows"], dialect)
+                cols, rows, _, _ = _compared(tenant.pk, dataset, definition, compiled.columns, rows, zone, limits["statement_timeout_ms"], limits["export_rows"], dialect, user=user)
             except compare.CompareError as exc:
                 _audit(tenant.pk, getattr(user, "pk", None), dataset["key"], kind, sig, "FAILED", report_id=report_id, report_version=report_version, detail=str(exc))
                 raise RunRefused("FAILED", str(exc)) from None

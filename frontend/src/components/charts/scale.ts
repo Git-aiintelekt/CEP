@@ -29,6 +29,20 @@ export function niceTicks(max: number, count = 4, whole = true): number[] {
   return ticks
 }
 
+export const BAR_GAP = 4
+
+/** a category's bars side by side, 4px apart: the group takes about 78% of the band */
+export function barGeometry(plot: { band: number }, count: number): { group: number; width: number } {
+  const group = Math.max(count * 2, plot.band * 0.78)
+  return { group, width: Math.max(2, (group - BAR_GAP * (count - 1)) / count) }
+}
+
+/** the centre of the `place`th of `count` bars side by side in category `index` */
+export function barCentre(plot: { band: number; x: (index: number) => number }, count: number, place: number, index: number): number {
+  const { group, width } = barGeometry(plot, count)
+  return plot.x(index) - group / 2 + place * (width + BAR_GAP) + width / 2
+}
+
 /** Which category labels fit along the x axis: every nth, so none overlap. */
 export function labelEvery(count: number, room: number, labelWidth = 88): number {
   const fits = Math.max(1, Math.floor(room / labelWidth))

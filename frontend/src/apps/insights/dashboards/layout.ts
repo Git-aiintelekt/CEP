@@ -3,7 +3,7 @@
  * change returns a new layout; nothing overlaps or leaves a gap because a row never holds more tiles than its width.
  * Also the period's bounds for display; the server computes the real ones in the workspace's zone.
  */
-import type { CatalogDataset, Dashboard, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerSelection, TileShow } from '../types'
+import type { CatalogDataset, Dashboard, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerRange, SlicerSelection, TileShow } from '../types'
 
 export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
   { value: '1', label: 'One across', capacity: 1 }, { value: '2', label: 'Two across', capacity: 2 }, { value: '3', label: 'Three across', capacity: 3 },
@@ -30,8 +30,9 @@ export function rowGridClass(width: RowWidth): string {
   }
 }
 
+/** every tile, of every page */
 export function tiles(layout: DashboardLayout): DashboardTile[] {
-  return layout.rows.flatMap((row) => row.tiles)
+  return (layout.pages?.length ? layout.pages.flatMap((page) => page.rows) : layout.rows ?? []).flatMap((row) => row.tiles)
 }
 
 export function newTileId(layout: DashboardLayout): string {
@@ -119,17 +120,27 @@ export function slicerCandidates(layout: DashboardLayout, datasetOf: (reportId: 
   const out = new Map<string, SlicerCandidate>()
   for (const dataset of datasets.filter((item) => keys.has(item.key))) {
     for (const field of dataset.fields) {
-      if (field.role !== 'dimension' || !SLICER_TYPES.includes(field.type)) continue
+      // values for a text, yes/no or number dimension; a range for a number measure or a date that is not the dataset's period date
+      const values = field.role === 'dimension' && SLICER_TYPES.includes(field.type)
+      const range = (field.type === 'number' && field.role === 'measure' && !field.formula) || ((field.type === 'date' || field.type === 'datetime') && field.role === 'dimension' && field.key !== dataset.time_field)
+      if (!values && !range) continue
       const found = out.get(field.key)
       if (found) found.datasets.push(dataset.label)
-      else out.set(field.key, { field: field.key, label: field.label, datasets: [dataset.label] })
+      else out.set(field.key, { field: field.key, label: field.label, datasets: [dataset.label], kind: values ? 'values' : 'range', type: field.type })
     }
   }
   return [...out.values()].sort((a, b) => b.datasets.length - a.datasets.length || a.label.localeCompare(b.label))
 }
 
 /** the chip's words: the field, then what is picked */
-export function slicerWords(slicer: DashboardSlicer, values: unknown[] | undefined): string {
+export function slicerWords(slicer: DashboardSlicer, values: unknown[] | SlicerRange | undefined): string {
+  if (values && !Array.isArray(values)) {
+    const words = (v: unknown) => (slicer.type === 'number' ? Number(v).toLocaleString() : String(v))
+    if (values.from !== undefined && values.to !== undefined) return `${slicer.label}: ${words(values.from)} to ${words(values.to)}`
+    if (values.from !== undefined) return `${slicer.label}: from ${words(values.from)}`
+    if (values.to !== undefined) return `${slicer.label}: up to ${words(values.to)}`
+    return slicer.label
+  }
   if (!values || values.length === 0) return slicer.label
   if (values.length === 1) return `${slicer.label}: ${valueWords(values[0])}`
   return `${slicer.label}: ${values.length} values`
@@ -143,7 +154,8 @@ export function valueWords(value: unknown): string {
 
 /** a click on a value: that value alone, or nothing when it was already the only one picked */
 export function toggleValue(selection: SlicerSelection, field: string, value: unknown): SlicerSelection {
-  const now = selection[field] ?? []
+  const picked = selection[field]
+  const now = Array.isArray(picked) ? picked : []
   const only = now.length === 1 && String(now[0]) === String(value)
   return { ...selection, [field]: only ? [] : [value] }
 }
@@ -155,7 +167,7 @@ export function crossFilterable(column: { bucket?: string; type: string; aggrega
 
 /** the slicers with a value picked, as the tile run sends them */
 export function activeSlicers(selection: SlicerSelection): SlicerSelection {
-  return Object.fromEntries(Object.entries(selection).filter(([, values]) => values.length > 0))
+  return Object.fromEntries(Object.entries(selection).filter(([, values]) => (Array.isArray(values) ? values.length > 0 : values.from !== undefined || values.to !== undefined)))
 }
 
 // ---------------------------------------------------------------------------------------------------- the period
