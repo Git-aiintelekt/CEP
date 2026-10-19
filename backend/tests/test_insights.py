@@ -766,7 +766,7 @@ def test_api(check, world):
         anonymous = Client()
         public = anonymous.get("/api/v1/public" + secret_path + "/") if secret_path else None
         check("an embed link opens the report without signing in, personal data masked", made.status_code == 201 and public is not None and public.status_code == 200
-              and public.json()["kind"] == "report" and public.json()["name"] == "Sends by campaign", (made.content[:200], public.content[:200] if public is not None else None))
+              and public.json()["kind"] == "report" and public.json()["name"] == world.api("get", f"/api/v1/insights/reports/{rid}/").json()["name"], (made.content[:200], public.content[:200] if public is not None else None))
         code = secret_path.split("/")[2] if secret_path else "x"
         check("a wrong secret is 404", anonymous.get(f"/api/v1/public/embed/{code}/wrong-secret/").status_code == 404)
         check("a revoked link is 404", world.api("delete", f"/api/v1/insights/embeds/{made.json()['id']}/").status_code == 204
