@@ -129,8 +129,10 @@ def _filters(dataset: dict, node, where: str, depth: int, count: list[int]) -> d
     return {"combinator": combinator, "rules": out}
 
 
-VIEW_TYPES = ("grid", "chart", "hierarchy", "pivot")
-CHART_KINDS = ("bar", "line", "area", "pie", "funnel", "stacked", "stacked100", "combo")
+VIEW_TYPES = ("grid", "chart", "hierarchy", "pivot", "influencers", "decomposition")
+CHART_KINDS = ("bar", "line", "area", "pie", "funnel", "stacked", "stacked100", "combo", "scatter", "bubble", "treemap", "waterfall", "gauge", "kpi", "map")
+GEOGRAPHIES = ("auto", "us", "world")
+MULTIPLE_KINDS = ("bar", "line", "area", "stacked", "stacked100", "pie")
 FORMAT_STYLES = ("scale", "bars", "rules")
 RULE_OPS = (">", ">=", "<", "<=", "=")
 TONES = ("good", "warning", "bad")
@@ -184,12 +186,12 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     if raw is None:
         return None
     if not isinstance(raw, dict) or raw.get("type") not in VIEW_TYPES:
-        raise DefinitionError("view.type", "Use grid, chart, hierarchy or pivot.")
+        raise DefinitionError("view.type", "Use grid, chart, hierarchy, pivot, influencers or decomposition.")
     out = {"type": raw["type"]}
     chart = raw.get("chart")
     if chart is not None:
         if chart not in CHART_KINDS:
-            raise DefinitionError("view.chart", "Use bar, line, area, pie, funnel, stacked, stacked100 or combo.")
+            raise DefinitionError("view.chart", f"Use one of {', '.join(CHART_KINDS)}.")
         out["chart"] = chart
     across = raw.get("across")
     if across is not None:
@@ -199,6 +201,36 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     formats = _formats(raw.get("formats"), out_columns)
     if formats:
         out["formats"] = formats
+    dims = [c["field"] for c in out_columns if "aggregate" not in c]
+    measures = [c["field"] for c in out_columns if "aggregate" in c]
+    target = raw.get("target")                                         # a gauge's or a KPI card's target
+    if target is not None:
+        if isinstance(target, bool) or not isinstance(target, (int, float)):
+            raise DefinitionError("view.target", "The target is a number.")
+        out["target"] = target
+    multiples = raw.get("multiples")                                   # small multiples: the chart repeated per value of this dimension
+    if multiples is not None:
+        if multiples not in dims or multiples == out.get("across"):
+            raise DefinitionError("view.multiples", "Repeat the chart by one of the report's dimensions, other than the one across.")
+        if out.get("chart", "bar") not in MULTIPLE_KINDS:
+            raise DefinitionError("view.multiples", "Small multiples repeat bars, lines, areas, stacked bars or pies.")
+        out["multiples"] = multiples
+    geo = raw.get("geo")
+    if geo is not None:
+        if geo not in GEOGRAPHIES:
+            raise DefinitionError("view.geo", "Use auto, us or world.")
+        out["geo"] = geo
+    for flag in ("matrix", "sparklines"):                              # a pivot of every measure side by side, with a trend per row
+        if raw.get(flag) is not None:
+            if not isinstance(raw[flag], bool):
+                raise DefinitionError(f"view.{flag}", "On or off.")
+            if raw[flag]:
+                out[flag] = True
+    measure = raw.get("measure")                                       # what Key Influencers or the Decomposition Tree analyses
+    if measure is not None:
+        if measure not in measures:
+            raise DefinitionError("view.measure", "Analyse one of the report's values.")
+        out["measure"] = measure
     signals = raw.get("signals")                                       # a chart's forecast line and anomaly flags, worked out in the browser
     if signals not in (None, [], {}):
         if not isinstance(signals, list) or any(s not in SIGNALS for s in signals) or len(set(signals)) != len(signals):

@@ -14,10 +14,13 @@ import { AGGREGATE_LABEL } from '../editor/definition'
 import type { DashboardTile, ReportSummary, TileShow, ViewType } from '../types'
 import { SHOW_LABEL } from './layout'
 
-const VIEWS: { value: ViewType; hint: string }[] = [
+const VIEWS: { value: Exclude<TileShow, 'figure' | 'influencers' | 'decomposition'>; hint: string }[] = [
   { value: 'grid', hint: 'The rows, as saved' }, { value: 'chart', hint: 'The first dimension along the bottom' },
   { value: 'hierarchy', hint: 'Groups that fold, with subtotals' }, { value: 'pivot', hint: 'Needs a dimension across' },
+  { value: 'summary', hint: 'A few sentences from AI on the rows of the period' },
 ]
+/** a report saved as an analysing view goes on a dashboard as its rows */
+const tileShowOf = (view: ViewType): TileShow => (view === 'influencers' || view === 'decomposition' ? 'grid' : view)
 
 export function AddTileDialog({ onClose, onAdd }: { onClose: () => void; onAdd: (tile: Omit<DashboardTile, 'id'>) => void }) {
   const [q, setQ] = useState('')
@@ -60,7 +63,7 @@ export function AddTileDialog({ onClose, onAdd }: { onClose: () => void; onAdd: 
               {reports.data.reports.length === 0 && <li className="p-3 text-center text-sm text-ink-800">No report matches.</li>}
               {reports.data.reports.map((item) => (
                 <li key={item.id}>
-                  <button type="button" onClick={() => { setChosen(item); setShow(item.view_type); setTitle('') }}
+                  <button type="button" onClick={() => { setChosen(item); setShow(tileShowOf(item.view_type)); setTitle('') }}
                     className="flex w-full items-center gap-3 rounded-md border border-line px-3 py-2 text-left hover:bg-surface-hover">
                     <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-ink-900">{item.name}</span><span className="block text-xs text-ink-800">{item.dataset_label} · {item.owner_name ?? 'no owner'}</span></span>
                     <Tag tone="brand">{SHOW_LABEL[item.view_type]}</Tag>

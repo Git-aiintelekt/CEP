@@ -141,17 +141,8 @@ def rows_text(result: dict) -> tuple[str, list[str]]:
     return "\n".join(lines), left_out
 
 
-def explain(tenant, request, report: dict, dataset: dict, definition: dict, model_id: str) -> dict:
-    if not assistant.explain_allowed():
-        raise assistant.AssistantError("Explaining reports is switched off for the platform.")
-    if not assistant.workspace_settings(tenant)["explain"]:
-        raise assistant.AssistantError("Explaining reports is switched off for this workspace (Settings → AI Assistant).")
-    chosen, provider = _chosen(tenant, request, model_id, need_edit=False)
-    try:
-        result = runner.run(tenant, request.user, dataset, definition, "run", limit=EXPLAIN_ROWS, report_id=report["id"], report_version=report["version"],
-                            mask_pii=not _can_see_pii(request))
-    except runner.RunRefused as exc:
-        raise assistant.AssistantError(exc.reason) from None
+def written(tenant, user_id, chosen: dict, provider: dict, name: str, dataset_label: str, result: dict) -> dict:
+    """the model's few sentences on the rows of a run (masked columns left out), recorded as a prompt of kind explain"""
     if not result["rows"]:
         return {"summary": "The report has no rows for its filters, so there is nothing to explain.", "points": [], "caution": "", "counted": False}
     table, left_out = rows_text(result)
@@ -164,7 +155,7 @@ Rules:
 - Write numbers as the rows show them. Keep the summary to three sentences and each point to one.
 - Today is {timezone.now().astimezone(zone).date().isoformat()} in the {zone.key} time zone."""
     capped = " (only the first rows; the report has more)" if result.get("truncated") or len(result["rows"]) >= EXPLAIN_ROWS else ""
-    user = f"""Report: {report['name']} (dataset {dataset['label']})
+    user = f"""Report: {name} (dataset {dataset_label})
 Rows{capped}:
 {table}""" + (f"\n\nColumns left out because they hold personal data: {', '.join(left_out)}." if left_out else "")
     started = time.monotonic()
@@ -172,19 +163,52 @@ Rows{capped}:
     try:
         reply, usage = assistant.call_model(chosen["provider"], provider, chosen["model"], system, user, schema=EXPLAIN_SCHEMA, tool="explain_report")
     except assistant.ProviderError as exc:
-        assistant._record(tenant.pk, request.user.pk, chosen, f"Explain: {report['name']}"[:1000], "FAILED", None, str(exc), usage, int((time.monotonic() - started) * 1000), None, kind="explain")
+        assistant._record(tenant.pk, user_id, chosen, f"Explain: {name}"[:1000], "FAILED", None, str(exc), usage, int((time.monotonic() - started) * 1000), None, kind="explain")
         raise
     summary = " ".join(str(reply.get("summary") or "").split())[:1200]
     points = [" ".join(str(p).split())[:400] for p in (reply.get("points") or []) if str(p).strip()][:4]
     caution = " ".join(str(reply.get("caution") or "").split())[:400]
     outcome = "DRAFT" if summary else "FAILED"
-    assistant._record(tenant.pk, request.user.pk, chosen, f"Explain: {report['name']}"[:1000], outcome, None, None if summary else "The model gave no summary.",
+    assistant._record(tenant.pk, user_id, chosen, f"Explain: {name}"[:1000], outcome, None, None if summary else "The model gave no summary.",
                       usage, int((time.monotonic() - started) * 1000), None, kind="explain")
     if not summary:
         raise assistant.AssistantError("The model gave no explanation. Try again, or pick another model.")
     return {"summary": summary, "points": points, "caution": caution, "counted": True,
             "model": {k: chosen[k] for k in ("id", "provider_name", "label", "source")}, "rows_sent": min(len(result["rows"]), EXPLAIN_ROWS), "left_out": left_out,
             "usage": assistant.allowance(tenant.pk)}
+
+
+def _explaining(tenant) -> None:
+    if not assistant.explain_allowed():
+        raise assistant.AssistantError("Explaining reports is switched off for the platform.")
+    switches = assistant.workspace_settings(tenant)
+    if not switches["enabled"] or not switches["explain"]:
+        raise assistant.AssistantError("Explaining reports is switched off for this workspace (Settings → AI Assistant).")
+
+
+def default_choice(tenant) -> tuple[dict, dict]:
+    """the workspace's default model for an explanation nobody asked a model for (a dashboard's summary tile), within the month's prompts"""
+    _explaining(tenant)
+    effective = assistant.effective_providers(tenant)
+    models = assistant.models_of(effective)
+    chosen = next((m for m in models if m["id"] == assistant.default_model(models)), None)
+    if chosen is None:
+        raise assistant.AssistantError("No AI provider is switched on for this workspace.")
+    use = assistant.allowance(tenant.pk)
+    if chosen["source"] == "platform" and use["limit"] is not None and use["used"] >= use["limit"]:
+        raise assistant.AssistantError(f"The workspace has used its {use['limit']} prompts for {timezone.now().strftime('%B')}.")
+    return chosen, effective[chosen["provider"]]
+
+
+def explain(tenant, request, report: dict, dataset: dict, definition: dict, model_id: str) -> dict:
+    _explaining(tenant)
+    chosen, provider = _chosen(tenant, request, model_id, need_edit=False)
+    try:
+        result = runner.run(tenant, request.user, dataset, definition, "run", limit=EXPLAIN_ROWS, report_id=report["id"], report_version=report["version"],
+                            mask_pii=not _can_see_pii(request))
+    except runner.RunRefused as exc:
+        raise assistant.AssistantError(exc.reason) from None
+    return written(tenant, request.user.pk, chosen, provider, report["name"], dataset["label"], result)
 
 
 class ExplainView(APIView):

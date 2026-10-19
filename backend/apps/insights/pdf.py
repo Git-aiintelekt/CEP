@@ -7,6 +7,7 @@ the workspace and the date; a bold header row that repeats on every page; totals
         tiles: [{"title", "kind": "figure" | "view", ...the tile's payload}] in the dashboard's order
 """
 import io
+from xml.sax.saxutils import escape
 from datetime import date, datetime
 
 from reportlab.graphics.charts.barcharts import VerticalBarChart
@@ -158,8 +159,8 @@ def _grid_flowables(columns: list[dict], rows: list[list]) -> list:
     return out
 
 
-def _pivot_flowables(columns: list[dict], rows: list[list], across: str | None, totals) -> list:
-    table = shape.pivot(columns, rows, across, totals=totals)
+def _pivot_flowables(columns: list[dict], rows: list[list], across: str | None, totals, measure_key: str | None = None) -> list:
+    table = shape.pivot(columns, rows, across, measure_key, totals=totals)
     if "reason" in table:
         return [Paragraph(table["reason"], SMALL)]
     n = len(table["row_columns"])
@@ -342,20 +343,74 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
     return [drawing, Spacer(1, 4), _table(header, body, [False] + [True] * len(series))]
 
 
+def _grand(columns: list[dict], rows: list[list], totals, at: int):
+    """the whole period's value of the measure at `at` among the measures: the engine's grand total, else the one row"""
+    entry = next((t for t in totals or [] if not t.get("keys")), None)
+    if entry is not None and at < len(entry.get("values", [])):
+        return entry["values"][at]
+    measures = [i for i, c in enumerate(columns) if c.get("aggregate")]
+    return rows[0][measures[at]] if len(rows) == 1 and at < len(measures) else None
+
+
+def _figure_flowables(columns: list[dict], rows: list[list], totals, view: dict) -> list:
+    """a KPI card or a gauge: the first value over the whole period, its target and how far it got"""
+    measure = next((c for c in columns if c.get("aggregate")), None)
+    if measure is None:
+        return [Paragraph("A KPI card needs a value to total.", SMALL)]
+    value = _grand(columns, rows, totals, 0)
+    target = view.get("target")
+    words = [Paragraph(measure["label"], SMALL), Paragraph(_number(measure, value), FIGURE)]
+    if target is not None and value is not None:
+        try:
+            words.append(Paragraph(f"Target {_number(measure, target)} · {float(value) / float(target) * 100:.1f}% of target", SMALL))
+        except (TypeError, ValueError, ZeroDivisionError):
+            words.append(Paragraph(f"Target {_number(measure, target)}", SMALL))
+    return words
+
+
+def _waterfall_flowables(columns: list[dict], rows: list[list]) -> list:
+    dims = [i for i, c in enumerate(columns) if not c.get("aggregate")]
+    measures = [i for i, c in enumerate(columns) if c.get("aggregate")]
+    if not dims or not measures:
+        return [Paragraph("A waterfall needs a dimension along the bottom and a value to total.", SMALL)]
+    d, m = dims[0], measures[0]
+    running, body = 0.0, []
+    for row in rows:
+        step = float(row[m] or 0)
+        running += step
+        body.append([cell_text(columns[d], row[d]), _number(columns[m], step), _number(columns[m], running)])
+    return [Paragraph(f"{columns[m]['label']}, step by step by {columns[d]['label']}", SMALL), Spacer(1, 3),
+            _table([columns[d]["label"], columns[m]["label"], "Running Total"], body, [False, True, True], total=_bold(["Total", "", _number(columns[m], running)]))]
+
+
+ON_SCREEN = {"scatter": "a scatter chart", "bubble": "a bubble chart", "treemap": "a treemap", "map": "a map", "influencers": "Key Influencers", "decomposition": "a Decomposition Tree"}
+
+
 def _view_flowables(columns, rows, view: dict | None, totals, width: float) -> list:
     kind = (view or {}).get("type", "grid")
     across = (view or {}).get("across")
+    chart = (view or {}).get("chart") or "bar"
+    if kind == "pivot" and (view or {}).get("matrix"):                # every value as its own pivot
+        out = []
+        for column in [c for c in columns if c.get("aggregate") and not c.get("compare")]:
+            out += [*_pivot_flowables(columns, rows, across, totals, column["key"]), Spacer(1, 6)]
+        return out
     if kind == "pivot":
         return _pivot_flowables(columns, rows, across, totals)
     if kind == "hierarchy":
         return _hierarchy_flowables(columns, rows, totals)
+    if kind == "chart" and chart in ("kpi", "gauge"):
+        return _figure_flowables(columns, rows, totals, view or {})
+    if kind == "chart" and chart == "waterfall":
+        return _waterfall_flowables(columns, rows)
+    if kind in ON_SCREEN or (kind == "chart" and chart in ON_SCREEN):
+        return [Paragraph(f"Shown on screen as {ON_SCREEN.get(kind) or ON_SCREEN[chart]}; here as its rows.", SMALL), Spacer(1, 3), *_grid_flowables(columns, rows)]
     if kind == "chart":
-        chart = (view or {}).get("chart") or "bar"
         return _chart_flowables(columns, rows, None if chart in ("pie", "funnel", "combo") else across, width, chart)   # a pie, a funnel or a combo: the measures by one dimension
     return _grid_flowables(columns, rows)
 
 
-VIEW_WORDS = {"grid": "Grid", "chart": "Chart", "hierarchy": "Hierarchy", "pivot": "Pivot"}
+VIEW_WORDS = {"grid": "Grid", "chart": "Chart", "hierarchy": "Hierarchy", "pivot": "Pivot", "influencers": "Key Influencers", "decomposition": "Decomposition Tree"}
 
 
 # ---------------------------------------------------------------------------------------------------- the documents
@@ -409,6 +464,12 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
             own = " · own dates" if tile.get("own_dates") else ""
             block.append(Paragraph(f"{VIEW_WORDS.get(tile['view'].get('type', 'grid'), 'Grid')} · {result['row_count']:,} row{'s' if result['row_count'] != 1 else ''}{own}", SMALL))
             block += _view_flowables(result["columns"], result["rows"], tile["view"], result.get("totals"), width)
+        elif tile.get("kind") == "summary":
+            block.append(Paragraph("Written by AI from the rows" if tile.get("summary") else "Summary", SMALL))
+            if tile.get("summary"):
+                block += [Paragraph(escape(tile["summary"]), BODY), *(Paragraph(f"• {escape(point)}", BODY) for point in tile.get("points") or [])]   # the model's words, never markup
+            else:
+                block.append(Paragraph(tile.get("detail") or "No summary yet.", SMALL))
         else:
             block.append(Paragraph(tile.get("detail") or "This tile could not be run.", SMALL))
         story.append(KeepTogether(block[:2]))

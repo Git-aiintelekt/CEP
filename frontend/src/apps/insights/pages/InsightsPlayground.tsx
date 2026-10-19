@@ -2,7 +2,9 @@
  * /dev/insights: the two editors on sample data, with no backend: ?layout=wells | steps, ?state=busy | sparse, &masked=1 for a
  * reader without the right to personal data, &view=chart | hierarchy | pivot (&across=channel | submitted_at) for the other views,
  * &compare=1 for Sent Count compared with the month before and with last year, &format=1 for conditional formatting (rules on
- * Sent Count, data bars on Opened), &chart=stacked | stacked100 | combo for the chart kinds.
+ * Sent Count, data bars on Opened), &chart=stacked | stacked100 | combo | scatter | bubble | treemap | waterfall | kpi | gauge | map for
+ * the chart kinds, &sample=campaigns | months | states | countries for rows that suit them, &target=, &multiples=channel,
+ * &matrix=1&sparklines=1 for a pivot of every value with a trend column.
  * For design review and screenshots; the real editor is ReportEditorPage.
  */
 import { useState } from 'react'
@@ -56,6 +58,35 @@ const COMPARED: RunResult = {
   rows: [['EMAIL', '2026-09-01', 356920, 247250, 18.4, 134210], ['EMAIL', '2026-08-01', 247250, 230110, -4.2, 91880], ['SMS', '2026-09-01', 29580, 27810, 61.0, 0], ['SMS', '2026-08-01', 27810, 19940, 12.7, 0]],
 }
 
+const SAMPLES: Record<string, RunResult> = {
+  campaigns: {
+    ...RESULT,
+    columns: [{ key: 'campaign_name', label: 'Campaign', type: 'string', format: null }, { key: 'sent', label: 'Sent Count', type: 'number', format: 'integer', aggregate: 'sum' },
+              { key: 'opened', label: 'Opened', type: 'number', format: 'integer', aggregate: 'sum' }, { key: 'clicked', label: 'Clicked', type: 'number', format: 'integer', aggregate: 'sum' }],
+    rows: [['Fall Launch', 182400, 71230, 9120], ['Weekly Newsletter', 140210, 39870, 3310], ['Back to School', 96550, 41020, 6140], ['Loyalty Rewards', 61200, 30110, 5870],
+           ['Win-Back', 42730, 9210, 610], ['Store Opening', 31880, 15240, 2330], ['Holiday Preview', 22950, 11800, 1980], ['Survey', 9840, 2140, 160]],
+    row_count: 8,
+  },
+  months: {
+    ...RESULT,
+    columns: [{ key: 'submitted_at', label: 'Sent', type: 'date', format: 'datetime', bucket: 'month' }, { key: 'sent', label: 'Sent Count', type: 'number', format: 'integer', aggregate: 'sum' }],
+    rows: [['2026-03-01', 41200], ['2026-04-01', 38900], ['2026-05-01', 45300], ['2026-06-01', -6200], ['2026-07-01', 52100], ['2026-08-01', 49800], ['2026-09-01', 61400], ['2026-10-01', 58700]],
+    row_count: 8, totals: [{ keys: {}, values: [341200] }],
+  },
+  states: {
+    ...RESULT,
+    columns: [{ key: 'region', label: 'Region', type: 'string', format: null }, { key: 'contacts', label: 'Contacts', type: 'number', format: 'integer', aggregate: 'count' }],
+    rows: [['GA', 4120], ['FL', 3880], ['NC', 2910], ['TN', 1640], ['SC', 1420], ['AL', 980], ['TX', 2260], ['NY', 640], ['CA', 510], ['Puerto Rico', 90]],
+    row_count: 10,
+  },
+  countries: {
+    ...RESULT,
+    columns: [{ key: 'country', label: 'Country', type: 'string', format: null }, { key: 'contacts', label: 'Contacts', type: 'number', format: 'integer', aggregate: 'count' }],
+    rows: [['US', 18420], ['CA', 2210], ['GB', 1830], ['DE', 1210], ['IN', 3420], ['BR', 940], ['AU', 610], ['MX', 1180], ['Narnia', 3]],
+    row_count: 9,
+  },
+}
+
 type Layout = 'wells' | 'steps'
 const LAYOUTS: SegmentOption<Layout>[] = [{ value: 'wells', label: 'Field Wells' }, { value: 'steps', label: 'Steps' }]
 
@@ -68,10 +99,13 @@ export default function InsightsPlayground() {
     const formats = params.get('format') === '1' ? { formats: [{ column: 'sent', style: 'rules' as const, rules: [{ op: '<' as const, value: 30000, tone: 'bad' as const }, { op: '<' as const, value: 300000, tone: 'warning' as const }, { op: '>=' as const, value: 300000, tone: 'good' as const }] },
       { column: 'opened', style: 'bars' as const }] } : {}
     if (type === 'grid') return params.get('format') === '1' ? setView(base, { type, ...formats }) : base
-    return setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined, ...formats })
+    const target = params.get('target')
+    return setView(base, { type, chart: (params.get('chart') as ChartKind | null) ?? 'bar', across: params.get('across') ?? undefined, ...formats,
+      ...(target ? { target: Number(target) } : {}), ...(params.get('multiples') ? { multiples: params.get('multiples') as string } : {}),
+      ...(params.get('matrix') === '1' ? { matrix: true } : {}), ...(params.get('sparklines') === '1' ? { sparklines: true } : {}) })
   })
   const compared = params.get('compare') === '1'
-  const base: RunResult = compared ? COMPARED : RESULT
+  const base: RunResult = SAMPLES[params.get('sample') ?? ''] ?? (compared ? COMPARED : RESULT)
   const shown: RunResult = params.get('masked')
     ? { ...base, columns: [{ key: 'party_id', label: 'Customer', type: 'string', format: null, masked: true }, ...base.columns.slice(1)], rows: base.rows.map((row) => ['•••••', ...row.slice(1)]) }
     : base

@@ -122,7 +122,7 @@ export function ReportEditorPage() {
       {refused ? (
         <ErrorState title={refused.problem?.title ?? 'The preview did not run'} detail={refused.problem?.detail} shownFields={Object.keys(refused.problem?.errors ?? {})} onRetry={() => preview.refetch()} />
       ) : preview.data ? (
-        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} />
+        <ReportResult result={preview.data as RunResult} view={viewOf(definition)} label="Preview rows" minHeight={280} analysis={{ dataset: report.data.dataset, definition: settled }} />
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}

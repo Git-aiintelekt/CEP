@@ -195,6 +195,60 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. Choose 7, 30 or 90 days. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people; the table gives each item's openings, people, openings through embed links and when it was last opened.
 3. **Reports Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Opening the same item again within ten minutes counts once.
 
+**Use a scatter, bubble, treemap or waterfall chart**
+
+1. Choose **Chart**, then pick one from **More Charts** beside the chart kinds. The one you pick joins the switch.
+2. **Scatter**: one point per value of the first dimension, the first value along the bottom and the second up the side, such as Sent Count and Opened per Campaign. **Bubble** adds a third value as the point's size.
+3. **Treemap**: the first value by the first dimension as boxes sized by their share, the largest first. More than 24 fold into Other.
+4. **Waterfall**: the first value by the first dimension, in the report's order, as steps from the running total. Rises are blue, falls plum, and the total grey at the end.
+5. Hover a mark to read it, or press **Show the Numbers** for the table. Save in the editor to keep the choice.
+
+**Show one figure: a KPI card or a gauge**
+
+1. Choose **Chart**, then **KPI Card** or **Gauge** from **More Charts**.
+2. Type a **Target**. The card shows the value for the whole report, the target and the share of target, green when it is met and red when not. When the report runs along dates, a small trend line sits under the figure.
+3. The gauge fills an arc to the value and marks the target on it.
+4. On a dashboard, add the report as a **Chart** tile to show the card or the gauge.
+
+**Put the numbers on a map**
+
+1. Build a report with a place and a value, such as Contacts by Region (US states) or by Country.
+2. Choose **Chart**, then **Map** from **More Charts**. States match by their two-letter code or name; countries by their two- or three-letter code or name.
+3. **Map Of** picks **US States** or **Countries** when the guess is wrong. Darker blue is more; grey has no data.
+4. Values that match no place are listed under the map. Click a place to filter a dashboard by it.
+
+**Show every value side by side in a pivot (matrix)**
+
+1. Choose **Pivot** and a dimension across, such as Sent by Month.
+2. Press **All Values**: each value of the report gets its own column under each month, with a total for each.
+3. Press **Trend Column** to add a small line per row showing how each value moves across the columns.
+
+**Repeat a chart per value (small multiples)**
+
+1. With a bar, line, area, stacked or pie chart and at least two dimensions, choose a dimension in **Repeat By**, such as Channel.
+2. One small chart per value appears, up to 12, all on one scale so they compare at a glance.
+3. Choose **One Chart** to go back.
+
+**Find what drives a value (Key Influencers)**
+
+1. Open a report with a rate or an average, such as Delivered Rate, and choose **Analyse → Key Influencers**.
+2. **Raises It** and **Lowers It** list the groups whose value sits furthest from the whole report, such as "When Channel is SMS". Each line gives the group's value, how far it is from the whole, and its number of rows.
+3. A sum is read per row of the data, such as Sent Count per message. A plain count cannot be explained.
+4. With more than one value, choose which in **Explain**. Read the lines as leads, not causes.
+
+**Break a value down step by step (Decomposition Tree)**
+
+1. Choose **Analyse → Decomposition Tree**. The total of the value shows first.
+2. Press **Split By** and choose a field, such as Channel. The values under it appear, largest first.
+3. Pick one, such as EMAIL, and **Split By** again to break it down by another field. **High Value** and **Low Value** let AI pick the field whose largest or smallest part goes furthest.
+4. A level's cross removes it and the levels after it; **Start Again** clears the tree.
+
+**Add a written summary to a dashboard**
+
+1. Edit the dashboard, press **Add Tile**, pick a report and choose **Written Summary**.
+2. When the dashboard opens, the tile shows a few sentences from AI on the report's rows for the period, with the main points. It needs the workspace's **Explain This Report** switch (Settings → AI Assistant).
+3. A summary counts as one prompt and is kept for six hours for the same period and slicers, so opening the dashboard again costs nothing. The PDF carries the kept summary; an embed link does not write one.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.

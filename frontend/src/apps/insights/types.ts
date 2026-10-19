@@ -3,7 +3,7 @@
 export type FieldType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'
 /** calc: a calculated measure's one aggregate; its formula over the other measures does the totalling */
 export type Aggregate = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'calc'
-export type ChartKind = 'bar' | 'line' | 'area' | 'pie' | 'funnel' | 'stacked' | 'stacked100' | 'combo'
+export type ChartKind = 'bar' | 'line' | 'area' | 'pie' | 'funnel' | 'stacked' | 'stacked100' | 'combo' | 'scatter' | 'bubble' | 'treemap' | 'waterfall' | 'gauge' | 'kpi' | 'map'
 
 /** conditional formatting of a totalled column (a measure, or <field>__<kind> for one of its comparisons) */
 export type FormatStyle = 'scale' | 'bars' | 'rules'
@@ -11,7 +11,7 @@ export type FormatTone = 'good' | 'warning' | 'bad'
 export interface FormatRule { op: '>' | '>=' | '<' | '<=' | '='; value: number; tone: FormatTone }
 export interface ColumnFormat { column: string; style: FormatStyle; rules?: FormatRule[] }
 export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
-export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot'
+export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot' | 'influencers' | 'decomposition'
 
 /** how the report is shown: the view, the chart's kind, and for a chart or a pivot which dimension goes across */
 export interface ReportView {
@@ -22,6 +22,18 @@ export interface ReportView {
   formats?: ColumnFormat[]
   /** a chart's forecast line and anomaly flags, worked out in the browser from the rows */
   signals?: ChartSignal[]
+  /** a gauge's or a KPI card's target */
+  target?: number
+  /** small multiples: the chart repeated per value of this dimension */
+  multiples?: string
+  /** a map's shapes: US states, the world's countries, or worked out from the values */
+  geo?: 'auto' | 'us' | 'world'
+  /** a pivot with every value side by side */
+  matrix?: boolean
+  /** a pivot with a trend line per row */
+  sparklines?: boolean
+  /** the value Key Influencers or the Decomposition Tree analyses */
+  measure?: string
 }
 export type ChartSignal = 'forecast' | 'anomalies'
 
@@ -321,7 +333,7 @@ export type PeriodPreset = '7d' | '30d' | 'month' | 'quarter' | 'custom'
 export interface Period { preset: PeriodPreset; from?: string; to?: string }
 export interface PeriodBounds { from: string; to: string; previous_from: string; previous_to: string }
 export type RowWidth = '1' | '2' | '3' | '4' | '2-1'
-export type TileShow = ViewType | 'figure'
+export type TileShow = ViewType | 'figure' | 'summary'
 
 export interface DashboardTile {
   id: string
@@ -376,6 +388,7 @@ export interface Dashboard extends Omit<DashboardSummary, 'tiles' | 'favourite'>
 export type TileResult =
   | { kind: 'figure'; value: number | string | null; previous: number | string | null; compared: boolean; column: ResultColumn; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; cached: boolean; sliced?: string[] }
   | { kind: 'view'; view: ReportView; result: RunResult; own_dates: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number; dataset?: string }; sliced?: string[]; drill?: DrillInfo }
+  | { kind: 'summary'; summary: string | null; points?: string[]; caution?: string; detail?: string; model?: { label: string }; cached?: boolean; bounds: PeriodBounds; report: { id: string; name: string; version: number }; sliced?: string[] }
   | { kind: 'missing'; detail: string }
   | { kind: 'refused'; detail: string; outcome: string }
 
@@ -690,3 +703,46 @@ export interface UsageReport {
   people: { user_id: string; name: string; opens: number; items: number; last_opened: string }[]
   daily: { day: string; opens: number }[]
 }
+
+// ---------------------------------------------------------------------------------------------------- the analysing visuals
+
+/** one segment Key Influencers found: when this field has this value, the analysed value is this far from the whole */
+export interface Influence {
+  field: string
+  field_label: string
+  bucket?: Bucket
+  value: unknown
+  value_label: string
+  measure: number
+  effect: number
+  rows: number | null
+  share: number
+  score: number
+}
+export interface InfluencersResult {
+  kind: 'influencers'
+  measure: { field: string; label: string; column: ResultColumn }
+  overall: number
+  rows: number | null
+  higher: Influence[]
+  lower: Influence[]
+  explained_by: string[]
+  /** a percentage: differences read in points */
+  points: boolean
+}
+export interface DecomposeResult {
+  kind: 'decompose'
+  measure: { field: string; label: string; column: ResultColumn }
+  total: number | null
+  path: { field: string; value: unknown }[]
+  explain_by: { field: string; label: string; bucket?: Bucket }[]
+  by?: string
+  by_label?: string
+  bucket?: Bucket
+  rows?: { value: unknown; label: string; measure: number | null }[]
+  more?: boolean
+  /** the AI split that picked the field */
+  chosen?: 'auto_high' | 'auto_low'
+}
+/** where an analysing visual reads from: a saved report, or a draft in the editor */
+export type AnalysisSource = { reportId: string } | { dataset: string; definition: ReportDefinition }

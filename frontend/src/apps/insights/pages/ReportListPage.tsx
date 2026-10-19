@@ -19,7 +19,7 @@ import { AskForReport } from '../components/AskForReport'
 import { FavouriteStar } from '../components/FavouriteStar'
 import type { ReportSummary } from '../types'
 
-const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy' }
+const VIEW_LABEL: Record<ReportSummary['view_type'], string> = { grid: 'Grid', chart: 'Chart', pivot: 'Pivot', hierarchy: 'Hierarchy', influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
 
 export function ReportListPage() {
   const { can } = useAuth()

@@ -7,6 +7,7 @@ from apps.insights import assistant as insights_assistant
 from apps.insights import databases as insights_databases
 from apps.insights import access as insights_access
 from apps.insights import ai_report as insights_ai
+from apps.insights import analyze as insights_analyze
 from apps.insights import embeds as insights_embeds
 from apps.insights import usage as insights_usage
 from django.urls import include, path
@@ -147,11 +148,13 @@ urlpatterns = [
     path("insights/reports/", insights_api.ReportListView.as_view(), name="insights-reports"),
     path("insights/reports/preview/", insights_api.PreviewView.as_view(), name="insights-preview"),
     path("insights/reports/sql/", insights_ai.SqlView.as_view(), name="insights-sql"),
+    path("insights/reports/analyze/", insights_analyze.AnalyzeDraftView.as_view(), name="insights-analyze"),
     path("insights/reports/<uuid:report_id>/", insights_api.ReportView.as_view(), name="insights-report"),
     path("insights/reports/<uuid:report_id>/versions/", insights_api.ReportVersionsView.as_view(), name="insights-report-versions"),
     path("insights/reports/<uuid:report_id>/versions/<int:number>/restore/", insights_api.ReportVersionRestoreView.as_view(), name="insights-report-version-restore"),
     path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
     path("insights/reports/<uuid:report_id>/explain/", insights_ai.ExplainView.as_view(), name="insights-report-explain"),
+    path("insights/reports/<uuid:report_id>/analyze/", insights_analyze.AnalyzeReportView.as_view(), name="insights-report-analyze"),
     path("insights/reports/<uuid:item_id>/shares/", insights_access.ReportSharesView.as_view(), name="insights-report-shares"),
     path("insights/dashboards/<uuid:item_id>/shares/", insights_access.DashboardSharesView.as_view(), name="insights-dashboard-shares"),
     path("insights/principals/", insights_access.PrincipalsView.as_view(), name="insights-principals"),

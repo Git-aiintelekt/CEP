@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from unittest import mock
 
-from apps.insights import access, ai_report, assistant, catalog, clickhouse, compare, compiler, dashboards, definition, derived, drill, embeds, excel, links, pdf, runner, schedules, shape, topn
+from apps.insights import access, ai_report, analyze, assistant, catalog, clickhouse, compare, compiler, dashboards, definition, derived, drill, embeds, excel, links, pdf, runner, schedules, shape, topn
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -483,6 +483,36 @@ def test_definition_and_compiler(check):
     with mock.patch.object(resolver, "_lookup", side_effect=lambda key, value: (key, value)):
         check("an embed's address names its workspace", resolver.resolve_tenant(RequestFactory().get("/api/v1/public/embed/NWA/s3cret/")) == ("code", "NWA"))
 
+    # the visuals: chart kinds and their settings saved with the view, the engine's grand total for a KPI card or a gauge
+    kpi = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "kpi", "target": 900}})
+    check("a KPI card keeps its target, and the engine totals the whole period for it", kpi["view"] == {"type": "chart", "chart": "kpi", "target": 900}
+          and compiler.totals_sets(kpi, kpi["view"]) == [()])
+    many = definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}, {"field": "messages", "aggregate": "count"}],
+                                         "view": {"type": "pivot", "across": "submitted_at", "matrix": True, "sparklines": True}})
+    check("a pivot keeps All Values and the Trend column", many["view"] == {"type": "pivot", "across": "submitted_at", "matrix": True, "sparklines": True})
+    check("small multiples repeat by a dimension of the report; a map keeps its geography; an analysing view keeps its value",
+          definition.validate(DATASET, {**{k: many[k] for k in ("columns",)}, "view": {"type": "chart", "chart": "bar", "multiples": "channel"}})["view"]["multiples"] == "channel"
+          and definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "map", "geo": "world"}})["view"]["geo"] == "world"
+          and definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "influencers", "measure": "sent"}})["view"] == {"type": "influencers", "measure": "sent"})
+    check("a wrong setting is refused where it sits",
+          refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "gauge", "target": "high"}}, "view.target")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "bar", "multiples": "sent"}}, "view.multiples")
+          and refused({"columns": [{"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "funnel", "multiples": "campaign_name"}}, "view.multiples")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "map", "geo": "mars"}}, "view.geo")
+          and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "decomposition", "measure": "channel"}}, "view.measure")
+          and refused({"columns": [{"field": "channel"}], "view": {"type": "chart", "chart": "radar"}}, "view.chart"))
+    explained_by = analyze.candidates(DATASET, definition.validate(DATASET, {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}],
+                                                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "=", "value": "EMAIL"}]}}), mask=True)
+    check("Key Influencers explains by the report's dimensions first, a date by month, never a field fixed to one value, the dataset's key or personal data hidden from the person",
+          explained_by == [{"field": "campaign_name", "label": "Campaign"}, {"field": "submitted_at", "label": "Sent", "bucket": "month"}], str(explained_by))
+    columns_k = [{"key": "submitted_at", "label": "Sent", "type": "date", "format": "date", "bucket": "month"}, {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}]
+    figure_pdf = pdf.report("KPI", columns_k, [["2026-09-01", 400], ["2026-10-01", 500]], {"type": "chart", "chart": "kpi", "target": 1000}, [{"keys": {}, "values": [900]}], workspace="W", when="now")
+    water_pdf = pdf.report("Steps", columns_k, [["2026-09-01", 400], ["2026-10-01", -50]], {"type": "chart", "chart": "waterfall"}, workspace="W", when="now")
+    scatter_pdf = pdf.report("Points", columns_k, [["2026-09-01", 400]], {"type": "chart", "chart": "scatter"}, workspace="W", when="now")
+    summary_pdf = pdf.dashboard("Board", None, "September", [{"title": "Summary", "kind": "summary", "summary": "Sends rose <fast> & steadily.", "points": ["Email led."]}], workspace="W", when="now")
+    check("the PDF draws a KPI card, a waterfall as steps, the rest as rows, and a summary tile (its words escaped)",
+          all(b[:5] == b"%PDF-" for b in (figure_pdf, water_pdf, scatter_pdf, summary_pdf)))
+
     # drill-down: the levels, and the definition of the level under a path
     yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
@@ -778,6 +808,41 @@ def test_api(check, world):
                                                                                                                "blend": {"dataset": "attributed_orders", "columns": [{"field": "amount", "aggregate": "sum"}]}}})
         check("a report on Messages adds Amount from Attributed Orders", joined.status_code == 200 and [c["key"] for c in joined.json()["columns"]] == ["campaign_name", "sent", "attributed_orders.amount"]
               and joined.json()["linked"]["label"] == "Attributed Orders", joined.content[:300])
+
+    # the visuals: a KPI card's grand total, Key Influencers, the Decomposition Tree, and a dashboard's written summary (the provider faked)
+    kpi_run = world.api("post", "/api/v1/insights/reports/preview/", {"dataset": "messages", "definition": {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "chart", "chart": "kpi", "target": 10}}})
+    check("a KPI card's run carries the engine's grand total", kpi_run.status_code == 200 and any(t["keys"] == {} for t in kpi_run.json().get("totals", [])), kpi_run.content[:300])
+    drafted = {"dataset": "messages", "definition": {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}]}}
+    keyed = world.api("post", "/api/v1/insights/reports/analyze/", {**drafted, "kind": "influencers"})
+    body_k = keyed.json() if keyed.status_code == 200 else {}
+    check("Key Influencers reads a sum per row and says what raises and lowers it", keyed.status_code == 200 and body_k["kind"] == "influencers" and body_k["measure"]["label"].startswith("Sent Count per")
+          and isinstance(body_k["higher"], list) and isinstance(body_k["lower"], list) and "Campaign" in body_k["explained_by"], keyed.content[:300])
+    counted = world.api("post", "/api/v1/insights/reports/analyze/", {"dataset": "messages", "definition": {"columns": [{"field": "channel"}, {"field": "messages", "aggregate": "count"}]}, "kind": "influencers"})
+    check("a count is refused in words", counted.status_code == 422 and "a count" in counted.json()["detail"], counted.content[:200])
+    tree = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": []})
+    body_t = tree.json() if tree.status_code == 200 else {}
+    check("the Decomposition Tree starts with the total and the fields to split by", tree.status_code == 200 and body_t["total"] is not None and any(o["field"] == "channel" for o in body_t["explain_by"]), tree.content[:300])
+    by_channel = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [], "by": "channel"})
+    rows_c = by_channel.json().get("rows", []) if by_channel.status_code == 200 else []
+    check("a split by channel gives the largest first", by_channel.status_code == 200 and rows_c and all((a["measure"] or 0) >= (b["measure"] or 0) for a, b in zip(rows_c, rows_c[1:])), by_channel.content[:300])
+    if rows_c:
+        under = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [{"field": "channel", "value": rows_c[0]["value"]}], "by": "auto_high"})
+        check("under a value, High Value picks a field left to split by", under.status_code in (200, 422) and (under.status_code == 422 or (under.json()["chosen"] == "auto_high" and under.json()["by"] != "channel")), under.content[:300])
+    check("a split by a field not offered is refused", world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "path": [], "by": "nope"}).status_code == 422)
+    board = world.api("post", "/api/v1/insights/dashboards/", {"name": "Written"}).json()
+    put = world.api("put", f"/api/v1/insights/dashboards/{board['id']}/", {"row_version": board["row_version"], "layout": {"rows": [{"width": "1", "tiles": [{"id": "s1", "report_id": rid, "show": "summary"}]}]}})
+    check("a summary tile saves", put.status_code == 200, put.content[:200])
+    model_s = {"id": "anthropic:claude-haiku-5-5", "provider": "anthropic", "provider_name": "Claude (Anthropic)", "mark": "A", "model": "claude-haiku-5-5", "label": "Claude Haiku 5.5", "source": "own"}
+    with mock.patch.object(ai_report, "default_choice", return_value=(model_s, {})), \
+            mock.patch.object(assistant, "call_model", return_value=({"summary": "Fall Launch led the month.", "points": ["Email carried it."], "caution": ""}, {"in": 5, "out": 5})) as wrote:
+        first = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/s1/run/", {"period": {"preset": "custom", "from": "2022-01-01", "to": "2030-12-31"}})
+        again = world.api("post", f"/api/v1/insights/dashboards/{board['id']}/tiles/s1/run/", {"period": {"preset": "custom", "from": "2022-01-01", "to": "2030-12-31"}})
+        calls_s = wrote.call_count
+    check("a summary tile writes a few sentences once, then shows the kept ones", first.status_code == 200 and first.json()["kind"] == "summary" and first.json()["summary"] == "Fall Launch led the month."
+          and again.json().get("cached") is True and calls_s == 1, (first.content[:300], calls_s))
+    board_pdf = world.api("get", f"/api/v1/insights/dashboards/{board['id']}/export.pdf")
+    check("the dashboard's PDF carries the kept summary", board_pdf.status_code == 200 and board_pdf.content[:5] == b"%PDF-")
+    world.api("delete", f"/api/v1/insights/dashboards/{board['id']}/")
 
     gone = world.api("delete", f"/api/v1/insights/reports/{rid}/")
     check("a deleted report is gone from the list", gone.status_code == 204 and not any(r["id"] == rid for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))
