@@ -70,7 +70,8 @@ export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role
   }
 
   const fields = withCustom(dataset, { columns: [], derived: before }).fields.filter((f) => f.key !== fieldKey && f.label.toLowerCase().includes(search.trim().toLowerCase()))
-  const groups = FORMULA_FUNCTIONS.map((g) => ({ ...g, items: g.items.filter((f) => kind === 'measure' || !f.measureOnly) })).filter((g) => g.items.length)
+  const olderMysql = dataset.database?.engine === 'mysql57'
+  const groups = FORMULA_FUNCTIONS.filter((g) => !(olderMysql && g.windowed)).map((g) => ({ ...g, items: g.items.filter((f) => kind === 'measure' || !f.measureOnly) })).filter((g) => g.items.length)
   const number = result?.ok ? result.spec?.type === 'number' : true
 
   return (

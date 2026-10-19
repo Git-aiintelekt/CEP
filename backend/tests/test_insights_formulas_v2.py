@@ -58,6 +58,19 @@ def test_language(check):
             ("HOUR(DATE(2026, 1, 1))", False, "date and time", 5)):
         message, place = _refusal(text, measure)
         check(f"refused with its place: {text}", words in message and place == at, f"{message} at {place}")
+    older = {**DATASET, "database": {"engine": "mysql57"}}
+    refused = []
+    for text, at in (("RANKX(SUM([Sent Count]))", 0), ("TOTALYTD(SUM([Sent Count]))", 0), ("SAMEPERIODLASTYEAR(SUM([Sent Count]))", 0),
+                     ("CALCULATE(SUM([Sent Count]), ALL([Channel]))", 29), ("DIVIDE(SUM([Sent Count]), CALCULATE(SUM([Sent Count]), REMOVEFILTERS()))", 55)):
+        try:
+            formula.check(text, older, measure=True)
+            refused.append((text, None))
+        except formula.FormulaError as exc:
+            refused.append((text, exc.at if "MySQL 5.7" in str(exc) else str(exc)))
+    check("on a MySQL 5.7 database ALL, RANKX and the time functions are refused as you type, at their place", [r[1] for r in refused] == [0, 0, 0, 29, 55], str(refused))
+    check("CALCULATE with a condition, and the other new functions, still work there",
+          not formula.check("CALCULATE(SUM([Sent Count]), [Channel] = \"SMS\") + SUMX([Sent Count] * 2)", older, measure=True).analytic
+          and formula.check("POWER([Sent Count], 2) + WEEKDAY([Sent])", older, measure=False).type == "number")
     with_zone = formula.ZONE.set("UTC")
     check("each dialect writes the new functions its own way",
           _sql("WEEKDAY([Sent])", "clickhouse") == "(toDayOfWeek(toTimeZone(\"submitted_at\", 'UTC')) % 7 + 1)" and _sql("WEEKDAY([Sent])", "mysql") == "DAYOFWEEK(\"submitted_at\")"

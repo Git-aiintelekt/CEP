@@ -350,6 +350,7 @@ def _relocate(node, at):
 
 def check(text: str, dataset: dict, *, measure: bool) -> Checked:
     tree = parse(text)
+    older_mysql = (dataset.get("database") or {}).get("engine") == "mysql57"    # no window functions: ALL, RANKX and the time functions are refused
     used: dict[str, dict] = {}
     calls: list[dict] = []
 
@@ -536,6 +537,8 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
         if inside:
             raise FormulaError(f"{fn} cannot go inside {inside}.", at)
         raw = node["args"]
+        if fn != "CALCULATE" and older_mysql:
+            raise FormulaError(f"{fn} needs MySQL 8 or PostgreSQL; this database is MySQL 5.7.", at)
         if fn == "RANKX":
             if scope.get("ranked") is not None or depth > 0:
                 raise FormulaError("RANKX is a measure of its own: write it as the whole formula, such as RANKX(SUM([Sales])).", at)
@@ -554,6 +557,8 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
             drop, conditions = None, []
             for extra in raw[1:]:
                 if extra["t"] == "call" and ALIASES.get(extra["fn"], extra["fn"]) == "ALL":
+                    if older_mysql:
+                        raise FormulaError(f"{extra['fn']} needs MySQL 8 or PostgreSQL; this database is MySQL 5.7. A condition in CALCULATE works.", extra["at"])
                     if drop is not None:
                         raise FormulaError("CALCULATE takes one ALL, naming every field to leave out.", extra["at"])
                     drop = []

@@ -2,12 +2,15 @@
  * editor's field lists, guarded on removal; a report's own formula shared with every report from Custom Fields; the v2 functions
  * in the editor's list. */
 import { cleanup, render, screen, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { cepReady, installMockApi, insightsSharedFormulasNow, me, signIn } from '@/test/mockApi'
 import { shareCustom } from './editor/definition'
+import { FormulaEditor } from './editor/FormulaEditor'
 import { FORMULA_FUNCTIONS } from './editor/formulaHelp'
+import type { CatalogDataset } from './types'
 
 const withInsights = (permissions: string[]) => ({ ...me, principal: { ...me.principal, permissions: [...me.principal.permissions, ...permissions] },
   components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', access: 'PLAN', until: null }], insights: { mode: 'integrated', standalone_path: '/insights' } })
@@ -107,4 +110,23 @@ test('a shared report names the shared formula wherever it named its own; the v2
   expect(shared.derived?.map((d) => d.key)).toEqual(['c_twice'])
   const names = FORMULA_FUNCTIONS.flatMap((g) => g.items.map((f) => f.name))
   for (const name of ['SUMX', 'CALCULATE', 'ALL', 'RANKX', 'TOTALYTD', 'SAMEPERIODLASTYEAR', 'PARALLELPERIOD', 'VAR', 'POWER', 'MID', 'WEEKDAY', 'EOMONTH', 'DATE', 'NOW']) expect(names).toContain(name)
+})
+
+test('on a MySQL 5.7 database the editor leaves out share, rank and time; on MySQL 8 it lists them', () => {
+  const editorFor = (engine: 'mysql57' | 'mysql80') => {
+    const dataset = { key: 'x_orders', label: 'Orders', fields: [], database: { id: 'db-1', name: 'Shop', engine, engine_name: engine } } as unknown as CatalogDataset
+    return render(
+      <QueryClientProvider client={new QueryClient()}>
+        <FormulaEditor dataset={dataset} kind="measure" label="" expression="" role="" format="" before={[]} onChange={() => undefined} onChecked={() => undefined} />
+      </QueryClientProvider>,
+    )
+  }
+  const older = editorFor('mysql57')
+  const functions = within(older.getByRole('region', { name: 'Functions' }))
+  expect(functions.queryByText('Share, Rank and Time')).toBeNull()
+  expect(functions.queryByText(/^RANKX\(/)).toBeNull()
+  expect(functions.getByText(/^SUMX\(/)).toBeTruthy()
+  older.unmount()
+  const newer = editorFor('mysql80')
+  expect(within(newer.getByRole('region', { name: 'Functions' })).getByText('Share, Rank and Time')).toBeTruthy()
 })

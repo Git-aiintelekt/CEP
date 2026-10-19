@@ -8,7 +8,8 @@ export interface FormulaFunction { name: string; usage: string; words: string; m
   /** what the button puts in, when not the name and an opening bracket */
   insert?: string }
 
-export const FORMULA_FUNCTIONS: { group: string; items: FormulaFunction[] }[] = [
+/** windowed: the functions a MySQL 5.7 database cannot run (no window functions), left out of the list there */
+export const FORMULA_FUNCTIONS: { group: string; windowed?: boolean; items: FormulaFunction[] }[] = [
   { group: 'Adding Up', items: [
     { name: 'SUM', usage: 'SUM([Field], condition)', words: 'The total; with a condition, of the rows it holds for', measureOnly: true },
     { name: 'AVERAGE', usage: 'AVERAGE([Field], condition)', words: 'The average', measureOnly: true },
@@ -19,7 +20,7 @@ export const FORMULA_FUNCTIONS: { group: string; items: FormulaFunction[] }[] = 
     { name: 'COUNTROWS', usage: 'COUNTROWS(condition)', words: 'How many rows', measureOnly: true },
     { name: 'SUMX', usage: 'SUMX([Quantity] * [Price])', words: 'The total of a value worked out for each row (also AVERAGEX, MINX, MAXX, COUNTX)', measureOnly: true },
   ] },
-  { group: 'Share, Rank and Time', items: [
+  { group: 'Share, Rank and Time', windowed: true, items: [
     { name: 'CALCULATE', usage: 'CALCULATE(SUM([Field]), ALL([Channel]))', words: 'With ALL, the total across every value of a field: the parent of a share', measureOnly: true },
     { name: 'ALL', usage: 'ALL([Field], …)', words: 'Inside CALCULATE: ignore these fields of the report (none named: all of them)', measureOnly: true },
     { name: 'RANKX', usage: 'RANKX(SUM([Field]), "asc")', words: 'The row\'s place, 1 for the largest (asc: the smallest); a measure of its own', measureOnly: true },
