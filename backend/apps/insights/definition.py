@@ -304,6 +304,14 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
         seen.add(key)
         out_columns.append({"field": field["key"], **({"aggregate": aggregate} if aggregate else {}), **({"bucket": bucket} if bucket else {}),
                             **({"label": label} if label else {}), **({"compare": list(kinds)} if kinds else {}), **({"target": target} if target is not None else {})})
+    for i, column in enumerate(out_columns):                          # a measure formula over the report's rows (formula.py, version 2)
+        checked = (next(f for f in dataset["fields"] if f["key"] == column["field"]).get("expression") or {}).get("checked") if "aggregate" in column else None
+        if checked is None or not checked.analytic:
+            continue
+        if checked.timed and comparisons.axis(dataset, out_columns) is None:
+            raise DefinitionError(f"columns[{i}].field", "TOTALYTD, SAMEPERIODLASTYEAR and the other time functions need a date in the report, such as Sent by Month.")
+        if (dataset.get("database") or {}).get("engine") == "mysql57":
+            raise DefinitionError(f"columns[{i}].field", "CALCULATE with ALL, RANKX and the time functions need MySQL 8 or PostgreSQL; this database is MySQL 5.7.")
     timed = next((i for i, c in enumerate(out_columns) if any(kind in comparisons.TIMED for kind in c.get("compare", []))), None)
     if timed is not None and comparisons.axis(dataset, out_columns) is None:
         raise DefinitionError(f"columns[{timed}].compare", "Comparing with an earlier period, or adding up along the dates, needs a date in the report, such as Sent by Month.")

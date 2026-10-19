@@ -61,6 +61,55 @@ export interface CatalogField {
   formula?: MeasureFormula
   /** one of the report's own custom fields, not the dataset's */
   custom?: boolean
+  /** a shared formula saved on the dataset (Insights → Shared Formulas), read by every report on it */
+  shared?: SharedMark
+}
+
+/** how a shared formula shows in a field list */
+export interface SharedMark {
+  id: string
+  kind: 'formula' | 'measure'
+  expression: string
+  role: 'dimension' | 'measure' | null
+  format: string | null
+  certified: boolean
+  description: string | null
+  certified_by_name: string | null
+}
+
+/** a shared formula as Insights → Shared Formulas lists it (apps/insights/dataset_formulas.py) */
+export interface SharedFormula {
+  id: string
+  dataset_key: string
+  key: string
+  label: string
+  description: string | null
+  kind: 'formula' | 'measure'
+  expression: string
+  type: FieldType
+  role: 'dimension' | 'measure' | null
+  format: 'integer' | 'decimal' | 'money' | 'percent' | null
+  sensitivity: 'NORMAL' | 'PII'
+  certified: boolean
+  certified_at: string | null
+  certified_by_name: string | null
+  created_by_name: string | null
+  created_at: string
+  updated_at: string
+  row_version: number
+  /** how many reports on the dataset use it */
+  reports?: number
+}
+
+export interface SharedFormulaBody {
+  label: string
+  kind?: 'formula' | 'measure'
+  expression: string
+  description?: string | null
+  role?: 'dimension' | 'measure'
+  format?: string
+  row_version?: number
+  confirm?: boolean
 }
 
 export interface CatalogDataset {
@@ -240,6 +289,8 @@ export interface FormulaCheck {
   message?: string
   at?: number | null
   where?: string
+  /** it uses ALL, RANKX or a time function: worked out over the report's grouped rows */
+  analytic?: boolean
 }
 
 export interface ReportSummary {

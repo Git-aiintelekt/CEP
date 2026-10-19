@@ -16,6 +16,7 @@ import type { EditorLayoutProps } from './FieldWells'
 import { CompareControl } from './CompareControl'
 import { TopControl } from './TopControl'
 import { FilterBuilder } from './FilterBuilder'
+import { SharedFieldMark } from './SharedFieldMark'
 
 function Step({ number, title, children, end }: { number: number; title: string; children: ReactNode; end?: ReactNode }) {
   return (
@@ -51,7 +52,7 @@ function AddPicker({ label, fields, onPick, id }: { label: string; fields: Catal
             {fields.map((field) => (
               <li key={field.key}>
                 <button type="button" data-dropdown-item onClick={() => { dropdown.close({ restoreFocus: false }); onPick(field) }} className="flex h-9 w-full items-center justify-between gap-2 px-3 text-left text-sm text-ink-900 hover:bg-surface-hover">
-                  <span className="truncate">{field.label}</span>
+                  <span className="inline-flex min-w-0 items-center gap-1"><span className="truncate">{field.label}</span><SharedFieldMark field={field} /></span>
                   {field.sensitivity === 'PII' && <span className="text-[10px] font-semibold text-ink-700 uppercase">PII</span>}
                 </button>
               </li>

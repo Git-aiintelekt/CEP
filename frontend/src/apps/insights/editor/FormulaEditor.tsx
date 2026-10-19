@@ -4,7 +4,7 @@
  * or a dimension (groups); a number is shown as a whole number, a decimal, money or a percentage.
  */
 import { useQuery } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
+import { BadgeCheck, Check } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { Select, TextArea, TextInput } from '@/components/Form'
@@ -30,6 +30,8 @@ interface FormulaEditorProps {
   onChange: (patch: { expression?: string; role?: '' | 'dimension' | 'measure'; format?: string }) => void
   /** the field as it would be saved, once the formula checks out; null while it does not */
   onChecked: (spec: CustomField | null) => void
+  /** checks against something else than the report's own fields (a shared formula, against the dataset's) */
+  checkWith?: { key: string; check: (field: Partial<CustomField>) => Promise<FormulaCheck> }
 }
 
 function useSettled<T>(value: T, ms: number): T {
@@ -41,14 +43,17 @@ function useSettled<T>(value: T, ms: number): T {
   return settled
 }
 
-export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role, format, before, onChange, onChecked }: FormulaEditorProps) {
+export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role, format, before, onChange, onChecked, checkWith }: FormulaEditorProps) {
   const box = useRef<HTMLTextAreaElement>(null)
   const [search, setSearch] = useState('')
   const asked = useSettled({ expression, kind, role, format, label }, 400)
   const check = useQuery<FormulaCheck>({
-    queryKey: ['insights', 'formula-check', dataset.key, before, fieldKey, asked],
-    queryFn: () => formulasApi.check({ dataset: dataset.key, derived: before, field: { ...(fieldKey ? { key: fieldKey } : {}), label: asked.label.trim() || 'Formula', kind: asked.kind, expression: asked.expression,
-      ...(asked.role ? { role: asked.role } : {}), ...(asked.format ? { format: asked.format as CustomField['format'] } : {}) } }),
+    queryKey: ['insights', 'formula-check', dataset.key, checkWith?.key ?? null, before, fieldKey, asked],
+    queryFn: () => {
+      const field: Partial<CustomField> = { ...(fieldKey ? { key: fieldKey } : {}), label: asked.label.trim() || 'Formula', kind: asked.kind, expression: asked.expression,
+        ...(asked.role ? { role: asked.role } : {}), ...(asked.format ? { format: asked.format as CustomField['format'] } : {}) }
+      return checkWith ? checkWith.check(field) : formulasApi.check({ dataset: dataset.key, derived: before, field })
+    },
     enabled: asked.expression.trim().length > 0,
     retry: false,
     placeholderData: (previous) => previous,
@@ -80,7 +85,7 @@ export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role
           : result.ok ? (
             <span className="inline-flex items-start gap-1.5 text-success-text">
               <Check size={16} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0" />
-              <span>Works out {TYPE_WORDS[result.spec?.type ?? 'number']}{kind === 'formula' ? `, used as ${result.role === 'measure' ? 'a measure' : 'a dimension'}` : ''}. Reads {result.uses?.join(', ') || 'no field'}.{result.personal ? ' It reads personal data, so it is personal too.' : ''}</span>
+              <span>Works out {TYPE_WORDS[result.spec?.type ?? 'number']}{kind === 'formula' ? `, used as ${result.role === 'measure' ? 'a measure' : 'a dimension'}` : ''}. Reads {result.uses?.join(', ') || 'no field'}.{result.personal ? ' It reads personal data, so it is personal too.' : ''}{result.analytic ? ' It is worked out over the report\'s grouped rows, so totals leave it empty.' : ''}</span>
             </span>
           ) : (
             <span className="flex flex-col gap-1 text-danger-text">
@@ -114,7 +119,8 @@ export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role
           <ul className="max-h-48 overflow-y-auto rounded-md border border-line">
             {fields.map((f) => (
               <li key={f.key}><button type="button" onClick={() => put(`[${f.label}]`)} className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-sm text-ink-900 hover:bg-surface-hover">
-                <span className="truncate">{f.label}</span><span className="shrink-0 text-xs text-ink-700">{f.aggregates.includes('calc') ? 'measure' : FIELD_TYPE[f.type]}</span>
+                <span className="inline-flex min-w-0 items-center gap-1"><span className="truncate">{f.label}</span>{f.shared?.certified && <BadgeCheck size={14} strokeWidth={1.5} aria-label="Certified" className="shrink-0 text-success-text" />}</span>
+                <span className="shrink-0 text-xs text-ink-700">{f.aggregates.includes('calc') ? 'measure' : FIELD_TYPE[f.type]}</span>
               </button></li>
             ))}
           </ul>
@@ -127,7 +133,7 @@ export function FormulaEditor({ dataset, kind, label, fieldKey, expression, role
                 <p className="bg-surface-subtle px-2.5 py-1 text-xs font-semibold text-ink-800">{g.group}</p>
                 <ul>
                   {g.items.map((f) => (
-                    <li key={f.name}><button type="button" onClick={() => put(`${f.name}(${f.name === 'TODAY' ? ')' : ''}`)} className="flex w-full flex-col px-2.5 py-1.5 text-left hover:bg-surface-hover">
+                    <li key={f.name}><button type="button" onClick={() => put(f.insert ?? `${f.name}(${f.name === 'TODAY' || f.name === 'NOW' ? ')' : ''}`)} className="flex w-full flex-col px-2.5 py-1.5 text-left hover:bg-surface-hover">
                       <span className="font-mono text-xs text-ink-900">{f.usage}</span><span className="text-xs text-ink-700">{f.words}</span>
                     </button></li>
                   ))}

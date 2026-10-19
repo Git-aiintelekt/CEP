@@ -194,8 +194,33 @@ def _field_of(dataset: dict, spec: dict) -> dict:
             "buckets": [], "format": None, "sensitivity": "PII" if personal else "NORMAL", "derived": {**spec, "sources": {f["key"]: f for f in found}}}
 
 
+def _waiting(field: dict) -> bool:
+    return bool(field.get("shared")) and not (field.get("expression") or field.get("derived"))
+
+
+def materialize(dataset: dict) -> dict:
+    """the dataset's shared formulas (apps/insights/dataset_formulas.py) worked out, in order, like a report's own; one that no
+    longer reads (a field it named is gone) is left out rather than failing every report"""
+    if not any(_waiting(f) for f in dataset["fields"]):
+        return dataset
+    out = {**dataset, "fields": [f for f in dataset["fields"] if not _waiting(f)]}
+    for field in dataset["fields"]:
+        if not _waiting(field):
+            continue
+        shared = field["shared"]
+        spec = {"key": field["key"], "label": field["label"], "kind": shared["kind"], "expression": shared["expression"], "role": shared.get("role"),
+                "format": shared.get("format") or None}
+        try:
+            made = _formula_field(out, spec)
+        except formula.FormulaError:
+            continue
+        out = {**out, "fields": [*out["fields"], {**made, "shared": shared}]}
+    return out
+
+
 def augment(dataset: dict, definition: dict | None) -> dict:
-    """the dataset with the definition's custom fields among its fields"""
+    """the dataset with its shared formulas worked out, then the definition's custom fields among its fields"""
+    dataset = materialize(dataset)
     specs = (definition or {}).get("derived") or []
     if not specs:
         return dataset

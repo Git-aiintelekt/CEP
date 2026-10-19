@@ -181,6 +181,32 @@ type MockUpload = { id: string; key: string; name: string; description: string |
   replaced_at: string | null; row_version: number; reports: number; sample: Record<string, unknown>[];
   columns: { key: string; label: string; column: string; source: string; type: string; inferred: string; types: string[]; role: 'dimension' | 'measure' }[] }
 export const insightsUploadsNow: MockUpload[] = []
+/** Insights → Shared Formulas, by dataset: what the mock server holds */
+export const insightsSharedFormulasNow: Record<string, Record<string, unknown>[]> = {}
+
+/** the formula language's check, as the server answers it (a rough stand-in: the end of the text, the adding up, the type) */
+function mockFormulaCheck(field: { key?: string; label: string; kind: 'formula' | 'measure'; expression: string; role?: string; format?: string }) {
+  const text = field.expression.trim()
+  if (/[*+/&(-]$/.test(text)) return { ok: false, message: 'The formula ends too soon: something is missing at the end.', at: field.expression.length, where: 'expression' }
+  if (field.kind === 'measure' && !/\b(SUM|AVERAGE|MIN|MAX|COUNT|DISTINCTCOUNT|COUNTROWS|SUMX|AVERAGEX|COUNTX)\(/.test(text)) {
+    return { ok: false, message: 'A measure formula adds up rows: use SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT or COUNTROWS.', at: 0, where: 'expression' }
+  }
+  const type = field.kind === 'measure' || !text.includes('"') ? 'number' : 'string'
+  const role = field.kind === 'measure' ? 'measure' : field.role || (type === 'number' ? 'measure' : 'dimension')
+  const key = field.key ?? `c_${field.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+  return { ok: true, spec: { key, label: field.label, kind: field.kind, expression: text, type, ...(field.kind === 'formula' ? { role } : {}), ...(field.format ? { format: field.format } : {}) },
+    role, personal: false, uses: Array.from(text.matchAll(/\[([^\]]+)\]/g), (m) => m[1]).filter((v, i, all) => all.indexOf(v) === i),
+    analytic: /\b(CALCULATE|RANKX|TOTALYTD|TOTALQTD|SAMEPERIODLASTYEAR|PREVIOUSPERIOD|PARALLELPERIOD)\(/.test(text) }
+}
+
+/** a shared formula as a catalogue field (apps/insights/dataset_formulas.py as_field) */
+function sharedField(row: Record<string, unknown>) {
+  const measure = row.kind === 'measure'
+  const addsUp = !measure && row.role === 'measure'
+  return { key: row.key, label: row.label, type: row.type, role: measure || addsUp ? 'measure' : 'dimension', aggregates: measure ? ['calc'] : addsUp ? ['sum', 'avg', 'min', 'max', 'count'] : [],
+    operators: measure ? [] : ['='], buckets: [], format: row.format ?? null, sensitivity: 'NORMAL',
+    shared: { id: row.id, kind: row.kind, expression: row.expression, role: row.role ?? null, format: row.format ?? null, certified: row.certified, description: row.description ?? null, certified_by_name: row.certified_by_name ?? null } }
+}
 function mockUpload(fileName: string): MockUpload {
   return { id: `upl-${insightsUploadsNow.length + 1}`, key: 'upl_store_sales', name: fileName.replace(/\.(csv|xlsx)$/i, '').replace(/[-_]+/g, ' '), description: null, file_name: fileName, file_kind: fileName.endsWith('.xlsx') ? 'xlsx' : 'csv',
     row_count: 3, status: 'DRAFT', created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z', replaced_at: null, row_version: 1, reports: 0,
@@ -877,6 +903,7 @@ export function installMockApi(options: MockOptions = {}) {
   insightsOpenedNow.splice(0, insightsOpenedNow.length)
   insightsAlertsNow.splice(0, insightsAlertsNow.length)
   insightsUploadsNow.splice(0, insightsUploadsNow.length)
+  for (const key of Object.keys(insightsSharedFormulasNow)) delete insightsSharedFormulasNow[key]
   Object.assign(fiscalYearNow, { start: 1, named_by: 'end' })
   insightsCommentsNow.splice(0, insightsCommentsNow.length)
   insightsEmbedsNow.splice(0, insightsEmbedsNow.length)
@@ -1353,20 +1380,47 @@ export function installMockApi(options: MockOptions = {}) {
           time_field: 'opened', freshness: 'LIVE', kind: 'upload', upload: { id: u.id, file_name: u.file_name, row_count: u.row_count, updated_at: u.updated_at },
           fields: [...u.columns.map((c) => ({ key: c.key, label: c.label, type: c.type, role: c.role, aggregates: c.role === 'measure' ? ['sum', 'avg', 'min', 'max', 'count'] : [], operators: ['='], buckets: [], format: null, sensitivity: 'NORMAL' })),
             { key: 'rows', label: 'Rows', type: 'number', role: 'measure', aggregates: ['count'], operators: ['>'], buckets: [], format: 'integer', sensitivity: 'NORMAL' }] }))
-        return json({ ...insightsCatalog, datasets: [...insightsCatalog.datasets, ...files] })
+        const withShared = (d: { key: string; fields: unknown[] }) => (insightsSharedFormulasNow[d.key]?.length ? { ...d, fields: [...d.fields, ...insightsSharedFormulasNow[d.key].map(sharedField)] } : d)
+        return json({ ...insightsCatalog, datasets: [...insightsCatalog.datasets, ...files].map(withShared) })
       }
       if (path.endsWith('/insights/formulas/check/') && method === 'POST') {          // the formula language's check, as the server answers it
-        const field = (body as { field: { key?: string; label: string; kind: 'formula' | 'measure'; expression: string; role?: string; format?: string } }).field
-        const text = field.expression.trim()
-        if (/[*+/&(-]$/.test(text)) return json({ ok: false, message: 'The formula ends too soon: something is missing at the end.', at: field.expression.length, where: 'expression' })
-        if (field.kind === 'measure' && !/\b(SUM|AVERAGE|MIN|MAX|COUNT|DISTINCTCOUNT|COUNTROWS)\(/.test(text)) {
-          return json({ ok: false, message: 'A measure formula adds up rows: use SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT or COUNTROWS.', at: 0, where: 'expression' })
+        return json(mockFormulaCheck((body as { field: Parameters<typeof mockFormulaCheck>[0] }).field))
+      }
+      const shared = /\/insights\/datasets\/([\w-]+)\/formulas\/(?:(check)\/|([\w-]+)\/(certify\/)?)?$/.exec(path)
+      if (shared) {                                                                     // Insights → Shared Formulas
+        const [, dataset, checking, id, certifying] = shared
+        const rows = (insightsSharedFormulasNow[dataset] ??= [])
+        const admin = (options.me?.principal?.permissions ?? me.principal.permissions).includes('report.admin')
+        if (checking) return json(mockFormulaCheck({ ...(body as { field: Parameters<typeof mockFormulaCheck>[0] }).field, key: undefined }))
+        if (!id && method === 'POST') {
+          const posted = body as { label: string; kind: 'formula' | 'measure'; expression: string; role?: string; format?: string; description?: string | null }
+          const checked = mockFormulaCheck(posted)
+          if (!checked.ok) return json({ type: 'about:blank', title: 'Check the highlighted fields', status: 400, errors: { expression: checked.message } }, 400)
+          const made = { id: `sf-${rows.length + 1}`, dataset_key: dataset, key: `f_${posted.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`, label: posted.label, description: posted.description ?? null,
+            kind: posted.kind, expression: posted.expression.trim(), type: checked.spec?.type, role: posted.kind === 'formula' ? checked.role : null, format: posted.format || null, sensitivity: 'NORMAL', certified: false,
+            certified_at: null, certified_by_name: null, created_by_name: 'Aby', created_at: '2026-10-19T09:00:00Z', updated_at: '2026-10-19T09:00:00Z', row_version: 1, reports: 0 }
+          rows.push(made)
+          return json(made, 201)
         }
-        const type = field.kind === 'measure' || !text.includes('"') ? 'number' : 'string'
-        const role = field.kind === 'measure' ? 'measure' : field.role || (type === 'number' ? 'measure' : 'dimension')
-        const key = field.key ?? `c_${field.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
-        return json({ ok: true, spec: { key, label: field.label, kind: field.kind, expression: text, type, ...(field.kind === 'formula' ? { role } : {}), ...(field.format ? { format: field.format } : {}) },
-          role, personal: false, uses: Array.from(text.matchAll(/\[([^\]]+)\]/g), (m) => m[1]).filter((v, i, all) => all.indexOf(v) === i) })
+        if (!id) return json({ dataset, ready: true, can_certify: admin, formulas: rows })
+        const row = rows.find((r) => r.id === id)
+        if (!row) return json({ type: 'about:blank', title: 'Not found', status: 404, detail: 'No such formula.' }, 404)
+        if (certifying) {
+          const on = (body as { certified: boolean }).certified
+          Object.assign(row, { certified: on, certified_by_name: on ? 'Aby' : null, certified_at: on ? '2026-10-19T10:00:00Z' : null, row_version: (row.row_version as number) + 1 })
+          return json(row)
+        }
+        if (method === 'DELETE') {
+          if ((row.reports as number) > 0) return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: 'Reports use this formula. Take it out of them first.' }, 409)
+          rows.splice(rows.indexOf(row), 1)
+          return new Response(null, { status: 204 })
+        }
+        const put = body as { label?: string; expression?: string; description?: string | null; format?: string; confirm?: boolean }
+        if ((row.reports as number) > 0 && put.label && put.label !== row.label && !put.confirm) {
+          return json({ type: 'about:blank', title: 'Conflict', status: 409, detail: `${row.reports} report uses this formula; a new name, type or use can stop it running. Send confirm to go ahead.` }, 409)
+        }
+        Object.assign(row, { label: put.label ?? row.label, expression: put.expression ?? row.expression, description: put.description ?? row.description, format: put.format || null, row_version: (row.row_version as number) + 1 })
+        return json(row)
       }
       if (path.endsWith('/insights/parameters/values/') && method === 'POST') {
         const field = (body as { field: string }).field

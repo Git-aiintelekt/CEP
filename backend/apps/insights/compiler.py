@@ -18,6 +18,11 @@ and totals by one query per grouping set joined with UNION ALL instead of GROUPI
 A calculated measure (a catalogue field with a `formula` and the one aggregate `calc`) is a ratio, difference, sum or product
 of two sides, each another measure with one of its aggregates or a number, optionally scaled: Delivered Rate is
 sum(delivered) / NULLIF(sum(sent), 0) * 100. It compiles in the select and in the totals, so every view gets it exact.
+
+A measure formula that works over the report's grouped rows (CALCULATE with ALL, RANKX, TOTALYTD and the other time functions,
+apps/insights/formula.py) compiles to three levels (_compile_analytic): the grouped query, each aggregate its own column (and
+again, shifted in time, joined beside it); a window level (share of the parent, year or quarter to date); a last level that
+ranks and keeps the asked-for range when the date's filter was widened for the earlier rows. Totals leave such measures empty.
 """
 AGGREGATES = {"sum": "sum({col})", "count": "count({col})", "count_distinct": "count(DISTINCT {col})", "avg": "avg({col})", "min": "min({col})", "max": "max({col})"}
 CALC = "calc"
@@ -300,6 +305,8 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
             inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params, definition.get('_fiscal', 1))} AS {_ident(f'd{i}', dialect)}")
         for j, column in enumerate(meas):
             field = next(f for f in dataset["fields"] if f["key"] == column["field"])
+            if _analytic_field(field):                                     # worked out over the report's rows: no total
+                continue
             for k, (operand, _aggregate) in enumerate(operands(dataset, field, column["aggregate"])):
                 inner.append(f"{_col(operand, dialect)} AS {_ident(_raw_alias(j, k, column), dialect)}")
         return f"(SELECT {', '.join(inner)} FROM {_from(dataset, dialect)} WHERE {_where(dataset, definition, tenant_id, zone, params)}) AS base"
@@ -307,6 +314,8 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     def totalled(j: int, column: dict) -> str:
         """one measure over the raw columns of the subquery: a plain aggregate, or a calculated measure's formula"""
         field = next(f for f in dataset["fields"] if f["key"] == column["field"])
+        if _analytic_field(field):
+            return f"NULL AS {_ident(f'v{j}', dialect)}"
         at = {operand["key"]: _raw_alias(j, k, column) for k, (operand, _aggregate) in enumerate(operands(dataset, field, column["aggregate"]))}
         return measure_expr(dataset, field, column["aggregate"], lambda f: _ident(at[f["key"]], dialect), dialect) + f" AS {_ident(f'v{j}', dialect)}"
 
@@ -329,6 +338,10 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     return Compiled(sql, params.out(), [columns[i] for i in kept] + columns[len(dims):])
 
 
+def _analytic_field(field: dict) -> bool:
+    return bool(field.get("expression")) and field["expression"]["checked"].analytic
+
+
 def _raw_alias(j: int, k: int, column: dict) -> str:
     """the subquery's alias for a measure's raw column: m0 for a plain measure, m0_0, m0_1.. for a calculated one's operands"""
     return f"m{j}" if column["aggregate"] != CALC else f"m{j}_{k}"
@@ -339,6 +352,8 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     from . import derived, formula
     formula.ZONE.set(zone)                                             # a formula's dates read in the workspace's zone
     dataset = derived.augment(dataset, definition)
+    if any("aggregate" in c and _analytic_field(_field_of(dataset, c["field"])) for c in definition["columns"]):
+        return _compile_analytic(dataset, definition, tenant_id, zone, limit=limit, offset=offset, dialect=dialect)
     params = Params(dialect)
     selects, groups, columns = [], [], []
     for index, column in enumerate(definition["columns"]):
@@ -367,5 +382,222 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
     sql = f"SELECT {', '.join(selects)} FROM {_from(dataset, dialect)} WHERE {where}"
     if groups:
         sql += f" GROUP BY {', '.join(groups)}"
+    sql += f" ORDER BY {', '.join(order)} LIMIT {params.bind(int(limit), 'Int64')} OFFSET {params.bind(int(offset), 'Int64')}"
+    return Compiled(sql, params.out(), columns)
+
+
+# ---------------------------------------------------------------------------------------------------- over the grouped rows
+def _date_literal(day, dialect: str) -> str:
+    return f"toDate('{day.isoformat()}')" if dialect == "clickhouse" else f"DATE '{day.isoformat()}'"
+
+
+def _lower_bound(definition: dict, field: str, today):
+    """the earliest day the definition's own rules on the date allow, or None"""
+    from datetime import date, timedelta
+    lows = []
+    for rule in (definition.get("filters") or {}).get("rules", []):
+        if "rules" in rule or rule.get("field") != field:
+            continue
+        op, value = rule["operator"], rule.get("value")
+        try:
+            if op == "last_days":
+                lows.append(today - timedelta(days=int(value)))
+            elif op == "between":
+                lows.append(date.fromisoformat(str(value[0])[:10]))
+            elif op in (">", ">=", "="):
+                lows.append(date.fromisoformat(str(value)[:10]))
+        except (TypeError, ValueError):
+            continue
+    return max(lows) if lows else None
+
+
+def _bucket_start(day, bucket: str, start: int):
+    from datetime import timedelta
+    from . import fiscal
+    if bucket == "week":
+        return day - timedelta(days=day.weekday())
+    if bucket == "month":
+        return day.replace(day=1)
+    if bucket == "quarter":
+        return day.replace(month=((day.month - 1) // 3) * 3 + 1, day=1)
+    if bucket == "year":
+        return day.replace(month=1, day=1)
+    if bucket == "fiscal_quarter":
+        return fiscal.quarter_start(day, start)
+    if bucket == "fiscal_year":
+        return fiscal.year_start(day, start)
+    return day
+
+
+def _shift_key(node: dict, bucket: str) -> tuple[int, int]:
+    """(months, days) back: a year (52 weeks on a weekly report), one of the report's periods, or the months asked for"""
+    from . import compare
+    if node.get("year"):
+        return (0, 364) if bucket == "week" else (12, 0)
+    if node.get("period"):
+        return compare.offset("period", bucket)
+    return (int(node["months"]), 0)
+
+
+def _compile_analytic(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit: int, offset: int, dialect: str) -> Compiled:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from . import compare, formula
+    from .formula import _walk
+    params = Params(dialect)
+    cols = definition["columns"]
+    fields = [_field_of(dataset, c["field"]) for c in cols]
+    dims = [i for i, c in enumerate(cols) if "aggregate" not in c]
+    analytic = {j: fields[j]["expression"]["checked"] for j, c in enumerate(cols) if "aggregate" in c and _analytic_field(fields[j])}
+    found = compare.axis(dataset, cols)
+    start = int(definition.get("_fiscal", 1))
+    timed = any(checked.timed for checked in analytic.values())
+    if timed and found is None:
+        raise ValueError("The time functions need a date in the report, grouped by day, week, month, quarter or year.")
+    ax, bucket = (found[0], found[2]) if found else (None, None)
+    q = lambda name: _ident(name, dialect)                              # noqa: E731
+    gd = lambda i: f"{q('g')}.{q(f'd{i}')}"                              # noqa: E731
+
+    shifts: dict[tuple[int, int], str] = {}
+    windows = set()
+    for checked in analytic.values():
+        for node in _walk(checked.ast):
+            if node["t"] == "shift":
+                shifts.setdefault(_shift_key(node, bucket), f"s{len(shifts)}")
+            elif node["t"] == "window":
+                windows.add(node["kind"])
+
+    wide, trim = definition, None
+    if timed:
+        today = datetime.now(ZoneInfo(zone)).date()
+
+        def back(day):
+            reach = [day]
+            if "ytd" in windows:
+                reach.append(compare.period_start(day, "year_to_date", start))
+            if "qtd" in windows:
+                reach.append(compare.period_start(day, "quarter_to_date", start))
+            reach += [compare.move(day, months, days, -1) for months, days in shifts]
+            return min(reach)
+        widened = compare.widened(definition, found[1], back, today)
+        if widened is not None:
+            wide = widened
+            lower = _lower_bound(definition, found[1], today)
+            trim = _bucket_start(lower, bucket, start) if lower else None
+
+    def inner(defn: dict) -> str:
+        """the grouped rows: the dimensions, every plain measure, and each aggregate of an analytic one on its own"""
+        selects = [f"{_dimension_expr(fields[i], cols[i].get('bucket'), zone, params, start)} AS {q(f'd{i}')}" for i in dims]
+        for j, column in enumerate(cols):
+            if "aggregate" not in column:
+                continue
+            if j in analytic:
+                checked = analytic[j]
+                for call in checked.calls:
+                    n = call["n"]
+                    operand = formula.operand_sql(call, dialect, lambda key, c=checked: _col(c.fields[key], dialect))
+                    if call["fn"] == "AVERAGE":
+                        selects += [f"sum({operand}) AS {q(f'a{j}_{n}s')}", f"count({operand}) AS {q(f'a{j}_{n}c')}"]
+                    else:
+                        selects.append(f"{formula.aggregate_sql(call, operand)} AS {q(f'a{j}_{n}')}")
+            else:
+                selects.append(f"{measure_expr(dataset, fields[j], column['aggregate'], lambda f: _col(f, dialect), dialect)} AS {q(f'v{j}')}")
+        sql = f"SELECT {', '.join(selects)} FROM {_from(dataset, dialect)} WHERE {_where(dataset, defn, tenant_id, zone, params)}"
+        if dims:
+            sql += " GROUP BY " + ", ".join(str(k + 1) for k in range(len(dims)))
+        return sql
+
+    def period_of(unit: str) -> str:
+        moved = start - 1
+        if dialect == "clickhouse":
+            return f"toStartOf{'Year' if unit == 'year' else 'Quarter'}(addMonths({gd(ax)}, -{moved}))"
+        if dialect == "mysql":
+            base = f"DATE_SUB({gd(ax)}, INTERVAL {moved} MONTH)"
+            return f"YEAR({base})" if unit == "year" else f"(YEAR({base}) * 10 + QUARTER({base}))"
+        return f"date_trunc('{unit}', {gd(ax)} - make_interval(months => {moved}))"
+
+    def spec(window: dict) -> str:
+        if window["kind"] == "all":
+            keep = [gd(i) for i in dims if fields[i]["key"] not in window["drop"]]
+            return f"PARTITION BY {', '.join(keep)}" if keep else ""
+        others = [gd(i) for i in dims if i != ax]
+        return (f"PARTITION BY {', '.join([*others, period_of('year' if window['kind'] == 'ytd' else 'quarter')])} "
+                f"ORDER BY {gd(ax)} ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW")
+
+    nullif = "nullIf" if dialect == "clickhouse" else "NULLIF"
+
+    def outer(j: int):
+        def agg(call: dict, state: dict) -> str:
+            n = call["n"]
+            source = shifts[_shift_key(state["shift"], bucket)] if state.get("shift") else "g"
+            window = state.get("window")
+            name = lambda suffix="": f"{q(source)}.{q(f'a{j}_{n}{suffix}')}"   # noqa: E731
+            if call["fn"] == "AVERAGE":
+                if window:
+                    over = spec(window)
+                    return f"(sum({name('s')}) OVER ({over})) * 1.0 / {nullif}(sum({name('c')}) OVER ({over}), 0)"
+                return f"({name('s')}) * 1.0 / {nullif}({name('c')}, 0)"
+            if window:
+                return f"{ {'MIN': 'min', 'MAX': 'max'}.get(call['fn'], 'sum') }({name()}) OVER ({spec(window)})"
+            return name()
+        return agg
+
+    grouped = inner(wide)
+    joins = []
+    for (months, days), alias in shifts.items():
+        if dialect == "clickhouse":
+            moved = f"addMonths({gd(ax)}, -{months})" if months else f"addDays({gd(ax)}, -{days})"
+        elif dialect == "mysql":
+            moved = f"DATE_SUB({gd(ax)}, INTERVAL {months} MONTH)" if months else f"DATE_SUB({gd(ax)}, INTERVAL {days} DAY)"
+        else:
+            moved = f"CAST({gd(ax)} - make_interval({'months' if months else 'days'} => {months or days}) AS date)"
+        same = [f"{q(alias)}.{q(f'd{ax}')} = {moved}"]
+        for i in dims:
+            if i == ax:
+                continue
+            if dialect == "postgresql":
+                same.append(f"{q(alias)}.{q(f'd{i}')} IS NOT DISTINCT FROM {gd(i)}")
+            elif dialect == "mysql":
+                same.append(f"{q(alias)}.{q(f'd{i}')} <=> {gd(i)}")
+            else:
+                same.append(f"{q(alias)}.{q(f'd{i}')} = {gd(i)}")
+        joins.append(f" LEFT JOIN ({inner(wide)}) AS {q(alias)} ON {' AND '.join(same)}")
+
+    middle, last, columns = [], [], []
+    for j, column in enumerate(cols):
+        field = fields[j]
+        if "aggregate" not in column:
+            middle.append(f"{gd(j)} AS {q(f'c{j}')}")
+            last.append(f"{q('w')}.{q(f'c{j}')} AS {q(f'c{j}')}")
+        elif j in analytic and analytic[j].ranked:
+            middle.append(f"{formula.render(analytic[j].ast['x'], dialect, None, outer(j), {})} AS {q(f'r{j}')}")
+            direction = "ASC" if analytic[j].ast["asc"] else "DESC"
+            ranked = f"{q('w')}.{q(f'r{j}')}"
+            order = f"{ranked} IS NULL, {ranked} {direction}" if dialect == "mysql" else f"{ranked} {direction} NULLS LAST"
+            last.append(f"rank() OVER (ORDER BY {order}) AS {q(f'c{j}')}")
+        elif j in analytic:
+            middle.append(f"{formula.render(analytic[j].ast, dialect, None, outer(j), {})} AS {q(f'c{j}')}")
+            last.append(f"{q('w')}.{q(f'c{j}')} AS {q(f'c{j}')}")
+        else:
+            middle.append(f"{q('g')}.{q(f'v{j}')} AS {q(f'c{j}')}")
+            last.append(f"{q('w')}.{q(f'c{j}')} AS {q(f'c{j}')}")
+        columns.append({"key": column["field"], "label": column.get("label") or field["label"], "type": "date" if column.get("bucket") else field["type"],
+                        "format": field["format"], **({"aggregate": column["aggregate"]} if "aggregate" in column else {}),
+                        **({"bucket": column["bucket"]} if column.get("bucket") else {})})
+    if trim is not None:
+        middle.append(f"({gd(ax)} >= {_date_literal(trim, dialect)}) AS {q('keep_')}")
+    window_sql = f"SELECT {', '.join(middle)} FROM ({grouped}) AS {q('g')}{''.join(joins)}"
+    order = []
+    for item in definition["orderBy"]:
+        index = next((i for i, c in enumerate(cols) if c["field"] == item["field"]), None)
+        if index is None:
+            continue
+        alias = q(f"c{index}")
+        order.append(f"{alias} IS NULL, {alias} {item['direction'].upper()}" if dialect == "mysql" else f"{alias} {item['direction'].upper()} NULLS LAST")
+    if not order:
+        order.append("`c0` IS NULL, `c0` ASC" if dialect == "mysql" else '"c0" ASC NULLS LAST')
+    sql = f"SELECT {', '.join(last)} FROM ({window_sql}) AS {q('w')}"
+    if trim is not None:
+        sql += f" WHERE {q('w')}.{q('keep_')}"
     sql += f" ORDER BY {', '.join(order)} LIMIT {params.bind(int(limit), 'Int64')} OFFSET {params.bind(int(offset), 'Int64')}"
     return Compiled(sql, params.out(), columns)

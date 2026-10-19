@@ -2869,11 +2869,38 @@ Examples: `IF([Amount] >= 500, "Gold", "Standard")`, `YEAR([Sent]) & "-" & TEXT(
 
 - Fields: `[Field Name]` (the name you see; the field's key also works). Text: `"EMAIL"` or `'EMAIL'`. Yes and no: `TRUE`, `FALSE`. Empty: `BLANK`.
 - Operators: `+ - * /` (dividing by zero gives an empty value), `&` joins text, `= <> < <= > >=` compare, `AND`, `OR`, `NOT`.
-- Adding up (measure formulas only): SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT, each with an optional condition, and COUNTROWS(condition).
-- Logic: IF, SWITCH, ISBLANK, COALESCE. Numbers: DIVIDE, ROUND, ABS, FLOOR, CEILING.
-- Text: CONCAT, UPPER, LOWER, TRIM, LEFT, RIGHT, LEN, CONTAINS (any case), REPLACE, TEXT.
-- Dates: YEAR, MONTH, DAY (in your workspace's time zone), TODAY, DATEDIFF(start, end, "day" | "month" | "year"), DATEADD(date, number, "day" | "month" | "year").
-- A formula can use the custom fields above it in the list. A formula that reads personal data is personal too.
+- Adding up (measure formulas only): SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT, each with an optional condition, and COUNTROWS(condition). SUMX, AVERAGEX, MINX, MAXX and COUNTX are the same, for a value worked out per row: `SUMX([Quantity] * [Price])`.
+- Share, rank and time (measure formulas only): CALCULATE with ALL, RANKX, TOTALYTD, TOTALQTD, SAMEPERIODLASTYEAR, PREVIOUSPERIOD, PARALLELPERIOD (see the steps below).
+- Naming parts: `VAR Sent = SUM([Sent Count]) VAR Delivered = SUM([Delivered Count]) RETURN DIVIDE(Delivered, Sent) * 100`.
+- Logic: IF, SWITCH, ISBLANK, COALESCE. Numbers: DIVIDE, ROUND, ABS, FLOOR, CEILING, INT, MOD, POWER, SQRT, EXP, LN, LOG, SIGN, VALUE (text to a number).
+- Text: CONCAT, UPPER, LOWER, TRIM, LEFT, RIGHT, MID, LEN, FIND, CONTAINS (any case), REPLACE (or SUBSTITUTE), TEXT.
+- Dates: YEAR, QUARTER, MONTH, DAY, WEEKDAY (1 is Sunday), WEEKNUM, HOUR (in your workspace's time zone), EOMONTH, DATE(year, month, day), TODAY, NOW, DATEDIFF(start, end, "day" | "month" | "year"), DATEADD(date, number, "day" | "month" | "year").
+- A formula can use the custom fields above it in the list, and the dataset's shared formulas. A formula that reads personal data is personal too.
+
+**Show a share of the total, a rank, year to date or last year in a measure formula**
+
+1. In **Custom Fields**, add a **Measure Formula**.
+2. A share of the parent: `DIVIDE(SUM([Sent Count]), CALCULATE(SUM([Sent Count]), ALL([Channel]))) * 100` is each channel's part of its month's sends when the report shows Sent by Month and Channel. ALL names the fields to look past; `ALL()` looks past all of them, for a share of the grand total. Choose **Percentage** under **Show As**.
+3. CALCULATE also narrows: `CALCULATE(SUM([Amount]), [Kind] = "REFUND")` adds up the refunds only.
+4. A rank: `RANKX(SUM([Amount]))` numbers the rows from the largest, 1 first; `RANKX(SUM([Amount]), "asc")` from the smallest. RANKX is a measure formula of its own; it does not go inside a sum.
+5. Time: put a date in the report's Rows, such as Ordered by Month. Then `TOTALYTD(SUM([Amount]))` is the year to date (from your fiscal year's first day), `TOTALQTD(...)` the quarter to date, `SAMEPERIODLASTYEAR(SUM([Amount]))` the same month a year before, `PREVIOUSPERIOD(SUM([Amount]))` the month before, and `PARALLELPERIOD(SUM([Amount]), -3, "month")` three months before. Mix them: `SUM([Amount]) - SAMEPERIODLASTYEAR(SUM([Amount]))` is the change on last year.
+6. The line under the formula says when a formula is worked out over the report's rows. Such a formula shows in each row; the report's totals row leaves it empty.
+7. The report keeps its date filter: last year's figures are read even when the report shows only this year.
+
+**Share a formula with every report on a dataset** (anyone who can build reports)
+
+1. Open **Insights**, then **Shared Formulas**, and choose the **Dataset**.
+2. Press **Add a Formula**. Give it a **Name**, choose **Measure Formula** or **Formula (Each Row)**, and add a **Description** that says what it means.
+3. Write the formula as in Custom Fields. It may use the dataset's fields and the shared formulas above it. Press **Add Formula**.
+4. Every report on that dataset now lists it among the fields. It shows the word **Shared** next to its name, or a tick when it is certified.
+5. To share a formula you wrote in a report: in the report's **Custom Fields**, press **Share With Every Report** next to it, then **Add Formula**. The report then uses the shared formula in place of its own.
+6. A formula that reports use cannot be removed: the **Reports** column shows how many. Renaming one asks first, because a report may call it by name.
+
+**Certify a shared formula** (report administrators)
+
+1. In **Shared Formulas**, open the **…** menu on a formula and press **Certify**. It shows **Certified**, with your name and the time when you point at the mark.
+2. Only a report administrator changes or removes a certified formula. Anyone else who needs a different version saves it under another name.
+3. Press **Remove Certification** to take the mark off.
 
 ## What Insights is for
 
