@@ -131,6 +131,8 @@ def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
     from apps.insights import uploads
     platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"])], links.load())     # the platform's datasets carry their links
     out = [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)], *[_visible(d, can_see_pii) for d in uploads.custom_datasets(tenant_id)]]
+    from apps.insights import dataset_formulas
+    out = dataset_formulas.attach(out, tenant_id, can_see_pii)          # each dataset's shared formulas among its fields
     if _fiscal_start(tenant_id) != 1:                                  # a fiscal year that is not the calendar's: its quarters and years to group by
         out = [{**d, "fields": [{**f, "buckets": [*f["buckets"], *FISCAL_BUCKETS]} if f.get("buckets") else f for f in d["fields"]]} for d in out]
     return out

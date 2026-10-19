@@ -501,5 +501,48 @@ again over the totals; `SUM([Sent], [Channel] = "EMAIL")` is `sum(CASE WHEN chan
 
 **API**: `POST /insights/formulas/check/` {dataset, derived (the custom fields before it), field} answers the field as it
 would be saved (type, use, the fields it reads, whether it is personal) or `{ok: false, message, at, where}`; the editor calls
-it as the person types. Time intelligence stays with comparisons (previous period, last year, to date), which apply to measure
-formulas like any measure.
+it as the person types. Comparisons (previous period, last year, to date) apply to measure formulas like any measure; version 2
+(below) adds the same inside a formula.
+
+## Formula language v2 and shared formulas (patch 0065)
+
+**More functions** (`formula.FUNCTIONS`): POWER, SQRT, MOD, LN, LOG (base 10 unless given), EXP, INT, SIGN, MID, FIND (0 when
+absent), SUBSTITUTE (REPLACE), VALUE (text to a number, empty when it is not one), WEEKDAY (1 is Sunday), WEEKNUM (ISO),
+QUARTER, HOUR (a date and time), EOMONTH, DATE and NOW; SUMX, AVERAGEX, MINX, MAXX and COUNTX are the aggregates by another
+name (`ALIASES`). A domain error is empty, never an error: SQRT of a negative, LN of zero, MOD by zero.
+
+**VAR ... RETURN**: `VAR name = expression` (any number) then `RETURN expression`; a name is a letter then letters, digits or
+`_`, not a function or keyword; the parser substitutes each name's tree where it is read, so the checker and the SQL see one
+tree.
+
+**Analytic functions** (measure formulas only, `Checked.analytic`): `CALCULATE(measure, condition | ALL(fields)…)` ANDs its
+conditions into every aggregate inside, and with ALL / REMOVEFILTERS becomes a window over the grouped rows partitioned by the
+report's other dimensions (`ALL()`: the grand total); `RANKX(measure, "asc"?)` is a measure formula of its own;
+`TOTALYTD` / `TOTALQTD` are running sums partitioned by the other dimensions and the (fiscal) year or quarter;
+`SAMEPERIODLASTYEAR`, `PREVIOUSPERIOD` and `PARALLELPERIOD(measure, n, "month" | "quarter" | "year")` read the grouped rows
+shifted on the report's date (`Checked.timed`: refused without a date bucket in the report). Windows and shifts do not nest;
+DISTINCTCOUNT is refused inside a window (it does not add up across groups); MySQL 5.7 is refused (no window functions).
+
+**SQL** (`compiler._compile_analytic`): the grouped query (each aggregate its own column `a{j}_{n}`, an AVERAGE as a sum and a
+count) is read three levels up: windows (`sum(..) OVER (PARTITION BY ..)`, running sums `ROWS BETWEEN UNBOUNDED PRECEDING AND
+CURRENT ROW`) and a `LEFT JOIN` per shift onto the same grouped query (`s.d = shifted(g.d)`, null-safe equality on the other
+dimensions); then the formula; then `rank()`, the trim and the page. The date filter's lower bound is widened
+(`compare.widened`) to the earliest day a window or shift reads, and the rows before the asked-for start are trimmed after the
+windows. The totals (`compile_totals`) leave analytic measures `NULL`.
+
+**Shared formulas** (`dataset_formulas.py`, table `report_dataset_formula`, row-level security): measures and formulas saved on
+a dataset key (the platform's, a workspace database's `x_..` or an uploaded file's `upl_..`), key `f_<slug>`, up to 50 per
+dataset, in `sort_order` (a formula reads the ones before it). `catalog.for_tenant` attaches them as plain fields with
+`shared {id, kind, expression, role, format, certified, description, certified_by_name}` (a PII one locked for a reader without
+the right) and a `formulas_version` stamp that the run cache keys carry; `derived.materialize` checks and compiles them when a
+report compiles (one that no longer reads is left out). Reports name them by key in columns, by label in formulas.
+
+    GET, POST        /insights/datasets/<key>/formulas/                 list (with the reports using each); add (report.edit)
+    PUT, DELETE      /insights/datasets/<key>/formulas/<id>/            change (confirm when used and the name, type or use changes); remove an unused one
+    POST             /insights/datasets/<key>/formulas/<id>/certify/    {certified}: report.admin
+    POST             /insights/datasets/<key>/formulas/check/           {id?, field}: the check as you type
+
+A certified formula is changed or removed by report.admin only. Usage is a LIKE on the reports' definitions for `"f_key"` or
+`[label]`. Front end: Insights → Shared Formulas (`SharedFormulasPage`, `SharedFormulaDialog`), the field lists' mark
+(`SharedFieldMark`), and Custom Fields → Share With Every Report (`definition.shareCustom` swaps the key and drops the custom
+field). Playground: `/dev/data?show=shared` and `?show=shared-edit`.

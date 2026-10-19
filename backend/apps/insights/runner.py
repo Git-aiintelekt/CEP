@@ -159,7 +159,8 @@ def run(tenant, user, dataset: dict, definition: dict, kind: str, *, limit: int 
     page = min(limit or cap, cap)
     sets = None if definition.get("blend") else compiler.totals_sets(definition, totals_view or definition.get("view"))
     sig = signature({**definition, "limit": page, "offset": offset, "totals": [list(s) for s in sets] if sets else None,
-                     **({"_upload": dataset["upload"]["version"]} if dataset.get("upload") else {})})     # a replaced or reviewed file is new rows
+                     **({"_upload": dataset["upload"]["version"]} if dataset.get("upload") else {}),     # a replaced or reviewed file is new rows
+                     **({"_formulas": dataset["formulas_version"]} if dataset.get("formulas_version") else {})})
     cache_key = f"cep:insights:result:{tenant.pk}:{sig}:{'masked' if mask_pii else 'full'}"
     cached = cache.get(cache_key)
     if cached is not None:

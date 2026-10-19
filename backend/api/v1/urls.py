@@ -11,6 +11,7 @@ from apps.insights import alerts as insights_alerts
 from apps.insights import fiscal as insights_fiscal
 from apps.insights import parameters as insights_parameters
 from apps.insights import formula as insights_formula
+from apps.insights import dataset_formulas as insights_dataset_formulas
 from apps.insights import uploads as insights_uploads
 from apps.insights import analyze as insights_analyze
 from apps.insights import comments as insights_comments
@@ -192,6 +193,10 @@ urlpatterns = [
     path("insights/uploads/", insights_uploads.UploadsView.as_view(), name="insights-uploads"),
     path("insights/uploads/<uuid:upload_id>/", insights_uploads.UploadView.as_view(), name="insights-upload"),
     path("insights/uploads/<uuid:upload_id>/replace/", insights_uploads.UploadReplaceView.as_view(), name="insights-upload-replace"),
+    path("insights/datasets/<slug:dataset>/formulas/", insights_dataset_formulas.FormulasView.as_view(), name="insights-dataset-formulas"),
+    path("insights/datasets/<slug:dataset>/formulas/check/", insights_dataset_formulas.FormulaCheckView.as_view(), name="insights-dataset-formula-check"),
+    path("insights/datasets/<slug:dataset>/formulas/<uuid:formula_id>/", insights_dataset_formulas.FormulaView.as_view(), name="insights-dataset-formula"),
+    path("insights/datasets/<slug:dataset>/formulas/<uuid:formula_id>/certify/", insights_dataset_formulas.FormulaCertifyView.as_view(), name="insights-dataset-formula-certify"),
     path("insights/formulas/check/", insights_formula.FormulaCheckView.as_view(), name="insights-formula-check"),
     path("insights/parameters/values/", insights_parameters.ParameterValuesView.as_view(), name="insights-parameter-values"),
     path("insights/alerts/", insights_alerts.AlertsView.as_view(), name="insights-alerts"),

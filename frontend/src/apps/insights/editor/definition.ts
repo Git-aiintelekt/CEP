@@ -145,6 +145,14 @@ export function removeCustom(definition: ReportDefinition, key: string): ReportD
   return rest.length ? { ...base, derived: rest } : base
 }
 
+/** a custom field that became a shared formula: the report names the shared one wherever it named its own, which goes */
+export function shareCustom(definition: ReportDefinition, from: string, to: string): ReportDefinition {
+  const { derived, ...rest } = definition
+  const moved = JSON.parse(JSON.stringify(rest).split(JSON.stringify(from)).join(JSON.stringify(to))) as ReportDefinition
+  const left = (derived ?? []).filter((c) => (c.key ?? customKey(c.label)) !== from)
+  return left.length ? { ...moved, derived: left } : moved
+}
+
 /** measures from a linked dataset, or none; a sort on one that goes goes with it */
 export function setBlend(definition: ReportDefinition, blend: Blend | null): ReportDefinition {
   const { blend: _old, ...rest } = definition

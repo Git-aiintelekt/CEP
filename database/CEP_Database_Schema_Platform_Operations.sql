@@ -2753,6 +2753,50 @@ ALTER TABLE report_version ALTER COLUMN view_type TYPE VARCHAR(20);
 ALTER TABLE report DROP CONSTRAINT IF EXISTS ck_report_view_type;
 ALTER TABLE report ADD CONSTRAINT ck_report_view_type CHECK (view_type IN ('grid', 'chart', 'pivot', 'hierarchy', 'influencers', 'decomposition'));
 
+-- ---- shared formulas (patch 0065): measures and calculated columns saved on a dataset, read by every report on it
+-- (apps/insights/dataset_formulas.py); certified ones are vouched for by a report administrator
+CREATE TABLE IF NOT EXISTS report_dataset_formula (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dataset_key         VARCHAR(60) NOT NULL,                              -- a platform dataset, a workspace database's (x_..) or an uploaded file's (upl_..)
+    key                 VARCHAR(44) NOT NULL,                              -- f_<slug>: what report definitions name
+    label               VARCHAR(60) NOT NULL,
+    description         VARCHAR(300),
+    kind                VARCHAR(10) NOT NULL,                              -- formula (one value per row), measure (over a group's rows)
+    expression          TEXT NOT NULL,                                     -- the formula language (apps/insights/formula.py)
+    type                VARCHAR(10) NOT NULL,                              -- what it works out: number, string, boolean, date, datetime
+    role                VARCHAR(10),                                       -- a formula: measure (adds up) or dimension (groups)
+    format              VARCHAR(10),                                       -- integer, decimal, money, percent
+    sensitivity         VARCHAR(10) NOT NULL DEFAULT 'NORMAL',             -- PII when it reads personal data
+    certified           BOOLEAN NOT NULL DEFAULT FALSE,
+    certified_by        UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    certified_at        TIMESTAMPTZ,
+    sort_order          INTEGER NOT NULL DEFAULT 0,                        -- a formula reads the ones before it
+    created_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    updated_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_dataset_formula_key CHECK (key ~ '^f_[a-z0-9_]{1,42}$'),
+    CONSTRAINT ck_report_dataset_formula_kind CHECK (kind IN ('formula', 'measure')),
+    CONSTRAINT ck_report_dataset_formula_role CHECK (role IS NULL OR role IN ('measure', 'dimension')),
+    CONSTRAINT ck_report_dataset_formula_sensitivity CHECK (sensitivity IN ('NORMAL', 'PII'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_report_dataset_formula_key ON report_dataset_formula(tenant_id, dataset_key, key) WHERE deleted_at IS NULL;
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_dataset_formula'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_dataset_formula TO cep_app;
+GRANT ALL ON report_dataset_formula TO cep_admin;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

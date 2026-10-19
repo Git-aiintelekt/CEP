@@ -12,6 +12,17 @@ Operators: + - * / (a division by zero is empty), & joins text, = <> < <= > >= c
 "text" or 'text' (a doubled quote inside), TRUE, FALSE, BLANK. Functions are in FUNCTIONS. In a measure formula every field
 sits inside an aggregate, or is a measure that is itself calculated (inlined). Nothing in a formula is ever a table or column
 name the person typed: fields resolve to the catalogue's, functions come from the list, literals are escaped.
+
+Version 2 adds:
+    VAR Sales = SUM([Net Sales]) VAR Cost = SUM([Cost]) RETURN DIVIDE(Sales - Cost, Sales)      names for parts (inlined)
+    SUMX([Price] * [Units])                         SUMX, AVERAGEX, MINX, MAXX, COUNTX: the aggregates by another name
+    DIVIDE(SUM([Sales]), CALCULATE(SUM([Sales]), ALL([Store])))    share of the parent: the total without the Store grouping
+    CALCULATE(SUM([Sales]), [Channel] = "EMAIL")    a condition on every aggregate inside
+    RANKX(SUM([Sales]))                             the row's rank among the report's rows (a whole formula on its own)
+    TOTALYTD(SUM([Sales])), TOTALQTD(...)           year and quarter to date along the report's date (fiscal aware)
+    SAMEPERIODLASTYEAR(SUM([Sales])), PREVIOUSPERIOD(...), PARALLELPERIOD(..., -3, "month")   the same measure earlier
+The analytic ones (CALCULATE with ALL, RANKX, the time functions) work over the report's grouped rows: the compiler wraps the
+grouped query in an outer one with window functions and joins (compiler._compile_analytic); they belong to measure formulas.
 """
 import contextvars
 import re
@@ -30,9 +41,21 @@ FUNCTIONS = {
     "YEAR": (1, 1, "date"), "MONTH": (1, 1, "date"), "DAY": (1, 1, "date"), "TODAY": (0, 0, "date"), "DATEDIFF": (3, 3, "date"), "DATEADD": (3, 3, "date"),
     "SUM": (1, 2, "aggregate"), "AVERAGE": (1, 2, "aggregate"), "MIN": (1, 2, "aggregate"), "MAX": (1, 2, "aggregate"), "COUNT": (1, 2, "aggregate"),
     "DISTINCTCOUNT": (1, 2, "aggregate"), "COUNTROWS": (0, 1, "aggregate"),
+    # version 2
+    "POWER": (2, 2, "math"), "SQRT": (1, 1, "math"), "MOD": (2, 2, "math"), "LN": (1, 1, "math"), "LOG": (1, 2, "math"), "EXP": (1, 1, "math"),
+    "INT": (1, 1, "math"), "SIGN": (1, 1, "math"),
+    "MID": (3, 3, "text"), "FIND": (2, 2, "text"), "SUBSTITUTE": (3, 3, "text"), "VALUE": (1, 1, "text"),
+    "WEEKDAY": (1, 1, "date"), "WEEKNUM": (1, 1, "date"), "QUARTER": (1, 1, "date"), "HOUR": (1, 1, "date"), "EOMONTH": (1, 2, "date"),
+    "DATE": (3, 3, "date"), "NOW": (0, 0, "date"),
+    "SUMX": (1, 2, "aggregate"), "AVERAGEX": (1, 2, "aggregate"), "MINX": (1, 2, "aggregate"), "MAXX": (1, 2, "aggregate"), "COUNTX": (1, 2, "aggregate"),
+    "CALCULATE": (1, None, "analytic"), "ALL": (0, None, "modifier"), "REMOVEFILTERS": (0, None, "modifier"), "RANKX": (1, 2, "analytic"),
+    "TOTALYTD": (1, 1, "analytic"), "TOTALQTD": (1, 1, "analytic"), "SAMEPERIODLASTYEAR": (1, 1, "analytic"), "PREVIOUSPERIOD": (1, 1, "analytic"),
+    "PARALLELPERIOD": (3, 3, "analytic"),
 }
+ALIASES = {"SUMX": "SUM", "AVERAGEX": "AVERAGE", "MINX": "MIN", "MAXX": "MAX", "COUNTX": "COUNT", "SUBSTITUTE": "REPLACE", "REMOVEFILTERS": "ALL"}
+PERIOD_MONTHS = {"month": 1, "quarter": 3, "year": 12}
 AGGREGATE_SQL = {"SUM": "sum({x})", "AVERAGE": "avg({x})", "MIN": "min({x})", "MAX": "max({x})", "COUNT": "count({x})", "DISTINCTCOUNT": "count(DISTINCT {x})", "COUNTROWS": "count({x})"}
-KEYWORDS = ("AND", "OR", "NOT", "TRUE", "FALSE", "BLANK")
+KEYWORDS = ("AND", "OR", "NOT", "TRUE", "FALSE", "BLANK", "VAR", "RETURN")
 
 
 class FormulaError(ValueError):
@@ -71,6 +94,7 @@ class _Parser:
         self.tokens = _tokens(text)
         self.i = 0
         self.nodes = 0
+        self.names: dict[str, dict] = {}                               # VAR name -> its tree
 
     def peek(self):
         return self.tokens[self.i]
@@ -93,6 +117,21 @@ class _Parser:
     def parse(self) -> dict:
         if self.peek()[0] == "end":
             raise FormulaError("Write a formula.", 0)
+        if self.word("VAR"):
+            while self.word("VAR"):
+                at = self.take()[2]
+                kind, name, where = self.take()
+                if kind != "name" or name.upper() in FUNCTIONS or name.upper() in KEYWORDS:
+                    raise FormulaError("Give VAR a name of letters and digits that is not a function, such as VAR Sales = SUM([Net Sales]).", where if kind != "end" else at)
+                if name.lower() in self.names:
+                    raise FormulaError(f"{name} is named twice.", where)
+                if self.take()[1] != "=":
+                    raise FormulaError(f"Write VAR {name} = and then its value.", where)
+                self.names[name.lower()] = self.either()
+            if not self.word("RETURN"):
+                kind, value, at = self.peek()
+                raise FormulaError("After the VARs, write RETURN and the result.", at)
+            self.take()
         tree = self.either()
         kind, value, at = self.peek()
         if kind != "end":
@@ -180,6 +219,10 @@ class _Parser:
                     if self.take()[1] != ")":
                         raise FormulaError("BLANK takes nothing between its brackets.", at)
                 return self.node(t="null", at=at)
+            if value.lower() in self.names and not self.word("("):          # a VAR's name: its tree in its place
+                return self.names[value.lower()]
+            if upper == "RETURN":
+                raise FormulaError("RETURN goes after the VARs, once.", at)
             if upper not in FUNCTIONS:
                 raise FormulaError(f"{value} is not a function here. Put a field in brackets, like [{value}].", at)
             if not self.word("("):
@@ -215,9 +258,25 @@ def parse(text: str) -> dict:
 # ---------------------------------------------------------------------------------------------------- checking it
 class Checked:
     """the formula understood: its tree (fields resolved, types known, calculated measures inlined), its type, the fields it
-    reads, whether it reads personal data, and (a measure) its aggregates in order"""
+    reads, whether it reads personal data, and (a measure) its aggregates in order; `analytic` when it works over the report's
+    grouped rows (CALCULATE with ALL, RANKX, the time functions), `timed` when it needs the report's date"""
     def __init__(self, ast, type_, fields, personal, calls):
         self.ast, self.type, self.fields, self.personal, self.calls = ast, type_, fields, personal, calls
+        found = list(_walk(ast))
+        self.analytic = any(n["t"] in ("window", "shift", "rank") for n in found)
+        self.timed = any(n["t"] == "shift" or (n["t"] == "window" and n["kind"] != "all") for n in found)
+        self.ranked = ast["t"] == "rank"
+
+
+def _walk(node):
+    if isinstance(node, dict):
+        if "t" in node:
+            yield node
+        for value in node.values():
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _walk(value)
 
 
 def _family(type_):
@@ -259,6 +318,8 @@ def _calculated(field: dict, at: int) -> dict:
     """a calculated measure as a tree: a measure formula's own, or a catalogue formula (ratio, difference, sum, product)"""
     if field.get("expression"):
         return _relocate(parse(field["expression"]["text"]), at)
+    if field.get("shared") and field["shared"].get("kind") == "measure":     # a dataset formula not yet worked out
+        return _relocate(parse(field["shared"]["expression"]), at)
     formula = field["formula"]
 
     def side(part):
@@ -274,6 +335,10 @@ def _calculated(field: dict, at: int) -> dict:
     return {"t": "bin", "op": "*", "l": tree, "r": {"t": "num", "v": scale, "at": at}, "at": at} if scale not in (None, 1) else tree
 
 
+def _walk_has_agg(node) -> bool:
+    return any(n["t"] == "agg" for n in _walk(node))
+
+
 def _relocate(node, at):
     """a copy of an inlined tree, every position the reference's (an error inside it points at the reference)"""
     if isinstance(node, dict):
@@ -285,10 +350,14 @@ def _relocate(node, at):
 
 def check(text: str, dataset: dict, *, measure: bool) -> Checked:
     tree = parse(text)
+    older_mysql = (dataset.get("database") or {}).get("engine") == "mysql57"    # no window functions: ALL, RANKX and the time functions are refused
     used: dict[str, dict] = {}
     calls: list[dict] = []
 
-    def visit(node: dict, inside: str | None, depth: int = 0) -> dict:
+    def visit(node: dict, inside: str | None, depth: int = 0, scope: dict | None = None) -> dict:
+        """scope (a measure formula, outside the aggregates): the conditions CALCULATE adds to the aggregates within, and
+        whether a window or a time shift is already around"""
+        scope = scope or {}
         if depth > 60:
             raise FormulaError("This formula nests too deeply.", node.get("at"))
         t = node["t"]
@@ -306,21 +375,21 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
             if calculated:
                 if not measure or inside:
                     raise FormulaError(f"[{field['label']}] is a measure worked out over many rows; use it in a measure formula, outside SUM and the other aggregates.", node["at"])
-                return visit(_calculated(field, node["at"]), inside, depth + 1)
+                return visit(_calculated(field, node["at"]), inside, depth + 1, scope)
             if measure and not inside:
                 raise FormulaError(f"Put [{field['label']}] inside SUM, AVERAGE, MIN, MAX or COUNT: a measure formula works over many rows.", node["at"])
             used[field["key"]] = field
             return {"t": "field", "key": field["key"], "type": field["type"], "at": node["at"]}
         if t == "neg":
-            x = visit(node["x"], inside, depth + 1)
+            x = visit(node["x"], inside, depth + 1, scope)
             _need(x, ("number",), "A minus sign")
             return {**node, "x": x, "type": "number"}
         if t == "not":
-            x = visit(node["x"], inside, depth + 1)
+            x = visit(node["x"], inside, depth + 1, scope)
             _need(x, ("boolean",), "NOT")
             return {**node, "x": x, "type": "boolean"}
         if t == "bin":
-            left, right = visit(node["l"], inside, depth + 1), visit(node["r"], inside, depth + 1)
+            left, right = visit(node["l"], inside, depth + 1, scope), visit(node["r"], inside, depth + 1, scope)
             op = node["op"]
             out = {**node, "l": left, "r": right}
             if op in ("+", "-", "*", "/"):
@@ -345,6 +414,11 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
         # a function
         fn, at = node["fn"], node["at"]
         kind = FUNCTIONS[fn][2]
+        fn = ALIASES.get(fn, fn)
+        if kind == "modifier":
+            raise FormulaError(f"{fn} goes inside CALCULATE, after the measure: CALCULATE(SUM([Sales]), ALL([Store])).", at)
+        if kind == "analytic":
+            return analytic(fn, node, inside, depth, scope)
         if kind == "aggregate":
             if not measure:
                 raise FormulaError(f"{fn} works over many rows: use it in a measure formula, not in a formula for each row.", at)
@@ -362,12 +436,16 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
                     _need(value, ("number", "date"), fn)
             if condition is not None:
                 _need(condition, ("boolean",), f"The condition of {fn}")
+            for extra in scope.get("conditions", []):                  # CALCULATE's conditions narrow every aggregate inside it
+                condition = extra if condition is None else {"t": "bin", "op": "AND", "l": extra, "r": condition, "type": "boolean", "at": at}
+            if fn == "DISTINCTCOUNT" and scope.get("window"):
+                raise FormulaError("DISTINCTCOUNT cannot be added up across groups: use it outside CALCULATE with ALL and the to-date functions.", at)
             type_ = value["type"] if fn in ("MIN", "MAX") else "number"
             call = {"t": "agg", "fn": fn, "x": value, "when": condition, "n": len(calls), "type": type_, "at": at}
             calls.append(call)
             return call
-        args = [visit(a, inside, depth + 1) for a in node["args"]]
-        out = {**node, "args": args}
+        args = [visit(a, inside, depth + 1, scope) for a in node["args"]]
+        out = {**node, "fn": fn, "args": args}
         if fn == "IF":
             _need(args[0], ("boolean",), "The first value of IF")
             return {**out, "type": _unify([a["type"] for a in args[1:]], at, "IF")}
@@ -406,6 +484,40 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
             return {**out, "type": "number"}
         if fn == "TODAY":
             return {**out, "type": "date"}
+        if fn in ("POWER", "SQRT", "MOD", "LN", "LOG", "EXP", "INT", "SIGN"):
+            for a in args:
+                _need(a, ("number",), fn)
+            return {**out, "type": "number"}
+        if fn == "MID":
+            _need(args[0], ("string",), fn)
+            _need(args[1], ("number",), "The start in MID")
+            _need(args[2], ("number",), "The length in MID")
+            return {**out, "type": "string"}
+        if fn == "FIND":
+            _need(args[0], ("string",), fn)
+            _need(args[1], ("string",), fn)
+            return {**out, "type": "number"}
+        if fn == "VALUE":
+            _need(args[0], ("string",), fn)
+            return {**out, "type": "number"}
+        if fn in ("WEEKDAY", "WEEKNUM", "QUARTER"):
+            _need(args[0], ("date",), fn)
+            return {**out, "type": "number"}
+        if fn == "HOUR":
+            if args[0]["type"] not in ("datetime", "null"):
+                raise FormulaError("HOUR needs a date and time.", args[0]["at"])
+            return {**out, "type": "number"}
+        if fn == "EOMONTH":
+            _need(args[0], ("date",), fn)
+            if len(args) > 1:
+                _need(args[1], ("number",), "The months in EOMONTH")
+            return {**out, "type": "date"}
+        if fn == "DATE":
+            for a in args:
+                _need(a, ("number",), fn)
+            return {**out, "type": "date"}
+        if fn == "NOW":
+            return {**out, "type": "datetime"}
         unit = args[2]
         if unit["t"] != "str" or unit["v"].lower() not in UNITS:
             raise FormulaError(f'{fn} takes the unit as "day", "month" or "year".', unit["at"])
@@ -417,6 +529,89 @@ def check(text: str, dataset: dict, *, measure: bool) -> Checked:
         _need(args[0], ("date",), fn)
         _need(args[1], ("number",), f"The amount in {fn}")
         return {**out, "args": args, "type": args[0]["type"] if args[0]["type"] != "null" else "date"}
+
+    def analytic(fn: str, node: dict, inside, depth: int, scope: dict) -> dict:
+        at = node["at"]
+        if not measure:
+            raise FormulaError(f"{fn} works over the report's groups: use it in a measure formula.", at)
+        if inside:
+            raise FormulaError(f"{fn} cannot go inside {inside}.", at)
+        raw = node["args"]
+        if fn != "CALCULATE" and older_mysql:
+            raise FormulaError(f"{fn} needs MySQL 8 or PostgreSQL; this database is MySQL 5.7.", at)
+        if fn == "RANKX":
+            if scope.get("ranked") is not None or depth > 0:
+                raise FormulaError("RANKX is a measure of its own: write it as the whole formula, such as RANKX(SUM([Sales])).", at)
+            order = "desc"
+            if len(raw) > 1:
+                if raw[1]["t"] != "str" or raw[1]["v"].lower() not in ("asc", "desc"):
+                    raise FormulaError('RANKX takes the order as "desc" (the largest first) or "asc".', raw[1]["at"])
+                order = raw[1]["v"].lower()
+            before = len(calls)
+            x = visit(raw[0], None, depth + 1, {**scope, "ranked": True})
+            if len(calls) == before:
+                raise FormulaError("RANKX ranks a measure: put SUM, AVERAGE, COUNT or another aggregate inside it.", at)
+            _need(x, ("number", "date"), "RANKX")
+            return {"t": "rank", "x": x, "asc": order == "asc", "type": "number", "at": at}
+        if fn == "CALCULATE":
+            drop, conditions = None, []
+            for extra in raw[1:]:
+                if extra["t"] == "call" and ALIASES.get(extra["fn"], extra["fn"]) == "ALL":
+                    if older_mysql:
+                        raise FormulaError(f"{extra['fn']} needs MySQL 8 or PostgreSQL; this database is MySQL 5.7. A condition in CALCULATE works.", extra["at"])
+                    if drop is not None:
+                        raise FormulaError("CALCULATE takes one ALL, naming every field to leave out.", extra["at"])
+                    drop = []
+                    for f in extra["args"]:
+                        if f["t"] != "field":
+                            raise FormulaError("ALL names fields in brackets, such as ALL([Store]), or nothing for the grand total.", f["at"])
+                        found = _find(dataset, f["name"], f["at"])
+                        if found["role"] != "dimension":
+                            raise FormulaError(f"ALL leaves out a field the report groups by; [{found['label']}] is a measure.", f["at"])
+                        drop.append(found["key"])
+                else:
+                    condition = visit(extra, "CALCULATE", depth + 1)
+                    _need(condition, ("boolean",), "A condition in CALCULATE")
+                    conditions.append(condition)
+            if drop is not None and scope.get("window"):
+                raise FormulaError("CALCULATE with ALL, TOTALYTD and TOTALQTD cannot sit inside one another.", at)
+            inner_scope = {**scope, "conditions": [*scope.get("conditions", []), *conditions]}
+            if drop is not None:
+                inner_scope["window"] = True
+            before = len(calls)
+            x = visit(raw[0], None, depth + 1, inner_scope)
+            if len(calls) == before:
+                raise FormulaError("CALCULATE works out a measure: put SUM, AVERAGE, COUNT or another aggregate in it.", at)
+            if drop is None:
+                return x
+            return {"t": "window", "kind": "all", "drop": drop, "x": x, "type": x["type"], "at": at}
+        if fn in ("TOTALYTD", "TOTALQTD"):
+            if scope.get("window"):
+                raise FormulaError("CALCULATE with ALL, TOTALYTD and TOTALQTD cannot sit inside one another.", at)
+            x = visit(raw[0], None, depth + 1, {**scope, "window": True})
+            if not _walk_has_agg(x):
+                raise FormulaError(f"{fn} adds up a measure: put SUM, COUNT or another aggregate inside it.", at)
+            return {"t": "window", "kind": "ytd" if fn == "TOTALYTD" else "qtd", "x": x, "type": x["type"], "at": at}
+        # the time shifts
+        if scope.get("shift"):
+            raise FormulaError("One time shift at a time: SAMEPERIODLASTYEAR, PREVIOUSPERIOD and PARALLELPERIOD cannot sit inside one another.", at)
+        if fn == "PARALLELPERIOD":
+            amount, unit = raw[1], raw[2]
+            if amount["t"] == "neg" and amount["x"]["t"] == "num":
+                amount = {**amount["x"], "v": -amount["x"]["v"]}
+            if amount["t"] != "num" or not isinstance(amount["v"], int) or amount["v"] == 0 or abs(amount["v"]) > 120:
+                raise FormulaError("PARALLELPERIOD moves by a whole number of periods, such as -1 (the one before) or -12.", raw[1]["at"])
+            if unit["t"] != "str" or unit["v"].lower() not in PERIOD_MONTHS:
+                raise FormulaError('PARALLELPERIOD takes the unit as "month", "quarter" or "year".', unit["at"])
+            shift = {"months": -amount["v"] * PERIOD_MONTHS[unit["v"].lower()]}
+        elif fn == "SAMEPERIODLASTYEAR":
+            shift = {"year": True}
+        else:
+            shift = {"period": True}
+        x = visit(raw[0], None, depth + 1, {**scope, "shift": True})
+        if not _walk_has_agg(x):
+            raise FormulaError(f"{fn} moves a measure: put SUM, AVERAGE, COUNT or another aggregate inside it.", at)
+        return {"t": "shift", **shift, "x": x, "type": x["type"], "at": at}
 
     checked = visit(tree, None)
     if measure:
@@ -455,10 +650,12 @@ def _join_text(parts: list[str], dialect: str) -> str:
     return "CONCAT(" + ", ".join(parts) + ")"
 
 
-def render(node: dict, dialect: str, column, agg=None) -> str:
-    """SQL for a checked tree: `column(key)` writes a field's column, `agg(call)` an aggregate (a measure formula only)"""
+def render(node: dict, dialect: str, column, agg=None, state: dict | None = None) -> str:
+    """SQL for a checked tree: `column(key)` writes a field's column, `agg(call)` an aggregate (a measure formula only). Over the
+    report's grouped rows (compiler._compile_analytic) `state` is a dict: `agg(call, state)` then writes the aggregate as that
+    query reads it, with the window ("window": the node) or the time shift ("shift": the node) it sits under."""
     def r(n):
-        return render(n, dialect, column, agg)
+        return render(n, dialect, column, agg, state)
 
     def local(n):                                                      # a date and time read in the workspace's zone
         if n["type"] != "datetime":
@@ -481,7 +678,13 @@ def render(node: dict, dialect: str, column, agg=None) -> str:
     if t == "field":
         return column(node["key"])
     if t == "agg":
-        return agg(node)
+        return agg(node) if state is None else agg(node, state)
+    if t in ("window", "shift", "rank"):
+        if state is None:
+            raise FormulaError("This measure works over the report's groups; it is worked out with them.", node.get("at"))
+        if t == "rank":
+            raise FormulaError("RANKX is worked out last, over the report's rows.", node.get("at"))
+        return render(node["x"], dialect, column, agg, {**state, t: node})
     if t == "neg":
         return f"(-{r(node['x'])})"
     if t == "not":
@@ -544,6 +747,67 @@ def render(node: dict, dialect: str, column, agg=None) -> str:
         if dialect == "mysql":
             return f"{fn}({when})"
         return f"CAST(EXTRACT({fn} FROM {when}) AS int)"
+    if fn == "POWER":
+        return f"pow({a[0]}, {a[1]})" if dialect == "clickhouse" else f"power({a[0]}, {a[1]})"
+    if fn == "SQRT":
+        return f"(CASE WHEN {a[0]} >= 0 THEN sqrt({a[0]}) END)"
+    if fn == "MOD":
+        if dialect == "postgresql":
+            return f"mod(CAST({a[0]} AS numeric), {_nullif(dialect)}(CAST({a[1]} AS numeric), 0))"
+        return f"modulo({a[0]}, nullIf({a[1]}, 0))" if dialect == "clickhouse" else f"MOD({a[0]}, NULLIF({a[1]}, 0))"
+    if fn == "LN":
+        return f"(CASE WHEN {a[0]} > 0 THEN {'log' if dialect == 'clickhouse' else 'ln'}({a[0]}) END)"
+    if fn == "LOG":
+        base = a[1] if len(a) > 1 else "10"
+        if dialect == "clickhouse":
+            return f"(CASE WHEN {a[0]} > 0 AND {base} > 0 THEN log({a[0]}) / nullIf(log({base}), 0) END)"
+        cast = "CAST({} AS numeric)" if dialect == "postgresql" else "{}"
+        return f"(CASE WHEN {a[0]} > 0 AND {base} > 0 AND {base} <> 1 THEN log({cast.format(base)}, {cast.format(a[0])}) END)"
+    if fn == "EXP":
+        return f"exp({a[0]})"
+    if fn == "INT":
+        return f"floor({a[0]})"
+    if fn == "SIGN":
+        return f"sign({a[0]})"
+    if fn == "MID":
+        if dialect == "clickhouse":
+            return f"substringUTF8({a[0]}, toInt64({a[1]}), toInt64({a[2]}))"
+        kind = "int" if dialect == "postgresql" else "SIGNED"
+        return f"SUBSTRING({a[0]}, CAST({a[1]} AS {kind}), CAST({a[2]} AS {kind}))"
+    if fn == "FIND":
+        if dialect == "clickhouse":
+            return f"positionUTF8({a[1]}, {a[0]})"
+        return f"LOCATE({a[0]}, {a[1]})" if dialect == "mysql" else f"strpos({a[1]}, {a[0]})"
+    if fn == "VALUE":
+        if dialect == "clickhouse":
+            return f"toFloat64OrNull(trimBoth({a[0]}))"
+        if dialect == "mysql":
+            return f"(CASE WHEN TRIM({a[0]}) REGEXP '^-?[0-9]+([.][0-9]+)?$' THEN CAST(TRIM({a[0]}) AS DECIMAL(38, 10)) END)"
+        return f"(CASE WHEN btrim({a[0]}) ~ '^-?[0-9]+([.][0-9]+)?$' THEN CAST(btrim({a[0]}) AS numeric) END)"
+    if fn in ("WEEKDAY", "WEEKNUM", "QUARTER", "HOUR"):
+        when = local(args[0])
+        if dialect == "clickhouse":
+            return {"WEEKDAY": f"(toDayOfWeek({when}) % 7 + 1)", "WEEKNUM": f"toISOWeek({when})", "QUARTER": f"toQuarter({when})", "HOUR": f"toHour({when})"}[fn]
+        if dialect == "mysql":
+            return {"WEEKDAY": f"DAYOFWEEK({when})", "WEEKNUM": f"WEEK({when}, 3)", "QUARTER": f"QUARTER({when})", "HOUR": f"HOUR({when})"}[fn]
+        part = {"WEEKDAY": "DOW", "WEEKNUM": "WEEK", "QUARTER": "QUARTER", "HOUR": "HOUR"}[fn]
+        return f"(CAST(EXTRACT({part} FROM {when}) AS int){' + 1' if fn == 'WEEKDAY' else ''})"
+    if fn == "EOMONTH":
+        months = a[1] if len(a) > 1 else "0"
+        when = local(args[0])
+        if dialect == "clickhouse":
+            return f"addDays(toStartOfMonth(addMonths(toDate({when}), toInt64({months}) + 1)), -1)"
+        if dialect == "mysql":
+            return f"LAST_DAY(DATE_ADD({when}, INTERVAL CAST({months} AS SIGNED) MONTH))"
+        return f"CAST(date_trunc('month', CAST({when} AS date) + make_interval(months => CAST({months} AS int) + 1)) - make_interval(days => 1) AS date)"
+    if fn == "DATE":
+        if dialect == "clickhouse":
+            return f"makeDate(toInt32({a[0]}), toInt32({a[1]}), toInt32({a[2]}))"
+        if dialect == "mysql":
+            return f"DATE_ADD(DATE_ADD(MAKEDATE(CAST({a[0]} AS SIGNED), 1), INTERVAL CAST({a[1]} AS SIGNED) - 1 MONTH), INTERVAL CAST({a[2]} AS SIGNED) - 1 DAY)"
+        return f"make_date(CAST({a[0]} AS int), CAST({a[1]} AS int), CAST({a[2]} AS int))"
+    if fn == "NOW":
+        return "now()" if dialect != "mysql" else "NOW()"
     if fn == "TODAY":
         if dialect == "clickhouse":
             return f"toDate(now(), {_zone_literal(dialect)})"

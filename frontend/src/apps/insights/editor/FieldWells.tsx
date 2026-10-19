@@ -13,6 +13,7 @@ import { addField, AGGREGATE_LABEL, BUCKET_LABEL, dimensions, fieldOf, inUse, me
 import { CompareControl } from './CompareControl'
 import { TopControl } from './TopControl'
 import { FilterBuilder } from './FilterBuilder'
+import { SharedFieldMark } from './SharedFieldMark'
 
 const TYPE_ICON = { string: Type, number: Hash, date: Calendar, datetime: Calendar, boolean: ToggleLeft } as const
 
@@ -33,6 +34,7 @@ function FieldRow({ field, used, onAdd }: { field: CatalogField; used: boolean; 
         className={`flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm transition-colors ${used ? 'bg-brand-100/60 font-medium text-brand-800' : 'text-ink-900 hover:bg-surface-hover'}`}>
         <Icon size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />
         <span className="min-w-0 flex-1 truncate">{field.label}</span>
+        <SharedFieldMark field={field} />
         {field.sensitivity === 'PII' && <span className="text-[10px] font-semibold text-ink-700 uppercase">PII</span>}
       </button>
     </li>

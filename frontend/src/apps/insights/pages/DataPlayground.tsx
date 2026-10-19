@@ -1,7 +1,8 @@
 /**
  * /dev/data: uploaded files, parameters and fiscal calendars on sample data, with no backend. ?show=params (the questions above a
  * report, &state=sparse for one), review (an uploaded file's columns), fiscal (Settings → Fiscal Year from April), formula (a measure
- * formula in Custom Fields, &state=error for one that does not read).
+ * formula in Custom Fields, &state=error for one that does not read), shared (Insights → Shared Formulas, &state=sparse for none),
+ * shared-edit (a shared formula with CALCULATE and ALL, checked).
  * For design review and screenshots; the real pages are UploadsPage, ReportViewerPage and FiscalYearPage.
  */
 import { useQueryClient } from '@tanstack/react-query'
@@ -9,12 +10,14 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { FiscalYearPage } from '@/apps/cep/pages/settings/FiscalYearPage'
-import { fiscalKey } from '../api'
+import { fiscalKey, keys } from '../api'
 import { ParameterBar } from '../components/ParameterBar'
 import { ReportResult } from '../components/ReportViews'
 import { UploadReviewDialog } from '../components/UploadReviewDialog'
 import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
-import type { CatalogDataset, CatalogField, ParameterValues, ReportDefinition, ReportParameter, RunResult, UploadedFile } from '../types'
+import { SharedFormulaDialog } from '../editor/SharedFormulaDialog'
+import type { CatalogDataset, CatalogField, ParameterValues, ReportDefinition, ReportParameter, RunResult, SharedFormula, UploadedFile } from '../types'
+import { SharedFormulasPage } from './SharedFormulasPage'
 
 const FIELDS: CatalogField[] = [
   { key: 'channel', label: 'Channel', type: 'string', role: 'dimension', aggregates: [], operators: ['=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
@@ -54,6 +57,18 @@ const MESSAGES: CatalogDataset = {
 }
 const SHARE = 'DIVIDE(SUM([Sent Count], [Channel] = "EMAIL"), SUM([Sent Count])) * 100'
 const BROKEN = 'DIVIDE(SUM([Sent Count], [Channel] = "EMAIL"), SUM([Sent Count]) * 100'
+const SHARE_OF_ALL = 'DIVIDE(SUM([Sent Count]), CALCULATE(SUM([Sent Count]), ALL([Channel]))) * 100'
+const stamp = { created_by_name: 'Aby', created_at: '2026-10-12T09:00:00Z', sensitivity: 'NORMAL' as const, dataset_key: 'messages' }
+const SHARED: SharedFormula[] = [
+  { ...stamp, id: 'sf-1', key: 'f_delivery_rate', label: 'Delivery Rate', description: 'Delivered as a share of sent, the figure the board sees', kind: 'measure', type: 'number', role: null, format: 'percent',
+    expression: 'DIVIDE(SUM([Delivered Count]), SUM([Sent Count])) * 100', certified: true, certified_at: '2026-10-14T16:20:00Z', certified_by_name: 'Aby', updated_at: '2026-10-14T16:20:00Z', row_version: 3, reports: 7 },
+  { ...stamp, id: 'sf-2', key: 'f_channel_share', label: 'Channel Share', description: 'Each channel’s part of all sends', kind: 'measure', type: 'number', role: null, format: 'percent',
+    expression: SHARE_OF_ALL, certified: true, certified_at: '2026-10-15T11:05:00Z', certified_by_name: 'Aby', updated_at: '2026-10-15T11:05:00Z', row_version: 2, reports: 2 },
+  { ...stamp, id: 'sf-3', key: 'f_sends_ytd', label: 'Sends Year to Date', description: null, kind: 'measure', type: 'number', role: null, format: 'integer',
+    expression: 'TOTALYTD(SUM([Sent Count]))', certified: false, certified_at: null, certified_by_name: null, updated_at: '2026-10-18T08:40:00Z', row_version: 1, reports: 0 },
+  { ...stamp, id: 'sf-4', key: 'f_send_size', label: 'Send Size', description: 'Large from a thousand sends', kind: 'formula', type: 'string', role: 'dimension', format: null,
+    expression: 'IF([Sent Count] >= 1000, "Large", "Small")', certified: false, certified_at: null, certified_by_name: null, updated_at: '2026-10-19T07:55:00Z', row_version: 1, reports: 1 },
+]
 const FORMULA_REPORT: ReportDefinition = { columns: [{ field: 'channel' }], derived: [{ key: 'c_size', label: 'Size', kind: 'formula', expression: 'IF([Sent Count] >= 1000, "Large", "Small")', type: 'string', role: 'dimension' }] }
 
 export default function DataPlayground() {
@@ -64,9 +79,15 @@ export default function DataPlayground() {
     client.setQueryData(['insights', 'parameter-values', 'messages', 'channel'], { field: 'channel', values: ['EMAIL', 'SMS', 'PUSH'], choosable: true })
     client.setQueryData(['insights', 'parameter-values', 'messages', 'store'], { field: 'store', values: ['Airport', 'Downtown', 'Harbour', 'Mall', 'Riverside'], choosable: true })
     client.setQueryData(fiscalKey, { start: 4, named_by: 'end' })
-    const asked = (expression: string) => ['insights', 'formula-check', 'messages', FORMULA_REPORT.derived, undefined, { expression, kind: 'measure', role: '', format: 'percent', label: 'Email Share' }]
+    const asked = (expression: string) => ['insights', 'formula-check', 'messages', null, FORMULA_REPORT.derived, undefined, { expression, kind: 'measure', role: '', format: 'percent', label: 'Email Share' }]
     client.setQueryData(asked(SHARE), { ok: true, spec: { key: 'c_email_share', label: 'Email Share', kind: 'measure', expression: SHARE, type: 'number', format: 'percent' }, role: 'measure', personal: false, uses: ['Sent Count', 'Channel'] })
     client.setQueryData(asked(BROKEN), { ok: false, message: 'SUM( is not closed: add ) after its last value.', at: 7, where: 'expression' })
+    client.setQueryData(['insights', 'formula-check', 'messages', 'shared:new', [], undefined, { expression: SHARE_OF_ALL, kind: 'measure', role: '', format: 'percent', label: 'Channel Share' }],
+      { ok: true, spec: { key: 'c_channel_share', label: 'Channel Share', kind: 'measure', expression: SHARE_OF_ALL, type: 'number', format: 'percent' }, role: 'measure', personal: false, uses: ['Sent Count', 'Channel'], analytic: true })
+    const sparse = params.get('state') === 'sparse'
+    for (const key of [keys.catalog, keys.sharedFormulas('messages')]) client.setQueryDefaults(key, { staleTime: Infinity, retry: false })
+    client.setQueryData(keys.catalog, { datasets: [MESSAGES], engine: { name: 'PostgreSQL' } })
+    client.setQueryData(keys.sharedFormulas('messages'), { dataset: 'messages', ready: true, can_certify: true, formulas: sparse ? [] : SHARED })
     return true
   })
   const show = params.get('show') ?? 'params'
@@ -87,6 +108,8 @@ export default function DataPlayground() {
       {show === 'fiscal' && <div className="max-w-4xl"><FiscalYearPage /></div>}
       {show === 'formula' && <CustomFieldsDialog dataset={MESSAGES} definition={FORMULA_REPORT} onChange={() => undefined} onClose={() => undefined}
         start={{ label: 'Email Share', kind: 'measure', expression: params.get('state') === 'error' ? BROKEN : SHARE, format: 'percent' }} />}
+      {show === 'shared' && <div className="max-w-6xl"><SharedFormulasPage /></div>}
+      {show === 'shared-edit' && <SharedFormulaDialog dataset={MESSAGES} start={{ label: 'Channel Share', kind: 'measure', expression: SHARE_OF_ALL, format: 'percent', description: 'Each channel’s part of all sends' }} onClose={() => undefined} onSaved={() => undefined} />}
     </div>
   )
 }

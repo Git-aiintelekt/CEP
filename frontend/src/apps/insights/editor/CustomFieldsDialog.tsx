@@ -3,18 +3,24 @@
  * bands cut a number at edges (Under 100, 100 to under 1,000, 1,000 and over); if-then labels give the first matching
  * condition's label (Amount at least 500 is Gold), else a label for the rest. A formula works out one value for each row in the
  * formula language ([Revenue] - [Cost]); a measure formula adds up the rows of each group (SUM([Sent], [Channel] = "EMAIL")).
- * Each one is then a field like any other.
+ * Each one is then a field like any other. Share With Every Report moves a formula onto the dataset as a shared formula, which
+ * the report then names instead.
  */
+import { useQueryClient } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { FormulaEditor } from './FormulaEditor'
+import { SharedFormulaDialog } from './SharedFormulaDialog'
+
+import { useAuth } from '@/auth/AuthContext'
 
 import { IconButton } from '@/components/Button'
 import { Field, Select, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
+import { keys } from '../api'
 import type { CatalogDataset, CustomField, ReportDefinition } from '../types'
-import { removeCustom, setCustom } from './definition'
+import { removeCustom, setCustom, shareCustom } from './definition'
 
 type Draft = { kind: CustomField['kind']; label: string; field: string; other: string; groups: { label: string; values: string }[]; edges: string; rules: { field: string; op: string; value: string; label: string }[];
   expression: string; role: '' | 'dimension' | 'measure'; format: string }
@@ -62,6 +68,10 @@ export function CustomFieldsDialog({ dataset, definition, onChange, onClose, sta
   const formulaDraft = editing !== null && formulaKind(editing.draft.kind)
   const spec = !editing ? null : formulaDraft ? (checked && editing.draft.label.trim() ? { ...checked, ...(editing.key ? { key: editing.key } : {}), label: editing.draft.label.trim() } : null) : toSpec(editing.draft, editing.key)
   const before = editing?.key ? customs.slice(0, Math.max(0, customs.findIndex((c) => c.key === editing.key))) : customs
+  const { can } = useAuth()
+  const client = useQueryClient()
+  const [sharing, setSharing] = useState<CustomField | null>(null)
+  const sharable = can('report.edit') || can('report.admin')
 
   return (
     <Modal title="Custom Fields" subtitle="Fields of this report worked out from each row, and measure formulas" onClose={onClose} size={formulaDraft ? 'xl' : 'lg'}
@@ -81,6 +91,7 @@ export function CustomFieldsDialog({ dataset, definition, onChange, onClose, sta
           {customs.map((custom) => (
             <li key={custom.key} className="flex items-center gap-2 px-3 py-2 text-sm">
               <span className="min-w-0 flex-1"><span className="font-semibold text-ink-900">{custom.label}</span><span className="ml-2 text-xs text-ink-700">{KIND_LABEL[custom.kind]}</span></span>
+              {sharable && formulaKind(custom.kind) && <button type="button" className="text-xs font-semibold text-brand-800 hover:underline" onClick={() => setSharing(custom)}>Share With Every Report</button>}
               <button type="button" className="text-xs font-semibold text-brand-800 hover:underline" onClick={() => setEditing({ key: custom.key, draft: fromSpec(custom) })}>Edit</button>
               <IconButton label={`Remove ${custom.label}`} icon={X} size="xs" onClick={() => onChange(removeCustom(definition, custom.key as string))} />
             </li>
@@ -147,6 +158,11 @@ export function CustomFieldsDialog({ dataset, definition, onChange, onClose, sta
             <Field label="Everything else">{({ id }) => <TextInput id={id} value={editing.draft.other} onChange={(e) => set({ other: e.target.value })} maxLength={60} />}</Field>
           )}
         </div>
+      )}
+      {sharing && (
+        <SharedFormulaDialog dataset={dataset} start={{ label: sharing.label, kind: sharing.kind as 'formula' | 'measure', expression: sharing.expression ?? '', ...(sharing.role ? { role: sharing.role } : {}), ...(sharing.format ? { format: sharing.format } : {}) }}
+          onClose={() => setSharing(null)}
+          onSaved={async (saved) => { await client.refetchQueries({ queryKey: keys.catalog }); onChange(shareCustom(definition, sharing.key as string, saved.key)); setSharing(null) }} />
       )}
     </Modal>
   )

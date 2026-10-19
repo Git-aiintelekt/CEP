@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, ParameterValues, UploadColumn, UploadedFile } from './types'
+import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, SharedFormula, SharedFormulaBody, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
@@ -55,6 +55,18 @@ function answersQuery(params?: ParameterValues): Record<string, string> | undefi
 /** the formula language's check as you type (apps/insights/formula.py) */
 export const formulasApi = {
   check: (body: { dataset: string; derived: CustomField[]; field: Partial<CustomField> }) => api.post<FormulaCheck>('/insights/formulas/check/', body),
+}
+
+/** Insights → Shared Formulas: measures and formulas saved on a dataset (apps/insights/dataset_formulas.py) */
+export const sharedFormulasApi = {
+  list: (dataset: string, signal?: AbortSignal) =>
+    api.get<{ dataset: string; ready: boolean; can_certify: boolean; formulas: SharedFormula[] }>(`/insights/datasets/${dataset}/formulas/`, undefined, signal),
+  create: (dataset: string, body: SharedFormulaBody) => api.post<SharedFormula>(`/insights/datasets/${dataset}/formulas/`, body),
+  update: (dataset: string, id: string, body: Partial<SharedFormulaBody>) => api.put<SharedFormula>(`/insights/datasets/${dataset}/formulas/${id}/`, body),
+  remove: (dataset: string, id: string) => api.delete(`/insights/datasets/${dataset}/formulas/${id}/`),
+  certify: (dataset: string, id: string, certified: boolean) => api.post<SharedFormula>(`/insights/datasets/${dataset}/formulas/${id}/certify/`, { certified }),
+  /** the check as a shared formula is typed: id leaves out that formula and the ones after it */
+  check: (dataset: string, body: { id?: string; field: Partial<CustomField> }) => api.post<FormulaCheck>(`/insights/datasets/${dataset}/formulas/check/`, body),
 }
 
 /** the values a parameter offers (apps/insights/parameters.py) */
@@ -174,6 +186,7 @@ export const keys = {
   versions: (id: string) => ['insights', 'versions', id] as const,
   run: (id: string, page: { limit?: number; offset?: number; view?: ReportView; drill?: { path: DrillStep[] }; through?: { field: string; value: unknown }[]; params?: ParameterValues }) => ['insights', 'run', id, page] as const,
   uploads: ['insights', 'uploads'] as const,
+  sharedFormulas: (dataset: string) => ['insights', 'shared-formulas', dataset] as const,
 }
 
 export const fiscalKey = ['workspace', 'fiscal-year'] as const
