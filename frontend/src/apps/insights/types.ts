@@ -214,13 +214,32 @@ export interface UploadedFile {
 export interface CustomField {
   key?: string
   label: string
-  kind: 'group' | 'band' | 'rule'
+  kind: 'group' | 'band' | 'rule' | 'formula' | 'measure'
+  /** a formula (one value per row) or a measure formula, in the formula language (apps/insights/formula.py) */
+  expression?: string
+  /** what a formula works out, as the server checked it */
+  type?: FieldType
+  /** a number formula: added up (a measure) or grouped (a dimension) */
+  role?: 'dimension' | 'measure'
+  format?: 'integer' | 'decimal' | 'money' | 'percent'
   field?: string
   groups?: { label: string; values: (string | number)[] }[]
   edges?: number[]
   labels?: string[]
   rules?: { field: string; op: '=' | '!=' | '>' | '>=' | '<' | '<='; value: string | number | boolean; label: string }[]
   other?: string
+}
+
+/** POST /insights/formulas/check/: the field as it would be saved, or what is wrong and where in the text */
+export interface FormulaCheck {
+  ok: boolean
+  spec?: CustomField
+  role?: 'dimension' | 'measure'
+  personal?: boolean
+  uses?: string[]
+  message?: string
+  at?: number | null
+  where?: string
 }
 
 export interface ReportSummary {

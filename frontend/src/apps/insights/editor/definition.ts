@@ -101,6 +101,10 @@ export function formattableColumns(dataset: CatalogDataset, definition: ReportDe
 }
 
 const TEXT_OPERATORS = ['=', '!=', 'contains', 'starts_with', 'in', 'is_null', 'is_not_null']
+const DATE_OPERATORS = ['=', '!=', '>', '>=', '<', '<=', 'between', 'last_days', 'is_null', 'is_not_null']
+/** the operators a field of each type takes (backend catalog.OPERATORS, the fiscal ones aside) */
+const OPERATORS_BY_TYPE: Record<CatalogField['type'], string[]> = { string: TEXT_OPERATORS, number: ['=', '!=', '>', '>=', '<', '<=', 'between', 'in', 'is_null', 'is_not_null'], boolean: ['=', 'is_null', 'is_not_null'],
+  date: DATE_OPERATORS, datetime: DATE_OPERATORS }
 
 /** a custom field's key from its name, as the server makes it */
 export function customKey(label: string): string {
@@ -111,8 +115,17 @@ export function customKey(label: string): string {
 export function withCustom(dataset: CatalogDataset, definition: ReportDefinition): CatalogDataset {
   const customs = definition.derived ?? []
   if (!customs.length) return dataset
-  const extra: CatalogField[] = customs.map((custom) => ({ key: custom.key ?? customKey(custom.label), label: custom.label, type: 'string', role: 'dimension', aggregates: [], operators: TEXT_OPERATORS,
-    buckets: [], format: null, sensitivity: 'NORMAL', custom: true }))
+  const extra: CatalogField[] = customs.map((custom) => {
+    const key = custom.key ?? customKey(custom.label)
+    if (custom.kind === 'measure') return { key, label: custom.label, type: custom.type ?? 'number', role: 'measure', aggregates: ['calc'], operators: [], buckets: [], format: custom.format ?? null, sensitivity: 'NORMAL', custom: true }
+    if (custom.kind === 'formula') {
+      const type = custom.type ?? 'string'
+      const measure = custom.role === 'measure'
+      return { key, label: custom.label, type, role: measure ? 'measure' : 'dimension', aggregates: measure ? ['sum', 'avg', 'min', 'max', 'count'] : [], operators: OPERATORS_BY_TYPE[type],
+        buckets: !measure && (type === 'date' || type === 'datetime') ? ['day', 'week', 'month', 'quarter', 'year'] : [], format: custom.format ?? (type === 'date' || type === 'datetime' ? type : null), sensitivity: 'NORMAL', custom: true }
+    }
+    return { key, label: custom.label, type: 'string', role: 'dimension', aggregates: [], operators: TEXT_OPERATORS, buckets: [], format: null, sensitivity: 'NORMAL', custom: true }
+  })
   return { ...dataset, fields: [...dataset.fields, ...extra.filter((field) => !dataset.fields.some((f) => f.key === field.key))] }
 }
 

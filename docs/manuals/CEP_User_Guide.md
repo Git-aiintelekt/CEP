@@ -2846,6 +2846,35 @@ Workspace administrators add calculated measures to their own datasets (Report D
 3. In the editor, a date then also groups **by Fiscal Quarter** and **by Fiscal Year**, read as FY2027 Q1. Filters offer **in this fiscal year**, **in last fiscal year**, **in this fiscal quarter** and **in last fiscal quarter**.
 4. **Year to Date** and **Quarter to Date** comparisons count from the fiscal year's first day. Dashboards offer **Fiscal Quarter** and **Fiscal Year** periods (to date).
 
+**Work out a value for each row with a formula** (anyone who can build reports)
+
+1. In the editor, press **Custom Fields**, then **Add a Custom Field**. Give it a **Name** and choose the **Kind** **Formula (Each Row)**.
+2. Write the formula. Put a field in square brackets, such as `[Revenue] - [Cost]`, or click a field under **Fields** to put it in where the cursor is. Click a function under **Functions** to put it in, such as `IF(`.
+3. The line under the formula checks it as you type. It says what it works out and which fields it reads, or what is wrong, with the place marked.
+4. A number formula is **A Measure (Adds Up)** or **A Dimension (Groups)**: choose a dimension for a year or a code. Choose how a number shows under **Show As**: Whole Number, Decimal, Money or Percentage.
+5. Press **Add Field**. The formula is then a field like any other: drag it into Rows or Values, filter on it, or group a date formula by month.
+
+Examples: `IF([Amount] >= 500, "Gold", "Standard")`, `YEAR([Sent]) & "-" & TEXT(MONTH([Sent]))`, `DATEDIFF([Ordered], TODAY(), "day")`, `COALESCE([Discount], 0)`.
+
+**Write a measure formula, such as a rate or a filtered total**
+
+1. In **Custom Fields**, add a field of the **Kind** **Measure Formula**.
+2. A measure formula adds up the rows of each group, so every field goes inside SUM, AVERAGE, MIN, MAX, COUNT or DISTINCTCOUNT, or you count rows with COUNTROWS().
+3. Give an aggregate a condition to add up only some rows: `SUM([Sent Count], [Channel] = "EMAIL")` is the email sends of each group.
+4. Divide safely with DIVIDE: `DIVIDE(SUM([Delivered Count]), SUM([Sent Count])) * 100` is empty, not an error, where nothing was sent. Choose **Percentage** under **Show As**.
+5. A measure formula may use the dataset's calculated measures and the measure formulas above it by name, such as `[Delivered Rate] / 100`.
+6. Add it to **Values**: it is worked out for every row, in the totals, the pivot and the charts. Comparisons (previous period, last year) work on it as on any measure.
+
+**The formula language at a glance**
+
+- Fields: `[Field Name]` (the name you see; the field's key also works). Text: `"EMAIL"` or `'EMAIL'`. Yes and no: `TRUE`, `FALSE`. Empty: `BLANK`.
+- Operators: `+ - * /` (dividing by zero gives an empty value), `&` joins text, `= <> < <= > >=` compare, `AND`, `OR`, `NOT`.
+- Adding up (measure formulas only): SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT, each with an optional condition, and COUNTROWS(condition).
+- Logic: IF, SWITCH, ISBLANK, COALESCE. Numbers: DIVIDE, ROUND, ABS, FLOOR, CEILING.
+- Text: CONCAT, UPPER, LOWER, TRIM, LEFT, RIGHT, LEN, CONTAINS (any case), REPLACE, TEXT.
+- Dates: YEAR, MONTH, DAY (in your workspace's time zone), TODAY, DATEDIFF(start, end, "day" | "month" | "year"), DATEADD(date, number, "day" | "month" | "year").
+- A formula can use the custom fields above it in the list. A formula that reads personal data is personal too.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.
