@@ -307,17 +307,17 @@ def present() -> bool:
     return bool(_q("SELECT to_regclass('public.report_upload') IS NOT NULL AS present")[0]["present"])
 
 
+BATCH = 5_000
+
+
 def _write_rows(tenant_id, upload_id, data: list[dict]) -> None:
+    """the rows in batches, each one INSERT over a JSON array (COPY is refused on a table under row-level security)"""
     with session.connection().cursor() as cursor:
         cursor.execute("DELETE FROM report_upload_row WHERE upload_id = %s", [str(upload_id)])
-        raw = getattr(cursor, "cursor", cursor)
-        if hasattr(raw, "copy"):
-            with raw.copy("COPY report_upload_row (tenant_id, upload_id, row_no, data) FROM STDIN") as copy:
-                for n, item in enumerate(data, start=1):
-                    copy.write_row((str(tenant_id), str(upload_id), n, json.dumps(item, separators=(",", ":"))))
-        else:                                                          # pragma: no cover
-            cursor.executemany("INSERT INTO report_upload_row (tenant_id, upload_id, row_no, data) VALUES (%s, %s, %s, %s)",
-                               [(str(tenant_id), str(upload_id), n, json.dumps(item)) for n, item in enumerate(data, start=1)])
+        for at in range(0, len(data), BATCH):
+            cursor.execute("""INSERT INTO report_upload_row (tenant_id, upload_id, row_no, data)
+                              SELECT %s, %s, (e.n + %s)::int, e.value FROM jsonb_array_elements(%s::jsonb) WITH ORDINALITY AS e(value, n)""",
+                           [str(tenant_id), str(upload_id), at, json.dumps(data[at:at + BATCH], separators=(",", ":"))])
 
 
 UPLOAD_COLUMNS = "id::text, key, name, description, file_name, file_kind, columns, row_count, status, created_by::text, created_at, updated_at, replaced_at, row_version"

@@ -443,8 +443,8 @@ canvas that counts the pages once laid out, and with `group=1` a section per val
 type is read from its values (`infer`): true/false, then a number (1,234.50, 1.234,50 when every value reads that way, $12,
 12%, (3) as -3, but never a value with a leading zero such as 007), then a date or a date and time (ISO, or 19/10/2026 and
 10/19/2026 with the order decided per column: day first when a first part is over 12, month first otherwise), else text. Rows
-are stored as JSON under c1..cn (`encoded`; a date and time without a zone is the workspace's, stored in UTC), written with
-COPY. A file is a DRAFT until reviewed (`PUT` with `ready`); a column may then be its read type or text, and a number a
+are stored as JSON under c1..cn (`encoded`; a date and time without a zone is the workspace's, stored in UTC), inserted 5,000
+at a time from a JSON array (PostgreSQL refuses COPY into a table under row-level security). A file is a DRAFT until reviewed (`PUT` with `ready`); a column may then be its read type or text, and a number a
 measure or a dimension. The dataset (`dataset_of`) is a query: `SELECT r.tenant_id, r.row_no, (r.data->>'c1')::numeric AS c1
 ... FROM public.report_upload_row r WHERE r.upload_id = '<id>'`, its fields on t0, `workspace_field` tenant_id, plus Rows (a
 count of row_no). It runs on PostgreSQL as the reporting role (granted SELECT on report_upload_row) whatever the workspace's
