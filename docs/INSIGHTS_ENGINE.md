@@ -472,3 +472,34 @@ the query (`prepare`, in the workspace's today); a definition using either carri
 and the comparisons read: year and quarter to date count from the fiscal year's start (`compare.period_start`), and a fiscal
 year drills to fiscal quarters, months and days. A fiscal column carries `fiscal` {start, named_by} so the browser, the PDF and
 the workbook name it FY2027 Q1 (`fiscal.name`). Dashboards add the periods fquarter and fyear (to date).
+
+## The formula language (calculated columns and measure formulas)
+
+`formula.py` reads, checks and compiles a report's formulas, kept as custom fields in `definition.derived` (`derived.py`):
+kind `formula` (a calculated column: one value per row) and kind `measure` (a measure formula: over the rows of a group).
+Each is saved with its `expression`, its checked `type`, a formula's `role` (a number as a `measure`, summed, averaged and so
+on, or a `dimension`; any other type is a dimension, a date one with buckets) and an optional number `format`. No patch: the
+definition is JSON.
+
+**The language**: fields as `[Label]` (a label first, then a key, in any case), numbers, "text" or 'text' (a doubled quote
+inside), TRUE, FALSE, BLANK; `+ - * /` (a division is `(a) * 1.0 / NULLIF(b, 0)`: empty, never an error), `&` (text), the
+comparisons, AND, OR, NOT; and 32 functions (`FUNCTIONS`): IF, SWITCH, ISBLANK, COALESCE, DIVIDE, ROUND, ABS, FLOOR, CEILING,
+CONCAT, UPPER, LOWER, TRIM, LEFT, RIGHT, LEN, CONTAINS, REPLACE, TEXT, YEAR, MONTH, DAY, TODAY, DATEDIFF, DATEADD, and the
+aggregates SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT (each with an optional condition) and COUNTROWS(condition?). A
+recursive-descent parser builds the tree (at most 2,000 characters, 300 nodes); the checker resolves fields against the
+dataset and the custom fields before it (no cycles), types every node, and raises `FormulaError(message, at)` with the
+character offset. In a measure formula every field is inside an aggregate, aggregates do not nest, and a calculated measure
+(the catalogue's ratio/difference/sum/product, or a measure formula above it) is inlined by name. A formula over personal data
+is personal; confidential fields are not offered.
+
+**SQL**: `render` writes the tree for PostgreSQL, MySQL or ClickHouse from allow-listed function shapes; fields are the
+catalogue's columns (or a custom field's CASE), literals are escaped (`derived._literal`, `%` doubled for positional
+dialects), date parts read in the workspace's zone (`ZONE`, set by `compiler.compile` and `compile_totals`). A measure formula
+is a calculated measure (aggregate `calc`): each aggregate in it is one operand (`operand_sql`: its value, or
+`CASE WHEN condition THEN value END`), so the totals' GROUPING SETS subquery reads each once and the formula is worked out
+again over the totals; `SUM([Sent], [Channel] = "EMAIL")` is `sum(CASE WHEN channel = 'EMAIL' THEN sent END)`.
+
+**API**: `POST /insights/formulas/check/` {dataset, derived (the custom fields before it), field} answers the field as it
+would be saved (type, use, the fields it reads, whether it is personal) or `{ok: false, message, at, where}`; the editor calls
+it as the person types. Time intelligence stays with comparisons (previous period, last year, to date), which apply to measure
+formulas like any measure.

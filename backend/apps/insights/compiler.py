@@ -43,6 +43,9 @@ def _col(field: dict, dialect: str) -> str:
     if field.get("derived"):
         from . import derived
         return derived.case_sql(field, dialect, lambda source: _col(source, dialect))
+    if field.get("operand"):                                           # one aggregate's value in a measure formula
+        from . import formula
+        return formula.operand_sql(field["operand"], dialect, lambda key: _col(field["fields"][key], dialect))
     column = _ident(field["column"], dialect)
     return f"{_ident(field['table'], dialect)}.{column}" if field.get("table") else column
 
@@ -53,9 +56,12 @@ def _field_of(dataset: dict, key: str) -> dict:
 
 def operands(dataset: dict, field: dict, aggregate: str) -> list[tuple[dict, str]]:
     """The (field, aggregate) pairs a measure column reads: the field itself, or every column operand of a calculated
-    measure's formula, through nested calculated measures; each field once."""
+    measure's formula, through nested calculated measures; each field once. A measure formula reads one value per aggregate
+    in it (its value, or empty where the aggregate's condition does not hold)."""
     if aggregate != CALC:
         return [(field, aggregate)]
+    if field.get("expression"):
+        return [(operand, operand["operand"]["fn"]) for operand in field["expression"]["operands"]]
     out, seen = [], set()
     for side in (field["formula"]["left"], field["formula"]["right"]):
         if "field" not in side:
@@ -73,6 +79,11 @@ def measure_expr(dataset: dict, field: dict, aggregate: str, raw, dialect: str) 
     empty, never as an error; `* 1.0` keeps integer sums from dividing as integers."""
     if aggregate != CALC:
         return AGGREGATES[aggregate].format(col=raw(field))
+    if field.get("expression"):
+        from . import formula as language
+        found = field["expression"]["operands"]
+        return language.render(field["expression"]["checked"].ast, dialect, column=None,
+                               agg=lambda call: language.aggregate_sql(call, raw(found[call["n"]])))
     formula = field["formula"]
 
     def side(part) -> str:
@@ -266,9 +277,8 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
     """The dimensions and raw measures once, in a subquery (so every placeholder binds once), totalled by GROUPING SETS
     over the dimension aliases. A result row is the dimensions, the measures, then GROUPING(dims): a bit per dimension,
     1 where that dimension is totalled away, the first dimension the most significant bit."""
-    from . import derived
-    dataset = derived.augment(dataset, definition)
-    from . import derived
+    from . import derived, formula
+    formula.ZONE.set(zone)
     dataset = derived.augment(dataset, definition)
     params = Params(dialect)
     dims = [c for c in definition["columns"] if "aggregate" not in c]
@@ -326,7 +336,8 @@ def _raw_alias(j: int, k: int, column: dict) -> str:
 
 def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit: int, offset: int = 0, dialect: str = "postgresql") -> Compiled:
     assert dialect in DIALECTS, dialect
-    from . import derived
+    from . import derived, formula
+    formula.ZONE.set(zone)                                             # a formula's dates read in the workspace's zone
     dataset = derived.augment(dataset, definition)
     params = Params(dialect)
     selects, groups, columns = [], [], []

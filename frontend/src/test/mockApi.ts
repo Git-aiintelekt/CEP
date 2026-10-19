@@ -1355,6 +1355,19 @@ export function installMockApi(options: MockOptions = {}) {
             { key: 'rows', label: 'Rows', type: 'number', role: 'measure', aggregates: ['count'], operators: ['>'], buckets: [], format: 'integer', sensitivity: 'NORMAL' }] }))
         return json({ ...insightsCatalog, datasets: [...insightsCatalog.datasets, ...files] })
       }
+      if (path.endsWith('/insights/formulas/check/') && method === 'POST') {          // the formula language's check, as the server answers it
+        const field = (body as { field: { key?: string; label: string; kind: 'formula' | 'measure'; expression: string; role?: string; format?: string } }).field
+        const text = field.expression.trim()
+        if (/[*+/&(-]$/.test(text)) return json({ ok: false, message: 'The formula ends too soon: something is missing at the end.', at: field.expression.length, where: 'expression' })
+        if (field.kind === 'measure' && !/\b(SUM|AVERAGE|MIN|MAX|COUNT|DISTINCTCOUNT|COUNTROWS)\(/.test(text)) {
+          return json({ ok: false, message: 'A measure formula adds up rows: use SUM, AVERAGE, MIN, MAX, COUNT, DISTINCTCOUNT or COUNTROWS.', at: 0, where: 'expression' })
+        }
+        const type = field.kind === 'measure' || !text.includes('"') ? 'number' : 'string'
+        const role = field.kind === 'measure' ? 'measure' : field.role || (type === 'number' ? 'measure' : 'dimension')
+        const key = field.key ?? `c_${field.label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+        return json({ ok: true, spec: { key, label: field.label, kind: field.kind, expression: text, type, ...(field.kind === 'formula' ? { role } : {}), ...(field.format ? { format: field.format } : {}) },
+          role, personal: false, uses: Array.from(text.matchAll(/\[([^\]]+)\]/g), (m) => m[1]).filter((v, i, all) => all.indexOf(v) === i) })
+      }
       if (path.endsWith('/insights/parameters/values/') && method === 'POST') {
         const field = (body as { field: string }).field
         return json(field === 'channel' ? { field, label: 'Channel', values: ['EMAIL', 'SMS'], choosable: true, more: false } : { field, values: [], choosable: false })

@@ -1,6 +1,7 @@
 /**
  * /dev/data: uploaded files, parameters and fiscal calendars on sample data, with no backend. ?show=params (the questions above a
- * report, &state=sparse for one), review (an uploaded file's columns), fiscal (Settings → Fiscal Year from April).
+ * report, &state=sparse for one), review (an uploaded file's columns), fiscal (Settings → Fiscal Year from April), formula (a measure
+ * formula in Custom Fields, &state=error for one that does not read).
  * For design review and screenshots; the real pages are UploadsPage, ReportViewerPage and FiscalYearPage.
  */
 import { useQueryClient } from '@tanstack/react-query'
@@ -12,7 +13,8 @@ import { fiscalKey } from '../api'
 import { ParameterBar } from '../components/ParameterBar'
 import { ReportResult } from '../components/ReportViews'
 import { UploadReviewDialog } from '../components/UploadReviewDialog'
-import type { CatalogField, ParameterValues, ReportParameter, RunResult, UploadedFile } from '../types'
+import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
+import type { CatalogDataset, CatalogField, ParameterValues, ReportDefinition, ReportParameter, RunResult, UploadedFile } from '../types'
 
 const FIELDS: CatalogField[] = [
   { key: 'channel', label: 'Channel', type: 'string', role: 'dimension', aggregates: [], operators: ['=', 'in'], buckets: [], format: null, sensitivity: 'NORMAL' },
@@ -45,6 +47,15 @@ const UPLOAD: UploadedFile = {
   ],
 }
 
+const MESSAGES: CatalogDataset = {
+  key: 'messages', label: 'Messages', description: null, component: { key: 'cep', name: 'Engagement' }, primary_key: 'message_id', time_field: 'submitted_at', freshness: 'LIVE',
+  fields: [...FIELDS, { key: 'sent', label: 'Sent Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' },
+    { key: 'delivered', label: 'Delivered Count', type: 'number', role: 'measure', aggregates: ['sum'], operators: ['>', '>='], buckets: [], format: 'integer', sensitivity: 'NORMAL' }],
+}
+const SHARE = 'DIVIDE(SUM([Sent Count], [Channel] = "EMAIL"), SUM([Sent Count])) * 100'
+const BROKEN = 'DIVIDE(SUM([Sent Count], [Channel] = "EMAIL"), SUM([Sent Count]) * 100'
+const FORMULA_REPORT: ReportDefinition = { columns: [{ field: 'channel' }], derived: [{ key: 'c_size', label: 'Size', kind: 'formula', expression: 'IF([Sent Count] >= 1000, "Large", "Small")', type: 'string', role: 'dimension' }] }
+
 export default function DataPlayground() {
   const [params] = useSearchParams()
   const client = useQueryClient()
@@ -53,6 +64,9 @@ export default function DataPlayground() {
     client.setQueryData(['insights', 'parameter-values', 'messages', 'channel'], { field: 'channel', values: ['EMAIL', 'SMS', 'PUSH'], choosable: true })
     client.setQueryData(['insights', 'parameter-values', 'messages', 'store'], { field: 'store', values: ['Airport', 'Downtown', 'Harbour', 'Mall', 'Riverside'], choosable: true })
     client.setQueryData(fiscalKey, { start: 4, named_by: 'end' })
+    const asked = (expression: string) => ['insights', 'formula-check', 'messages', FORMULA_REPORT.derived, undefined, { expression, kind: 'measure', role: '', format: 'percent', label: 'Email Share' }]
+    client.setQueryData(asked(SHARE), { ok: true, spec: { key: 'c_email_share', label: 'Email Share', kind: 'measure', expression: SHARE, type: 'number', format: 'percent' }, role: 'measure', personal: false, uses: ['Sent Count', 'Channel'] })
+    client.setQueryData(asked(BROKEN), { ok: false, message: 'SUM( is not closed: add ) after its last value.', at: 7, where: 'expression' })
     return true
   })
   const show = params.get('show') ?? 'params'
@@ -71,6 +85,8 @@ export default function DataPlayground() {
       )}
       {show === 'review' && <UploadReviewDialog upload={UPLOAD} onClose={() => undefined} onSaved={() => undefined} />}
       {show === 'fiscal' && <div className="max-w-4xl"><FiscalYearPage /></div>}
+      {show === 'formula' && <CustomFieldsDialog dataset={MESSAGES} definition={FORMULA_REPORT} onChange={() => undefined} onClose={() => undefined}
+        start={{ label: 'Email Share', kind: 'measure', expression: params.get('state') === 'error' ? BROKEN : SHARE, format: 'percent' }} />}
     </div>
   )
 }

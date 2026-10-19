@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
-import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, FiscalYear, ParameterChoices, ParameterValues, UploadColumn, UploadedFile } from './types'
+import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor, CustomField, FiscalYear, FormulaCheck, ParameterChoices, ParameterValues, UploadColumn, UploadedFile } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
@@ -50,6 +50,11 @@ function analysisBody(source: AnalysisSource): Record<string, unknown> {
 /** a file's answers, as JSON in its address */
 function answersQuery(params?: ParameterValues): Record<string, string> | undefined {
   return params && Object.keys(params).length ? { params: JSON.stringify(params) } : undefined
+}
+
+/** the formula language's check as you type (apps/insights/formula.py) */
+export const formulasApi = {
+  check: (body: { dataset: string; derived: CustomField[]; field: Partial<CustomField> }) => api.post<FormulaCheck>('/insights/formulas/check/', body),
 }
 
 /** the values a parameter offers (apps/insights/parameters.py) */

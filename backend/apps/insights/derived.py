@@ -6,15 +6,24 @@ any dimension of the dataset: as rows, the spread across, a filter, a slicer of 
     {"key": "c_size", "label": "Order Size", "kind": "band", "field": "amount", "edges": [100, 1000]}
          -> "Under 100", "100 to under 1,000", "1,000 and over" (or `labels`, one more than the edges)
     {"key": "c_tier", "label": "Tier", "kind": "rule", "rules": [{"field": "amount", "op": ">=", "value": 500, "label": "Gold"}], "other": "Standard"}
+    {"key": "c_margin", "label": "Margin", "kind": "formula", "expression": "[Revenue] - [Cost]", "type": "number", "role": "measure", "format": "money"}
+    {"key": "c_rate", "label": "Email Rate", "kind": "measure", "expression": "DIVIDE(SUM([Sent], [Channel] = \"EMAIL\"), SUM([Sent])) * 100", "type": "number", "format": "percent"}
+
+A formula (a calculated column) and a measure formula are written in the formula language (apps/insights/formula.py). A
+formula may read the dataset's fields and the custom fields before it; a number formula is a measure (summed, averaged..) or
+a dimension (grouped), a date one a dimension with buckets. A measure formula is a calculated measure (aggregate `calc`).
 
 The compiler writes a CASE over the source columns with the values as escaped literals (they are checked against the
 source field's type first), so no placeholder order changes. A custom field over personal data is personal itself.
 """
 import re
 
-from .catalog import OPERATORS
+from . import formula
+from .catalog import BUCKETS, OPERATORS
 
-KINDS = ("group", "band", "rule")
+KINDS = ("group", "band", "rule", "formula", "measure")
+NUMBER_FORMATS = ("integer", "decimal", "money", "percent")
+MEASURE_AGGREGATES = ["sum", "avg", "min", "max", "count"]
 RULE_OPS = ("=", "!=", ">", ">=", "<", "<=")
 SOURCE_TYPES = ("string", "number", "boolean")
 MAX_FIELDS, MAX_GROUPS, MAX_VALUES, MAX_EDGES, MAX_RULES = 10, 20, 200, 20, 10
@@ -22,9 +31,10 @@ POSITIONAL = ("postgresql", "mysql")
 
 
 class DerivedError(ValueError):
-    def __init__(self, field: str, message: str):
+    def __init__(self, field: str, message: str, at: int | None = None):
         super().__init__(message)
         self.field = field
+        self.at = at                                                   # in a formula: where in its text
 
 
 def _source(dataset: dict, key, where: str, types=SOURCE_TYPES) -> dict:
@@ -75,7 +85,7 @@ def check(dataset: dict, raw) -> list[dict]:
     for i, item in enumerate(raw):
         at = f"derived[{i}]"
         if not isinstance(item, dict) or item.get("kind") not in KINDS:
-            raise DerivedError(f"{at}.kind", "A custom field is groups, bands or if-then labels.")
+            raise DerivedError(f"{at}.kind", "A custom field is groups, bands, if-then labels, a formula or a measure formula.")
         label = _label(item.get("label"), f"{at}.label")
         key = str(item.get("key") or "") or "c_" + re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
         if not re.match(r"^c_[a-z0-9_]{1,40}$", key):
@@ -84,6 +94,9 @@ def check(dataset: dict, raw) -> list[dict]:
             raise DerivedError(f"{at}.label", "Another field has this name.")
         keys.add(key)
         spec = {"key": key, "label": label, "kind": item["kind"]}
+        if item["kind"] in ("formula", "measure"):
+            out.append({**spec, **_formula_spec(augment(dataset, {"derived": out}), item, at)})
+            continue
         if item["kind"] == "group":
             source = _source(dataset, item.get("field"), f"{at}.field", ("string", "number"))
             groups = item.get("groups")
@@ -133,7 +146,47 @@ def check(dataset: dict, raw) -> list[dict]:
     return out
 
 
+def _formula_spec(dataset: dict, item: dict, at: str) -> dict:
+    """a formula's text checked against the fields so far: its type, and how it is used (a number as a measure or a dimension)"""
+    text = item.get("expression")
+    if not isinstance(text, str):
+        raise DerivedError(f"{at}.expression", "Write a formula.", 0)
+    try:
+        checked = formula.check(text, dataset, measure=item["kind"] == "measure")
+    except formula.FormulaError as exc:
+        raise DerivedError(f"{at}.expression", str(exc), exc.at) from None
+    out = {"expression": text.strip(), "type": checked.type}
+    if item["kind"] == "formula":
+        top = checked.ast.get("fn") if checked.ast["t"] == "call" else None
+        role = item.get("role") or ("dimension" if checked.type != "number" or top in ("YEAR", "MONTH", "DAY") else "measure")
+        if role not in ("dimension", "measure") or (role == "measure" and checked.type != "number"):
+            raise DerivedError(f"{at}.role", "Only a number formula adds up as a measure; this one is a dimension.")
+        out["role"] = role
+    fmt = item.get("format")
+    if fmt not in (None, ""):
+        if fmt not in NUMBER_FORMATS or checked.type != "number":
+            raise DerivedError(f"{at}.format", "A number is shown as a whole number, a decimal, money or a percentage.")
+        out["format"] = fmt
+    return out
+
+
+def _formula_field(dataset: dict, spec: dict) -> dict:
+    checked = formula.check(spec["expression"], dataset, measure=spec["kind"] == "measure")
+    type_ = checked.type if checked.type in formula.TYPES else "number"
+    shown = spec.get("format") or ({"date": "date", "datetime": "datetime"}.get(type_))
+    base = {"key": spec["key"], "label": spec["label"], "column": None, "type": type_, "format": shown, "sensitivity": "PII" if checked.personal else "NORMAL"}
+    if spec["kind"] == "measure":
+        operands = [{"key": f"{spec['key']}__{call['n']}", "operand": call, "fields": checked.fields} for call in checked.calls]
+        return {**base, "role": "measure", "aggregates": ["calc"], "operators": [], "buckets": [],
+                "expression": {"text": spec["expression"], "checked": checked, "operands": operands}}
+    measure = spec.get("role") == "measure"
+    return {**base, "role": "measure" if measure else "dimension", "aggregates": list(MEASURE_AGGREGATES) if measure else [], "operators": OPERATORS[type_],
+            "buckets": list(BUCKETS) if type_ in ("date", "datetime") and not measure else [], "derived": {**spec, "checked": checked}}
+
+
 def _field_of(dataset: dict, spec: dict) -> dict:
+    if spec["kind"] in ("formula", "measure"):
+        return _formula_field(dataset, spec)
     sources = [spec["field"]] if "field" in spec else [r["field"] for r in spec["rules"]]
     found = [next(f for f in dataset["fields"] if f["key"] == key) for key in sources]
     personal = any(f["sensitivity"] == "PII" for f in found)
@@ -147,8 +200,11 @@ def augment(dataset: dict, definition: dict | None) -> dict:
     if not specs:
         return dataset
     have = {f["key"] for f in dataset["fields"]}
-    extra = [_field_of(dataset, spec) for spec in specs if spec["key"] not in have]
-    return {**dataset, "fields": [*dataset["fields"], *extra]} if extra else dataset
+    out = dataset
+    for spec in specs:                                                  # in order: a formula reads the custom fields before it
+        if spec["key"] not in have:
+            out = {**out, "fields": [*out["fields"], _field_of(out, spec)]}
+    return out
 
 
 def _literal(value, dialect: str) -> str:
@@ -167,6 +223,9 @@ def _literal(value, dialect: str) -> str:
 def case_sql(field: dict, dialect: str, column) -> str:
     """the CASE a custom field is, over its sources' columns (`column(field)` writes one)"""
     spec = field["derived"]
+    if spec["kind"] == "formula":
+        checked = spec["checked"]
+        return formula.render(checked.ast, dialect, lambda key: column(checked.fields[key]))
     sources = spec["sources"]
     lit = lambda v: _literal(v, dialect)                                    # noqa: E731
     if spec["kind"] == "group":
