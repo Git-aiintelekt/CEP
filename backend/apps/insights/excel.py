@@ -15,9 +15,15 @@ BUCKET_FORMATS = {"day": "yyyy-mm-dd", "week": "yyyy-mm-dd", "month": "mmm yyyy"
 
 
 def _value(column: dict, value):
-    """what goes in the cell: a real date for a date column, a quarter as text, the rest as it is"""
+    """what goes in the cell: a real date for a date column, a quarter or a fiscal period as text, the rest as it is"""
     if value is None or column.get("masked"):
         return value
+    if column.get("bucket") in ("fiscal_quarter", "fiscal_year"):
+        from .fiscal import name
+        try:
+            return name(date.fromisoformat(str(value)[:10]), column["bucket"], column.get("fiscal"))
+        except ValueError:
+            return value
     if column.get("bucket") == "quarter":
         try:
             d = date.fromisoformat(str(value)[:10])

@@ -23,7 +23,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import catalog, drill, pdf, runner
+from . import catalog, drill, parameters, pdf, runner
 from .api import VIEW, _can_see_pii, _report_row, _tenant, _validated
 from .definition import DefinitionError, signature, validate
 
@@ -240,6 +240,10 @@ def keep_summary(key: str, payload: dict) -> None:
 def _analysis(tenant, request, dataset: dict, definition: dict, body: dict):
     kind = body.get("kind")
     mask = not _can_see_pii(request)
+    try:                                                              # the report's parameters answered (else their defaults) narrow what is explained
+        definition = parameters.bind(dataset, definition, parameters.from_request(request))
+    except parameters.ParameterError as exc:
+        return Response({"type": "about:blank", "title": "The analysis did not run", "status": 422, "detail": str(exc)}, status=422)
     try:
         if kind == "influencers":
             return Response(influencers(tenant, request.user, dataset, definition, measure_key=body.get("measure"), mask=mask))

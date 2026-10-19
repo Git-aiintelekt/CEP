@@ -30,7 +30,7 @@ from apps.delivery.engine import session
 from apps.platform_ops import components
 from apps.tenants import context
 from apps.tenants.models import Tenant
-from . import access, catalog, drill, runner
+from . import access, catalog, drill, parameters, runner
 from .definition import DefinitionError, validate
 
 
@@ -163,11 +163,13 @@ class ReportListView(APIView):
         edit, edit_args = access.shared_edit_sql("report", "r", str(request.user.pk))
         shared = access.shared_any_sql("report", "r")
         star_args = [*star_args, *edit_args]
-        rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, COALESCE(d.label, x.label, r.dataset_key) AS dataset_label, c.key AS component_key, c.name AS component_name, r.view_type,
+        uploaded = _q("SELECT to_regclass('public.report_upload') IS NOT NULL AS present")[0]["present"]      # uploaded files' names (patch 0063)
+        upload_join = "LEFT JOIN report_upload up ON up.key = r.dataset_key AND up.tenant_id = r.tenant_id AND up.deleted_at IS NULL" if uploaded else ""
+        rows = _q(f"""SELECT r.id::text, r.name, r.description, r.dataset_key, COALESCE(d.label, x.label, {'up.name, ' if uploaded else ''}r.dataset_key) AS dataset_label, c.key AS component_key, c.name AS component_name, r.view_type,
                              r.visibility, r.version, r.owner_user_id::text, u.display_name AS owner_name, r.last_run_at, r.updated_at,
                              r.folder_id::text, f.name AS folder_name, {starred} AS favourite, x.id::text AS own_dataset_id, {edit} AS shared_edit, {shared} AS shared
                         FROM report r LEFT JOIN report_dataset d ON d.key = r.dataset_key
-                        LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id
+                        LEFT JOIN report_dataset_custom x ON x.key = r.dataset_key AND x.tenant_id = r.tenant_id {upload_join}
                         JOIN suite_component c ON c.key = COALESCE(d.component_key, x.component_key, 'cep')
                         LEFT JOIN app_user u ON u.id = r.owner_user_id LEFT JOIN report_folder f ON f.id = r.folder_id AND f.deleted_at IS NULL
                        WHERE r.deleted_at IS NULL AND {' AND '.join(filters)} ORDER BY c.sort_order, r.updated_at DESC LIMIT 500""", [*star_args, *params])
@@ -337,7 +339,8 @@ class PreviewView(APIView):
         dataset, definition = _validated(request, body, max_limit=limits["preview_rows"])
         limit, offset = _run_body(request)
         try:
-            return Response(runner.run(tenant, request.user, dataset, definition, "preview", limit=limit, offset=offset, totals_view=_totals_view(request, definition)))
+            return Response(runner.run(tenant, request.user, dataset, definition, "preview", limit=limit, offset=offset, totals_view=_totals_view(request, definition),
+                                       params=parameters.from_request(request)))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The preview did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
 
@@ -390,9 +393,14 @@ class RunView(APIView):
             shown = validate(dataset, below, max_limit=run_rows) if below else through
         except (drill.DrillError, DefinitionError) as exc:
             raise ValidationError({"drill": str(exc)}) from None
+        params = parameters.from_request(request)
+        try:
+            parameters.require(definition, params)
+        except parameters.ParameterError as exc:
+            return Response({"type": "about:blank", "title": "The report needs an answer", "status": 422, "detail": str(exc), "outcome": "PARAMETERS", "parameter": exc.field}, status=422)
         try:
             result = runner.run(tenant, request.user, dataset, shown, "run", limit=limit, offset=offset, report_id=report_id, report_version=row["version"],
-                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, shown))
+                                mask_pii=not _can_see_pii(request), totals_view=_totals_view(request, shown), params=params)
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The report did not run", "status": 422, "detail": exc.reason, "outcome": exc.outcome}, status=422)
         with session.tx():
@@ -412,7 +420,8 @@ class ExportView(APIView):
         definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
         dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
         try:
-            chunks = runner.stream_csv(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+            chunks = runner.stream_csv(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request),
+                                       params=parameters.from_request(request))
             first = next(chunks)
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
@@ -442,7 +451,8 @@ class ExportXlsxView(APIView):
         definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
         dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
         try:
-            columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+            columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request),
+                                                     params=parameters.from_request(request))
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
         body = excel.build(row["name"], columns, rows, definition.get("view"), totals)
@@ -477,7 +487,13 @@ def _export_rows(request, report_id):
     import json
     definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
     dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
-    columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+    params = parameters.from_request(request)
+    columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request),
+                                             params=params)
+    try:
+        definition = parameters.bind(dataset, definition, params)                 # the answers in words on the file's first page
+    except parameters.ParameterError:
+        pass
     return tenant, row, dataset, definition, columns, rows, totals
 
 

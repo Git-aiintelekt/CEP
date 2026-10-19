@@ -1,11 +1,11 @@
 /** Drill-down in words and steps: what a breadcrumb says for a value clicked, and the step a click adds. */
-import type { DrillInfo, DrillStep, ResultColumn } from '../types'
+import type { DrillInfo, DrillStep, FiscalYear, ResultColumn } from '../types'
 import { formatCell } from './resultWords'
 
-/** "2026", "Q3 2026", "Sep 2026", "EMAIL", "Empty" */
-export function stepWords(step: DrillStep): string {
+/** "2026", "Q3 2026", "Sep 2026", "FY2027 Q1", "EMAIL", "Empty" */
+export function stepWords(step: DrillStep, fiscal?: FiscalYear): string {
   if (step.value === null || step.value === undefined || step.value === '') return 'Empty'
-  if (step.bucket) return formatCell({ key: step.field, label: '', type: 'date', format: 'date', bucket: step.bucket }, step.value)
+  if (step.bucket) return formatCell({ key: step.field, label: '', type: 'date', format: 'date', bucket: step.bucket, fiscal }, step.value)
   if (step.value === true) return 'Yes'
   if (step.value === false) return 'No'
   return String(step.value)

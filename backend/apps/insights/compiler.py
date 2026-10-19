@@ -138,11 +138,25 @@ def _ch_type(value) -> str:
     return "String"
 
 
-def _dimension_expr(field: dict, bucket: str | None, zone: str, params: Params) -> str:
-    """A dimension as selected: a bucketed date is the start of its day, week, month, quarter or year, in the workspace's zone."""
+def _dimension_expr(field: dict, bucket: str | None, zone: str, params: Params, fiscal: int = 1) -> str:
+    """A dimension as selected: a bucketed date is the start of its day, week, month, quarter or year, in the workspace's zone; a
+    fiscal quarter or year starts `fiscal - 1` months later than the calendar's (the date moved back, truncated, moved on)."""
     col = _col(field, params.dialect)
     if not bucket:
         return col
+    if bucket in ("fiscal_quarter", "fiscal_year"):
+        unit, shift = ("quarter" if bucket == "fiscal_quarter" else "year"), int(fiscal) - 1
+        if params.dialect == "mysql":
+            moved = f"DATE_SUB(DATE({col}), INTERVAL {shift} MONTH)"
+            start = f"MAKEDATE(YEAR({moved}), 1)" if unit == "year" else f"DATE_ADD(MAKEDATE(YEAR({moved}), 1), INTERVAL (QUARTER({moved}) - 1) QUARTER)"
+            return f"DATE_ADD({start}, INTERVAL {shift} MONTH)"
+        if params.dialect == "clickhouse":
+            local = f"toTimeZone({col}, {params.bind(zone)})" if field["type"] == "datetime" else col
+            return f"toDate(addMonths(date_trunc('{unit}', addMonths({local}, -{shift})), {shift}))"
+        truncated_to = params.bind(unit)                                    # bound in the order the placeholders are written
+        local = f"({col} AT TIME ZONE {params.bind(zone)})" if field["type"] == "datetime" else col
+        back = params.bind(shift)
+        return f"(date_trunc({truncated_to}, {local} - make_interval(months => {back})) + make_interval(months => {params.bind(shift)}))::date"
     unit = BUCKET_UNIT[bucket]
     if params.dialect == "mysql":
         return {"day": f"DATE({col})", "week": f"DATE(DATE_SUB({col}, INTERVAL WEEKDAY({col}) DAY))", "month": f"DATE_SUB(DATE({col}), INTERVAL (DAYOFMONTH({col}) - 1) DAY)",
@@ -273,7 +287,7 @@ def compile_totals(dataset: dict, definition: dict, tenant_id: str, zone: str, s
         inner = []
         for i, column in enumerate(dims):
             field = next(f for f in dataset["fields"] if f["key"] == column["field"])
-            inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params)} AS {_ident(f'd{i}', dialect)}")
+            inner.append(f"{_dimension_expr(field, column.get('bucket'), zone, params, definition.get('_fiscal', 1))} AS {_ident(f'd{i}', dialect)}")
         for j, column in enumerate(meas):
             field = next(f for f in dataset["fields"] if f["key"] == column["field"])
             for k, (operand, _aggregate) in enumerate(operands(dataset, field, column["aggregate"])):
@@ -322,7 +336,7 @@ def compile(dataset: dict, definition: dict, tenant_id: str, zone: str, *, limit
         if "aggregate" in column:
             expr = measure_expr(dataset, field, column["aggregate"], lambda f: _col(f, dialect), dialect)
         else:
-            expr = _dimension_expr(field, column.get("bucket"), zone, params)
+            expr = _dimension_expr(field, column.get("bucket"), zone, params, definition.get("_fiscal", 1))
             if definition["grouped"]:
                 groups.append(str(index + 1))                       # by position: the expression's placeholders bind once, in the select
         selects.append(f"{expr} AS {alias}")

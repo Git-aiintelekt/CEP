@@ -10,8 +10,9 @@ import { Field, Select, buttonPrimary, buttonSecondary } from '@/components/Form
 import { Modal } from '@/components/Modal'
 import { useToast } from '@/components/Toast'
 import { insightsApi } from '../api'
+import type { ParameterValues } from '../types'
 
-export function PrintDialog({ reportId, reportName, firstField, onClose }: { reportId: string; reportName: string; firstField?: string; onClose: () => void }) {
+export function PrintDialog({ reportId, reportName, firstField, params, onClose }: { reportId: string; reportName: string; firstField?: string; params?: ParameterValues; onClose: () => void }) {
   const toast = useToast()
   const [size, setSize] = useState<'a4' | 'letter'>('a4')
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
@@ -20,7 +21,7 @@ export function PrintDialog({ reportId, reportName, firstField, onClose }: { rep
   async function download() {
     setBusy(true)
     try {
-      const blob = await insightsApi.exportPrint(reportId, { size, orientation, group })
+      const blob = await insightsApi.exportPrint(reportId, { size, orientation, group }, params)
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `${reportName}.pdf`

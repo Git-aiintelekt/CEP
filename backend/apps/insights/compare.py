@@ -36,7 +36,7 @@ ADDITIVE = ("sum", "count")
 PERCENT = ("change_previous_period", "change_previous_year", "percent_of_total", "percent_of_target")
 MAX_PER_MEASURE = 6
 WINDOW = 3
-UNIT_WORDS = {"day": "Day", "week": "Week", "month": "Month", "quarter": "Quarter", "year": "Year"}
+UNIT_WORDS = {"day": "Day", "week": "Week", "month": "Month", "quarter": "Quarter", "year": "Year", "fiscal_quarter": "Fiscal Quarter", "fiscal_year": "Fiscal Year"}
 GROUP = {"previous_period": "period", "change_previous_period": "period", "previous_year": "year", "change_previous_year": "year"}
 
 
@@ -98,7 +98,7 @@ def add_months(day: date, months: int) -> date:
 def offset(group: str, unit: str) -> tuple[int, int]:
     """(months, days) between a bucket and the one it is compared with"""
     if group == "period":
-        return {"day": (0, 1), "week": (0, 7), "month": (1, 0), "quarter": (3, 0), "year": (12, 0)}[unit]
+        return {"day": (0, 1), "week": (0, 7), "month": (1, 0), "quarter": (3, 0), "year": (12, 0), "fiscal_quarter": (3, 0), "fiscal_year": (12, 0)}[unit]
     return (0, 364) if unit == "week" else (12, 0)
 
 
@@ -139,19 +139,21 @@ def shifted(definition: dict, field: str, months: int, days: int, today: date) -
     return {**definition, "filters": {"combinator": "and", "rules": rules}}
 
 
-def period_start(day: date, kind: str) -> date:
-    """the first day of the year or the quarter a day is in"""
+def period_start(day: date, kind: str, fiscal: int = 1) -> date:
+    """the first day of the year or the quarter a day is in; a fiscal year starting in another month moves both"""
+    first = date(day.year if day.month >= fiscal else day.year - 1, fiscal, 1)
     if kind == "year_to_date":
-        return date(day.year, 1, 1)
-    return date(day.year, ((day.month - 1) // 3) * 3 + 1, 1)
+        return first
+    months = (day.month - fiscal) % 12
+    return add_months(first, months - months % 3)
 
 
-def reach_back(kinds, unit: str):
+def reach_back(kinds, unit: str, fiscal: int = 1):
     """how far before a date the reaching comparisons need rows: the earliest of the year's start, the quarter's, two buckets back"""
     wanted = [k for k in kinds if k in REACH_BACK]
 
     def back(day: date) -> date:
-        found = [period_start(day, k) for k in wanted if k != "moving_average"]
+        found = [period_start(day, k, fiscal) for k in wanted if k != "moving_average"]
         if "moving_average" in wanted:
             months, days = offset("period", unit)
             found.append(move(day, months * (WINDOW - 1), days * (WINDOW - 1), -1))
@@ -223,7 +225,7 @@ def _reaching(dataset: dict, definition: dict, source: list[list], found, others
                 else:
                     totals = {}
                     for bucket in sorted(points):
-                        start = period_start(date.fromisoformat(bucket), kind).isoformat()
+                        start = period_start(date.fromisoformat(bucket), kind, definition.get("_fiscal", 1)).isoformat()
                         totals[start] = totals.get(start, 0.0) + (points[bucket] or 0.0)
                         table[(part, bucket)] = totals[start]
             out[(m, kind)] = table

@@ -44,6 +44,7 @@ const JourneyBuildPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/c
 const InsightsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/InsightsPlayground')) : null
 const DashboardPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DashboardPlayground')) : null
 const AskPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/AskPlayground')) : null
+const DataPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DataPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,7 @@ export default function App() {
                 {InsightsPlayground && <Route path="/dev/insights" element={<Suspense fallback={<FullPageSpinner label="Loading the editor" />}><InsightsPlayground /></Suspense>} />}
                 {DashboardPlayground && <Route path="/dev/dashboard" element={<Suspense fallback={<FullPageSpinner label="Loading the dashboard" />}><DashboardPlayground /></Suspense>} />}
                 {AskPlayground && <Route path="/dev/ask" element={<Suspense fallback={<FullPageSpinner label="Loading the box" />}><AskPlayground /></Suspense>} />}
+                {DataPlayground && <Route path="/dev/data" element={<Suspense fallback={<FullPageSpinner label="Loading the samples" />}><DataPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>

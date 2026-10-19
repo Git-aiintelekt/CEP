@@ -179,7 +179,7 @@ class PublicEmbedView(APIView):
         _used(link)
         return Response({"kind": "dashboard", "name": board["name"], "description": board["description"], "workspace": workspace.name, "period": period,
                          "compare": bool(board["compare"]), "layout": {k: v for k, v in layout.items() if k in ("rows", "pages", "canvas", "cells", "theme")},
-                         "bounds": dashboards.period_bounds(period, dashboards._today(workspace))})
+                         "bounds": dashboards.bounds_for(workspace, period)})
 
 
 class PublicEmbedTileView(APIView):

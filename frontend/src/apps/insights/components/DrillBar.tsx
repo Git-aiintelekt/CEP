@@ -4,12 +4,14 @@
  */
 import { ArrowUp, ChevronRight } from 'lucide-react'
 
+import { useFiscalYear } from '../api'
 import type { DrillInfo, DrillStep } from '../types'
 import { canDrill, stepWords } from './drill'
 
 export function DrillBar({ info, onPath, compact = false, table = false }: { info: DrillInfo; onPath: (path: DrillStep[]) => void; compact?: boolean; table?: boolean }) {
   const level = info.levels[info.depth]
   const more = canDrill(info)
+  const fiscal = useFiscalYear().data
   if (info.depth === 0) {
     const how = table ? 'Click a row label (the arrows in a hierarchy)' : 'Click a bar, a slice or a stage'
     return more ? <p className="text-xs text-ink-700">{compact ? `Click a value to see it by ${info.levels[1].label.replace(/^.* by /, '')}` : `${how} to drill down to ${info.levels[1].label}.`}</p> : null
@@ -21,8 +23,8 @@ export function DrillBar({ info, onPath, compact = false, table = false }: { inf
         <span key={index} className="inline-flex items-center gap-1">
           <ChevronRight size={12} strokeWidth={1.5} aria-hidden className="text-ink-700" />
           {index < info.path.length - 1
-            ? <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => onPath(info.path.slice(0, index + 1))}>{stepWords(step)}</button>
-            : <span className="font-semibold text-ink-900" aria-current="location">{stepWords(step)}</span>}
+            ? <button type="button" className="font-semibold text-brand-800 hover:underline" onClick={() => onPath(info.path.slice(0, index + 1))}>{stepWords(step, fiscal)}</button>
+            : <span className="font-semibold text-ink-900" aria-current="location">{stepWords(step, fiscal)}</span>}
         </span>
       ))}
       <span className="text-ink-700">· {level.label}{more ? ', click to go deeper' : ''}</span>

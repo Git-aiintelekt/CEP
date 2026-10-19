@@ -14,11 +14,13 @@ TTL = 60
 OPERATORS = {
     "string":   ["=", "!=", "contains", "starts_with", "in", "is_null", "is_not_null"],
     "number":   ["=", "!=", ">", ">=", "<", "<=", "between", "in", "is_null", "is_not_null"],
-    "date":     ["=", "!=", ">", ">=", "<", "<=", "between", "last_days", "is_null", "is_not_null"],
-    "datetime": ["=", "!=", ">", ">=", "<", "<=", "between", "last_days", "is_null", "is_not_null"],
+    "date":     ["=", "!=", ">", ">=", "<", "<=", "between", "last_days", "this_fiscal_year", "last_fiscal_year", "this_fiscal_quarter", "last_fiscal_quarter", "is_null", "is_not_null"],
+    "datetime": ["=", "!=", ">", ">=", "<", "<=", "between", "last_days", "this_fiscal_year", "last_fiscal_year", "this_fiscal_quarter", "last_fiscal_quarter", "is_null", "is_not_null"],
     "boolean":  ["=", "is_null", "is_not_null"],
 }
 BUCKETS = ["day", "week", "month", "quarter", "year"]
+FISCAL_BUCKETS = ["fiscal_quarter", "fiscal_year"]
+ALL_BUCKETS = [*BUCKETS, *FISCAL_BUCKETS]
 CALC = "calc"
 FORMULA_OPS = ("ratio", "difference", "sum", "product")
 DEFAULT_LIMITS = {"statement_timeout_ms": 15_000, "preview_rows": 200, "run_rows": 5_000, "export_rows": 100_000, "concurrent": 4}
@@ -126,8 +128,24 @@ def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
     """the platform's datasets on the workspace's engine, then the datasets the workspace mapped from its own databases"""
     from apps.insights import databases, links
     engine = engine_of(tenant_id)
+    from apps.insights import uploads
     platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"])], links.load())     # the platform's datasets carry their links
-    return [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)]]
+    out = [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)], *[_visible(d, can_see_pii) for d in uploads.custom_datasets(tenant_id)]]
+    if _fiscal_start(tenant_id) != 1:                                  # a fiscal year that is not the calendar's: its quarters and years to group by
+        out = [{**d, "fields": [{**f, "buckets": [*f["buckets"], *FISCAL_BUCKETS]} if f.get("buckets") else f for f in d["fields"]]} for d in out]
+    return out
+
+
+def _fiscal_start(tenant_id) -> int:
+    key = f"cep:insights:fiscal:{tenant_id}"
+    known = cache.get(key)
+    if known is None:
+        from apps.insights.fiscal import settings_of
+        from apps.tenants.models import Tenant
+        found = Tenant.objects.filter(pk=tenant_id).first()
+        known = settings_of(found)["start"] if found else 1
+        cache.set(key, known, TTL)
+    return known
 
 
 def dataset(tenant_id, key: str, can_see_pii: bool = False) -> dict | None:

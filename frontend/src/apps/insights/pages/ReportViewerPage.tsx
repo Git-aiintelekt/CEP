@@ -19,9 +19,10 @@ import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
-import { insightsApi, keys, usageApi, useAssistant, useComments, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
+import { insightsApi, keys, usageApi, useAssistant, useCatalog, useComments, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
 import { AlertsDialog } from '../components/AlertsDialog'
 import { CommentsDrawer } from '../components/CommentsDrawer'
+import { ParameterBar } from '../components/ParameterBar'
 import { PrintDialog } from '../components/PrintDialog'
 import { EmbedDialog } from '../components/EmbedDialog'
 import { ExplainPanel } from '../components/ExplainPanel'
@@ -36,7 +37,8 @@ import { ShareDialog } from '../components/ShareDialog'
 import { DrillBar } from '../components/DrillBar'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { formatCell, runWords } from '../components/resultWords'
-import type { CommentAnchor, DrillStep, Explanation, ReportView, ResultColumn } from '../types'
+import { readAnswers, sentAnswers, unanswered } from '../editor/parameters'
+import type { CommentAnchor, DrillStep, Explanation, ParameterValues, ReportView, ResultColumn } from '../types'
 
 /** the values a report was opened through, from the address: [{field, value}] */
 function readThrough(raw: string | null): { field: string; value: unknown }[] {
@@ -55,6 +57,13 @@ export function ReportViewerPage() {
   const report = useReport(id)
   const [params, setParams] = useSearchParams()
   const through = readThrough(params.get('through'))
+  const asked = report.data?.definition.parameters ?? []
+  const answers = readAnswers(params.get('ask'))
+  const sent = asked.length ? sentAnswers(answers) : undefined
+  const waiting = unanswered(asked, answers)
+  const catalog = useCatalog()
+  const askedFields = catalog.data?.datasets.find((d) => d.key === report.data?.dataset)?.fields ?? []
+  const answer = (next: ParameterValues) => { const kept = new URLSearchParams(params); kept.set('ask', JSON.stringify(next)); setParams(kept) }
   const [sharing, setSharing] = useState(false)
   const [menu, setMenu] = useState<ThroughTarget | null>(null)
   const [view, setViewOnly] = useState<ReportView | null>(null)
@@ -63,11 +72,12 @@ export function ReportViewerPage() {
   const askedView = view ?? report.data?.definition.view
   const charted = (askedView?.type ?? 'grid') === 'chart'
   const tabled = askedView?.type === 'pivot' || askedView?.type === 'hierarchy'
-  const run = useRun(report.data ? id : undefined, {
+  const run = useRun(report.data && waiting.length === 0 ? id : undefined, {
     ...(askedView && tabled ? { view: { type: askedView.type, across: askedView.across } } : {}),
     ...(askedView && charted && (askedView.chart === 'kpi' || askedView.chart === 'gauge') ? { view: { type: 'chart' as const, chart: askedView.chart } } : {}),
     ...((charted || tabled) && path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}),
     ...(through.length ? { through } : {}),
+    ...(sent ? { params: sent } : {}),
   })
   const remove = useDeleteReport()
   const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | 'pptx' | null>(null)
@@ -80,7 +90,7 @@ export function ReportViewerPage() {
   const explainer = assistant.data?.explain
   const [explaining, setExplaining] = useState(false)
   const explain = useMutation<Explanation, Error>({
-    mutationFn: () => insightsApi.explain(id as string, { model: explainer?.model?.id, ...(path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}) }),
+    mutationFn: () => insightsApi.explain(id as string, { model: explainer?.model?.id, ...(path.length ? { drill: { path, ...(tabled ? { keep_rest: true } : {}) } } : {}), ...(sent ? { params: sent } : {}) }),
   })
   const [more, setMore] = useState(false)
   const [showSql, setShowSql] = useState(false)
@@ -125,7 +135,7 @@ export function ReportViewerPage() {
     if (!id) return
     setExporting(kind)
     try {
-      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : kind === 'pdf' ? insightsApi.exportPdf(id) : kind === 'pptx' ? insightsApi.exportPptx(id) : insightsApi.exportXlsx(id))
+      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id, sent) : kind === 'pdf' ? insightsApi.exportPdf(id, sent) : kind === 'pptx' ? insightsApi.exportPptx(id, sent) : insightsApi.exportXlsx(id, sent))
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `${report.data?.name ?? 'report'}.${kind}`
@@ -208,6 +218,10 @@ export function ReportViewerPage() {
           The filters on {info.linked.own_rules.join(', ')} apply to this report&apos;s own data only; the measures from {info.linked.label ?? info.linked.dataset} are not narrowed by them.
         </p>
       )}
+      {asked.length > 0 && !old && (
+        <ParameterBar key={params.get('ask') ?? ''} dataset={report.data.dataset} fields={askedFields} parameters={asked} values={answers} onRun={answer} running={run.isFetching}
+          missing={refused && asked.length ? refused.problem?.detail : undefined} />
+      )}
       {explaining && (
         <ExplainPanel pending={explain.isPending} explanation={explain.data ?? null} onClose={() => setExplaining(false)} onRetry={() => explain.mutate()}
           error={explain.error ? (explain.error instanceof ApiError ? explain.error.problem?.detail ?? explain.error.message : explain.error.message) : null} />
@@ -225,6 +239,8 @@ export function ReportViewerPage() {
             <ReportResult result={oldRun.data} view={shownView} label={`Version ${old.version} rows`} />
           </div>
         )
+      ) : waiting.length > 0 ? (
+        <p className="rounded-md border border-dashed border-line px-4 py-10 text-center text-sm text-ink-800">Choose {waiting.map((p) => p.label).join(' and ')} above, then run the report.</p>
       ) : run.isPending ? (
         <Spinner label="Running the report" />
       ) : refused ? (
@@ -235,7 +251,7 @@ export function ReportViewerPage() {
         <div className="flex flex-col gap-3">
           <ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} />
           {shownView.type !== 'grid' && run.data.drill && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}
-          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string }} notes={notes} tooltips
+          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string, ...(sent ? { params: sent } : {}) }} notes={notes} tooltips
             onPick={shownView.type !== 'grid' && canDrill(run.data.drill) ? (column, value) => { if (run.data?.drill && canDrill(run.data.drill, column)) setPath(deeper(run.data.drill, value)) } : undefined}
             onContext={(column: ResultColumn, value, at) => { if (throughable(column)) setMenu({ dataset: report.data.dataset, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id, name: report.data.name } }) }} />
         </div>
@@ -244,7 +260,7 @@ export function ReportViewerPage() {
       {menu && <DrillThroughMenu target={menu} onClose={() => setMenu(null)} onComment={(target) => setTalking({ anchor: { field: target.field, value: target.value as never, label: target.valueWords } })} />}
       {talking && <CommentsDrawer kind="report" id={id as string} name={report.data.name} anchor={talking.anchor} onAnchor={(anchor) => setTalking({ anchor })} onClose={() => setTalking(null)} />}
       {alerting && <AlertsDialog reportId={id as string} reportName={report.data.name} measures={(info?.columns ?? []).filter((c) => c.aggregate && !c.compare && !c.linked)} onClose={() => setAlerting(false)} />}
-      {printing && <PrintDialog reportId={id as string} reportName={report.data.name} firstField={info?.columns.find((c) => !c.aggregate)?.label} onClose={() => setPrinting(false)} />}
+      {printing && <PrintDialog reportId={id as string} reportName={report.data.name} firstField={info?.columns.find((c) => !c.aggregate)?.label} params={sent} onClose={() => setPrinting(false)} />}
       {sharing && <ShareDialog kind="report" id={id as string} name={report.data.name} onClose={() => setSharing(false)} />}
       {showSql && <SqlDialog dataset={report.data.dataset} definition={report.data.definition} name={report.data.name} onClose={() => setShowSql(false)} />}
       {embedding && <EmbedDialog kind="report" id={id as string} name={report.data.name} onClose={() => setEmbedding(false)} />}

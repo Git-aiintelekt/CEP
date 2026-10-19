@@ -2702,6 +2702,51 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON report_connection, report_dataset_custom
 GRANT ALL ON report_connection, report_dataset_custom TO cep_admin;
 ALTER TABLE report DROP CONSTRAINT IF EXISTS report_dataset_key_fkey;                     -- a report may be on a workspace's own dataset
 
+-- ---- uploaded files (patch 0063): a CSV or Excel file the workspace uploaded, its rows read by Insights as a dataset (upl_<slug>)
+CREATE TABLE IF NOT EXISTS report_upload (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    key                 VARCHAR(40) NOT NULL,                              -- upl_<slug>: what a report definition names; unique in the workspace
+    name                VARCHAR(100) NOT NULL,
+    description         VARCHAR(300),
+    file_name           VARCHAR(200) NOT NULL,
+    file_kind           VARCHAR(4) NOT NULL,                               -- csv, xlsx
+    columns             JSONB NOT NULL DEFAULT '[]',                       -- [{key, label, column: c1.., source: the file's header, type, role, inferred}]
+    row_count           INTEGER NOT NULL DEFAULT 0,
+    status              VARCHAR(10) NOT NULL DEFAULT 'DRAFT',              -- DRAFT (read, not yet reviewed), READY (a dataset)
+    created_by          UUID REFERENCES app_user(id),
+    updated_by          UUID REFERENCES app_user(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    replaced_at         TIMESTAMPTZ,
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_upload_key CHECK (key ~ '^upl_[a-z0-9_]{1,36}$'),
+    CONSTRAINT ck_report_upload_kind CHECK (file_kind IN ('csv', 'xlsx')),
+    CONSTRAINT ck_report_upload_status CHECK (status IN ('DRAFT', 'READY'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_report_upload_key ON report_upload(tenant_id, key) WHERE deleted_at IS NULL;
+CREATE TABLE IF NOT EXISTS report_upload_row (
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    upload_id           UUID NOT NULL REFERENCES report_upload(id) ON DELETE CASCADE,
+    row_no              INTEGER NOT NULL,
+    data                JSONB NOT NULL,                                    -- {"c1": value, ...}: numbers, ISO dates, true/false, text; an empty cell is left out
+    PRIMARY KEY (upload_id, row_no)
+);
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_upload', 'report_upload_row'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_upload, report_upload_row TO cep_app;
+GRANT ALL ON report_upload, report_upload_row TO cep_admin;
+GRANT SELECT ON report_upload_row TO cep_reporting;                        -- the engine reads the rows as the reporting role, the workspace's only (RLS)
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================

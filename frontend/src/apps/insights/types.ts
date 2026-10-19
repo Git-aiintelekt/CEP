@@ -10,7 +10,10 @@ export type FormatStyle = 'scale' | 'bars' | 'rules'
 export type FormatTone = 'good' | 'warning' | 'bad'
 export interface FormatRule { op: '>' | '>=' | '<' | '<=' | '='; value: number; tone: FormatTone }
 export interface ColumnFormat { column: string; style: FormatStyle; rules?: FormatRule[] }
-export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type Bucket = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'fiscal_quarter' | 'fiscal_year'
+
+/** the workspace's fiscal year (Settings → Fiscal Year): the month it starts in, and whether FY2027 is the year it ends or starts in */
+export interface FiscalYear { start: number; named_by: 'end' | 'start'; months?: string[] }
 export type ViewType = 'grid' | 'chart' | 'hierarchy' | 'pivot' | 'influencers' | 'decomposition'
 
 /** how the report is shown: the view, the chart's kind, and for a chart or a pivot which dimension goes across */
@@ -73,8 +76,10 @@ export interface CatalogDataset {
   locked?: { key: string; label: string }[]
   /** set on a dataset the workspace mapped from one of its own databases (Settings → Report Databases) */
   database?: { id: string; name: string; engine: DatabaseEngine; engine_name: string }
-  /** a dataset from a query, or from a table (and its joins) */
-  kind?: 'table' | 'query'
+  /** a dataset from a query, or from a table (and its joins), or an uploaded file */
+  kind?: 'table' | 'query' | 'upload'
+  /** set on an uploaded file's dataset (Insights → Uploaded Files) */
+  upload?: { id: string; file_name: string; row_count: number; updated_at: string }
   /** the platform's datasets this one is linked to: a report on it adds their measures (apps/insights/links.py) */
   links?: DatasetLink[]
 }
@@ -154,6 +159,56 @@ export interface ReportDefinition {
   top?: { n: number; others: boolean }
   /** measures from a linked dataset */
   blend?: Blend
+  /** questions the report asks before it runs, each answered into one filter rule (apps/insights/parameters.py) */
+  parameters?: ReportParameter[]
+}
+
+export type ParameterOperator = '=' | 'in' | '>=' | '<=' | 'between' | 'last_days'
+export interface ReportParameter {
+  key: string
+  label: string
+  field: string
+  operator: ParameterOperator
+  required: boolean
+  default?: unknown
+}
+/** the answers, by parameter key */
+export type ParameterValues = Record<string, unknown>
+export interface ParameterChoices { field: string; label?: string; values: (string | number | boolean)[]; choosable: boolean; more?: boolean }
+
+/** Insights → Uploaded Files (apps/insights/uploads.py) */
+export type UploadColumnType = 'string' | 'number' | 'date' | 'datetime' | 'boolean'
+export interface UploadColumn {
+  key: string
+  label: string
+  /** where its values are in a row: c1, c2 ... */
+  column: string
+  /** the file's header */
+  source: string
+  type: UploadColumnType
+  /** the type read from the values; a column can be that or text */
+  inferred: UploadColumnType
+  types: UploadColumnType[]
+  role: 'dimension' | 'measure'
+}
+export interface UploadedFile {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  file_name: string
+  file_kind: 'csv' | 'xlsx'
+  columns: UploadColumn[]
+  row_count: number
+  status: 'DRAFT' | 'READY'
+  created_at: string
+  updated_at: string
+  replaced_at: string | null
+  row_version: number
+  /** reports built on it */
+  reports?: number
+  /** the first rows, by column (c1 ...) */
+  sample?: Record<string, unknown>[]
 }
 
 export interface CustomField {
@@ -323,6 +378,8 @@ export interface ResultColumn {
   bucket?: Bucket
   /** personal data this reader may not see: every value is the mask */
   masked?: boolean
+  /** a fiscal quarter's or year's column: how the workspace names it */
+  fiscal?: FiscalYear
   /** a time comparison of the measure before it: never combined into a subtotal */
   compare?: CompareKind
   /** a measure from this linked dataset */
@@ -331,7 +388,7 @@ export interface ResultColumn {
 
 // ---------------------------------------------------------------------------------------------------- dashboards
 
-export type PeriodPreset = '7d' | '30d' | 'month' | 'quarter' | 'custom'
+export type PeriodPreset = '7d' | '30d' | 'month' | 'quarter' | 'fquarter' | 'fyear' | 'custom'
 export interface Period { preset: PeriodPreset; from?: string; to?: string }
 export interface PeriodBounds { from: string; to: string; previous_from: string; previous_to: string }
 export type RowWidth = '1' | '2' | '3' | '4' | '2-1'
@@ -427,6 +484,10 @@ export interface RunResult {
   cached: boolean
   /** the workspace's own database the rows came from, when the dataset is one of its own */
   source?: string
+  /** the uploaded file the rows came from */
+  upload?: string
+  /** what the report's parameters were answered with */
+  parameters?: { key: string; label: string; value: unknown }[]
   /** a saved report with more than one level: where this run is, for drilling */
   drill?: DrillInfo
   /** this person's row access rules that narrowed the rows */
@@ -760,7 +821,7 @@ export interface DecomposeResult {
   chosen?: 'auto_high' | 'auto_low'
 }
 /** where an analysing visual reads from: a saved report, or a draft in the editor */
-export type AnalysisSource = { reportId: string } | { dataset: string; definition: ReportDefinition }
+export type AnalysisSource = { reportId: string; params?: ParameterValues } | { dataset: string; definition: ReportDefinition; params?: ParameterValues }
 
 // ---------------------------------------------------------------------------------------------------- alerts and comments
 

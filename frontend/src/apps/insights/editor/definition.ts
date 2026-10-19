@@ -3,17 +3,24 @@
  * returns a new definition; nothing here talks to the server. The validator on the server has the last word.
  */
 import type { Aggregate, Blend, Bucket, CatalogDataset, CatalogField, CompareKind, CustomField, FilterGroup, FilterRule, ReportColumn, ReportDefinition, ReportView } from '../types'
+import { FISCAL_OPERATORS } from '../components/fiscal'
 
 export const AGGREGATE_LABEL: Record<Aggregate, string> = { sum: 'Sum', count: 'Count', count_distinct: 'Distinct Count', avg: 'Average', min: 'Min', max: 'Max', calc: 'Calculated' }
-export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year' }
+export const BUCKET_LABEL: Record<Bucket, string> = { day: 'by Day', week: 'by Week', month: 'by Month', quarter: 'by Quarter', year: 'by Year', fiscal_quarter: 'by Fiscal Quarter', fiscal_year: 'by Fiscal Year' }
 export const OPERATOR_LABEL: Record<string, string> = {
   '=': 'is', '!=': 'is not', '>': 'more than', '>=': 'at least', '<': 'less than', '<=': 'at most', between: 'between', in: 'is one of',
   contains: 'contains', starts_with: 'starts with', is_null: 'is empty', is_not_null: 'is not empty', last_days: 'in the last days',
+  this_fiscal_year: 'in this fiscal year', last_fiscal_year: 'in last fiscal year', this_fiscal_quarter: 'in this fiscal quarter', last_fiscal_quarter: 'in last fiscal quarter',
+}
+
+/** an operator that takes no value: empty or not, a fiscal period */
+export function valueless(operator: string): boolean {
+  return operator === 'is_null' || operator === 'is_not_null' || FISCAL_OPERATORS.includes(operator)
 }
 
 export const EMPTY: ReportDefinition = { columns: [], filters: { combinator: 'and', rules: [] }, orderBy: [], limit: 500 }
 
-const UNIT_WORDS: Record<Bucket, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' }
+const UNIT_WORDS: Record<Bucket, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year', fiscal_quarter: 'Fiscal Quarter', fiscal_year: 'Fiscal Year' }
 const COMPARE_KINDS: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'year_to_date', 'quarter_to_date', 'running_total',
   'moving_average', 'percent_of_total', 'rank', 'percent_of_target', 'difference_to_target']
 const TIMED: CompareKind[] = ['previous_period', 'previous_year', 'change_previous_period', 'change_previous_year', 'running_total', 'year_to_date', 'quarter_to_date', 'moving_average']
@@ -237,7 +244,7 @@ export function ruleWords(dataset: CatalogDataset, rule: FilterRule): string {
   const field = fieldOf(dataset, rule.field)
   const label = field?.label ?? rule.field
   const value = rule.value
-  if (rule.operator === 'is_null' || rule.operator === 'is_not_null') return `${label} ${OPERATOR_LABEL[rule.operator]}`
+  if (valueless(rule.operator)) return `${label} ${OPERATOR_LABEL[rule.operator]}`
   if (rule.operator === 'last_days') return `${label} in the last ${String(value ?? '')} days`
   if (rule.operator === 'between' && Array.isArray(value)) return `${label} between ${String(value[0] ?? '')} and ${String(value[1] ?? '')}`
   if (rule.operator === 'in' && Array.isArray(value)) return `${label} is one of ${value.join(', ')}`
@@ -254,7 +261,7 @@ export function columnWords(dataset: CatalogDataset, column: ReportColumn): stri
 
 /** a rule's value, ready for the server: numbers as numbers, lists as lists, a range as two */
 export function coerceValue(field: CatalogField, operator: string, raw: string): unknown {
-  if (operator === 'is_null' || operator === 'is_not_null') return undefined
+  if (valueless(operator)) return undefined
   if (operator === 'last_days') return Number(raw) || 0
   if (operator === 'in') return raw.split(',').map((part) => part.trim()).filter(Boolean).map((part) => (field.type === 'number' ? Number(part) : part))
   if (operator === 'between') {
@@ -278,7 +285,7 @@ export function isComplete(dataset: CatalogDataset, definition: ReportDefinition
   return definition.columns.length > 0 && rules(definition).every((rule) => {
     const field = fieldOf(dataset, rule.field)
     if (!field) return false
-    if (rule.operator === 'is_null' || rule.operator === 'is_not_null') return true
+    if (valueless(rule.operator)) return true
     if (rule.value === undefined || rule.value === '') return false
     if (Array.isArray(rule.value)) return rule.operator === 'between' ? rule.value.length === 2 && rule.value.every((v) => v !== '' && v !== undefined) : rule.value.length > 0
     return true

@@ -23,7 +23,7 @@ from rest_framework.views import APIView
 
 from apps.reporting import reports
 
-from . import access, assistant, catalog, compiler, derived, links, runner
+from . import access, assistant, catalog, compiler, derived, fiscal, links, parameters, runner
 from .api import VIEW, _can_see_pii, _has, _report_row, _tenant, _validated
 from .definition import DefinitionError, validate
 
@@ -69,7 +69,7 @@ def readable(compiled: compiler.Compiled) -> str:
     return "".join(out)
 
 
-def statements(tenant, user, dataset: dict, definition: dict, *, limit: int) -> list[dict]:
+def statements(tenant, user, dataset: dict, definition: dict, *, limit: int, params: dict | None = None) -> list[dict]:
     """the report's statements as the engine would run them for this person: the rows, then the linked dataset's when there is one"""
     engine = catalog.engine_of(tenant.pk)
     zone = reports.zone_of(tenant).key
@@ -79,6 +79,10 @@ def statements(tenant, user, dataset: dict, definition: dict, *, limit: int) -> 
     except access.AccessError as exc:
         raise ValidationError({"definition": str(exc)}) from None
     shaped = derived.augment(dataset, restricted)
+    try:
+        restricted = fiscal.prepared(tenant, parameters.bind(shaped, restricted, params))
+    except parameters.ParameterError as exc:
+        raise ValidationError({"params": str(exc)}) from None
     out = [{"label": dataset["label"], "dialect": dialect, "sql": readable(compiler.compile(shaped, restricted, str(tenant.pk), zone, limit=limit, dialect=dialect)),
             **({"access": limited} if limited else {})}]
     if restricted.get("blend"):
@@ -101,7 +105,7 @@ class SqlView(APIView):
         tenant = _tenant()
         limits = catalog.engine_of(tenant.pk)["limits"]
         dataset, definition = _validated(request, request.data if isinstance(request.data, dict) else {}, max_limit=limits["run_rows"], reading=True)
-        return Response({"statements": statements(tenant, request.user, dataset, definition, limit=definition.get("limit") or limits["run_rows"]),
+        return Response({"statements": statements(tenant, request.user, dataset, definition, limit=definition.get("limit") or limits["run_rows"], params=parameters.from_request(request)),
                          "note": "The values are written in for reading; the engine sends them separately, and runs the statement read-only with a time limit."})
 
 
@@ -205,7 +209,7 @@ def explain(tenant, request, report: dict, dataset: dict, definition: dict, mode
     chosen, provider = _chosen(tenant, request, model_id, need_edit=False)
     try:
         result = runner.run(tenant, request.user, dataset, definition, "run", limit=EXPLAIN_ROWS, report_id=report["id"], report_version=report["version"],
-                            mask_pii=not _can_see_pii(request))
+                            mask_pii=not _can_see_pii(request), params=parameters.from_request(request))
     except runner.RunRefused as exc:
         raise assistant.AssistantError(exc.reason) from None
     return written(tenant, request.user.pk, chosen, provider, report["name"], dataset["label"], result)

@@ -12,7 +12,8 @@ name: fields are catalogue keys, operators and aggregates come from allow-lists,
 
 A column with an aggregate makes the report grouped: every column without one is a group-by key. A date or datetime
 column may carry a bucket (day, week, month, quarter, year), applied in the workspace's time zone. A measure column may
-carry `compare`: up to four time comparisons (apps/insights/compare.py), each one more result column after it.
+carry `compare`: up to four time comparisons (apps/insights/compare.py), each one more result column after it. `parameters`:
+up to five questions the report asks before it runs, each answered into one filter rule (apps/insights/parameters.py).
 """
 import hashlib
 import json
@@ -21,7 +22,7 @@ from datetime import date
 
 from . import compare as comparisons
 from . import derived, links, topn
-from .catalog import BUCKETS
+from .catalog import ALL_BUCKETS as BUCKETS
 
 MAX_COLUMNS = 40
 MAX_RULES = 30
@@ -54,7 +55,7 @@ def _field_of(dataset: dict, key, where: str) -> dict:
 
 def _check_value(field: dict, operator: str, value, where: str):
     type_ = field["type"]
-    if operator in ("is_null", "is_not_null"):
+    if operator in ("is_null", "is_not_null", "this_fiscal_year", "last_fiscal_year", "this_fiscal_quarter", "last_fiscal_quarter"):
         return None
     if operator == "last_days":
         if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 3660:
@@ -274,7 +275,7 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
             raise DefinitionError(f"{at}.aggregate", f"{field['label']} is a measure: choose how to total it ({', '.join(field['aggregates'])}).")
         if bucket is not None:
             if field["type"] not in ("date", "datetime"):
-                raise DefinitionError(f"{at}.bucket", "Only a date can be grouped by day, week, month, quarter or year.")
+                raise DefinitionError(f"{at}.bucket", "Only a date can be grouped by day, week, month, quarter, year or fiscal period.")
             if bucket not in BUCKETS:
                 raise DefinitionError(f"{at}.bucket", f"Use one of {', '.join(BUCKETS)}.")
             if aggregate is not None:
@@ -348,7 +349,9 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
     for index, item in enumerate(out_order):
         if "." in item["field"] and not (blend and any(links.column_key(blend["dataset"], c["field"]) == item["field"] for c in blend["columns"])):
             raise DefinitionError(f"orderBy[{index}].field", "Sort by one of the report's columns.")
-    return {"dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
+    from . import parameters as asked
+    params = asked.check(dataset, raw.get("parameters"))
+    return {**({"parameters": params} if params else {}), "dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
             **({"view": view} if view else {}), **({"drillthrough": through} if through else {}), **({"derived": specs} if specs else {}), **({"top": top} if top else {}), **({"blend": blend} if blend else {})}
 
 

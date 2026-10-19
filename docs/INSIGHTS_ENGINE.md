@@ -434,3 +434,41 @@ figures as numbers, everything else as a table of its first 12 rows; the chart s
 row up to 20,000, the header repeating, the filters in words (`api.filter_words`) on the first page, "Page n of N" from a
 canvas that counts the pages once laid out, and with `group=1` a section per value of the first dimension with its subtotals
 (sums, counts, minimums, maximums), each on a new page, then the grand total.
+
+## Uploaded files, parameters and fiscal calendars (patch 0063)
+
+**Uploaded files** (`uploads.py`, `report_upload` and `report_upload_row`, both RLS; openpyxl 3.1.5 in requirements.txt): a CSV
+(UTF-8, else Windows-1252; the delimiter guessed among , ; tab |) or an .xlsx (its first sheet, read-only) becomes a dataset
+`upl_<slug>`. Limits: 20 MB, 100,000 rows, 50 columns; the first row names the columns (repeats get a number). Each column's
+type is read from its values (`infer`): true/false, then a number (1,234.50, 1.234,50 when every value reads that way, $12,
+12%, (3) as -3, but never a value with a leading zero such as 007), then a date or a date and time (ISO, or 19/10/2026 and
+10/19/2026 with the order decided per column: day first when a first part is over 12, month first otherwise), else text. Rows
+are stored as JSON under c1..cn (`encoded`; a date and time without a zone is the workspace's, stored in UTC), inserted 5,000
+at a time from a JSON array (PostgreSQL refuses COPY into a table under row-level security). A file is a DRAFT until reviewed (`PUT` with `ready`); a column may then be its read type or text, and a number a
+measure or a dimension. The dataset (`dataset_of`) is a query: `SELECT r.tenant_id, r.row_no, (r.data->>'c1')::numeric AS c1
+... FROM public.report_upload_row r WHERE r.upload_id = '<id>'`, its fields on t0, `workspace_field` tenant_id, plus Rows (a
+count of row_no). It runs on PostgreSQL as the reporting role (granted SELECT on report_upload_row) whatever the workspace's
+engine (`runner._dialect_of`), and is exempt from the MIGRATING refusal. The result cache keys carry the upload's
+row_version, so a replaced or reviewed file is new rows at once. Replace (`POST .../replace/`) takes a file with the same
+column names in any order; a value that does not fit its column is refused by row and column. A file a report is built on
+cannot be deleted. API: `GET, POST /insights/uploads/`, `GET, PUT, DELETE /insights/uploads/<id>/`, `POST .../replace/`.
+
+**Report parameters** (`parameters.py`): `definition.parameters`, up to five `{key, label, field, operator, required,
+default}`, the operator one of = in >= <= between last_days and one the field takes, the default checked like a rule's value.
+`bind` and-s each answer (else its default) onto the filters as one rule (inside a new and-group when the report's own group
+is or-ed) and keeps the answers as `_params` (in the result cache's key, and `parameters` in words on the result). The runner
+binds in `run`, `stream_csv` and `fetch_all` (`params=`); without answers (a tile, a schedule, an alert, an embed) the
+defaults apply and a question without one leaves its rule out. Only `RunView` insists (`require`): a 422 with outcome
+PARAMETERS, `parameter` and "Choose Store first." The answers come as `params` in a POST body or as JSON in a file's address
+(`?params=`). `POST /insights/parameters/values/` {dataset, field}: a text or number dimension's values (up to 200), read with
+the person's row access.
+
+**Fiscal calendars** (`fiscal.py`, `tenant.settings["insights_calendar"]` = {start: 1-12, named_by: end|start};
+`GET, PUT /workspace/fiscal-year/`, user.admin changes it): with a start other than January, date fields offer the buckets
+fiscal_quarter and fiscal_year (`catalog.for_tenant`; the start cached a minute). The compiler moves the date back by start - 1
+months, truncates it, and moves it on (`_dimension_expr`, for PostgreSQL, MySQL and ClickHouse). The filters
+this_fiscal_year, last_fiscal_year, this_fiscal_quarter and last_fiscal_quarter take no value and become a between rule before
+the query (`prepare`, in the workspace's today); a definition using either carries `_fiscal` (the start), which the cache key
+and the comparisons read: year and quarter to date count from the fiscal year's start (`compare.period_start`), and a fiscal
+year drills to fiscal quarters, months and days. A fiscal column carries `fiscal` {start, named_by} so the browser, the PDF and
+the workbook name it FY2027 Q1 (`fiscal.name`). Dashboards add the periods fquarter and fyear (to date).
