@@ -600,8 +600,6 @@
 }
 
 @layer components {
-  /* navy outside a 12px quarter circle: the shell's sheet corner, pinned under the top bar */
-  .cep-sheet-corner { background: radial-gradient(circle at 100% 100%, transparent 11.5px, var(--color-sidebar) 12px); }
   .cep-home-wash { background: var(--color-canvas); }
   .cep-home-hero-navy { background: linear-gradient(140deg, var(--color-brand-600) 0%, var(--color-plum-800) 100%); }
   .cep-home-hero-light { background: linear-gradient(160deg, var(--color-plum-100) 0%, var(--color-plum-50) 100%); }

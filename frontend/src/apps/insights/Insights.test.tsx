@@ -47,18 +47,16 @@ test('with Insights on the workspace, Engagement’s menu offers it and the laun
   expect(within(apps).getAllByRole('link').map((tile) => tile.textContent)).toEqual(['Engagement', 'Insights'])
 })
 
-test('Engagement’s menu carries Insights in the integrated mode, not in the standalone mode, and never without the component', async () => {
+test('Insights is an app on the rail when the workspace has it, never an item in Engagement’s menu', async () => {
+  const insightsTile = () => within(screen.getByRole('navigation', { name: 'Apps' })).queryByRole('link', { name: /^Insights/ })
   await renderAppAt('/campaigns')
   await screen.findByRole('navigation', { name: 'Main' })
-  expect(within(nav()).getByRole('link', { name: 'Insights' }).getAttribute('href')).toBe('/insights/reports?component=cep')
-  cleanup()
-  await renderAppAt('/campaigns', { ...withInsights, insights: { mode: 'standalone', standalone_path: '/insights' } })
-  await screen.findByRole('navigation', { name: 'Main' })
   expect(within(nav()).queryByRole('link', { name: 'Insights' })).toBeNull()
+  expect(insightsTile()?.getAttribute('href')).toBe('/insights')
   cleanup()
   await renderAppAt('/campaigns', me)
   await screen.findByRole('navigation', { name: 'Main' })
-  expect(within(nav()).queryByRole('link', { name: 'Insights' })).toBeNull()
+  expect(insightsTile()).toBeNull()
 })
 
 test('New Report: pick a dataset, name it, and the report opens in the viewer with its rows in the grid', async () => {

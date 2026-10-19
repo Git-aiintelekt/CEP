@@ -25,7 +25,7 @@ export function AppLauncher({ me, components, current }: { me: Me | null; compon
         {...dropdown.triggerProps('apps')}
         aria-label="Apps"
         title="Apps"
-        className={`flex h-10 w-10 items-center justify-center rounded-control-md transition-colors outline-none focus-visible:outline-2 focus-visible:outline-focus ${open ? 'bg-brand-100 text-brand-800' : 'text-ink-800 hover:bg-surface-hover hover:text-ink-900'}`}
+        className={`flex h-10 w-10 items-center justify-center rounded-control-md transition-colors outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent ${open ? 'bg-sidebar-selected text-on-brand' : 'text-sidebar-icon hover:bg-sidebar-hover hover:text-on-brand active:bg-sidebar-pressed'}`}
       >
         <Grip size={22} strokeWidth={1.5} aria-hidden />
       </button>

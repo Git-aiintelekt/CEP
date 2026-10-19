@@ -9,7 +9,7 @@ import { UploadsIndicator } from '@/apps/cep/features/contact-lists/UploadsIndic
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { BREAKPOINT, useMinWidth } from '@/lib/useMediaQuery'
-import { LeftNav } from '@/shell/LeftNav'
+import { AppRail, ComponentMenu } from '@/shell/LeftNav'
 import { componentAt, entitled, type EntitledComponent } from '@/shell/manifests'
 import { TopBar } from '@/shell/TopBar'
 import { SETTINGS, type NavItem } from './navItems'
@@ -17,23 +17,6 @@ import { useToast } from './Toast'
 
 const SECURITY = '/account/security'
 
-/**
- * Labels leave at the start of a collapse and come back at the end of an expand (240ms, the width's own
- * transition), so text never squeezes while the navigation moves. With reduced motion they follow at once.
- */
-function useLabelsAfterWidth(expanded: boolean): boolean {
-  const [ready, setReady] = useState(expanded)
-  useEffect(() => {
-    if (!expanded) return
-    const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timer = window.setTimeout(() => setReady(true), reduced ? 0 : 240)
-    return () => {
-      window.clearTimeout(timer)
-      setReady(false)
-    }
-  }, [expanded])
-  return expanded && ready
-}
 const COLLAPSED_KEY = 'cep.nav.collapsed'
 
 function readCollapsed(): boolean {
@@ -121,9 +104,11 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
 }
 
 /**
- * The suite shell: the top bar (launcher, brand, search, account), the left navigation by component, and the page.
- * xl and up: the navigation is 240px unless the person collapsed it. Below xl it is 64px icon-only, and opening it
- * expands it over the page (never pushing it). Below md there is no navigation until the menu button opens it.
+ * The suite shell: the navy top bar across the full width (navigation toggle, launcher, brand, search, account), the
+ * app rail and the open component's menu below it, and the page. md and up the 88px rail is always there, and the menu
+ * beside it is 240px, or a 64px column of icons when collapsed. xl and up it is open unless the person collapsed it;
+ * below xl it is collapsed and the toggle opens it over the page (never pushing it). Below md there is no navigation
+ * until the top bar's menu button opens both columns.
  */
 export function AppShell() {
   const { me, logout, can, has } = useAuth()
@@ -138,7 +123,7 @@ export function AppShell() {
     const next = typeof value === 'function' ? value(open) : value
     setOpenedOn(next ? location.pathname : null)
   }
-  const expanded = isXl ? !userCollapsed : open
+  const menuOpen = isXl ? !userCollapsed : open
   const overlay = open && !isXl
   const showNav = isMd || open
   const support = me?.support_session ?? null
@@ -153,7 +138,6 @@ export function AppShell() {
   const current = componentAt(location.pathname, components)
   const settings = showSettings ? { ...SETTINGS, label: 'Workspace Settings' } : null
   const pages = [...(current?.menu ?? []), ...(settings ? [settings] : [])]
-  const labels = useLabelsAfterWidth(expanded)
   const navigate = useNavigate()
   const searchRef = useRef<HTMLInputElement>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -200,42 +184,43 @@ export function AppShell() {
     }
   }
 
-  const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-60' : 'pl-16'
+  const contentOffset = !isMd ? '' : isXl && !userCollapsed ? 'pl-[328px]' : current ? 'pl-[152px]' : 'pl-[88px]'
+  const closeOverlay = overlay ? () => setOpen(false) : undefined
 
   return (
     <div className="cep-settle-in min-h-screen bg-canvas">
       {overlay && <div aria-hidden className="fixed inset-0 z-30 animate-fade-in bg-scrim" onClick={() => setOpen(false)} />}
 
       {showNav && (
-        <aside aria-label="Sidebar"
-          className={`fixed inset-y-0 left-0 z-40 flex flex-col overflow-x-hidden overflow-y-auto bg-sidebar pb-4 transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${expanded ? 'w-60' : 'w-16'} pt-3`}>
-          <nav aria-label="Main" className={`flex min-h-0 flex-1 flex-col ${labels ? 'px-3' : 'items-center px-0'}`}>
-            <LeftNav
-              components={components}
-              current={current}
-              expanded={labels}
-              workspace={me?.workspace}
-              settings={settings}
-              toggle={{ kind: !isMd ? 'close' : expanded ? 'collapse' : 'expand', onClick: toggle }}
-              onNavigate={overlay ? () => setOpen(false) : undefined}
-            />
+        <aside aria-label="Sidebar" className="fixed top-14 bottom-0 left-0 z-40 flex bg-sidebar">
+          <nav aria-label="Apps" className="flex w-[88px] shrink-0 flex-col overflow-y-auto pt-1.5 pb-4">
+            <AppRail components={components} current={current} settings={settings} />
           </nav>
+          {current && (
+            <div className={`overflow-hidden border-r border-line bg-surface transition-[width] duration-moderate ease-standard motion-reduce:transition-none ${menuOpen ? 'w-60' : 'w-16'}`}>
+              <nav aria-label="Main" className="h-full overflow-x-hidden overflow-y-auto pb-4">
+                <ComponentMenu current={current} collapsed={!menuOpen} onNavigate={closeOverlay} />
+              </nav>
+            </div>
+          )}
         </aside>
       )}
 
-      <div className={`flex min-h-screen min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
+      {/* after the aside, so the launcher's menu opens over the navigation */}
+      <TopBar
+        me={me}
+        components={components}
+        current={current}
+        pages={pages}
+        searchRef={searchRef}
+        toggle={{ kind: !isMd ? (open ? 'close' : 'open') : menuOpen ? 'collapse' : 'expand', onClick: toggle }}
+        onHelp={() => setHelpOpen(true)}
+        onLogout={logout}
+        extra={<UploadsIndicator />}
+      />
+
+      <div className={`flex min-h-[calc(100vh-3.5rem)] min-w-0 flex-col transition-[padding] duration-moderate ease-standard motion-reduce:transition-none ${contentOffset}`}>
         {support && <SupportBanner by={support.by} mode={support.mode} expiresAt={support.expires_at} onEnded={logout} />}
-        <TopBar
-          me={me}
-          components={components}
-          current={current}
-          pages={pages}
-          searchRef={searchRef}
-          onOpenNav={!isMd ? () => setOpen(true) : undefined}
-          onHelp={() => setHelpOpen(true)}
-          onLogout={logout}
-          extra={<UploadsIndicator />}
-        />
         {/* same side padding as the top bar's search and account, and no width cap, so content lines up with them */}
         <main className="flex w-full min-w-0 flex-1 flex-col bg-canvas px-4 py-5 md:px-8 md:py-6">
           <div className="flex-1"><Outlet /></div>

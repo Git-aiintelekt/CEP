@@ -57,7 +57,7 @@ export function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: 
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
     >
-      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-ink-700 group-focus-within:text-ink-800" />
+      <Search size={16} strokeWidth={1.5} aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sidebar-icon group-focus-within:text-ink-800" />
       <input
         ref={inputRef}
         type="search"
@@ -72,7 +72,7 @@ export function GlobalSearch({ pages, inputRef }: { pages: NavItem[]; inputRef: 
         onKeyDown={(event) => {
           if (event.key === 'Escape') { setOpen(false); (event.target as HTMLInputElement).blur() }
         }}
-        className="h-8 w-full rounded-control-md border border-transparent bg-surface-sunken pr-3 pl-8 text-sm text-ink-900 transition-colors placeholder:text-ink-700 focus:bg-surface focus-visible:border-focus"
+        className="h-8 w-full rounded-control-md border border-transparent bg-sidebar-hover pr-3 pl-8 text-sm text-on-brand transition-colors placeholder:text-sidebar-icon focus:bg-surface focus:text-ink-900 focus:placeholder:text-ink-700 focus-visible:border-focus"
       />
       {open && term && (
         <ul aria-label="Search results" className="absolute top-full right-0 left-0 z-40 mt-1 max-h-[70vh] overflow-y-auto rounded-md border border-line bg-surface-overlay py-1 shadow-menu">

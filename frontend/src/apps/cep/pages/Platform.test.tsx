@@ -100,7 +100,7 @@ test('a support session forgets any earlier refresh token, shows who is acting a
 
   const banner = await screen.findByText(/Support session: Pat Support is acting as this user · read-only/)
   expect(window.localStorage.getItem('cep.refresh')).toBeNull()
-  expect(within(screen.getByRole('navigation', { name: 'Main' })).queryByText('Settings')).toBeNull()
+  expect(within(screen.getByRole('navigation', { name: 'Apps' })).queryByText('Settings')).toBeNull()
   await user.click(within(banner.parentElement as HTMLElement).getByRole('button', { name: 'End session' }))
   expect(await screen.findByLabelText('Password')).toBeTruthy()
   expect(calls.some((call) => call.url.endsWith('/auth/support-session/end/') && call.method === 'POST')).toBe(true)
@@ -129,7 +129,8 @@ test('someone who must enrol in MFA is taken to account security and nowhere els
 
   expect(await screen.findByText(/Your workspace requires multi-factor authentication/)).toBeTruthy()
   expect(window.location.pathname).toBe('/account/security')
-  expect(screen.getByRole('navigation', { name: 'Main' }).querySelectorAll('a').length).toBe(0)
+  expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull()
+  expect(screen.getByRole('navigation', { name: 'Apps' }).querySelectorAll('a').length).toBe(0)
 
   await user.click(await screen.findByRole('button', { name: 'Set Up' }))
   expect(await screen.findByText('JBSW Y3DP EHPK 3PXP')).toBeTruthy()

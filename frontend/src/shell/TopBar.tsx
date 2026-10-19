@@ -1,8 +1,9 @@
 /**
- * The suite's top bar, Microsoft 365 style: the app launcher at the far left, the C360 brand with the open component's
- * name, the search in the middle, and help, notifications and the account at the right. White, one hairline below.
+ * The suite's top bar, navy and the full width of the window: the navigation toggle over the rail, the app launcher,
+ * the C360 brand with the open component's name, the search in the middle, and help, notifications and the account at
+ * the right.
  */
-import { Bell, ChevronDown, CircleHelp, LogOut, Menu, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react'
+import { Bell, ChevronDown, CircleHelp, LogOut, Menu, Monitor, Moon, PanelLeftClose, PanelLeftOpen, ShieldCheck, Sun, X, type LucideIcon } from 'lucide-react'
 import type { ReactNode, RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -31,40 +32,57 @@ function initials(name: string | undefined): string {
   return name.split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
 }
 
+/** the button over the rail: on phones it opens and closes the navigation, from md it collapses and expands it */
+export type NavToggle = { kind: 'open' | 'close' | 'collapse' | 'expand'; onClick: () => void }
+
+const TOGGLE: Record<NavToggle['kind'], { label: string; icon: LucideIcon }> = {
+  open: { label: 'Open navigation', icon: Menu },
+  close: { label: 'Close navigation', icon: X },
+  collapse: { label: 'Collapse navigation', icon: PanelLeftClose },
+  expand: { label: 'Expand navigation', icon: PanelLeftOpen },
+}
+
+const ON_NAVY_FOCUS = 'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sidebar-accent'
+
 export interface TopBarProps {
   me: Me | null
   components: EntitledComponent[]
   current: EntitledComponent | null
   pages: NavItem[]
   searchRef: RefObject<HTMLInputElement | null>
-  /** below md: the button that opens the navigation */
-  onOpenNav?: () => void
+  toggle: NavToggle
   onHelp: () => void
   onLogout: () => void
   /** what sits before the account: the uploads indicator */
   extra?: ReactNode
 }
 
-export function TopBar({ me, components, current, pages, searchRef, onOpenNav, onHelp, onLogout, extra }: TopBarProps) {
+export function TopBar({ me, components, current, pages, searchRef, toggle, onHelp, onLogout, extra }: TopBarProps) {
   const [themePreference, setThemePreference] = useThemePreference()
   const account = useSingleDropdown<'account'>()
   const navigate = useNavigate()
   const name = me?.principal.display_name ?? me?.principal.email
   const role = me?.principal.roles?.[0] ?? me?.principal.email
+  const ToggleIcon = TOGGLE[toggle.kind].icon
   return (
-    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-1.5 border-b border-line bg-surface pr-3 pl-1.5 md:gap-2.5">
-      {onOpenNav && (
-        <button type="button" onClick={onOpenNav} aria-label="Open navigation" className={iconButtonClass()}>
-          <Menu size={20} strokeWidth={1.5} aria-hidden />
-        </button>
-      )}
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-1.5 bg-sidebar pr-3 pl-3 md:gap-2.5">
+      <button
+        type="button"
+        onClick={toggle.onClick}
+        aria-label={TOGGLE[toggle.kind].label}
+        aria-expanded={toggle.kind === 'collapse' || toggle.kind === 'close'}
+        className={`${iconButtonClass({ variant: 'onNavy', size: 'md' })} ${ON_NAVY_FOCUS}`}
+      >
+        <ToggleIcon size={20} strokeWidth={1.5} aria-hidden />
+      </button>
       <AppLauncher me={me} components={components} current={current} />
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
-        <span className="font-display text-[15px] font-bold tracking-[-0.02em] whitespace-nowrap text-ink-900">C<span className="text-brand-600">360</span></span>
+        <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-600 font-display text-base font-bold text-on-brand">C</span>
+        <span className="hidden font-display text-base font-bold tracking-[-0.02em] whitespace-nowrap text-on-brand sm:inline">C360</span>
         {current && (
           <>
-            <span aria-hidden className="hidden h-4 w-px bg-line sm:block" />
-            <span data-component-name className="hidden text-sm font-semibold whitespace-nowrap text-ink-800 sm:block">{current.name}</span>
+            <span aria-hidden className="hidden h-4 w-px bg-sidebar-icon sm:block" />
+            <span data-component-name className="hidden font-display text-base font-semibold whitespace-nowrap text-on-brand sm:block">{current.name}</span>
           </>
         )}
       </div>
@@ -73,16 +91,16 @@ export function TopBar({ me, components, current, pages, searchRef, onOpenNav, o
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <span className="hidden items-center gap-1.5 pr-1 text-sm whitespace-nowrap xl:flex">
-          <span className="text-ink-700">Workspace</span>
-          <span className="font-semibold text-ink-900">{me?.tenant.code}</span>
+          <span className="text-sidebar-text">Workspace</span>
+          <span className="font-semibold text-on-brand">{me?.tenant.code}</span>
         </span>
         {extra}
         <span className="hidden md:flex">
-          <button type="button" onClick={onHelp} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className={iconButtonClass()}>
+          <button type="button" onClick={onHelp} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" className={`${iconButtonClass({ variant: 'onNavy' })} ${ON_NAVY_FOCUS}`}>
             <CircleHelp size={20} strokeWidth={1.5} aria-hidden />
           </button>
         </span>
-        <button type="button" disabled aria-label="Notifications" title="Notifications are not available yet" className={iconButtonClass({ disabled: true })}>
+        <button type="button" disabled aria-label="Notifications" title="Notifications are not available yet" className={iconButtonClass({ variant: 'onNavy', disabled: true })}>
           <Bell size={20} strokeWidth={1.5} aria-hidden />
         </button>
         <div className="relative">
@@ -90,22 +108,28 @@ export function TopBar({ me, components, current, pages, searchRef, onOpenNav, o
             type="button"
             {...account.triggerProps('account')}
             aria-label={`Account: ${name ?? ''}`}
-            className="flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-surface-hover"
+            className={`flex h-10 items-center gap-2 rounded-control-md pr-1 pl-1 transition-colors hover:bg-sidebar-hover active:bg-sidebar-pressed ${ON_NAVY_FOCUS}`}
           >
             <span aria-hidden className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-800">
               {initials(me?.principal.display_name)}
             </span>
             <span className="hidden min-w-0 flex-col text-left leading-tight lg:flex">
-              <span className="truncate text-sm font-semibold text-ink-900">{name}</span>
-              <span data-role className="truncate text-xs text-ink-800">{role}</span>
+              <span className="truncate text-sm font-semibold text-on-brand">{name}</span>
+              <span data-role className="truncate text-xs text-sidebar-text">{role}</span>
             </span>
-            <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-ink-700 lg:block" />
+            <ChevronDown size={16} strokeWidth={1.5} aria-hidden className="hidden shrink-0 text-sidebar-icon lg:block" />
           </button>
           {account.isOpen('account') && (
             <Popover {...account.panelProps('account')} label="Account" placement="bottom-end" width={240}>
               <div className="border-b border-line-subtle px-3 py-2.5 leading-tight">
                 <p className="truncate text-sm font-semibold text-ink-900">{name}</p>
                 <p className="truncate text-xs text-ink-800">{me?.principal.email}</p>
+                {me?.workspace?.name && (
+                  <p data-workspace className="mt-1.5 truncate text-xs text-ink-800">
+                    <span className="font-semibold text-ink-900">{me.workspace.name}</span>
+                    {me.workspace.plan && ` · ${me.workspace.plan.name} plan`}
+                  </p>
+                )}
               </div>
               <div className="border-b border-line-subtle px-3 py-2.5">
                 <SegmentedControl label="Appearance" options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} stretch />

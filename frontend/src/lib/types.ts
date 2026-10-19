@@ -49,7 +49,7 @@ export interface Me {
   features?: Partial<Record<Feature, boolean>>
   /** the industry's words for generic things: { location: 'store' } */
   terminology?: Record<string, string>
-  /** the workspace's name and plan, for the navigation's head */
+  /** the workspace's name and plan, for the account menu */
   workspace?: { name: string | null; plan: { code: string; name: string } | null }
   /** the suite components this workspace can open, in suite order; absent (an older API) = Engagement alone */
   components?: SuiteComponent[]
