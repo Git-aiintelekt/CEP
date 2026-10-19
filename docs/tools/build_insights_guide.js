@@ -3,6 +3,7 @@
 // The steps are read from the help chapters (docs/manuals/user-guide/59-insights.md and 60-report-databases.md) by their
 // bold titles, and the function reference from the formula editor's list (frontend/src/apps/insights/editor/formulaHelp.ts),
 // so the guide follows the help: edit the chapters, then rebuild. A step block the outline does not place is reported.
+// The screenshots are docs/manuals/insights-guide-shots/*.png, taken from the /dev playgrounds by capture_insights_shots.py.
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
@@ -13,7 +14,7 @@ function loadDocx() {
   return require(path.join(execSync('npm root -g').toString().trim(), 'docx'))
 }
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle, LevelFormat, AlignmentType,
-  PageBreak, Header, Footer, PageNumber, TabStopType } = loadDocx()
+  PageBreak, Header, Footer, PageNumber, ImageRun } = loadDocx()
 
 const REPO = path.resolve(__dirname, '..', '..')
 const OUT = path.join(REPO, 'docs', 'manuals', 'C360_Insights_User_Guide.docx')
@@ -23,6 +24,62 @@ const MUTED = '555B6E'
 const LINE = 'D9DBE3'
 const ACCENT = '2753E4'
 const PAGE_WIDTH = 12240 - 2 * 1080                                                        // US Letter, 0.75" margins
+const SHOTS = path.join(REPO, 'docs', 'manuals', 'insights-guide-shots')
+
+/** the screenshot shown under a topic's heading, before its steps: [file, caption] */
+const FIGURES = {
+  make: [['editor-wells', 'The report editor with Field Wells: the fields on the left, the result in the middle, Rows, Columns, Values and Filters on the right.'],
+    ['editor-steps', 'The same report in the Steps editor: Data, Filter, Summarize, Group By, Sort and Limit, with the result underneath.']],
+  views: [['view-pivot', 'The Pivot view: Sent by month down the side, Channel across, a total on both edges.']],
+  'Compare a measure with an earlier period': [['compare', 'Sent Count with Previous Month and Change vs Last Year: each comparison is a column after its measure.']],
+  'Colour the numbers': [['format', 'Rules colour Sent Count good, warning or bad; data bars sit behind Opened.']],
+  'Stack the bars, or combine bars and a line': [['chart-stacked', 'A stacked chart: each month one bar, the channels on top of each other. Combo and 100% Stacked sit beside it.']],
+  'Show a report as a pie or a funnel': [['chart-pie', 'A pie by campaign: the total in the middle, each value with its share in the legend.']],
+  'Use a scatter, bubble, treemap or waterfall chart': [['chart-treemap', 'A treemap from More Charts: boxes sized by their share, the largest first.']],
+  'Show one figure: a KPI card or a gauge': [['chart-kpi', 'A KPI card with a target: the value, the share of target and a small trend line.']],
+  'Put the numbers on a map': [['chart-map', 'A map of US states: darker blue is more, grey has no data; Map Of picks states or countries.']],
+  'Show every value side by side in a pivot (matrix)': [['matrix', 'All Values and Trend Column: every value under each month, with a total for each.']],
+  'Repeat a chart per value (small multiples)': [['multiples', 'Repeat By Channel: one small chart per value, all on one scale.']],
+  'Drill in a pivot or a hierarchy': [['view-hierarchy', 'The Hierarchy view: each channel folds over its months, with a subtotal per group.']],
+  'Write a measure formula, such as a rate or a filtered total': [['formula', 'A measure formula in Custom Fields: the line under it says what it works out; fields and functions to put in sit below.']],
+  'Show a share of the total, a rank, year to date or last year in a measure formula': [['shared-edit', 'A share of the total with CALCULATE and ALL. The check says it is worked out over the report\'s rows.']],
+  'Share a formula with every report on a dataset': [['shared', 'Insights → Shared Formulas: each formula with its kind, its Certified mark and the reports that use it.']],
+  'Ask a question before a report runs (Parameters)': [['params', 'The questions above a report: pick the answers and press Run Report.']],
+  'Report on a CSV or Excel file (Uploaded Files)': [['upload-review', 'Review the Columns: each column\'s label, type and use, with the first rows of the file.']],
+  'Set your fiscal year (Settings → Fiscal Year)': [['fiscal', 'Settings → Fiscal Year: the month it starts in and how the year is named, with an example.']],
+  dashboards: [['dashboard', 'A dashboard: figures, charts, a grid, a pivot and a hierarchy on one period, with a Channel slicer under it.']],
+  'Add slicers to a dashboard': [['dashboard-edit', 'The dashboard editor: Add Tile, the row controls and each tile\'s controls.']],
+  'Lay a dashboard out freely (Free Canvas)': [['dashboard-canvas', 'Free Canvas: drag a tile by its grip to move it and by its handle to resize it.']],
+  'See and shape the phone layout': [['dashboard-phone', 'The phone layout: the tiles stacked top to bottom, tiles hidden on a phone left out.']],
+  'Give a dashboard a theme': [['dashboard-theme', 'The Navy theme: every chart on the dashboard takes its colours.']],
+  'Ask for a Report': [['ask', 'Ask for a Report above the report list, with the model to use and your recent prompts.']],
+}
+let figureNumber = 0
+
+/** a screenshot, framed, at the page's width (or less for a tall one), and its caption */
+function figure([name, caption]) {
+  const file = path.join(SHOTS, `${name}.png`)
+  if (!fs.existsSync(file)) throw new Error(`no screenshot ${name}.png: run docs/tools/capture_insights_shots.py`)
+  const data = fs.readFileSync(file)
+  const width = data.readUInt32BE(16)
+  const height = data.readUInt32BE(20)
+  const scale = Math.min(650 / width, 560 / height)
+  figureNumber += 1
+  const w = Math.round(width * scale)
+  const h = Math.round(height * scale)
+  const side = { style: BorderStyle.SINGLE, size: 4, color: LINE }
+  const frameWidth = Math.round((w + 8) * 15)                         // pixels at 96 dpi to twentieths of a point, and a little room
+  return [
+    new Table({ alignment: AlignmentType.CENTER, width: { size: frameWidth, type: WidthType.DXA }, columnWidths: [frameWidth],
+      borders: { top: side, left: side, bottom: side, right: side, insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
+      rows: [new TableRow({ cantSplit: true, children: [new TableCell({ width: { size: frameWidth, type: WidthType.DXA }, margins: { top: 40, bottom: 40, left: 40, right: 40 },
+        children: [new Paragraph({ alignment: AlignmentType.CENTER, keepNext: true, children: [new ImageRun({ type: 'png', data, transformation: { width: w, height: h },
+          altText: { title: caption, description: caption, name } })] })] })] })] }),
+    new Paragraph({ spacing: { before: 80, after: 200 }, alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: `Figure ${figureNumber}. `, bold: true, size: 17, color: MUTED, font: FONT }), new TextRun({ text: caption, italics: true, size: 17, color: MUTED, font: FONT })] }),
+  ]
+}
+const figures = (key) => (FIGURES[key] ?? []).flatMap(figure)
 
 // ---------------------------------------------------------------- the help, read
 const chapter = (name) => parse(fs.readFileSync(path.join(REPO, 'docs', 'manuals', 'user-guide', name), 'utf8'))
@@ -155,7 +212,7 @@ function render(list) {
 function who(role) {
   if (!role) return []
   const words = role.charAt(0).toUpperCase() + role.slice(1)
-  return [new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: 'Who: ', bold: true, size: 18, color: MUTED, font: FONT }), new TextRun({ text: words, size: 18, color: MUTED, font: FONT })] })]
+  return [new Paragraph({ spacing: { after: 100 }, keepNext: true, children: [new TextRun({ text: 'Who: ', bold: true, size: 18, color: MUTED, font: FONT }), new TextRun({ text: words, size: 18, color: MUTED, font: FONT })] })]
 }
 
 function callout(title, text) {
@@ -175,7 +232,7 @@ function custom(key) {
     case 'who': return render(section('Who can use it'))
     case 'datasets': return [...render(section('The datasets')), p('Your workspace can add its own datasets too: uploaded CSV and Excel files, and tables or queries from its own databases (Part 6).')]
     case 'make': return [
-      ...who('anyone who can build reports'),
+      ...who('anyone who can build reports'), ...figures('make'),
       ...render([{ kind: 'list', ordered: true, items: list(`Open Insights → Reports and press **New Report**. Pick a dataset and give the report a name. It opens in the editor with the dataset's first columns.
 Choose an editor at the top right; your choice is remembered. **Field Wells**: the fields on the left, the result in the middle, the wells on the right. **Steps**: the question written as numbered steps (Data, Filter, Summarize, Group By, Sort and Limit), each with an Add button.
 Click or drag a field into **Rows** (one line per value), **Columns** (one dimension spread across, for the pivot and the chart's series) or **Values** (a number to total). Group a date **by Day, Week, Month, Quarter or Year**.
@@ -184,7 +241,7 @@ Add **Filters**: one rule per row (field, operator, value), joined with **and** 
 Watch the preview: it runs as you build. The line above it says how many rows, how long the run took and how fresh the data is.
 Press **Save** to write a new version, or **Cancel** to drop the changes.`) }]),
       p('**Find it later:** Insights → Reports lists every report you can open, grouped by the component whose data it uses. Press the star on a row to make it a favourite (favourites come first); folder chips at the top filter the list, and the search finds a report by name.')]
-    case 'views': return render(section('The four views'))
+    case 'views': return [...figures('views'), ...render(section('The four views'))]
     case 'viewer': return render(section('The viewer'))
     case 'mysql57': return [callout('MySQL 5.7.', 'A dataset from a MySQL 5.7 database cannot run CALCULATE with ALL, RANKX or the time functions (TOTALYTD, TOTALQTD, SAMEPERIODLASTYEAR, PREVIOUSPERIOD, PARALLELPERIOD): that version has no window functions. The formula editor leaves them out of its list there, and the line under the formula says so if one is typed. CALCULATE with a condition, SUMX and the other functions work. A database on MySQL 8.0 or PostgreSQL runs them all.')]
     case 'functions': {
@@ -196,7 +253,7 @@ Press **Save** to write a new version, or **Cancel** to drop the changes.`) }]),
       }
       return out
     }
-    case 'dashboards': return render(section('Dashboards'))
+    case 'dashboards': return [...figures('dashboards'), ...render(section('Dashboards'))]
     case 'schedule': return [...who('anyone who can build reports'), ...render(section('Scheduled delivery'))]
     case 'runlog': return render(section('Run Log'))
     case 'fresh': return render(section('How fresh is the data'))
@@ -213,7 +270,7 @@ const children = [
   new Paragraph({ spacing: { after: 480 }, border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: ACCENT, space: 12 } },
     children: [new TextRun({ text: 'Step by step, for every feature: reports, formulas, charts, dashboards, AI, sharing and delivery', size: 26, color: MUTED, font: FONT })] }),
   p(`${PARTS.length} parts, ${PARTS.reduce((n, part) => n + part.items.length, 0)} topics. Built ${new Date().toISOString().slice(0, 10)} from the in-app help, so it matches what the help panel shows.`, { run: { color: MUTED, size: 20 } }),
-  p('Each topic says who can use it, then the steps in order. Names in **bold** are what you see on the screen: a button, a menu item or a field.', { run: { color: MUTED, size: 20 } }),
+  p('Each topic says who can use it, then the steps in order. Names in **bold** are what you see on the screen: a button, a menu item or a field. The screenshots show the screens with sample data.', { run: { color: MUTED, size: 20 } }),
   new Paragraph({ children: [new PageBreak()] }),
   new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: 'Contents', font: FONT })] }),
 ]
@@ -231,7 +288,7 @@ PARTS.forEach((part, n) => {
     const found = steps.get(item)
     if (!found) throw new Error(`no step block "${item}" in the help`)
     used.add(item)
-    children.push(...feature(item, [...who(found.role), ...render(found.body)]))
+    children.push(...feature(item, [...who(found.role), ...figures(item), ...render(found.body)]))
   }
 })
 const unplaced = [...steps.keys()].filter((t) => !used.has(t))
@@ -261,6 +318,8 @@ const document = new Document({
 
 Packer.toBuffer(document).then((buffer) => {
   fs.writeFileSync(OUT, buffer)
-  console.log(`C360_Insights_User_Guide.docx: ${PARTS.length} parts, ${used.size} step topics from the help (${Math.round(buffer.length / 1024)} KB)`)
+  console.log(`C360_Insights_User_Guide.docx: ${PARTS.length} parts, ${used.size} step topics from the help, ${figureNumber} screenshots (${Math.round(buffer.length / 1024)} KB)`)
+  const unshown = Object.keys(FIGURES).filter((key) => !CUSTOM_TITLE[key] && !used.has(key))
+  if (unshown.length) console.log(`screenshots for topics not in the outline: ${unshown.join(' | ')}`)
   if (unplaced.length) console.log(`not placed in the outline: ${unplaced.join(' | ')}`)
 }).catch((error) => { console.error(error); process.exit(1) })
