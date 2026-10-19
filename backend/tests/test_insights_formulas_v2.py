@@ -152,10 +152,19 @@ def test_api(check, world):
         cursor.execute("SELECT to_regclass('public.report') IS NOT NULL")
         if not cursor.fetchone()[0]:
             pytest.skip("the Insights patches have not been applied to this database")
+    from datetime import datetime, timedelta, timezone
+    first = datetime.now(timezone.utc).replace(day=15, hour=12, minute=0, second=0, microsecond=0) - timedelta(days=430)
+    for n in range(14):                                                   # two channels over fourteen months, so last year has rows
+        day = (first + timedelta(days=31 * n)).replace(day=15)
+        for channel, amount in (("PHONE", 100 + n * 10), ("OTHER", 40 + n * 3)):
+            ref = f"FV2-{n}-{channel}"
+            world.sql("""INSERT INTO attributed_order (tenant_id, source, order_ref, match_ref, kind, amount, ordered_at, channel, status)
+                         VALUES (%s, 'API', %s, %s, 'ORDER', %s, %s, %s, 'UNATTRIBUTED')""", [world.tenant, ref, ref, amount, day, channel])
     base = {"columns": [{"field": "ordered_at", "bucket": "month"}, {"field": "channel"}, {"field": "amount", "aggregate": "sum"}],
+            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "in", "value": ["PHONE", "OTHER"]}]},
             "orderBy": [{"field": "ordered_at", "direction": "asc"}], "limit": 200}
     status, plain = _run(world, base)
-    check("the plain report runs", status == 200, str(plain)[:300])
+    check("the plain report runs on the test's own orders: fourteen months, two channels", status == 200 and plain.get("row_count") == 28, str(plain)[:300])
     sums = {(str(r[0])[:10], r[1]): float(r[2] or 0) for r in plain.get("rows", [])}
     status, smart = _run(world, {**base, "columns": [*base["columns"], {"field": "c_share", "aggregate": "calc"}, {"field": "c_ytd", "aggregate": "calc"},
                                                      {"field": "c_ly", "aggregate": "calc"}, {"field": "c_prev", "aggregate": "calc"}],
