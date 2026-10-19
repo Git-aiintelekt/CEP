@@ -7,7 +7,9 @@ from apps.insights import assistant as insights_assistant
 from apps.insights import databases as insights_databases
 from apps.insights import access as insights_access
 from apps.insights import ai_report as insights_ai
+from apps.insights import alerts as insights_alerts
 from apps.insights import analyze as insights_analyze
+from apps.insights import comments as insights_comments
 from apps.insights import embeds as insights_embeds
 from apps.insights import usage as insights_usage
 from django.urls import include, path
@@ -163,6 +165,7 @@ urlpatterns = [
     path("insights/reports/<uuid:report_id>/export.csv", insights_api.ExportView.as_view(), name="insights-report-export"),
     path("insights/reports/<uuid:report_id>/export.xlsx", insights_api.ExportXlsxView.as_view(), name="insights-report-export-xlsx"),
     path("insights/reports/<uuid:report_id>/export.pdf", insights_api.ExportPdfView.as_view(), name="insights-report-export-pdf"),
+    path("insights/reports/<uuid:report_id>/export.pptx", insights_api.ExportPptxView.as_view(), name="insights-report-export-pptx"),
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
     path("insights/assistant/", insights_assistant.AssistantView.as_view(), name="insights-assistant"),
     path("insights/assistant/ask/", insights_assistant.AskView.as_view(), name="insights-assistant-ask"),
@@ -175,11 +178,18 @@ urlpatterns = [
     path("insights/dashboards/<uuid:dashboard_id>/views/", insights_dashboards.DashboardViewsView.as_view(), name="insights-dashboard-views"),
     path("insights/dashboards/<uuid:dashboard_id>/views/<uuid:view_id>/", insights_dashboards.DashboardViewView.as_view(), name="insights-dashboard-view"),
     path("insights/dashboards/<uuid:dashboard_id>/export.pdf", insights_dashboards.DashboardExportPdfView.as_view(), name="insights-dashboard-export-pdf"),
+    path("insights/dashboards/<uuid:dashboard_id>/export.pptx", insights_dashboards.DashboardExportPptxView.as_view(), name="insights-dashboard-export-pptx"),
     path("insights/favourites/<slug:kind>/<uuid:item_id>/", insights_library.FavouriteView.as_view(), name="insights-favourite"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),
     path("insights/usage/", insights_usage.UsageView.as_view(), name="insights-usage"),
+    path("insights/alerts/", insights_alerts.AlertsView.as_view(), name="insights-alerts"),
+    path("insights/alerts/<uuid:alert_id>/", insights_alerts.AlertView.as_view(), name="insights-alert"),
+    path("insights/alerts/<uuid:alert_id>/check/", insights_alerts.AlertCheckView.as_view(), name="insights-alert-check"),
+    path("insights/alerts/<uuid:alert_id>/<slug:action>/", insights_alerts.AlertStateView.as_view(), name="insights-alert-state"),
+    path("insights/comments/", insights_comments.CommentsView.as_view(), name="insights-comments"),
+    path("insights/comments/<uuid:comment_id>/", insights_comments.CommentView.as_view(), name="insights-comment"),
     path("insights/embeds/", insights_embeds.EmbedsView.as_view(), name="insights-embeds"),
     path("insights/embeds/<uuid:embed_id>/", insights_embeds.EmbedView.as_view(), name="insights-embed"),
     path("insights/schedules/", insights_schedules.ScheduleListView.as_view(), name="insights-schedules"),

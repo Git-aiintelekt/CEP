@@ -34,6 +34,8 @@ export interface ReportView {
   sparklines?: boolean
   /** the value Key Influencers or the Decomposition Tree analyses */
   measure?: string
+  /** a report shown on hover over a chart's value, filtered to it */
+  tooltip?: string
 }
 export type ChartSignal = 'forecast' | 'anomalies'
 
@@ -242,7 +244,7 @@ export interface ReportVersion {
 }
 
 export type ScheduleEvery = 'day' | 'weekday' | 'week' | 'month'
-export type ScheduleFormat = 'xlsx' | 'csv' | 'pdf'
+export type ScheduleFormat = 'xlsx' | 'csv' | 'pdf' | 'pptx'
 
 export interface Schedule {
   id: string
@@ -333,22 +335,35 @@ export type PeriodPreset = '7d' | '30d' | 'month' | 'quarter' | 'custom'
 export interface Period { preset: PeriodPreset; from?: string; to?: string }
 export interface PeriodBounds { from: string; to: string; previous_from: string; previous_to: string }
 export type RowWidth = '1' | '2' | '3' | '4' | '2-1'
-export type TileShow = ViewType | 'figure' | 'summary'
+export type TileShow = ViewType | 'figure' | 'summary' | 'text' | 'button'
 
 export interface DashboardTile {
   id: string
+  /** empty for a text tile or a button */
   report_id: string
   show: TileShow
   title?: string
   /** a figure: the report's totalled column it shows */
   measure?: string
+  /** a text tile's words: paragraphs, lines starting "- " as bullets, **bold** */
+  text?: string
+  /** a button's label and what it does */
+  label?: string
+  action?: { kind: 'view' | 'page' | 'report'; id: string }
+  /** left out on a phone */
+  hide_on_phone?: boolean
 }
+/** a tile on a free canvas: its column (0-11), its row, its width in columns and its height in rows */
+export interface DashboardCell extends DashboardTile { x: number; y: number; w: number; h: number }
+export type DashboardTheme = 'default' | 'navy' | 'earth' | 'berry' | 'greyscale'
 export interface DashboardRow { width: RowWidth; tiles: DashboardTile[] }
 /** a dimension of the tiles' datasets the whole dashboard is filtered by */
 export interface DashboardSlicer { field: string; label: string; kind?: 'values' | 'range'; type?: FieldType }
 /** a page of a dashboard with tabs */
-export interface DashboardPageT { id: string; title: string; rows: DashboardRow[] }
-export interface DashboardLayout { rows: DashboardRow[]; slicers?: DashboardSlicer[]; pages?: DashboardPageT[] }
+export interface DashboardPageT { id: string; title: string; rows: DashboardRow[]; canvas?: boolean; cells?: DashboardCell[] }
+/** a page, or a dashboard without pages: rows of tiles, or a free canvas */
+export interface DashboardContainer { rows: DashboardRow[]; canvas?: boolean; cells?: DashboardCell[] }
+export interface DashboardLayout extends DashboardContainer { slicers?: DashboardSlicer[]; pages?: DashboardPageT[]; theme?: DashboardTheme }
 /** a range slicer's ends, either may be empty */
 export interface SlicerRange { from?: string | number; to?: string | number }
 /** what is picked on each slicer: field key to values; an empty list is no filter */
@@ -746,3 +761,47 @@ export interface DecomposeResult {
 }
 /** where an analysing visual reads from: a saved report, or a draft in the editor */
 export type AnalysisSource = { reportId: string } | { dataset: string; definition: ReportDefinition }
+
+// ---------------------------------------------------------------------------------------------------- alerts and comments
+
+export type AlertOp = '<' | '<=' | '>' | '>='
+export interface ReportAlert {
+  id: string
+  report_id: string
+  report_name: string | null
+  name: string | null
+  measure: string
+  measure_label: string
+  op: AlertOp
+  threshold: number
+  every: 'hour' | 'day'
+  at_time: string | null
+  recipients: string[]
+  status: 'ACTIVE' | 'PAUSED'
+  state: 'UNKNOWN' | 'OK' | 'TRIGGERED'
+  last_value: number | null
+  last_checked_at: string | null
+  last_fired_at: string | null
+  last_detail: string | null
+  next_check_at: string | null
+  owner_name: string | null
+  row_version: number
+  words: string
+  can_change?: boolean
+  checks?: { checked_at: string; trigger: string; value: number | null; met: boolean | null; notified: boolean; outcome: string; detail: string | null }[]
+}
+export interface AlertBody { report_id?: string; name?: string; measure: string; op: AlertOp; threshold: number; every: 'hour' | 'day'; at_time?: string; recipients: string[]; row_version?: number }
+
+export interface CommentAnchor { tile_id?: string; field?: string; value?: unknown; label?: string }
+export interface InsightsComment {
+  id: string
+  body: string
+  anchor: CommentAnchor | null
+  author_name: string
+  mine: boolean
+  can_delete: boolean
+  created_at: string
+  edited_at: string | null
+  resolved_at: string | null
+  resolved_by_name: string | null
+}

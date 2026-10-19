@@ -3,7 +3,8 @@
  * unsaved; so can the slicers, and a value clicked on a tile filters the others (a field that is not a saved slicer gets a
  * chip of its own for the visit). Edit opens the editor for whoever may; Delete is the owner's.
  */
-import { CalendarClock, FileText, Link2, Pencil, Share2, Trash2 } from 'lucide-react'
+import { CalendarClock, FileText, Link2, MessageSquare, Pencil, Presentation, Share2, Trash2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -13,19 +14,21 @@ import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
-import { dashboardsApi, keys, usageApi, useDashboard, useDeleteDashboard, useSchedules } from '../api'
+import { dashboardsApi, keys, usageApi, useComments, useDashboard, useDeleteDashboard, useSchedules } from '../api'
+import { CommentsDrawer } from '../components/CommentsDrawer'
+import { themeStyle } from '../dashboards/themes'
 import { EmbedDialog } from '../components/EmbedDialog'
 import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
 import { ShareDialog } from '../components/ShareDialog'
 import { DashboardBody } from '../dashboards/DashboardBody'
 import { activeSlicers, periodWords, tiles, toggleValue } from '../dashboards/layout'
-import { pagesOf } from '../dashboards/pages'
+import { containerOf, pagesOf } from '../dashboards/pages'
 import { PeriodBar } from '../dashboards/PeriodBar'
 import { SavedViews } from '../dashboards/SavedViews'
 import { SlicerBar } from '../dashboards/SlicerBar'
 import { Tabs } from '@/components/Tabs'
-import type { DashboardSlicer, DrillStep, Period, ResultColumn, SavedView, SlicerSelection } from '../types'
+import type { CommentAnchor, DashboardSlicer, DashboardTile, DrillStep, Period, ResultColumn, SavedView, SlicerSelection } from '../types'
 
 export function DashboardPage() {
   const { id } = useParams()
@@ -44,25 +47,28 @@ export function DashboardPage() {
   const [scheduling, setScheduling] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [embedding, setEmbedding] = useState(false)
-  const [exporting, setExporting] = useState(false)
+  const [exporting, setExporting] = useState<'pdf' | 'pptx' | null>(null)
+  const [talking, setTalking] = useState<{ anchor: CommentAnchor | null } | null>(null)
+  const comments = useComments('dashboard', id)
+  const views = useQuery({ queryKey: ['insights', 'views', id], queryFn: () => dashboardsApi.views(id as string), enabled: Boolean(id) })
   useEffect(() => { if (id) usageApi.opened('dashboard', id).catch(() => undefined) }, [id])
   const schedules = useSchedules({ item: id })
   const schedule = schedules.data?.schedules[0] ?? null
 
-  async function exportPdf() {
+  async function exportAs(kind: 'pdf' | 'pptx') {
     if (!id) return
-    setExporting(true)
+    setExporting(kind)
     try {
-      const blob = await dashboardsApi.exportPdf(id)
+      const blob = await (kind === 'pptx' ? dashboardsApi.exportPptx(id) : dashboardsApi.exportPdf(id))
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `${dashboard.data?.name ?? 'dashboard'}.pdf`
+      link.download = `${dashboard.data?.name ?? 'dashboard'}.${kind}`
       link.click()
       URL.revokeObjectURL(link.href)
     } catch (error) {
       toast.failure(error, 'The export did not run')
     } finally {
-      setExporting(false)
+      setExporting(null)
     }
   }
 
@@ -93,6 +99,18 @@ export function DashboardPage() {
     setPeriod(state.period ?? null); setCompare(state.compare ?? null); setPage(state.page ?? null)
     setSelection(state.selection ?? {}); setExtra(state.extra ?? []); setDrills(state.drills ?? {}); setApplied(view.id)
   }
+  const container = containerOf(data.layout, shownPage.id)
+  const openComments = (comments.data?.comments ?? []).filter((c) => !c.resolved_at)
+  const tileName = (tileId: string) => { const tile = tiles(data.layout).find((t) => t.id === tileId); return tile?.title || tile?.label }
+  const onAction = (action: NonNullable<DashboardTile['action']>) => {
+    if (action.kind === 'page') setPage(action.id)
+    else if (action.kind === 'report') navigate(`/insights/reports/${action.id}`)
+    else {
+      const view = views.data?.views.find((item) => item.id === action.id)
+      if (view) applyView(view)
+      else toast.failure(new Error('The saved view is gone.'), 'The button did nothing')
+    }
+  }
   const removeExtra = (field: string) => {
     setExtra((now) => now.filter((item) => item.field !== field))
     setSelection((now) => ({ ...now, [field]: [] }))
@@ -108,7 +126,9 @@ export function DashboardPage() {
             )}
             {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{data.shared ? 'Shared' : 'Share'}</button>}
             {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setEmbedding(true)}><Link2 size={16} strokeWidth={1.5} aria-hidden />Embed</button>}
-            <button type="button" className={buttonSecondary} onClick={exportPdf} disabled={exporting || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
+            <button type="button" className={buttonSecondary} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
+            <button type="button" className={buttonSecondary} onClick={() => exportAs('pdf')} disabled={exporting !== null || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
+            <button type="button" className={buttonSecondary} onClick={() => exportAs('pptx')} disabled={exporting !== null || tiles(data.layout).length === 0}><Presentation size={16} strokeWidth={1.5} aria-hidden />Export PowerPoint</button>
             {data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             {data.can_edit && <button type="button" className={buttonDanger} onClick={deleteDashboard} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
           </div>
@@ -123,6 +143,7 @@ export function DashboardPage() {
         loadValues={(field) => dashboardsApi.slicerValues(id as string, { field, period: shownPeriod })} queryKey={[...keys.tiles(id as string), shownPeriod]} />
       {sharing && <ShareDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setSharing(false)} />}
       {embedding && <EmbedDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setEmbedding(false)} />}
+      {talking && <CommentsDrawer kind="dashboard" id={id as string} name={data.name} anchor={talking.anchor} onAnchor={(anchor) => setTalking({ anchor })} onClose={() => setTalking(null)} tileName={tileName} />}
       {scheduling && <ScheduleDialog kind="dashboard" reportId={id as string} reportName={data.name} zone={me?.tenant.timezone ?? 'UTC'} existing={schedule} onClose={() => setScheduling(false)} onSaved={() => setScheduling(false)} />}
       {tiles(data.layout).length === 0 ? (
         <EmptyState title="Nothing on This Dashboard Yet" hint={data.can_edit ? 'Edit it and add a tile: one of your reports in its view, or one of its numbers as a figure.' : 'Its owner has not added a tile yet.'}
@@ -130,9 +151,12 @@ export function DashboardPage() {
       ) : (
         <>
         {pages.length > 1 && <Tabs label="Pages" idPrefix="dashboard-page" size="sm" tabs={pages.map((item) => ({ id: item.id, label: item.title }))} value={shownPage.id} onChange={setPage} />}
-        <DashboardBody layout={{ ...data.layout, rows: shownPage.rows }} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
-          drills={drills} onDrill={onDrill}
+        <div style={themeStyle(data.layout.theme)} data-theme-name={data.layout.theme ?? 'default'}>
+        <DashboardBody layout={{ ...data.layout, rows: container.rows, canvas: container.canvas, cells: container.cells }} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
+          drills={drills} onDrill={onDrill} onAction={onAction}
+          comments={{ count: (tileId) => openComments.filter((c) => c.anchor?.tile_id === tileId).length, open: (tile) => setTalking({ anchor: { tile_id: tile.id } }) }}
           load={(tile, p, c, s, d) => dashboardsApi.runTile(id as string, tile.id, { period: p, compare: c, ...(s ? { slicers: s } : {}), ...(d ? { drill: { path: d } } : {}) })} />
+        </div>
         </>
       )}
     </div>

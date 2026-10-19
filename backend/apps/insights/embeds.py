@@ -178,7 +178,7 @@ class PublicEmbedView(APIView):
         layout = dashboards._json(board["layout"])
         _used(link)
         return Response({"kind": "dashboard", "name": board["name"], "description": board["description"], "workspace": workspace.name, "period": period,
-                         "compare": bool(board["compare"]), "layout": {k: v for k, v in layout.items() if k in ("rows", "pages")},
+                         "compare": bool(board["compare"]), "layout": {k: v for k, v in layout.items() if k in ("rows", "pages", "canvas", "cells", "theme")},
                          "bounds": dashboards.period_bounds(period, dashboards._today(workspace))})
 
 
@@ -198,7 +198,7 @@ class PublicEmbedTileView(APIView):
         rows = _q("SELECT period, compare, layout FROM dashboard WHERE id = %s AND deleted_at IS NULL", [link["item_id"]])
         if not rows:
             raise NotFound("The dashboard behind this link is gone.")
-        tile = next((t for t in dashboards._tiles(dashboards._json(rows[0]["layout"])) if t["id"] == tile_id), None)
+        tile = next((t for t in dashboards.report_tiles(dashboards._json(rows[0]["layout"])) if t["id"] == tile_id), None)
         if tile is None:
             raise NotFound("No such tile.")
         report = dashboards._report_for(tile["report_id"], "TRUE", [])

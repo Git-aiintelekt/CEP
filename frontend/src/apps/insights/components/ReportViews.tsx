@@ -14,6 +14,7 @@ import { FunnelChart } from '@/components/charts/FunnelChart'
 import { PieChart } from '@/components/charts/PieChart'
 import { Select, TextInput } from '@/components/Form'
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl'
+import { TooltipReport } from './TooltipReport'
 import type { AnalysisSource, Bucket, ChartKind, ChartSignal, ColumnFormat, ReportView, ResultColumn, RunResult, ViewType } from '../types'
 import { DecompositionTree } from '../visuals/DecompositionTree'
 import { Gauge, KpiCard } from '../visuals/Figures'
@@ -169,9 +170,13 @@ function Reason({ children, minHeight }: { children: string; minHeight: number }
 
 /** The result in the chosen view. `onPick` (a dashboard's cross-filter) gets the dimension and the value clicked on a chart or a grid cell;
  * `analysis` is where Key Influencers and the Decomposition Tree read from (the saved report, or the editor's draft). */
-export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource }) {
+export function ReportResult({ result, view, label = 'Report rows', minHeight = 360, onPick, onContext, analysis, notes, tooltips = false }: { result: RunResult; view: ReportView; label?: string; minHeight?: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; analysis?: AnalysisSource
+  /** comments pinned to values: a chart marks them */
+  notes?: Note[]
+  /** a chart's tooltip report shows on hover (the viewer and dashboards) */
+  tooltips?: boolean }) {
   switch (view.type) {
-    case 'chart': return view.multiples ? <SmallMultiples result={result} view={view} minHeight={minHeight} onPick={onPick} /> : <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} />
+    case 'chart': return view.multiples ? <SmallMultiples result={result} view={view} minHeight={minHeight} onPick={onPick} /> : <ReportChart result={result} view={view} minHeight={minHeight} onPick={onPick} onContext={onContext} notes={notes} tooltips={tooltips} />
     case 'influencers': return <Influencers source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'decomposition': return <DecompositionTree key={view.measure ?? ''} source={analysis} view={view} result={result} minHeight={Math.min(minHeight, 280)} />
     case 'hierarchy': return <Hierarchy result={result} label={label} minHeight={minHeight} formats={view.formats} onPick={onPick} />
@@ -179,6 +184,9 @@ export function ReportResult({ result, view, label = 'Report rows', minHeight = 
     default: return <ResultGrid result={result} label={label} minHeight={minHeight} onPick={onPick} formats={view.formats} onContext={onContext} />
   }
 }
+
+/** a comment pinned to one value of a field */
+export interface Note { field: string; value: unknown; label: string }
 
 const PANELS = 12
 const same = (a: unknown, b: unknown) => String(a ?? '') === String(b ?? '')
@@ -212,9 +220,10 @@ function SmallMultiples({ result, view, minHeight, onPick }: { result: RunResult
   )
 }
 
-function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact = false }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; yMax?: number; compact?: boolean }) {
+function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact = false, notes = [], tooltips = false }: { result: RunResult; view: ReportView; minHeight: number; onPick?: (column: ResultColumn, value: unknown) => void; onContext?: (column: ResultColumn, value: unknown, at: { x: number; y: number }) => void; yMax?: number; compact?: boolean; notes?: Note[]; tooltips?: boolean }) {
   const kind = view.chart ?? 'bar'
   const shape = useMemo(() => chartShape(result, ONE_SERIES.includes(kind) ? undefined : view.across), [result, view.across, kind])
+  const [hover, setHover] = useState<{ index: number; x: number } | null>(null)
   if (kind === 'scatter' || kind === 'bubble') return <div className="rounded-md border border-line p-4"><ScatterChart result={result} bubble={kind === 'bubble'} minHeight={minHeight} onPick={onPick} /></div>
   if (kind === 'treemap') return <div className="rounded-md border border-line p-4"><Treemap result={result} minHeight={minHeight} onPick={onPick} /></div>
   if (kind === 'waterfall') return <div className="rounded-md border border-line p-4"><Waterfall result={result} minHeight={minHeight} onPick={onPick} /></div>
@@ -243,8 +252,13 @@ function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact
     return total ? (Math.max(0, value) / total) * 100 : 0
   }) })) : null
   const signals = signalsApply(view) && view.signals?.length ? chartSignals(shape, view.signals) : null
+  const marks = notes.filter((note) => note.field === shape.axis.key).flatMap((note) => {
+    const index = shape.categories.findIndex((category) => String(category.value ?? '') === String(note.value ?? ''))
+    return index < 0 ? [] : [{ index, label: note.label }]
+  })
+  const tooltipId = tooltips ? view.tooltip : undefined
   return (
-    <div className={compact ? 'rounded-md border border-line p-2' : 'rounded-md border border-line p-4'}>
+    <div className={`relative rounded-md border border-line ${compact ? 'p-2' : 'p-4'}`}>
       {kind === 'pie' ? (
         <PieChart title={title} categoryHeader={shape.categoryHeader} valueLabel={shape.measure.label} height={Math.max(200, Math.min(280, minHeight - 120))} formatValue={number(shape.measure)} onSelect={pick} onContext={context}
           slices={shape.categories.map((category, index) => ({ key: category.key, label: category.label, value: first?.values[index] ?? 0 }))} />
@@ -256,7 +270,11 @@ function ReportChart({ result, view, minHeight, onPick, onContext, yMax, compact
           type={kind === 'line' || kind === 'area' ? kind : 'bar'} stacked={kind === 'stacked' || kind === 'stacked100'} height={Math.max(240, minHeight - 80)}
           formatValue={kind === 'stacked100' ? percent : number(shape.measure)} formatTick={kind === 'stacked100' ? (value) => `${Math.round(value)}%` : undefined}
           onSelect={pick ? (index) => { if (index < shape.categories.length) pick(index) } : undefined} onContext={context ? (index, at) => { if (index < shape.categories.length) context(index, at) } : undefined}
-          reference={signals?.reference} flags={signals?.flags} yMax={yMax} legend={compact && shape.series.length < 2 ? 'none' : 'top'} />
+          reference={signals?.reference} flags={signals?.flags} yMax={yMax} legend={compact && shape.series.length < 2 ? 'none' : 'top'} notes={marks}
+          onActive={tooltipId ? (index, x) => setHover(index === null || index >= shape.categories.length ? null : { index, x }) : undefined} />
+      )}
+      {tooltipId && hover && (
+        <TooltipReport key={`${tooltipId}:${hover.index}`} reportId={tooltipId} field={shape.axis.key} value={shape.categories[hover.index].value} valueWords={shape.categories[hover.index].label} x={hover.x} />
       )}
       {signals && <p className="mt-3 text-xs text-ink-800">{signals.words}</p>}
     </div>

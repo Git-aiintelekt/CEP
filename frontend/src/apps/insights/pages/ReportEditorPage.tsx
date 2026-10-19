@@ -21,6 +21,7 @@ import { ChangeWithPrompt } from '../editor/ChangeWithPrompt'
 import { CustomFieldsDialog } from '../editor/CustomFieldsDialog'
 import { LinkedMeasuresDialog } from '../editor/LinkedMeasuresDialog'
 import { SqlDialog } from '../components/SqlDialog'
+import { TooltipReportDialog } from '../editor/TooltipReportDialog'
 import { DetailReportDialog } from '../editor/DetailReportDialog'
 import { FormatDialog } from '../editor/FormatDialog'
 import { runWords } from '../components/resultWords'
@@ -62,6 +63,7 @@ export function ReportEditorPage() {
   const [customs, setCustoms] = useState(false)
   const [linking, setLinking] = useState(false)
   const [showSql, setShowSql] = useState(false)
+  const [tooltipping, setTooltipping] = useState(false)
   const [layout, setLayoutState] = useState<Layout>(readLayout)
   const setLayout = (next: Layout) => { setLayoutState(next); try { window.localStorage.setItem(LAYOUT_KEY, next) } catch { /* no memory of the choice */ } }
   const [name, setName] = useState<string | null>(null)
@@ -108,6 +110,7 @@ export function ReportEditorPage() {
   if (!report.data.can_edit) return <ErrorState title="You cannot change this report" detail="Only its owner, or a report administrator, can. You can still open and run it." />
 
   const refused = preview.error instanceof ApiError ? preview.error : null
+  const axis = dimensions(definition)[0]
   const result = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-3 text-xs text-ink-800">
@@ -126,6 +129,8 @@ export function ReportEditorPage() {
       ) : (
         <div className="flex min-h-[200px] items-center justify-center rounded-md border border-line"><Spinner label="Running the preview" /></div>
       )}
+      {tooltipping && axis && <TooltipReportDialog dataset={report.data.dataset} field={axis.field} fieldLabel={fieldOf(dataset, axis.field)?.label ?? axis.field} reportId={id} current={viewOf(definition).tooltip}
+        onClose={() => setTooltipping(false)} onApply={(tooltip) => { const { tooltip: _old, ...rest } = viewOf(definition); setDraft(setView(definition, tooltip ? { ...rest, tooltip } : rest)); setTooltipping(false) }} />}
       {showSql && <SqlDialog dataset={report.data.dataset} definition={definition} name={title} onClose={() => setShowSql(false)} />}
       {linking && base && <LinkedMeasuresDialog dataset={base} definition={definition} onClose={() => setLinking(false)} onApply={(blend) => { setDraft(setBlend(definition, blend)); setLinking(false) }} />}
       {customs && base && <CustomFieldsDialog dataset={base} definition={definition} onChange={setDraft} onClose={() => setCustoms(false)} />}
@@ -146,6 +151,7 @@ export function ReportEditorPage() {
         <SegmentedControl label="Editor" options={LAYOUTS} value={layout} onChange={setLayout} />
         <button type="button" className={buttonSecondary} onClick={() => setCustoms(true)}>Custom Fields{definition.derived?.length ? ` · ${definition.derived.length}` : ''}</button>
         {(base?.links?.length ?? 0) > 0 && <button type="button" className={buttonSecondary} onClick={() => setLinking(true)}>Linked Measures{definition.blend?.columns.length ? ` · ${definition.blend.columns.length}` : ''}</button>}
+        {viewOf(definition).type === 'chart' && axis && <button type="button" className={buttonSecondary} onClick={() => setTooltipping(true)}>Tooltip Report{viewOf(definition).tooltip ? ' · 1' : ''}</button>}
         <button type="button" className={buttonSecondary} onClick={() => setDetail(true)}>Detail Report{definition.drillthrough?.length ? ` · ${definition.drillthrough.length}` : ''}</button>
         <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}`)}>Cancel</button>
         <button type="button" className={buttonPrimary} onClick={() => save.mutate()} disabled={!dirty || !complete || save.isPending || definition.columns.length === 0}>Save</button>

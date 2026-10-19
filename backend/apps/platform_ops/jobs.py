@@ -43,6 +43,7 @@ JOBS = {
     "rollup-journey-analytics": ("Rolls journey enrollments and steps up into the reporting tables", 49 * 3600),
     "activate-scheduled-journeys": ("Goes live with journeys approved and scheduled once their time comes", 10 * 60),
     "deliver-report-schedules": ("Emails the Insights reports whose scheduled time has come", 20 * 60),
+    "check-report-alerts": ("Checks the Insights alerts that are due and emails the ones that cross their threshold", 20 * 60),
     "refresh-clickhouse-reporting": ("Loads the recent rows into the ClickHouse reporting tables for workspaces on ClickHouse", 2 * 3600),
 }
 QUIET = {"outbox-relay", "process-list-imports"}                                   # runs every second: only failures and one success a minute are recorded

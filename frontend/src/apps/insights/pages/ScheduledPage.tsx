@@ -10,10 +10,12 @@ import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { formatDateTime } from '@/lib/format'
-import { keys, schedulesApi, useSchedules } from '../api'
+import { useQuery } from '@tanstack/react-query'
+import { alertsApi, keys, schedulesApi, useSchedules } from '../api'
+import { AlertRow } from '../components/AlertsDialog'
 import type { Schedule } from '../types'
 
-const FORMAT: Record<Schedule['format'], string> = { xlsx: 'Excel', csv: 'CSV', pdf: 'PDF' }
+const FORMAT: Record<Schedule['format'], string> = { xlsx: 'Excel', csv: 'CSV', pdf: 'PDF', pptx: 'PowerPoint' }
 
 export function ScheduledPage() {
   const { can, me } = useAuth()
@@ -30,6 +32,7 @@ export function ScheduledPage() {
   const remove = useMutation({ mutationFn: (id: string) => schedulesApi.remove(id), onSuccess: refresh, onError: (error) => toast.failure(error, 'The schedule was not deleted') })
   const rows = (schedules.data?.schedules ?? []).filter((s) => filter === 'all' || (filter === 'mine' ? s.owner_user_id === principal?.id : s.status === 'PAUSED'))
   const mayChange = (s: Schedule) => can('report.admin') || (can('report.edit') && s.owner_user_id === principal?.id)
+  const alerts = useQuery({ queryKey: ['insights', 'alerts', 'all'], queryFn: () => alertsApi.list() })
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Scheduled" description="Reports and dashboards sent by email on a schedule." help={<PageHelp chapter="insights" />} />
@@ -78,6 +81,22 @@ export function ScheduledPage() {
             </tbody>
           </table>
         </div>
+      )}
+      {alerts.data?.ready && (
+        <section aria-label="Alerts" className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-ink-900">Alerts</h2>
+          <p className="text-sm text-ink-800">A report's value checked every hour or every day, with an email when it crosses its threshold. Set one from a report's Alerts.</p>
+          {alerts.data.alerts.length === 0 ? <p className="text-sm text-ink-700">No alert yet.</p> : (
+            <ul className="flex flex-col gap-2">
+              {alerts.data.alerts.map((alert) => (
+                <div key={alert.id} className="flex flex-col gap-1">
+                  <Link to={`/insights/reports/${alert.report_id}`} className="text-xs font-semibold text-brand-800 hover:underline">{alert.report_name ?? 'A deleted report'}</Link>
+                  <AlertRow alert={alert} onChanged={() => void alerts.refetch()} />
+                </div>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
   )

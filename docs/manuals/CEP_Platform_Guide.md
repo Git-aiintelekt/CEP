@@ -864,6 +864,8 @@ Every staff account reads; acknowledging an alert needs change rights.
 | advance-journey-customers | Converts anyone whose goal event arrived, then moves journey customers whose next step is due: waits (durations, a time of day, a date on the record), conditions, splits, messages (through a daily campaign per step), coupon requests, record, tier, segment and list changes, webhooks. A temporary failure is retried after 5, 15 and 60 minutes, then given up (Needs Attention). | 10 min (every minute on the scheduler) |
 | activate-scheduled-journeys | Takes journeys approved for a later time live once it comes, retiring the older live version. | 10 min (every minute on the scheduler) |
 | rollup-journey-analytics | Rolls journey enrolments, conversions, revenue, the message counts and steps into the Performance figures. | 49 h (nightly) |
+| deliver-report-schedules | Emails the Insights reports and dashboards whose scheduled time has come, as Excel, CSV, PDF or PowerPoint. | 20 min (every 5 minutes on the scheduler) |
+| check-report-alerts | Reads the Insights alerts that are due and emails the ones whose value crosses its threshold (once, until it is back). | 20 min (every 5 minutes on the scheduler) |
 
 The cadence is how late a job may be before it reads overdue; the scheduler runs most of them more often. Two chatty jobs (the outbox relay and the list imports) record only failures and one success a minute.
 

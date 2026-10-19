@@ -5,6 +5,9 @@ the workspace and the date; a bold header row that repeats on every page; totals
     report(name, columns, rows, view, totals, *, workspace, when, subtitle) -> bytes
     dashboard(name, description, period_words, tiles, *, workspace, when) -> bytes
         tiles: [{"title", "kind": "figure" | "view", ...the tile's payload}] in the dashboard's order
+    paginated(name, columns, rows, totals, *, size, wide, group, filters, workspace, when) -> bytes
+        the print-ready report: every row (up to PRINT_ROWS), A4 or Letter, "Page n of N", optionally a section per value of
+        the first dimension with its subtotals, each section on a new page
 """
 import io
 from xml.sax.saxutils import escape
@@ -16,7 +19,8 @@ from reportlab.graphics.charts.piecharts import Pie
 from reportlab.graphics.shapes import Drawing, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4, LETTER, landscape
+from reportlab.pdfgen import canvas as pdf_canvas
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
@@ -241,17 +245,15 @@ def _funnel_flowables(title: str, header: str, categories: list, values: list[fl
     return [drawing, Spacer(1, 4), _table([header, measure["label"], "Of the First"], body, [False, True, True])]
 
 
-def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, width: float, kind: str = "bar") -> list:
-    """bars: the first dimension along the bottom, a series per value of the dimension across, else per measure; the numbers under it;
-    a pie or a funnel takes the first series alone"""
+def chart_data(columns: list[dict], rows: list[list], across: str | None, *, most: int = 24) -> dict | None:
+    """a chart's shape from the rows: the first dimension along the bottom (up to `most` values), a series per value of the
+    dimension across, else per measure (six at most); None when the columns cannot make a chart"""
     dims = [(i, c) for i, c in enumerate(columns) if not c.get("aggregate")]
     meas = [(i, c) for i, c in enumerate(columns) if c.get("aggregate")]
     spread = next(((i, c) for i, c in dims if c["key"] == across), None)
     down = [(i, c) for i, c in dims if not spread or c["key"] != across]
     if not meas or not down:
-        return [Paragraph("A chart needs a dimension along the bottom and a value to total.", SMALL)]
-    if not rows:
-        return [Paragraph("No rows match this report.", SMALL)]
+        return None
     axis_i, axis = down[0]
     m_i, measure = meas[0]
     categories = []
@@ -259,7 +261,7 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
         key = str(row[axis_i]) if row[axis_i] is not None else ""
         if key not in [k for k, _ in categories]:
             categories.append((key, cell_text(axis, row[axis_i])))
-    categories = categories[:24]
+    categories = categories[:most]
     at = {k: i for i, (k, _) in enumerate(categories)}
     series = []
     if spread:
@@ -279,6 +281,18 @@ def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, 
                 if key in at:
                     values[at[key]] += float(row[i] or 0)
             series.append((c["label"], values))
+    return {"axis": axis, "measure": measure, "categories": categories, "series": series}
+
+
+def _chart_flowables(columns: list[dict], rows: list[list], across: str | None, width: float, kind: str = "bar") -> list:
+    """bars: the first dimension along the bottom, a series per value of the dimension across, else per measure; the numbers under it;
+    a pie or a funnel takes the first series alone"""
+    data = chart_data(columns, rows, across)
+    if data is None:
+        return [Paragraph("A chart needs a dimension along the bottom and a value to total.", SMALL)]
+    if not rows:
+        return [Paragraph("No rows match this report.", SMALL)]
+    axis, measure, categories, series = data["axis"], data["measure"], data["categories"], data["series"]
     if kind in ("pie", "funnel") and series:
         title = f"{measure['label']} by {axis['label']}"
         return (_pie_flowables if kind == "pie" else _funnel_flowables)(title, axis["label"], categories, series[0][1], measure, width)
@@ -464,6 +478,8 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
             own = " · own dates" if tile.get("own_dates") else ""
             block.append(Paragraph(f"{VIEW_WORDS.get(tile['view'].get('type', 'grid'), 'Grid')} · {result['row_count']:,} row{'s' if result['row_count'] != 1 else ''}{own}", SMALL))
             block += _view_flowables(result["columns"], result["rows"], tile["view"], result.get("totals"), width)
+        elif tile.get("kind") == "text":
+            block += [Paragraph(escape(part).replace("\n", "<br/>"), BODY) for part in tile["text"].split("\n\n") if part.strip()]
         elif tile.get("kind") == "summary":
             block.append(Paragraph("Written by AI from the rows" if tile.get("summary") else "Summary", SMALL))
             if tile.get("summary"):
@@ -480,4 +496,111 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
     return buffer.getvalue()
 
 
-__all__ = ["report", "dashboard", "PageBreak"]
+
+
+# ---------------------------------------------------------------------------------------------------- print-ready
+PRINT_ROWS = 20_000
+PAGE_SIZES = {"a4": A4, "letter": LETTER}
+ADDITIVE = ("sum", "count", "min", "max")
+
+
+def _numbered(name: str, workspace: str, when: str):
+    """a canvas that knows the page count once every page is laid out: "Page 3 of 12" on each, and the report's name above"""
+    class Numbered(pdf_canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._pages = []
+
+        def showPage(self):
+            self._pages.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._pages)
+            for state in self._pages:
+                self.__dict__.update(state)
+                self._decorate(total)
+                super().showPage()
+            super().save()
+
+        def _decorate(self, total: int):
+            width, height = self._pagesize
+            self.saveState()
+            self.setFont("Helvetica-Bold", 9)
+            self.setFillColor(BRAND)
+            self.drawString(14 * mm, height - 12 * mm, "C360 Insights")
+            self.setFont("Helvetica", 8)
+            self.setFillColor(INK_700)
+            self.drawRightString(width - 14 * mm, height - 12 * mm, f"{name[:80]} · {workspace} · {when}")
+            self.setStrokeColor(LINE_SUBTLE)
+            self.line(14 * mm, height - 14 * mm, width - 14 * mm, height - 14 * mm)
+            self.drawRightString(width - 14 * mm, 9 * mm, f"Page {self._pageNumber} of {total}")
+            self.restoreState()
+    return Numbered
+
+
+def _combined(column: dict, values: list):
+    numbers = [float(v) for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    aggregate = column.get("aggregate") if not column.get("compare") else None
+    if not numbers or aggregate not in ADDITIVE:
+        return None
+    return {"sum": sum, "count": sum, "min": min, "max": max}[aggregate](numbers)
+
+
+def _print_table(columns: list[dict], rows: list[list], total: list | None):
+    header = [escape(c["label"] + (" (masked)" if c.get("masked") else "")) for c in columns]
+    numeric = [_is_numeric(c) for c in columns]
+    body = [[escape(cell_text(c, row[i])) for i, c in enumerate(columns)] for row in rows]
+    total_cells = None
+    if total is not None:
+        total_cells = _bold([("Total" if i == 0 else "") if not c.get("aggregate") else (_number(c, total[i]) if total[i] is not None else "") for i, c in enumerate(columns)])
+    return _table(header, body, numeric, total=total_cells)
+
+
+def paginated(name: str, columns: list[dict], rows: list[list], totals=None, *, size: str = "a4", wide: bool = False, group: bool = False,
+              filters: list[str] | None = None, workspace: str, when: str) -> bytes:
+    buffer = io.BytesIO()
+    page = PAGE_SIZES.get(size, A4)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(page) if wide else page, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=20 * mm, bottomMargin=16 * mm, title=name)
+    capped = rows[:PRINT_ROWS]
+    story = [Paragraph(escape(name), TITLE), Paragraph(f"{len(rows):,} row{'s' if len(rows) != 1 else ''}{' · the first ' + format(PRINT_ROWS, ',') + ' printed' if len(rows) > PRINT_ROWS else ''}", SUB)]
+    if filters:
+        story.append(Paragraph("Filters: " + escape("; ".join(filters)), SMALL))
+        story.append(Spacer(1, 4))
+    engine_total = next((t for t in totals or [] if not t.get("keys")), None)
+    measures = [i for i, c in enumerate(columns) if c.get("aggregate")]
+
+    def grand_of(lines: list[list]) -> list:
+        out = [None] * len(columns)
+        for k, i in enumerate(measures):
+            if engine_total is not None and lines is capped and k < len(engine_total.get("values", [])):
+                out[i] = engine_total["values"][k]
+            else:
+                out[i] = _combined(columns[i], [line[i] for line in lines])
+        return out
+
+    dims = [i for i, c in enumerate(columns) if not c.get("aggregate")]
+    if group and dims and len(columns) > 1:
+        g = dims[0]
+        kept = [c for i, c in enumerate(columns) if i != g]
+        sections: dict[str, list] = {}
+        for row in capped:
+            sections.setdefault(str(row[g]) if row[g] is not None else "", []).append(row)
+        for n, (key, lines) in enumerate(sections.items()):
+            if n:
+                story.append(PageBreak())
+            story.append(Paragraph(escape(f"{columns[g]['label']}: {cell_text(columns[g], lines[0][g])}"), H2))
+            story.append(Paragraph(f"{len(lines):,} row{'s' if len(lines) != 1 else ''}", SMALL))
+            sub = grand_of(lines)
+            story.append(_print_table(kept, [[v for i, v in enumerate(line) if i != g] for line in lines], [v for i, v in enumerate(sub) if i != g] if measures else None))
+        if measures:
+            story += [PageBreak(), Paragraph("Total", H2)]
+            grand = grand_of(capped)
+            story.append(_print_table([columns[i] for i in measures], [[grand[i] for i in measures]], None))
+    else:
+        story.append(_print_table(columns, capped, grand_of(capped) if measures and dims else None))
+    doc.build(story, canvasmaker=_numbered(name, workspace, when))
+    return buffer.getvalue()
+
+
+__all__ = ["report", "dashboard", "paginated", "PageBreak"]

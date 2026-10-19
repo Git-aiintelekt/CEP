@@ -2,14 +2,31 @@
  * A dashboard's pages, pure: tabs of rows (`layout.pages`), or the one page a dashboard without tabs is (`layout.rows`).
  * The editors work on one page's rows at a time and write them back; the first extra page turns the rows into page 1.
  */
-import type { DashboardLayout, DashboardPageT, DashboardRow } from '../types'
+import type { DashboardCell, DashboardContainer, DashboardLayout, DashboardPageT, DashboardRow } from '../types'
 
 export const FIRST_PAGE = 'p1'
 export const MAX_PAGES = 10
 
 /** the pages to show: the layout's own, or its rows as one untitled page */
 export function pagesOf(layout: DashboardLayout): DashboardPageT[] {
-  return layout.pages?.length ? layout.pages : [{ id: FIRST_PAGE, title: 'Page 1', rows: layout.rows ?? [] }]
+  return layout.pages?.length ? layout.pages : [{ id: FIRST_PAGE, title: 'Page 1', rows: layout.rows ?? [], ...(layout.canvas ? { canvas: true, cells: layout.cells ?? [] } : {}) }]
+}
+
+/** a page's rows or canvas */
+export function containerOf(layout: DashboardLayout, pageId: string): DashboardContainer {
+  const pages = pagesOf(layout)
+  const page = pages.find((item) => item.id === pageId) ?? pages[0]
+  return { rows: page.rows, ...(page.canvas ? { canvas: true, cells: page.cells ?? [] } : {}) }
+}
+
+/** a page's rows or canvas replaced; a layout without tabs keeps them at the top */
+export function setContainer(layout: DashboardLayout, pageId: string, container: DashboardContainer): DashboardLayout {
+  const plain = (base: object) => {
+    const { canvas: _c, cells: _cells, rows: _r, ...rest } = base as DashboardContainer & Record<string, unknown>
+    return { ...rest, rows: container.canvas ? [] : container.rows, ...(container.canvas ? { canvas: true, cells: container.cells ?? [] as DashboardCell[] } : {}) }
+  }
+  if (!layout.pages?.length) return plain(layout) as DashboardLayout
+  return { ...layout, pages: layout.pages.map((page) => (page.id === pageId ? plain(page) as DashboardPageT : page)) }
 }
 
 export function pageRows(layout: DashboardLayout, pageId: string): DashboardRow[] {

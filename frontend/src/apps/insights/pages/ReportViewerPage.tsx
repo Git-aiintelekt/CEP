@@ -4,7 +4,7 @@
  * chart, a click on a bar, a slice or a stage drills one level down (the report's next dimension, or a date's next
  * bucket); the drill path above it goes back up. Switching the view leaves the drill.
  */
-import { CalendarClock, Code2, Download, FileSpreadsheet, FileText, History, Link2, Lock, MoreHorizontal, Pencil, Share2, Sparkles, Trash2 } from 'lucide-react'
+import { Bell, CalendarClock, Code2, Download, FileSpreadsheet, FileText, History, Link2, Lock, MessageSquare, MoreHorizontal, Pencil, Presentation, Printer, Share2, Sparkles, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -19,7 +19,10 @@ import { useToast } from '@/components/Toast'
 import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useAuth } from '@/auth/AuthContext'
-import { insightsApi, keys, usageApi, useAssistant, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
+import { insightsApi, keys, usageApi, useAssistant, useComments, useDeleteReport, useReport, useRun, useSchedules, useVersions } from '../api'
+import { AlertsDialog } from '../components/AlertsDialog'
+import { CommentsDrawer } from '../components/CommentsDrawer'
+import { PrintDialog } from '../components/PrintDialog'
 import { EmbedDialog } from '../components/EmbedDialog'
 import { ExplainPanel } from '../components/ExplainPanel'
 import { SqlDialog } from '../components/SqlDialog'
@@ -33,7 +36,7 @@ import { ShareDialog } from '../components/ShareDialog'
 import { DrillBar } from '../components/DrillBar'
 import { DEFAULT_VIEW, ReportResult, ViewBar } from '../components/ReportViews'
 import { formatCell, runWords } from '../components/resultWords'
-import type { DrillStep, Explanation, ReportView, ResultColumn } from '../types'
+import type { CommentAnchor, DrillStep, Explanation, ReportView, ResultColumn } from '../types'
 
 /** the values a report was opened through, from the address: [{field, value}] */
 function readThrough(raw: string | null): { field: string; value: unknown }[] {
@@ -67,7 +70,7 @@ export function ReportViewerPage() {
     ...(through.length ? { through } : {}),
   })
   const remove = useDeleteReport()
-  const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | null>(null)
+  const [exporting, setExporting] = useState<'csv' | 'xlsx' | 'pdf' | 'pptx' | null>(null)
   const [versionsOpen, setVersionsOpen] = useState(false)
   const { can, me } = useAuth()
   const [scheduling, setScheduling] = useState(false)
@@ -91,6 +94,12 @@ export function ReportViewerPage() {
   }, [more])
   useEffect(() => { if (id) usageApi.opened('report', id).catch(() => undefined) }, [id])
   const builder = can('report.edit') || can('report.admin')
+  const comments = useComments('report', id)
+  const [talking, setTalking] = useState<{ anchor: CommentAnchor | null } | null>(null)
+  const [alerting, setAlerting] = useState(false)
+  const [printing, setPrinting] = useState(false)
+  const openComments = (comments.data?.comments ?? []).filter((c) => !c.resolved_at)
+  const notes = openComments.filter((c) => c.anchor?.field && !c.anchor.tile_id).map((c) => ({ field: c.anchor!.field as string, value: c.anchor!.value, label: c.body.length > 80 ? `${c.body.slice(0, 79)}…` : c.body }))
 
   const [shownVersion, setShownVersion] = useState<number | null>(null)
   const versions = useVersions(versionsOpen || shownVersion !== null ? id : undefined)
@@ -112,11 +121,11 @@ export function ReportViewerPage() {
     onError: (error) => toast.failure(error, 'The report was not moved'),
   })
 
-  async function exportAs(kind: 'csv' | 'xlsx' | 'pdf') {
+  async function exportAs(kind: 'csv' | 'xlsx' | 'pdf' | 'pptx') {
     if (!id) return
     setExporting(kind)
     try {
-      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : kind === 'pdf' ? insightsApi.exportPdf(id) : insightsApi.exportXlsx(id))
+      const blob = await (kind === 'csv' ? insightsApi.exportCsv(id) : kind === 'pdf' ? insightsApi.exportPdf(id) : kind === 'pptx' ? insightsApi.exportPptx(id) : insightsApi.exportXlsx(id))
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
       link.download = `${report.data?.name ?? 'report'}.${kind}`
@@ -155,19 +164,23 @@ export function ReportViewerPage() {
             {(can('report.edit') || can('report.admin')) && (
               <button type="button" className={buttonSecondary} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
             )}
+            <button type="button" className={buttonSecondary} onClick={() => setTalking({ anchor: null })}><MessageSquare size={16} strokeWidth={1.5} aria-hidden />{openComments.length ? `Comments · ${openComments.length}` : 'Comments'}</button>
+            <button type="button" className={buttonSecondary} onClick={() => setAlerting(true)}><Bell size={16} strokeWidth={1.5} aria-hidden />Alerts</button>
             {explainer?.enabled && <button type="button" className={buttonSecondary} onClick={() => { setExplaining(true); explain.mutate() }} disabled={explain.isPending || !info}><Sparkles size={16} strokeWidth={1.5} aria-hidden />Explain</button>}
             {report.data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/reports/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             <button type="button" className={buttonSecondary} onClick={() => exportAs('csv')} disabled={exporting !== null || !info}><Download size={16} strokeWidth={1.5} aria-hidden />Export CSV</button>
             <button type="button" className={buttonSecondary} onClick={() => exportAs('xlsx')} disabled={exporting !== null || !info}><FileSpreadsheet size={16} strokeWidth={1.5} aria-hidden />Export Excel</button>
             <button type="button" className={buttonSecondary} onClick={() => exportAs('pdf')} disabled={exporting !== null || !info}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
             {report.data.can_edit && <button type="button" className={buttonDanger} onClick={deleteReport} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
-            {(builder || report.data.can_share) && (
+            {(
               <div ref={moreBox} className="relative">
                 <button type="button" aria-haspopup="menu" aria-expanded={more} aria-label="More actions" onClick={() => setMore((open) => !open)} className={iconButtonClass({ pressed: more })}>
                   <MoreHorizontal size={18} strokeWidth={1.5} aria-hidden />
                 </button>
                 {more && (
                   <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-md border border-line bg-surface-overlay shadow-menu">
+                    <MenuRow role="menuitem" divider={false} leading={<Presentation size={16} strokeWidth={1.5} aria-hidden />} title="Export PowerPoint" disabled={exporting !== null || !info} onClick={() => { setMore(false); void exportAs('pptx') }} />
+                    <MenuRow role="menuitem" divider={false} leading={<Printer size={16} strokeWidth={1.5} aria-hidden />} title="Print-Ready PDF" disabled={!info} onClick={() => { setMore(false); setPrinting(true) }} />
                     {builder && <MenuRow role="menuitem" divider={false} leading={<Code2 size={16} strokeWidth={1.5} aria-hidden />} title="Show the SQL" onClick={() => { setMore(false); setShowSql(true) }} />}
                     {report.data.can_share && <MenuRow role="menuitem" divider={false} leading={<Link2 size={16} strokeWidth={1.5} aria-hidden />} title="Embed on Another Site" onClick={() => { setMore(false); setEmbedding(true) }} />}
                   </div>
@@ -222,13 +235,16 @@ export function ReportViewerPage() {
         <div className="flex flex-col gap-3">
           <ViewBar view={shownView} onChange={setView} columns={run.data.columns} dimensions={[]} />
           {shownView.type !== 'grid' && run.data.drill && <DrillBar info={run.data.drill} onPath={setPath} table={shownView.type === 'pivot' || shownView.type === 'hierarchy'} />}
-          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string }}
+          <ReportResult result={run.data} view={shownView} analysis={{ reportId: id as string }} notes={notes} tooltips
             onPick={shownView.type !== 'grid' && canDrill(run.data.drill) ? (column, value) => { if (run.data?.drill && canDrill(run.data.drill, column)) setPath(deeper(run.data.drill, value)) } : undefined}
             onContext={(column: ResultColumn, value, at) => { if (throughable(column)) setMenu({ dataset: report.data.dataset, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id, name: report.data.name } }) }} />
         </div>
       )}
       {scheduling && <ScheduleDialog reportId={id as string} reportName={report.data.name} zone={me?.tenant.timezone ?? 'UTC'} existing={schedule} onClose={() => setScheduling(false)} onSaved={() => setScheduling(false)} />}
-      {menu && <DrillThroughMenu target={menu} onClose={() => setMenu(null)} />}
+      {menu && <DrillThroughMenu target={menu} onClose={() => setMenu(null)} onComment={(target) => setTalking({ anchor: { field: target.field, value: target.value as never, label: target.valueWords } })} />}
+      {talking && <CommentsDrawer kind="report" id={id as string} name={report.data.name} anchor={talking.anchor} onAnchor={(anchor) => setTalking({ anchor })} onClose={() => setTalking(null)} />}
+      {alerting && <AlertsDialog reportId={id as string} reportName={report.data.name} measures={(info?.columns ?? []).filter((c) => c.aggregate && !c.compare && !c.linked)} onClose={() => setAlerting(false)} />}
+      {printing && <PrintDialog reportId={id as string} reportName={report.data.name} firstField={info?.columns.find((c) => !c.aggregate)?.label} onClose={() => setPrinting(false)} />}
       {sharing && <ShareDialog kind="report" id={id as string} name={report.data.name} onClose={() => setSharing(false)} />}
       {showSql && <SqlDialog dataset={report.data.dataset} definition={report.data.definition} name={report.data.name} onClose={() => setShowSql(false)} />}
       {embedding && <EmbedDialog kind="report" id={id as string} name={report.data.name} onClose={() => setEmbedding(false)} />}

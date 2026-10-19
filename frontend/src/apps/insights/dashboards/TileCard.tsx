@@ -23,7 +23,7 @@ import { activeSlicers, crossFilterable, SHOW_LABEL } from './layout'
 
 export type TileLoader = (tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]) => Promise<TileResult>
 
-export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle, selection, slicers, onPick, drillState }: {
+export function TileCard({ tile, period, compare, load, keyPrefix, controls, onTitle, selection, slicers, onPick, drillState, fill = false }: {
   tile: DashboardTile; period: Period; compare: boolean; load: TileLoader; keyPrefix: readonly unknown[]
   /** the editing controls at the right of the header */
   controls?: ReactNode
@@ -36,6 +36,8 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
   onPick?: (column: ResultColumn, value: unknown) => void
   /** the drill, held by the dashboard (a saved view keeps it); without it the tile holds its own */
   drillState?: { on: boolean; path: DrillStep[]; set: (next: { on: boolean; path: DrillStep[] }) => void }
+  /** fills its place on a canvas, the content scrolling inside */
+  fill?: boolean
 }) {
   const active = activeSlicers(selection ?? {})
   const [ownDrilling, setOwnDrilling] = useState(false)
@@ -66,7 +68,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
     if (throughable(column)) setMenu({ dataset: data.report.dataset as string, field: column.key, fieldLabel: column.label, value, valueWords: formatCell(column, value), at, from: { id: data.report.id, name: tile.title || data.report.name } })
   } : undefined
   return (
-    <section aria-label={name || 'Tile'} className="flex min-w-0 flex-col rounded-md border border-line bg-surface">
+    <section aria-label={name || 'Tile'} className={`flex min-w-0 flex-col rounded-md border border-line bg-surface ${fill ? 'h-full' : ''}`}>
       <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
         {onTitle ? (
           <input aria-label="Tile title" value={tile.title ?? ''} placeholder={data && 'report' in data ? data.report.name : 'Title'} onChange={(event) => onTitle(event.target.value)} maxLength={100}
@@ -83,7 +85,7 @@ export function TileCard({ tile, period, compare, load, keyPrefix, controls, onT
         )}
         {controls}
       </header>
-      <div className={`min-w-0 flex-1 ${tile.show === 'figure' ? 'p-3' : 'p-2'}`}>
+      <div className={`min-w-0 flex-1 ${tile.show === 'figure' ? 'p-3' : 'p-2'} ${fill ? 'min-h-0 overflow-auto' : ''}`}>
         {query.isPending ? <div className="flex min-h-24 items-center justify-center"><Spinner label="Running the tile" /></div>
           : query.isError ? <ErrorState error={query.error} onRetry={() => query.refetch()} />
           : (

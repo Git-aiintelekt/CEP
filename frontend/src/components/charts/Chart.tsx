@@ -87,6 +87,10 @@ interface ChartProps {
   flags?: ChartFlag[]
   /** the top of the scale at least this high: small multiples read on one scale */
   yMax?: number
+  /** comments pinned to categories: a marker above each, the comment in the tooltip */
+  notes?: ChartFlag[]
+  /** the category the pointer or the arrow keys are on, and its centre along the x axis (a tooltip report follows it) */
+  onActive?: (index: number | null, x: number) => void
 }
 
 const PAD = { right: 8, top: 8, bottom: 28 }
@@ -128,10 +132,12 @@ interface ChartLegendProps {
   onToggle: (key: string) => void
   /** the chart marks unusual points: the ring is explained */
   flagged?: boolean
+  /** the chart carries comments: the marker is explained */
+  noted?: boolean
 }
 
 /** The legend: a toggle per series (pressed = shown) and the reference as a plain label. Drawn above the chart, or anywhere with legend="none". */
-export function ChartLegend({ series, reference, hidden, onToggle, flagged = false }: ChartLegendProps) {
+export function ChartLegend({ series, reference, hidden, onToggle, flagged = false, noted = false }: ChartLegendProps) {
   return (
     <div role="group" aria-label="Series" className="flex flex-wrap items-center gap-x-4 gap-y-2">
       {colorSeries(series).map((item) => {
@@ -154,6 +160,12 @@ export function ChartLegend({ series, reference, hidden, onToggle, flagged = fal
         <span data-legend-flag className="inline-flex h-7 items-center gap-2 px-1.5 text-sm text-ink-800">
           <span aria-hidden className="h-3 w-3 shrink-0 rounded-full border-2 border-danger" />
           Unusual Point
+        </span>
+      )}
+      {noted && (
+        <span data-legend-note className="inline-flex h-7 items-center gap-2 px-1.5 text-sm text-ink-800">
+          <span aria-hidden className="h-3 w-3 shrink-0 rounded-full bg-ink-700" />
+          Comment
         </span>
       )}
     </div>
@@ -189,7 +201,7 @@ export function Chart(props: ChartProps) {
   return <DrawnChart {...props} height={height} />
 }
 
-function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext, flags = [], yMax }: ChartProps & { height: number }) {
+function DrawnChart({ title, categoryHeader, categories, series, type = 'line', formatValue = formatNumber, formatTick = formatValue, height, reference, legend = 'top', labelStep, hidden: hiddenOutside, onSelect, stacked = false, onContext, flags = [], yMax, notes = [], onActive }: ChartProps & { height: number }) {
   const [box, width] = useWidth()
   const own = useChartLegend()
   const hidden = hiddenOutside ?? own.hidden
@@ -235,6 +247,10 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
 
   useLayoutEffect(() => {
     if (tip.current) setTipWidth(tip.current.offsetWidth || 180)
+  }, [active])
+  useEffect(() => {
+    onActive?.(active, active === null ? 0 : plot.x(active))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
   // a tap outside the chart puts the tooltip away
@@ -301,12 +317,13 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
     return barCentre(plot, barred.length, barred.indexOf(flagged), index)
   }
   const flagAt = (index: number | null) => (flagged && index !== null ? flags.find((flag) => flag.index === index) : undefined)
-  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${item.format(item.value)}`).join(', ')}${flagAt(active) ? `. Unusual: ${flagAt(active)!.label}` : ''}` : ''
+  const notesAt = (index: number | null) => (index === null ? [] : notes.filter((note) => note.index === index))
+  const said = point ? `${point.detail ?? point.label}: ${readings(active!).map((item) => `${item.label} ${item.format(item.value)}`).join(', ')}${flagAt(active) ? `. Unusual: ${flagAt(active)!.label}` : ''}${notesAt(active).map((note) => `. Comment: ${note.label}`).join('')}` : ''
   const columns = [...colored.map((item) => ({ key: item.key, label: item.label, values: item.values, format: item.format ?? formatValue })), ...(reference ? [{ ...reference, format: formatValue }] : [])]
 
   return (
     <figure ref={frame} className="flex flex-col gap-4">
-      {legend === 'top' && <ChartLegend series={series} reference={reference} hidden={hidden} onToggle={own.toggle} flagged={Boolean(flagged)} />}
+      {legend === 'top' && <ChartLegend series={series} reference={reference} hidden={hidden} onToggle={own.toggle} flagged={Boolean(flagged)} noted={notes.length > 0} />}
 
       <div ref={box} className="relative">
         <div tabIndex={0} role="group" aria-label={title} aria-describedby={hintId} data-chart-plot
@@ -330,6 +347,12 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
             {stacked ? <StackedBarSeries plot={plot} series={stackedBars} active={active} /> : <BarSeries plot={plot} series={leftShown.filter((item) => markOf(item) === 'bar')} active={active} />}
             {shown.filter((item) => markOf(item) === 'line').map((item) => <LineSeries key={item.key} plot={item.axis === 'right' ? rightPlot : plot} series={item} area={item.area ?? (type === 'area' && !item.mark)} active={active} />)}
             {reference && <ReferenceLine plot={plot} keyName={reference.key} values={reference.values} color={REFERENCE_COLOR} />}
+            {[...new Set(notes.map((note) => note.index))].filter((index) => index < count).map((index) => (
+              <g key={`note-${index}`} data-note={index}>
+                <line x1={plot.x(index)} x2={plot.x(index)} y1={PAD.top} y2={PAD.top + plotHeight} stroke="var(--color-ink-300)" strokeDasharray="3 3" />
+                <circle cx={plot.x(index)} cy={PAD.top} r={5} fill="var(--color-ink-700)" stroke="var(--color-surface)" strokeWidth={1.5} />
+              </g>
+            ))}
             {flagged && flags.map((flag) => Number.isFinite(flagged.values[flag.index]) && (
               <circle key={`flag-${flag.index}`} data-flag={flag.index} cx={flagX(flag.index)} cy={plot.y(flagged.values[flag.index])} r={6} fill="none" stroke="var(--color-danger)" strokeWidth={2} />
             ))}
@@ -351,6 +374,7 @@ function DrawnChart({ title, categoryHeader, categories, series, type = 'line', 
               </span>
             ))}
             {flagAt(active) && <span data-tooltip-flag className="max-w-60 text-helper text-danger-text">Unusual: {flagAt(active)!.label}</span>}
+            {notesAt(active).map((note, i) => <span key={i} data-tooltip-note className="max-w-60 text-helper text-ink-800">Comment: {note.label}</span>)}
           </div>
         )}
       </div>

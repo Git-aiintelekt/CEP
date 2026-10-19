@@ -18,6 +18,7 @@ const EVERY: { value: ScheduleEvery; label: string }[] = [{ value: 'day', label:
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const FORMATS: { value: ScheduleFormat; label: string; hint: string }[] = [
   { value: 'xlsx', label: 'Excel', hint: 'The view with its totals, the rows after' }, { value: 'csv', label: 'CSV', hint: 'The rows only' }, { value: 'pdf', label: 'PDF', hint: 'The view, on A4' },
+  { value: 'pptx', label: 'PowerPoint', hint: 'A slide of the view, then the rows' },
 ]
 
 export function ScheduleDialog({ reportId, reportName, zone, existing, onClose, onSaved, kind = 'report' }: { reportId: string; reportName: string; zone: string; existing: Schedule | null; onClose: () => void; onSaved: (schedule: Schedule) => void; kind?: 'report' | 'dashboard' }) {
@@ -85,13 +86,13 @@ export function ScheduleDialog({ reportId, reportName, zone, existing, onClose, 
         </div>
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1 text-sm font-semibold text-ink-900">Send as</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {FORMATS.map((item) => {
-              const off = kind === 'dashboard' && item.value !== 'pdf'
+              const off = kind === 'dashboard' && item.value !== 'pdf' && item.value !== 'pptx'
               return (
                 <label key={item.value} className={`flex flex-col gap-0.5 rounded-md border p-3 ${off ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${format === item.value ? 'border-brand-600 bg-brand-100/40' : 'border-line bg-surface hover:bg-surface-hover'}`}>
                   <input type="radio" name="format" value={item.value} checked={format === item.value} disabled={off} onChange={() => setFormat(item.value)} className="sr-only" />
-                  <span className="text-sm font-semibold">{item.label}</span><span className="text-xs text-ink-800">{off ? 'A dashboard goes as PDF' : item.value === 'pdf' && kind === 'dashboard' ? 'The tiles on the saved period' : item.hint}</span>
+                  <span className="text-sm font-semibold">{item.label}</span><span className="text-xs text-ink-800">{off ? 'A dashboard goes as PDF or PowerPoint' : kind === 'dashboard' ? (item.value === 'pdf' ? 'The tiles on the saved period' : 'A slide per tile') : item.hint}</span>
                 </label>
               )
             })}

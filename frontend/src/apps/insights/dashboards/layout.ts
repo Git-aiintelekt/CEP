@@ -3,7 +3,7 @@
  * change returns a new layout; nothing overlaps or leaves a gap because a row never holds more tiles than its width.
  * Also the period's bounds for display; the server computes the real ones in the workspace's zone.
  */
-import type { CatalogDataset, Dashboard, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerRange, SlicerSelection, TileShow } from '../types'
+import type { CatalogDataset, Dashboard, DashboardContainer, DashboardLayout, DashboardRow, DashboardSlicer, DashboardTile, Period, PeriodBounds, PeriodPreset, RowWidth, SlicerCandidate, SlicerRange, SlicerSelection, TileShow } from '../types'
 
 export const WIDTHS: { value: RowWidth; label: string; capacity: number }[] = [
   { value: '1', label: 'One across', capacity: 1 }, { value: '2', label: 'Two across', capacity: 2 }, { value: '3', label: 'Three across', capacity: 3 },
@@ -13,7 +13,7 @@ export const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'month', label: 'This Month' }, { value: 'quarter', label: 'Quarter' }, { value: 'custom', label: 'Custom' },
 ]
 export const SHOW_LABEL: Record<TileShow, string> = { grid: 'Grid', chart: 'Chart', hierarchy: 'Hierarchy', pivot: 'Pivot', figure: 'Figure', summary: 'Written Summary',
-  influencers: 'Key Influencers', decomposition: 'Decomposition Tree' }
+  influencers: 'Key Influencers', decomposition: 'Decomposition Tree', text: 'Text', button: 'Button' }
 export const EMPTY_LAYOUT: DashboardLayout = { rows: [] }
 
 export function capacity(width: RowWidth): number {
@@ -31,10 +31,14 @@ export function rowGridClass(width: RowWidth): string {
   }
 }
 
-/** every tile, of every page */
+/** every tile, of every page, rows and canvas */
 export function tiles(layout: DashboardLayout): DashboardTile[] {
-  return (layout.pages?.length ? layout.pages.flatMap((page) => page.rows) : layout.rows ?? []).flatMap((row) => row.tiles)
+  const containers: DashboardContainer[] = layout.pages?.length ? layout.pages : [layout]
+  return containers.flatMap((container) => [...(container.rows ?? []).flatMap((row) => row.tiles), ...(container.canvas ? container.cells ?? [] : [])])
 }
+
+/** the tiles that run a report: not a text tile or a button */
+export const runsReport = (tile: DashboardTile) => tile.show !== 'text' && tile.show !== 'button'
 
 export function newTileId(layout: DashboardLayout): string {
   const taken = new Set(tiles(layout).map((tile) => tile.id))

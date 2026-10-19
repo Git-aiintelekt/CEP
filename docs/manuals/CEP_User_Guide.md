@@ -2760,6 +2760,69 @@ Workspace administrators add calculated measures to their own datasets (Report D
 2. When the dashboard opens, the tile shows a few sentences from AI on the report's rows for the period, with the main points. It needs the workspace's **Explain This Report** switch (Settings → AI Assistant).
 3. A summary counts as one prompt and is kept for six hours for the same period and slicers, so opening the dashboard again costs nothing. The PDF carries the kept summary; an embed link does not write one.
 
+**Lay a dashboard out freely (Free Canvas)**
+
+1. Edit the dashboard and choose **Free Canvas** above the tiles. The rows become places on a 12-column grid, as they were.
+2. Drag a tile by its grip (top left) to move it, and by its handle (bottom right) to resize it. With the keyboard, focus the grip and use the arrow keys to move, or Shift and the arrows (or the handle) to resize. Tiles may overlap; the later one sits on top.
+3. Each page has its own layout. **Rows** turns a canvas back into rows, read top to bottom.
+4. Press **Done** to save.
+
+**See and shape the phone layout**
+
+1. On a canvas page, press **Phone Preview**: the tiles stack top to bottom as a phone shows them.
+2. Press a tile's phone icon to leave it out on a phone (**Hide on Phone**); the preview says how many are hidden.
+3. On a narrow screen, every dashboard on a canvas reads this way. Rows stack on their own.
+
+**Give a dashboard a theme**
+
+1. Edit the dashboard and choose a **Theme**: Classic, Navy, Earth, Berry or Greyscale.
+2. The theme sets the colours of every chart on the dashboard, in the viewer, in an embed link and in the editor. The PDF and PowerPoint keep the classic colours.
+
+**Add text to a dashboard**
+
+1. Edit the dashboard and press **Add Text**.
+2. Give it an optional **Title** and the **Text**: a blank line starts a paragraph, a line starting with - is a bullet, and **words between two stars on each side** are bold.
+3. Press **Add to Dashboard**. Its pencil changes the words later. The text shows in the PDF and PowerPoint too.
+
+**Add a button that opens a saved view, a page or a report**
+
+1. Save the view first if the button should open one (Views → Save the Current View).
+2. Edit the dashboard, press **Add Button**, give it a **Label**, choose **When Pressed** (Open a Saved View, Go to a Page or Open a Report) and which one.
+3. Press **Add to Dashboard**. In the viewer, pressing the button applies the view, opens the page or opens the report.
+
+**Show another report when someone hovers a value (Tooltip Report)**
+
+1. Make the report to show on hover a detail report: in its editor press **Detail Report**, tick the field the chart runs along (such as Campaign), **Apply**, **Save**.
+2. In the chart's report, press **Tooltip Report** in the editor, pick that report, **Apply**, then **Save**.
+3. In the viewer or on a dashboard, rest the pointer on a value of the chart for a moment: a card shows the first rows of the tooltip report for that value.
+
+**Get an email when a value crosses a threshold (Alerts)**
+
+1. Open the report and press **Alerts**.
+2. Under **New Alert**, choose the value (**When**), the **Condition** (falls below, is at or below, rises above, is at or above) and the **Threshold**. For a percentage, 90 means 90%.
+3. Choose **Check**: Every Day at a time, or Every Hour. Add the addresses to email (people without the right to build reports alert themselves only), and an optional name. Press **Set Alert**.
+4. The value is the report's value over its own filters. When it crosses the threshold you get one email; you are emailed again only after it goes back and crosses again.
+5. **Check Now** reads the value at once. **Pause**, **Resume** and **Delete** are on each alert; Insights → Scheduled lists all your alerts.
+
+**Comment on a report or a dashboard, and pin a note to a value**
+
+1. Open the report or dashboard and press **Comments**. Write in the box at the bottom and press **Add Comment**.
+2. To pin a note to a value, right-click it on a chart or a table and choose **Comment on This Value**. The chart then marks that value, and hovering it shows the note.
+3. On a dashboard, a tile's speech-bubble icon opens comments on that tile, with the count beside it.
+4. **Resolve** puts a thread among the resolved; **Open again** brings it back. You change or delete your own comments; the owner and report administrators delete any.
+
+**Export to PowerPoint**
+
+1. For a report, open **More actions** (the three dots) and choose **Export PowerPoint**. For a dashboard, press **Export PowerPoint**.
+2. The deck has a cover, then a slide per tile (or for the report's view): bars, lines, areas, stacks, pies and funnels as charts you can edit in PowerPoint, figures as large numbers, text and summaries as words, other views as tables.
+3. A schedule can send PowerPoint too: choose it under **Send as**.
+
+**Print a report on numbered pages (Print-Ready PDF)**
+
+1. Open the report, open **More actions** and choose **Print-Ready PDF**.
+2. Choose the **Paper** (A4 or Letter) and the **Orientation**. Tick **A section per** the first field to start each value on a new page with its subtotals.
+3. Press **Download PDF**: every row (up to 20,000), the header row on each page, the filters on the first page, and Page 3 of 12 at the foot of each page.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.

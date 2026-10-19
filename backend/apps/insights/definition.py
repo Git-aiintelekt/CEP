@@ -16,6 +16,7 @@ carry `compare`: up to four time comparisons (apps/insights/compare.py), each on
 """
 import hashlib
 import json
+import re
 from datetime import date
 
 from . import compare as comparisons
@@ -29,6 +30,7 @@ MAX_LIMIT = 100_000
 DIRECTIONS = ("asc", "desc")
 COMBINATORS = ("and", "or")
 SIGNALS = ("forecast", "anomalies")
+UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 
 class DefinitionError(ValueError):
@@ -226,6 +228,11 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
                 raise DefinitionError(f"view.{flag}", "On or off.")
             if raw[flag]:
                 out[flag] = True
+    tooltip = raw.get("tooltip")                                       # a report shown on hover over a chart's value, filtered to it
+    if tooltip is not None:
+        if not isinstance(tooltip, str) or not UUID.match(tooltip):
+            raise DefinitionError("view.tooltip", "The tooltip is one of your reports.")
+        out["tooltip"] = tooltip.lower()
     measure = raw.get("measure")                                       # what Key Influencers or the Decomposition Tree analyses
     if measure is not None:
         if measure not in measures:

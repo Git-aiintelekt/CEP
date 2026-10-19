@@ -3,7 +3,7 @@
  * value's field (their own choice, in the editor's Detail Report), and opens the one picked filtered to the value.
  */
 import { useQuery } from '@tanstack/react-query'
-import { FileText } from 'lucide-react'
+import { FileText, MessageSquarePlus } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -23,7 +23,7 @@ export interface ThroughTarget {
   from: { id?: string; name: string }
 }
 
-export function DrillThroughMenu({ target, onClose }: { target: ThroughTarget; onClose: () => void }) {
+export function DrillThroughMenu({ target, onClose, onComment }: { target: ThroughTarget; onClose: () => void; onComment?: (target: ThroughTarget) => void }) {
   const navigate = useNavigate()
   const box = useRef<HTMLDivElement>(null)
   const reports = useQuery({ queryKey: ['insights', 'reports', { dataset: target.dataset, detail_for: target.field }], queryFn: () => insightsApi.reports({ dataset: target.dataset, detail_for: target.field }) })
@@ -58,6 +58,12 @@ export function DrillThroughMenu({ target, onClose }: { target: ThroughTarget; o
             ))}
           </ul>
         )}
+      {onComment && (
+        <button type="button" role="menuitem" onClick={() => { onClose(); onComment(target) }}
+          className="flex w-full items-center gap-2 border-t border-line-subtle px-3 py-2 text-left text-sm text-ink-900 hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none">
+          <MessageSquarePlus size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-700" />Comment on This Value
+        </button>
+      )}
     </div>
   )
 }

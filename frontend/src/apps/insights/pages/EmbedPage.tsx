@@ -12,7 +12,8 @@ import { ReportResult } from '../components/ReportViews'
 import { runWords } from '../components/resultWords'
 import { DashboardBody } from '../dashboards/DashboardBody'
 import { periodWords } from '../dashboards/layout'
-import { pagesOf } from '../dashboards/pages'
+import { containerOf, pagesOf } from '../dashboards/pages'
+import { themeStyle } from '../dashboards/themes'
 import type { PublicEmbed, TileResult } from '../types'
 
 class EmbedProblem extends Error {
@@ -67,11 +68,11 @@ export default function EmbedPage() {
 function EmbeddedDashboard({ data, base }: { data: Extract<PublicEmbed, { kind: 'dashboard' }>; base: string }) {
   const pages = pagesOf(data.layout)
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" style={themeStyle(data.layout.theme)}>
       {pages.map((page) => (
         <section key={page.id} aria-label={pages.length > 1 ? page.title : data.name} className="flex flex-col gap-3">
           {pages.length > 1 && <h2 className="text-sm font-semibold text-ink-900">{page.title}</h2>}
-          <DashboardBody layout={{ ...data.layout, rows: page.rows }} period={data.period} compare={data.compare} keyPrefix={['insights', 'embed-tiles', base]}
+          <DashboardBody layout={{ ...data.layout, ...containerOf(data.layout, page.id) }} period={data.period} compare={data.compare} keyPrefix={['insights', 'embed-tiles', base]}
             load={(tile) => publicCall<TileResult>(`${base}/tiles/${encodeURIComponent(tile.id)}/run/`, { method: 'POST', body: '{}' })} />
         </section>
       ))}

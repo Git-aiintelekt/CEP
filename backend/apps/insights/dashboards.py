@@ -41,7 +41,12 @@ from apps.delivery.engine import session
 from apps.tenants import context
 
 WIDTHS = {"1": 1, "2": 2, "3": 3, "4": 4, "2-1": 2}
-SHOWS = ("grid", "chart", "hierarchy", "pivot", "figure", "summary")
+SHOWS = ("grid", "chart", "hierarchy", "pivot", "figure", "summary", "text", "button")
+REPORTLESS = ("text", "button")                                         # a tile of words, or a button: no report behind it
+BUTTON_ACTIONS = ("view", "page", "report")
+THEMES = ("default", "navy", "earth", "berry", "greyscale")
+GRID_COLUMNS, MAX_CELL_ROW, MAX_CELL_HEIGHT = 12, 200, 12
+MAX_TEXT, MAX_LABEL = 4000, 60
 PRESETS = ("7d", "30d", "month", "quarter", "custom")
 MAX_ROWS, MAX_TILES = 20, 40
 MAX_SLICERS, SLICER_VALUES = 6, 200
@@ -216,11 +221,70 @@ def _layout(raw, request) -> dict:
                 raise ValidationError({at: "A page has an id of its own."})
             page_ids.add(page["id"])
             title = " ".join(str(page.get("title") or "").split())[:60] or f"Page {p + 1}"
-            out_pages.append({"id": page["id"], "title": title, "rows": _checked_rows(page.get("rows", []), f"{at}.rows", ids, wanted)})
+            out_pages.append({"id": page["id"], "title": title, "rows": _checked_rows(page.get("rows", []), f"{at}.rows", ids, wanted), **_checked_canvas(page, at, ids, wanted)})
         layout = {"rows": [], "pages": out_pages}
     else:
-        layout = {"rows": _checked_rows(raw.get("rows"), "layout.rows", ids, wanted)}
+        layout = {"rows": _checked_rows(raw.get("rows"), "layout.rows", ids, wanted), **_checked_canvas(raw, "layout", ids, wanted)}
+    theme = raw.get("theme")
+    if theme not in (None, "default"):
+        if theme not in THEMES:
+            raise ValidationError({"layout.theme": f"Use one of {', '.join(THEMES)}."})
+        layout["theme"] = theme
     return _checked_reports(raw, request, layout, ids, wanted)
+
+
+def _checked_canvas(raw: dict, base: str, ids: set, wanted: dict) -> dict:
+    """a free canvas: tiles placed on a 12-column grid by column, row, width and height; tiles may overlap, the later on top"""
+    if not raw.get("canvas"):
+        return {}
+    cells = raw.get("cells", [])
+    if not isinstance(cells, list) or len(cells) > MAX_TILES:
+        raise ValidationError({f"{base}.cells": f"A canvas holds {MAX_TILES} tiles at most."})
+    out = []
+    for i, cell in enumerate(cells):
+        at = f"{base}.cells[{i}]"
+        tile = _checked_tile(cell, at, ids, wanted)
+        try:
+            x, y, w, h = (int(cell.get(k)) for k in ("x", "y", "w", "h"))
+        except (TypeError, ValueError):
+            raise ValidationError({at: "A tile on the canvas has a column, a row, a width and a height."}) from None
+        if not (0 <= x < GRID_COLUMNS and 1 <= w <= GRID_COLUMNS and x + w <= GRID_COLUMNS and 0 <= y <= MAX_CELL_ROW and 1 <= h <= MAX_CELL_HEIGHT):
+            raise ValidationError({at: f"A tile fits the {GRID_COLUMNS} columns, starts within row {MAX_CELL_ROW} and is 1 to {MAX_CELL_HEIGHT} rows high."})
+        out.append({**tile, "x": x, "y": y, "w": w, "h": h})
+    return {"canvas": True, "cells": out}
+
+
+def _checked_tile(tile, where: str, ids: set, wanted: dict) -> dict:
+    """one tile: its id (unique across the pages), how it shows, its title; a report tile's report noted to check; a text tile's
+    words; a button's label and what it does; whether it hides on a phone"""
+    if not isinstance(tile, dict) or not TILE_ID.match(str(tile.get("id", ""))) or tile.get("show") not in SHOWS:
+        raise ValidationError({where: "A tile has an id and how to show it (grid, chart, hierarchy, pivot, figure, summary, text or button)."})
+    if tile["id"] in ids:
+        raise ValidationError({where: "Tile ids are unique."})
+    ids.add(tile["id"])
+    title = str(tile.get("title") or "").strip()
+    if len(title) > 100:
+        raise ValidationError({f"{where}.title": "A title is text of up to 100 characters."})
+    out = {"id": tile["id"], "show": tile["show"], **({"title": title} if title else {}), **({"hide_on_phone": True} if tile.get("hide_on_phone") is True else {})}
+    if tile["show"] == "text":
+        text = str(tile.get("text") or "").strip()
+        if not text or len(text) > MAX_TEXT:
+            raise ValidationError({f"{where}.text": f"A text tile has words, up to {MAX_TEXT} characters."})
+        return {**out, "text": text}
+    if tile["show"] == "button":
+        label = " ".join(str(tile.get("label") or "").split())
+        action = tile.get("action")
+        if not label or len(label) > MAX_LABEL:
+            raise ValidationError({f"{where}.label": f"A button has a label of up to {MAX_LABEL} characters."})
+        if not isinstance(action, dict) or action.get("kind") not in BUTTON_ACTIONS or not str(action.get("id") or "").strip():
+            raise ValidationError({f"{where}.action": "A button opens a saved view, a page or a report."})
+        target = str(action["id"]).strip()[:40]
+        if action["kind"] == "report":
+            wanted.setdefault(target, []).append((f"{where}.action", {"show": "button"}))
+        return {**out, "label": label, "action": {"kind": action["kind"], "id": target}}
+    report_id = str(tile.get("report_id") or "")
+    wanted.setdefault(report_id, []).append((where, tile))
+    return {**out, "report_id": report_id, **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {})}
 
 
 def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
@@ -238,21 +302,7 @@ def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
         tiles = row.get("tiles", [])
         if len(tiles) > WIDTHS[width]:
             raise ValidationError({at: f"A row {width} across holds {WIDTHS[width]} tiles."})
-        out_tiles = []
-        for j, tile in enumerate(tiles):
-            where = f"{at}.tiles[{j}]"
-            if not isinstance(tile, dict) or not TILE_ID.match(str(tile.get("id", ""))) or tile.get("show") not in SHOWS:
-                raise ValidationError({where: "A tile has an id, a report and how to show it (grid, chart, hierarchy, pivot, figure or summary)."})
-            if tile["id"] in ids:
-                raise ValidationError({where: "Tile ids are unique."})
-            ids.add(tile["id"])
-            title = str(tile.get("title") or "").strip()
-            if len(title) > 100:
-                raise ValidationError({f"{where}.title": "A title is text of up to 100 characters."})
-            report_id = str(tile.get("report_id") or "")
-            wanted.setdefault(report_id, []).append((where, tile))
-            out_tiles.append({"id": tile["id"], "report_id": report_id, "show": tile["show"], **({"title": title} if title else {}),
-                              **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {})})
+        out_tiles = [_checked_tile(tile, f"{at}.tiles[{j}]", ids, wanted) for j, tile in enumerate(tiles)]
         out_rows.append({"width": width, "tiles": out_tiles})
     return out_rows
 
@@ -270,7 +320,7 @@ def _checked_reports(raw: dict, request, layout: dict, ids: set, wanted: dict) -
             for where, tile in places:
                 if report_id not in found:
                     raise ValidationError({f"{where}.report_id": "Choose one of the reports you can open."})
-                if tile["show"] == "figure":
+                if tile.get("show") == "figure":
                     columns = _json(found[report_id]["definition"]).get("columns", [])
                     if not any(c.get("field") == tile.get("measure") and c.get("aggregate") for c in columns):
                         raise ValidationError({f"{where}.measure": "A figure is one of the report's totalled columns."})
@@ -283,10 +333,18 @@ def _checked_reports(raw: dict, request, layout: dict, ids: set, wanted: dict) -
 
 
 def _tiles(layout: dict) -> list[dict]:
-    """every tile, page by page; a tile of a page carries the page's title for the PDF"""
+    """every tile, page by page (rows, then a canvas top to bottom); a tile of a page carries the page's title for the PDF"""
+    def of(container: dict) -> list[dict]:
+        cells = sorted(container.get("cells", []), key=lambda c: (c.get("y", 0), c.get("x", 0))) if container.get("canvas") else []
+        return [tile for row in container.get("rows", []) for tile in row.get("tiles", [])] + cells
     if layout.get("pages"):
-        return [{**tile, "_page": page["title"]} for page in layout["pages"] for row in page.get("rows", []) for tile in row.get("tiles", [])]
-    return [tile for row in layout.get("rows", []) for tile in row.get("tiles", [])]
+        return [{**tile, "_page": page["title"]} for page in layout["pages"] for tile in of(page)]
+    return of(layout)
+
+
+def report_tiles(layout: dict) -> list[dict]:
+    """the tiles that run a report"""
+    return [tile for tile in _tiles(layout) if tile.get("show") not in REPORTLESS]
 
 
 # ---------------------------------------------------------------------------------------------------- rows
@@ -511,11 +569,21 @@ def _paged(tile: dict, title: str) -> str:
 
 def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: list, mask: bool) -> bytes:
     """Every tile on the dashboard's saved period, as one PDF (apps/insights/pdf.py)."""
-    from apps.insights import pdf
+    return dashboard_document(tenant, user, row, visible_where=visible_where, visible_args=visible_args, mask=mask, fmt="pdf")
+
+
+def dashboard_document(tenant, user, row: dict, *, visible_where: str, visible_args: list, mask: bool, fmt: str = "pdf") -> bytes:
+    """Every tile on the dashboard's saved period, as a PDF or a PowerPoint deck (apps/insights/slides.py)."""
+    from apps.insights import pdf, slides
     from apps.insights.dashboards import period_bounds as _bounds
     layout, period, compare = _json(row["layout"]), _json(row["period"]), bool(row["compare"])
     tiles = []
     for tile in _tiles(layout):
+        if tile["show"] == "button":
+            continue
+        if tile["show"] == "text":
+            tiles.append({"title": _paged(tile, tile.get("title") or "Note"), "kind": "text", "text": tile["text"]})
+            continue
         report = _report_for(tile["report_id"], visible_where, visible_args)
         if report is None:
             tiles.append({"title": _paged(tile, tile_title(tile, None)), "kind": "missing", "detail": "The report behind this tile is gone, or cannot be opened."})
@@ -526,7 +594,8 @@ def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: 
     start, end = date.fromisoformat(bounds["from"]), date.fromisoformat(bounds["to"])
     period_words = f"{start.strftime('%d %b %Y').lstrip('0')} – {end.strftime('%d %b %Y').lstrip('0')}"
     today = _today(tenant)
-    return pdf.dashboard(row["name"], row["description"], period_words, tiles, workspace=tenant.name, when=today.strftime("%d %b %Y").lstrip("0"))
+    build = slides.dashboard if fmt == "pptx" else pdf.dashboard
+    return build(row["name"], row["description"], period_words, tiles, workspace=tenant.name, when=today.strftime("%d %b %Y").lstrip("0"))
 
 
 class TileRunView(APIView):
@@ -539,9 +608,11 @@ class TileRunView(APIView):
         body = request.data if isinstance(request.data, dict) else {}
         if tile_id == "preview":                                     # the editor: a tile as it is, saved or not
             tile = _layout({"rows": [{"width": "1", "tiles": [body.get("tile") or {}]}]}, request)["rows"][0]["tiles"][0]
+            if tile["show"] in REPORTLESS:
+                raise NotFound("A text or button tile does not run.")
         else:
             tile = next((t for t in _tiles(_json(row["layout"])) if t["id"] == tile_id), None)
-        if tile is None:
+        if tile is None or tile["show"] in REPORTLESS:
             raise NotFound("No such tile.")
         period = _period(body["period"]) if body.get("period") is not None else _json(row["period"])
         compare = bool(body.get("compare", row["compare"]))
@@ -570,7 +641,7 @@ class SlicerValuesView(APIView):
         key = str(body.get("field") or "")
         period = _period(body["period"]) if body.get("period") is not None else _json(row["period"])
         bounds = period_bounds(period, _today(tenant))
-        report_ids = list({t["report_id"] for t in _tiles(_json(row["layout"]))})
+        report_ids = list({t["report_id"] for t in report_tiles(_json(row["layout"]))})
         where_sql, args = _visible_sql(request)
         dataset_keys = [r["dataset_key"] for r in _q(f"SELECT DISTINCT r.dataset_key FROM report r WHERE r.id::text = ANY(%s) AND r.deleted_at IS NULL AND {where_sql}", [report_ids, *args])] if report_ids else []
         values, seen, label, searched = [], set(), None, 0
@@ -601,8 +672,9 @@ class SlicerValuesView(APIView):
 
 
 class DashboardExportPdfView(APIView):
-    """The dashboard with its tiles on its saved period, as a PDF."""
+    """The dashboard with its tiles on its saved period, as a PDF (or, DashboardExportPptxView, a PowerPoint deck)."""
     permission_classes = VIEW
+    fmt, mime = "pdf", "application/pdf"
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None, dashboard_id=None):
@@ -610,11 +682,15 @@ class DashboardExportPdfView(APIView):
         tenant = _tenant()
         row = _dashboard_row(dashboard_id, request)
         where, args = _visible_sql(request)
-        body = dashboard_pdf(tenant, request.user, row, visible_where=where, visible_args=args, mask=not _can_see_pii(request))
+        body = dashboard_document(tenant, request.user, row, visible_where=where, visible_args=args, mask=not _can_see_pii(request), fmt=self.fmt)
         safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "dashboard"
-        response = HttpResponse(body, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{safe}.pdf"'
+        response = HttpResponse(body, content_type=self.mime)
+        response["Content-Disposition"] = f'attachment; filename="{safe}.{self.fmt}"'
         return response
+
+
+class DashboardExportPptxView(DashboardExportPdfView):
+    fmt, mime = "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 
 class RunProblem(Exception):

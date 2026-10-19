@@ -400,3 +400,37 @@ and the editor's preview) runs the tile's rows and asks the workspace's default 
 prompt as Explain This Report, recorded as a prompt of kind explain); the reply is kept six hours per report version,
 period, slicers and masking. The PDF, a delivery and an embed never ask a model: they show the kept summary or say there is
 none.
+
+## Dashboards and interaction (patch 0062)
+
+**Free canvas, phone layout, themes**: a page (or a dashboard without pages) holds rows or, with `canvas: true`, `cells`: tiles
+with `x` (0-11), `y`, `w` (1-12) and `h` (1-12) on a 12-column grid of 72px rows (`dashboards._checked_canvas`). Tiles may
+overlap. `hide_on_phone` leaves a tile out when the canvas stacks (narrower than 720px, or the editor's Phone Preview).
+`layout.theme` (navy, earth, berry, greyscale) sets the chart colour variables on the dashboard's box from existing tokens
+(`frontend/src/apps/insights/dashboards/themes.ts`). `_tiles` reads rows then the canvas top to bottom (the PDF's order).
+
+**Text tiles and buttons** (`show: text | button`, no report): a text tile's words (paragraphs, "- " bullets, **bold**, never
+HTML); a button's label and action (`view`, `page` or `report` with its id; a report must be one the editor can open). They do
+not run (`REPORTLESS`): the tile run answers 404, the PDF and PowerPoint carry a text tile's words and leave buttons out.
+
+**Tooltip reports**: `view.tooltip` names a report; hovering a chart value runs it with `through` (the drill-through filter),
+so it must be a detail report that takes the chart's first field.
+
+**Threshold alerts** (`alerts.py`, `report_alert`, `report_alert_check`, both RLS; the job `check-report-alerts`,
+`workers/insights_alerts.py`, every 5 minutes): the value is the report's measure column alone over the report's filters and
+custom fields, read with the owner's rights and masking; `op` and `threshold` decide `met`. An email (`report_alert`
+template) goes on the way into TRIGGERED; the alert stays TRIGGERED, without emails, until a check finds the value back (OK).
+Every check is kept with its value; five failures in a row pause the alert. Without report.edit, an alert goes to its owner only.
+
+**Comments** (`comments.py`, `insights_comment`, RLS): on a report or a dashboard, with an optional anchor (`tile_id`, and or
+`field`, `value`, `label`). Charts mark comments anchored to a value of their first dimension; dashboard tiles count theirs.
+
+**PowerPoint** (`slides.py`, python-pptx 1.0.2 in requirements.txt): `GET /insights/reports/<id>/export.pptx` and
+`/insights/dashboards/<id>/export.pptx`, and `pptx` as a schedule format (patch 0062 widens the constraint). Native charts
+(column, line, area, stacked, 100% stacked, pie, funnel as bars, waterfall as columns; scatter and bubble as XY charts),
+figures as numbers, everything else as a table of its first 12 rows; the chart shaping is `pdf.chart_data`, shared with the PDF.
+
+**Print-ready PDF** (`pdf.paginated`): `export.pdf?layout=print&size=a4|letter&orientation=portrait|landscape&group=1`. Every
+row up to 20,000, the header repeating, the filters in words (`api.filter_words`) on the first page, "Page n of N" from a
+canvas that counts the pages once laid out, and with `group=1` a section per value of the first dimension with its subtotals
+(sums, counts, minimums, maximums), each on a new page, then the grand total.
