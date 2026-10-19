@@ -6,6 +6,8 @@ who can open it marks a thread resolved.
     GET, POST          /insights/comments/?kind=&item=
     PUT, DELETE        /insights/comments/<id>/          {body?, resolved?}
 """
+import json
+
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -56,7 +58,8 @@ def _anchor(raw) -> dict | None:
 
 def _out(row: dict, request) -> dict:
     mine = str(row["author_user_id"]) == str(request.user.pk)
-    return {"id": row["id"], "body": row["body"], "anchor": row["anchor"], "author_name": row["author_name"] or "Someone who left", "mine": mine,
+    anchor = json.loads(row["anchor"]) if isinstance(row["anchor"], str) else row["anchor"]      # JSONB reads back as text on this connection
+    return {"id": row["id"], "body": row["body"], "anchor": anchor, "author_name": row["author_name"] or "Someone who left", "mine": mine,
             "created_at": row["created_at"], "edited_at": row["edited_at"], "resolved_at": row["resolved_at"], "resolved_by_name": row["resolved_by_name"],
             "can_delete": mine or _has(request, "report.admin") or str(row.get("owner_user_id")) == str(request.user.pk)}
 
@@ -92,7 +95,6 @@ class CommentsView(APIView):
         text = str(body.get("body") or "").strip()
         if not text or len(text) > MAX_BODY:
             raise ValidationError({"body": f"Write a comment of up to {MAX_BODY} characters."})
-        import json
         anchor = _anchor(body.get("anchor"))
         with session.tx():
             made = _q("""INSERT INTO insights_comment (tenant_id, kind, item_id, author_user_id, body, anchor) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id::text""",
