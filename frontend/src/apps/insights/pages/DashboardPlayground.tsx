@@ -65,11 +65,17 @@ const VIEWS: Record<string, { result: RunResult; across?: string; name: string; 
   t9: { result: BY_CHANNEL, name: 'Sends by Channel', chart: 'pie' }, t10: { result: JOURNEY, name: 'Journey Funnel', chart: 'funnel' },
 }
 
+/** the Channel slicer's picks (a values slicer) */
+function channelOf(slicers?: SlicerSelection): unknown[] {
+  const picked = slicers?.channel
+  return Array.isArray(picked) ? picked : []
+}
+
 /** the sample rows narrowed by the Channel slicer, as the engine would narrow them */
 function sliced(result: RunResult, slicers?: SlicerSelection): RunResult {
-  const channel = slicers?.channel
+  const channel = channelOf(slicers)
   const at = result.columns.findIndex((column) => column.key === 'channel')
-  if (!channel?.length || at < 0) return result
+  if (!channel.length || at < 0) return result
   const rows = result.rows.filter((row) => channel.some((value) => String(value) === String(row[at])))
   return { ...result, rows, row_count: rows.length }
 }
@@ -86,14 +92,14 @@ function daysOf(week: string): RunResult {
 async function load(tile: DashboardTile, period: Period, compare: boolean, slicers?: SlicerSelection, drill?: DrillStep[]): Promise<TileResult> {
   const bounds = periodBounds(period, new Date('2026-10-15T12:00:00Z'))
   const figure = FIGURES[tile.id]
-  const channelSlice = slicers?.channel?.length ? ['channel'] : []
+  const channelSlice = channelOf(slicers).length ? ['channel'] : []
   if (figure) return { kind: 'figure', value: figure.value, previous: figure.previous, compared: compare, column: figure.column, own_dates: false, bounds, report: report(tile.report_id, figure.name), cached: false, sliced: channelSlice }
   const view = VIEWS[tile.id] ?? VIEWS.t6
   if (tile.id === 't5') {
     const path = drill ?? []
     const rows = path.length ? daysOf(String(path[0].value)) : view.result
     return { kind: 'view', view: { type: 'chart', chart: 'bar', across: 'channel' }, result: sliced(rows, slicers), own_dates: false, bounds, report: report(tile.report_id, view.name),
-      sliced: slicers?.channel?.length ? ['channel'] : [], drill: { levels: WEEKLY_LEVELS, path, depth: path.length } }
+      sliced: channelSlice, drill: { levels: WEEKLY_LEVELS, path, depth: path.length } }
   }
   const has = view.result.columns.some((column) => column.key === 'channel')
   return { kind: 'view', view: { type: tile.show === 'figure' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,

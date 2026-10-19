@@ -27,6 +27,8 @@ def _field(dataset: dict, key: str) -> dict:
 
 
 def levels(dataset: dict, definition: dict) -> list[dict]:
+    from .derived import augment
+    dataset = augment(dataset, definition)
     across = (definition.get("view") or {}).get("across")
     out = []
     for column in definition["columns"]:
@@ -47,6 +49,11 @@ def info(dataset: dict, definition: dict, path: list[dict]) -> dict | None:
     if len(found) < 2:
         return None
     return {"levels": found, "path": path, "depth": len(path)}
+
+
+def keeps_rest(raw) -> bool:
+    """a pivot or a hierarchy asks to keep the levels under the one drilled"""
+    return isinstance(raw, dict) and bool(raw.get("keep_rest"))
 
 
 def path_body(raw) -> list[dict]:
@@ -82,10 +89,13 @@ def bucket_end(start: date, bucket: str) -> date:
     return date(start.year, 12, 31)
 
 
-def drilled(dataset: dict, definition: dict, path: list[dict]) -> dict | None:
-    """The raw definition of the level under the path, or None for the top (the report as it is)."""
+def drilled(dataset: dict, definition: dict, path: list[dict], keep_rest: bool = False) -> dict | None:
+    """The raw definition of the level under the path, or None for the top (the report as it is). `keep_rest`: a pivot or a
+    hierarchy keeps the report's dimensions after the one drilled, so it still has levels to show."""
     if not path:
         return None
+    from .derived import augment
+    dataset = augment(dataset, definition)
     found = levels(dataset, definition)
     if len(path) >= len(found):
         raise DrillError("There is nothing below this level.")
@@ -117,14 +127,20 @@ def drilled(dataset: dict, definition: dict, path: list[dict]) -> dict | None:
         kept = [kind for kind in column.get("compare", []) if temporal or kind not in TIMED]
         measures.append({k: v for k, v in column.items() if k != "compare"} | ({"compare": kept} if kept else {}))
     spread = [c for c in definition["columns"] if "aggregate" not in c and c["field"] == across]
-    columns = [{"field": current["field"], **({"bucket": current["bucket"]} if current.get("bucket") else {})}, *spread, *measures]
+    rest = []
+    if keep_rest:
+        dims = [c for c in definition["columns"] if "aggregate" not in c and c["field"] != across]
+        at = next((i for i, c in enumerate(dims) if c["field"] == current["field"]), len(dims))
+        rest = [{k: v for k, v in c.items() if k in ("field", "bucket", "label")} for c in dims[at + 1:]]
+    columns = [{"field": current["field"], **({"bucket": current["bucket"]} if current.get("bucket") else {})}, *rest, *spread, *measures]
     keys = {c["field"] for c in measures}
     order = [{"field": current["field"], "direction": "asc"}] if temporal else ([o for o in definition.get("orderBy", []) if o["field"] in keys] or [{"field": current["field"], "direction": "asc"}])
     filters = definition.get("filters") or {"combinator": "and", "rules": []}
     filters = {**filters, "rules": [*filters.get("rules", []), *rules]} if filters.get("combinator", "and") == "and" else {"combinator": "and", "rules": [filters, *rules]}
     out = {"columns": columns, "filters": filters, "orderBy": order}
-    if definition.get("limit"):
-        out["limit"] = definition["limit"]
+    for key in ("limit", "derived", "top", "blend"):
+        if definition.get(key):
+            out[key] = definition[key]
     if view:
         out["view"] = view
     return out

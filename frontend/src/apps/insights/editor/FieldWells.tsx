@@ -11,6 +11,7 @@ import { Select } from '@/components/Form'
 import type { CatalogDataset, CatalogField, ReportDefinition } from '../types'
 import { addField, AGGREGATE_LABEL, BUCKET_LABEL, dimensions, fieldOf, inUse, measures, moveField, removeField, rules, setAcross, setAggregate, setBucket, setLimit, setRules, setSort, viewOf } from './definition'
 import { CompareControl } from './CompareControl'
+import { TopControl } from './TopControl'
 import { FilterBuilder } from './FilterBuilder'
 
 const TYPE_ICON = { string: Type, number: Hash, date: Calendar, datetime: Calendar, boolean: ToggleLeft } as const
@@ -161,6 +162,7 @@ export function FieldWells({ dataset, definition, onChange, result }: EditorLayo
           <Select aria-label="Limit" controlSize="sm" value={String(definition.limit ?? '')} onChange={(event) => onChange(setLimit(definition, Number(event.target.value) || undefined))}>
             <option value="">All rows (up to the engine's cap)</option>{[100, 500, 1000, 5000].map((n) => <option key={n} value={n}>First {n.toLocaleString()} rows</option>)}
           </Select>
+          <TopControl definition={definition} onChange={onChange} />
         </section>
       </aside>
     </div>

@@ -9,7 +9,10 @@ from django.db import connections
 
 from datetime import date
 
-from apps.insights import access, catalog, clickhouse, compare, compiler, dashboards, definition, drill, excel, pdf, runner, schedules, shape
+from decimal import Decimal
+from unittest import mock
+
+from apps.insights import access, ai_report, assistant, catalog, clickhouse, compare, compiler, dashboards, definition, derived, drill, embeds, excel, links, pdf, runner, schedules, shape, topn
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -352,6 +355,134 @@ def test_definition_and_compiler(check):
           "r.visibility = 'WORKSPACE'" in where_sql and "r.owner_user_id = %s" in where_sql and (not access.present("report_share") or "user_role" in where_sql) and where_args[0] == "u1")
     check("an administrator sees everything", access.visible_sql("report", "r", "u1", True) == ("TRUE", []))
 
+    # custom fields: groups, bands and if-then labels, as CASE over the sources, usable as rows and filters
+    custom = definition.validate(DATASET, {"columns": [{"field": "c_region"}, {"field": "c_size"}, {"field": "sent", "aggregate": "sum"}],
+                                           "derived": [{"label": "Region", "kind": "group", "field": "campaign_name", "groups": [{"label": "North", "values": ["Fall Launch", "O'Brien's Sale"]}]},
+                                                       {"label": "Size", "kind": "band", "field": "sent", "edges": [100, 1000]},
+                                                       {"label": "Tier", "kind": "rule", "rules": [{"field": "sent", "op": ">=", "value": 500, "label": "Big"}], "other": "Small"}],
+                                           "filters": {"combinator": "and", "rules": [{"field": "c_tier", "operator": "=", "value": "Big"}]}})
+    check("custom fields get keys from their labels, bands their words", [d["key"] for d in custom["derived"]] == ["c_region", "c_size", "c_tier"]
+          and custom["derived"][1]["labels"] == ["Under 100", "100 to under 1,000", "1,000 and over"])
+    cc2 = compiler.compile(DATASET, custom, T, "America/New_York", limit=10)
+    check("a group is a CASE over its source with the values escaped as literals; a band compares with its edges; a filter on a custom field reads its CASE",
+          """(CASE WHEN "campaign_name" IN ('Fall Launch', 'O''Brien''s Sale') THEN 'North' ELSE 'Other' END) AS """ + '"c0"' in cc2.sql
+          and """(CASE WHEN "sent_n" IS NULL THEN NULL WHEN "sent_n" < 100 THEN 'Under 100' WHEN "sent_n" < 1000 THEN '100 to under 1,000' ELSE '1,000 and over' END) AS """ + '"c1"' in cc2.sql
+          and """(CASE WHEN "sent_n" >= 500 THEN 'Big' ELSE 'Small' END) = %s""" in cc2.sql and cc2.sql.count("%s") == len(cc2.params), cc2.sql)
+    check("a percent sign in a value is doubled for the positional dialects, a backslash too for MySQL",
+          derived._literal("50% off", "postgresql") == "'50%% off'" and derived._literal("a\\b", "mysql") == "'a\\\\b'" and derived._literal("50% off", "clickhouse") == "'50% off'")
+    check("a custom field over personal data is personal, and a band needs a number source, edges going up",
+          derived.augment(DATASET, {"derived": [{"key": "c_who", "label": "Who", "kind": "group", "field": "party_id", "groups": [{"label": "A", "values": ["p1"]}], "other": "Other"}]})["fields"][-1]["sensitivity"] == "PII"
+          and refused({"columns": [{"field": "channel"}], "derived": [{"label": "S", "kind": "band", "field": "channel", "edges": [1]}]}, "derived[0].field")
+          and refused({"columns": [{"field": "channel"}], "derived": [{"label": "S", "kind": "band", "field": "sent", "edges": [10, 5]}]}, "derived[0].edges"))
+    tc2 = compiler.compile_totals(DATASET, custom, T, "America/New_York", [(), ("c_region",)], limit=10)
+    check("the totals query computes a custom field in its subquery too", """(CASE WHEN "campaign_name" IN""" in tc2.sql and tc2.sql.count("%s") == len(tc2.params))
+
+    # Top N with Others: the first dimension's top values by the sorted measure, the rest folded per other dimension
+    ranked = definition.validate(DATASET, {"columns": [{"field": "campaign_name"}, {"field": "channel"}, {"field": "sent", "aggregate": "sum"}, {"field": "messages", "aggregate": "count"}],
+                                           "orderBy": [{"field": "sent", "direction": "desc"}], "top": {"n": 2, "others": True}})
+    tcols = [{"key": "campaign_name"}, {"key": "channel"}, {"key": "sent", "aggregate": "sum"}, {"key": "messages", "aggregate": "count"}]
+    trows = [["A", "EMAIL", 50, 5], ["B", "EMAIL", 40, 4], ["C", "EMAIL", 30, 3], ["D", "SMS", 20, 2], ["C", "SMS", 1, 1], ["A", "SMS", 5, 1]]
+    out_t = topn.apply(ranked, tcols, trows)
+    check("Top 2 keeps A and B; C and D fold into Others per channel, summed", out_t == [["A", "EMAIL", 50, 5], ["B", "EMAIL", 40, 4], ["A", "SMS", 5, 1], ["Others", "EMAIL", 30, 3], ["Others", "SMS", 21, 3]], str(out_t))
+    check("without Others the rest is left out; top needs a value to rank by",
+          topn.apply({**ranked, "top": {"n": 1, "others": False}}, tcols, trows) == [["A", "EMAIL", 50, 5], ["A", "SMS", 5, 1]]
+          and refused({"columns": [{"field": "channel"}], "top": {"n": 3}}, "top") and refused({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "top": {"n": 0}}, "top"))
+    check("an average or a comparison in an Others line is empty", topn.apply({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "avg"}], "top": {"n": 1, "others": True}},
+                                                                             [{"key": "channel"}, {"key": "sent", "aggregate": "avg"}], [["A", 5], ["B", 3]]) == [["A", 5], ["Others", None]])
+
+    # drilling in a pivot or a hierarchy keeps the levels under the one drilled
+    stacked_levels = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}],
+                                                   "view": {"type": "hierarchy"}})
+    kept = definition.validate(DATASET, drill.drilled(DATASET, stacked_levels, [{"field": "submitted_at", "bucket": "year", "value": "2026-01-01"}], keep_rest=True))
+    check("a hierarchy drilled into 2026 shows its quarters, then channel and campaign under them",
+          [(c["field"], c.get("bucket")) for c in kept["columns"]] == [("submitted_at", "quarter"), ("channel", None), ("campaign_name", None), ("sent", None)], str(kept["columns"]))
+    by_channel = definition.validate(DATASET, drill.drilled(DATASET, stacked_levels, [{"field": "submitted_at", "bucket": "year", "value": "2026-01-01"}, {"field": "submitted_at", "bucket": "quarter", "value": "2026-07-01"},
+                                                                                     {"field": "submitted_at", "bucket": "month", "value": "2026-09-01"}, {"field": "submitted_at", "bucket": "day", "value": "2026-09-02"}], keep_rest=True))
+    check("past the days, channel with campaign under it", [c["field"] for c in by_channel["columns"]] == ["channel", "campaign_name", "sent"])
+
+    # range slicers: a number or a date between two ends, or from one, as rules where the dataset has the field
+    check("a range comes from the body as its ends; an empty end is left out", dashboards._slicers_body({"sent": {"from": 100, "to": ""}, "channel": ["SMS"]}) == {"sent": {"from": 100}, "channel": ["SMS"]})
+    check("ends become between, at least or at most", dashboards._slicer_rules(DATASET, {"sent": {"from": 100, "to": 500}, "submitted_at": {"to": "2026-09-30"}, "messages": {"from": 2}})
+          == [{"field": "sent", "operator": "between", "value": [100, 500]}, {"field": "submitted_at", "operator": "<=", "value": "2026-09-30"}, {"field": "messages", "operator": ">=", "value": 2}])
+    check("a range slicer is a number field or a date dimension; a text field is not",
+          dashboards._slicers_layout([{"field": "sent", "kind": "range"}, {"field": "submitted_at", "kind": "range"}], [DATASET])
+          == [{"field": "sent", "label": "Sent Count", "kind": "range", "type": "number"}, {"field": "submitted_at", "label": "Sent", "kind": "range", "type": "datetime"}])
+    try:
+        dashboards._slicers_layout([{"field": "channel", "kind": "range"}], [DATASET])
+        check("a range on text is refused", False)
+    except Exception as exc:                                                       # noqa: BLE001
+        check("a range on text is refused", "layout.slicers[0]" in str(exc))
+    check("the tiles of every page, each with its page's title", dashboards._tiles({"rows": [], "pages": [{"id": "p1", "title": "Overview", "rows": [{"width": "1", "tiles": [{"id": "t1"}]}]},
+                                                                                                        {"id": "p2", "title": "Trends", "rows": [{"width": "1", "tiles": [{"id": "t2"}]}]}]})
+          == [{"id": "t1", "_page": "Overview"}, {"id": "t2", "_page": "Trends"}])
+
+    # linked datasets: the catalogue's link, the blend checked, the other side's definition, the rows matched
+    orders = {"key": "attributed_orders", "label": "Attributed Orders", "fields": [
+        {"key": "campaign_name", "label": "Credited To", "type": "string", "role": "dimension", "aggregates": [], "format": None, "sensitivity": "NORMAL"},
+        {"key": "channel", "label": "Channel", "type": "string", "role": "dimension", "aggregates": [], "format": None, "sensitivity": "NORMAL"},
+        {"key": "ordered_at", "label": "Placed", "type": "datetime", "role": "dimension", "aggregates": [], "format": "datetime", "sensitivity": "NORMAL"},
+        {"key": "amount", "label": "Amount", "type": "number", "role": "measure", "aggregates": ["sum", "avg"], "format": "money", "sensitivity": "NORMAL"},
+        {"key": "buyers", "label": "Buyers", "type": "number", "role": "measure", "aggregates": ["count"], "format": None, "sensitivity": "PII"}]}
+    link = {"from": "messages", "to": "attributed_orders", "label": "Orders credited", "pairs": [["campaign_name", "campaign_name"], ["channel", "channel"]], "time_pair": ["submitted_at", "ordered_at"]}
+    attached = links.attach([DATASET, orders], [link])
+    linked = attached[0]
+    check("the catalogue gives a dataset its links with the other side's measures, personal ones left out",
+          linked["links"][0]["to"] == "attributed_orders" and [m["key"] for m in linked["links"][0]["measures"]] == ["amount"] and "links" not in attached[1])
+    blended = definition.validate(linked, {"columns": [{"field": "campaign_name"}, {"field": "submitted_at", "bucket": "month"}, {"field": "sent", "aggregate": "sum"}],
+                                           "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "=", "value": "EMAIL"}, {"field": "submitted_at", "operator": "last_days", "value": 30},
+                                                                                      {"field": "party_id", "operator": "is_not_null"}]},
+                                           "orderBy": [{"field": "attributed_orders.amount", "direction": "desc"}],
+                                           "blend": {"dataset": "attributed_orders", "columns": [{"field": "amount", "aggregate": "sum"}]}})
+    check("a blend keeps its measures, and the report may sort by one of them",
+          blended["blend"] == {"dataset": "attributed_orders", "columns": [{"field": "amount", "aggregate": "sum"}]} and blended["orderBy"] == [{"field": "attributed_orders.amount", "direction": "desc"}])
+    other_def, own = links.other_definition(linked, blended)
+    check("the other side groups by the same things renamed, takes the rules on what both share, and leaves the rest to the report's side",
+          other_def["columns"] == [{"field": "campaign_name"}, {"field": "ordered_at", "bucket": "month"}, {"field": "amount", "aggregate": "sum"}]
+          and other_def["filters"]["rules"] == [{"field": "channel", "operator": "=", "value": "EMAIL"}, {"field": "ordered_at", "operator": "last_days", "value": 30}] and own == ["party_id"], str(other_def))
+    check("the report's own query leaves the sort on the linked measure for later", 'ORDER BY "c0" ASC NULLS LAST' in compiler.compile(linked, blended, T, "America/New_York", limit=10).sql)
+    merged = links.merge(blended, [["A", date(2026, 9, 1), 10], ["B", date(2026, 9, 1), 5]], [["A", date(2026, 9, 1), Decimal("99.5")], ["C", date(2026, 9, 1), 7]])
+    check("each row gets the other side's total for its groups, empty where there is none; the other side's rows with no match are not shown",
+          merged == [["A", date(2026, 9, 1), 10, Decimal("99.5")], ["B", date(2026, 9, 1), 5, None]], str(merged))
+    check("the blended column is named after its dataset", links.columns(linked, blended, orders)[0] | {} == {"key": "attributed_orders.amount", "label": "Amount (Attributed Orders)", "type": "number",
+                                                                                                              "format": "money", "aggregate": "sum", "linked": "attributed_orders"})
+
+    def refused_linked(raw, where):
+        try:
+            definition.validate(linked, raw)
+            return False
+        except DefinitionError as exc:
+            return exc.field == where
+    plus = {"dataset": "attributed_orders", "columns": [{"field": "amount", "aggregate": "sum"}]}
+    check("a blend groups only by what both share, a date only by a period",
+          refused_linked({"columns": [{"field": "party_id"}, {"field": "sent", "aggregate": "sum"}], "blend": plus}, "columns[0].field")
+          and refused_linked({"columns": [{"field": "submitted_at"}, {"field": "sent", "aggregate": "sum"}], "blend": plus}, "columns[0].field"))
+    check("a blend has no comparisons, no Top N, no hierarchy, and only the other side's offered measures",
+          refused_linked({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}], "blend": plus}, "blend")
+          and refused_linked({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "top": {"n": 2}, "blend": plus}, "blend")
+          and refused_linked({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "view": {"type": "hierarchy"}, "blend": plus}, "blend")
+          and refused_linked({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "blend": {"dataset": "attributed_orders", "columns": [{"field": "buyers", "aggregate": "count"}]}}, "blend.columns[0].field")
+          and refused_linked({"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}], "blend": {"dataset": "contacts", "columns": []}}, "blend.dataset"))
+    check("a drill carries the blend down", definition.validate(linked, drill.drilled(linked, definition.validate(linked, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "sent", "aggregate": "sum"}], "blend": plus}),
+                                                                                    [{"field": "submitted_at", "bucket": "year", "value": "2026-01-01"}]))["blend"] == plus)
+
+    # Show the SQL: the statement with its values written in; the escaped percent sign of the statement, not the value's
+    readable = ai_report.readable(c)
+    check("Show the SQL writes every value in", "%s" not in readable and "'EMAIL'" in readable and "('SMS', 'EMAIL')" in readable and readable.endswith("LIMIT 51 OFFSET 0")
+          and "'%Fall \\%%'" in readable, readable)
+    check("a ClickHouse statement's named values are written in, quotes doubled",
+          ai_report.readable(compiler.Compiled("SELECT {p0:String}, {p1:Int64}", {"p0": "O'Neil", "p1": 5}, [])) == "SELECT 'O''Neil', 5")
+    changed = ai_report._changed({"kind": "draft", "definition": {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}]}, "view": {"type": "chart", "chart": "bar"}},
+                                 DATASET, {"top": {"n": 3, "others": True}, "view": {"type": "grid"}}, 1000)
+    check("a change keeps what the model cannot touch (Top N here) and takes the new view", changed["definition"]["top"] == {"n": 3, "others": True}
+          and changed["view"]["chart"] == "bar")
+    table, left_out = ai_report.rows_text({"columns": [{"label": "Campaign"}, {"label": "Customer", "masked": True}, {"label": "Sent"}], "rows": [["Fall", "•••", 12.0], ["Spring", "•••", 1234.5]]})
+    check("explaining sends the rows without the masked columns", table == "Campaign | Sent\nFall | 12\nSpring | 1,234.5" and left_out == ["Customer"], table)
+    check("an embed keeps only the secret's hash", len(embeds.digest("abc")) == 64 and embeds.digest("abc") == embeds.digest("abc") != embeds.digest("abd"))
+    from django.test import RequestFactory
+    from apps.tenants import resolver
+    with mock.patch.object(resolver, "_lookup", side_effect=lambda key, value: (key, value)):
+        check("an embed's address names its workspace", resolver.resolve_tenant(RequestFactory().get("/api/v1/public/embed/NWA/s3cret/")) == ("code", "NWA"))
+
     # drill-down: the levels, and the definition of the level under a path
     yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
@@ -563,6 +694,21 @@ def test_api(check, world):
     vw = view.json() if view.status_code == 200 else {}
     check("a view tile answers the rows in the tile's view for the period asked", view.status_code == 200 and vw.get("kind") == "view" and vw["view"]["type"] == "chart"
           and vw["bounds"] == {"from": "2026-09-01", "to": "2026-09-30", "previous_from": "2026-08-02", "previous_to": "2026-08-31"} and isinstance(vw["result"]["rows"], list), view.content[:300])
+    # pages: a dashboard of two pages saves, runs a tile of the second, and exports
+    two = world.api("put", f"/api/v1/insights/dashboards/{did}/", {"row_version": world.api("get", f"/api/v1/insights/dashboards/{did}/").json()["row_version"], "layout": {"pages": [
+        {"id": "p1", "title": "Overview", "rows": [{"width": "1", "tiles": [{"id": "t1", "report_id": rid, "show": "chart"}]}]},
+        {"id": "p2", "title": "Detail", "rows": [{"width": "1", "tiles": [{"id": "t9", "report_id": rid, "show": "grid"}]}]}]}})
+    check("a dashboard keeps its pages", two.status_code == 200 and [p["title"] for p in two.json()["layout"]["pages"]] == ["Overview", "Detail"], two.content[:300])
+    check("a tile of the second page runs", world.api("post", f"/api/v1/insights/dashboards/{did}/tiles/t9/run/", {}).json().get("kind") == "view")
+    dup = world.api("put", f"/api/v1/insights/dashboards/{did}/", {"row_version": two.json()["row_version"], "layout": {"pages": [
+        {"id": "p1", "title": "A", "rows": [{"width": "1", "tiles": [{"id": "t1", "report_id": rid, "show": "chart"}]}]}, {"id": "p2", "title": "B", "rows": [{"width": "1", "tiles": [{"id": "t1", "report_id": rid, "show": "grid"}]}]}]}})
+    check("a tile id is unique across the pages", dup.status_code == 400, dup.content[:200])
+    check("the two-page dashboard exports", world.api("get", f"/api/v1/insights/dashboards/{did}/export.pdf").status_code == 200)
+    if access.present("dashboard_view"):
+        view = world.api("post", f"/api/v1/insights/dashboards/{did}/views/", {"name": "SMS only", "state": {"selection": {"channel": ["SMS"]}, "page": "p2", "period": {"preset": "7d"}}})
+        check("a view saves the slicers, the page and the period", view.status_code == 201 and view.json()["state"]["selection"] == {"channel": ["SMS"]} and view.json()["mine"], view.content[:200])
+        check("a person's views are listed", [v["name"] for v in world.api("get", f"/api/v1/insights/dashboards/{did}/views/").json()["views"]] == ["SMS only"])
+        check("a view is removed by its owner", world.api("delete", f"/api/v1/insights/dashboards/{did}/views/{view.json()['id']}/").status_code == 204)
     listed_d = world.api("get", "/api/v1/insights/dashboards/").json()["dashboards"]
     check("the list counts the tiles", any(d["id"] == did and d["tiles"] == 2 and d["can_edit"] for d in listed_d), str(listed_d)[:200])
     board_pdf = world.api("get", f"/api/v1/insights/dashboards/{did}/export.pdf")
@@ -583,6 +729,55 @@ def test_api(check, world):
           and any(r["report_id"] == rid and r["kind"] == "run" and r["outcome"] == "OK" and r["user_name"] and r["duration_ms"] is not None for r in body_log.get("runs", []))
           and body_log["summary"]["runs"] >= 3 and body_log["summary"]["median_ms"] is not None and any(p["name"] for p in body_log["people"]), log.content[:300])
     check("the run log narrows by outcome", all(r["outcome"] == "TIMEOUT" for r in world.api("get", "/api/v1/insights/runs/?outcome=TIMEOUT").json()["runs"]))
+
+    # the smaller gaps: Show the SQL, Explain This Report and Change with a Prompt (the provider faked), usage, embed links, linked datasets
+    shown_sql = world.api("post", "/api/v1/insights/reports/sql/", draft)
+    statements = shown_sql.json().get("statements", []) if shown_sql.status_code == 200 else []
+    check("Show the SQL gives the statement with its values written in", shown_sql.status_code == 200 and '"reporting"."rpt_messages"' in statements[0]["sql"] and "%s" not in statements[0]["sql"], shown_sql.content[:300])
+    model = {"id": "anthropic:claude-haiku-5-5", "provider": "anthropic", "provider_name": "Claude (Anthropic)", "mark": "A", "model": "claude-haiku-5-5", "label": "Claude Haiku 5.5", "source": "own"}
+    offered = {"enabled": True, "reason": None, "models": [model], "default_model": model["id"], "usage": {"used": 0, "limit": None, "words": ""}}
+    with mock.patch.object(assistant, "offer", return_value=offered), mock.patch.object(assistant, "effective_providers", return_value={"anthropic": {}}), \
+            mock.patch.object(assistant, "call_model", return_value=({"summary": "Fall Launch sent the most.", "points": ["Email carried most of it."], "caution": ""}, {"in": 10, "out": 5})) as asked:
+        explained = world.api("post", f"/api/v1/insights/reports/{rid}/explain/", {"model": model["id"]})
+        sent_rows = asked.call_args.args[4] if asked.call_args else ""
+        check("Explain This Report sends the report's rows and answers in a few sentences", explained.status_code == 200 and explained.json()["summary"] == "Fall Launch sent the most."
+              and explained.json()["points"] == ["Email carried most of it."] and "Sends by campaign" in sent_rows and "Campaign" in sent_rows, explained.content[:300])
+        with mock.patch.object(assistant, "workspace_settings", return_value={"enabled": True, "providers": {}, "explain": False}):
+            off = world.api("post", f"/api/v1/insights/reports/{rid}/explain/", {"model": model["id"]})
+            check("with the workspace's Explain switch off, explaining is refused in words", off.status_code == 409 and "switched off" in off.json()["detail"])
+        asked.return_value = ({"kind": "draft", "definition": {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}]}, "view": {"type": "chart", "chart": "bar"}}, {"in": 10, "out": 5})
+        changed_api = world.api("post", "/api/v1/insights/assistant/change/", {**draft, "prompt": "By channel only, as a bar chart", "model": model["id"]})
+        check("Change with a Prompt answers the changed definition, checked", changed_api.status_code == 200 and changed_api.json()["kind"] == "draft"
+              and [c["field"] for c in changed_api.json()["definition"]["columns"]] == ["channel", "sent"] and changed_api.json()["view"]["chart"] == "bar", changed_api.content[:300])
+    prompts = world.sql("SELECT kind, outcome FROM ai_prompt WHERE kind IN ('explain', 'change') ORDER BY created_at", fetch=True)
+    check("an explanation and a change are recorded as prompts", ("explain", "DRAFT") in prompts and ("change", "DRAFT") in prompts, str(prompts))
+    check("the usage of an opening is recorded once a patch 0061 database has the table", world.api("post", "/api/v1/insights/usage/", {"kind": "report", "id": rid}).status_code == 204)
+    usage = world.api("get", "/api/v1/insights/usage/?days=30").json()
+    if access.present("insights_usage"):
+        check("the usage page counts the opening", any(i["item_id"] == rid and i["opens"] >= 1 for i in usage["items"]), str(usage)[:300])
+        check("opening again at once is not counted twice", world.api("post", "/api/v1/insights/usage/", {"kind": "report", "id": rid}).status_code == 204
+              and next(i for i in world.api("get", "/api/v1/insights/usage/?days=30").json()["items"] if i["item_id"] == rid)["opens"] == 1)
+    else:
+        check("before patch 0061 the usage page says it is not ready", usage["ready"] is False)
+    if access.present("insights_embed"):
+        from django.test import Client
+        made = world.api("post", "/api/v1/insights/embeds/", {"kind": "report", "item_id": rid, "label": "Partner site", "days": 30})
+        secret_path = made.json().get("path", "") if made.status_code == 201 else ""
+        anonymous = Client()
+        public = anonymous.get("/api/v1/public" + secret_path + "/") if secret_path else None
+        check("an embed link opens the report without signing in, personal data masked", made.status_code == 201 and public is not None and public.status_code == 200
+              and public.json()["kind"] == "report" and public.json()["name"] == "Sends by campaign", (made.content[:200], public.content[:200] if public is not None else None))
+        code = secret_path.split("/")[2] if secret_path else "x"
+        check("a wrong secret is 404", anonymous.get(f"/api/v1/public/embed/{code}/wrong-secret/").status_code == 404)
+        check("a revoked link is 404", world.api("delete", f"/api/v1/insights/embeds/{made.json()['id']}/").status_code == 204
+              and anonymous.get("/api/v1/public" + secret_path + "/").status_code == 404)
+    else:
+        check("before patch 0061 an embed link cannot be made", world.api("post", "/api/v1/insights/embeds/", {"kind": "report", "item_id": rid}).status_code == 409)
+    if links.present():
+        joined = world.api("post", "/api/v1/insights/reports/preview/", {"dataset": "messages", "definition": {"columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}],
+                                                                                                               "blend": {"dataset": "attributed_orders", "columns": [{"field": "amount", "aggregate": "sum"}]}}})
+        check("a report on Messages adds Amount from Attributed Orders", joined.status_code == 200 and [c["key"] for c in joined.json()["columns"]] == ["campaign_name", "sent", "attributed_orders.amount"]
+              and joined.json()["linked"]["label"] == "Attributed Orders", joined.content[:300])
 
     gone = world.api("delete", f"/api/v1/insights/reports/{rid}/")
     check("a deleted report is gone from the list", gone.status_code == 204 and not any(r["id"] == rid for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))

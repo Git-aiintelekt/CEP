@@ -5,7 +5,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Plus, X } from 'lucide-react'
 
 import { Select } from '@/components/Form'
-import type { DashboardLayout, Period, ResultColumn, RowWidth, SlicerSelection } from '../types'
+import type { DashboardLayout, DrillStep, Period, ResultColumn, RowWidth, SlicerSelection } from '../types'
 import { addRow, capacity, filled, moveRow, moveTile, removeRow, removeTile, rowGridClass, setRowWidth, updateTile, WIDTHS } from './layout'
 import { TileCard, type TileLoader } from './TileCard'
 
@@ -16,12 +16,15 @@ interface Editing {
 
 const icon = 'inline-flex h-6 w-6 items-center justify-center rounded-control-sm text-ink-700 hover:bg-surface-hover hover:text-ink-900 disabled:opacity-40 disabled:hover:bg-transparent'
 
-export function DashboardBody({ layout, period, compare, load, keyPrefix, editing, selection, onPick }: {
+export function DashboardBody({ layout, period, compare, load, keyPrefix, editing, selection, onPick, drills, onDrill }: {
   layout: DashboardLayout; period: Period; compare: boolean; load: TileLoader; keyPrefix: readonly unknown[]; editing?: Editing
   /** the slicers' picked values (viewing) */
   selection?: SlicerSelection
   /** a dimension value clicked on a tile (viewing): the cross-filter */
   onPick?: (column: ResultColumn, value: unknown) => void
+  /** the tiles' drills, held by the page (viewing): a tile in Drill Down has an entry, its path */
+  drills?: Record<string, DrillStep[]>
+  onDrill?: (tileId: string, path: DrillStep[] | null) => void
 }) {
   const rows = editing ? layout.rows : filled(layout).rows
   return (
@@ -44,6 +47,7 @@ export function DashboardBody({ layout, period, compare, load, keyPrefix, editin
           <div className={`grid gap-3 ${rowGridClass(row.width)}`}>
             {row.tiles.map((tile, at) => (
               <TileCard key={tile.id} tile={tile} period={period} compare={compare} load={load} keyPrefix={keyPrefix} selection={selection} slicers={layout.slicers} onPick={editing ? undefined : onPick}
+                drillState={!editing && drills && onDrill ? { on: tile.id in drills, path: drills[tile.id] ?? [], set: (next) => onDrill(tile.id, next.on ? next.path : null) } : undefined}
                 onTitle={editing ? (title) => editing.onChange(updateTile(layout, tile.id, { title: title || undefined })) : undefined}
                 controls={editing ? (
                   <span className="flex items-center gap-0.5">

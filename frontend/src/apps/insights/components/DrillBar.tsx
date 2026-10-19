@@ -7,11 +7,12 @@ import { ArrowUp, ChevronRight } from 'lucide-react'
 import type { DrillInfo, DrillStep } from '../types'
 import { canDrill, stepWords } from './drill'
 
-export function DrillBar({ info, onPath, compact = false }: { info: DrillInfo; onPath: (path: DrillStep[]) => void; compact?: boolean }) {
+export function DrillBar({ info, onPath, compact = false, table = false }: { info: DrillInfo; onPath: (path: DrillStep[]) => void; compact?: boolean; table?: boolean }) {
   const level = info.levels[info.depth]
   const more = canDrill(info)
   if (info.depth === 0) {
-    return more ? <p className="text-xs text-ink-700">{compact ? `Click a value to see it by ${info.levels[1].label.replace(/^.* by /, '')}` : `Click a bar, a slice or a stage to drill down to ${info.levels[1].label}.`}</p> : null
+    const how = table ? 'Click a row label (the arrows in a hierarchy)' : 'Click a bar, a slice or a stage'
+    return more ? <p className="text-xs text-ink-700">{compact ? `Click a value to see it by ${info.levels[1].label.replace(/^.* by /, '')}` : `${how} to drill down to ${info.levels[1].label}.`}</p> : null
   }
   return (
     <nav aria-label="Drill path" className="flex flex-wrap items-center gap-1 text-xs text-ink-800">

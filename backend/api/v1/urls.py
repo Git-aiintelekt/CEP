@@ -6,6 +6,9 @@ from apps.insights import schedules as insights_schedules
 from apps.insights import assistant as insights_assistant
 from apps.insights import databases as insights_databases
 from apps.insights import access as insights_access
+from apps.insights import ai_report as insights_ai
+from apps.insights import embeds as insights_embeds
+from apps.insights import usage as insights_usage
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -100,6 +103,8 @@ urlpatterns = [
     path("workspace/setup/", setup_api.WorkspaceSetupView.as_view(), name="workspace-setup"),
     path("public/barcode/<str:text>.png", delivery_public.barcode_view, name="barcode-image"),
     path("public/code/<str:token>.png", delivery_public.code_image_view, name="code-image"),
+    path("public/embed/<slug:code>/<str:secret>/", insights_embeds.PublicEmbedView.as_view(), name="insights-public-embed"),
+    path("public/embed/<slug:code>/<str:secret>/tiles/<slug:tile_id>/run/", insights_embeds.PublicEmbedTileView.as_view(), name="insights-public-embed-tile"),
     path("codes/sample/", codes_api.CodeSampleView.as_view(), name="code-sample"),
     path("receipts/send/", delivery_api.ReceiptSendView.as_view(), name="receipt-send"),
     path("pos/transactions/", pos_api.PosTransactionView.as_view(), name="pos-transactions"),
@@ -141,10 +146,12 @@ urlpatterns = [
     path("insights/catalog/<slug:dataset>/", insights_api.CatalogView.as_view(), name="insights-dataset"),
     path("insights/reports/", insights_api.ReportListView.as_view(), name="insights-reports"),
     path("insights/reports/preview/", insights_api.PreviewView.as_view(), name="insights-preview"),
+    path("insights/reports/sql/", insights_ai.SqlView.as_view(), name="insights-sql"),
     path("insights/reports/<uuid:report_id>/", insights_api.ReportView.as_view(), name="insights-report"),
     path("insights/reports/<uuid:report_id>/versions/", insights_api.ReportVersionsView.as_view(), name="insights-report-versions"),
     path("insights/reports/<uuid:report_id>/versions/<int:number>/restore/", insights_api.ReportVersionRestoreView.as_view(), name="insights-report-version-restore"),
     path("insights/reports/<uuid:report_id>/run/", insights_api.RunView.as_view(), name="insights-report-run"),
+    path("insights/reports/<uuid:report_id>/explain/", insights_ai.ExplainView.as_view(), name="insights-report-explain"),
     path("insights/reports/<uuid:item_id>/shares/", insights_access.ReportSharesView.as_view(), name="insights-report-shares"),
     path("insights/dashboards/<uuid:item_id>/shares/", insights_access.DashboardSharesView.as_view(), name="insights-dashboard-shares"),
     path("insights/principals/", insights_access.PrincipalsView.as_view(), name="insights-principals"),
@@ -156,16 +163,22 @@ urlpatterns = [
     path("insights/engine/", insights_api.EngineView.as_view(), name="insights-engine"),
     path("insights/assistant/", insights_assistant.AssistantView.as_view(), name="insights-assistant"),
     path("insights/assistant/ask/", insights_assistant.AskView.as_view(), name="insights-assistant-ask"),
+    path("insights/assistant/change/", insights_ai.ChangeView.as_view(), name="insights-assistant-change"),
     path("insights/assistant/<uuid:prompt_id>/open/", insights_assistant.OpenDraftView.as_view(), name="insights-assistant-open"),
     path("insights/dashboards/", insights_dashboards.DashboardListView.as_view(), name="insights-dashboards"),
     path("insights/dashboards/<uuid:dashboard_id>/", insights_dashboards.DashboardView.as_view(), name="insights-dashboard"),
     path("insights/dashboards/<uuid:dashboard_id>/tiles/<slug:tile_id>/run/", insights_dashboards.TileRunView.as_view(), name="insights-dashboard-tile-run"),
     path("insights/dashboards/<uuid:dashboard_id>/slicers/values/", insights_dashboards.SlicerValuesView.as_view(), name="insights-dashboard-slicer-values"),
+    path("insights/dashboards/<uuid:dashboard_id>/views/", insights_dashboards.DashboardViewsView.as_view(), name="insights-dashboard-views"),
+    path("insights/dashboards/<uuid:dashboard_id>/views/<uuid:view_id>/", insights_dashboards.DashboardViewView.as_view(), name="insights-dashboard-view"),
     path("insights/dashboards/<uuid:dashboard_id>/export.pdf", insights_dashboards.DashboardExportPdfView.as_view(), name="insights-dashboard-export-pdf"),
     path("insights/favourites/<slug:kind>/<uuid:item_id>/", insights_library.FavouriteView.as_view(), name="insights-favourite"),
     path("insights/folders/", insights_library.FolderListView.as_view(), name="insights-folders"),
     path("insights/folders/<uuid:folder_id>/", insights_library.FolderView.as_view(), name="insights-folder"),
     path("insights/runs/", insights_audit.RunLogView.as_view(), name="insights-runs"),
+    path("insights/usage/", insights_usage.UsageView.as_view(), name="insights-usage"),
+    path("insights/embeds/", insights_embeds.EmbedsView.as_view(), name="insights-embeds"),
+    path("insights/embeds/<uuid:embed_id>/", insights_embeds.EmbedView.as_view(), name="insights-embed"),
     path("insights/schedules/", insights_schedules.ScheduleListView.as_view(), name="insights-schedules"),
     path("insights/schedules/<uuid:schedule_id>/", insights_schedules.ScheduleView.as_view(), name="insights-schedule"),
     path("insights/schedules/<uuid:schedule_id>/test/", insights_schedules.ScheduleTestView.as_view(), name="insights-schedule-test"),

@@ -19,6 +19,7 @@ import json
 from datetime import date
 
 from . import compare as comparisons
+from . import derived, links, topn
 from .catalog import BUCKETS
 
 MAX_COLUMNS = 40
@@ -27,6 +28,7 @@ MAX_NESTING = 2
 MAX_LIMIT = 100_000
 DIRECTIONS = ("asc", "desc")
 COMBINATORS = ("and", "or")
+SIGNALS = ("forecast", "anomalies")
 
 
 class DefinitionError(ValueError):
@@ -197,6 +199,11 @@ def _view(raw, out_columns: list[dict]) -> dict | None:
     formats = _formats(raw.get("formats"), out_columns)
     if formats:
         out["formats"] = formats
+    signals = raw.get("signals")                                       # a chart's forecast line and anomaly flags, worked out in the browser
+    if signals not in (None, [], {}):
+        if not isinstance(signals, list) or any(s not in SIGNALS for s in signals) or len(set(signals)) != len(signals):
+            raise DefinitionError("view.signals", "Use forecast, anomalies, or both.")
+        out["signals"] = [s for s in SIGNALS if s in signals]
     return out
 
 
@@ -204,6 +211,11 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
     """The definition, normalised, or DefinitionError naming the part at fault."""
     if not isinstance(raw, dict):
         raise DefinitionError("definition", "The definition is an object.")
+    try:                                                              # the report's custom fields join the dataset's for everything below
+        specs = derived.check(dataset, raw.get("derived"))
+    except derived.DerivedError as exc:
+        raise DefinitionError(exc.field, str(exc)) from None
+    dataset = derived.augment(dataset, {"derived": specs})
     columns = raw.get("columns")
     if not isinstance(columns, list) or not columns:
         raise DefinitionError("columns", "Choose at least one column.")
@@ -268,7 +280,7 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
         direction = str(item.get("direction", "asc")).lower()
         if direction not in DIRECTIONS:
             raise DefinitionError(f"{at}.direction", "Use asc or desc.")
-        if not any(c["field"] == item.get("field") for c in out_columns):
+        if not any(c["field"] == item.get("field") for c in out_columns) and not _blended_key(raw.get("blend"), item.get("field")):
             raise DefinitionError(f"{at}.field", "Sort by one of the report's columns.")
         out_order.append({"field": item["field"], "direction": direction})
     limit = raw.get("limit")
@@ -277,6 +289,10 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
             raise DefinitionError("limit", "The limit is a whole number of rows.")
         limit = min(limit, max_limit)
     view = _view(raw.get("view"), out_columns)
+    try:
+        top = topn.check(raw.get("top"), out_columns)
+    except ValueError as exc:
+        raise DefinitionError("top", str(exc)) from None
     through = raw.get("drillthrough")
     if through not in (None, []):
         if not isinstance(through, list) or len(through) > 10:
@@ -286,8 +302,30 @@ def validate(dataset: dict, raw: dict, *, max_limit: int = MAX_LIMIT) -> dict:
             if field is None:
                 raise DefinitionError(f"drillthrough[{i}]", "A report takes dimensions of its dataset from other reports.")
         through = list(dict.fromkeys(through))
+    try:
+        blend = links.check(dataset, raw.get("blend"), out_columns, compared=any(c.get("compare") for c in out_columns), top=bool(top), view=view)
+    except links.BlendError as exc:
+        raise DefinitionError(exc.field, str(exc)) from None
+    for index, item in enumerate(out_order):
+        if "." in item["field"] and not (blend and any(links.column_key(blend["dataset"], c["field"]) == item["field"] for c in blend["columns"])):
+            raise DefinitionError(f"orderBy[{index}].field", "Sort by one of the report's columns.")
     return {"dataset": dataset["key"], "columns": out_columns, "grouped": grouped, "filters": filters, "orderBy": out_order, **({"limit": limit} if limit else {}),
-            **({"view": view} if view else {}), **({"drillthrough": through} if through else {})}
+            **({"view": view} if view else {}), **({"drillthrough": through} if through else {}), **({"derived": specs} if specs else {}), **({"top": top} if top else {}), **({"blend": blend} if blend else {})}
+
+
+def _blended_key(raw, key) -> bool:
+    """a sort on a measure added from a linked dataset ("attributed_orders.revenue"), checked once the blend is"""
+    return isinstance(key, str) and "." in key and isinstance(raw, dict) and key.split(".", 1)[0] == raw.get("dataset")
+
+
+def _blended_key(raw, key) -> bool:
+    """a sort on a measure added from a linked dataset ("attributed_orders.revenue"), checked once the blend is"""
+    return isinstance(key, str) and "." in key and isinstance(raw, dict) and key.split(".", 1)[0] == raw.get("dataset")
+
+
+def _blended_key(raw, key) -> bool:
+    """a sort on a measure added from a linked dataset ("attributed_orders.revenue"), checked once the blend is"""
+    return isinstance(key, str) and "." in key and isinstance(raw, dict) and key.split(".", 1)[0] == raw.get("dataset")
 
 
 def signature(definition: dict) -> str:

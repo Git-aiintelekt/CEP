@@ -83,7 +83,7 @@ test('drill-through: a right-click on a Channel value offers the detail report, 
   await screen.findByRole('heading', { name: 'Campaigns for a Channel' })
   expect(await screen.findByText('Opened from Sends by campaign: Channel is SMS.')).toBeTruthy()
   const run = calls.filter((call) => call.url.endsWith('/insights/reports/rep-detail/run/')).at(-1)
-  expect((run?.body as { through?: unknown }).through).toEqual([{ field: 'channel', value: 'SMS' }])
+  expect((run?.body as { through?: unknown } | undefined)?.through).toEqual([{ field: 'channel', value: 'SMS' }])
   await user.click(screen.getByRole('button', { name: 'Show All Rows' }))
   await vi.waitFor(() => expect(screen.queryByText(/Opened from/)).toBeNull())
 })

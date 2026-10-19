@@ -11,7 +11,13 @@ A row holds one to four tiles of equal width, or a wide and a narrow one ("2-1")
 hierarchy or pivot, or as a figure: one of its measures totalled over the period, with the previous period beside it when
 the dashboard compares. A report with its own rule on the time field keeps it (`own_dates`).
 
-Slicers (`layout.slicers`: [{field, label}]) are dimensions of the tiles' datasets a viewer filters the whole dashboard by.
+Pages (`layout.pages`: [{id, title, rows}], up to 10) are tabs of rows; a one-page dashboard keeps `layout.rows`. Every
+page's tiles run, export and deliver; the PDF names a tile's page before its title. Saved views
+(`GET, POST /insights/dashboards/<id>/views/`, `PUT, DELETE .../views/<view>/`, table dashboard_view, patch 0061) keep a
+period, slicer picks, cross-filters, the page and the tiles' drills under a name, a person's own or shared by an editor.
+
+Slicers (`layout.slicers`: [{field, label, kind}]) are dimensions of the tiles' datasets (kind values), or ranges (kind
+range) on a number field or a date other than the period's a viewer filters the whole dashboard by.
 A tile run takes `slicers: {field: [values]}` and applies each as an IN rule on every tile whose dataset has that field
 (`sliced` names the ones applied); a tile whose dataset lacks it runs unfiltered. Clicking a value on a tile (a bar, a
 slice, a stage, a row) is the same request with that value: cross-filtering happens in the browser, through the same rule.
@@ -40,6 +46,8 @@ PRESETS = ("7d", "30d", "month", "quarter", "custom")
 MAX_ROWS, MAX_TILES = 20, 40
 MAX_SLICERS, SLICER_VALUES = 6, 200
 SLICER_TYPES = ("string", "boolean", "number")
+RANGE_TYPES = ("number", "date", "datetime")
+MAX_PAGES, MAX_VIEWS, MAX_VIEW_STATE = 10, 50, 20_000
 TILE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
 TILE_ROWS = 200
 
@@ -115,6 +123,11 @@ def _slicers_body(raw) -> dict:
         return {}
     out = {}
     for key, values in list(raw.items())[:MAX_SLICERS]:
+        if isinstance(values, dict):                                   # a range: {from, to}, either may be empty
+            ends = {end: values.get(end) for end in ("from", "to") if isinstance(values.get(end), (str, int, float)) and not isinstance(values.get(end), bool) and str(values.get(end)) != ""}
+            if ends:
+                out[str(key)] = ends
+            continue
         kept = [v for v in values if isinstance(v, (str, int, float, bool))][:SLICER_VALUES] if isinstance(values, list) else []
         if kept:
             out[str(key)] = kept
@@ -125,6 +138,18 @@ def _slicer_rules(dataset: dict, slicers: dict | None) -> list[dict]:
     """The slicers as rules on this dataset: an IN rule per field the dataset has as a dimension; a field it lacks, or a measure, is skipped."""
     rules = []
     for key, values in (slicers or {}).items():
+        if isinstance(values, dict):                                   # a range on a number or a date: between, or one end
+            field = next((f for f in dataset["fields"] if f["key"] == key and f["type"] in RANGE_TYPES), None)
+            if field is None:
+                continue
+            low, high = values.get("from"), values.get("to")
+            if low is not None and high is not None:
+                rules.append({"field": key, "operator": "between", "value": [low, high]})
+            elif low is not None:
+                rules.append({"field": key, "operator": ">=", "value": low})
+            elif high is not None:
+                rules.append({"field": key, "operator": "<=", "value": high})
+            continue
         field = next((f for f in dataset["fields"] if f["key"] == key and f["role"] == "dimension"), None)
         if field is None or not values:
             continue
@@ -137,10 +162,14 @@ def _slicer_rules(dataset: dict, slicers: dict | None) -> list[dict]:
     return rules
 
 
-def _slicer_field(datasets: list[dict], key: str) -> dict | None:
+def _slicer_field(datasets: list[dict], key: str, kind: str = "values") -> dict | None:
     for dataset in datasets:
         for field in dataset.get("fields", []):
-            if field["key"] == key and field["role"] == "dimension" and field["type"] in SLICER_TYPES:
+            if field["key"] != key:
+                continue
+            if kind == "range" and field["type"] in RANGE_TYPES and (field["type"] == "number" or field["role"] == "dimension"):
+                return field
+            if kind == "values" and field["role"] == "dimension" and field["type"] in SLICER_TYPES:
                 return field
     return None
 
@@ -155,13 +184,16 @@ def _slicers_layout(raw, datasets: list[dict]) -> list[dict]:
     for i, item in enumerate(raw):
         where = f"layout.slicers[{i}]"
         key = str(item.get("field") or "") if isinstance(item, dict) else ""
-        field = _slicer_field(datasets, key)
+        kind = item.get("kind", "values") if isinstance(item, dict) else "values"
+        if kind not in ("values", "range"):
+            raise ValidationError({where: "A slicer picks values, or a range."})
+        field = _slicer_field(datasets, key, kind)
         if field is None:
-            raise ValidationError({where: "A slicer is a text, yes/no or number dimension of one of the tiles' datasets."})
+            raise ValidationError({where: "A slicer is a text, yes/no or number dimension of one of the tiles' datasets, or a range on a number or a date."})
         if key in seen:
             raise ValidationError({where: "Each field slices once."})
         seen.add(key)
-        out.append({"field": key, "label": " ".join(str(item.get("label") or field["label"]).split())[:100] or field["label"]})
+        out.append({"field": key, "label": " ".join(str(item.get("label") or field["label"]).split())[:100] or field["label"], **({"kind": "range", "type": field["type"]} if kind == "range" else {})})
     return out
 
 
@@ -170,14 +202,36 @@ def _layout(raw, request) -> dict:
     """Rows of tiles, checked: the widths, the tile ids, the shows, and that every report is one this person can open."""
     if raw is None:
         return {"rows": []}
-    rows = raw.get("rows") if isinstance(raw, dict) else None
-    if not isinstance(rows, list):
+    if not isinstance(raw, dict):
         raise ValidationError({"layout": "A layout is rows of tiles."})
+    ids, wanted = set(), {}
+    pages = raw.get("pages")
+    if pages is not None:                                              # tabs of rows
+        if not isinstance(pages, list) or not 1 <= len(pages) <= MAX_PAGES:
+            raise ValidationError({"layout.pages": f"A dashboard has 1 to {MAX_PAGES} pages."})
+        out_pages, page_ids = [], set()
+        for p, page in enumerate(pages):
+            at = f"layout.pages[{p}]"
+            if not isinstance(page, dict) or not TILE_ID.match(str(page.get("id", ""))) or page["id"] in page_ids:
+                raise ValidationError({at: "A page has an id of its own."})
+            page_ids.add(page["id"])
+            title = " ".join(str(page.get("title") or "").split())[:60] or f"Page {p + 1}"
+            out_pages.append({"id": page["id"], "title": title, "rows": _checked_rows(page.get("rows", []), f"{at}.rows", ids, wanted)})
+        layout = {"rows": [], "pages": out_pages}
+    else:
+        layout = {"rows": _checked_rows(raw.get("rows"), "layout.rows", ids, wanted)}
+    return _checked_reports(raw, request, layout, ids, wanted)
+
+
+def _checked_rows(rows, base: str, ids: set, wanted: dict) -> list[dict]:
+    """one page's rows of tiles: the widths, the tile ids (unique across the pages), the shows; the reports wanted are noted"""
+    if not isinstance(rows, list):
+        raise ValidationError({base: "A layout is rows of tiles."})
     if len(rows) > MAX_ROWS:
-        raise ValidationError({"layout": f"A dashboard has {MAX_ROWS} rows at most."})
-    out_rows, ids, wanted = [], set(), {}
+        raise ValidationError({base: f"A page has {MAX_ROWS} rows at most."})
+    out_rows = []
     for i, row in enumerate(rows):
-        at = f"layout.rows[{i}]"
+        at = f"{base}[{i}]"
         if not isinstance(row, dict) or str(row.get("width", "2")) not in WIDTHS or not isinstance(row.get("tiles", []), list):
             raise ValidationError({at: "A row has a width (1, 2, 3, 4 or 2-1) and its tiles."})
         width = str(row.get("width", "2"))
@@ -200,6 +254,11 @@ def _layout(raw, request) -> dict:
             out_tiles.append({"id": tile["id"], "report_id": report_id, "show": tile["show"], **({"title": title} if title else {}),
                               **({"measure": str(tile["measure"])} if tile["show"] == "figure" else {})})
         out_rows.append({"width": width, "tiles": out_tiles})
+    return out_rows
+
+
+def _checked_reports(raw: dict, request, layout: dict, ids: set, wanted: dict) -> dict:
+    """that every tile's report is one this person can open, a figure one of its totalled columns; and the slicers"""
     if len(ids) > MAX_TILES:
         raise ValidationError({"layout": f"A dashboard has {MAX_TILES} tiles at most."})
     found = {}
@@ -220,10 +279,13 @@ def _layout(raw, request) -> dict:
         tenant_id = _tenant().pk
         datasets = [d for d in (catalog.dataset(tenant_id, key, True) for key in {r["dataset_key"] for r in found.values()}) if d]
         slicers = _slicers_layout(raw["slicers"], datasets)
-    return {"rows": out_rows, **({"slicers": slicers} if slicers else {})}
+    return {**layout, **({"slicers": slicers} if slicers else {})}
 
 
 def _tiles(layout: dict) -> list[dict]:
+    """every tile, page by page; a tile of a page carries the page's title for the PDF"""
+    if layout.get("pages"):
+        return [{**tile, "_page": page["title"]} for page in layout["pages"] for row in page.get("rows", []) for tile in row.get("tiles", [])]
     return [tile for row in layout.get("rows", []) for tile in row.get("tiles", [])]
 
 
@@ -416,6 +478,10 @@ def tile_title(tile: dict, report: dict | None) -> str:
     return tile.get("title") or (report["name"] if report else "A report that is gone")
 
 
+def _paged(tile: dict, title: str) -> str:
+    return f"{tile['_page']} · {title}" if tile.get("_page") else title
+
+
 def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: list, mask: bool) -> bytes:
     """Every tile on the dashboard's saved period, as one PDF (apps/insights/pdf.py)."""
     from apps.insights import pdf
@@ -425,10 +491,10 @@ def dashboard_pdf(tenant, user, row: dict, *, visible_where: str, visible_args: 
     for tile in _tiles(layout):
         report = _report_for(tile["report_id"], visible_where, visible_args)
         if report is None:
-            tiles.append({"title": tile_title(tile, None), "kind": "missing", "detail": "The report behind this tile is gone, or cannot be opened."})
+            tiles.append({"title": _paged(tile, tile_title(tile, None)), "kind": "missing", "detail": "The report behind this tile is gone, or cannot be opened."})
             continue
         payload, _status = tile_result(tenant, user, report, tile, period, compare, mask, limit=TILE_ROWS)
-        tiles.append({"title": tile_title(tile, report), **payload})
+        tiles.append({"title": _paged(tile, tile_title(tile, report)), **payload})
     bounds = _bounds(period, _today(tenant))
     start, end = date.fromisoformat(bounds["from"]), date.fromisoformat(bounds["to"])
     period_words = f"{start.strftime('%d %b %Y').lstrip('0')} – {end.strftime('%d %b %Y').lstrip('0')}"
@@ -526,3 +592,105 @@ class DashboardExportPdfView(APIView):
 
 class RunProblem(Exception):
     pass
+
+
+# ---------------------------------------------------------------------------------------------------- saved views
+VIEW_KEYS = ("period", "compare", "page", "selection", "extra", "drills")
+
+
+def _view_state(raw) -> dict:
+    """what a saved view keeps: the period and the comparison, the page, the slicer picks, the cross-filter chips, the tiles' drills"""
+    if not isinstance(raw, dict):
+        raise ValidationError({"state": "A view is the dashboard's period, slicers, page and drills."})
+    state = {key: raw[key] for key in VIEW_KEYS if key in raw}
+    if "period" in state:
+        state["period"] = _period(state["period"])
+    if len(json.dumps(state, default=str)) > MAX_VIEW_STATE:
+        raise ValidationError({"state": "This view holds too much; clear some picks."})
+    return state
+
+
+def _views_present() -> bool:
+    from apps.insights import access
+    return access.present("dashboard_view")
+
+
+def _view_row(dashboard_id, view_id, request) -> dict:
+    rows = _q("""SELECT v.id::text, v.name, v.state, v.shared, v.owner_user_id::text, u.display_name AS owner_name, v.updated_at
+                   FROM dashboard_view v LEFT JOIN app_user u ON u.id = v.owner_user_id
+                  WHERE v.id = %s AND v.dashboard_id = %s AND (v.owner_user_id = %s OR v.shared)""", [str(view_id), str(dashboard_id), str(request.user.pk)])
+    if not rows:
+        raise NotFound("No such view.")
+    return rows[0]
+
+
+def _view_out(row: dict, request) -> dict:
+    return {"id": row["id"], "name": row["name"], "state": _json(row["state"]), "shared": bool(row["shared"]), "owner_name": row["owner_name"],
+            "mine": str(row["owner_user_id"]) == str(request.user.pk), "updated_at": row["updated_at"]}
+
+
+class DashboardViewsView(APIView):
+    """A dashboard's saved views: a person's own, and the ones its editors shared."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, dashboard_id=None):
+        _dashboard_row(dashboard_id, request)
+        if not _views_present():
+            return Response({"views": []})
+        rows = _q("""SELECT v.id::text, v.name, v.state, v.shared, v.owner_user_id::text, u.display_name AS owner_name, v.updated_at
+                       FROM dashboard_view v LEFT JOIN app_user u ON u.id = v.owner_user_id
+                      WHERE v.dashboard_id = %s AND (v.owner_user_id = %s OR v.shared) ORDER BY v.shared DESC, v.name""", [str(dashboard_id), str(request.user.pk)])
+        return Response({"views": [_view_out(r, request) for r in rows]})
+
+    @extend_schema(responses={201: None})
+    def post(self, request, version=None, dashboard_id=None):
+        from api.exceptions import Conflict
+        row = _dashboard_row(dashboard_id, request)
+        if not _views_present():
+            raise Conflict("Saved views need database patch 0061, which is not applied yet.")
+        body = request.data if isinstance(request.data, dict) else {}
+        name = " ".join(str(body.get("name") or "").split())[:80]
+        if not name:
+            raise ValidationError({"name": "Name the view."})
+        shared = bool(body.get("shared"))
+        if shared and not _may_edit(request, row):
+            raise PermissionDenied("Only someone who can change the dashboard shares a view with everyone who opens it.")
+        state = _view_state(body.get("state"))
+        if (_q("SELECT count(*) AS n FROM dashboard_view WHERE dashboard_id = %s AND owner_user_id = %s", [str(dashboard_id), str(request.user.pk)])[0]["n"] or 0) >= MAX_VIEWS:
+            raise ValidationError({"name": f"You have {MAX_VIEWS} views of this dashboard; remove one first."})
+        tenant_id = context.require().tenant_id
+        with session.tx():
+            made = _q("""INSERT INTO dashboard_view (tenant_id, dashboard_id, owner_user_id, name, state, shared) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id::text""",
+                      [tenant_id, str(dashboard_id), str(request.user.pk), name, json.dumps(state), shared])
+        return Response(_view_out(_view_row(dashboard_id, made[0]["id"], request), request), status=status.HTTP_201_CREATED)
+
+
+class DashboardViewView(APIView):
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def put(self, request, version=None, dashboard_id=None, view_id=None):
+        row = _dashboard_row(dashboard_id, request)
+        current = _view_row(dashboard_id, view_id, request)
+        if str(current["owner_user_id"]) != str(request.user.pk):
+            raise PermissionDenied("Only the view's owner changes it.")
+        body = request.data if isinstance(request.data, dict) else {}
+        name = " ".join(str(body.get("name") or current["name"]).split())[:80]
+        shared = bool(body.get("shared", current["shared"]))
+        if shared and not current["shared"] and not _may_edit(request, row):
+            raise PermissionDenied("Only someone who can change the dashboard shares a view with everyone who opens it.")
+        state = _view_state(body["state"]) if "state" in body else _json(current["state"])
+        with session.tx():
+            _q("UPDATE dashboard_view SET name = %s, state = %s, shared = %s, updated_at = now() WHERE id = %s", [name, json.dumps(state), shared, str(view_id)])
+        return Response(_view_out(_view_row(dashboard_id, view_id, request), request))
+
+    @extend_schema(responses={204: None})
+    def delete(self, request, version=None, dashboard_id=None, view_id=None):
+        row = _dashboard_row(dashboard_id, request)
+        current = _view_row(dashboard_id, view_id, request)
+        if str(current["owner_user_id"]) != str(request.user.pk) and not _may_edit(request, row):
+            raise PermissionDenied("Only the view's owner, or someone who can change the dashboard, removes it.")
+        with session.tx():
+            _q("DELETE FROM dashboard_view WHERE id = %s", [str(view_id)])
+        return Response(status=status.HTTP_204_NO_CONTENT)

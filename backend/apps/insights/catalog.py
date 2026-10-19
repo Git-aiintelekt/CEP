@@ -124,9 +124,10 @@ def _visible(dataset: dict, can_see_pii: bool) -> dict:
 
 def for_tenant(tenant_id, can_see_pii: bool = False) -> list[dict]:
     """the platform's datasets on the workspace's engine, then the datasets the workspace mapped from its own databases"""
-    from apps.insights import databases
+    from apps.insights import databases, links
     engine = engine_of(tenant_id)
-    return [_visible(d, can_see_pii) for d in [*_load(engine["dialect"]), *databases.custom_datasets(tenant_id)]]
+    platform = links.attach([_visible(d, can_see_pii) for d in _load(engine["dialect"])], links.load())     # the platform's datasets carry their links
+    return [*platform, *[_visible(d, can_see_pii) for d in databases.custom_datasets(tenant_id)]]
 
 
 def dataset(tenant_id, key: str, can_see_pii: bool = False) -> dict | None:

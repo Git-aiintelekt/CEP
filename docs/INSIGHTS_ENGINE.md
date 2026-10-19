@@ -290,7 +290,7 @@ prompt in `ai_prompt` (RLS, kept 90 days). The model receives the prompt and the
 (locked PII fields are left out) and answers through a schema-bound reply (Anthropic tool use, OpenAI json_schema): a
 draft, validated with `definition.validate` and retried once with the error; one question; or no_field with the closest
 prompts. Only a draft counts against `subscription_plan.max_ai_prompts_per_month`. Open in Editor inserts the report and
-its first version like New Report. Change with a Prompt and Explain This Report are the next slice.
+its first version like New Report. Change with a Prompt and Explain This Report are in `apps/insights/ai_report.py` (below).
 ## Report Databases: a workspace's own MySQL or PostgreSQL
 
 `apps/insights/databases.py` (the API, Settings → Report Databases) and `apps/insights/external.py` (the access) let a
@@ -314,3 +314,60 @@ no file or system functions), `external.run_sql` runs it wrapped as `SELECT * FR
 types the result's columns, and the compiler writes `FROM (query) AS t0` with the report's own clauses around it (the query's
 `%` doubled for the positional drivers). Report authors reach it from New Report → Query a Database (`QueryTargetsView`,
 `QueryRunView`, `QueryDatasetView`; `assistant.write_sql` for Write It for Me); the catalogue never carries the SQL.
+
+## The smaller gaps (patch 0061)
+
+**Custom fields** (`derived.py`): a report's own dimensions, `definition.derived`: groups of values, number bands, if-then
+labels. `derived.check` validates them, `derived.augment` adds them to the dataset as fields with a `derived` spec, and
+`compiler._col` writes each as a CASE with escaped literals (`%` doubled for the positional drivers). A field over PII is PII.
+
+**Top N with Others** (`topn.py`): `definition.top = {n, others}` keeps the first dimension's top values by the sorted
+measure and folds the rest into one Others line per value of the other dimensions; sums, counts, minimums and maximums
+combine, averages, distinct counts, calculated measures and comparisons stay empty. It needs every row, so the runner
+fetches up to the cap first (`runner._whole`).
+
+**Drilling in tables**: `drill.drilled(..., keep_rest=True)` (the run body's `drill.keep_rest`) keeps the dimensions under
+the one drilled, so a pivot or a hierarchy shows the level below with the rest still nested.
+
+**Range slicers, pages, saved views** (`dashboards.py`): a slicer of kind `range` on a number or a non-period date sends
+`{from, to}` and becomes between, `>=` or `<=`. `layout.pages` (up to 10) holds the rows per page; `_tiles` flattens them
+(tile ids unique across pages) and the PDF titles each tile with its page. Saved views are `dashboard_view` rows (RLS): a
+name, the owner, shared or not, and the state (period, comparison, page, slicers, the field chips and the drills).
+
+**Linked datasets** (`links.py`, `report_dataset_link`, back-office Configuration → Dataset Links): the catalogue attaches to
+each platform dataset its links with the other side's non-PII measures. `definition.blend = {dataset, columns}` is checked
+against them: the report's groups must all be shared (a date only on the time pair, by a bucket), no comparisons, no Top N,
+no hierarchy. The runner runs the report as usual (without the engine's totals), then `links.other_definition` (the groups
+renamed, the top-level rules on shared fields carried over) on the other dataset under the person's row access rules for
+it, and `links.merge` matches the other side's totals to the report's rows (left join; dates compared as ISO text). A sort
+on a blended column (`<dataset>.<field>`) is applied after the merge. The result's `linked.own_rules` names the filters
+that applied to the report's own dataset only.
+
+**Show the SQL, Explain This Report, Change with a Prompt** (`ai_report.py`): `POST /insights/reports/sql/` compiles the
+definition as the runner would (row access rules, custom fields, the linked side) and writes the bound values in for
+reading; it runs nothing and is for report builders. `POST /insights/reports/<id>/explain/` runs the report (up to 100
+rows, masked as the reader sees it, masked columns left out) and asks the model for a summary, up to four points and a
+caution through a schema-bound reply; it needs `ai.explain_allowed` and the workspace's Explain switch, works for any
+reader (`assistant.offer(need_edit=False)`, `explain_state` in the assistant's GET), and counts as a prompt (`ai_prompt.kind
+= explain`). `POST /insights/assistant/change/` sends the dataset's catalogue and the current definition, never rows, and
+validates the answer like a draft (retried once); custom fields, Top N, linked measures, formats and chart signals the
+model cannot see are carried over (`kind = change`).
+
+**Chart signals**: `view.signals` (`forecast`, `anomalies`) is saved with the view and worked out in the browser
+(`frontend/src/apps/insights/components/signals.ts`) on bars, lines and areas along a bucketed date: a least-squares line
+over the last 24 points of the first series carried three buckets on (the chart's reference line, not below zero for a
+count), and rings on the points more than 2.5 times the median absolute deviation (scaled to a standard deviation) off the
+fitted trend. The chart kit draws NaN as a gap, so the future periods carry no bars.
+
+**Usage** (`usage.py`, `insights_usage`, RLS): the report and dashboard viewers post an opening (`POST /insights/usage/`);
+the same person opening the same item within ten minutes counts once. `GET /insights/usage/?days=7|30|90` (report
+administrators) gives the most opened with people and embed openings, the people who open most, the reports nobody opened,
+and openings per day: Insights → Usage.
+
+**Embed links** (`embeds.py`, `insights_embed`, no RLS: the row is found by the secret's hash): the owner or a report
+administrator makes a link (`POST /insights/embeds/`) with a label and an expiry; the secret (`secrets.token_urlsafe(32)`) is
+returned once and only its sha256 is kept. The public address is `/embed/<workspace code>/<secret>` in the SPA, which reads
+`/api/v1/public/embed/<code>/<secret>/` and, for a dashboard, `.../tiles/<tile>/run/`. The resolver takes the workspace from
+the address like a delivery webhook, the views are AllowAny with no authentication, a link answers 120 requests a minute,
+runs as its maker (who must still be active; their row access rules apply) with personal data always masked, counts its
+uses and records an embed opening. A revoked or expired link, or a gone item, is 404.

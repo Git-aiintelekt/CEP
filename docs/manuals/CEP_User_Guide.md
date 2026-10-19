@@ -2624,6 +2624,88 @@ Workspace administrators add calculated measures to their own datasets (Report D
 3. Clicking the same value again clears it. Dates cannot be clicked this way, since the period already covers them.
 4. Slicer and click selections are never saved. A PDF export or a scheduled delivery always shows the dashboard as saved.
 
+**Drill in a pivot or a hierarchy**
+
+1. Open a report with more than one level, such as Sent by Year, then Channel, then Campaign, and choose **Pivot** or **Hierarchy**.
+2. In a pivot, click a row's label; in a hierarchy, press the arrow beside a top-level group (**Drill into** that value). The table shows the level below for that value, such as the quarters of 2026, and keeps the levels under it, so Channel and Campaign still nest inside.
+3. The path above the table shows where you are. Click a step to go back to it, or **Up One Level**.
+
+**Group values into a field of your own (Custom Fields)**
+
+1. In the editor, press **Custom Fields**.
+2. Name the field and choose how it is made. **Groups** names sets of values (North is Downtown, Riverside). **Number Bands** cuts a number at edges you type (100, 1000 gives Under 100, 100 to under 1,000, 1,000 and over). **If-Then Labels** gives the label of the first condition a row meets (Amount at least 500 is Gold), and a label for the rest.
+3. Press **Add Field**, then **Done**. The field is in the field list like any other: drag it into Rows, Columns or Filters.
+4. A custom field belongs to its report. Removing it removes its columns and filters too.
+
+**Keep the top values and fold the rest into Others (Top N)**
+
+1. Put a dimension first in **Rows** and a measure in **Values**, sorted the way you want to rank them.
+2. Under the rows, choose **Top** 3, 5, 10 or another number. **Show the rest as Others** adds one Others line per value of the next dimension; untick it to leave the rest out. **Every value** takes the limit off.
+3. Sums, counts, minimums and maximums add up in Others; averages and comparisons show empty there.
+
+**Slice a dashboard by a range of numbers or dates**
+
+1. Edit the dashboard, press **Add Slicer** and choose a number (such as Sent Count) or a date that is not the dashboard's period. It becomes a range slicer.
+2. In the viewer, open the slicer, type **From**, **To** or both, and press **Apply**. The chip says the range, such as Sent Count: 100 to 500.
+3. **Clear** takes it off. A tile without the field says it is not sliced by it.
+
+**Save a dashboard view (bookmarks)**
+
+1. Set the dashboard the way you want it: the period, the comparison, the page, slicer values and drills.
+2. Open **Views** and press **Save the Current View**. Name it, and tick **Share with everyone who opens this dashboard** if others should have it too.
+3. Later, open **Views** and pick it: everything comes back as it was. The chip shows the view in use.
+4. Remove a view with its cross. A saved view never changes the dashboard itself.
+
+**Spread a dashboard over pages**
+
+1. Edit the dashboard and press **Add Page**. The tiles so far become Page 1, and Page 2 starts empty.
+2. Click a page's tab to work on it. Type its name in **Page title**, or press **Remove Page** to remove it with its tiles. **Add Tile** adds to the page in view, and **Done** saves.
+3. In the viewer the pages are tabs above the tiles. The PDF and scheduled deliveries carry every page, each tile titled with its page.
+
+**Add measures from a linked dataset**
+
+1. In the editor of a report on Messages, press **Linked Measures**. The button is there when the platform team has linked the dataset to another one, such as Attributed Orders.
+2. Tick the measures to add, such as Amount, choose how each is totalled, and press **Apply**.
+3. The report may group only by what both share: Campaign, Channel, and the send date by a period. Each side is totalled on its own, then matched by those groups; a row with no orders shows the measure empty.
+4. Filters on shared fields apply to both sides; filters on other fields apply to the report's own data only, and the viewer says so. A report with linked measures has no comparisons, no Top N and no hierarchy.
+
+**Show the SQL**
+
+1. In the viewer, open the **More actions** menu (the three dots) and choose **Show the SQL**; in the editor, press **Show the SQL** beside the row count.
+2. The dialog shows the statement the engine runs for you, with the values written in, and the linked dataset's statement when the report has one. Your row access rules are in it.
+3. **Copy** puts a statement on the clipboard. Nothing runs from this dialog.
+
+**Explain This Report, with AI**
+
+1. Open a report and press **Explain**. The button is there when the platform allows it and the workspace's **Explain This Report** switch is on (Settings → AI Assistant).
+2. A panel above the rows says what they show in a few sentences, with the main points and what the rows cannot tell. The model reads the report's name, its columns and up to 100 of the rows you see; masked personal data is left out.
+3. Each explanation counts as one prompt. Check the figures before you act on them.
+
+**Change a report with a prompt, with AI**
+
+1. In the editor, write the change in the box above the result, such as "by channel only, as a bar chart" or "only email, last 30 days", and press **Change**.
+2. The editor shows the changed report at once, not saved yet. **Undo** puts the one before back; **Save** keeps it as a new version.
+3. The model reads the dataset's fields and the report, never rows. A change counts as one prompt; a question back or "no field for this" does not.
+
+**Add a forecast line, or flag unusual points**
+
+1. Show the report as a **Chart** with Bars, Lines or Area, along a date grouped by day, week, month, quarter or year.
+2. Press **Forecast** to add a dashed line carrying the trend of the first series three periods on, and **Flag Anomalies** to ring the points far off that trend in red. Hover a ringed point to read how far off it is.
+3. A line under the chart says how they were worked out. A forecast is a straight-line trend, not a promise. Save in the editor to keep the choice.
+
+**Embed a report or a dashboard on another site**
+
+1. Open it. For a report, choose **More actions → Embed on Another Site**; for a dashboard, press **Embed** (its owner, or a report administrator).
+2. Add a label for where it goes, choose when it expires, and press **Make a Link**.
+3. Copy the **Address**, or the **Code to paste into a page** (an iframe). The link is shown only once.
+4. Anyone with the link sees the item read-only, without signing in, as you see it: your row access rules apply and personal data is always masked. **Revoke** stops a link at once.
+
+**See what people open (Usage)**
+
+1. Open Insights → **Usage** (report administrators).
+2. Choose 7, 30 or 90 days. **Most Opened** and **Who Opens the Most** rank the reports, dashboards and people; the table gives each item's openings, people, openings through embed links and when it was last opened.
+3. **Reports Nobody Opened** lists the reports no one opened in the period: candidates to tidy away. Opening the same item again within ten minutes counts once.
+
 ## What Insights is for
 
 Insights is the suite's reporting app. It lets you build your own reports on the data C360 already keeps, your messages, the orders they led to, your contacts and your journeys, see them as a grid, a chart, a hierarchy or a pivot, put them on a dashboard with one period for all of them, export them as CSV, Excel or PDF, and have them emailed on a schedule. Nothing is collected for it; it reads what the rest of the suite records.

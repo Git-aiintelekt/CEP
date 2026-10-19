@@ -10,15 +10,15 @@ import { useState } from 'react'
 
 import { IconButton } from '@/components/Button'
 import { FilterChip, MultiSelectMenu } from '@/components/FilterChip'
-import { Select } from '@/components/Form'
+import { buttonPrimary, Select, TextInput } from '@/components/Form'
 import { ErrorState, Spinner } from '@/components/States'
-import type { DashboardSlicer, SlicerCandidate, SlicerSelection, SlicerValues } from '../types'
-import { MAX_SLICERS, slicerWords, valueWords } from './layout'
+import type { DashboardSlicer, SlicerCandidate, SlicerRange, SlicerSelection, SlicerValues } from '../types'
+import { activeSlicers, MAX_SLICERS, slicerWords, valueWords } from './layout'
 
 export function SlicerBar({ slicers, selection, onChange, extra = [], onRemoveExtra, loadValues, queryKey }: {
   slicers: DashboardSlicer[]
   selection: SlicerSelection
-  onChange: (field: string, values: unknown[]) => void
+  onChange: (field: string, values: unknown[] | SlicerRange) => void
   /** cross-filters on fields that are not saved slicers; each can be taken off */
   extra?: DashboardSlicer[]
   onRemoveExtra?: (field: string) => void
@@ -28,19 +28,44 @@ export function SlicerBar({ slicers, selection, onChange, extra = [], onRemoveEx
 }) {
   const all = [...slicers, ...extra]
   if (all.length === 0) return null
-  const picked = all.filter((slicer) => (selection[slicer.field] ?? []).length > 0)
+  const picked = all.filter((slicer) => Object.keys(activeSlicers({ [slicer.field]: selection[slicer.field] ?? [] })).length > 0)
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Slicers">
       {all.map((slicer) => (
         <span key={slicer.field} className="inline-flex items-center gap-1">
-          <SlicerChip slicer={slicer} values={selection[slicer.field] ?? []} onChange={(values) => onChange(slicer.field, values)} loadValues={loadValues} queryKey={queryKey} />
+          {slicer.kind === 'range'
+            ? <RangeChip slicer={slicer} value={(selection[slicer.field] as SlicerRange | undefined) ?? {}} onChange={(range) => onChange(slicer.field, range)} />
+            : <SlicerChip slicer={slicer} values={(selection[slicer.field] as unknown[] | undefined) ?? []} onChange={(values) => onChange(slicer.field, values)} loadValues={loadValues} queryKey={queryKey} />}
           {extra.some((item) => item.field === slicer.field) && onRemoveExtra && <IconButton label={`Remove the ${slicer.label} filter`} icon={X} size="xs" onClick={() => onRemoveExtra(slicer.field)} />}
         </span>
       ))}
       {picked.length > 0 && (
-        <button type="button" className="text-sm font-semibold text-brand-800 hover:underline" onClick={() => picked.forEach((slicer) => onChange(slicer.field, []))}>Clear</button>
+        <button type="button" className="text-sm font-semibold text-brand-800 hover:underline" onClick={() => picked.forEach((slicer) => onChange(slicer.field, slicer.kind === 'range' ? {} : []))}>Clear</button>
       )}
     </div>
+  )
+}
+
+/** a range slicer: from and to, a number or a date, either may be empty */
+function RangeChip({ slicer, value, onChange }: { slicer: DashboardSlicer; value: SlicerRange; onChange: (range: SlicerRange) => void }) {
+  const [from, setFrom] = useState(String(value.from ?? ''))
+  const [to, setTo] = useState(String(value.to ?? ''))
+  const type = slicer.type === 'number' ? 'number' : 'date'
+  const read = (text: string) => (text.trim() === '' ? undefined : type === 'number' ? Number(text) : text)
+  const set = Object.keys(activeSlicers({ [slicer.field]: value })).length > 0
+  return (
+    <FilterChip label={slicerWords(slicer, value)} active={set} menuLabel={`${slicer.label} range`} menuWidth={280}>
+      {({ close }) => (
+        <div className="flex flex-col gap-2 p-3">
+          <label className="flex items-center gap-2 text-xs text-ink-800"><span className="w-10">From</span><TextInput aria-label={`${slicer.label} from`} controlSize="sm" type={type} step="any" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
+          <label className="flex items-center gap-2 text-xs text-ink-800"><span className="w-10">To</span><TextInput aria-label={`${slicer.label} to`} controlSize="sm" type={type} step="any" value={to} onChange={(event) => setTo(event.target.value)} /></label>
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" className="text-sm font-semibold text-brand-800 hover:underline" onClick={() => { setFrom(''); setTo(''); onChange({}); close() }}>Clear</button>
+            <button type="button" className={buttonPrimary} onClick={() => { const range: SlicerRange = {}; const a = read(from); const b = read(to); if (a !== undefined) range.from = a; if (b !== undefined) range.to = b; onChange(range); close() }}>Apply</button>
+          </div>
+        </div>
+      )}
+    </FilterChip>
   )
 }
 
@@ -84,11 +109,11 @@ export function SlicerEditor({ slicers, candidates, onChange }: { slicers: Dashb
       {adding ? (
         <span className="w-56"><Select aria-label="Slicer field" controlSize="sm" value="" autoFocus onChange={(event) => {
           const candidate = left.find((item) => item.field === event.target.value)
-          if (candidate) onChange([...slicers, { field: candidate.field, label: candidate.label }])
+          if (candidate) onChange([...slicers, { field: candidate.field, label: candidate.label, ...(candidate.kind === 'range' ? { kind: 'range' as const, type: candidate.type } : {}) }])
           setAdding(false)
         }} onBlur={() => setAdding(false)}>
           <option value="">Choose a dimension</option>
-          {left.map((candidate) => <option key={candidate.field} value={candidate.field}>{candidate.label}{candidate.datasets.length > 1 ? ` · ${candidate.datasets.length} datasets` : ''}</option>)}
+          {left.map((candidate) => <option key={candidate.field} value={candidate.field}>{candidate.label}{candidate.kind === 'range' ? ' (a range)' : ''}{candidate.datasets.length > 1 ? ` · ${candidate.datasets.length} datasets` : ''}</option>)}
         </Select></span>
       ) : (
         <button type="button" disabled={left.length === 0 || slicers.length >= MAX_SLICERS} onClick={() => setAdding(true)}

@@ -385,7 +385,7 @@ class RunView(APIView):
         through, through_words = _through(dataset, definition, body.get("through"), run_rows)
         try:                                                          # a drill path: the level under it, filtered to the values clicked
             path = drill.path_body(body.get("drill"))
-            below = drill.drilled(dataset, through, path)
+            below = drill.drilled(dataset, through, path, drill.keeps_rest(body.get("drill")))
             shown = validate(dataset, below, max_limit=run_rows) if below else through
         except (drill.DrillError, DefinitionError) as exc:
             raise ValidationError({"drill": str(exc)}) from None

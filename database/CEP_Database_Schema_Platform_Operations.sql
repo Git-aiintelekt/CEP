@@ -2170,6 +2170,92 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard_share, report_row_rule TO cep_app;
 GRANT ALL ON dashboard_share, report_row_rule TO cep_admin;
 
+-- ---- saved views of a dashboard (patch 0061): a period, slicer picks, cross-filters, the page and the tiles' drills, under a name
+CREATE TABLE IF NOT EXISTS dashboard_view (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    dashboard_id        UUID NOT NULL REFERENCES dashboard(id) ON DELETE CASCADE,
+    owner_user_id       UUID NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    name                VARCHAR(80) NOT NULL,
+    state               JSONB NOT NULL DEFAULT '{}',
+    shared              BOOLEAN NOT NULL DEFAULT FALSE,                   -- shared by an editor with everyone who opens the dashboard
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_dashboard_view_dashboard ON dashboard_view(dashboard_id, owner_user_id);
+
+-- ---- which reports and dashboards people open (patch 0061): one row per opening, a person's repeat within ten minutes not counted
+CREATE TABLE IF NOT EXISTS insights_usage (
+    id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    kind                VARCHAR(10) NOT NULL,                             -- report, dashboard
+    item_id             UUID NOT NULL,
+    user_id             UUID REFERENCES app_user(id) ON DELETE SET NULL,  -- empty for an embed
+    via                 VARCHAR(10) NOT NULL DEFAULT 'app',               -- app, embed
+    opened_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_insights_usage_kind CHECK (kind IN ('report', 'dashboard')),
+    CONSTRAINT ck_insights_usage_via CHECK (via IN ('app', 'embed'))
+);
+CREATE INDEX IF NOT EXISTS ix_insights_usage_opened ON insights_usage(tenant_id, opened_at DESC);
+CREATE INDEX IF NOT EXISTS ix_insights_usage_item ON insights_usage(tenant_id, kind, item_id, opened_at DESC);
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['dashboard_view', 'insights_usage'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dashboard_view, insights_usage TO cep_app;
+GRANT USAGE, SELECT ON SEQUENCE insights_usage_id_seq TO cep_app;
+GRANT ALL ON dashboard_view, insights_usage TO cep_admin;
+
+-- ---- embed links (patch 0061): a report or a dashboard shown read-only on another site through a secret link. Only the hash of the
+-- secret is kept. Not under row-level security: the public page finds the link, and its workspace, by the hash alone, on the
+-- control plane; every query the app makes on a workspace's behalf names its tenant_id.
+CREATE TABLE IF NOT EXISTS insights_embed (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    kind                VARCHAR(10) NOT NULL,                             -- report, dashboard
+    item_id             UUID NOT NULL,
+    token_hash          VARCHAR(64) NOT NULL UNIQUE,                      -- sha256 of the secret, hex
+    label               VARCHAR(100),
+    created_by          UUID NOT NULL REFERENCES app_user(id),            -- the link shows what this person may see
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at          TIMESTAMPTZ,
+    revoked_at          TIMESTAMPTZ,
+    last_used_at        TIMESTAMPTZ,
+    uses                INTEGER NOT NULL DEFAULT 0,
+    CONSTRAINT ck_insights_embed_kind CHECK (kind IN ('report', 'dashboard'))
+);
+CREATE INDEX IF NOT EXISTS ix_insights_embed_item ON insights_embed(tenant_id, kind, item_id);
+GRANT SELECT, INSERT, UPDATE ON insights_embed TO cep_app;
+GRANT ALL ON insights_embed TO cep_admin;
+
+-- ---- links between the platform's datasets (patch 0061): two datasets that share a dimension, so a report on one can add measures
+-- of the other, each totalled on its own and joined on the shared dimension (apps/insights/links.py). Kept in the back-office.
+CREATE TABLE IF NOT EXISTS report_dataset_link (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    from_dataset        VARCHAR(40) NOT NULL REFERENCES report_dataset(key) ON DELETE CASCADE,
+    to_dataset          VARCHAR(40) NOT NULL REFERENCES report_dataset(key) ON DELETE CASCADE,
+    label               VARCHAR(100) NOT NULL,
+    pairs               JSONB NOT NULL,                                   -- [[from field, to field], ...]: the shared dimensions
+    time_pair           JSONB,                                            -- [from time field, to time field]: a period on one applies to the other
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, HIDDEN
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    UNIQUE (from_dataset, to_dataset),
+    CONSTRAINT ck_report_dataset_link_status CHECK (status IN ('ACTIVE', 'HIDDEN'))
+);
+GRANT SELECT ON report_dataset_link TO cep_app;
+GRANT ALL ON report_dataset_link TO cep_admin;
+
 -- ---- favourites (Phase C): a person's starred reports and dashboards, first in their lists (apps/insights/library.py)
 CREATE TABLE IF NOT EXISTS report_favourite (
     tenant_id           UUID NOT NULL REFERENCES tenant(id),
@@ -2352,6 +2438,12 @@ INSERT INTO report_field (dataset_key, key, label, column_name, type, role, aggr
     ('journey_enrollments', 'conversion_rate', 'Conversion Rate', 'conversion_rate', 'number', 'measure', '["calc"]', 'percent', 'NORMAL', 130,
      '{"op": "ratio", "left": {"field": "converted", "aggregate": "sum"}, "right": {"field": "enrollments", "aggregate": "count"}, "scale": 100}')
 ON CONFLICT (dataset_key, key) DO NOTHING;
+
+-- ---- the first links between the platform's datasets (patch 0061), once both datasets are there
+INSERT INTO report_dataset_link (from_dataset, to_dataset, label, pairs, time_pair, sort_order) VALUES
+    ('messages', 'attributed_orders', 'Orders credited to the campaign', '[["campaign_name", "campaign_name"], ["channel", "channel"]]', '["submitted_at", "ordered_at"]', 10),
+    ('attributed_orders', 'messages', 'Messages of the campaign', '[["campaign_name", "campaign_name"], ["channel", "channel"]]', '["ordered_at", "submitted_at"]', 20)
+ON CONFLICT (from_dataset, to_dataset) DO NOTHING;
 
 -- ---- the Insights global parameters (Platform admin -> Global Parameters)
 INSERT INTO platform_setting (key, value, value_type, category, description) VALUES

@@ -3,8 +3,8 @@
  * unsaved; so can the slicers, and a value clicked on a tile filters the others (a field that is not a saved slicer gets a
  * chip of its own for the visit). Edit opens the editor for whoever may; Delete is the owner's.
  */
-import { CalendarClock, FileText, Pencil, Share2, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { CalendarClock, FileText, Link2, Pencil, Share2, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { buttonDanger, buttonSecondary } from '@/components/Form'
@@ -13,15 +13,19 @@ import { PageHeader } from '@/components/ResourceList'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/auth/AuthContext'
-import { dashboardsApi, keys, useDashboard, useDeleteDashboard, useSchedules } from '../api'
+import { dashboardsApi, keys, usageApi, useDashboard, useDeleteDashboard, useSchedules } from '../api'
+import { EmbedDialog } from '../components/EmbedDialog'
 import { ScheduleBanner } from '../components/ScheduleBanner'
 import { ScheduleDialog } from '../components/ScheduleDialog'
 import { ShareDialog } from '../components/ShareDialog'
 import { DashboardBody } from '../dashboards/DashboardBody'
 import { activeSlicers, periodWords, tiles, toggleValue } from '../dashboards/layout'
+import { pagesOf } from '../dashboards/pages'
 import { PeriodBar } from '../dashboards/PeriodBar'
+import { SavedViews } from '../dashboards/SavedViews'
 import { SlicerBar } from '../dashboards/SlicerBar'
-import type { DashboardSlicer, Period, ResultColumn, SlicerSelection } from '../types'
+import { Tabs } from '@/components/Tabs'
+import type { DashboardSlicer, DrillStep, Period, ResultColumn, SavedView, SlicerSelection } from '../types'
 
 export function DashboardPage() {
   const { id } = useParams()
@@ -33,10 +37,15 @@ export function DashboardPage() {
   const [compare, setCompare] = useState<boolean | null>(null)
   const [selection, setSelection] = useState<SlicerSelection>({})
   const [extra, setExtra] = useState<DashboardSlicer[]>([])
+  const [page, setPage] = useState<string | null>(null)
+  const [drills, setDrills] = useState<Record<string, DrillStep[]>>({})
+  const [applied, setApplied] = useState<string | null>(null)
   const { can, me } = useAuth()
   const [scheduling, setScheduling] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [embedding, setEmbedding] = useState(false)
   const [exporting, setExporting] = useState(false)
+  useEffect(() => { if (id) usageApi.opened('dashboard', id).catch(() => undefined) }, [id])
   const schedules = useSchedules({ item: id })
   const schedule = schedules.data?.schedules[0] ?? null
 
@@ -73,6 +82,17 @@ export function DashboardPage() {
     if (!slicers.some((item) => item.field === column.key) && !extra.some((item) => item.field === column.key)) setExtra((now) => [...now, { field: column.key, label: column.label }])
     setSelection((now) => toggleValue(now, column.key, value))
   }
+  const pages = pagesOf(data.layout)
+  const shownPage = pages.find((item) => item.id === page) ?? pages[0]
+  const onDrill = (tileId: string, next: DrillStep[] | null) => setDrills((now) => {
+    const { [tileId]: _gone, ...rest } = now
+    return next ? { ...rest, [tileId]: next } : rest
+  })
+  const applyView = (view: SavedView) => {
+    const state = view.state
+    setPeriod(state.period ?? null); setCompare(state.compare ?? null); setPage(state.page ?? null)
+    setSelection(state.selection ?? {}); setExtra(state.extra ?? []); setDrills(state.drills ?? {}); setApplied(view.id)
+  }
   const removeExtra = (field: string) => {
     setExtra((now) => now.filter((item) => item.field !== field))
     setSelection((now) => ({ ...now, [field]: [] }))
@@ -87,6 +107,7 @@ export function DashboardPage() {
               <button type="button" className={buttonSecondary} onClick={() => setScheduling(true)}><CalendarClock size={16} strokeWidth={1.5} aria-hidden />{schedule ? `Scheduled · ${schedule.words}` : 'Schedule'}</button>
             )}
             {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setSharing(true)}><Share2 size={16} strokeWidth={1.5} aria-hidden />{data.shared ? 'Shared' : 'Share'}</button>}
+            {data.can_share && <button type="button" className={buttonSecondary} onClick={() => setEmbedding(true)}><Link2 size={16} strokeWidth={1.5} aria-hidden />Embed</button>}
             <button type="button" className={buttonSecondary} onClick={exportPdf} disabled={exporting || tiles(data.layout).length === 0}><FileText size={16} strokeWidth={1.5} aria-hidden />Export PDF</button>
             {data.can_edit && <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}><Pencil size={16} strokeWidth={1.5} aria-hidden />Edit</button>}
             {data.can_edit && <button type="button" className={buttonDanger} onClick={deleteDashboard} disabled={remove.isPending}><Trash2 size={16} strokeWidth={1.5} aria-hidden />Delete</button>}
@@ -94,16 +115,25 @@ export function DashboardPage() {
         )} />
       {schedule && <ScheduleBanner schedule={schedule} onChange={() => setScheduling(true)} />}
       <PeriodBar period={shownPeriod} onPeriod={setPeriod} compare={shownCompare} onCompare={setCompare} bounds={saved ? data.bounds : undefined} />
+      <div className="flex flex-wrap items-center gap-2">
+        <SavedViews dashboardId={id as string} canShare={data.can_edit} applied={applied} onApply={applyView}
+          current={{ ...(period ? { period } : {}), ...(compare !== null ? { compare } : {}), ...(page ? { page } : {}), selection: activeSlicers(selection), extra, drills }} />
+      </div>
       <SlicerBar slicers={slicers} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))} onRemoveExtra={removeExtra}
         loadValues={(field) => dashboardsApi.slicerValues(id as string, { field, period: shownPeriod })} queryKey={[...keys.tiles(id as string), shownPeriod]} />
       {sharing && <ShareDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setSharing(false)} />}
+      {embedding && <EmbedDialog kind="dashboard" id={id as string} name={data.name} onClose={() => setEmbedding(false)} />}
       {scheduling && <ScheduleDialog kind="dashboard" reportId={id as string} reportName={data.name} zone={me?.tenant.timezone ?? 'UTC'} existing={schedule} onClose={() => setScheduling(false)} onSaved={() => setScheduling(false)} />}
       {tiles(data.layout).length === 0 ? (
         <EmptyState title="Nothing on This Dashboard Yet" hint={data.can_edit ? 'Edit it and add a tile: one of your reports in its view, or one of its numbers as a figure.' : 'Its owner has not added a tile yet.'}
           action={data.can_edit ? <button type="button" className={buttonSecondary} onClick={() => navigate(`/insights/dashboards/${id}/edit`)}>Edit</button> : undefined} />
       ) : (
-        <DashboardBody layout={data.layout} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
+        <>
+        {pages.length > 1 && <Tabs label="Pages" idPrefix="dashboard-page" size="sm" tabs={pages.map((item) => ({ id: item.id, label: item.title }))} value={shownPage.id} onChange={setPage} />}
+        <DashboardBody layout={{ ...data.layout, rows: shownPage.rows }} period={shownPeriod} compare={shownCompare} keyPrefix={keys.tiles(id as string)} selection={activeSlicers(selection)} onPick={pick}
+          drills={drills} onDrill={onDrill}
           load={(tile, p, c, s, d) => dashboardsApi.runTile(id as string, tile.id, { period: p, compare: c, ...(s ? { slicers: s } : {}), ...(d ? { drill: { path: d } } : {}) })} />
+        </>
       )}
     </div>
   )

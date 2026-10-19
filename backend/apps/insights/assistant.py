@@ -287,13 +287,13 @@ def usage_words(use: dict) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------- what this person may ask
-def offer(tenant, request) -> dict:
+def offer(tenant, request, *, need_edit: bool = True) -> dict:
     """The box's state: the models the person may pick (the platform's switched-on providers the workspace allows), the default,
     the month's use; or why the box is not there."""
     mine = workspace_settings(tenant)
     effective = effective_providers(tenant)
     models = models_of(effective)
-    if not (_has(request, "report.edit") or _has(request, "report.admin")):
+    if need_edit and not (_has(request, "report.edit") or _has(request, "report.admin")):
         return {"enabled": False, "reason": "no_right", "models": [], "default_model": None, "usage": None}
     if not active_providers() and not any(row["api_key_enc"] for row in own_providers(tenant.pk).values()):
         return {"enabled": False, "reason": "no_provider", "models": [], "default_model": None, "usage": None}
@@ -305,6 +305,15 @@ def offer(tenant, request) -> dict:
     own = [key for key, row in effective.items() if row["source"] == "own"]
     return {"enabled": True, "reason": None, "models": models, "default_model": default_model(models), "usage": {**use, "words": usage_words(use)},
             "own": own, "examples": EXAMPLES}
+
+
+def explain_state(tenant, request) -> dict:
+    """whether this person may have a report explained (any reader, when the platform and the workspace allow it), and by which model"""
+    if not explain_allowed() or not workspace_settings(tenant)["explain"]:
+        return {"enabled": False, "model": None}
+    state = offer(tenant, request, need_edit=False)
+    model = next((m for m in state["models"] if m["id"] == state["default_model"]), None) if state["enabled"] else None
+    return {"enabled": model is not None, "model": {"id": model["id"], "label": model["label"], "provider_name": model["provider_name"]} if model else None}
 
 
 # ---------------------------------------------------------------------------------------------------- the conversation
@@ -631,7 +640,7 @@ class AssistantView(APIView):
     def get(self, request, version=None):
         tenant = _tenant()
         state = offer(tenant, request)
-        return Response({**state, "recent": recent(request.user.pk) if state["enabled"] else []})
+        return Response({**state, "recent": recent(request.user.pk) if state["enabled"] else [], "explain": explain_state(tenant, request)})
 
 
 class AskView(APIView):
