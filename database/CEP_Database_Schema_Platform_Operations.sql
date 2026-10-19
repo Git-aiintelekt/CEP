@@ -2344,6 +2344,90 @@ GRANT USAGE, SELECT ON SEQUENCE report_delivery_id_seq TO cep_app;
 GRANT ALL ON report_schedule, report_delivery TO cep_admin;
 GRANT ALL ON SEQUENCE report_run_audit_id_seq TO cep_admin;
 
+-- ---- threshold alerts (patch 0062): a report's value checked every hour or every day, an email when it crosses the threshold
+-- (once, until it is back), each check kept (apps/insights/alerts.py, workers/insights_alerts.py)
+CREATE TABLE IF NOT EXISTS report_alert (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    report_id           UUID NOT NULL REFERENCES report(id) ON DELETE CASCADE,
+    owner_user_id       UUID NOT NULL REFERENCES app_user(id),            -- whose rights and masking the value is read with
+    name                VARCHAR(120),
+    measure             VARCHAR(60) NOT NULL,                             -- the report's value: a measure column's field key
+    op                  VARCHAR(2) NOT NULL,                              -- <, <=, >, >=
+    threshold           NUMERIC NOT NULL,
+    every               VARCHAR(5) NOT NULL DEFAULT 'day',                -- hour, day
+    at_time             TIME,                                             -- day: in the workspace's zone
+    recipients          JSONB NOT NULL,                                   -- ["a@b.c", ...]
+    status              VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',            -- ACTIVE, PAUSED
+    state               VARCHAR(10) NOT NULL DEFAULT 'UNKNOWN',           -- UNKNOWN, OK, TRIGGERED: an email goes on the way into TRIGGERED
+    last_value          NUMERIC,
+    last_checked_at     TIMESTAMPTZ,
+    last_fired_at       TIMESTAMPTZ,
+    last_detail         VARCHAR(300),
+    failures            SMALLINT NOT NULL DEFAULT 0,
+    next_check_at       TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at          TIMESTAMPTZ,
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ck_report_alert_op CHECK (op IN ('<', '<=', '>', '>=')),
+    CONSTRAINT ck_report_alert_every CHECK (every IN ('hour', 'day')),
+    CONSTRAINT ck_report_alert_status CHECK (status IN ('ACTIVE', 'PAUSED')),
+    CONSTRAINT ck_report_alert_state CHECK (state IN ('UNKNOWN', 'OK', 'TRIGGERED'))
+);
+CREATE INDEX IF NOT EXISTS ix_report_alert_due ON report_alert(tenant_id, next_check_at) WHERE deleted_at IS NULL AND status = 'ACTIVE';
+CREATE INDEX IF NOT EXISTS ix_report_alert_report ON report_alert(tenant_id, report_id) WHERE deleted_at IS NULL;
+CREATE TABLE IF NOT EXISTS report_alert_check (
+    id                  BIGSERIAL PRIMARY KEY,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    alert_id            UUID NOT NULL REFERENCES report_alert(id) ON DELETE CASCADE,
+    checked_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    trigger             VARCHAR(10) NOT NULL DEFAULT 'schedule',          -- schedule, now
+    value               NUMERIC,
+    met                 BOOLEAN,
+    notified            BOOLEAN NOT NULL DEFAULT FALSE,
+    outcome             VARCHAR(12) NOT NULL,                             -- OK, FAILED, REFUSED, TIMEOUT
+    detail              VARCHAR(300)
+);
+CREATE INDEX IF NOT EXISTS ix_report_alert_check_alert ON report_alert_check(alert_id, checked_at DESC);
+
+-- ---- comments and annotations (patch 0062): notes on a report or a dashboard, on the whole, on a tile, or on one value of a chart
+CREATE TABLE IF NOT EXISTS insights_comment (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    kind                VARCHAR(10) NOT NULL,                             -- report, dashboard
+    item_id             UUID NOT NULL,
+    author_user_id      UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    body                TEXT NOT NULL,
+    anchor              JSONB,                                            -- {tile_id?, field?, value?, label?}: what the note is on
+    resolved_at         TIMESTAMPTZ,
+    resolved_by         UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    edited_at           TIMESTAMPTZ,
+    deleted_at          TIMESTAMPTZ,
+    CONSTRAINT ck_insights_comment_kind CHECK (kind IN ('report', 'dashboard'))
+);
+CREATE INDEX IF NOT EXISTS ix_insights_comment_item ON insights_comment(tenant_id, kind, item_id, created_at) WHERE deleted_at IS NULL;
+
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['report_alert', 'report_alert_check', 'insights_comment'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON report_alert, report_alert_check, insights_comment TO cep_app;
+GRANT USAGE, SELECT ON SEQUENCE report_alert_check_id_seq TO cep_app;
+GRANT ALL ON report_alert, report_alert_check, insights_comment TO cep_admin;
+
+-- ---- PowerPoint (patch 0062): a schedule may send a .pptx
+ALTER TABLE report_schedule DROP CONSTRAINT IF EXISTS ck_report_schedule_format;
+ALTER TABLE report_schedule ADD CONSTRAINT ck_report_schedule_format CHECK (format IN ('xlsx', 'csv', 'pdf', 'pptx'));
+
 -- ---- the first datasets: what Reports already shows, as catalogue entries
 INSERT INTO report_dataset (key, component_key, label, description, primary_key, time_field, sort_order) VALUES
     ('messages',            'cep', 'Messages',            'Every email and text a campaign sent: who, when, and what became of it',        'message_id',    'submitted_at', 10),

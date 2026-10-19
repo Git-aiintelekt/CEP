@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 from unittest import mock
 
-from apps.insights import access, ai_report, analyze, assistant, catalog, clickhouse, compare, compiler, dashboards, definition, derived, drill, embeds, excel, links, pdf, runner, schedules, shape, topn
+from apps.insights import access, ai_report, alerts, analyze, assistant, catalog, comments, slides, clickhouse, compare, compiler, dashboards, definition, derived, drill, embeds, excel, links, pdf, runner, schedules, shape, topn
 from apps.insights.definition import DefinitionError
 
 pytestmark = pytest.mark.django_db(databases=["default", "platform"])
@@ -513,6 +513,37 @@ def test_definition_and_compiler(check):
     check("the PDF draws a KPI card, a waterfall as steps, the rest as rows, and a summary tile (its words escaped)",
           all(b[:5] == b"%PDF-" for b in (figure_pdf, water_pdf, scatter_pdf, summary_pdf)))
 
+    # dashboards and interaction: a tooltip report on a view, alerts' arithmetic, a comment's anchor, PowerPoint and the print-ready PDF
+    check("a view may name a tooltip report", definition.validate(DATASET, {"columns": [{"field": "channel"}, {"field": "sent", "aggregate": "sum"}],
+                                                                           "view": {"type": "chart", "tooltip": "A0000000-0000-4000-8000-000000000009"}})["view"]["tooltip"] == "a0000000-0000-4000-8000-000000000009"
+          and refused({"columns": [{"field": "channel"}], "view": {"type": "chart", "tooltip": "rep-1"}}, "view.tooltip"))
+    from datetime import datetime as _dt, time as _time, timezone as _tz
+    from zoneinfo import ZoneInfo
+    check("an alert's condition, and when it is checked next", alerts._met(87.2, "<", 90) is True and alerts._met(90, "<", 90) is False and alerts._met(90, "<=", 90) is True
+          and alerts._met(None, ">", 1) is None
+          and alerts.next_check("hour", None, ZoneInfo("UTC"), _dt(2026, 10, 19, 9, 20, 30, tzinfo=_tz.utc)) == _dt(2026, 10, 19, 10, 20, tzinfo=_tz.utc)
+          and alerts.next_check("day", _time(8, 0), ZoneInfo("America/New_York"), _dt(2026, 10, 19, 13, 0, tzinfo=_tz.utc)) == _dt(2026, 10, 20, 12, 0, tzinfo=_tz.utc))
+    check("a comment's anchor: a tile, or a field's value with its words; the whole item when empty",
+          comments._anchor({"tile_id": "t1"}) == {"tile_id": "t1"} and comments._anchor({"field": "channel", "value": "SMS"}) == {"field": "channel", "value": "SMS", "label": "SMS"}
+          and comments._anchor({}) is None)
+    import io as _io
+    from pptx import Presentation
+    columns_s = [{"key": "channel", "label": "Channel", "type": "string", "format": None}, {"key": "sent", "label": "Sent Count", "type": "number", "format": "integer", "aggregate": "sum"}]
+    deck = Presentation(_io.BytesIO(slides.report("Sends", columns_s, [["EMAIL", 900], ["SMS", 40]], {"type": "chart", "chart": "bar"}, workspace="W", when="now")))
+    check("a report as PowerPoint: a cover, its chart as a native chart, then its rows", len(deck.slides) == 3 and any(sh.has_chart for sh in deck.slides[1].shapes)
+          and any(sh.has_table for sh in deck.slides[2].shapes))
+    board_deck = Presentation(_io.BytesIO(slides.dashboard("Board", None, "September", [
+        {"title": "Sent", "kind": "figure", "value": 940, "previous": 800, "compared": True, "column": columns_s[1]},
+        {"title": "By channel", "kind": "view", "view": {"type": "chart", "chart": "pie"}, "result": {"columns": columns_s, "rows": [["EMAIL", 900], ["SMS", 40]], "row_count": 2}},
+        {"title": "Note", "kind": "text", "text": "Read me first."}, {"title": "Gone", "kind": "missing", "detail": "The report is gone."}], workspace="W", when="now")))
+    check("a dashboard as PowerPoint: a cover and a slide per tile", len(board_deck.slides) == 5)
+    many = [[f"C{i % 3}", i] for i in range(400)]
+    printed = pdf.paginated("Long", columns_s, many, None, size="letter", wide=True, group=True, filters=["Channel is EMAIL"], workspace="W", when="now")
+    import re as _re
+    plain = pdf.paginated("Long", columns_s, many, None, workspace="W", when="now")
+    check("the print-ready PDF lays every row over pages; a section per value adds pages", printed[:5] == b"%PDF-"
+          and len(_re.findall(rb"/Type /Page[^s]", plain)) >= 8 and len(_re.findall(rb"/Type /Page[^s]", printed)) > len(_re.findall(rb"/Type /Page[^s]", plain)))
+
     # drill-down: the levels, and the definition of the level under a path
     yearly = definition.validate(DATASET, {"columns": [{"field": "submitted_at", "bucket": "year"}, {"field": "channel"}, {"field": "campaign_name"}, {"field": "sent", "aggregate": "sum", "compare": ["percent_of_total"]}],
                                            "filters": {"combinator": "and", "rules": [{"field": "channel", "operator": "!=", "value": "PUSH"}]}, "orderBy": [{"field": "sent", "direction": "desc"}],
@@ -843,6 +874,49 @@ def test_api(check, world):
     board_pdf = world.api("get", f"/api/v1/insights/dashboards/{board['id']}/export.pdf")
     check("the dashboard's PDF carries the kept summary", board_pdf.status_code == 200 and board_pdf.content[:5] == b"%PDF-")
     world.api("delete", f"/api/v1/insights/dashboards/{board['id']}/")
+
+    # dashboards and interaction: a free canvas with a theme, a text tile and a button; PowerPoint and print-ready exports; alerts; comments
+    canvas_board = world.api("post", "/api/v1/insights/dashboards/", {"name": "Canvas"}).json()
+    laid = world.api("put", f"/api/v1/insights/dashboards/{canvas_board['id']}/", {"row_version": canvas_board["row_version"], "layout": {"rows": [], "canvas": True, "theme": "navy", "cells": [
+        {"id": "c1", "report_id": rid, "show": "chart", "x": 0, "y": 0, "w": 8, "h": 4},
+        {"id": "c2", "show": "text", "text": "What this board is for.", "title": "Read Me", "x": 8, "y": 0, "w": 4, "h": 2, "hide_on_phone": True},
+        {"id": "c3", "show": "button", "label": "Open the Report", "action": {"kind": "report", "id": rid}, "x": 8, "y": 2, "w": 4, "h": 1}]}})
+    body_c = laid.json() if laid.status_code == 200 else {}
+    check("a dashboard on a free canvas keeps its places, its theme, a text tile and a button", laid.status_code == 200 and body_c["layout"]["canvas"] is True and body_c["layout"]["theme"] == "navy"
+          and [c["id"] for c in body_c["layout"]["cells"]] == ["c1", "c2", "c3"] and body_c["layout"]["cells"][1]["hide_on_phone"] is True and body_c["layout"]["cells"][2]["action"]["kind"] == "report", laid.content[:300])
+    outside = world.api("put", f"/api/v1/insights/dashboards/{canvas_board['id']}/", {"row_version": body_c.get("row_version", 0), "layout": {"rows": [], "canvas": True, "cells": [
+        {"id": "c1", "report_id": rid, "show": "chart", "x": 10, "y": 0, "w": 4, "h": 4}]}})
+    check("a tile past the twelve columns is refused where it sits", outside.status_code == 400 and "layout.cells[0]" in json.dumps(outside.json()), outside.content[:200])
+    check("a text tile does not run", world.api("post", f"/api/v1/insights/dashboards/{canvas_board['id']}/tiles/c2/run/", {}).status_code == 404)
+    deck_d = world.api("get", f"/api/v1/insights/dashboards/{canvas_board['id']}/export.pptx")
+    check("the dashboard exports as PowerPoint", deck_d.status_code == 200 and deck_d.content[:2] == b"PK" and deck_d["Content-Type"].endswith("presentationml.presentation"), deck_d.content[:100])
+    check("the canvas dashboard's PDF carries the text tile", world.api("get", f"/api/v1/insights/dashboards/{canvas_board['id']}/export.pdf").content[:5] == b"%PDF-")
+    world.api("delete", f"/api/v1/insights/dashboards/{canvas_board['id']}/")
+    deck_r = world.api("get", f"/api/v1/insights/reports/{rid}/export.pptx")
+    check("the report exports as PowerPoint", deck_r.status_code == 200 and deck_r.content[:2] == b"PK" and 'filename="' in deck_r["Content-Disposition"], deck_r.content[:100])
+    printed_r = world.api("get", f"/api/v1/insights/reports/{rid}/export.pdf?layout=print&size=letter&orientation=landscape&group=1")
+    check("the report prints page by page", printed_r.status_code == 200 and printed_r.content[:5] == b"%PDF-", printed_r.content[:100])
+    if alerts.present():
+        with mock.patch("apps.platform_ops.mail.is_configured", return_value=True), mock.patch("apps.platform_ops.mail.send", return_value=True) as mailed:
+            made_a = world.api("post", "/api/v1/insights/alerts/", {"report_id": rid, "measure": "sent", "op": ">", "threshold": -1, "every": "day", "at_time": "08:00", "name": "Any sends"})
+            check("an alert is made on a report's value", made_a.status_code == 201 and made_a.json()["state"] == "UNKNOWN" and made_a.json()["words"].startswith("When "), made_a.content[:300])
+            now_a = world.api("post", f"/api/v1/insights/alerts/{made_a.json()['id']}/check/", {})
+            again_a = world.api("post", f"/api/v1/insights/alerts/{made_a.json()['id']}/check/", {})
+            check("Check Now crosses the threshold and emails once; the next check does not email again", now_a.status_code == 200 and now_a.json()["state"] == "TRIGGERED" and now_a.json()["notified"] is True
+                  and again_a.json()["notified"] is False and mailed.call_count == 1, (now_a.content[:300], mailed.call_count))
+            listed_a = world.api("get", f"/api/v1/insights/alerts/{made_a.json()['id']}/").json()
+            check("the alert keeps its checks", len(listed_a["checks"]) == 2 and listed_a["checks"][0]["met"] is True)
+            check("an alert pauses and is deleted", world.api("post", f"/api/v1/insights/alerts/{made_a.json()['id']}/pause/", {}).json()["status"] == "PAUSED"
+                  and world.api("delete", f"/api/v1/insights/alerts/{made_a.json()['id']}/").status_code == 204)
+        made_c = world.api("post", "/api/v1/insights/comments/", {"kind": "report", "item_id": rid, "body": "September dipped here.", "anchor": {"field": "channel", "value": "SMS", "label": "SMS"}})
+        check("a comment on a value of the report", made_c.status_code == 201 and made_c.json()["anchor"] == {"field": "channel", "value": "SMS", "label": "SMS"} and made_c.json()["mine"] is True, made_c.content[:300])
+        resolved = world.api("put", f"/api/v1/insights/comments/{made_c.json()['id']}/", {"resolved": True})
+        check("a comment is resolved, listed, and deleted by its author", resolved.json()["resolved_at"] is not None
+              and any(c["id"] == made_c.json()["id"] for c in world.api("get", f"/api/v1/insights/comments/?kind=report&item={rid}").json()["comments"])
+              and world.api("delete", f"/api/v1/insights/comments/{made_c.json()['id']}/").status_code == 204)
+    else:
+        check("before patch 0062 alerts and comments say so", world.api("post", "/api/v1/insights/comments/", {"kind": "report", "item_id": rid, "body": "x"}).status_code == 409
+              and world.api("get", "/api/v1/insights/alerts/").json()["ready"] is False)
 
     gone = world.api("delete", f"/api/v1/insights/reports/{rid}/")
     check("a deleted report is gone from the list", gone.status_code == 204 and not any(r["id"] == rid for r in world.api("get", "/api/v1/insights/reports/").json()["reports"]))

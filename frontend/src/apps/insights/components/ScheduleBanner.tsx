@@ -7,7 +7,7 @@ import { formatDateTime } from '@/lib/format'
 import { keys, schedulesApi } from '../api'
 import type { Schedule } from '../types'
 
-const FORMAT: Record<Schedule['format'], string> = { xlsx: 'Excel', csv: 'CSV', pdf: 'PDF' }
+const FORMAT: Record<Schedule['format'], string> = { xlsx: 'Excel', csv: 'CSV', pdf: 'PDF', pptx: 'PowerPoint' }
 
 export function ScheduleBanner({ schedule, onChange }: { schedule: Schedule; onChange: () => void }) {
   const client = useQueryClient()

@@ -8,7 +8,9 @@ import { DashboardBody } from '../dashboards/DashboardBody'
 import { PeriodBar } from '../dashboards/PeriodBar'
 import { SlicerBar } from '../dashboards/SlicerBar'
 import { activeSlicers, periodBounds, periodWords, toggleValue } from '../dashboards/layout'
-import type { DashboardLayout, DashboardTile, DrillStep, Period, ResultColumn, RunResult, SlicerSelection, TileResult } from '../types'
+import { bottom, rowsToCells } from '../dashboards/canvas'
+import { themeStyle } from '../dashboards/themes'
+import type { DashboardLayout, DashboardTheme, DashboardTile, DrillStep, Period, ResultColumn, RunResult, SlicerSelection, TileResult } from '../types'
 
 const LAYOUT: DashboardLayout = {
   rows: [
@@ -102,14 +104,16 @@ async function load(tile: DashboardTile, period: Period, compare: boolean, slice
       sliced: channelSlice, drill: { levels: WEEKLY_LEVELS, path, depth: path.length } }
   }
   const has = view.result.columns.some((column) => column.key === 'channel')
-  return { kind: 'view', view: { type: tile.show === 'figure' || tile.show === 'summary' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
+  return { kind: 'view', view: { type: tile.show === 'figure' || tile.show === 'summary' || tile.show === 'text' || tile.show === 'button' ? 'grid' : tile.show, chart: view.chart ?? 'bar', across: view.across }, result: sliced(view.result, slicers), own_dates: Boolean(view.own), bounds,
     report: report(tile.report_id, view.name), sliced: has ? channelSlice : [] }
 }
 
 export default function DashboardPlayground() {
   const [params] = useSearchParams()
   const editing = params.get('edit') === '1'
-  const [layout, setLayout] = useState(LAYOUT)
+  const [layout, setLayout] = useState<DashboardLayout>(() => (params.get('canvas') === '1' ? { ...LAYOUT, rows: [], canvas: true, cells: [...rowsToCells(LAYOUT.rows),
+    { id: 'n1', report_id: '', show: 'text', title: 'How to Read This', text: 'Sends and revenue for the period above.\n\n- **Figures** compare with the period before\n- Click a bar to filter the other tiles', x: 0, y: bottom(rowsToCells(LAYOUT.rows)), w: 6, h: 2 },
+    { id: 'b1', report_id: '', show: 'button', label: 'Email Only', action: { kind: 'view', id: 'v1' }, x: 6, y: bottom(rowsToCells(LAYOUT.rows)), w: 3, h: 1, hide_on_phone: true }] } : LAYOUT))
   const [period, setPeriod] = useState<Period>({ preset: '30d' })
   const [compare, setCompare] = useState(true)
   const [selection, setSelection] = useState<SlicerSelection>({})
@@ -127,7 +131,10 @@ export default function DashboardPlayground() {
       {!editing && <SlicerBar slicers={layout.slicers ?? []} extra={extra} selection={selection} onChange={(field, values) => setSelection((now) => ({ ...now, [field]: values }))}
         onRemoveExtra={(field) => { setExtra((now) => now.filter((item) => item.field !== field)); setSelection((now) => ({ ...now, [field]: [] })) }}
         loadValues={async (field) => ({ field, label: 'Channel', values: ['EMAIL', 'SMS'], datasets: 2 })} queryKey={['dev', 'dashboard', 'slicers']} />}
-      <DashboardBody layout={layout} period={period} compare={compare} load={load} keyPrefix={['dev', 'dashboard']} selection={activeSlicers(selection)} onPick={pick} editing={editing ? { onChange: setLayout, onAddTile: () => undefined } : undefined} />
+      <div style={themeStyle((params.get('theme') ?? undefined) as DashboardTheme | undefined)}>
+        <DashboardBody layout={layout} period={period} compare={compare} load={load} keyPrefix={['dev', 'dashboard']} selection={activeSlicers(selection)} onPick={pick} phone={params.get('phone') === '1'}
+          editing={editing ? { onChange: setLayout, onAddTile: () => undefined } : undefined} onAction={() => undefined} />
+      </div>
     </div>
   )
 }

@@ -1,0 +1,10 @@
+{% autoescape off %}{{ title }}
+
+{{ words }} Checked {{ checked }} on {{ report_name }}.
+You will not be emailed again until the value is back on the other side of the threshold and crosses it again.
+
+Open the report: {{ frontend_url }}{{ report_link }}
+Change or stop this alert: {{ frontend_url }}{{ alerts_link }}
+
+Set up by {{ owner }} in {{ product }} Insights.
+{% endautoescape %}

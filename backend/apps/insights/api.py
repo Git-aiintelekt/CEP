@@ -452,30 +452,85 @@ class ExportXlsxView(APIView):
         return response
 
 
+OPERATOR_WORDS = {"=": "is", "!=": "is not", ">": "more than", ">=": "at least", "<": "less than", "<=": "at most", "contains": "contains", "starts_with": "starts with",
+                  "in": "is one of", "between": "between", "last_days": "in the last", "is_null": "is empty", "is_not_null": "is not empty"}
+
+
+def filter_words(dataset: dict, definition: dict) -> list[str]:
+    """the report's top-level filters in words, for the first page of a print-ready PDF"""
+    labels = {f["key"]: f["label"] for f in dataset["fields"]}
+    out = []
+    for rule in (definition.get("filters") or {}).get("rules", []):
+        if "rules" in rule:
+            out.append("a group of conditions")
+            continue
+        value = rule.get("value")
+        words = (f"{value} days" if rule.get("operator") == "last_days" else " and ".join(map(str, value)) if rule.get("operator") == "between" and isinstance(value, list)
+                 else ", ".join(map(str, value)) if isinstance(value, list) else "" if value is None else str(value))
+        out.append(" ".join(part for part in (labels.get(rule.get("field"), rule.get("field")), OPERATOR_WORDS.get(rule.get("operator"), rule.get("operator")), words) if part))
+    return out
+
+
+def _export_rows(request, report_id):
+    tenant = _tenant()
+    row = _report_row(report_id, request)
+    import json
+    definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
+    dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
+    columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+    return tenant, row, dataset, definition, columns, rows, totals
+
+
+def _file(body: bytes, name: str, ext: str, mime: str):
+    from django.http import HttpResponse
+    safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in name)[:80] or "report"
+    response = HttpResponse(body, content_type=mime)
+    response["Content-Disposition"] = f'attachment; filename="{safe}.{ext}"'
+    return response
+
+
+PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+
 class ExportPdfView(APIView):
-    """The report in its saved view as a PDF (apps/insights/pdf.py): a pivot or a hierarchy with its totals, a chart as bars with its numbers."""
+    """The report in its saved view as a PDF (apps/insights/pdf.py): a pivot or a hierarchy with its totals, a chart as bars with its numbers.
+    ?layout=print: the print-ready report instead (every row, &size=a4|letter, &orientation=portrait|landscape, &group=1 a section per value
+    of the first dimension with its subtotals)."""
     permission_classes = VIEW
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None, report_id=None):
-        from django.http import HttpResponse
         from . import pdf
         from apps.reporting import reports as reporting
-        tenant = _tenant()
-        row = _report_row(report_id, request)
-        import json
-        definition_raw = json.loads(row["definition"]) if isinstance(row["definition"], str) else row["definition"]
-        dataset, definition = _validated(request, {"dataset": row["dataset_key"], "definition": definition_raw}, max_limit=catalog.engine_of(tenant.pk)["limits"]["export_rows"], reading=True)
         try:
-            columns, rows, totals = runner.fetch_all(tenant, request.user, dataset, definition, report_id=report_id, report_version=row["version"], mask_pii=not _can_see_pii(request))
+            tenant, row, dataset, definition, columns, rows, totals = _export_rows(request, report_id)
         except runner.RunRefused as exc:
             return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
-        today = timezone.now().astimezone(reporting.zone_of(tenant)).date()
-        body = pdf.report(row["name"], columns, rows, definition.get("view"), totals, workspace=tenant.name, when=today.strftime("%d %b %Y").lstrip("0"))
-        safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in row["name"])[:80] or "report"
-        response = HttpResponse(body, content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{safe}.pdf"'
-        return response
+        today = timezone.now().astimezone(reporting.zone_of(tenant)).date().strftime("%d %b %Y").lstrip("0")
+        if request.query_params.get("layout") == "print":
+            size = request.query_params.get("size") if request.query_params.get("size") in pdf.PAGE_SIZES else "a4"
+            body = pdf.paginated(row["name"], columns, rows, totals, size=size, wide=request.query_params.get("orientation") == "landscape",
+                                 group=request.query_params.get("group") == "1", filters=filter_words(dataset, definition), workspace=tenant.name, when=today)
+        else:
+            body = pdf.report(row["name"], columns, rows, definition.get("view"), totals, workspace=tenant.name, when=today)
+        return _file(body, row["name"], "pdf", "application/pdf")
+
+
+class ExportPptxView(APIView):
+    """The report as a PowerPoint deck (apps/insights/slides.py): a cover, its view as a native chart or table, and its rows."""
+    permission_classes = VIEW
+
+    @extend_schema(responses={200: None})
+    def get(self, request, version=None, report_id=None):
+        from . import slides
+        from apps.reporting import reports as reporting
+        try:
+            tenant, row, dataset, definition, columns, rows, totals = _export_rows(request, report_id)
+        except runner.RunRefused as exc:
+            return Response({"type": "about:blank", "title": "The export did not run", "status": 422, "detail": exc.reason}, status=422)
+        today = timezone.now().astimezone(reporting.zone_of(tenant)).date().strftime("%d %b %Y").lstrip("0")
+        body = slides.report(row["name"], columns, rows, definition.get("view"), totals, workspace=tenant.name, when=today)
+        return _file(body, row["name"], "pptx", PPTX)
 
 
 class EngineView(APIView):

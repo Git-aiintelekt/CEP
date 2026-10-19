@@ -166,6 +166,9 @@ export const insightsRowRulesNow: MockRule[] = []
 /** a dashboard's saved views */
 /** the smaller gaps: openings, embed links, Explain and Change with a Prompt as the mock answers them */
 export const insightsOpenedNow: { kind: string; id: string }[] = []
+/** dashboards and interaction: alerts and comments as the mock keeps them */
+export const insightsAlertsNow: Record<string, unknown>[] = []
+export const insightsCommentsNow: { id: string; kind: string; item: string; body: string; anchor: Record<string, unknown> | null; author_name: string; mine: boolean; can_delete: boolean; created_at: string; edited_at: string | null; resolved_at: string | null; resolved_by_name: string | null }[] = []
 export const insightsEmbedsNow: { id: string; label: string | null; created_at: string; expires_at: string | null; revoked_at: string | null; last_used_at: string | null; uses: number; created_by_name: string | null; kind: string; item: string }[] = []
 export const insightsViewsNow: { id: string; name: string; state: Record<string, unknown>; shared: boolean; owner_name: string; mine: boolean; updated_at: string }[] = []
 /** merged into every saved report's run, for a test that needs more of it (the access note) */
@@ -854,6 +857,8 @@ export function installMockApi(options: MockOptions = {}) {
   for (const key of Object.keys(insightsRunExtras)) delete insightsRunExtras[key]
   insightsViewsNow.splice(0, insightsViewsNow.length)
   insightsOpenedNow.splice(0, insightsOpenedNow.length)
+  insightsAlertsNow.splice(0, insightsAlertsNow.length)
+  insightsCommentsNow.splice(0, insightsCommentsNow.length)
   insightsEmbedsNow.splice(0, insightsEmbedsNow.length)
   insightsRowRulesNow.splice(0, insightsRowRulesNow.length, { id: 'rule-1', dataset: 'messages', dataset_label: 'Messages', field: 'channel', field_label: 'Channel', broken: false,
     principal: { kind: 'role', id: 'r1', name: 'Store Managers', detail: '4 people' }, values: ['SMS'], note: null, updated_at: '2026-10-18T09:00:00Z', row_version: 1 })
@@ -1321,6 +1326,50 @@ export function installMockApi(options: MockOptions = {}) {
     if (path.includes('/insights/')) {
       if (path.endsWith('/insights/catalog/')) return json(insightsCatalog)
       if (path.endsWith('/insights/assistant/')) return json({ ...insightsAssistantNow, explain: { enabled: workspaceAssistantNow.explain, model: { id: assistantModels[0].id, label: assistantModels[0].label, provider_name: assistantModels[0].provider_name } } })
+      if (path.endsWith('/insights/alerts/') && method === 'POST') {
+        const posted = body as { report_id: string; measure: string; op: string; threshold: number; every: string; at_time?: string; recipients: string[]; name?: string }
+        const words = { '<': 'falls below', '<=': 'is at or below', '>': 'rises above', '>=': 'is at or above' }[posted.op]
+        const made = { id: `alert-${insightsAlertsNow.length + 1}`, report_id: posted.report_id, report_name: 'Sends by campaign', name: posted.name ?? null, measure: posted.measure, measure_label: 'Sent Count',
+          op: posted.op, threshold: posted.threshold, every: posted.every, at_time: posted.at_time ?? null, recipients: posted.recipients, status: 'ACTIVE', state: 'UNKNOWN', last_value: null, last_checked_at: null,
+          last_fired_at: null, last_detail: null, next_check_at: '2026-10-20T12:00:00Z', owner_name: 'Aby John', row_version: 1, can_change: true,
+          words: `When Sent Count ${words} ${posted.threshold}, checked ${posted.every === 'hour' ? 'every hour' : `every day at ${posted.at_time}`}` }
+        insightsAlertsNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/alerts/')) return json({ ready: true, mail_configured: true, alerts: insightsAlertsNow })
+      const alertAct = /\/insights\/alerts\/([\w-]+)\/(check|pause|resume)\/$/.exec(path)
+      if (alertAct) {
+        const found = insightsAlertsNow.find((a) => a.id === alertAct[1]) as Record<string, unknown>
+        if (alertAct[2] === 'check') {
+          const crossed = found.state !== 'TRIGGERED'
+          Object.assign(found, { state: 'TRIGGERED', last_value: 412, last_checked_at: '2026-10-19T09:00:00Z', ...(crossed ? { last_fired_at: '2026-10-19T09:00:00Z' } : {}) })
+          return json({ outcome: 'OK', value: 412, value_words: '412', met: true, notified: crossed, state: 'TRIGGERED', detail: null, alert: found })
+        }
+        Object.assign(found, { status: alertAct[2] === 'pause' ? 'PAUSED' : 'ACTIVE' })
+        return json(found)
+      }
+      const alertOne = /\/insights\/alerts\/([\w-]+)\/$/.exec(path)
+      if (alertOne && method === 'DELETE') { insightsAlertsNow.splice(insightsAlertsNow.findIndex((a) => a.id === alertOne[1]), 1); return new Response(null, { status: 204 }) }
+      if (path.endsWith('/insights/comments/') && method === 'POST') {
+        const posted = body as { kind: string; item_id: string; body: string; anchor?: Record<string, unknown> | null }
+        const made = { id: `c-${insightsCommentsNow.length + 1}`, kind: posted.kind, item: posted.item_id, body: posted.body, anchor: posted.anchor ?? null, author_name: 'Aby John', mine: true, can_delete: true,
+          created_at: '2026-10-19T09:00:00Z', edited_at: null, resolved_at: null, resolved_by_name: null }
+        insightsCommentsNow.push(made)
+        return json(made, 201)
+      }
+      if (path.endsWith('/insights/comments/')) {
+        const q = new URL(url, 'http://test.local').searchParams
+        return json({ ready: true, comments: insightsCommentsNow.filter((c) => c.kind === q.get('kind') && c.item === q.get('item')) })
+      }
+      const commentOne = /\/insights\/comments\/([\w-]+)\/$/.exec(path)
+      if (commentOne) {
+        const at = insightsCommentsNow.findIndex((c) => c.id === commentOne[1])
+        if (method === 'DELETE') { insightsCommentsNow.splice(at, 1); return new Response(null, { status: 204 }) }
+        const put = body as { body?: string; resolved?: boolean }
+        Object.assign(insightsCommentsNow[at], { ...(put.body ? { body: put.body, edited_at: '2026-10-19T09:10:00Z' } : {}),
+          ...(put.resolved !== undefined ? { resolved_at: put.resolved ? '2026-10-19T09:20:00Z' : null, resolved_by_name: put.resolved ? 'Aby John' : null } : {}) })
+        return json(insightsCommentsNow[at])
+      }
       if (path.endsWith('/insights/usage/') && method === 'POST') { insightsOpenedNow.push(body as { kind: string; id: string }); return new Response(null, { status: 204 }) }
       if (path.endsWith('/insights/usage/')) {
         return json({ days: Number(new URL(url, 'http://test.local').searchParams.get('days') ?? 30), ready: true,
@@ -1567,8 +1616,8 @@ export function installMockApi(options: MockOptions = {}) {
         return json({ reports: insightsReportsNow.filter((r) => !component || r.component.key === component).filter((r) => !folder || (folder === 'none' ? !r.folder_id : r.folder_id === folder))
           .map((r) => ({ ...r, folder_name: insightsFolders.find((f) => f.id === r.folder_id)?.name ?? null, favourite: insightsFavourites.has(`report:${r.id}`) })) })
       }
-      if (/\/insights\/(reports|dashboards)\/[\w-]+\/export\.(csv|xlsx|pdf)$/.test(path)) {
-        const type = path.endsWith('.csv') ? 'text/csv' : path.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      if (/\/insights\/(reports|dashboards)\/[\w-]+\/export\.(csv|xlsx|pdf|pptx)$/.test(path)) {
+        const type = path.endsWith('.csv') ? 'text/csv' : path.endsWith('.pdf') ? 'application/pdf' : path.endsWith('.pptx') ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         return new Response(path.endsWith('.csv') ? 'Campaign,Channel\n' : new Uint8Array([0x25, 0x50, 0x44, 0x46]), { status: 200, headers: { 'Content-Type': type } })
       }
       if (/\/insights\/reports\/[\w-]+\/versions\/$/.test(path)) {

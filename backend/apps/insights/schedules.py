@@ -33,7 +33,7 @@ from apps.reporting import reports
 from apps.tenants import context
 
 EVERY = ("day", "weekday", "week", "month")
-FORMATS = ("xlsx", "csv", "pdf")
+FORMATS = ("xlsx", "csv", "pdf", "pptx")
 MAX_RECIPIENTS = 20
 PAUSE_AFTER = 3
 ADDRESS = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -127,10 +127,10 @@ def _validated(request, body: dict, current: dict | None = None) -> dict:
         raise ValidationError({"at_time": "A time like 08:00."}) from None
     kind = str(body.get("kind", current["kind"] if current else "report"))
     fmt = str(body.get("format", current["format"] if current else ("pdf" if kind == "dashboard" else "xlsx"))).lower()
-    if fmt not in FORMATS:
-        raise ValidationError({"format": "Excel, CSV or PDF."})
-    if kind == "dashboard" and fmt != "pdf":
-        raise ValidationError({"format": "A dashboard goes as PDF."})
+    if fmt not in FORMATS or (fmt == "pptx" and not _pptx_allowed()):
+        raise ValidationError({"format": "Excel, CSV, PDF or PowerPoint."})
+    if kind == "dashboard" and fmt not in ("pdf", "pptx"):
+        raise ValidationError({"format": "A dashboard goes as PDF or PowerPoint."})
     out["format"] = fmt
     recipients = body.get("recipients", _json(current["recipients"]) if current else None)
     if not isinstance(recipients, list) or not recipients or len(recipients) > MAX_RECIPIENTS:
@@ -152,6 +152,12 @@ def _validated(request, body: dict, current: dict | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------- the sending
+def _pptx_allowed() -> bool:
+    """PowerPoint as a schedule's format needs patch 0062's constraint"""
+    from apps.insights import access
+    return access.present("report_alert")
+
+
 def _owner_mask(owner) -> bool:
     codes = owner.permission_codes() if owner is not None else set()
     return not ({"report.admin", "user.admin"} & set(codes))
@@ -194,7 +200,9 @@ def deliver(tenant, row: dict, *, to: list[str] | None = None, trigger: str = "s
             dash = dash[0]
             from apps.insights import access
             visible = ("TRUE", []) if not mask or str(dash["owner_user_id"]) == str(row["owner_user_id"]) else access.visible_sql("report", "r", str(row["owner_user_id"]), False)
-            body, mime, ext = dashboards.dashboard_pdf(tenant, owner, dash, visible_where=visible[0], visible_args=visible[1], mask=mask), "application/pdf", "pdf"
+            fmt = "pptx" if row["format"] == "pptx" else "pdf"
+            body = dashboards.dashboard_document(tenant, owner, dash, visible_where=visible[0], visible_args=visible[1], mask=mask, fmt=fmt)
+            mime, ext = ("application/vnd.openxmlformats-officedocument.presentationml.presentation" if fmt == "pptx" else "application/pdf"), fmt
             name, data, view_type, link = dash["name"], [], "dashboard", f"/insights/dashboards/{dash['id']}"
             rows_sent_hint = len(dashboards._tiles(_json(dash["layout"])))
         else:
@@ -215,11 +223,15 @@ def deliver(tenant, row: dict, *, to: list[str] | None = None, trigger: str = "s
             elif row["format"] == "pdf":
                 from apps.insights import pdf
                 body, mime, ext = pdf.report(report["name"], columns, data, definition.get("view"), totals, workspace=tenant.name, when=when), "application/pdf", "pdf"
+            elif row["format"] == "pptx":
+                from apps.insights import slides
+                body, mime, ext = slides.report(report["name"], columns, data, definition.get("view"), totals, workspace=tenant.name, when=when), \
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"
             else:
                 body, mime, ext = excel.build(report["name"], columns, data, definition.get("view"), totals), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
             name, view_type, link, rows_sent_hint = report["name"], report["view_type"], f"/insights/reports/{report['id']}", len(data)
         safe = "".join(ch if ch.isalnum() or ch in " -_" else "_" for ch in name)[:80] or "report"
-        context_ = {"title": _subject(row, today), "report_name": name, "note": row["note"], "rows": rows_sent_hint, "view": view_type, "fmt": {"xlsx": "Excel", "csv": "CSV", "pdf": "PDF"}[ext],
+        context_ = {"title": _subject(row, today), "report_name": name, "note": row["note"], "rows": rows_sent_hint, "view": view_type, "fmt": {"xlsx": "Excel", "csv": "CSV", "pdf": "PDF", "pptx": "PowerPoint"}[ext],
                     "date": today.strftime("%d %B %Y").lstrip("0"), "owner": row["owner_name"] or "someone in the workspace", "schedule": words(row),
                     "report_link": link, "schedules_link": "/insights/scheduled", "is_dashboard": row["kind"] == "dashboard"}
         if not mail.send("report_delivery", recipients, context_, subject=context_["title"], tenant_id=tenant.pk, attachments=[(f"{safe}.{ext}", body, mime)]):

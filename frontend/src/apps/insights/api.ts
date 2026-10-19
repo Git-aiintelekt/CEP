@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import type { AlertBody, InsightsComment, ReportAlert, CommentAnchor } from './types'
 import type { AnalysisSource, ChangeResult, DecomposeResult, EmbedLink, Explanation, InfluencersResult, SqlStatements, UsageReport } from './types'
 import type { AskResult, AssistantState, Catalog, CatalogDataset, Dashboard, DashboardLayout, DashboardSummary, DashboardTile, DrillStep, Folder, Period, Principal, Report, ReportDefinition, ReportSummary, ReportVersion, ReportView, RowRule, SavedView, RowRules, RunLog, RunResult, Schedule, ScheduleBody, Share, ShareKind, SharesState, SlicerSelection, SlicerValues, TileResult, ViewState } from './types'
 
@@ -25,6 +26,10 @@ export const insightsApi = {
   exportCsv: (id: string) => api.download(`/insights/reports/${id}/export.csv`),
   exportXlsx: (id: string) => api.download(`/insights/reports/${id}/export.xlsx`),
   exportPdf: (id: string) => api.download(`/insights/reports/${id}/export.pdf`),
+  exportPptx: (id: string) => api.download(`/insights/reports/${id}/export.pptx`),
+  /** the print-ready PDF: every row, the paper and the way round, a section per value of the first field */
+  exportPrint: (id: string, options: { size: 'a4' | 'letter'; orientation: 'portrait' | 'landscape'; group: boolean }) =>
+    api.download(`/insights/reports/${id}/export.pdf?layout=print&size=${options.size}&orientation=${options.orientation}${options.group ? '&group=1' : ''}`),
   /** the statements the engine runs for a definition, the values written in (nothing runs) */
   sql: (body: { dataset: string; definition: ReportDefinition }) => api.post<SqlStatements>('/insights/reports/sql/', body),
   explain: (id: string, body: { model?: string; drill?: { path: DrillStep[]; keep_rest?: boolean } }) => api.post<Explanation>(`/insights/reports/${id}/explain/`, body),
@@ -52,6 +57,25 @@ export const dashboardsApi = {
   /** the values a slicer offers over the period */
   slicerValues: (id: string, body: { field: string; period?: Period }) => api.post<SlicerValues>(`/insights/dashboards/${id}/slicers/values/`, body),
   exportPdf: (id: string) => api.download(`/insights/dashboards/${id}/export.pdf`),
+  exportPptx: (id: string) => api.download(`/insights/dashboards/${id}/export.pptx`),
+}
+
+/** threshold alerts and comments (apps/insights/alerts.py, comments.py) */
+export const alertsApi = {
+  list: (report?: string) => api.get<{ alerts: ReportAlert[]; ready: boolean; mail_configured: boolean }>('/insights/alerts/', report ? { report } : undefined),
+  get: (id: string) => api.get<ReportAlert>(`/insights/alerts/${id}/`),
+  create: (body: AlertBody) => api.post<ReportAlert>('/insights/alerts/', body),
+  update: (id: string, body: AlertBody) => api.put<ReportAlert>(`/insights/alerts/${id}/`, body),
+  remove: (id: string) => api.delete(`/insights/alerts/${id}/`),
+  check: (id: string) => api.post<{ outcome: string; value: number | null; value_words: string; met: boolean | null; notified: boolean; state: string; detail: string | null; alert: ReportAlert }>(`/insights/alerts/${id}/check/`, {}),
+  state: (id: string, action: 'pause' | 'resume') => api.post<ReportAlert>(`/insights/alerts/${id}/${action}/`, {}),
+}
+
+export const commentsApi = {
+  list: (kind: 'report' | 'dashboard', item: string) => api.get<{ comments: InsightsComment[]; ready: boolean }>('/insights/comments/', { kind, item }),
+  create: (body: { kind: 'report' | 'dashboard'; item_id: string; body: string; anchor?: CommentAnchor | null }) => api.post<InsightsComment>('/insights/comments/', body),
+  update: (id: string, body: { body?: string; resolved?: boolean }) => api.put<InsightsComment>(`/insights/comments/${id}/`, body),
+  remove: (id: string) => api.delete(`/insights/comments/${id}/`),
 }
 
 /** sharing with people and roles, and row access rules (apps/insights/access.py) */
@@ -170,4 +194,10 @@ export function useDeleteDashboard() {
 export function useDeleteReport() {
   const client = useQueryClient()
   return useMutation({ mutationFn: (id: string) => insightsApi.remove(id), onSuccess: () => client.invalidateQueries({ queryKey: ['insights', 'reports'] }) })
+}
+
+export const commentsKey = (kind: 'report' | 'dashboard', id: string) => ['insights', 'comments', kind, id] as const
+
+export function useComments(kind: 'report' | 'dashboard', id: string | undefined) {
+  return useQuery({ queryKey: commentsKey(kind, id ?? ''), queryFn: () => commentsApi.list(kind, id as string), enabled: Boolean(id), staleTime: 30_000 })
 }

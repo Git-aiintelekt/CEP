@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 
 const FALLBACK_WIDTH = 640
 
-export function useBoxWidth() {
+export function useBoxWidth(fallback = FALLBACK_WIDTH) {
   const box = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -16,5 +16,5 @@ export function useBoxWidth() {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  return [box, width || FALLBACK_WIDTH] as const
+  return [box, width || fallback] as const
 }
