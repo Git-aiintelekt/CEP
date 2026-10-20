@@ -860,6 +860,15 @@ def test_api(check, world):
         under = world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "measure": "sent", "path": [{"field": "channel", "value": rows_c[0]["value"]}], "by": "auto_high"})
         check("under a value, High Value picks a field left to split by", under.status_code in (200, 422) and (under.status_code == 422 or (under.json()["chosen"] == "auto_high" and under.json()["by"] != "channel")), under.content[:300])
     check("a split by a field not offered is refused", world.api("post", f"/api/v1/insights/reports/{rid}/analyze/", {"kind": "decompose", "path": [], "by": "nope"}).status_code == 422)
+    customised = {"dataset": "messages", "definition": {"columns": [{"field": "c_size"}, {"field": "sent", "aggregate": "sum"}, {"field": "c_email_share", "aggregate": "calc"}],
+                                                        "derived": [{"label": "Size", "kind": "rule", "rules": [{"field": "channel", "op": "=", "value": "EMAIL", "label": "Email"}], "other": "Other"},
+                                                                    {"label": "Email Share", "kind": "measure", "expression": "DIVIDE(SUM([Sent Count], [Channel] = \"EMAIL\"), SUM([Sent Count])) * 100"}]}}
+    keyed_c = world.api("post", "/api/v1/insights/reports/analyze/", {**customised, "kind": "influencers"})
+    check("Key Influencers explains by the report's own custom fields", keyed_c.status_code == 200 and "Size" in keyed_c.json()["explained_by"], keyed_c.content[:300])
+    formula_c = world.api("post", "/api/v1/insights/reports/analyze/", {**customised, "kind": "influencers", "measure": "c_email_share"})
+    check("and explains a measure formula", formula_c.status_code == 200 and formula_c.json()["measure"]["field"] == "c_email_share", formula_c.content[:300])
+    split_c = world.api("post", "/api/v1/insights/reports/analyze/", {**customised, "kind": "decompose", "measure": "sent", "path": [], "by": "c_size"})
+    check("the Decomposition Tree splits by a custom field", split_c.status_code == 200 and split_c.json()["by"] == "c_size" and split_c.json()["rows"], split_c.content[:300])
     board = world.api("post", "/api/v1/insights/dashboards/", {"name": "Written"}).json()
     put = world.api("put", f"/api/v1/insights/dashboards/{board['id']}/", {"row_version": board["row_version"], "layout": {"rows": [{"width": "1", "tiles": [{"id": "s1", "report_id": rid, "show": "summary"}]}]}})
     check("a summary tile saves", put.status_code == 200, put.content[:200])
