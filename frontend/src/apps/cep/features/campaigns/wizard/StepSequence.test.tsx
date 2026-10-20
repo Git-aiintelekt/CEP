@@ -41,6 +41,7 @@ beforeEach(() => window.localStorage.clear())
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 test('the arithmetic: gaps, a close pair, the calendar weeks and the footer line', () => {
@@ -394,6 +395,9 @@ test('Remove Message asks first, then deletes; a drip with one message offers no
 
 test('the start date, the send time and the zone patch only those campaign fields, and never the messages', async () => {
   const calls = installMockApi({ campaign: drip(), dripSteps: { c1: ready() } }) as Call[]
+  // the drip's own week, so the start date picked below is still ahead whenever the test runs (only Date is faked; timers stay real)
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-10-12T15:00:00Z'))
   const user = userEvent.setup()
   await renderAppAt('/campaigns/c1/edit?step=sequence')
   await card(1, 'Welcome')
