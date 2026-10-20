@@ -46,7 +46,7 @@ def _width(label: str, column: dict) -> int:
 
 def build(name: str, columns: list[dict], rows: list[list], view: dict | None, totals: list[dict] | None = None) -> bytes:
     buffer = io.BytesIO()
-    book = xlsxwriter.Workbook(buffer, {"in_memory": True, "remove_timezone": True})
+    book = xlsxwriter.Workbook(buffer, {"in_memory": True, "remove_timezone": True, "strings_to_formulas": False})   # text that starts with = stays text
     header = book.add_format({"bold": True, "bg_color": "#F2F3F7", "bottom": 1, "border_color": "#CFD2DC"})
     total = book.add_format({"bold": True, "top": 1, "border_color": "#CFD2DC"})
     group = book.add_format({"bold": True, "bg_color": "#F9FAFB"})

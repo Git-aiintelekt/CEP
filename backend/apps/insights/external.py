@@ -163,6 +163,11 @@ def _grants_pg(cursor, schema: str) -> tuple[bool, list[str]]:
     cursor.execute("SELECT has_schema_privilege(current_user, %s, 'CREATE')", [schema])
     if cursor.fetchone()[0]:
         offending.append(f"CREATE on schema {schema}")
+    cursor.execute("""SELECT rolname FROM pg_roles WHERE rolname IN ('pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program')
+                       AND pg_has_role(current_user, oid, 'member') ORDER BY rolname""")
+    offending += [f"member of {name} (reads or runs files on the server)" for (name,) in cursor.fetchall()]
+    cursor.execute("SELECT extname FROM pg_extension WHERE extname IN ('dblink', 'postgres_fdw', 'file_fdw', 'adminpack') ORDER BY extname")
+    offending += [f"the {name} extension is installed (it reaches past the read-only session)" for (name,) in cursor.fetchall()]
     return not offending, offending
 
 
@@ -301,13 +306,66 @@ def join_check(row: dict, source: str, joins: list[dict], *, zone: str | None = 
 
 
 # ---------------------------------------------------------------------------------------------------- the query window
-def _bare(sql: str) -> str:
-    """the SQL without its comments and string literals, for the guard to read"""
-    text = re.sub(r"/\*.*?\*/", " ", sql, flags=re.S)
-    text = re.sub(r"--[^\n]*|#[^\n]*", " ", text)
-    text = re.sub(r"'(?:[^'\\]|\\.|'')*'", "''", text)
-    text = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
-    return text
+DOLLAR_QUOTE = re.compile(r"\$([A-Za-z_][A-Za-z_0-9]*)?\$")
+EXECUTABLE_COMMENT = re.compile(r"/\*\s*M?!", re.I)                    # MySQL and MariaDB run what such a comment holds
+
+
+def _bare(sql: str, pg: bool) -> str:
+    """the SQL as the server reads it, without its comments, strings and quoted names, for the guard to read: one pass from
+    the left, so a comment marker inside a string (or a quote inside a comment) cannot hide what follows. PostgreSQL: -- and
+    nested /* */ comments, '' strings without backslash escapes (E'' strings with them), $tag$ strings, "" names. MySQL:
+    -- (followed by a space) and # comments, /* */, '' and "" strings with backslash escapes, `` names."""
+    out, i, n = [], 0, len(sql)
+    while i < n:
+        c, nxt = sql[i], sql[i + 1:i + 2]
+        if c == "-" and nxt == "-" and (pg or i + 2 >= n or sql[i + 2] <= " "):
+            end = sql.find("\n", i)
+            i = n if end < 0 else end
+            out.append(" ")
+            continue
+        if c == "#" and not pg:
+            end = sql.find("\n", i)
+            i = n if end < 0 else end
+            out.append(" ")
+            continue
+        if c == "/" and nxt == "*":
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if pg and sql.startswith("/*", j):
+                    depth, j = depth + 1, j + 2
+                elif sql.startswith("*/", j):
+                    depth, j = depth - 1, j + 2
+                else:
+                    j += 1
+            i = j
+            out.append(" ")
+            continue
+        if pg and c == "$":
+            tag = DOLLAR_QUOTE.match(sql, i)
+            if tag and not (i and (sql[i - 1].isalnum() or sql[i - 1] == "_")):
+                end = sql.find(tag.group(0), tag.end())
+                i = n if end < 0 else end + len(tag.group(0))
+                out.append("''")
+                continue
+        if c in "'\"" or (c == "`" and not pg):
+            escapes = not pg or (c == "'" and i and sql[i - 1] in "eE" and not (i > 1 and (sql[i - 2].isalnum() or sql[i - 2] == "_")))
+            j = i + 1
+            while j < n:
+                if escapes and sql[j] == "\\":
+                    j += 2
+                    continue
+                if sql[j] == c:
+                    if sql[j + 1:j + 2] == c:
+                        j += 2
+                        continue
+                    break
+                j += 1
+            i = j + 1
+            out.append(c * 2)
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def check_sql(sql: str) -> str:
@@ -317,18 +375,20 @@ def check_sql(sql: str) -> str:
         text = text[:-1].rstrip()
     if not text:
         raise ExternalError("Write a SELECT.")
-    bare = _bare(text)
-    if ";" in bare:
-        raise ExternalError("One statement at a time: a second statement after a semicolon is not allowed.")
-    first = bare.split(None, 1)[0].lower() if bare.split() else ""
-    if first not in ("select", "with"):
-        raise ExternalError("The window takes one SELECT (or WITH … SELECT).")
-    found = FORBIDDEN_WORDS.search(bare)
-    if found:
-        raise ExternalError(f"The word {found.group(1).upper()} is not allowed in a report query. The account could not write anyway, and the engine will not try.")
-    found = FORBIDDEN_FUNCTIONS.search(bare)
-    if found:
-        raise ExternalError(f"{found.group(1)}() is not allowed in a report query: it reads the server's files or holds it up.")
+    if EXECUTABLE_COMMENT.search(text):
+        raise ExternalError("Comments that MySQL runs (/*! … */) are not allowed in a report query.")
+    for bare in (_bare(text, pg=True), _bare(text, pg=False)):     # as PostgreSQL and as MySQL read it: refused when either shows a problem
+        if ";" in bare:
+            raise ExternalError("One statement at a time: a second statement after a semicolon is not allowed.")
+        first = bare.split(None, 1)[0].lower() if bare.split() else ""
+        if first not in ("select", "with"):
+            raise ExternalError("The window takes one SELECT (or WITH … SELECT).")
+        found = FORBIDDEN_WORDS.search(bare)
+        if found:
+            raise ExternalError(f"The word {found.group(1).upper()} is not allowed in a report query. The account could not write anyway, and the engine will not try.")
+        found = FORBIDDEN_FUNCTIONS.search(bare)
+        if found:
+            raise ExternalError(f"{found.group(1)}() is not allowed in a report query: it reads the server's files or holds it up.")
     return text
 
 

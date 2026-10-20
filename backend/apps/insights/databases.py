@@ -200,6 +200,8 @@ def _usable(row: dict) -> None:
         raise Conflict("This database is switched off.")
     if row["read_only"] is False:
         raise Conflict("The account can write. Give the engine a SELECT-only account and test the connection again.")
+    if row["read_only"] is not True:
+        raise Conflict("Test the connection first: the engine reads only through an account the test has shown to be read-only.")
 
 
 # ---------------------------------------------------------------------------------------------------- the dataset's body

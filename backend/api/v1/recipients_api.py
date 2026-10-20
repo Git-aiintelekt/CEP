@@ -19,6 +19,7 @@ from apps.delivery.engine import runs as engine_runs, session
 from apps.delivery.models import DeliveryProvider
 from apps.delivery.providers import ProviderError, registry
 from apps.tenants import context
+from apps.spreadsheet import safe_row
 
 VIEW = [IsAuthenticated, SameTenant, HasPermissionCode.for_("campaign.view")]
 PAGE_MAX = 200
@@ -154,9 +155,9 @@ class RunRecipientsExportView(APIView):
                          "opened_at", "clicked_at", "bounced_at", "complained_at", "failed_at", "bounce_type", "variant"])
         stamp = lambda value: value.isoformat(timespec="seconds") if value else ""       # noqa: E731
         for row in rows:
-            writer.writerow([row["address"], row["first_name"] or "", row["last_name"] or "", row["party_id"], row["status"], row["status_reason"] or "", row["provider_message_id"] or "",
+            writer.writerow(safe_row([row["address"], row["first_name"] or "", row["last_name"] or "", row["party_id"], row["status"], row["status_reason"] or "", row["provider_message_id"] or "",
                              row["attempts"], stamp(row["created_at"]), stamp(row["submitted_at"]), stamp(row["delivered_at"]), stamp(row["opened_at"]), stamp(row["clicked_at"]),
-                             stamp(row["bounced_at"]), stamp(row["complained_at"]), stamp(row["failed_at"]), row["bounce_type"] or "", row["variant_key"] or ""])
+                             stamp(row["bounced_at"]), stamp(row["complained_at"]), stamp(row["failed_at"]), row["bounce_type"] or "", row["variant_key"] or ""]))
         response = HttpResponse("﻿" + out.getvalue(), content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="run-{run.run_number}-recipients.csv"'
         return response
@@ -298,8 +299,8 @@ class CampaignSuppressionsExportView(APIView):
         writer.writerow(["contact", "channel", "reason", "source", "detail", "since", "customer_id", "name"])
         try:
             for row in suppressions.rows_for_export(channel=params.get("channel"), group=params.get("reason"), search=params.get("search"), campaign=campaign.pk):
-                writer.writerow([row["contact"], row["channel"], row["reason_label"], row["source_label"] or "", row["detail"] or "",
-                                 row["since"].isoformat(timespec="minutes") if row["since"] else "", row["party_id"] or "", row["name"] or ""])
+                writer.writerow(safe_row([row["contact"], row["channel"], row["reason_label"], row["source_label"] or "", row["detail"] or "",
+                                          row["since"].isoformat(timespec="minutes") if row["since"] else "", row["party_id"] or "", row["name"] or ""]))
         except suppressions.SuppressionError as exc:
             raise ValidationError({"reason": str(exc)}) from None
         response = HttpResponse("﻿" + out.getvalue(), content_type="text/csv; charset=utf-8")

@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from api.exceptions import Conflict
 from api.permissions import HasPermissionCode
 from apps.governance import suppressions
+from apps.spreadsheet import safe_row
 
 READ = (HasPermissionCode.for_("campaign.view")(), HasPermissionCode.for_("consent.edit")(), HasPermissionCode.for_("governance.edit")())
 WRITE = HasPermissionCode.for_("consent.edit")()
@@ -75,8 +76,8 @@ class SuppressionExportView(APIView):
         writer.writerow(["contact", "channel", "reason", "source", "detail", "since", "customer_id", "name", "can_unblock"])
         try:
             for row in suppressions.rows_for_export(channel=params.get("channel"), group=params.get("reason"), search=params.get("search")):
-                writer.writerow([row["contact"], row["channel"], row["reason_label"], row["source_label"] or "", row["detail"] or "",
-                                 row["since"].isoformat(timespec="minutes") if row["since"] else "", row["party_id"] or "", row["name"] or "", "yes" if row["can_unblock"] else "no"])
+                writer.writerow(safe_row([row["contact"], row["channel"], row["reason_label"], row["source_label"] or "", row["detail"] or "",
+                                          row["since"].isoformat(timespec="minutes") if row["since"] else "", row["party_id"] or "", row["name"] or "", "yes" if row["can_unblock"] else "no"]))
         except suppressions.SuppressionError as exc:
             raise ValidationError({"reason": str(exc)}) from None
         response = HttpResponse("﻿" + out.getvalue(), content_type="text/csv; charset=utf-8")

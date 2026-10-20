@@ -44,6 +44,7 @@ from apps.tenants import context
 
 from .serializers import AUDIT_FIELDS, TenantModelSerializer
 from .views import BaseTenantViewSet
+from apps.spreadsheet import safe_cell
 
 SOURCE_LABEL = {"UPLOAD": "Upload", "BI": "BI / Extraction", "EXTRACTION": "BI / Extraction", "SEGMENT": "BI / Extraction", "CLONE": "Cloned"}
 SOURCE_FILTER = {"UPLOAD": ["UPLOAD"], "BI": ["BI", "EXTRACTION", "SEGMENT"], "CLONE": ["CLONE"]}
@@ -202,11 +203,7 @@ def reconciliation(record: ContactListImport) -> dict | None:
     }
 
 
-def _safe_cell(value):
-    """A cell that starts with = + - or @ would be run as a formula by a spreadsheet: neutralise it. Empty stays empty."""
-    if value is None:
-        return ""
-    return "'" + value if isinstance(value, str) and value and value[0] in "=+-@" else value
+_safe_cell = safe_cell
 
 
 class _Echo:

@@ -71,6 +71,7 @@ from apps.tenants import context
 
 from . import serializers as s
 from . import views
+from apps.spreadsheet import safe_cell
 
 log = logging.getLogger("cep.campaigns")
 TARGET_FIELDS = ("target_revenue", "target_opens", "target_clicks", "target_conversions", "target_redemptions", "planned_cost", "planned_offer_cost", "notes")
@@ -424,10 +425,7 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = ("id", "event_type", "severity", "message", "detail", "actor_name", "campaign_run_id", "occurred_at")
 
 
-def _safe_cell(value):
-    if value is None:
-        return ""
-    return "'" + value if isinstance(value, str) and value and value[0] in "=+-@" else value
+_safe_cell = safe_cell
 
 
 class _Echo:
