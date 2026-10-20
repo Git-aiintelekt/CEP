@@ -146,10 +146,13 @@ def test_mysql_dialect(check):
         def fetchall(self):
             return self.current
 
-    read_only, offending = external._grants_pg(_PgCursor([[(False, False, False, False)], [], [(False,)]]), "public")
+    read_only, offending = external._grants_pg(_PgCursor([[(False, False, False, False)], [], [(False,)], [], []]), "public")
     check("a PostgreSQL role with SELECT alone is read-only", read_only and offending == [])
-    read_only, offending = external._grants_pg(_PgCursor([[(False, True, False, False)], [("orders", "INSERT, UPDATE")], [(True,)]]), "public")
+    read_only, offending = external._grants_pg(_PgCursor([[(False, True, False, False)], [("orders", "INSERT, UPDATE")], [(True,)], [], []]), "public")
     check("a PostgreSQL role that can create roles, write a table or create in the schema is refused", not read_only and offending == ["can create roles", "INSERT, UPDATE on public.orders", "CREATE on schema public"], str(offending))
+    read_only, offending = external._grants_pg(_PgCursor([[(False, False, False, False)], [], [(False,)], [("pg_read_server_files",)], [("dblink",)]]), "public")
+    check("a role that reads server files, or a database with dblink, is refused", not read_only and offending[0].startswith("member of pg_read_server_files")
+          and offending[1].startswith("the dblink extension"), str(offending))
     check("PostgreSQL column types are read too", external._typed("numeric", "numeric", "total_paid")["format"] == "money" and external._typed("timestamp with time zone", "timestamp with time zone", "ordered_at")["type"] == "datetime"
           and external._typed("boolean", "boolean", "is_gift")["type"] == "boolean" and external._typed("double precision", "double precision", "weight") == {"type": "number", "role": "measure", "aggregates": ["sum", "avg", "min", "max"], "format": "decimal"})
     pg_own = {**OWN, "engine": "postgresql", "external": True, "source": "public.v_daily_sales"}

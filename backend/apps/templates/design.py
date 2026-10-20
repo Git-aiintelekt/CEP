@@ -32,6 +32,41 @@ FORBIDDEN = (
 )
 
 
+UNSAFE_TAGS = {"script", "iframe", "frame", "frameset", "object", "embed", "applet", "base", "meta"}
+URL_ATTRIBUTES = {"href", "src", "action", "formaction", "xlink:href", "data", "poster", "background", "lowsrc", "dynsrc"}
+UNSAFE_URL = re.compile(r"(javascript|vbscript|data:text/html)", re.I)
+UNSAFE_MARKUP = (re.compile(r"<\s*(script|iframe|frame|object|embed|applet|base|meta)\b", re.I),
+                 re.compile(r"""<[^>]*\son[a-z]+\s*=""", re.I),
+                 re.compile(r"""<[^>]*\ssrcdoc\s*=""", re.I))
+
+
+def unsafe_state(value) -> str | None:
+    """why the designer's saved state could run code when someone opens the template (None when it cannot): a component's
+    script, an inline event handler, an embedded page, a javascript: link, or markup carrying one of them"""
+    if isinstance(value, list):
+        return next((why for why in map(unsafe_state, value) if why), None)
+    if isinstance(value, str):
+        if any(pattern.search(value) for pattern in UNSAFE_MARKUP):
+            return "The design holds a script, an embedded page or an inline event handler."
+        return None
+    if not isinstance(value, dict):
+        return None
+    if value.get("script") or value.get("script-export"):
+        return "The design holds a component script."
+    for key in ("tagName", "type"):
+        if isinstance(value.get(key), str) and value[key].lower() in UNSAFE_TAGS:
+            return f"The design holds a {value[key].lower()} element."
+    attributes = value.get("attributes")
+    if isinstance(attributes, dict):
+        for name, attr in attributes.items():
+            lowered = str(name).lower()
+            if lowered.startswith("on") or lowered == "srcdoc":
+                return "The design holds an inline event handler or an embedded page."
+            if lowered in URL_ATTRIBUTES and UNSAFE_URL.match(re.sub(r"[\s\x00-\x1f]+", "", str(attr))):
+                return "The design holds a javascript: link."
+    return next((why for why in map(unsafe_state, value.values()) if why), None)
+
+
 def extract_tags(*texts: str | None) -> list[str]:
     """Tag keys in order of first appearance: '{{ first_name }}' -> 'first_name'."""
     seen: dict[str, None] = {}
@@ -133,6 +168,9 @@ def save_design(template: TemplateMaster, user_id, *, editor_state, mjml_source:
     for pattern, message in FORBIDDEN:
         if pattern.search(mjml_source):
             errors.setdefault("mjml_source", message)
+    why = unsafe_state(editor_state)
+    if why:
+        errors["editor_state"] = why
     from . import codes
     for reason in codes.problems(mjml_source):
         errors.setdefault("mjml_source", reason)

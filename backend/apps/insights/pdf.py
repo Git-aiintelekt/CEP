@@ -134,11 +134,11 @@ def _document(buffer, wide: bool):
 
 def _table(header: list[str], body: list[list[str]], numeric: list[bool], *, total: list[str] | None = None, group_rows: set[int] = frozenset(), indents: dict[int, int] | None = None) -> Table:
     """a paper table: the header repeats, numbers right-aligned, hairlines, bold totals and group rows"""
-    rows = [[Paragraph(h, BODY_RIGHT if numeric[i] else BODY) for i, h in enumerate(header)]]
+    rows = [[Paragraph(escape(h), BODY_RIGHT if numeric[i] else BODY) for i, h in enumerate(header)]]
     for r, line in enumerate(body):
-        rows.append([Paragraph((" " * 4 * (indents or {}).get(r, 0)) + (c or ""), BODY_RIGHT if numeric[i] else BODY) for i, c in enumerate(line)])
+        rows.append([Paragraph((" " * 4 * (indents or {}).get(r, 0)) + escape(c or ""), BODY_RIGHT if numeric[i] else BODY) for i, c in enumerate(line)])
     if total:
-        rows.append([Paragraph(c or "", BODY_RIGHT if numeric[i] else BODY) for i, c in enumerate(total)])
+        rows.append([Paragraph(escape(c or ""), BODY_RIGHT if numeric[i] else BODY) for i, c in enumerate(total)])
     table = Table(rows, repeatRows=1, hAlign="LEFT")
     style = [("LINEBELOW", (0, 0), (-1, 0), 0.8, LINE), ("BACKGROUND", (0, 0), (-1, 0), SUBTLE), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
              ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINE_SUBTLE), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -169,20 +169,20 @@ def _grid_flowables(columns: list[dict], rows: list[list]) -> list:
 def _pivot_flowables(columns: list[dict], rows: list[list], across: str | None, totals, measure_key: str | None = None) -> list:
     table = shape.pivot(columns, rows, across, measure_key, totals=totals)
     if "reason" in table:
-        return [Paragraph(table["reason"], SMALL)]
+        return [Paragraph(escape(table["reason"]), SMALL)]
     n = len(table["row_columns"])
     measure = table["measure"]
     header = [*(c["label"] for c in table["row_columns"]), *(cell_text(table["across"], v) for v in table["column_values"]), "Total"]
     numeric = [False] * n + [True] * (len(header) - n)
     body = [[*(cell_text(table["row_columns"][i], v) for i, v in enumerate(line[:n])), *(_number(measure, v) for v in line[n:])] for line in table["rows"]]
     total = _bold(["Total", *([""] * (n - 1)), *(_number(measure, v) for v in table["total"][n:])])
-    return [Paragraph(f"{measure['label']} · {', '.join(c['label'] for c in table['row_columns'])} down, {table['across']['label']} across", SMALL), Spacer(1, 3), _table(header, body, numeric, total=total)]
+    return [Paragraph(escape(f"{measure['label']} · {', '.join(c['label'] for c in table['row_columns'])} down, {table['across']['label']} across"), SMALL), Spacer(1, 3), _table(header, body, numeric, total=total)]
 
 
 def _hierarchy_flowables(columns: list[dict], rows: list[list], totals) -> list:
     table = shape.hierarchy(columns, rows, totals=totals)
     if "reason" in table:
-        return [Paragraph(table["reason"], SMALL)]
+        return [Paragraph(escape(table["reason"]), SMALL)]
     measures = table["measures"]
     header = [table["header"][0], *(m["label"] for m in measures)]
     numeric = [False] + [True] * len(measures)
@@ -195,7 +195,7 @@ def _hierarchy_flowables(columns: list[dict], rows: list[list], totals) -> list:
         if is_group:
             groups.add(r)
     total = _bold(["Total", *(_number(m, v) for m, v in zip(measures, table["total"][1:]))])
-    return [Paragraph(", then ".join(level["label"] for level in table["levels"]), SMALL), Spacer(1, 3), _table(header, body, numeric, total=total, group_rows=groups, indents=indents)]
+    return [Paragraph(escape(", then ".join(level["label"] for level in table["levels"])), SMALL), Spacer(1, 3), _table(header, body, numeric, total=total, group_rows=groups, indents=indents)]
 
 
 def _pie_flowables(title: str, header: str, categories: list, values: list[float], measure: dict, width: float) -> list:
@@ -376,7 +376,7 @@ def _figure_flowables(columns: list[dict], rows: list[list], totals, view: dict)
         return [Paragraph("A KPI card needs a value to total.", SMALL)]
     value = _grand(columns, rows, totals, 0)
     target = view.get("target")
-    words = [Paragraph(measure["label"], SMALL), Paragraph(_number(measure, value), FIGURE)]
+    words = [Paragraph(escape(measure["label"]), SMALL), Paragraph(escape(_number(measure, value)), FIGURE)]
     if target is not None and value is not None:
         try:
             words.append(Paragraph(f"Target {_number(measure, target)} · {float(value) / float(target) * 100:.1f}% of target", SMALL))
@@ -396,7 +396,7 @@ def _waterfall_flowables(columns: list[dict], rows: list[list]) -> list:
         step = float(row[m] or 0)
         running += step
         body.append([cell_text(columns[d], row[d]), _number(columns[m], step), _number(columns[m], running)])
-    return [Paragraph(f"{columns[m]['label']}, step by step by {columns[d]['label']}", SMALL), Spacer(1, 3),
+    return [Paragraph(escape(f"{columns[m]['label']}, step by step by {columns[d]['label']}"), SMALL), Spacer(1, 3),
             _table([columns[d]["label"], columns[m]["label"], "Running Total"], body, [False, True, True], total=_bold(["Total", "", _number(columns[m], running)]))]
 
 
@@ -437,7 +437,7 @@ def report(name: str, columns: list[dict], rows: list[list], view: dict | None, 
     buffer = io.BytesIO()
     doc = _document(buffer, wide)
     width = doc.width
-    story = [Paragraph(name, TITLE), Paragraph(subtitle or f"{VIEW_WORDS.get(kind, 'Grid')} · {len(rows):,} row{'s' if len(rows) != 1 else ''}", SUB)]
+    story = [Paragraph(escape(name), TITLE), Paragraph(escape(subtitle or f"{VIEW_WORDS.get(kind, 'Grid')} · {len(rows):,} row{'s' if len(rows) != 1 else ''}"), SUB)]
     story += _view_flowables(columns, rows, view, totals, width)
     frame = _page(workspace, when)
     doc.build(story, onFirstPage=frame, onLaterPages=frame)
@@ -449,7 +449,7 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
     buffer = io.BytesIO()
     doc = _document(buffer, False)
     width = doc.width
-    story = [Paragraph(name, TITLE), Paragraph(f"{description + ' · ' if description else ''}{period_words}", SUB)]
+    story = [Paragraph(escape(name), TITLE), Paragraph(escape(f"{description + ' · ' if description else ''}{period_words}"), SUB)]
     figures = [t for t in tiles if t.get("kind") == "figure"]
     if figures:
         cells, line = [], []
@@ -475,7 +475,7 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
     for tile in tiles:
         if tile.get("kind") == "figure":
             continue
-        block = [Paragraph(tile["title"], H2)]
+        block = [Paragraph(escape(tile["title"]), H2)]
         if tile.get("kind") == "view":
             result = tile["result"]
             own = " · own dates" if tile.get("own_dates") else ""
@@ -488,9 +488,9 @@ def dashboard(name: str, description: str | None, period_words: str, tiles: list
             if tile.get("summary"):
                 block += [Paragraph(escape(tile["summary"]), BODY), *(Paragraph(f"• {escape(point)}", BODY) for point in tile.get("points") or [])]   # the model's words, never markup
             else:
-                block.append(Paragraph(tile.get("detail") or "No summary yet.", SMALL))
+                block.append(Paragraph(escape(tile.get("detail") or "No summary yet."), SMALL))
         else:
-            block.append(Paragraph(tile.get("detail") or "This tile could not be run.", SMALL))
+            block.append(Paragraph(escape(tile.get("detail") or "This tile could not be run."), SMALL))
         story.append(KeepTogether(block[:2]))
         story += block[2:]
         story.append(Spacer(1, 8))

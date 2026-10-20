@@ -22,6 +22,7 @@ from apps.reporting import reports
 from . import access, catalog, clickhouse, compare, compiler, derived, external, fiscal, links, parameters, topn
 from .catalog import engine_of
 from .definition import signature
+from apps.spreadsheet import safe_row
 
 CACHE_SECONDS = 60
 ROLE = "cep_reporting"
@@ -341,9 +342,9 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
             columns, rows = mask(dataset, cols, rows, mask_pii)
             buffer = io.StringIO()
             writer = csv.writer(buffer)
-            writer.writerow([c["label"] + (" (masked)" if c.get("masked") else "") for c in columns])
+            writer.writerow(safe_row(c["label"] + (" (masked)" if c.get("masked") else "") for c in columns))
             for row in rows:
-                writer.writerow(["" if v is None else v for v in row])
+                writer.writerow(safe_row(row))
             total = len(rows)
             yield buffer.getvalue()
         offset, page = (limits["export_rows"], 5_000) if _whole(definition) else (0, 5_000)
@@ -359,9 +360,9 @@ def stream_csv(tenant, user, dataset: dict, definition: dict, *, report_id=None,
             writer = csv.writer(buffer)
             if columns is None:
                 columns = page_columns
-                writer.writerow([c["label"] + (" (masked)" if c.get("masked") else "") for c in columns])
+                writer.writerow(safe_row(c["label"] + (" (masked)" if c.get("masked") else "") for c in columns))
             for row in rows:
-                writer.writerow(["" if v is None else v for v in row])
+                writer.writerow(safe_row(row))
             total += len(rows)
             yield buffer.getvalue()
             if len(rows) < page:

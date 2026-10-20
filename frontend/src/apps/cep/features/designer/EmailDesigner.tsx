@@ -67,6 +67,7 @@ import { PICKER_LABEL, TagPickerPopover } from './tags/TagPickerPopover'
 import { TagsPanel, type TagsPanelHandle } from './tags/TagsPanel'
 import { captureCaret, insertAtCaret, type CaretTarget } from './tags/insertAtCaret'
 import { linkEmailFont, withEmailFont, withEmailFontLink, withoutEmailFont } from './emailFonts'
+import { cleanDesign, cleanParsed } from './safeDesign'
 
 // grapesjs-mjml ships as a UMD bundle: depending on the bundler the default import is the plugin or a { default } wrapper.
 type MjmlPlugin = Plugin<{ resetDevices?: boolean; useCustomTheme?: boolean }>
@@ -432,6 +433,8 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       },
     })
     editorRef.current = editor
+    // every HTML the editor parses (Custom HTML, code import, pasted content) is cleaned before it becomes components
+    editor.on('parse:html', ({ output }: { output: { html: unknown } }) => { output.html = cleanParsed(output.html) })
     let dirtyState = CLEAN
     pushDirty.current = (event: DirtyEvent) => {
       const next = applyDirty(dirtyState, event)
@@ -718,7 +721,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (isProject(initialState)) {
         const fixed = repairProject(initialState)
         repaired = fixed.moved
-        editor.loadProjectData(fixed.project)
+        editor.loadProjectData(cleanDesign(fixed.project))
       } else editor.setComponents(expandSelfClosing(withoutEmailFont(initialMjml)))
     } catch {
       editor.setComponents(expandSelfClosing(withoutEmailFont(initialMjml))) // a project saved by an older editor build: fall back to its MJML
@@ -1034,7 +1037,7 @@ export const EmailDesigner = forwardRef<EmailDesignerHandle, EmailDesignerProps>
       if (!editor) return
       loading.current = true
       try {
-        if (isProject(design.editor_state)) editor.loadProjectData(repairProject(design.editor_state).project)
+        if (isProject(design.editor_state)) editor.loadProjectData(cleanDesign(repairProject(design.editor_state).project))
         else if (design.mjml_source) editor.setComponents(expandSelfClosing(withoutEmailFont(design.mjml_source)))
       } finally {
         loading.current = false

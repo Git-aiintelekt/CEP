@@ -31,6 +31,7 @@ from apps.insights.definition import DefinitionError, validate
 from apps.platform_ops import mail
 from apps.reporting import reports
 from apps.tenants import context
+from apps.spreadsheet import safe_row
 
 EVERY = ("day", "weekday", "week", "month")
 FORMATS = ("xlsx", "csv", "pdf", "pptx")
@@ -166,9 +167,9 @@ def _owner_mask(owner) -> bool:
 def _csv(columns: list[dict], rows: list[list]) -> bytes:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow([c["label"] + (" (masked)" if c.get("masked") else "") for c in columns])
+    writer.writerow(safe_row(c["label"] + (" (masked)" if c.get("masked") else "") for c in columns))
     for row in rows:
-        writer.writerow(["" if v is None else v for v in row])
+        writer.writerow(safe_row(row))
     return buffer.getvalue().encode("utf-8-sig")
 
 
