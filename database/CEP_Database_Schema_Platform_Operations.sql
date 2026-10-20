@@ -2855,7 +2855,7 @@ GRANT SELECT, INSERT, UPDATE ON security_check, security_finding TO cep_app;
 GRANT ALL ON security_check, security_finding TO cep_admin;
 
 INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
-    ('security.site_address', '', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
+    ('security.site_address', '""', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
 ON CONFLICT (key) DO NOTHING;
 
 -- =====================================================================================
