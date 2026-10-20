@@ -15,7 +15,7 @@ import {
   AuthPasswordField,
   AuthStep,
 } from '@/components/AuthLayout'
-import { api, ApiError, request } from '@/lib/api'
+import { api, ApiError, newSsoBinding, request, SSO_BINDING_KEY } from '@/lib/api'
 import { tenantFromHost } from '@/lib/config'
 import { LOADING_HOLD_MS, loadingOverlay } from '@/lib/loadingOverlay'
 import type { AuthOptions } from '@/lib/types'
@@ -46,6 +46,15 @@ const LOADER_FADE_MS = 600 // TEMPORARY: slowed from 150 so the fade is easy to 
 
 type Step = 'signin' | 'mfa' | 'reset' | 'sent'
 
+/** The tokens come back only to the tab holding this; blocked storage means single sign-on cannot finish in this tab. */
+function keepSsoBinding(binding: string) {
+  try {
+    window.sessionStorage.setItem(SSO_BINDING_KEY, binding)
+  } catch {
+    // the landing page says the sign-in did not finish
+  }
+}
+
 export function LoginPage() {
   const { status, tenant: rememberedTenant, login, verifyMfa } = useAuth()
   const navigate = useNavigate()
@@ -75,6 +84,7 @@ export function LoginPage() {
   const [options, setOptions] = useState<AuthOptions | null>(null)
   const [usePassword, setUsePassword] = useState(false)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
+  const [ssoBinding] = useState(newSsoBinding)
 
   // what this workspace offers (single sign-on); asked once the code stops changing
   useEffect(() => {
@@ -201,7 +211,7 @@ export function LoginPage() {
             )}
 
             {sso && (
-              <a href={api.ssoStartUrl(tenant.trim(), from)} className={sso.sso_enforced ? authButtonPrimary : authButtonSecondary}>
+              <a href={api.ssoStartUrl(tenant.trim(), from, ssoBinding)} onClick={() => keepSsoBinding(ssoBinding)} className={sso.sso_enforced ? authButtonPrimary : authButtonSecondary}>
                 Log In with {sso.sso_name}
               </a>
             )}

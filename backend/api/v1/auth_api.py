@@ -4,7 +4,10 @@
   POST /auth/mfa/verify/            second step: mfa_token + code -> tokens
   GET  /auth/mfa/  POST setup|confirm|disable     a user's own authenticator enrolment
   GET  /auth/options/               public: does this workspace use SSO / require MFA (drives the login page)
-  GET  /auth/sso/start/  /callback/ OpenID Connect
+  GET  /auth/sso/start/  /callback/ OpenID Connect; the callback hands the browser a one-time code, not the tokens
+  POST /auth/sso/exchange/          the code + the binding the login page kept in the tab -> tokens
+  POST /auth/token/refresh/         a refresh token works once (a second use within REUSE_GRACE seconds is two tabs racing)
+  POST /auth/token/revoke/          signing out ends the refresh token too
   POST /auth/support-session/end/   platform staff ends a "sign in as" session early
 
 CepJWTAuthentication is where the two restricted kinds of token are enforced, for every endpoint at once:
@@ -12,10 +15,12 @@ CepJWTAuthentication is where the two restricted kinds of token are enforced, fo
     security, and dies the moment it is ended or expires;
   * a user who must enrol MFA first (claim `mfa_setup`) can reach only the enrolment endpoints and /me.
 """
+import time
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from django.core.signing import BadSignature, TimestampSigner
 from django.db import connections
 from django.http import HttpResponseRedirect
@@ -27,6 +32,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.identity.models import AppUser
@@ -181,8 +188,11 @@ class SsoStartView(APIView):
         provider = identity_provider(request.tenant["id"]) if params.enabled(request.tenant["id"], "sso") else None
         if provider is None:
             return _frontend("/login", sso_error="Single sign-on is not set up for this workspace.")
+        binding = request.query_params.get("binding") or ""
+        if len(binding) < 16:
+            return _frontend("/login", sso_error="Start the sign-in again from this page.")
         try:
-            return HttpResponseRedirect(sso.start(provider, request.tenant["code"], request.query_params.get("next") or "/"))
+            return HttpResponseRedirect(sso.start(provider, request.tenant["code"], request.query_params.get("next") or "/", binding))
         except sso.SsoError as exc:
             return _frontend("/login", sso_error=str(exc))
 
@@ -204,8 +214,55 @@ class SsoCallbackView(APIView):
         except sso.SsoError as exc:
             return _frontend("/login", sso_error=str(exc))
         # the identity provider owns the second factor for SSO users: the platform does not ask again
-        tokens = issue_tokens(user)
-        return _frontend("/sso/complete", access=tokens["access"], refresh=tokens["refresh"], tenant=request.tenant["code"], next=identity["next"])
+        code = sso.hand_off(issue_tokens(user), request.tenant["code"], identity)
+        return _frontend("/sso/complete", code=code, tenant=request.tenant["code"])
+
+
+class SsoExchangeView(PublicAuthView):
+    throttle_classes = [LoginThrottle]
+
+    @extend_schema(request=inline_serializer("SsoExchange", {"code": serializers.CharField(), "binding": serializers.CharField()}),
+                   responses=inline_serializer("SsoTokens", {"access": serializers.CharField(), "refresh": serializers.CharField(), "next": serializers.CharField()}))
+    def post(self, request, version=None):
+        entry = sso.take(str(request.data.get("code") or ""), str(request.data.get("binding") or ""), request.tenant["code"])
+        if entry is None:
+            raise AuthenticationFailed("This sign-in link was not started in this browser, or it has expired. Start again from the sign-in page.")
+        return Response({"access": entry["access"], "refresh": entry["refresh"], "next": entry["next"]})
+
+
+# ------------------------------------------------------------------------------------------------------------ refresh tokens
+REUSE_GRACE = 30
+
+
+def _spend(token: RefreshToken, *, at: float) -> bool:
+    """records the refresh token's use until it expires; False when it was used before, outside the grace two tabs need"""
+    key = f"cep:jwt:spent:{token['jti']}"
+    lifetime = max(int(token["exp"] - time.time()), 1) + REUSE_GRACE
+    if cache.add(key, at, lifetime):
+        return True
+    spent = cache.get(key)
+    return spent is not None and time.time() - spent <= REUSE_GRACE
+
+
+class RefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        answer = super().validate(attrs)                   # signature, expiry, an active user
+        if not _spend(RefreshToken(attrs["refresh"], verify=False), at=time.time()):
+            raise InvalidToken("This sign-in has ended. Sign in again.")
+        return answer
+
+
+class TokenRevokeView(PublicAuthView):
+    """holding the refresh token is the credential: no access token needed, so an expired session can still sign out"""
+
+    @extend_schema(request=inline_serializer("TokenRevoke", {"refresh": serializers.CharField()}), responses={204: None})
+    def post(self, request, version=None):
+        try:
+            token = RefreshToken(str(request.data.get("refresh") or ""))
+        except TokenError:
+            return Response(status=204)                     # already unusable
+        _spend(token, at=time.time() - REUSE_GRACE - 1)
+        return Response(status=204)
 
 
 class SupportSessionEndView(APIView):
