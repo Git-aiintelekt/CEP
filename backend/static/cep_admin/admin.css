@@ -508,3 +508,25 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
 .cep-empty h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }
 .cep-empty p { margin: 0; font-size: 16px; line-height: 24px; color: var(--cep-text); }
 .cep-empty-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 1rem; }
+
+/* Security (templates/admin/platform_ops/security.html) */
+.cep-security .cep-kpi[data-state="bad"] { border-color: var(--cep-bad); }
+.cep-security .cep-kpi[data-state="bad"] .cep-kpi-value { color: var(--cep-bad-text); }
+.cep-security .cep-mono, .cep-security-version .cep-mono { font-family: var(--font-mono); font-size: 13px; }
+.cep-security-version { white-space: nowrap; color: var(--cep-text); }
+.cep-security-ok { font-size: 28px; color: var(--cep-ok-text); }
+.cep-security-error { margin: 0; padding: 0.75rem 1rem; border-radius: var(--cep-radius-box); background: var(--cep-warn-soft); color: var(--cep-warn-text); font-size: 14px; }
+.cep-fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.5rem; cursor: pointer; list-style: none; }
+.cep-fold > summary::-webkit-details-marker { display: none; }
+.cep-fold > summary h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-fold[open] > summary .cep-link { font-size: 0; }
+.cep-fold[open] > summary .cep-link::after { content: "Hide"; font-size: 14px; }
+.cep-security-passed { padding: 0 1.5rem 1.25rem; }
+.cep-security-passed h3 { margin: 0 0 0.5rem; font-size: 14px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-security-passed p { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0 0 0.375rem; font-size: 14px; color: var(--cep-text-strong); }
+.cep-security-passed .material-symbols-outlined { font-size: 18px; color: var(--cep-ok-text); }
+.cep-plain-button { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.cep-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cep-security-accept { display: grid; gap: 0.5rem; max-width: 640px; }
+.cep-security-accept label { font-size: 13px; font-weight: 600; color: var(--cep-text-strong); }
+.cep-security-accept input[type="date"] { height: 40px; max-width: 220px; padding: 0 0.75rem; border: 1px solid var(--cep-line-control); border-radius: var(--cep-radius-box); background: var(--cep-surface); color: var(--cep-text-strong); }

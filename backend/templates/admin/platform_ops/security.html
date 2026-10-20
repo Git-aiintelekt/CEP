@@ -1,0 +1,108 @@
+{% extends "admin/base.html" %}
+{% load humanize %}
+{% block title %}Security | {{ site_title }}{% endblock %}
+{% block branding %}{% include "unfold/helpers/site_branding.html" %}{% endblock %}
+{% block content %}
+<div class="cep-home cep-security">
+    <div class="cep-pagehead">
+        <div>
+            <h1>Security</h1>
+            <p>Packages and server settings on <strong>{{ data.host|default:"this server" }}</strong>{% if data.last %} · checked {{ data.last.started_at|date:"j M Y, H:i" }} UTC · {{ data.last.python_packages|add:data.last.npm_packages|intcomma }} packages{% endif %}</p>
+        </div>
+        <form method="post" action="{% url 'admin:platform_ops_securityfinding_check' %}" class="cep-actions">{% csrf_token %}
+            {% if next_check %}<span class="cep-muted">Next check about {{ next_check|date:"j M, H:i" }} UTC</span>{% endif %}
+            <button type="submit" class="cep-button"><span class="material-symbols-outlined" aria-hidden="true">refresh</span>Check Now</button>
+        </form>
+    </div>
+
+    {% if data is None %}
+        <div class="cep-card"><div class="cep-clear"><div><strong>Not available yet</strong><span class="cep-muted">The Security page needs a database update (patch 0066).</span></div></div></div>
+    {% elif not data.last %}
+        <div class="cep-card"><div class="cep-clear"><div><strong>Not checked yet</strong><span class="cep-muted">Press Check Now, or wait for the daily check-security job.</span></div></div></div>
+    {% else %}
+    {% if data.last.error %}<p class="cep-note cep-security-error" role="status">{{ data.last.error }}</p>{% endif %}
+
+    <div class="cep-grid cep-grid-kpi">
+        <div class="cep-card cep-kpi"{% if data.high %} data-state="bad"{% endif %}><div class="cep-kpi-top">Critical and High</div><div class="cep-kpi-value">{{ data.high }}</div>
+            <div class="cep-kpi-caption">{{ data.high_caption }}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Medium and Low</div><div class="cep-kpi-value">{{ data.lower }}</div>
+            <div class="cep-kpi-caption">{{ data.lower_caption }}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Accepted</div><div class="cep-kpi-value">{{ accepted|length }}</div>
+            <div class="cep-kpi-caption">{% with first=accepted.0 %}{% if first %}{{ first.title|truncatechars:28 }} · review {{ first.review_on|date:"j M Y" }}{% else %}none{% endif %}{% endwith %}</div></div>
+        <div class="cep-card cep-kpi"><div class="cep-kpi-top">Packages Checked</div><div class="cep-kpi-value">{{ data.last.python_packages|add:data.last.npm_packages|intcomma }}</div>
+            <div class="cep-kpi-caption">{{ data.last.python_packages|intcomma }} Python · {{ data.last.npm_packages|intcomma }} npm</div></div>
+    </div>
+
+    {% if open %}
+    <section class="cep-section" aria-labelledby="cep-open">
+        <div class="cep-section-head"><h2 id="cep-open">Needs Attention</h2><span>{{ open|length }} item{{ open|length|pluralize }} · worst first</span></div>
+        <div class="cep-card cep-table-wrap">
+            <table class="cep-table">
+                <thead><tr><th scope="col">Severity</th><th scope="col">Item</th><th scope="col">Where</th><th scope="col">Installed → Fixed In</th><th scope="col">Advisory</th><th scope="col">First Seen</th>{% if can_change %}<th scope="col"><span class="cep-sr">Actions</span></th>{% endif %}</tr></thead>
+                <tbody>
+                {% for row in open %}
+                    <tr>
+                        <td><span class="cep-tag" data-kind="{{ row.severity_pill }}">{{ row.severity_word }}</span></td>
+                        <th scope="row"><strong>{{ row.title }}</strong>{% if row.detail %}<small>{{ row.detail|truncatechars:180 }}</small>{% endif %}</th>
+                        <td><span class="cep-tag" data-kind="neutral">{{ row.where }}</span></td>
+                        <td class="cep-security-version">{% if row.installed or row.fixed_in %}<span{% if row.is_package %} class="cep-mono"{% endif %}>{{ row.installed|default:"—" }}</span> → <span{% if row.is_package %} class="cep-mono"{% endif %}>{{ row.fixed_in|default:"no fix yet" }}</span>{% else %}—{% endif %}</td>
+                        <td>{% if row.first_advisory %}<a class="cep-link{% if row.is_package %} cep-mono{% endif %}" href="{{ row.first_advisory.url }}" target="_blank" rel="noopener noreferrer">{{ row.first_advisory.id }}</a>{% if row.more_advisories %}<small class="cep-muted">and {{ row.more_advisories }} more</small>{% endif %}{% else %}—{% endif %}</td>
+                        <td class="cep-muted">{{ row.first_seen|date:"j M" }}</td>
+                        {% if can_change %}<td><a class="cep-link" href="{% url 'admin:platform_ops_securityfinding_accept' row.id %}">Accept…</a></td>{% endif %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% else %}
+        <div class="cep-card"><div class="cep-clear"><span class="material-symbols-outlined cep-security-ok" aria-hidden="true">verified_user</span><div><strong>Nothing needs attention</strong>
+            <span class="cep-muted">No known advisories for the {{ data.last.python_packages|add:data.last.npm_packages|intcomma }} installed packages{% if data.passed %}, and {{ data.passed|length }} setting{{ data.passed|length|pluralize }} pass{{ data.passed|length|pluralize:"es," }}{% endif %}.</span></div></div></div>
+    {% endif %}
+
+    {% if accepted %}
+    <details class="cep-card cep-fold">
+        <summary><h2>Accepted · {{ accepted|length }}</h2><span class="cep-link">Show</span></summary>
+        <table class="cep-table">
+            <thead><tr><th scope="col">Item</th><th scope="col">Severity</th><th scope="col">Why</th><th scope="col">Review On</th>{% if can_change %}<th scope="col"><span class="cep-sr">Actions</span></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for row in accepted %}
+                <tr><th scope="row"><strong>{{ row.title }}</strong><small>{{ row.where }}</small></th><td><span class="cep-tag" data-kind="{{ row.severity_pill }}">{{ row.severity_word }}</span></td>
+                    <td>{{ row.accept_reason }}<small class="cep-muted">{{ row.accepted_by_name|default:"Someone" }}, {{ row.accepted_at|date:"j M Y" }}</small></td><td>{{ row.review_on|date:"j M Y" }}</td>
+                    {% if can_change %}<td><form method="post" action="{% url 'admin:platform_ops_securityfinding_reopen' row.id %}">{% csrf_token %}<button type="submit" class="cep-link cep-plain-button">Reopen</button></form></td>{% endif %}</tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% endif %}
+
+    <details class="cep-card cep-fold">
+        <summary><h2>Passed · {{ data.python_ok|add:data.npm_ok|intcomma }} packages, {{ data.passed|length }} setting{{ data.passed|length|pluralize }}</h2><span class="cep-link">Show</span></summary>
+        <div class="cep-grid cep-grid-2 cep-security-passed">
+            <div><h3>Packages</h3>
+                <p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Backend · Python: {{ data.python_ok|intcomma }} package{{ data.python_ok|pluralize }} with no known advisories</p>
+                <p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Frontend · npm: {{ data.npm_ok|intcomma }} package{{ data.npm_ok|pluralize }} with no known advisories</p></div>
+            <div><h3>Server Settings{% if data.headers_read %} and Headers{% endif %}</h3>
+                {% for title in data.passed %}<p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>{{ title }}</p>{% empty %}<p class="cep-muted">None passed yet.</p>{% endfor %}
+                {% if not data.headers_read %}<p class="cep-muted">The site's headers are not checked: set its public address in Global Parameters → security.site_address.</p>{% endif %}</div>
+        </div>
+    </details>
+
+    <details class="cep-card cep-fold">
+        <summary><h2>Checks · last 30 days</h2><span class="cep-link">Show</span></summary>
+        <table class="cep-table">
+            <thead><tr><th scope="col">Checked</th><th scope="col">By</th><th scope="col" class="num">Packages</th><th scope="col">Open After</th><th scope="col">Fixed Since the Check Before</th></tr></thead>
+            <tbody>
+            {% for c in data.checks %}
+                <tr><th scope="row">{{ c.started_at|date:"j M Y, H:i" }} UTC{% if c.status == 'FAILED' %}<small class="cep-muted">{{ c.error|truncatechars:120 }}</small>{% endif %}</th>
+                    <td>{% if c.trigger == 'MANUAL' %}{{ c.by_name|default:"Someone" }} · Check Now{% else %}Daily check{% endif %}</td>
+                    <td class="num">{{ c.python_packages|add:c.npm_packages|intcomma }}</td>
+                    <td>{% with f=c.found %}{% if f.CRITICAL %}<span class="cep-tag" data-kind="danger">{{ f.CRITICAL }} Critical</span> {% endif %}{% if f.HIGH %}<span class="cep-tag" data-kind="danger">{{ f.HIGH }} High</span> {% endif %}{% if f.MEDIUM %}<span class="cep-tag" data-kind="warning">{{ f.MEDIUM }} Medium</span> {% endif %}{% if f.LOW %}<span class="cep-tag" data-kind="neutral">{{ f.LOW }} Low</span>{% endif %}{% if not f.CRITICAL and not f.HIGH and not f.MEDIUM and not f.LOW %}<span class="cep-tag" data-kind="live">Nothing</span>{% endif %}{% endwith %}</td>
+                    <td class="cep-muted">{{ c.fixed|join:", "|default:"—" }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </details>
+    {% endif %}
+</div>
+{% endblock %}

@@ -119,7 +119,7 @@ CONTROL_PLANE_ALIAS = "default"
 CONTROL_PLANE_MODELS = {"tenant", "tenant_database", "subscription_plan", "tenant_subscription", "tenant_usage", "tenant_storage_config",
                         "tenant_invoice", "tenant_operation", "job_run", "platform_alert", "support_access_log", "tenant_identity_provider",
                         "platform_setting", "industry_profile", "mail_server", "platform_personalization_tag",
-                        "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "tenant_quota_grant",
+                        "error_group", "error_event", "request_metric", "uptime_target", "uptime_check", "security_check", "security_finding", "tenant_quota_grant",
                         "suite_component", "plan_component", "tenant_component",
                         "report_dataset", "report_field", "report_dataset_source", "report_engine_setting", "report_engine_connection", "ai_provider", "report_dataset_link"}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -216,6 +216,7 @@ CELERY_BEAT_SCHEDULE = {
     "check-report-alerts": {"task": "workers.insights_alerts.check_report_alerts", "schedule": 300},  # Insights threshold alerts
     "refresh-clickhouse-reporting": {"task": "workers.insights_clickhouse.refresh_clickhouse_reporting", "schedule": 900},  # the ClickHouse reporting tables' recent window
     "probe-uptime": {"task": "workers.platform.probe_uptime", "schedule": 60},                             # calls the uptime targets; alerts on a change
+    "check-security": {"task": "workers.platform.check_security", "schedule": 24 * 3600},                  # packages (OSV.dev), settings and headers: back-office Security
     "prune-observability": {"task": "workers.platform.prune_observability", "schedule": 24 * 3600},       # errors, request figures and probes past retention
     "attribute-orders": {"task": "workers.platform.attribute_orders", "schedule": 300},                    # orders -> campaigns -> campaign_actual
     "enroll-journey-customers": {"task": "workers.journey.enroll_customers", "schedule": 60},            # entry rules of live journeys

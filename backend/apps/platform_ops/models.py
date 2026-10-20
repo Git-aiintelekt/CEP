@@ -484,3 +484,30 @@ class TenantComponent(models.Model):
         managed = False
         db_table = 'tenant_component'
         unique_together = (('tenant', 'component'),)
+
+
+class SecurityFinding(models.Model):
+    """What the security check found on a server (apps/platform_ops/security.py); the back-office Security page is its list"""
+    class Status(models.TextChoices):
+        OPEN = 'OPEN', 'Open'
+        FIXED = 'FIXED', 'Fixed'
+        ACCEPTED = 'ACCEPTED', 'Accepted'
+
+    id = models.BigAutoField(primary_key=True)
+    host = models.CharField(max_length=200)
+    fingerprint = models.CharField(max_length=200)
+    kind = models.CharField(max_length=10)
+    item = models.CharField(max_length=200)
+    title = models.CharField(max_length=200)
+    severity = models.CharField(max_length=10)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
+    first_seen = models.DateTimeField(db_default=Now())
+    last_seen = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        managed = False
+        db_table = 'security_finding'
+        verbose_name = 'security item'
+
+    def __str__(self):
+        return self.title
