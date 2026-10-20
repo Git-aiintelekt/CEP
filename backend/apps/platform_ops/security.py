@@ -162,6 +162,22 @@ def _fixed_in(advisory: dict, ecosystem: str, name: str, installed: str) -> str 
     return later[0] if later else (sorted(fixes, key=_version_key)[-1] if fixes else None)
 
 
+def _past_affected(advisory: dict, ecosystem: str, name: str, installed: str) -> bool:
+    """an advisory with no fixed version can still name its last affected one ("< 0.19.5") beside the ranges, which OSV.dev
+    does not apply when it matches: the installed version past it is not affected"""
+    bounds = []
+    for affected in advisory.get("affected") or []:
+        package = affected.get("package") or {}
+        if package.get("ecosystem") != ecosystem or _norm(package.get("name", "")) != _norm(name):
+            continue
+        match = re.fullmatch(r"\s*(<=?)\s*v?([\w.\-+]+)\s*", str((affected.get("database_specific") or {}).get("last_known_affected_version_range") or ""))
+        if match is None:
+            return False
+        bounds.append(match.groups())
+    return bool(bounds) and all(_version_key(installed) >= _version_key(v) if op == "<" else _version_key(installed) > _version_key(v)
+                                for op, v in bounds)
+
+
 def _link(vuln_id: str) -> str:
     return f"https://github.com/advisories/{vuln_id}" if vuln_id.startswith("GHSA-") else f"https://osv.dev/vulnerability/{vuln_id}"
 
@@ -175,6 +191,8 @@ def package_findings(python: dict, npm: dict) -> list[dict]:
         advisories, worst, fixes, summary = [], None, [], None
         for vuln_id in ids:
             advisory = _advisory(vuln_id, cache)
+            if _past_affected(advisory, ecosystem, name, version):
+                continue
             severity = _severity(advisory, cache) or "MEDIUM"
             worst = severity if worst is None or RANK[severity] < RANK[worst] else worst
             fixed = _fixed_in(advisory, ecosystem, name, version)
@@ -182,6 +200,8 @@ def package_findings(python: dict, npm: dict) -> list[dict]:
                 fixes.append(fixed)
             summary = summary or advisory.get("summary") or (advisory.get("details") or "")[:200]
             advisories.append({"id": vuln_id, "url": _link(vuln_id), "summary": (advisory.get("summary") or "")[:200], "severity": severity})
+        if not advisories:
+            continue
         build_only = ecosystem == "npm" and npm.get(name, ("", False))[1]
         detail = (summary or "A known advisory.")[:400] + (" Build-time only: it never reaches a browser." if build_only else "")
         findings.append({"fingerprint": f"PACKAGE:{ecosystem}:{name}", "kind": "PACKAGE", "ecosystem": ecosystem, "item": name, "title": name, "detail": detail[:500],

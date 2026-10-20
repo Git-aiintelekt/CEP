@@ -24,6 +24,9 @@ ADVISORIES = {
     "GHSA-aaaa-bbbb-cccc": {"id": "GHSA-aaaa-bbbb-cccc", "database_specific": {"severity": "HIGH"}},
     "GHSA-dddd-eeee-ffff": {"id": "GHSA-dddd-eeee-ffff", "summary": "Event-loop denial of service", "database_specific": {"severity": "MODERATE"},
                             "affected": [{"package": {"ecosystem": "npm", "name": "source-map-js"}, "ranges": [{"events": [{"introduced": "1.0.0"}, {"fixed": "1.2.2"}]}]}]},
+    "GHSA-589f-c66p-hxr4": {"id": "GHSA-589f-c66p-hxr4", "summary": "grapesjs before 0.19.5 vulnerable to Cross-site Scripting", "database_specific": {"severity": "MODERATE"},
+                            "affected": [{"package": {"ecosystem": "npm", "name": "grapesjs"}, "ranges": [{"type": "SEMVER", "events": [{"introduced": "0"}]}],
+                                          "database_specific": {"last_known_affected_version_range": "< 0.19.5"}}]},
 }
 
 
@@ -62,6 +65,13 @@ def test_checks(check, tmp_path):
           and jwt.get("advisories", [{}])[0].get("url") == "https://osv.dev/vulnerability/PYSEC-2026-1", str(jwt))
     check("a moderate npm advisory is Medium and says it is build-time only", maps.get("severity") == "MEDIUM" and "Build-time only" in maps.get("detail", "")
           and maps.get("fixed_in") == "1.2.2" and set(found) == {"pyjwt", "source-map-js"}, str(maps))
+
+    post, get = _osv({("npm", "grapesjs"): ["GHSA-589f-c66p-hxr4"]})
+    with mock.patch.object(security.requests, "post", side_effect=post), mock.patch.object(security.requests, "get", side_effect=get):
+        newer = security.package_findings({}, {"grapesjs": ("0.23.6", False)})
+        older = security.package_findings({}, {"grapesjs": ("0.19.4", False)})
+    check("an advisory without a fixed version is dropped when the installed version is past its last affected one, and kept before it",
+          newer == [] and [f["item"] for f in older] == ["grapesjs"], str(newer) + str(older))
 
     page = {"url": "https://cep.example/", "headers": {"strict-transport-security": "max-age=31536000", "x-content-type-options": "nosniff", "x-frame-options": "DENY"}}
     with mock.patch.object(security, "site_headers", return_value=page):
