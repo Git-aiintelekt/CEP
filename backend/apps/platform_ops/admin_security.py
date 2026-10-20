@@ -19,7 +19,7 @@ from .models import SecurityFinding
 
 SEVERITY_WORDS = {"CRITICAL": ("Critical", "danger"), "HIGH": ("High", "danger"), "MEDIUM": ("Medium", "warning"), "LOW": ("Low", "neutral")}
 WHERE_WORDS = {"PyPI": "Backend · Python", "npm": "Frontend · npm"}
-KIND_WORDS = {"SETTING": "Server setting", "HEADER": "Site header"}
+KIND_WORDS = {"SETTING": "Server setting", "HEADER": "Site header", "DATABASE": "Workspace isolation", "ACCOUNT": "Account or key", "MAIL": "Sending domain"}
 
 
 def _shown(row: dict) -> dict:

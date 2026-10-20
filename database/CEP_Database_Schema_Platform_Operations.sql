@@ -2824,7 +2824,7 @@ CREATE TABLE IF NOT EXISTS security_finding (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host                VARCHAR(200) NOT NULL,
     fingerprint         VARCHAR(200) NOT NULL,                           -- kind:ecosystem:item, one row per thing to fix
-    kind                VARCHAR(10) NOT NULL,                            -- PACKAGE | SETTING | HEADER
+    kind                VARCHAR(10) NOT NULL,                            -- PACKAGE | SETTING | HEADER | DATABASE | ACCOUNT | MAIL (patch 0067)
     ecosystem           VARCHAR(10),                                     -- PyPI | npm (packages)
     item                VARCHAR(200) NOT NULL,                           -- the package, or the setting's key
     title               VARCHAR(200) NOT NULL,
@@ -2844,12 +2844,16 @@ CREATE TABLE IF NOT EXISTS security_finding (
     accepted_advisories JSONB NOT NULL DEFAULT '[]'::jsonb,              -- the advisory ids accepted: a newer one opens the item again
     row_version         INTEGER NOT NULL DEFAULT 1,
     CONSTRAINT ux_security_finding UNIQUE (host, fingerprint),
-    CONSTRAINT ck_security_finding_kind CHECK (kind IN ('PACKAGE', 'SETTING', 'HEADER')),
+    CONSTRAINT ck_security_finding_kind CHECK (kind IN ('PACKAGE', 'SETTING', 'HEADER', 'DATABASE', 'ACCOUNT', 'MAIL')),
     CONSTRAINT ck_security_finding_severity CHECK (severity IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')),
     CONSTRAINT ck_security_finding_status CHECK (status IN ('OPEN', 'FIXED', 'ACCEPTED'))
 );
 CREATE INDEX IF NOT EXISTS ix_security_finding_open ON security_finding(host, status, severity);
 COMMENT ON TABLE security_finding IS 'What the security check found on a server, kept across checks: open, fixed (with when) or accepted (with who, why and until when)';
+
+-- patch 0067: the data checks (apps/platform_ops/security_data.py): workspace isolation, accounts and keys, sending domains
+ALTER TABLE security_finding DROP CONSTRAINT IF EXISTS ck_security_finding_kind;
+ALTER TABLE security_finding ADD CONSTRAINT ck_security_finding_kind CHECK (kind IN ('PACKAGE', 'SETTING', 'HEADER', 'DATABASE', 'ACCOUNT', 'MAIL'));
 
 GRANT SELECT, INSERT, UPDATE ON security_check, security_finding TO cep_app;
 GRANT ALL ON security_check, security_finding TO cep_admin;

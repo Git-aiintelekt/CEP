@@ -1,6 +1,7 @@
 """The back-office Security page's checks: each server checks itself, daily (the check-security job) and on Check Now.
 
-  run(trigger, user_id)      one check: the packages, the settings and the site's headers; findings kept across checks
+  run(trigger, user_id)      one check: the packages, the settings, the site's headers and the data checks (security_data.py:
+                             workspace isolation, accounts and keys, sending domains); findings kept across checks
   overview(host)             what the page shows: open items worst first, accepted ones, counts, what passed, the last checks
   accept(...) / reopen(...)  Accept the Risk with a reason and a review date; or open an accepted item again
 
@@ -11,7 +12,7 @@ running processes, on Linux), and the headers the site really sends (from securi
 changed: a fix arrives with a deploy, and the next check marks the item fixed. An accepted item opens again on its review
 date, or when an advisory appears that was not there when it was accepted.
 
-Tables security_check and security_finding (patch 0066).
+Tables security_check and security_finding (patch 0066); patch 0067 lets them hold the data checks' kinds.
 """
 import json
 import os
@@ -45,6 +46,8 @@ DJANGO_CHECKS = {
                       "Requests are redirected to HTTPS"),
 }
 HSTS_CHECKS = {"security.W004", "security.W005", "security.W021"}            # answered by the site's real header when it was read
+DATA_GROUPS = {"DATABASE": "Workspace Isolation", "ACCOUNT": "Accounts and Keys", "MAIL": "Sending Domains"}
+KIND_COUNT_WORDS = {"PACKAGE": "package", "SETTING": "setting", "HEADER": "setting", "DATABASE": "data item", "ACCOUNT": "data item", "MAIL": "data item"}
 
 
 class CheckFailed(Exception):
@@ -68,6 +71,12 @@ def _q(sql: str, args=None, *, one=False):
 def present() -> bool:
     """the tables are there (patch 0066): asked first, so a missing table never aborts the caller's transaction"""
     return bool(_q("SELECT to_regclass('public.security_finding') IS NOT NULL AS ok", one=True)["ok"])
+
+
+def data_allowed() -> bool:
+    """the finding table takes the data checks' kinds (patch 0067)"""
+    row = _q("""SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'ck_security_finding_kind'""", one=True)
+    return bool(row) and "DATABASE" in row["def"]
 
 
 # ------------------------------------------------------------------------------------------------ what is installed
@@ -330,22 +339,38 @@ def run(trigger: str = "SCHEDULE", user_id=None) -> dict:
         raise CheckFailed("The Security tables are not there yet: apply patch 0066.")
     where = host()
     check = _q("INSERT INTO security_check (host, trigger, triggered_by) VALUES (%s, %s, %s) RETURNING id", [where, trigger, str(user_id) if user_id else None], one=True)["id"]
-    error, kinds = None, {"SETTING", "HEADER"}
+    errors, kinds = [], {"SETTING", "HEADER"}
     python, npm = python_packages(), npm_packages()
     findings, passed, headers_read = setting_findings()
     try:
         findings += package_findings(python, npm)
         kinds.add("PACKAGE")
     except CheckFailed as exc:
-        error = f"{exc} Packages were not checked; their earlier findings stand."
+        errors.append(f"{exc} Packages were not checked; their earlier findings stand.")
+    passed_data, data_checked = {}, data_allowed()
+    if data_checked:
+        from django.db import transaction
+
+        from . import security_data
+        for kind, gather in (("DATABASE", security_data.isolation_findings), ("ACCOUNT", security_data.account_findings), ("MAIL", security_data.mail_findings)):
+            try:
+                with transaction.atomic(using="default"), transaction.atomic(using=P):      # a failed read never aborts the check's own writes
+                    found_here, passed_here = gather()
+            except Exception as exc:                                                       # noqa: BLE001
+                errors.append(f"{DATA_GROUPS[kind]} was not checked ({exc.__class__.__name__}); its earlier findings stand.")
+                continue
+            findings += found_here
+            passed_data[DATA_GROUPS[kind]] = passed_here
+            kinds.add(kind)
+    error = " ".join(errors) or None
     try:
         fixed = _reconcile(where, findings, kinds, python, npm)
         counts = {s: 0 for s in SEVERITIES}
         for row in _q("SELECT severity, count(*) AS n FROM security_finding WHERE host = %s AND status = 'OPEN' GROUP BY severity", [where]):
             counts[row["severity"]] = row["n"]
-        found = {**counts, "passed": passed, "headers_read": headers_read}
+        found = {**counts, "passed": passed, "headers_read": headers_read, "passed_data": passed_data, "data_checked": data_checked}
         _q("""UPDATE security_check SET finished_at = now(), status = %s, python_packages = %s, npm_packages = %s, settings_checked = %s, found = %s, fixed = %s, error = %s
-              WHERE id = %s""", ["FAILED" if error else "DONE", len(python), len(npm), len(passed) + sum(1 for f in findings if f["kind"] != "PACKAGE"),
+              WHERE id = %s""", ["FAILED" if error else "DONE", len(python), len(npm), len(passed) + sum(1 for f in findings if f["kind"] in ("SETTING", "HEADER")),
                                  json.dumps(found), json.dumps(fixed), error, check])
     except Exception as exc:
         _q("UPDATE security_check SET finished_at = now(), status = 'FAILED', error = %s WHERE id = %s", [f"{exc.__class__.__name__}: {exc}"[:500], check])
@@ -366,11 +391,12 @@ def open_counts(where: str | None = None) -> dict:
 
 
 def _split(rows: list[dict], severities: tuple) -> str:
-    """'1 package, 3 settings' for the open items of these severities; 'nothing open' when there are none"""
-    packages = sum(1 for r in rows if r["severity"] in severities and r["kind"] == "PACKAGE")
-    others = sum(1 for r in rows if r["severity"] in severities and r["kind"] != "PACKAGE")
-    parts = [f"{n} {word}{'' if n == 1 else 's'}" for n, word in ((packages, "package"), (others, "setting")) if n]
-    return ", ".join(parts) or "nothing open"
+    """'1 package, 3 settings, 2 data items' for the open items of these severities; 'nothing open' when there are none"""
+    counts = {word: 0 for word in dict.fromkeys(KIND_COUNT_WORDS.values())}
+    for r in rows:
+        if r["severity"] in severities:
+            counts[KIND_COUNT_WORDS.get(r["kind"], "setting")] += 1
+    return ", ".join(f"{n} {word}{'' if n == 1 else 's'}" for word, n in counts.items() if n) or "nothing open"
 
 
 def overview(where: str | None = None) -> dict | None:
@@ -394,7 +420,10 @@ def overview(where: str | None = None) -> dict | None:
             "high_caption": _split(open_rows, ("CRITICAL", "HIGH")), "lower_caption": _split(open_rows, ("MEDIUM", "LOW")),
             "python_ok": max(0, (last or {}).get("python_packages", 0) - sum(1 for e, _ in flagged if e == "PyPI")),
             "npm_ok": max(0, (last or {}).get("npm_packages", 0) - sum(1 for e, _ in flagged if e == "npm")),
-            "passed": found.get("passed") or [], "headers_read": bool(found.get("headers_read"))}
+            "passed": found.get("passed") or [], "headers_read": bool(found.get("headers_read")),
+            "passed_data": {g: (found.get("passed_data") or {})[g] for g in DATA_GROUPS.values() if g in (found.get("passed_data") or {})},   # JSONB reorders keys
+            "passed_data_count": sum(len(v) for v in (found.get("passed_data") or {}).values()),
+            "data_checked": bool(found.get("data_checked"))}
 
 
 def accept(finding_id: int, user_id, reason: str, review_on: date) -> None:

@@ -57,7 +57,7 @@
     </section>
     {% else %}
         <div class="cep-card"><div class="cep-clear"><span class="material-symbols-outlined cep-security-ok" aria-hidden="true">verified_user</span><div><strong>Nothing needs attention</strong>
-            <span class="cep-muted">No known advisories for the {{ data.last.python_packages|add:data.last.npm_packages|intcomma }} installed packages{% if data.passed %}, and {{ data.passed|length }} setting{{ data.passed|length|pluralize }} pass{{ data.passed|length|pluralize:"es," }}{% endif %}.</span></div></div></div>
+            <span class="cep-muted">No known advisories for the {{ data.last.python_packages|add:data.last.npm_packages|intcomma }} installed packages{% if data.passed %}, and {{ data.passed|length }} setting{{ data.passed|length|pluralize }} pass{{ data.passed|length|pluralize:"es," }}{% endif %}{% if data.passed_data_count %}, as do {{ data.passed_data_count }} data check{{ data.passed_data_count|pluralize }}{% endif %}.</span></div></div></div>
     {% endif %}
 
     {% if accepted %}
@@ -77,7 +77,7 @@
     {% endif %}
 
     <details class="cep-card cep-fold">
-        <summary><h2>Passed · {{ data.python_ok|add:data.npm_ok|intcomma }} packages, {{ data.passed|length }} setting{{ data.passed|length|pluralize }}</h2><span class="cep-link">Show</span></summary>
+        <summary><h2>Passed · {{ data.python_ok|add:data.npm_ok|intcomma }} packages, {{ data.passed|length }} setting{{ data.passed|length|pluralize }}{% if data.passed_data_count %}, {{ data.passed_data_count }} data check{{ data.passed_data_count|pluralize }}{% endif %}</h2><span class="cep-link">Show</span></summary>
         <div class="cep-grid cep-grid-2 cep-security-passed">
             <div><h3>Packages</h3>
                 <p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Backend · Python: {{ data.python_ok|intcomma }} package{{ data.python_ok|pluralize }} with no known advisories</p>
@@ -85,6 +85,14 @@
             <div><h3>Server Settings{% if data.headers_read %} and Headers{% endif %}</h3>
                 {% for title in data.passed %}<p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>{{ title }}</p>{% empty %}<p class="cep-muted">None passed yet.</p>{% endfor %}
                 {% if not data.headers_read %}<p class="cep-muted">The site's headers are not checked: set its public address in Global Parameters → security.site_address.</p>{% endif %}</div>
+        </div>
+        <div class="cep-grid cep-grid-3 cep-security-passed">
+            {% for group, titles in data.passed_data.items %}
+            <div><h3>{{ group }}</h3>
+                {% for title in titles %}<p><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>{{ title }}</p>{% empty %}<p class="cep-muted">None passed yet.</p>{% endfor %}</div>
+            {% empty %}
+            <div><h3>Data Checks</h3><p class="cep-muted">{% if data.data_checked %}Not checked yet.{% else %}Workspace isolation, accounts and keys, and sending domains are checked once patch 0067 is applied.{% endif %}</p></div>
+            {% endfor %}
         </div>
     </details>
 

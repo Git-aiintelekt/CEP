@@ -117,6 +117,7 @@ code, kbd, pre, samp, .font-mono { font-family: var(--font-mono); }
 .cep-grid-kpi { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .cep-grid-actions { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .cep-grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); align-items: start; }
+.cep-grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); align-items: start; }
 
 /* ---- page opening: the greeting. Flat: no gradient, no glass ------------------------------------------------------ */
 .cep-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 2rem; }
@@ -513,6 +514,7 @@ body { background: var(--cep-canvas); color: var(--cep-text-strong); }
 .cep-security .cep-kpi[data-state="bad"] { border-color: var(--cep-bad); }
 .cep-security .cep-kpi[data-state="bad"] .cep-kpi-value { color: var(--cep-bad-text); }
 .cep-security .cep-mono, .cep-security-version .cep-mono { font-family: var(--font-mono); font-size: 13px; }
+.cep-security th[scope="row"] strong { overflow-wrap: anywhere; }
 .cep-security-version { white-space: nowrap; color: var(--cep-text); }
 .cep-security-ok { font-size: 28px; color: var(--cep-ok-text); }
 .cep-security-error { margin: 0; padding: 0.75rem 1rem; border-radius: var(--cep-radius-box); background: var(--cep-warn-soft); color: var(--cep-warn-text); font-size: 14px; }
