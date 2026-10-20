@@ -9,6 +9,11 @@ Knowing which updates and settings this server needs before someone else finds o
 - **Packages:** every Python package installed for the backend and every npm package in the deployed frontend (its package-lock.json) is looked up in OSV.dev, the open vulnerability database behind the GitHub, PyPI and npm advisories.
 - **Server settings:** Django's own deployment checks (debug mode, the signing key, allowed hosts, HTTPS-only cookies, HSTS, the HTTPS redirect) and whether the development web server (`manage.py runserver`) is serving the app.
 - **Site headers:** the headers the app's public address really sends: HSTS, Content-Security-Policy, nosniff, and whether other sites may frame it. Set the address in Global Parameters → `security.site_address` (for example `https://cepdev.aiintelekt.com`); while it is empty the headers are not checked.
+- **Workspace isolation:** every table holding workspace rows that the app's login can read keeps each workspace's rows apart (forced row-level security), unless it is one of the platform's own tables; and the app's login can neither skip row-level security nor change the schema.
+- **Accounts and keys:** platform accounts that have not signed in for 90 days, platform staff allowed to sign in without a second factor, active accounts with a test address (example.com, .test and the like), workspace accounts unused for 90 days, workspace API keys over a year old or unused for 90 days, and Postal engines whose callbacks are not signed.
+- **Sending domains:** the SPF and DMARC records of every domain a workspace sends email from, read from DNS by this server. Domains reserved for examples (`.example`, `.test`) are not looked up. DKIM is not checked: its record name depends on the mail engine's selector, which C360 does not hold.
+
+The last three need patch 0067; until it is applied the page says so under Passed and the other checks run as before.
 
 The page never installs or changes anything. A package is updated with a deploy and a setting on the server; the next check marks the item **Fixed** and the check history says so.
 
@@ -21,7 +26,7 @@ Platform staff see the page. Accepting a risk and reopening an accepted item nee
 **See what needs updating**
 
 1. Open **Overview → Security**. The figures say how many items are open (Critical and High, Medium and Low), how many are accepted, and how many packages were checked.
-2. **Needs Attention** lists every open item, worst first, packages and settings together: the severity, the item and why it matters, where it is (Backend · Python, Frontend · npm, Server setting, Site header), what is installed and what fixes it, the advisory, and when it was first seen.
+2. **Needs Attention** lists every open item, worst first, packages, settings and data checks together: the severity, the item and why it matters, where it is (Backend · Python, Frontend · npm, Server setting, Site header, Workspace isolation, Account or key, Sending domain), what is there now and what fixes it, the reference, and when it was first seen.
 3. Press the advisory to read it (GitHub or OSV.dev for a package, Django's documentation for a setting).
 4. An npm package marked **Build-time only** is used while the frontend is built and never reaches a browser.
 
@@ -39,17 +44,17 @@ Platform staff see the page. Accepting a risk and reopening an accepted item nee
 
 **See what passed and the history**
 
-1. **Passed** lists the packages with no known advisories (Python and npm) and every setting and header that passes.
+1. **Passed** lists the packages with no known advisories (Python and npm), every setting and header that passes, and, below them, what passed in Workspace Isolation, Accounts and Keys and Sending Domains.
 2. **Checks · last 30 days** lists every check: when, by the daily job or by whom, how many packages, what was open after it, and what it found fixed.
 
 ## Severity
 
 | Severity | Meaning |
 |---|---|
-| Critical | Fix now: for example a weak signing key, or a package advisory rated critical. |
-| High | Fix soon: debug mode on, the development web server serving, a session cookie sent over HTTP, a high-rated advisory. |
-| Medium | Plan the fix: missing HSTS or Content-Security-Policy, a moderate advisory, an advisory its database did not rate. |
-| Low | Note it: a low-rated advisory, nosniff missing, the HTTPS redirect left to the proxy. |
+| Critical | Fix now: for example a weak signing key, a package advisory rated critical, or the app's login skipping row-level security. |
+| High | Fix soon: debug mode on, the development web server serving, a session cookie sent over HTTP, a high-rated advisory, a workspace table that does not keep workspaces apart, an unused platform administrator, staff signing in with a password alone, a sending domain without SPF. |
+| Medium | Plan the fix: missing HSTS or Content-Security-Policy, a moderate advisory, an advisory its database did not rate, an API key over a year old, unsigned engine callbacks, a sending domain without DMARC. |
+| Low | Note it: a low-rated advisory, nosniff missing, the HTTPS redirect left to the proxy, unused workspace accounts or API keys, DMARC that only monitors. |
 
 Package severities come from the advisory (GitHub's rating, or the rating of the GitHub twin of a PyPI advisory).
 
@@ -62,3 +67,6 @@ Package severities come from the advisory (GitHub's rating, or the rating of the
 | "OSV.dev could not be reached" | The server cannot reach api.osv.dev over HTTPS; allow it in the firewall. |
 | The site could not be read | The address in `security.site_address` does not answer from the server itself. |
 | The development web server item does not appear on Windows | Running processes are read on Linux only. |
+| Passed says the data checks wait for patch 0067 | Patch 0067 has not been applied on this server. |
+| "A sending domain could not be looked up" | This server's DNS did not answer for it; check the server's resolver. |
+| "Workspace Isolation was not checked" (or another group) | That group failed to read the database; the check's history shows the error, and the group's earlier findings stand. |

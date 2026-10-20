@@ -341,6 +341,15 @@ CREATE INDEX ix_webhook_subscription_tenant_id ON webhook_subscription(tenant_id
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO cep_app;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO cep_app;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO cep_admin;
+-- the grant above reaches partitions too: they stay reachable through their parent only (as in the SaaS tenancy layer)
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relispartition AND c.relkind IN ('r', 'p') AND has_table_privilege('cep_app', c.oid, 'SELECT') LOOP
+        EXECUTE format('REVOKE ALL ON %I FROM cep_app', r.relname);
+    END LOOP;
+END $$;
 
 -- =====================================================================================
 -- End of hybrid services layer.
