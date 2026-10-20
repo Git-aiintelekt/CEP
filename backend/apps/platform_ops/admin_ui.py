@@ -58,6 +58,18 @@ def down_targets_badge(request):
     return _count_badge("cep:admin:down-targets", "SELECT count(*) FROM uptime_target WHERE is_active AND state = 'DOWN'")
 
 
+def security_badge(request):
+    """The number on 'Security': open Critical and High items on this server (Medium shows on Home as a warning)."""
+    from django.core.cache import cache
+    from . import security
+    count = cache.get("cep:admin:security")
+    if count is None:
+        counts = security.open_counts()
+        count = counts["CRITICAL"] + counts["HIGH"]
+        cache.set("cep:admin:security", count, 60)
+    return count or None
+
+
 def _url(name, *args):
     try:
         return reverse(name, args=args)
@@ -111,6 +123,7 @@ def attention(health, jobs, alerts):
                       "title": "The scheduler is not running" if every else f"{len(never)} scheduled job{'s have' if len(never) > 1 else ' has'} never run",
                       "text": "No scheduled job has reported yet: start the Celery worker and beat." if every else ", ".join(job["name"] for job in never),
                       "link": "#jobs", "action": "See the Jobs"})
+    items += _security_attention()
     by_title = {item["title"]: item for item in items}
     for alert in alerts:                                   # an alert is the record of a problem: whoever is shown the problem gets the link to it
         since = f"open since {timezone.localtime(alert.opened_at):%d %b %H:%M}" + (" · acknowledged" if alert.acknowledged_at else "")
@@ -124,6 +137,20 @@ def attention(health, jobs, alerts):
     for item in items:
         item["label"], item["word"], item["order"] = SEVERITY[item["kind"]]
     return sorted(items, key=lambda item: item["order"])
+
+
+def _security_attention():
+    """one card while Security has an open Critical or High item (a warning for Medium)"""
+    from . import security
+    counts = security.open_counts()
+    high, medium = counts["CRITICAL"] + counts["HIGH"], counts["MEDIUM"]
+    if not high and not medium:
+        return []
+    worst = "Critical" if counts["CRITICAL"] else "High" if high else "Medium"
+    total = high or medium
+    return [{"kind": "fail" if high else "warn", "icon": "shield", "title": f"{total} security item{'s' if total != 1 else ''}, {worst}",
+             "text": "Packages with advisories or server settings to fix on this server.", "link": _url("admin:platform_ops_securityfinding_changelist"),
+             "action": "Open Security"}]
 
 
 def attention_status(items):

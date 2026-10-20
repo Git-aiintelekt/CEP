@@ -2797,6 +2797,67 @@ END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON report_dataset_formula TO cep_app;
 GRANT ALL ON report_dataset_formula TO cep_admin;
 
+-- ---- security (patch 0066): what the check-security job and Check Now found on this server (apps/platform_ops/security.py):
+-- package advisories from OSV.dev for the installed Python packages and the deployed frontend's npm packages, and the server's
+-- settings and the headers its site sends. Back-office → Security.
+CREATE TABLE IF NOT EXISTS security_check (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host                VARCHAR(200) NOT NULL,                           -- the server that checked itself
+    trigger             VARCHAR(10) NOT NULL DEFAULT 'SCHEDULE',         -- SCHEDULE | MANUAL
+    triggered_by        UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    finished_at         TIMESTAMPTZ,
+    status              VARCHAR(10) NOT NULL DEFAULT 'RUNNING',          -- RUNNING | DONE | FAILED
+    python_packages     INTEGER NOT NULL DEFAULT 0,
+    npm_packages        INTEGER NOT NULL DEFAULT 0,
+    settings_checked    INTEGER NOT NULL DEFAULT 0,
+    found               JSONB NOT NULL DEFAULT '{}'::jsonb,              -- open items by severity after the check
+    fixed               JSONB NOT NULL DEFAULT '[]'::jsonb,              -- the items this check found fixed
+    error               VARCHAR(500),
+    CONSTRAINT ck_security_check_trigger CHECK (trigger IN ('SCHEDULE', 'MANUAL')),
+    CONSTRAINT ck_security_check_status CHECK (status IN ('RUNNING', 'DONE', 'FAILED'))
+);
+CREATE INDEX IF NOT EXISTS ix_security_check_started ON security_check(host, started_at DESC);
+COMMENT ON TABLE security_check IS 'Each run of the security check on a server: what it looked at, what it found open and what it found fixed';
+
+CREATE TABLE IF NOT EXISTS security_finding (
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host                VARCHAR(200) NOT NULL,
+    fingerprint         VARCHAR(200) NOT NULL,                           -- kind:ecosystem:item, one row per thing to fix
+    kind                VARCHAR(10) NOT NULL,                            -- PACKAGE | SETTING | HEADER
+    ecosystem           VARCHAR(10),                                     -- PyPI | npm (packages)
+    item                VARCHAR(200) NOT NULL,                           -- the package, or the setting's key
+    title               VARCHAR(200) NOT NULL,
+    detail              VARCHAR(500),
+    installed           VARCHAR(100),                                    -- the version or the value now
+    fixed_in            VARCHAR(100),                                    -- the version or the value that fixes it
+    severity            VARCHAR(10) NOT NULL,                            -- CRITICAL | HIGH | MEDIUM | LOW
+    advisories          JSONB NOT NULL DEFAULT '[]'::jsonb,              -- [{id, url, summary}]
+    status              VARCHAR(10) NOT NULL DEFAULT 'OPEN',             -- OPEN | FIXED | ACCEPTED
+    first_seen          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen           TIMESTAMPTZ NOT NULL DEFAULT now(),
+    fixed_at            TIMESTAMPTZ,
+    accepted_by         UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    accepted_at         TIMESTAMPTZ,
+    accept_reason       VARCHAR(500),
+    review_on           DATE,                                            -- an accepted item opens again on this day
+    accepted_advisories JSONB NOT NULL DEFAULT '[]'::jsonb,              -- the advisory ids accepted: a newer one opens the item again
+    row_version         INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT ux_security_finding UNIQUE (host, fingerprint),
+    CONSTRAINT ck_security_finding_kind CHECK (kind IN ('PACKAGE', 'SETTING', 'HEADER')),
+    CONSTRAINT ck_security_finding_severity CHECK (severity IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW')),
+    CONSTRAINT ck_security_finding_status CHECK (status IN ('OPEN', 'FIXED', 'ACCEPTED'))
+);
+CREATE INDEX IF NOT EXISTS ix_security_finding_open ON security_finding(host, status, severity);
+COMMENT ON TABLE security_finding IS 'What the security check found on a server, kept across checks: open, fixed (with when) or accepted (with who, why and until when)';
+
+GRANT SELECT, INSERT, UPDATE ON security_check, security_finding TO cep_app;
+GRANT ALL ON security_check, security_finding TO cep_admin;
+
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('security.site_address', '""', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
+ON CONFLICT (key) DO NOTHING;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================
