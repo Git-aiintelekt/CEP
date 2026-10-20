@@ -23,7 +23,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import catalog, drill, parameters, pdf, runner
+from . import catalog, derived, drill, parameters, pdf, runner
 from .api import VIEW, _can_see_pii, _report_row, _tenant, _validated
 from .definition import DefinitionError, signature, validate
 
@@ -60,9 +60,15 @@ def _counter(dataset: dict, measure: dict) -> dict | None:
     return {"field": field["key"], "aggregate": "count"}
 
 
+def _known(dataset: dict, definition: dict) -> dict:
+    """the dataset as the report sees it: its shared formulas and the report's custom fields among its fields"""
+    return derived.augment(dataset, definition)
+
+
 def candidates(dataset: dict, definition: dict, mask: bool = False) -> list[dict]:
-    """the dimensions to explain by: the report's own first, then the dataset's, without one a rule already fixes to a value,
-    the dataset's key (one row each) or personal data the person may not see; a date by month"""
+    """the dimensions to explain by: the report's own first (its custom fields too), then the dataset's, without one a rule
+    already fixes to a value, the dataset's key (one row each) or personal data the person may not see; a date by month"""
+    dataset = _known(dataset, definition)
     fixed = {r.get("field") for r in (definition.get("filters") or {}).get("rules", []) if r.get("operator") == "=" and "rules" not in r}
     keys = [c["field"] for c in definition["columns"] if "aggregate" not in c]
     keys += [f["key"] for f in dataset["fields"] if f["role"] == "dimension" and f["key"] not in keys]
@@ -108,8 +114,9 @@ def _label(column: dict, value) -> str:
 def influencers(tenant, user, dataset: dict, definition: dict, *, measure_key: str | None, mask: bool) -> dict:
     limits = catalog.engine_of(tenant.pk)["limits"]
     measure = _measure(definition, measure_key)
-    field = _field(dataset, measure["field"])
-    counter = _counter(dataset, measure)
+    known = _known(dataset, definition)
+    field = _field(known, measure["field"])
+    counter = _counter(known, measure)
     per_row = measure["aggregate"] in ADDITIVE
     if per_row and (counter is None or measure["aggregate"] == "count"):
         raise AnalyzeError(f"Key Influencers explains a rate or an average; {field['label']} is a count. Analyse a rate such as Delivered Rate, or an average.")
@@ -146,7 +153,7 @@ def influencers(tenant, user, dataset: dict, definition: dict, *, measure_key: s
                           "value": row[0], "value_label": _label(result["columns"][0], row[0]), "measure": value, "effect": effect,
                           "rows": int(rows) if rows is not None else None, "share": share, "score": score})
     found.sort(key=lambda item: item["score"], reverse=True)
-    label = f"{field['label']} per {_field(dataset, counter['field'])['label'].rstrip('s').lower() or 'row'}" if per_row else whole["columns"][0]["label"]
+    label = f"{field['label']} per {_field(known, counter['field'])['label'].rstrip('s').lower() or 'row'}" if per_row else whole["columns"][0]["label"]
     return {"kind": "influencers", "measure": {"field": measure["field"], "label": label, "column": shown_column}, "overall": overall, "rows": int(total_rows) if total_rows is not None else None,
             "higher": [i for i in found if i["effect"] > 0][:SHOWN], "lower": [i for i in found if i["effect"] < 0][:SHOWN], "explained_by": tried,
             "points": shown_column.get("format") == "percent"}
