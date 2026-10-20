@@ -2862,6 +2862,18 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('security.site_address', '""', 'STRING', 'Security', 'The public address of this server''s app (https://…), whose headers the security check reads; empty: headers not checked')
 ON CONFLICT (key) DO NOTHING;
 
+-- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
+-- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
+-- data's history months), would give the application role direct access again; this layer runs last and with every patch.
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relispartition AND c.relkind IN ('r', 'p') AND has_table_privilege('cep_app', c.oid, 'SELECT') LOOP
+        EXECUTE format('REVOKE ALL ON %I FROM cep_app', r.relname);
+    END LOOP;
+END $$;
+
 -- =====================================================================================
 -- End of platform operations layer.
 -- =====================================================================================
