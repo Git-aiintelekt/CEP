@@ -56,6 +56,7 @@ urlpatterns = [
     path("auth/options/", auth_api.AuthOptionsView.as_view(), name="auth_options"),
     path("auth/sso/start/", auth_api.SsoStartView.as_view(), name="sso_start"),
     path("auth/sso/callback/", auth_api.SsoCallbackView.as_view(), name="sso_callback"),
+    path("auth/sso/exchange/", auth_api.SsoExchangeView.as_view(), name="sso_exchange"),
     path("auth/support-session/end/", auth_api.SupportSessionEndView.as_view(), name="support_session_end"),
     path("dashboard/summary/", views.DashboardSummaryView.as_view(), name="dashboard-summary"),
     path("workspace/usage/", workspace_api.UsageView.as_view(), name="workspace_usage"),
@@ -214,6 +215,7 @@ urlpatterns = [
     path("customers/", customers_api.CustomerSearchView.as_view(), name="customer-search"),                # the customer page's search
     path("customers/<str:party_id>/", customers_api.CustomerRecordView.as_view(), name="customer-record"),  # one customer across the workspace
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/token/revoke/", auth_api.TokenRevokeView.as_view(), name="token_revoke"),
     path("auth/set-password/", settings_api.SetPasswordView.as_view(), name="set_password"),
     path("workspace/", settings_api.WorkspaceView.as_view(), name="workspace"),
     path("", include(router.urls)),

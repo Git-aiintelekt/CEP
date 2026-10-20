@@ -4,12 +4,18 @@ Auth0, Keycloak ... anything that publishes /.well-known/openid-configuration.
   start(...)     -> the identity provider's authorize URL (state and the PKCE verifier are kept server-side)
   complete(...)  -> the verified identity {sub, email, name} or SsoError
   resolve_user() -> the app_user that identity maps to: linked by subject, else by email, else created (JIT) if allowed
+  hand_off(...)  -> a one-time code the browser exchanges for the tokens with take(...)
+
+The sign-in is tied to the browser that started it: the login page keeps a random binding in the tab and sends it to
+start(); the tokens are handed over only to a request that shows the same binding, so a link someone else started (theirs,
+after their own sign-in) cannot sign this browser into their account.
 
 The ID token's signature, issuer, audience, expiry and nonce are all checked; an email is only trusted when the provider
 does not say it is unverified.
 """
 import base64
 import hashlib
+import hmac
 import secrets
 from urllib.parse import urlencode
 
@@ -24,6 +30,7 @@ from . import crypto, params
 signer = TimestampSigner(salt="cep.sso.state")
 TIMEOUT = 8
 STATE_TTL = 600
+HANDOFF_TTL = 120
 
 
 class SsoError(Exception):
@@ -50,11 +57,16 @@ def discovery(issuer: str) -> dict:
     return document
 
 
-def start(provider, tenant_code: str, next_path: str = "/") -> str:
+def _digest(binding: str) -> str:
+    return hashlib.sha256(binding.encode()).hexdigest()
+
+
+def start(provider, tenant_code: str, next_path: str, binding: str) -> str:
     document = discovery(provider.issuer)
     nonce, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
-    cache.set(f"cep:sso:{nonce}", {"verifier": verifier, "tenant": tenant_code, "next": next_path if next_path.startswith("/") else "/"}, STATE_TTL)
+    cache.set(f"cep:sso:{nonce}", {"verifier": verifier, "tenant": tenant_code, "next": next_path if next_path.startswith("/") else "/",
+                                   "binding": _digest(binding)}, STATE_TTL)
     query = {"response_type": "code", "client_id": provider.client_id, "redirect_uri": redirect_uri(), "scope": provider.scopes,
              "state": signer.sign(f"{tenant_code}:{nonce}"), "nonce": nonce, "code_challenge": challenge, "code_challenge_method": "S256"}
     return document["authorization_endpoint"] + "?" + urlencode(query)
@@ -110,7 +122,25 @@ def complete(provider, state: str, code: str) -> dict:
     domains = [d.lower().lstrip("@") for d in (provider.allowed_email_domains or [])]
     if domains and email.rsplit("@", 1)[1] not in domains:
         raise SsoError("Your email domain is not allowed to sign in to this workspace.")
-    return {"sub": str(claims["sub"]), "email": email, "name": (claims.get("name") or email.split("@")[0])[:200], "next": pending["next"]}
+    return {"sub": str(claims["sub"]), "email": email, "name": (claims.get("name") or email.split("@")[0])[:200], "next": pending["next"],
+            "binding": pending.get("binding")}
+
+
+def hand_off(tokens: dict, tenant_code: str, identity: dict) -> str:
+    code = secrets.token_urlsafe(24)
+    cache.set(f"cep:sso:handoff:{code}", {"access": tokens["access"], "refresh": tokens["refresh"], "tenant": tenant_code,
+                                          "next": identity["next"], "binding": identity["binding"]}, HANDOFF_TTL)
+    return code
+
+
+def take(code: str, binding: str, tenant_code: str) -> dict | None:
+    """the tokens for a one-time code, only to the browser holding the binding that started the sign-in"""
+    key = f"cep:sso:handoff:{code}"
+    entry = cache.get(key)
+    cache.delete(key)                                       # one use, right or wrong
+    if not entry or not binding or entry["tenant"] != tenant_code or not hmac.compare_digest(entry["binding"] or "", _digest(binding)):
+        return None
+    return entry
 
 
 def resolve_user(provider, identity: dict):

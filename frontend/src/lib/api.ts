@@ -63,6 +63,27 @@ export const session = {
     write(KEYS.access, null)
     write(KEYS.refresh, null)
   },
+  /** signing out ends the refresh token on the server too; the session is cleared whether or not that call gets through */
+  revoke() {
+    const refresh = memory.refresh
+    if (refresh) {
+      fetch(buildUrl('/auth/token/revoke/'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Tenant': memory.tenant },
+        body: JSON.stringify({ refresh }),
+        keepalive: true,
+      }).catch(() => undefined)
+    }
+    session.clear()
+  },
+}
+
+/** The single sign-on binding: kept in this tab when the sign-in starts, shown again to collect the tokens. */
+export const SSO_BINDING_KEY = 'cep.sso.binding'
+
+export function newSsoBinding(): string {
+  const bytes = window.crypto.getRandomValues(new Uint8Array(24))
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 export const UNAUTHORIZED_EVENT = 'cep:unauthorized'
@@ -130,6 +151,9 @@ let refreshing: Promise<boolean> | null = null
 
 /** Single-flight: concurrent 401s share one refresh call. */
 function refreshAccessToken(): Promise<boolean> {
+  // a refresh token works once: another tab may already have rotated it, so use the latest one stored
+  const stored = read(KEYS.refresh)
+  if (stored && memory.refresh) memory.refresh = stored
   if (!memory.refresh) return Promise.resolve(false)
   refreshing ??= (async () => {
     try {
@@ -235,5 +259,11 @@ export const api = {
   },
 
   /** Browser navigation, not fetch: the identity provider's page has to open. */
-  ssoStartUrl: (tenant: string, next: string) => buildUrl('/auth/sso/start/', { tenant, next }),
+  ssoStartUrl: (tenant: string, next: string, binding: string) => buildUrl('/auth/sso/start/', { tenant, next, binding }),
+
+  /** After single sign-on: the one-time code and this tab's binding -> the tokens (for adopt()) and where to go. */
+  ssoExchange(tenant: string, code: string, binding: string): Promise<TokenPair & { next: string }> {
+    session.setTenant(tenant)
+    return request<TokenPair & { next: string }>('/auth/sso/exchange/', { method: 'POST', body: { code, binding }, auth: false })
+  },
 }

@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })
 
   const logout = useCallback(() => {
-    session.clear()
+    session.revoke()
     setHasToken(false)
     queryClient.clear()
   }, [queryClient])

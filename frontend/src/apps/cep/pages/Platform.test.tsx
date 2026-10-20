@@ -76,9 +76,10 @@ test('a failed single sign-on comes back to the login page with its reason, and 
   expect(window.location.hash).toBe('')
 })
 
-test('the single sign-on landing page takes the tokens out of the address bar and continues to the page asked for', async () => {
+test('the single sign-on landing page takes the code out of the address bar and continues to the page asked for', async () => {
   installMockApi()
-  await renderAppAt('/sso/complete#access=access-1&refresh=refresh-1&tenant=NWA&next=%2Fcampaigns', false)
+  window.sessionStorage.setItem('cep.sso.binding', 'tab-binding-1')
+  await renderAppAt('/sso/complete#code=sso-code-1&tenant=NWA', false)
   expect(await screen.findByRole('heading', { name: 'Campaigns' })).toBeTruthy()
   expect(window.location.pathname).toBe('/campaigns')
   expect(window.location.hash).toBe('')
@@ -87,7 +88,8 @@ test('the single sign-on landing page takes the tokens out of the address bar an
 
 test('an outside address in `next` is ignored', async () => {
   installMockApi()
-  await renderAppAt('/sso/complete#access=access-1&refresh=refresh-1&tenant=NWA&next=%2F%2Fevil.example', false)
+  window.sessionStorage.setItem('cep.sso.binding', 'tab-binding-1')
+  await renderAppAt('/sso/complete#code=sso-code-outside&tenant=NWA', false)
   expect(await screen.findByRole('navigation', { name: 'Main' })).toBeTruthy()
   expect(window.location.pathname).toBe('/')
 })

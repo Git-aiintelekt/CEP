@@ -1029,6 +1029,12 @@ export function installMockApi(options: MockOptions = {}) {
       return body?.mfa_token === 'mfa-token-1' && body?.code === MFA_CODE ? json({ access: 'access-1', refresh: 'refresh-1' })
         : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'That code is not right. Codes change every 30 seconds; a recovery code works once.' }, 401)
     }
+    if (path.endsWith('/auth/sso/exchange/')) {
+      const next = body?.code === 'sso-code-outside' ? '//evil.example' : '/campaigns'
+      return ['sso-code-1', 'sso-code-outside'].includes(String(body?.code)) && body?.binding === 'tab-binding-1' ? json({ access: 'access-1', refresh: 'refresh-1', next })
+        : json({ type: 'about:blank', title: 'Authentication Failed', status: 401, detail: 'This sign-in link was not started in this browser, or it has expired.' }, 401)
+    }
+    if (path.endsWith('/auth/token/revoke/')) return json(null, 204)
     if (path.endsWith('/auth/token/') && method === 'POST') {
       if (body?.password === 'needs-a-code') return json({ mfa_required: true, mfa_token: 'mfa-token-1' })
       return body?.password === 'correct-horse'

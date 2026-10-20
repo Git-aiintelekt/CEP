@@ -161,7 +161,8 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": False,                 # simplejwt's own blacklist tables are not used: a used refresh token is
+    "TOKEN_REFRESH_SERIALIZER": "api.v1.auth_api.RefreshSerializer",   # recorded in the cache until it expires instead
     "UPDATE_LAST_LOGIN": True,
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "sub",
