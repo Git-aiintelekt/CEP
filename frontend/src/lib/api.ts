@@ -8,30 +8,64 @@
 import { API_BASE_URL, DEFAULT_TENANT } from './config'
 import type { AuthOptions, LoginResult, Page, Problem, TokenPair } from './types'
 
+/**
+ * One sign-in per workspace: the tokens are stored under the workspace's code (`cep.access.NWA`), so tabs on different
+ * workspaces keep their own session and tabs on the same one share it. Each tab remembers its workspace for itself
+ * (sessionStorage, kept across a reload); `cep.tenant` is only the last one used, which the login page offers.
+ */
 const KEYS = { access: 'cep.access', refresh: 'cep.refresh', tenant: 'cep.tenant' } as const
 
-function read(key: string): string | null {
+function storage(kind: 'local' | 'session'): Storage | null {
   try {
-    return window.localStorage.getItem(key)
+    return kind === 'local' ? window.localStorage : window.sessionStorage
   } catch {
     return null
   }
 }
 
-function write(key: string, value: string | null): void {
+function read(key: string, kind: 'local' | 'session' = 'local'): string | null {
   try {
-    if (value === null) window.localStorage.removeItem(key)
-    else window.localStorage.setItem(key, value)
+    return storage(kind)?.getItem(key) ?? null
+  } catch {
+    return null
+  }
+}
+
+function write(key: string, value: string | null, kind: 'local' | 'session' = 'local'): void {
+  try {
+    if (value === null) storage(kind)?.removeItem(key)
+    else storage(kind)?.setItem(key, value)
   } catch {
     /* private mode / blocked storage: the session simply does not survive a reload */
   }
 }
 
-let memory: { access: string | null; refresh: string | null; tenant: string } = {
-  access: read(KEYS.access),
-  refresh: read(KEYS.refresh),
-  tenant: read(KEYS.tenant) ?? DEFAULT_TENANT,
+/** A stored value that belongs to one workspace: `${name}.${CODE}`, the code in capitals as the API matches it. */
+export function workspaceKey(name: string, tenant: string = memory.tenant): string {
+  return `${name}.${tenant.trim().toUpperCase()}`
 }
+
+/** Before sessions were kept per workspace there was one, under `cep.access` / `cep.refresh`: it moves to its workspace. */
+function migrateSharedSession(): void {
+  const access = read(KEYS.access)
+  const refresh = read(KEYS.refresh)
+  if (access === null && refresh === null) return
+  const tenant = (read(KEYS.tenant) ?? DEFAULT_TENANT).trim()
+  if (tenant) {
+    if (access !== null && read(workspaceKey(KEYS.access, tenant)) === null) write(workspaceKey(KEYS.access, tenant), access)
+    if (refresh !== null && read(workspaceKey(KEYS.refresh, tenant)) === null) write(workspaceKey(KEYS.refresh, tenant), refresh)
+  }
+  write(KEYS.access, null)
+  write(KEYS.refresh, null)
+}
+
+function sessionOf(tenant: string): { access: string | null; refresh: string | null; tenant: string } {
+  if (!tenant.trim()) return { access: null, refresh: null, tenant }
+  return { access: read(workspaceKey(KEYS.access, tenant)), refresh: read(workspaceKey(KEYS.refresh, tenant)), tenant }
+}
+
+migrateSharedSession()
+let memory = sessionOf(read(KEYS.tenant, 'session') ?? read(KEYS.tenant) ?? DEFAULT_TENANT)
 
 export const session = {
   get tenant() {
@@ -43,25 +77,28 @@ export const session = {
   get accessToken() {
     return memory.access
   },
+  /** This tab now works in `tenant`, with whatever session that workspace already has in this browser. */
   setTenant(tenant: string) {
-    memory = { ...memory, tenant }
+    memory = sessionOf(tenant)
     write(KEYS.tenant, tenant)
+    write(KEYS.tenant, tenant, 'session')
   },
   /** refresh: null forgets the stored one (a support session has none, and must never refresh into someone else) */
   setTokens(tokens: { access?: string; refresh?: string | null }) {
     if (tokens.access !== undefined) {
       memory.access = tokens.access
-      write(KEYS.access, tokens.access)
+      write(workspaceKey(KEYS.access), tokens.access)
     }
     if (tokens.refresh !== undefined) {
       memory.refresh = tokens.refresh
-      write(KEYS.refresh, tokens.refresh)
+      write(workspaceKey(KEYS.refresh), tokens.refresh)
     }
   },
+  /** Ends this workspace's session in the browser; other workspaces' sessions stay. */
   clear() {
     memory = { ...memory, access: null, refresh: null }
-    write(KEYS.access, null)
-    write(KEYS.refresh, null)
+    write(workspaceKey(KEYS.access), null)
+    write(workspaceKey(KEYS.refresh), null)
   },
   /** signing out ends the refresh token on the server too; the session is cleared whether or not that call gets through */
   revoke() {
@@ -86,7 +123,11 @@ export function newSsoBinding(): string {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/** Raised when the API ends the session; `detail` says why, for the login page's notice. */
 export const UNAUTHORIZED_EVENT = 'cep:unauthorized'
+export type SignedOutReason = 'expired' | 'unknown-workspace'
+/** the title of the API's 404 when no workspace matches X-Tenant (TenantMiddleware) */
+const UNKNOWN_WORKSPACE_TITLE = 'Unknown tenant'
 
 export class ApiError extends Error {
   status: number
@@ -151,8 +192,8 @@ let refreshing: Promise<boolean> | null = null
 
 /** Single-flight: concurrent 401s share one refresh call. */
 function refreshAccessToken(): Promise<boolean> {
-  // a refresh token works once: another tab may already have rotated it, so use the latest one stored
-  const stored = read(KEYS.refresh)
+  // a refresh token works once: another tab of this workspace may already have rotated it, so use the latest one stored for it
+  const stored = read(workspaceKey(KEYS.refresh))
   if (stored && memory.refresh) memory.refresh = stored
   if (!memory.refresh) return Promise.resolve(false)
   refreshing ??= (async () => {
@@ -197,9 +238,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (response.status === 401 && auth) {
     session.clear()
-    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+    window.dispatchEvent(new CustomEvent<SignedOutReason>(UNAUTHORIZED_EVENT, { detail: 'expired' }))
   }
-  if (!response.ok) throw new ApiError(response.status, await parseProblem(response))
+  if (!response.ok) {
+    const problem = await parseProblem(response)
+    // the workspace this tab was signed in to is not known (mistyped, or removed): back to the login page, which says so
+    if (response.status === 404 && auth && memory.access !== null && problem.title === UNKNOWN_WORKSPACE_TITLE) {
+      session.clear()
+      window.dispatchEvent(new CustomEvent<SignedOutReason>(UNAUTHORIZED_EVENT, { detail: 'unknown-workspace' }))
+    }
+    throw new ApiError(response.status, problem)
+  }
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }

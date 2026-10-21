@@ -5,18 +5,21 @@
  * `security.idle_warning_seconds` (default 60) after that, with no response, the session ends. Both come from GET /me/,
  * so a change on the back office takes effect the next time someone loads the app, no deployment needed.
  *
- * Activity is shared across tabs of the same browser (a shared localStorage timestamp), so working in one tab keeps
- * every tab of the workspace alive; while the warning is up, only the buttons in it count as "still here" — the
- * pointer merely resting over the page must not silently cancel a sign-out the person never saw.
+ * Activity is shared across tabs of the same browser and workspace (a localStorage timestamp per workspace), so working in
+ * one tab keeps every tab of that workspace alive, never a tab signed in to another; while the warning is up, only the
+ * buttons in it count as "still here" — the pointer merely resting over the page must not silently cancel a sign-out the
+ * person never saw.
  */
 import { useEffect, useRef, useState } from 'react'
+
+import { session, workspaceKey } from '@/lib/api'
 
 import { useAuth } from './AuthContext'
 import { SIGNED_OUT_REASON_KEY } from './signedOut'
 import { IdleWarningModal } from './IdleWarningModal'
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const
-const ACTIVITY_KEY = 'cep.lastActivity'
+const ACTIVITY = 'cep.lastActivity'
 /** read once by the login page, then cleared, so a refresh there does not keep repeating the notice */
 export { SIGNED_OUT_REASON_KEY } from './signedOut'
 const CHECK_MS = 1_000
@@ -48,7 +51,7 @@ export function SessionIdleGuard() {
     warningRef.current = false
     setSecondsLeft(null)
     try {
-      window.localStorage.setItem(ACTIVITY_KEY, String(at))
+      window.localStorage.setItem(workspaceKey(ACTIVITY, session.tenant), String(at))
     } catch {
       /* private mode / blocked storage: this tab still works, it just cannot share activity with others */
     }
@@ -81,7 +84,7 @@ export function SessionIdleGuard() {
       if (at - lastWrite.current >= WRITE_THROTTLE_MS) {
         lastWrite.current = at
         try {
-          window.localStorage.setItem(ACTIVITY_KEY, String(at))
+          window.localStorage.setItem(workspaceKey(ACTIVITY, session.tenant), String(at))
         } catch {
           /* ignore */
         }
@@ -89,7 +92,7 @@ export function SessionIdleGuard() {
     }
 
     function onStorage(event: StorageEvent) {
-      if (event.key !== ACTIVITY_KEY || !event.newValue) return
+      if (event.key !== workspaceKey(ACTIVITY, session.tenant) || !event.newValue) return
       const at = Number(event.newValue)
       if (!Number.isFinite(at) || at <= lastActivity.current) return
       lastActivity.current = at

@@ -27,8 +27,8 @@ test('the tab that started the sign-in exchanges the code and goes where it was 
   await renderAt('/sso/complete#code=sso-code-1&tenant=NWA')
 
   await waitFor(() => expect(window.location.pathname).toBe('/campaigns'))
-  expect(window.localStorage.getItem('cep.access')).toBe('access-1')
-  expect(window.localStorage.getItem('cep.refresh')).toBe('refresh-1')
+  expect(window.localStorage.getItem('cep.access.NWA')).toBe('access-1')
+  expect(window.localStorage.getItem('cep.refresh.NWA')).toBe('refresh-1')
   expect(window.sessionStorage.getItem('cep.sso.binding')).toBeNull()
   expect(window.location.hash).toBe('')
   expect(calls.find((call) => call.url.includes('/auth/sso/exchange/'))?.body).toEqual({ code: 'sso-code-1', binding: 'tab-binding-1' })
@@ -40,7 +40,7 @@ test('a link opened in a tab that did not start the sign-in signs nobody in', as
 
   expect(await screen.findByText('This sign-in did not finish')).toBeTruthy()
   expect(calls.some((call) => call.url.includes('/auth/sso/exchange/'))).toBe(false)
-  expect(window.localStorage.getItem('cep.access')).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
 test('a code from someone else is refused even with a binding in the tab', async () => {
@@ -49,7 +49,7 @@ test('a code from someone else is refused even with a binding in the tab', async
   await renderAt('/sso/complete#code=sso-code-1&tenant=NWA')
 
   expect(await screen.findByText('This sign-in did not finish')).toBeTruthy()
-  expect(window.localStorage.getItem('cep.access')).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
 test('tokens placed in the link itself are not taken', async () => {
@@ -58,7 +58,7 @@ test('tokens placed in the link itself are not taken', async () => {
   await renderAt('/sso/complete#access=someone-elses&refresh=theirs&tenant=NWA')
 
   expect(await screen.findByText('This sign-in did not finish')).toBeTruthy()
-  expect(window.localStorage.getItem('cep.access')).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
 test('the login page keeps a binding in the tab and sends it with the sign-in', async () => {
