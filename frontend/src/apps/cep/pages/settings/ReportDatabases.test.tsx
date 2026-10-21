@@ -30,7 +30,7 @@ test('nothing connected: the empty state and the SELECT-only grant for both engi
   const user = userEvent.setup()
   expect(await screen.findByText('No Databases Connected', {}, { timeout: 5000 })).toBeTruthy()
   expect(screen.getByRole('link', { name: 'Report Databases' })).toBeTruthy()                                  // the Settings menu
-  expect(screen.getByText(/GRANT SELECT ON your_db\.\*/)).toBeTruthy()
+  expect(screen.getByText(/GRANT SELECT ON your_db\.\* TO 'cep_reader'@'%'/)).toBeTruthy()
   expect(screen.getByText(/GRANT SELECT ON ALL TABLES IN SCHEMA public/)).toBeTruthy()
   await user.click(screen.getAllByRole('button', { name: 'Connect a Database' })[0])
   const dialog = await screen.findByRole('dialog', { name: 'Connect a Database' })
@@ -206,4 +206,94 @@ test('Query a Database from New Report: the visual builder writes the SQL, Run p
   expect(made.sql.startsWith('SELECT s.name AS store_name')).toBe(true)
   const report = calls.find((c) => c.url.endsWith('/insights/reports/') && c.method === 'POST')?.body as { dataset: string; name: string }
   expect(report).toMatchObject({ dataset: 'x_net_sales_by_store', name: 'Net Sales by Store' })
+})
+
+async function renderNewReport(permissions: string[]) {
+  const { me } = await import('@/test/mockApi')
+  const rights = { ...me, principal: { ...me.principal, permissions }, components: [...me.components, { key: 'insights', name: 'Insights', tagline: 'Reports, dashboards, datasets', home: '/insights' }] }
+  const calls = installMockApi({ me: rights as never })
+  signIn('/insights/reports/new')
+  vi.resetModules()
+  const { default: App } = await import('@/App').then(cepReady)
+  render(<App />)
+  await screen.findByRole('heading', { name: 'New Report' }, { timeout: 5000 })
+  return calls
+}
+
+test('Connect a Database from New Report: a report author connects ClickHouse (HTTPS on 8443, or HTTP on 8123), saves only once it tests read-only, picks a table and the report opens in the editor', async () => {
+  const calls = await renderNewReport(['report.view', 'report.edit'])
+  const user = userEvent.setup()
+  const databases = await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })
+  await user.click(within(databases).getByRole('button', { name: /Connect a Database/ }))
+  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  const save = within(panel).getByRole('button', { name: 'Save and Continue' }) as HTMLButtonElement
+  expect(save.disabled).toBe(true)
+  await user.type(within(panel).getByLabelText(/^Name/), 'Events Warehouse')
+  await user.selectOptions(within(panel).getByLabelText(/^Engine/), 'clickhouse')
+  expect((within(panel).getByLabelText(/^HTTP Port/) as HTMLInputElement).value).toBe('8443')
+  expect(within(panel).getByRole('option', { name: 'HTTPS' })).toBeTruthy()
+  expect(within(panel).queryByRole('option', { name: 'Preferred' })).toBeNull()
+  await user.selectOptions(within(panel).getByLabelText(/^SSL/), 'OFF')
+  expect((within(panel).getByLabelText(/^HTTP Port/) as HTMLInputElement).value).toBe('8123')
+  await user.type(within(panel).getByLabelText(/^Host/), 'ch.cityht.example')
+  await user.type(within(panel).getByLabelText(/^Database/), 'events')
+  await user.type(within(panel).getByLabelText(/^User/), 'c360_reader')
+  await user.type(within(panel).getByLabelText(/^Password/), 'ch-secret')
+  await user.click(within(panel).getByRole('button', { name: 'Test Connection' }))
+  expect(await within(panel).findByText(/Read-only: the account holds SELECT/)).toBeTruthy()
+  expect(save.disabled).toBe(false)
+  await user.click(save)
+
+  const step = await screen.findByRole('dialog', { name: 'Events Warehouse' })
+  const posted = calls.find((c) => c.url.endsWith('/workspace/report-databases/') && c.method === 'POST')?.body
+  expect(posted).toMatchObject({ engine: 'clickhouse', ssl: 'OFF', port: 8123, host: 'ch.cityht.example', database: 'events', username: 'c360_reader', password: 'ch-secret' })
+  const list = await within(step).findByRole('list', { name: 'Tables and views' })
+  await user.type(within(step).getByRole('textbox', { name: 'Search tables and views' }), 'sales')
+  expect(within(list).queryByText('stores')).toBeNull()
+  await user.click(within(list).getByRole('radio', { name: /sales_lines/ }))
+  await user.click(within(step).getByRole('button', { name: 'Create Report' }))
+  await screen.findByRole('textbox', { name: 'Report name' }, { timeout: 5000 })                                   // the editor
+  expect(calls.find((c) => c.url.endsWith('/datasets/') && c.method === 'POST')?.body).toEqual({ source: 'sales_lines' })
+  expect(calls.find((c) => c.url.endsWith('/insights/reports/') && c.method === 'POST')?.body).toMatchObject({ dataset: 'x_sales_lines', name: 'Sales Lines report' })
+})
+
+test('Connect a Database from New Report: an account that can write is shown and not saved; fixed and tested again, it is saved and Write a Query opens the query window', async () => {
+  const calls = await renderNewReport(['report.view', 'report.edit'])
+  const user = userEvent.setup()
+  await user.click(within(await screen.findByRole('list', { name: 'Your Databases' }, { timeout: 5000 })).getByRole('button', { name: /Connect a Database/ }))
+  const panel = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  await user.type(within(panel).getByLabelText(/^Name/), 'Loyalty')
+  await user.type(within(panel).getByLabelText(/^Host/), 'loyalty.example.com')
+  await user.type(within(panel).getByLabelText(/^Database/), 'loyalty')
+  await user.type(within(panel).getByLabelText(/^User/), 'cep_writer')
+  await user.type(within(panel).getByLabelText(/^Password/), 'secret')
+  await user.click(within(panel).getByRole('button', { name: 'Test Connection' }))
+  expect(await within(panel).findByText(/Not read-only: the account holds INSERT, UPDATE/)).toBeTruthy()
+  expect(within(panel).getByText(/Ask whoever runs the database for an account that can only read/)).toBeTruthy()
+  expect((within(panel).getByRole('button', { name: 'Save and Continue' }) as HTMLButtonElement).disabled).toBe(true)
+  expect(calls.some((c) => c.url.endsWith('/workspace/report-databases/') && c.method === 'POST')).toBe(false)
+  // an account that can only read: tested again, saved, and the query window opened on it
+  await user.clear(within(panel).getByLabelText(/^Host/))
+  await user.type(within(panel).getByLabelText(/^Host/), 'ops-db.northwind.local')
+  await user.click(within(panel).getByRole('button', { name: 'Test Connection' }))
+  await within(panel).findByText(/Read-only: the account holds SELECT/)
+  await user.click(within(panel).getByRole('button', { name: 'Save and Continue' }))
+  const step = await screen.findByRole('dialog', { name: 'Loyalty' })
+  await user.click(within(step).getByRole('button', { name: 'write a query' }))
+  expect(await screen.findByRole('heading', { name: 'Query · Loyalty' }, { timeout: 5000 })).toBeTruthy()
+})
+
+test('someone who cannot edit reports is not offered Connect a Database', async () => {
+  await renderNewReport(['report.view'])
+  await screen.findByRole('group', { name: 'Dataset' }, { timeout: 5000 })
+  expect(screen.queryByRole('button', { name: /Connect a Database/ })).toBeNull()
+})
+
+test('Settings → Report Databases offers ClickHouse, with its own grant', async () => {
+  await renderAppAt('/settings/report-databases')
+  expect(await screen.findByText(/SETTINGS readonly = 2/, {}, { timeout: 5000 })).toBeTruthy()
+  const user = userEvent.setup()
+  await user.click(screen.getAllByRole('button', { name: 'Connect a Database' })[0])
+  const dialog = await screen.findByRole('dialog', { name: 'Connect a Database' })
+  expect(within(dialog).getByRole('option', { name: 'ClickHouse' })).toBeTruthy()
 })

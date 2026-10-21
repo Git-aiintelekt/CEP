@@ -110,13 +110,15 @@ type MockDatabase = import('@/apps/insights/types').ReportDatabase
 type MockDataset = import('@/apps/insights/types').ReportDataset
 export const reportDatabasesNow: MockDatabase[] = []
 export const reportDatasetsNow: MockDataset[] = []
-const GRANTS = { mysql: "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';", postgresql: "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;" }
+const GRANTS = { mysql: "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';", postgresql: "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;",
+  clickhouse: "CREATE USER cep_reader IDENTIFIED BY '…' SETTINGS readonly = 2;\nGRANT SELECT ON your_db.* TO cep_reader;" }
 const GOOD_TEST = { ok: true, version: '8.0.36', timezone: 'UTC', tables: 14, views: 6, read_only: true, offending: [] as string[], ms: 48, error: null }
 const WRITER_TEST = { ok: true, version: '8.0.31', timezone: 'UTC', tables: 31, views: 0, read_only: false, offending: ['INSERT, UPDATE on `loyalty`.*'], ms: 92, error: null }
 function mockDatabase(body: Record<string, unknown>, id: string): MockDatabase {
   const engine = (body.engine as MockDatabase['engine']) ?? 'mysql80'
   const test = String(body.host).includes('loyalty') ? WRITER_TEST : GOOD_TEST
-  return { id, name: String(body.name), engine, engine_name: engine === 'postgresql' ? 'PostgreSQL' : engine === 'mysql57' ? 'MySQL 5.7' : 'MySQL 8.0', host: String(body.host), port: Number(body.port ?? (engine === 'postgresql' ? 5432 : 3306)),
+  return { id, name: String(body.name), engine, engine_name: engine === 'postgresql' ? 'PostgreSQL' : engine === 'clickhouse' ? 'ClickHouse' : engine === 'mysql57' ? 'MySQL 5.7' : 'MySQL 8.0', host: String(body.host),
+    port: Number(body.port ?? (engine === 'postgresql' ? 5432 : engine === 'clickhouse' ? 8443 : 3306)),
     database_name: String(body.database), schema_name: String(body.schema ?? 'public'), username: String(body.username), ssl_mode: (body.ssl as MockDatabase['ssl_mode']) ?? 'REQUIRED', status: 'ACTIVE',
     last_tested_at: '2026-10-16T09:12:00Z', last_test_ok: test.read_only, last_test_error: test.read_only ? null : 'The account can write: ' + test.offending.join('; '), read_only: test.read_only, server_version: test.version,
     server_timezone: test.timezone, created_at: '2026-10-16T09:12:00Z', updated_at: '2026-10-16T09:12:00Z', row_version: 1, usable: test.read_only, datasets: [], test }
@@ -1456,6 +1458,19 @@ export function installMockApi(options: MockOptions = {}) {
           const fields = ((body as { fields?: { label: string; column: string; table?: string; sensitivity: string }[] }).fields ?? []).filter((f) => f.sensitivity !== 'CONFIDENTIAL')
           const sample: Record<string, unknown> = { sale_day: '2026-10-15', store_name: 'Downtown', net_sales: 9420, cashier_email: 'ann@example.com', store_id: 12, 'id': 12, 'name': 'Downtown', 'city': 'Portland' }
           return json({ columns: fields.map((f) => ({ key: `${f.table ?? 't0'}.${f.column}`, label: f.label, masked: f.sensitivity === 'PII' })), rows: [fields.map((f) => (f.sensitivity === 'PII' ? '•••••' : sample[f.column]))] })
+        }
+        if (tail === 'datasets/' && method === 'POST' && !(body as { fields?: unknown }).fields) {          // a table picked whole (New Report's Connect a Database)
+          const source = String((body as { source: string }).source)
+          const mapped = reportDatasetsNow.find((d) => d.connection_id === db.id && d.source === source && d.kind === 'table' && !d.joins.length)
+          if (mapped) return json(mapped)
+          const words = (name: string) => name.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+          const fields = COLUMNS.map((c) => ({ key: c.column, column: c.column, label: words(c.column), type: c.type, role: c.role, aggregates: [...c.aggregates], format: c.format, sensitivity: 'NORMAL' as const }))
+          const made: MockDataset = { id: `ds-${reportDatasetsNow.length + 1}`, connection_id: db.id, key: `x_${source}`, label: words(source), description: null, source, joins: [], kind: 'table', query_sql: null,
+            primary_key: null, time_field: 'sale_day', fields, field_count: fields.length, pii_count: 0, reports: 0, status: 'ACTIVE', updated_at: '2026-10-22T10:00:00Z', row_version: 1 }
+          reportDatasetsNow.push(made)
+          insightsCatalog.datasets.push({ key: made.key, label: made.label, description: null, component: { key: 'cep', name: 'Engagement' }, primary_key: null, time_field: 'sale_day', freshness: 'LIVE',
+            fields: fields.map((f) => ({ key: f.key, label: f.label, type: f.type, role: f.role, aggregates: f.aggregates, operators: ['=', '!='], buckets: [], format: f.format, sensitivity: 'NORMAL' })) } as never)
+          return json(made, 201)
         }
         if (tail === 'datasets/' && method === 'POST') {
           const posted = body as { label: string; description?: string; source: string; joins?: MockDataset['joins']; primary_key?: string | null; time_field?: string | null; fields: MockDataset['fields'] }

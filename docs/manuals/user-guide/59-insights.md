@@ -427,7 +427,7 @@ Insights → Reports lists every report you can open, grouped by the component w
 
 ### Making a report
 
-1. Press **New Report**, pick a dataset and give it a name. It opens in the editor with the dataset's first columns.
+1. Press **New Report**, pick a dataset and give it a name. It opens in the editor with the dataset's first columns. Under **Your Databases** are the workspace's own databases to query and the datasets mapped from them; a report author can **Connect a Database** there (MySQL, PostgreSQL or ClickHouse, read-only; see Report Databases). Under **Your Files**, **Upload a File** adds a CSV or Excel file.
 2. Build it with one of the two editors, switched at the top right and remembered for you:
    - **Field Wells**: the dataset's fields on the left, the result in the middle, the wells on the right. Click or drag a field into **Rows** (one line per value), **Columns** (one dimension spread across, for the pivot and the chart's series) or **Values** (a number to total, with its calculation). **Filters**, then **Sort and Limit**, sit under them.
    - **Steps**: the question written top to bottom as numbered steps: Data, Filter, Summarize, Group By, Sort and Limit. Each step has an Add button; the result sits under the steps.

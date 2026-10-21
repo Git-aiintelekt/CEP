@@ -251,7 +251,9 @@ def _from(dataset: dict, dialect: str) -> str:
         return f"({text}) AS {_ident('t0', dialect)}"
     if dataset.get("joins"):
         return join_clause(dataset["source"], dataset["joins"], dialect)
-    return f"{_source(dataset['source'])} FINAL" if dialect == "clickhouse" else _source(dataset["source"], dialect)
+    if dialect == "clickhouse" and not dataset.get("external"):                 # the engine's own replacing tables; a workspace's database is read as it is
+        return f"{_source(dataset['source'])} FINAL"
+    return _source(dataset["source"], dialect)
 
 
 def _where(dataset: dict, definition: dict, tenant_id: str, zone: str, params: Params) -> str:

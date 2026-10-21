@@ -1,8 +1,9 @@
-"""A workspace's own databases, MySQL 5.7 and 8.0 or PostgreSQL, read by the report engine and nothing else
-(docs/mockups/report-databases.html): every session is opened read-only with the workspace's statement time limit and the
-workspace's time zone; Test Connection reads the server's version, what the account may read and the account's rights, and
-an account that could write or change the schema is refused. MySQL through pymysql, PostgreSQL through psycopg; the
-password is decrypted here and never leaves the server.
+"""A workspace's own databases, MySQL 5.7 and 8.0, PostgreSQL or ClickHouse, read by the report engine and nothing else
+(docs/mockups/report-databases.html, docs/mockups/new-report-sources.html): every session is opened read-only with the
+workspace's statement time limit and the workspace's time zone; Test Connection reads the server's version, what the account
+may read and the account's rights, and an account that could write or change the schema is refused. MySQL through pymysql,
+PostgreSQL through psycopg, ClickHouse over its HTTP interface (apps/insights/clickhouse.py's wire, every query with
+readonly = 2 where the account lets settings be sent); the password is decrypted here and never leaves the server.
 
     test(row) -> {"ok", "version", "timezone", "tables", "views", "read_only", "offending", "ms", "error"}
     sources(row) -> [{"name", "kind", "columns", "rows", "mappable"}]      the tables and views the account can read, views first
@@ -10,6 +11,7 @@ password is decrypted here and never leaves the server.
     sample(row, source, names, limit, zone) -> rows
     query(row, sql, params, timeout_ms, zone) -> rows                     the runner's path
 """
+import json
 import re
 import ssl
 import time
@@ -17,6 +19,7 @@ import time
 import psycopg
 import pymysql
 
+from apps.insights import clickhouse
 from apps.platform_ops import crypto
 
 ALLOWED_MYSQL = {"SELECT", "SHOW VIEW", "USAGE"}
@@ -24,8 +27,8 @@ ALLOWED_PG = {"SELECT", "REFERENCES"}
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 CONNECT_TIMEOUT_S = 8
 NUMERIC = {"tinyint", "smallint", "mediumint", "int", "integer", "bigint", "decimal", "numeric", "float", "double", "real", "double precision", "money"}
-ENGINES = {"mysql57": "MySQL 5.7", "mysql80": "MySQL 8.0", "postgresql": "PostgreSQL"}
-DEFAULT_PORT = {"mysql57": 3306, "mysql80": 3306, "postgresql": 5432}
+ENGINES = {"mysql57": "MySQL 5.7", "mysql80": "MySQL 8.0", "postgresql": "PostgreSQL", "clickhouse": "ClickHouse"}
+DEFAULT_PORT = {"mysql57": 3306, "mysql80": 3306, "postgresql": 5432, "clickhouse": 8443}
 MAX_EXECUTION_ERROR = 3024
 MONEY = re.compile(r"amount|price|sales|revenue|cost|total|fee|paid|value", re.I)
 # the query window's guard: words that write, change the schema or the server, or move data out; and functions that read files or wait
@@ -33,6 +36,14 @@ FORBIDDEN_WORDS = re.compile(r"\b(insert|update|delete|drop|alter|create|grant|r
                              r"|kill|shutdown|flush|reset|purge|install|uninstall|vacuum|cluster|reindex|listen|notify|refresh|discard|analyze|optimize|repair)\b", re.I)
 FORBIDDEN_FUNCTIONS = re.compile(r"\b(load_file|sleep|benchmark|get_lock|release_lock|master_pos_wait|pg_sleep|pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file|pg_terminate_backend"
                                  r"|pg_cancel_backend|pg_reload_conf|dblink\w*|lo_import|lo_export|lo_unlink|xp_cmdshell|sys_eval|sys_exec|set_config|query_to_xml)\s*\(", re.I)
+# ClickHouse's table functions that read other servers, files or programs, and the clause that changes a query's limits
+CH_FORBIDDEN_FUNCTIONS = re.compile(r"\b(url|urlCluster|file|fileCluster|s3|s3Cluster|gcs|azureBlobStorage|azureBlobStorageCluster|hdfs|hdfsCluster|remote|remoteSecure|cluster"
+                                    r"|clusterAllReplicas|mysql|postgresql|jdbc|odbc|sqlite|mongodb|redis|input|executable|deltaLake|hudi|iceberg|sleepEachRow)\s*\(", re.I)
+CH_FORBIDDEN_WORDS = re.compile(r"\b(settings)\b", re.I)
+ALLOWED_CH = {"SELECT", "SHOW", "SHOW TABLES", "SHOW COLUMNS", "SHOW DATABASES", "SHOW DICTIONARIES", "DICTGET"}
+CH_VIEWS = ("View", "MaterializedView", "LiveView", "WindowView")
+CH_COMPLEX = ("array", "map", "tuple", "nested", "json", "object", "variant", "dynamic", "aggregatefunction", "simpleaggregatefunction")
+CH_READONLY, CH_UNKNOWN_SETTING, CH_TIMEOUT = 164, 115, 159
 QUERY_ROWS = 200
 
 
@@ -42,6 +53,15 @@ class ExternalError(Exception):
 
 def is_pg(row: dict) -> bool:
     return row.get("engine") == "postgresql"
+
+
+def is_ch(row: dict) -> bool:
+    return row.get("engine") == "clickhouse"
+
+
+def dialect_of(row: dict) -> str:
+    """the compiler's dialect for a workspace's own database"""
+    return "postgresql" if is_pg(row) else "clickhouse" if is_ch(row) else "mysql"
 
 
 def schema_of(row: dict) -> str:
@@ -124,6 +144,149 @@ def _errors(row: dict):
     return (psycopg.Error,) if is_pg(row) else (pymysql.err.MySQLError,)
 
 
+# ---------------------------------------------------------------------------------------------------- ClickHouse
+def _ch_connection(row: dict) -> clickhouse.Connection:
+    scheme = "http" if (row.get("ssl_mode") or "REQUIRED") == "OFF" else "https"
+    return clickhouse.Connection(url=f"{scheme}://{row['host']}:{int(row['port'] or DEFAULT_PORT['clickhouse'])}", user=row["username"],
+                                 password=crypto.decrypt(row["password_enc"]) or "", database=row["database_name"])
+
+
+def _ch_code(exc: Exception) -> int | None:
+    found = re.search(r"Code: (\d+)", str(exc))
+    return int(found.group(1)) if found else None
+
+
+def _ch_message(exc: Exception) -> str:
+    code, text = _ch_code(exc), str(exc)
+    if code in (192, 193, 516):
+        return "The server refused the user and password."
+    if code == 81:
+        return "No database of that name on the server."
+    if code == 60:
+        return "No table or view of that name, or the account cannot read it."
+    if code == 497:
+        return "The account may not read that: " + (re.search(r"DB::Exception: (.+?)(?: \(ACCESS_DENIED\)|$)", text) or re.match(r"(.*)", text)).group(1)[:200]
+    if "could not be reached" in text:
+        if "CERTIFICATE_VERIFY_FAILED" in text or "SSL" in text:
+            return "The server's HTTPS certificate was not accepted. Use a certificate the server's name matches, or switch encryption off on a private network."
+        return "The server did not answer: check the host, the HTTP port (8443 with HTTPS, 8123 without) and whether C360's server may reach it."
+    found = re.search(r"DB::Exception: (.+?)(?: \([A-Z_]+\))?(?: \(version|$)", text)
+    return ("The server answered: " + found.group(1).strip())[:300] if found else text.strip()[:300]
+
+
+def _ch(row: dict, sql: str, params: dict | None = None, *, timeout_ms: int = 15_000, zone: str | None = None, plain: bool = False) -> dict:
+    """One query over HTTP, FORMAT JSONCompact: {"meta": [{name, type}], "data": rows}. Read-only (readonly = 2), the time limit, LEFT JOIN
+    with NULLs and the workspace's zone go as settings; an account whose profile is already read-only (readonly = 1) refuses every setting,
+    so the query is sent again with fewer, and an older server without session_timezone without that one. plain: no settings at all."""
+    timeout_s = max(1, int(timeout_ms) // 1000)
+    settings_ = {} if plain else {"readonly": 2, "max_execution_time": timeout_s, "join_use_nulls": 1, "output_format_json_quote_64bit_integers": 0, **({"session_timezone": zone} if zone else {})}
+    conn = _ch_connection(row)
+    while True:
+        try:
+            raw = clickhouse._request(f"{sql} FORMAT JSONCompact", conn, params=params, settings_={**settings_, "database": row["database_name"]}, timeout_s=timeout_s)
+            return json.loads(raw.decode("utf-8"))
+        except clickhouse.ClickHouseError as exc:
+            code = _ch_code(exc)
+            if code == CH_UNKNOWN_SETTING and "session_timezone" in settings_:
+                settings_.pop("session_timezone")
+                continue
+            if code == CH_READONLY and settings_:
+                settings_ = {k: v for k, v in settings_.items() if k != "readonly"} if "readonly" in settings_ else {}
+                continue
+            raise
+
+
+def _ch_type(column_type: str) -> str:
+    """a ClickHouse column type as the catalogue's typing reads it: wrappers removed, then bigint, double, decimal, date, datetime,
+    boolean, complex (arrays, maps, tuples, JSON: not mappable) or varchar"""
+    t = column_type.strip()
+    while True:
+        found = re.match(r"^(Nullable|LowCardinality)\((.*)\)$", t)
+        if not found:
+            break
+        t = found.group(2).strip()
+    low = t.lower()
+    if low == "bool":
+        return "boolean"
+    if re.match(r"^u?int\d+$", low):
+        return "bigint"
+    if low.startswith("float"):
+        return "double"
+    if low.startswith("decimal"):
+        return "decimal"
+    if low in ("date", "date32"):
+        return "date"
+    if low.startswith("datetime"):
+        return "datetime"
+    if low.startswith(CH_COMPLEX):
+        return "complex"
+    return "varchar"
+
+
+def _ch_grants(lines: list[str]) -> list[str]:
+    """SHOW GRANTS read: what the account holds beyond reading"""
+    offending = []
+    for line in lines:
+        match = re.match(r"GRANT (.+?) ON (.+?) TO ", line, re.I)
+        if not match:
+            if line.upper().startswith("GRANT ") and " ON " not in line.upper():
+                offending.append("a role: " + line[6:].split(" TO ")[0].strip())
+            continue
+        privileges = [re.sub(r"\s*\(.*\)$", "", p.strip()).upper() for p in re.split(r",\s*(?![^()]*\))", match.group(1))]
+        bad = [p for p in privileges if p not in ALLOWED_CH]
+        if bad:
+            offending.append(f"{', '.join(bad)} on {match.group(2)}")
+        if re.search(r"WITH GRANT OPTION", line, re.I):
+            offending.append(f"GRANT OPTION on {match.group(2)}")
+    return offending
+
+
+def _ch_test(row: dict) -> dict:
+    """the version, the zone, the tables and views, and the rights: an account whose profile is read-only (readonly >= 1) cannot write
+    whatever it was granted; otherwise it may hold nothing beyond SELECT and SHOW"""
+    started = time.monotonic()
+    try:
+        version, zone, readonly = _ch(row, "SELECT version(), timezone(), toUInt8(getSetting('readonly'))", plain=True, timeout_ms=10_000)["data"][0]
+        counts = {bool(is_view): int(n) for is_view, n in _ch(row, f"SELECT engine IN {CH_VIEWS!r} AS is_view, count() FROM system.tables WHERE database = {{db:String}} GROUP BY is_view",
+                                                                {"db": row["database_name"]}, timeout_ms=10_000)["data"]}
+        offending = [] if int(readonly) >= 1 else _ch_grants([str(r[0]) for r in _ch(row, "SHOW GRANTS", plain=True, timeout_ms=10_000)["data"]])
+    except clickhouse.ClickHouseError as exc:
+        return {"ok": False, "error": _ch_message(exc), "ms": int((time.monotonic() - started) * 1000)}
+    return {"ok": True, "version": str(version), "timezone": str(zone), "tables": counts.get(False, 0), "views": counts.get(True, 0), "read_only": not offending,
+            "offending": offending, "ms": int((time.monotonic() - started) * 1000), "error": None}
+
+
+def _ch_sources(row: dict) -> list[dict]:
+    db = {"db": row["database_name"]}
+    try:
+        tables = _ch(row, "SELECT name, engine, total_rows FROM system.tables WHERE database = {db:String} AND NOT is_temporary ORDER BY name", db, timeout_ms=10_000)["data"]
+        counts = dict(_ch(row, "SELECT table, count() FROM system.columns WHERE database = {db:String} GROUP BY table", db, timeout_ms=10_000)["data"])
+    except clickhouse.ClickHouseError as exc:
+        raise ExternalError(_ch_message(exc)) from None
+    out = [{"name": name, "kind": "view" if engine in CH_VIEWS else "table", "rows": int(rows) if rows is not None and engine not in CH_VIEWS else None,
+            "columns": int(counts.get(name, 0)), "mappable": bool(IDENT.match(name))} for name, engine, rows in tables]
+    return sorted(out, key=lambda s: s["kind"] != "view")
+
+
+def _ch_columns(row: dict, source: str) -> list[tuple]:
+    try:
+        found = _ch(row, "SELECT name, type, is_in_primary_key FROM system.columns WHERE database = {db:String} AND table = {t:String} ORDER BY position",
+                    {"db": row["database_name"], "t": source}, timeout_ms=10_000)["data"]
+    except clickhouse.ClickHouseError as exc:
+        raise ExternalError(_ch_message(exc)) from None
+    return [(name, _ch_type(type_), type_, "PRI" if key else "") for name, type_, key in found]
+
+
+def _ch_rows(row: dict, sql: str, params: dict | None, *, timeout_ms: int, zone: str | None) -> list[list]:
+    """the runner's path on ClickHouse: rows, or RuntimeError as the other engines raise it"""
+    try:
+        return _ch(row, sql, params, timeout_ms=timeout_ms, zone=zone)["data"]
+    except clickhouse.ClickHouseError as exc:
+        if _ch_code(exc) == CH_TIMEOUT:
+            raise RuntimeError("statement timeout: the query was stopped by the server's limit") from None
+        raise RuntimeError(_ch_message(exc)) from None
+
+
 # ---------------------------------------------------------------------------------------------------- the account's rights
 def _grants(cursor) -> tuple[bool, list[str]]:
     """MySQL, SHOW GRANTS read: True when the account holds nothing beyond SELECT, SHOW VIEW and USAGE; else what it holds too."""
@@ -173,6 +336,8 @@ def _grants_pg(cursor, schema: str) -> tuple[bool, list[str]]:
 
 # ---------------------------------------------------------------------------------------------------- what Test Connection proves
 def test(row: dict) -> dict:
+    if is_ch(row):
+        return _ch_test(row)
     started = time.monotonic()
     try:
         conn = connect(row, timeout_ms=10_000)
@@ -205,6 +370,8 @@ def test(row: dict) -> dict:
 
 # ---------------------------------------------------------------------------------------------------- what can be mapped
 def sources(row: dict) -> list[dict]:
+    if is_ch(row):
+        return _ch_sources(row)
     conn = connect(row, timeout_ms=10_000)
     schema = schema_of(row)
     try:
@@ -248,6 +415,12 @@ def _typed(data_type: str, column_type: str, name: str) -> dict:
 def columns(row: dict, source: str) -> list[dict]:
     if not IDENT.match(source):
         raise ExternalError("Only a table or view named with letters, digits and underscores can be mapped.")
+    if is_ch(row):
+        rows = _ch_columns(row, source)
+        if not rows:
+            raise ExternalError("No table or view of that name, or the account cannot read it.")
+        return [{"column": name, "column_type": column_type, "key": column_key == "PRI", "mappable": bool(IDENT.match(name)) and data_type != "complex", **_typed(data_type, column_type, name)}
+                for name, data_type, column_type, column_key in rows]
     conn = connect(row, timeout_ms=10_000)
     schema = schema_of(row)
     try:
@@ -278,7 +451,7 @@ def _from(row: dict, source: str, joins: list[dict] | None) -> str:
     if not joins:
         return f"{quote(schema, row)}.{quote(source, row)}"
     dialect = "postgresql" if is_pg(row) else "mysql"
-    return compiler.join_clause(f"{schema}.{source}", [{**j, "table": f"{schema}.{j['table']}"} for j in joins], dialect)
+    return compiler.join_clause(f"{schema}.{source}", [{**j, "table": f"{schema}.{j['table']}"} for j in joins], dialect_of(row))
 
 
 def sample(row: dict, source: str, names: list, *, limit: int = 5, zone: str | None = None, joins: list[dict] | None = None) -> list[list]:
@@ -287,6 +460,8 @@ def sample(row: dict, source: str, names: list, *, limit: int = 5, zone: str | N
     if not IDENT.match(source) or not names or not all(IDENT.match(c) and (a is None or IDENT.match(a)) for a, c in pairs):
         raise ExternalError("Only columns named with letters, digits and underscores can be read.")
     selected = ", ".join(f"{quote(a, row)}.{quote(c, row)}" if a else quote(c, row) for a, c in pairs)
+    if is_ch(row):
+        return query(row, f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT {int(limit)}", None, timeout_ms=10_000, zone=zone)
     sql = f"SELECT {selected} FROM {_from(row, source, joins)} LIMIT %s"
     return query(row, sql, [int(limit)], timeout_ms=10_000, zone=zone)
 
@@ -368,8 +543,9 @@ def _bare(sql: str, pg: bool) -> str:
     return "".join(out)
 
 
-def check_sql(sql: str) -> str:
-    """One SELECT and nothing else: the query trimmed, or ExternalError with the reason in plain words."""
+def check_sql(sql: str, engine: str | None = None) -> str:
+    """One SELECT and nothing else: the query trimmed, or ExternalError with the reason in plain words. On ClickHouse also no table
+    function that reaches another server, a file or a program, and no SETTINGS clause (the engine sets the limits)."""
     text = (sql or "").strip()
     if text.endswith(";"):
         text = text[:-1].rstrip()
@@ -389,6 +565,13 @@ def check_sql(sql: str) -> str:
         found = FORBIDDEN_FUNCTIONS.search(bare)
         if found:
             raise ExternalError(f"{found.group(1)}() is not allowed in a report query: it reads the server's files or holds it up.")
+        if engine == "clickhouse":
+            found = CH_FORBIDDEN_FUNCTIONS.search(bare)
+            if found:
+                raise ExternalError(f"{found.group(1)}() is not allowed in a report query: it reaches another server, a file or a program.")
+            found = CH_FORBIDDEN_WORDS.search(bare)
+            if found:
+                raise ExternalError("SETTINGS is not allowed in a report query: the engine sets the time limit and read-only mode itself.")
     return text
 
 
@@ -413,7 +596,9 @@ def _python_type(value) -> str:
 def run_sql(row: dict, sql: str, *, limit: int = QUERY_ROWS, timeout_ms: int = 15_000, zone: str | None = None) -> dict:
     """The query window's Run: the checked SELECT wrapped as SELECT * FROM (…) AS q LIMIT n on the read-only session; the result's
     columns typed from the values, the first rows, whether there were more, and the time."""
-    clean = check_sql(sql)
+    clean = check_sql(sql, row.get("engine"))
+    if is_ch(row):
+        return _ch_run_sql(row, clean, limit=limit, timeout_ms=timeout_ms, zone=zone)
     wrapped = f"SELECT * FROM ({clean}) AS {quote('q', row)} LIMIT %s"
     started = time.monotonic()
     conn = connect(row, timeout_ms=timeout_ms, zone=zone)
@@ -449,9 +634,31 @@ def run_sql(row: dict, sql: str, *, limit: int = QUERY_ROWS, timeout_ms: int = 1
     return {"columns": columns, "rows": rows[:limit], "truncated": len(rows) > limit, "ms": ms, "sql": clean}
 
 
+def _ch_run_sql(row: dict, clean: str, *, limit: int, timeout_ms: int, zone: str | None) -> dict:
+    """run_sql on ClickHouse: the columns typed from the server's own types rather than from the values"""
+    started = time.monotonic()
+    try:
+        answer = _ch(row, f"SELECT * FROM ({clean}) AS q LIMIT {int(limit) + 1}", timeout_ms=timeout_ms, zone=zone)
+    except clickhouse.ClickHouseError as exc:
+        if _ch_code(exc) == CH_TIMEOUT:
+            raise ExternalError(f"Stopped after {timeout_ms // 1000} seconds: the query took longer than the workspace's limit. Narrow it with a WHERE, or put the heavy part in a view.") from None
+        raise ExternalError("The server did not accept the query: " + _ch_message(exc)) from None
+    rows, seen, columns = answer["data"], {}, []
+    for meta in answer["meta"]:
+        seen[meta["name"]] = seen.get(meta["name"], 0) + 1
+    for meta in answer["meta"]:
+        kind = _ch_type(meta["type"])
+        columns.append({"column": meta["name"], "column_type": meta["type"], "key": False, "mappable": bool(IDENT.match(meta["name"])) and seen[meta["name"]] == 1 and kind != "complex",
+                        **_typed(kind, kind, meta["name"])})
+    return {"columns": columns, "rows": rows[:limit], "truncated": len(rows) > limit, "ms": int((time.monotonic() - started) * 1000), "sql": clean}
+
+
 # ---------------------------------------------------------------------------------------------------- the runner's path
 def query(row: dict, sql: str, params, *, timeout_ms: int, zone: str | None = None) -> list[list]:
-    """One SELECT on a read-only session under the time limit; a stopped query reads as a statement timeout."""
+    """One SELECT on a read-only session under the time limit; a stopped query reads as a statement timeout. ClickHouse takes the
+    compiler's {name:Type} parameters as a dict."""
+    if is_ch(row):
+        return _ch_rows(row, sql, params or None, timeout_ms=timeout_ms, zone=zone)
     conn = connect(row, timeout_ms=timeout_ms, zone=zone)
     try:
         with conn.cursor() as cursor:
