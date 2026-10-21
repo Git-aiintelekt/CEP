@@ -19,6 +19,7 @@ import { Panel } from '../parts'
 import type { CampaignFormValues } from '../schema'
 import { SENDER_FIT, TEMPLATE_FIT } from '../vocabulary'
 
+import { LinkTrackingCard } from './LinkTrackingCard'
 import { SubjectPreheaderCard } from './SubjectPreheaderCard'
 
 
@@ -63,6 +64,7 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
   const askTopic = marketing && !isReceipt && topicOptions.length > 0
 
   return (
+    <div className="space-y-5">
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <Panel
@@ -167,6 +169,8 @@ export function StepTemplate({ campaign }: { campaign: Campaign | null }) {
           </>
         )}
       </Panel>
+    </div>
+    {picked && !wrongChannel && <LinkTrackingCard campaign={campaign} />}
     </div>
   )
 }
