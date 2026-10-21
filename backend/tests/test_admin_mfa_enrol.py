@@ -57,3 +57,26 @@ def test_staff_without_an_authenticator_is_sent_to_set_one_up(check):
     finally:
         user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
     check.done()
+
+
+def test_sign_out_on_the_two_step_pages_signs_out(check):
+    staff = AppUser.objects.using(P).filter(is_staff=True, is_platform_admin=True, is_active=True).order_by("created_at").first()
+    if staff is None:
+        pytest.skip("no platform superuser in this database")
+    user_logged_in.disconnect(update_last_login, dispatch_uid="update_last_login")
+    try:
+        for enrolled, page in ((False, "/admin/mfa/setup/"), (True, "/admin/mfa/")):
+            AppUser.objects.using(P).filter(pk=staff.pk).update(mfa_enabled=enrolled)
+            office = Client()
+            office.force_login(AppUser.objects.using(P).get(pk=staff.pk))
+            with _required(True):
+                body = office.get(page).content.decode()
+                check(f"{page}: Sign Out is a form that posts, not a link Django answers with 405",
+                      '<form method="post" action="/admin/logout/">' in body and 'href="/admin/logout/"' not in body)
+                out = office.post("/admin/logout/")
+                check(f"{page}: posting it signs out", out.status_code in (200, 302) and "_auth_user_id" not in office.session, str(out.status_code))
+                home = office.get("/admin/")
+                check(f"{page}: the back-office then asks for the password", home.status_code == 302 and home["Location"].startswith("/admin/login/"), home.get("Location"))
+    finally:
+        user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
+    check.done()

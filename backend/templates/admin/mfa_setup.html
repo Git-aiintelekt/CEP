@@ -14,6 +14,6 @@
         </ol>
         <a class="bg-primary-600 border border-transparent font-medium inline-block px-3 py-2 rounded-default text-sm text-white" href="{{ app_url }}">Open Account Security</a>
     {% endcomponent %}
-    <a class="text-primary-600 text-sm dark:text-primary-500" href="{% url 'admin:logout' %}">Sign Out</a>
+    {% include "admin/mfa_sign_out.html" %}
 </div>
 {% endblock %}
