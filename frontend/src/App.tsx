@@ -45,6 +45,7 @@ const InsightsPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insig
 const DashboardPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DashboardPlayground')) : null
 const AskPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/AskPlayground')) : null
 const DataPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/DataPlayground')) : null
+const NewReportPlayground = import.meta.env.DEV ? lazy(() => import('@/apps/insights/pages/NewReportPlayground')) : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +102,7 @@ export default function App() {
                 {DashboardPlayground && <Route path="/dev/dashboard" element={<Suspense fallback={<FullPageSpinner label="Loading the dashboard" />}><DashboardPlayground /></Suspense>} />}
                 {AskPlayground && <Route path="/dev/ask" element={<Suspense fallback={<FullPageSpinner label="Loading the box" />}><AskPlayground /></Suspense>} />}
                 {DataPlayground && <Route path="/dev/data" element={<Suspense fallback={<FullPageSpinner label="Loading the samples" />}><DataPlayground /></Suspense>} />}
+                {NewReportPlayground && <Route path="/dev/new-report" element={<Suspense fallback={<FullPageSpinner label="Loading New Report" />}><NewReportPlayground /></Suspense>} />}
               </Route>
             )}
             <Route element={<RequireAuth />}>

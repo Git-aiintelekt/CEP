@@ -1,5 +1,5 @@
 /**
- * Settings → Report Databases (Option 1 of docs/mockups/report-databases.html): a workspace's own MySQL or PostgreSQL databases, read
+ * Settings → Report Databases (Option 1 of docs/mockups/report-databases.html): a workspace's own MySQL, PostgreSQL or ClickHouse databases, read
  * by the report engine and nothing else. One card per connection with its engine, host and database, the account and whether it is
  * read-only, the datasets mapped from it and the last test; Connect a Database opens the dialog, Test Connection proves the four facts
  * before Save. The datasets mapped from every database sit in a table under the cards.
@@ -10,19 +10,17 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/Button'
-import { Field, Select, TextInput, buttonPrimary, buttonSecondary } from '@/components/Form'
+import { buttonPrimary, buttonSecondary } from '@/components/Form'
 import { Modal } from '@/components/Modal'
 import { EmptyState, ErrorState, Spinner } from '@/components/States'
 import { Tag } from '@/components/StatusBadge'
 import { useToast } from '@/components/Toast'
 import { api, ApiError } from '@/lib/api'
 import { formatDateTime, formatNumber } from '@/lib/format'
-import type { DatabaseEngine, ReportDatabase, ReportDatabaseTest, ReportDatabases } from '@/apps/insights/types'
+import { ConnectionFields, TestChecks } from '@/apps/insights/components/DatabaseConnectionForm'
+import { connectionBody, connectionForm, testWords, type ConnectionForm } from '@/apps/insights/databaseConnection'
+import type { ReportDatabase, ReportDatabaseTest, ReportDatabases } from '@/apps/insights/types'
 import { DATABASES_KEY, engineMark } from './reportDatabases'
-
-const ENGINE_LABEL: Record<DatabaseEngine, string> = { mysql57: 'MySQL 5.7', mysql80: 'MySQL 8.0', postgresql: 'PostgreSQL' }
-const ENGINE_PORT: Record<DatabaseEngine, number> = { mysql57: 3306, mysql80: 3306, postgresql: 5432 }
-const SSL_LABEL = { REQUIRED: 'Required', PREFERRED: 'Preferred', OFF: 'Off' } as const
 
 export function ReportDatabasesPage() {
   const queryClient = useQueryClient()
@@ -133,35 +131,26 @@ function ReadOnlyMark({ db }: { db: ReportDatabase }) {
   return <span className="ml-1 text-ink-700">· not tested</span>
 }
 
-function testWords(outcome: ReportDatabaseTest): string {
-  if (!outcome.ok) return outcome.error ?? 'the server did not answer.'
-  if (outcome.read_only === false) return `the account can write (${(outcome.offending ?? []).join('; ')}).`
-  return 'connected.'
-}
-
 function GrantCard({ examples, compact = false }: { examples: ReportDatabases['grant_examples']; compact?: boolean }) {
   return (
     <section className={`rounded-lg border border-line bg-surface p-4 ${compact ? 'max-w-3xl' : ''}`}>
       <p className="text-sm font-semibold text-ink-900">The account to create <span className="font-normal text-ink-800">· SELECT only</span></p>
-      <div className="mt-2 grid gap-3 md:grid-cols-2">
+      <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div><p className="mb-1 text-xs font-semibold tracking-wide text-ink-800 uppercase">MySQL 5.7 and 8.0</p><pre className="overflow-x-auto rounded-md bg-surface-sunken p-2.5 font-mono text-xs leading-relaxed text-ink-900">{examples.mysql}</pre></div>
         <div><p className="mb-1 text-xs font-semibold tracking-wide text-ink-800 uppercase">PostgreSQL</p><pre className="overflow-x-auto rounded-md bg-surface-sunken p-2.5 font-mono text-xs leading-relaxed text-ink-900">{examples.postgresql}</pre></div>
+        {examples.clickhouse && <div><p className="mb-1 text-xs font-semibold tracking-wide text-ink-800 uppercase">ClickHouse</p><pre className="overflow-x-auto rounded-md bg-surface-sunken p-2.5 font-mono text-xs leading-relaxed text-ink-900">{examples.clickhouse}</pre></div>}
       </div>
       <p className="mt-2 text-xs text-ink-800">Grant SELECT on the schema, or on the views alone to hide tables the engine should never see. Nothing else: an account that can write or change the schema is refused.</p>
     </section>
   )
 }
 
-type Form = { name: string; engine: DatabaseEngine; ssl: 'REQUIRED' | 'PREFERRED' | 'OFF'; host: string; port: string; database: string; schema: string; username: string; password: string }
-
 function ConnectDialog({ database, onClose, onSaved }: { database: ReportDatabase | null; onClose: () => void; onSaved: () => void }) {
   const toast = useToast()
-  const [form, setForm] = useState<Form>({ name: database?.name ?? '', engine: database?.engine ?? 'mysql80', ssl: database?.ssl_mode ?? 'REQUIRED', host: database?.host ?? '', port: String(database?.port ?? 3306),
-    database: database?.database_name ?? '', schema: database?.schema_name ?? 'public', username: database?.username ?? '', password: '' })
+  const [form, setForm] = useState<ConnectionForm>(() => connectionForm(database))
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
   const [outcome, setOutcome] = useState<ReportDatabaseTest | null>(null)
-  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value, ...(key === 'engine' && (f.port === String(ENGINE_PORT[f.engine]) || !f.port) ? { port: String(ENGINE_PORT[value as DatabaseEngine]) } : {}) }))
-  const body = () => ({ ...(database ? { id: database.id } : {}), name: form.name, engine: form.engine, ssl: form.ssl, host: form.host, port: Number(form.port) || undefined, database: form.database, schema: form.schema, username: form.username, password: form.password || undefined })
+  const body = () => connectionBody(form, database)
   const test = useMutation({
     mutationFn: () => api.post<{ test: ReportDatabaseTest }>('/workspace/report-databases/test/', body()),
     onSuccess: ({ test: result }) => { setOutcome(result); setErrors({}) },
@@ -173,49 +162,14 @@ function ConnectDialog({ database, onClose, onSaved }: { database: ReportDatabas
     onError: (error) => setErrors(error instanceof ApiError ? error.fieldErrors : { name: 'The database was not saved.' }),
   })
   const submit = (event: FormEvent) => { event.preventDefault(); save.mutate() }
-  const pg = form.engine === 'postgresql'
   return (
     <Modal title={database ? `Edit ${database.name}` : 'Connect a Database'} subtitle="Read-only. The engine only ever selects from it." onClose={onClose} size="lg"
       footer={<><button type="button" className={buttonSecondary} onClick={onClose}>Cancel</button><Button variant="secondary" loading={test.isPending} onClick={() => test.mutate()}>Test Connection</Button><button type="submit" form="db-form" className={buttonPrimary} disabled={save.isPending}>Save</button></>}>
       <form id="db-form" className="flex flex-col gap-4" onSubmit={submit}>
-        <Field label="Name" required error={errors.name} hint="What people see in New Report.">{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={100} />}</Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Engine" error={errors.engine}>{({ id, describedBy }) => <Select id={id} describedBy={describedBy} value={form.engine} onChange={(e) => set('engine', e.target.value as DatabaseEngine)}>{(Object.keys(ENGINE_LABEL) as DatabaseEngine[]).map((k) => <option key={k} value={k}>{ENGINE_LABEL[k]}</option>)}</Select>}</Field>
-          <Field label="SSL" error={errors.ssl} hint="Required, Preferred, or Off for a private network.">{({ id, describedBy }) => <Select id={id} describedBy={describedBy} value={form.ssl} onChange={(e) => set('ssl', e.target.value as Form['ssl'])}>{(Object.keys(SSL_LABEL) as Form['ssl'][]).map((k) => <option key={k} value={k}>{SSL_LABEL[k]}</option>)}</Select>}</Field>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-[1fr_120px]">
-          <Field label="Host" required error={errors.host}>{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.host} onChange={(e) => set('host', e.target.value)} />}</Field>
-          <Field label="Port" error={errors.port}>{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} inputMode="numeric" value={form.port} onChange={(e) => set('port', e.target.value)} />}</Field>
-        </div>
-        <div className={`grid gap-4 ${pg ? 'sm:grid-cols-2' : ''}`}>
-          <Field label="Database" required error={errors.database}>{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.database} onChange={(e) => set('database', e.target.value)} />}</Field>
-          {pg && <Field label="Schema" error={errors.schema} hint="Where the tables and views live.">{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.schema} onChange={(e) => set('schema', e.target.value)} />}</Field>}
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="User" required error={errors.username}>{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} value={form.username} onChange={(e) => set('username', e.target.value)} autoComplete="off" />}</Field>
-          <Field label="Password" required={!database} error={errors.password} hint={database ? 'Leave empty to keep the stored password.' : 'Stored encrypted and never shown again.'}>{({ id, describedBy, invalid }) => <TextInput id={id} describedBy={describedBy} invalid={invalid} type="password" autoComplete="new-password" value={form.password} onChange={(e) => set('password', e.target.value)} />}</Field>
-        </div>
+        <ConnectionFields form={form} onChange={setForm} errors={errors} editing={Boolean(database)} />
         {outcome && <TestChecks outcome={outcome} engine={form.engine} />}
         <p className="text-xs text-ink-800">The engine connects from CEP's server with this account, opens every session read-only with the workspace's time limit, and runs only the SELECT statements it builds from a report. Give the account SELECT and nothing else.</p>
       </form>
     </Modal>
-  )
-}
-
-function TestChecks({ outcome, engine }: { outcome: ReportDatabaseTest; engine: DatabaseEngine }) {
-  const ok = (text: string) => <li className="flex items-start gap-2"><span aria-hidden className="text-success-text">✓</span><span>{text}</span></li>
-  const bad = (text: string) => <li className="flex items-start gap-2"><span aria-hidden className="text-danger-text">✕</span><span>{text}</span></li>
-  return (
-    <ul className="flex flex-col gap-1.5 rounded-md border border-line bg-surface-subtle p-3 text-sm text-ink-900" aria-label="Test Connection">
-      {!outcome.ok ? bad(outcome.error ?? 'The server did not answer.') : (
-        <>
-          {ok(`Reached the server · ${ENGINE_LABEL[engine]} ${outcome.version ?? ''} · ${outcome.ms} ms`)}
-          {ok(`The account can read ${formatNumber(outcome.tables ?? 0)} table${outcome.tables === 1 ? '' : 's'} and ${formatNumber(outcome.views ?? 0)} view${outcome.views === 1 ? '' : 's'}`)}
-          {outcome.read_only ? ok('Read-only: the account holds SELECT and no write or schema right') : bad(`Not read-only: the account holds ${(outcome.offending ?? []).join('; ')}`)}
-          {ok(`Time zone of the server: ${outcome.timezone ?? 'unknown'} · reports convert to the workspace’s zone`)}
-        </>
-      )}
-      {outcome.ok && !outcome.read_only && <li className="text-xs text-ink-800">The connection can be saved but not used until the account holds SELECT only.</li>}
-    </ul>
   )
 }

@@ -569,7 +569,7 @@ export interface RunResult {
 }
 
 /** Settings → Report Databases (backend apps/insights/databases.py, external.py) */
-export type DatabaseEngine = 'mysql57' | 'mysql80' | 'postgresql'
+export type DatabaseEngine = 'mysql57' | 'mysql80' | 'postgresql' | 'clickhouse'
 export interface ReportDatabaseTest {
   ok: boolean
   version?: string
@@ -657,7 +657,7 @@ export interface ReportDatabase {
 }
 export interface ReportDatabases {
   databases: ReportDatabase[]
-  grant_examples: { mysql: string; postgresql: string }
+  grant_examples: { mysql: string; postgresql: string; clickhouse?: string }
   /** the tables exist (patch 0056) */
   ready: boolean
 }

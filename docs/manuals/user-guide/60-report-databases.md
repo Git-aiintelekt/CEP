@@ -1,13 +1,14 @@
 # Report Databases
 
-**Where:** Settings → Report Databases. Needs the user administration right.
+**Where:** Settings → Report Databases, which needs the user administration right. A report author (Report Edit) can also connect a
+database from Insights → New Report → **Connect a Database**; changing or removing a connection stays here.
 
 ## Step by step
 
 **Connect a database** (workspace administrator)
 
-1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL and PostgreSQL.
-2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0 or PostgreSQL), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
+1. Ask your database administrator for an account that holds SELECT and nothing else; the page shows the exact statements for MySQL, PostgreSQL and ClickHouse.
+2. Open Settings → Report Databases and press **Connect a Database**. Give it a name, pick the engine (MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse), enter the host, port, database, the schema for PostgreSQL, the user and the password, and choose SSL.
 3. Press **Test Connection**. Four facts come back: reached and the version, what the account can read, whether it is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds beyond SELECT; have the account fixed before mapping anything.
 4. Press **Save**. The password is stored encrypted and never shown; leave it empty on a later edit to keep it.
 
@@ -17,6 +18,12 @@
 2. Name the dataset and describe it. Choose the **Row Key** (what one row is) and the **Time Field** (the date a period filter applies to).
 3. For each column: tick it to keep it, give it a label, check its type and role, pick the calculations a measure allows, and set the sensitivity (**Personal** is masked for readers without the right, **Confidential** is hidden from everyone).
 4. Watch the preview under the fields update with your labels, then press **Save Dataset**. It appears in New Report under **Your Databases**.
+
+**Connect a database from New Report** (report author)
+
+1. Open Insights → Reports → **New Report**. Under **Your Databases**, press **Connect a Database**. A panel opens over the page.
+2. Fill in the same fields as above and press **Test Connection**. **Save and Continue** is offered only once the test shows the account read-only; if it can write, the panel says what it holds and asks for an account that can only read.
+3. Pick a table or view (search narrows the list) and press **Create Report**. The table becomes a dataset with every readable column, labelled from its name, the first date as its time field; the report opens in the editor. A table mapped before keeps its dataset. Or press **write a query** to open the query window on the database.
 
 **Add a calculated measure** (workspace administrator)
 
@@ -47,8 +54,8 @@
 
 ## What it is for
 
-Insights builds reports on the data the platform already keeps. Report Databases adds your own: a MySQL 5.7, MySQL 8.0
-or PostgreSQL database you connect here, strictly to read. You pick the tables or views to report on and name their
+Insights builds reports on the data the platform already keeps. Report Databases adds your own: a MySQL 5.7, MySQL 8.0,
+PostgreSQL or ClickHouse database you connect here (or from New Report), strictly to read. You pick the tables or views to report on and name their
 columns, and those datasets appear in New Report and in Ask for a Report for your workspace alone. The editor, the four
 views, exports, dashboards and scheduled delivery work on them like on any dataset.
 
@@ -62,6 +69,10 @@ Ask your database administrator for an account that holds SELECT and nothing els
 
 - MySQL: `CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…'; GRANT SELECT ON your_db.* TO 'cep_reader'@'%';`
 - PostgreSQL: a login role with CONNECT on the database, USAGE on the schema and SELECT on its tables.
+- ClickHouse: `CREATE USER cep_reader IDENTIFIED BY '…' SETTINGS readonly = 2; GRANT SELECT ON your_db.* TO cep_reader;`
+  An account whose profile is read-only (`readonly = 1` or `2`) passes whatever it was granted; otherwise it may hold
+  SELECT and SHOW and nothing else. With `readonly = 1` the server also refuses the engine's time limit, so the server's
+  own limits apply.
 
 Grant SELECT on views alone to hide tables the engine should never see. The database must be reachable from CEP's
 server; a private network address is fine when CEP's server sits on that network.
@@ -69,9 +80,10 @@ server; a private network address is fine when CEP's server sits on that network
 ## Connecting a database
 
 1. Press **Connect a Database**. Give it a name (what people see in New Report), pick the engine, and enter the host,
-   port (3306 for MySQL, 5432 for PostgreSQL), database, user and password. For PostgreSQL, also the schema the tables
-   live in (`public` unless told otherwise). SSL is Required by default; Preferred tries SSL first, Off is for a private
-   network.
+   port (3306 for MySQL, 5432 for PostgreSQL, 8443 for ClickHouse), database, user and password. For PostgreSQL, also the
+   schema the tables live in (`public` unless told otherwise). SSL is Required by default; Preferred tries SSL first, Off
+   is for a private network. ClickHouse is read over its HTTP interface: **HTTPS** on 8443, or **Off (plain HTTP)** on 8123
+   on a private network; the port follows the choice.
 2. **Test Connection** reaches the server and reports four facts: reached and the version, what the account can read,
    whether the account is read-only, and the server's time zone. A ✕ on the read-only line names what the account holds
    beyond SELECT; the connection can be saved but cannot be used until the account is fixed.

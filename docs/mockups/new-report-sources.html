@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Report Sources</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root {
+    --ink-900:#17181c; --ink-800:#4b4f5b; --ink-300:#9ea2ad;
+    --surface:#ffffff; --surface-subtle:#f9fafb; --fill-subtle:#eeeff5; --hover:#eeeff5;
+    --line:#e7e8ef; --line-control:#81858f;
+    --brand-100:#dee9fc; --brand-600:#3863db; --brand-800:#2b4dd0;
+    --plum-100:#f4e4f1; --plum-500:#a8488f;
+    --success-text:#0e6027; --success-dot:#5ec16a; --danger-bg:#fae2e2; --danger-text:#a92e26;
+    --callout-bg:#eef2fe; --callout-text:#312e7c; --sidebar:#20265d;
+    --font:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:#dfe1e8; color:var(--ink-900); font:400 15px/22px var(--font); -webkit-font-smoothing:antialiased }
+  h1,h2,h3,h4,p { margin:0 } h1,h2,h3,h4 { font-weight:600 }
+  .wrap { max-width:1440px; margin:0 auto; padding:0 16px }
+  .note { margin-top:24px; font-size:13px; line-height:18px; color:var(--ink-800); max-width:1080px } .note strong { color:var(--ink-900) }
+  .part { margin:44px 0 4px; font-size:24px; line-height:32px; letter-spacing:-0.01em }
+  .label { margin:18px 0 8px; font-size:16px; line-height:24px; font-weight:600 }
+  .label span { display:block; font-size:13px; line-height:18px; font-weight:400; color:var(--ink-800); margin-top:2px; max-width:1080px }
+  .row { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:start } .row.one { grid-template-columns:1fr }
+  @media (max-width:1000px) { .row { grid-template-columns:1fr } }
+  .frame { background:var(--surface); border:1px solid var(--line); border-radius:8px; overflow:hidden; min-width:0 }
+  .cap { font-size:12px; line-height:16px; color:var(--ink-800); padding:8px 16px; border-bottom:1px solid var(--line); background:var(--surface-subtle) }
+  .page { padding:24px; min-width:0; position:relative }
+  .ph h1 { font-size:24px; line-height:32px; letter-spacing:-0.01em } .ph p { font-size:13px; line-height:18px; color:var(--ink-800); margin-top:2px }
+  .legend { font-size:13px; line-height:18px; font-weight:500; margin:18px 0 6px }
+  .over { font-size:12px; line-height:16px; font-weight:600; color:var(--ink-800); letter-spacing:0.01em; text-transform:uppercase; margin:14px 0 6px }
+  .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px } .grid.three { grid-template-columns:repeat(3, minmax(0,1fr)) } .grid.four { grid-template-columns:repeat(4, minmax(0,1fr)) }
+  @media (max-width:700px) { .grid, .grid.three, .grid.four { grid-template-columns:1fr } }
+  .opt { border:1px solid var(--line); border-radius:6px; padding:10px 12px; display:flex; gap:10px; align-items:flex-start; background:#fff; min-width:0 }
+  .opt.on { border-color:var(--brand-600); background:#f2f6fe }
+  .opt.dash { border:1px dashed var(--line-control) }
+  .opt b { display:block; font-size:15px; line-height:22px; font-weight:600 } .opt small { display:block; font-size:13px; line-height:18px; color:var(--ink-800) }
+  .opt .meta { display:block; font-size:12px; line-height:16px; color:var(--ink-800); margin-top:4px }
+  .radio { width:16px; height:16px; border:1px solid var(--line-control); border-radius:50%; flex:none; margin-top:3px } .opt.on .radio { border:5px solid var(--brand-600) }
+  .badge { width:32px; height:32px; border-radius:6px; flex:none; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; background:var(--brand-100); color:var(--brand-800) }
+  .badge.plum { background:var(--plum-100); color:var(--plum-500) } .badge.grey { background:var(--fill-subtle); color:var(--ink-800) }
+  .ico { width:20px; height:20px; flex:none; margin-top:1px; color:var(--ink-800) }
+  .btn { height:40px; padding:0 16px; border-radius:6px; border:1px solid var(--line-control); background:#fff; font:500 14px var(--font); display:inline-flex; align-items:center; gap:6px; color:var(--ink-900); white-space:nowrap }
+  .btn.primary { background:var(--brand-600); border-color:var(--brand-600); color:#fff } .btn.sm { height:32px; padding:0 12px } .btn.link { border:0; background:none; color:var(--brand-600); padding:0; height:auto }
+  .btn[disabled] { opacity:.5 }
+  .field { display:flex; flex-direction:column; gap:4px } .field label { font-size:13px; line-height:18px; font-weight:500 } .field .hint { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .input { height:40px; border:1px solid var(--line-control); border-radius:6px; padding:0 12px; display:flex; align-items:center; background:var(--fill-subtle); font-size:15px; color:var(--ink-900); min-width:0 }
+  .input.muted { color:var(--ink-300) } .mono { font-family:var(--mono); font-size:13px }
+  .seg { display:inline-flex; border:1px solid var(--line-control); border-radius:6px; overflow:hidden; background:#fff }
+  .seg span { padding:8px 14px; font-size:14px; font-weight:500; border-right:1px solid var(--line) } .seg span:last-child { border-right:0 } .seg span.on { background:var(--brand-100); color:var(--brand-800) }
+  .tabs { display:flex; gap:20px; border-bottom:1px solid var(--line); margin-top:16px } .tabs span { padding:8px 0; font-size:14px; font-weight:500; color:var(--ink-800) }
+  .tabs span.on { color:var(--brand-600); box-shadow:inset 0 -2px 0 var(--brand-600) } .tabs em { font-style:normal; font-size:12px; color:var(--ink-800); margin-left:4px }
+  .tag { display:inline-flex; align-items:center; gap:6px; height:22px; padding:0 8px; border-radius:4px; font-size:12px; font-weight:500; white-space:nowrap; background:var(--fill-subtle); color:var(--ink-800) }
+  .tag.ok::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--success-dot) } .tag.ok { color:var(--success-text) }
+  .drawerwrap { display:grid; grid-template-columns:minmax(0,1fr) 480px; min-height:640px } @media (max-width:1100px) { .drawerwrap { grid-template-columns:1fr } }
+  .dim { background:rgba(23,24,28,.28); padding:24px }
+  .dim .ghost { background:#fff; opacity:.55; border-radius:8px; height:100% }
+  .drawer { background:#fff; border-left:1px solid var(--line); display:flex; flex-direction:column; min-width:0 }
+  .drawer .dh { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px } .drawer .dh h2 { font-size:16px; line-height:24px } .drawer .dh p { font-size:13px; line-height:18px; color:var(--ink-800) }
+  .drawer .db { padding:20px 24px; display:flex; flex-direction:column; gap:16px; flex:1 } .drawer .df { padding:12px 24px; border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:8px }
+  .steps { display:flex; gap:6px; font-size:12px; line-height:16px; color:var(--ink-800) } .steps b { color:var(--ink-900); font-weight:600 }
+  .two { display:grid; grid-template-columns:minmax(0,1fr) 120px; gap:12px }
+  .callout { background:var(--callout-bg); color:var(--callout-text); border-radius:6px; padding:10px 12px; font-size:13px; line-height:18px }
+  .result { border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:13px; line-height:18px } .result.bad { background:var(--danger-bg); border-color:var(--danger-bg); color:var(--danger-text) }
+  .result ul { margin:6px 0 0; padding-left:18px }
+  pre { margin:0; font:400 12px/18px var(--mono); background:var(--fill-subtle); border-radius:6px; padding:10px 12px; white-space:pre-wrap; color:var(--ink-900) }
+  .list { border:1px solid var(--line); border-radius:6px } .list div { display:flex; justify-content:space-between; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); font-size:14px } .list div:last-child { border-bottom:0 }
+  .list div.on { background:#f2f6fe; box-shadow:inset 2px 0 0 var(--brand-600) } .list span { color:var(--ink-800); font-size:12px }
+  .empty { border:1px dashed var(--line-control); border-radius:6px; padding:20px 16px; text-align:center } .empty b { display:block; font-size:15px } .empty small { display:block; font-size:13px; color:var(--ink-800); margin:2px 0 10px }
+  .rules { margin:40px 0 56px } .rules .frame { padding:20px 24px } .rules h3 { font-size:16px; line-height:24px; margin:18px 0 6px } .rules h3:first-child { margin-top:0 }
+  .rules ul { margin:0; padding-left:18px; font-size:14px; line-height:21px } .rules li { margin:3px 0 }
+  table { width:100%; border-collapse:collapse; font-size:14px } th { text-align:left; font-size:13px; font-weight:500; color:var(--ink-900); background:var(--surface-subtle); padding:8px 10px; border-bottom:1px solid var(--line) }
+  td { padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top } code { font:400 12px var(--mono); background:var(--fill-subtle); padding:1px 5px; border-radius:4px }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="note"><strong>New Report: connect a database and upload a file without leaving it, with ClickHouse as a third kind of database.</strong>
+Today New Report lists the built-in datasets, a workspace's mapped databases and its files; a database can only be connected in
+Engagement's Settings → Report Databases, by an administrator, and only MySQL or PostgreSQL. Three ways to put both on New Report follow,
+each in a busy workspace (two databases, two files) and an empty one (City HT today: none). The Connect a Database panel and the
+permissions are shared by all three. Recommendation at the end.</p>
+
+<!-- ===================================================================== option 1 -->
+<div class="part">Option 1 · Two Tiles in the List</div>
+<div class="label">Connect a Database sits under Your Databases, as Upload a File sits under Your Files<span>Nothing moves: the page keeps one list. Your Databases shows even when empty, so the tile always has a home. The tile opens the Connect a Database panel over the page; when it is done, the new database is chosen and the query window opens on it.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: two databases, two files</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p>Pick what to report on. The report opens in the editor with the dataset's first columns.</p></div>
+    <div class="legend">Dataset</div>
+    <div class="over">Engagement</div>
+    <div class="grid">
+      <div class="opt"><span class="radio"></span><span><b>Messages</b><small>Every email and text sent, with its outcome</small><span class="meta">14 dimensions · 9 measures</span></span></div>
+      <div class="opt"><span class="radio"></span><span><b>Attributed Orders</b><small>Orders credited to a campaign</small><span class="meta">11 dimensions · 4 measures</span></span></div>
+    </div>
+    <div class="over">Your Databases</div>
+    <div class="grid">
+      <div class="opt"><span class="badge">MY</span><span><b>Query Store Sales</b><small>MySQL 8.0 · retail_db</small></span></div>
+      <div class="opt"><span class="badge">CH</span><span><b>Query Events Warehouse</b><small>ClickHouse 24.8 · events</small></span></div>
+      <div class="opt on"><span class="radio"></span><span><b>Daily Store Sales</b><small>Store Sales (MySQL 8.0) · mapped table</small><span class="meta">6 dimensions · 3 measures</span></span></div>
+      <div class="opt dash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3m8-9v4M4 11v6c0 1.7 3.6 3 8 3"/><path d="M18 14v6m-3-3h6"/></svg><span><b>Connect a Database</b><small>MySQL, PostgreSQL or ClickHouse, read-only.</small></span></div>
+    </div>
+    <div class="over">Your Files</div>
+    <div class="grid">
+      <div class="opt"><span class="radio"></span><span><b>POS Transactions</b><small>pos_transactions.csv · 12,480 rows</small><span class="meta">8 dimensions · 4 measures</span></span></div>
+      <div class="opt dash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M12 18v-6m-3 3 3-3 3 3"/></svg><span><b>Upload a File</b><small>A CSV or Excel file. Review its columns, and report on it like any dataset.</small></span></div>
+    </div>
+  </div></div>
+  <div class="frame"><div class="cap">Empty: nothing connected or uploaded yet</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p>Pick what to report on. The report opens in the editor with the dataset's first columns.</p></div>
+    <div class="legend">Dataset</div>
+    <div class="over">Engagement</div>
+    <div class="grid">
+      <div class="opt"><span class="radio"></span><span><b>Messages</b><small>Every email and text sent, with its outcome</small><span class="meta">14 dimensions · 9 measures</span></span></div>
+      <div class="opt"><span class="radio"></span><span><b>Attributed Orders</b><small>Orders credited to a campaign</small><span class="meta">11 dimensions · 4 measures</span></span></div>
+    </div>
+    <div class="over">Your Databases</div>
+    <div class="grid">
+      <div class="opt dash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3m8-9v4M4 11v6c0 1.7 3.6 3 8 3"/><path d="M18 14v6m-3-3h6"/></svg><span><b>Connect a Database</b><small>MySQL, PostgreSQL or ClickHouse, read-only.</small></span></div>
+    </div>
+    <div class="over">Your Files</div>
+    <div class="grid">
+      <div class="opt dash"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M12 18v-6m-3 3 3-3 3 3"/></svg><span><b>Upload a File</b><small>A CSV or Excel file. Review its columns, and report on it like any dataset.</small></span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== option 2 -->
+<div class="part">Option 2 · Where Is the Data? First</div>
+<div class="label">New Report asks one question first, then shows only that kind of source<span>Four cards: the workspace's built-in data, a database already connected, a new database, a file. The second step is today's list for that kind (or the Connect panel, or the upload). One more click for everyone, but the choice is plain for a first-time author.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Step 1, any workspace</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p>Where is the data you want to report on?</p></div>
+    <div class="grid four" style="margin-top:18px">
+      <div class="opt" style="flex-direction:column"><span class="badge plum">C360</span><b>Built-In Data</b><small>Messages, orders, contacts and journeys from this workspace.</small></div>
+      <div class="opt" style="flex-direction:column"><span class="badge">DB</span><b>A Connected Database</b><small>Store Sales, Events Warehouse.</small></div>
+      <div class="opt dash" style="flex-direction:column"><span class="badge grey">+</span><b>Connect a Database</b><small>MySQL, PostgreSQL or ClickHouse, read-only.</small></div>
+      <div class="opt dash" style="flex-direction:column"><span class="badge grey">↑</span><b>Upload a File</b><small>A CSV or Excel file.</small></div>
+    </div>
+    <p class="note" style="margin-top:14px">Empty workspace: the second card says <em>None connected yet</em> and is not offered; the other three stay.</p>
+  </div></div>
+  <div class="frame"><div class="cap">Step 2 after A Connected Database</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p><span class="btn link">← Where is the data?</span> · A connected database</p></div>
+    <div class="over">Query a database</div>
+    <div class="grid">
+      <div class="opt"><span class="badge">MY</span><span><b>Query Store Sales</b><small>MySQL 8.0 · retail_db</small></span></div>
+      <div class="opt"><span class="badge">CH</span><span><b>Query Events Warehouse</b><small>ClickHouse 24.8 · events</small></span></div>
+    </div>
+    <div class="over">Mapped datasets</div>
+    <div class="grid">
+      <div class="opt on"><span class="radio"></span><span><b>Daily Store Sales</b><small>Store Sales (MySQL 8.0) · mapped table</small><span class="meta">6 dimensions · 3 measures</span></span></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== option 3 -->
+<div class="part">Option 3 · Tabs for Each Kind</div>
+<div class="label">Datasets, Databases and Files as tabs on New Report<span>The page stays one screen; each tab holds its own list with its add button at the top right. Counts on the tabs say what is there before it is opened.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Busy: Databases tab</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p>Pick what to report on.</p></div>
+    <div class="tabs"><span>Built-In <em>4</em></span><span class="on">Databases <em>2</em></span><span>Files <em>2</em></span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><span style="font-size:13px;color:var(--ink-800)">Read-only connections to the workspace's own databases.</span><span class="btn sm">+ Connect a Database</span></div>
+    <div class="grid">
+      <div class="opt"><span class="badge">MY</span><span><b>Query Store Sales</b><small>MySQL 8.0 · retail_db</small></span></div>
+      <div class="opt"><span class="badge">CH</span><span><b>Query Events Warehouse</b><small>ClickHouse 24.8 · events</small></span></div>
+      <div class="opt on"><span class="radio"></span><span><b>Daily Store Sales</b><small>Store Sales (MySQL 8.0) · mapped table</small></span></div>
+    </div>
+  </div></div>
+  <div class="frame"><div class="cap">Empty: Databases tab</div><div class="page">
+    <div class="ph"><h1>New Report</h1><p>Pick what to report on.</p></div>
+    <div class="tabs"><span>Built-In <em>4</em></span><span class="on">Databases <em>0</em></span><span>Files <em>0</em></span></div>
+    <div class="empty" style="margin-top:16px"><b>No databases connected</b><small>Connect MySQL, PostgreSQL or ClickHouse read-only, then report on its tables or a query.</small><span class="btn primary sm">Connect a Database</span></div>
+  </div></div>
+</div>
+
+<!-- ===================================================================== shared panel -->
+<div class="part">Shared · The Connect a Database Panel</div>
+<div class="label">A 480px panel over New Report, in two steps: the connection, then what to report on<span>The same fields as Settings → Report Databases, plus ClickHouse. Test runs before Save is offered, and an account that could write is refused, as today. Step 2 picks a table or view (a mapped dataset, which the editor opens) or goes to the query window to write a SELECT.</span></div>
+<div class="row">
+  <div class="frame"><div class="cap">Step 1 · ClickHouse chosen, tested</div><div class="drawerwrap"><div class="dim"><div class="ghost"></div></div><div class="drawer">
+    <div class="dh"><div><h2>Connect a Database</h2><p>Read-only. The password stays on the server.</p></div><span style="color:var(--ink-800)">✕</span></div>
+    <div class="db">
+      <div class="steps"><b>1 Connection</b> · <span>2 What to Report On</span></div>
+      <div class="field"><label>Kind</label><span class="seg"><span>MySQL 5.7</span><span>MySQL 8.0</span><span>PostgreSQL</span><span class="on">ClickHouse</span></span></div>
+      <div class="field"><label>Name</label><div class="input">Events Warehouse</div><span class="hint">How New Report and the editor show it.</span></div>
+      <div class="two"><div class="field"><label>Host</label><div class="input">ch.cityht.example</div></div><div class="field"><label>HTTP Port</label><div class="input">8443</div></div></div>
+      <div class="field"><label>Database</label><div class="input">events</div></div>
+      <div class="two" style="grid-template-columns:1fr 1fr"><div class="field"><label>User</label><div class="input">c360_reader</div></div><div class="field"><label>Password</label><div class="input">••••••••••••</div></div></div>
+      <div class="field"><label>Encryption</label><span class="seg"><span class="on">HTTPS</span><span>Off</span></span><span class="hint">ClickHouse is read over its HTTP interface: 8443 with HTTPS, 8123 without.</span></div>
+      <div class="result"><span class="tag ok">Connected</span> ClickHouse 24.8 · 38 tables, 4 views · read-only (readonly = 1) · 210 ms</div>
+    </div>
+    <div class="df"><span class="btn">Test Connection</span><span class="btn primary">Save and Continue</span></div>
+  </div></div></div>
+  <div class="frame"><div class="cap">Step 1 · refused: the account can write</div><div class="drawerwrap"><div class="dim"><div class="ghost"></div></div><div class="drawer">
+    <div class="dh"><div><h2>Connect a Database</h2><p>Read-only. The password stays on the server.</p></div><span style="color:var(--ink-800)">✕</span></div>
+    <div class="db">
+      <div class="steps"><b>1 Connection</b> · <span>2 What to Report On</span></div>
+      <div class="field"><label>Kind</label><span class="seg"><span>MySQL 5.7</span><span>MySQL 8.0</span><span>PostgreSQL</span><span class="on">ClickHouse</span></span></div>
+      <div class="result bad">This account can change data, so it is not used. Give C360 an account that can only read.
+        <ul><li>INSERT, ALTER and DROP on events.*</li></ul></div>
+      <div class="field"><label>An account that can only read</label><pre>CREATE USER c360_reader IDENTIFIED BY '…' SETTINGS readonly = 1;
+GRANT SELECT ON events.* TO c360_reader;</pre></div>
+      <div class="callout">Ask whoever runs the database to create it, then test again.</div>
+    </div>
+    <div class="df"><span class="btn">Test Connection</span><span class="btn primary" disabled>Save and Continue</span></div>
+  </div></div></div>
+</div>
+<div class="row" style="margin-top:16px">
+  <div class="frame"><div class="cap">Step 2 · what to report on</div><div class="drawerwrap"><div class="dim"><div class="ghost"></div></div><div class="drawer">
+    <div class="dh"><div><h2>Events Warehouse</h2><p>ClickHouse 24.8 · events · connected</p></div><span style="color:var(--ink-800)">✕</span></div>
+    <div class="db">
+      <div class="steps"><span>1 Connection</span> · <b>2 What to Report On</b></div>
+      <div class="field"><label>A table or view</label><span class="hint">It becomes a dataset of this workspace: its columns are read and typed, and the editor opens on it.</span></div>
+      <div class="input muted">Search 42 tables and views</div>
+      <div class="list">
+        <div class="on"><b style="font-weight:500">page_views</b><span>table · 12 columns · 48.2M rows</span></div>
+        <div><b style="font-weight:500">orders_daily</b><span>view · 7 columns</span></div>
+        <div><b style="font-weight:500">sessions</b><span>table · 15 columns · 9.1M rows</span></div>
+      </div>
+      <div style="font-size:13px;color:var(--ink-800)">Or <span class="btn link">write a query</span>: tables, joins and calculations, or your own SELECT.</div>
+    </div>
+    <div class="df"><span class="btn">Back</span><span class="btn primary">Create Report</span></div>
+  </div></div></div>
+  <div class="frame"><div class="cap">Someone without the right to connect (a report author, if connecting stays with administrators)</div><div class="page">
+    <div class="over" style="margin-top:0">Your Databases</div>
+    <div class="grid">
+      <div class="opt dash" style="opacity:.9"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3m8-9v4M4 11v6c0 1.7 3.6 3 8 3"/></svg><span><b>No databases connected</b><small>A workspace administrator connects them. Ask one to connect MySQL, PostgreSQL or ClickHouse.</small></span></div>
+    </div>
+    <p class="note" style="margin-top:12px">The tile is not offered to them, and no button they cannot use is shown.</p>
+  </div></div>
+</div>
+
+<!-- ===================================================================== decisions -->
+<div class="rules"><div class="frame">
+  <h3>Two decisions for you</h3>
+  <table>
+    <tr><th style="width:220px">Who may</th><th>Today</th><th>Choice A</th><th>Choice B</th></tr>
+    <tr><td>Connect a database</td><td>Workspace administrators (Settings → Report Databases)</td><td>Administrators only; authors see "Ask an administrator" (the database password is the workspace's)</td><td>Also report authors (Report Edit)</td></tr>
+    <tr><td>Upload a file</td><td>Report authors (Report Edit) and administrators</td><td>Unchanged</td><td>Everyone who can view reports (Report View): they upload and report on their own file</td></tr>
+  </table>
+  <p class="note" style="margin-top:10px">"Even user can upload a files": if you meant everyone who can open Insights, that is Choice B on the second row. Reporting on a file still needs the right to make a report (Report Edit), so B also means a viewer can make reports from their own files.</p>
+
+  <h3>What gets built, in words</h3>
+  <ul>
+    <li><b>ClickHouse connections.</b> Database patch <code>0071_report_connection_clickhouse.sql</code> lets <code>report_connection.engine</code> be <code>clickhouse</code> (applied with your OK, on both databases). <code>apps/insights/external.py</code> reads ClickHouse over its HTTP interface with the existing client (<code>apps/insights/clickhouse.py</code>): every query runs with <code>readonly = 1</code>, the workspace's statement time limit and time zone. Test Connection reads the version, the tables and views, and the account's grants (<code>SHOW GRANTS</code>); an account with INSERT, ALTER, DROP, CREATE or TRUNCATE is refused. Map a Dataset, the query window and its guard, Write It for Me and reports, dashboards, schedules and exports work on it as on MySQL and PostgreSQL (the compiler already writes ClickHouse SQL).</li>
+    <li><b>Settings → Report Databases</b> offers ClickHouse too (same form); its help chapter and the user guide say how to make a read-only account.</li>
+    <li><b>New Report</b> gets the chosen layout, the Connect a Database panel (the existing endpoints <code>POST /workspace/report-databases/test/</code>, <code>POST /workspace/report-databases/</code>, <code>…/sources/</code>, <code>…/datasets/</code>) and, after Create Report, the editor on the new dataset; Write a Query opens <code>/insights/reports/new/query/&lt;id&gt;</code>.</li>
+    <li><b>Upload a File</b> stays on New Report; with Choice B the permission on <code>/insights/uploads/</code> widens to Report View, and the Uploaded Files menu item shows for them.</li>
+    <li>Tests: ClickHouse test, refusal, sources, mapping and a report run against a faked HTTP server (no network in tests); the panel's two steps and the permission cases in vitest.</li>
+  </ul>
+
+  <h3>Recommendation</h3>
+  <ul>
+    <li><b>Option 1, Two Tiles in the List.</b> It adds one tile where people already look, beside the Upload a File tile they know, keeps New Report one screen with no extra click, and the panel keeps them on the page. Option 2 adds a click for every report to help only the first one; Option 3 hides the built-in data behind a tab.</li>
+    <li><b>Connecting: Choice A</b> (administrators), because the connection carries the database's password for the whole workspace. <b>Uploading: Choice B</b> if you want every Insights user to bring their own file; otherwise A.</li>
+  </ul>
+</div></div>
+
+</div>
+</body>
+</html>

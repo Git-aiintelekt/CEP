@@ -1,9 +1,11 @@
-"""Settings -> Report Databases (Option 1 and Option A of docs/mockups/report-databases.html): a workspace's own MySQL or PostgreSQL
-databases, connected read-only, and the datasets it maps from their tables and views. A mapped dataset joins the catalogue for this
+"""Settings -> Report Databases (Option 1 and Option A of docs/mockups/report-databases.html): a workspace's own MySQL, PostgreSQL or
+ClickHouse databases, connected read-only, and the datasets it maps from their tables and views. A report author (report.edit) may
+also connect one and map a table from New Report (Option 1 of docs/mockups/new-report-sources.html); changing or removing a saved
+connection, the list of them and the mapping page stay with administrators. A mapped dataset joins the catalogue for this
 workspace alone (catalog.for_tenant), so New Report, the editor, the views, exports, dashboards, schedules and Ask for a
 Report see it like any dataset; the runner reads it through apps/insights/external.py.
 
-    GET, POST       /workspace/report-databases/                       the connections with their datasets; a new connection
+    GET, POST       /workspace/report-databases/                       the connections with their datasets (administrators); a new connection
     POST            /workspace/report-databases/test/                  {host, port, ...} an unsaved connection tested
     GET, PUT, DELETE /workspace/report-databases/<id>/
     POST            /workspace/report-databases/<id>/test/             the saved connection tested, the outcome kept on it
@@ -15,10 +17,10 @@ Report see it like any dataset; the runner reads it through apps/insights/extern
     POST            /workspace/report-databases/<id>/query/run/        {sql} the query window's Run: one SELECT checked, wrapped, the first rows typed
     POST            /workspace/report-databases/<id>/query/write/      {prompt, model} Write It for Me: SQL from the AI assistant, never run
     POST            /workspace/report-databases/<id>/query/dataset/    {label, sql, fields?} a dataset from the query (report.edit)
-    POST            /workspace/report-databases/<id>/datasets/         a dataset mapped from a table or view
+    POST            /workspace/report-databases/<id>/datasets/         a dataset mapped from a table or view; {source} alone maps every readable column
     GET, PUT, DELETE /workspace/report-databases/datasets/<id>/
 
-Tables (patch 0056): report_connection and report_dataset_custom, the workspace's (RLS); the password encrypted.
+Tables (patch 0056; ClickHouse patch 0071): report_connection and report_dataset_custom, the workspace's (RLS); the password encrypted.
 """
 import json
 import re
@@ -45,7 +47,7 @@ from apps.tenants import context
 
 ADMIN = [IsAuthenticated, SameTenant, HasPermissionCode.for_("user.admin")]
 BUILDER = [IsAuthenticated, SameTenant, HasPermissionCode.for_("report.edit") | HasPermissionCode.for_("user.admin")]   # the query window and the schema it reads
-ENGINES = ("mysql57", "mysql80", "postgresql")
+ENGINES = ("mysql57", "mysql80", "postgresql", "clickhouse")
 SSL_MODES = ("REQUIRED", "PREFERRED", "OFF")
 TYPES = ("string", "number", "date", "datetime", "boolean")
 AGGREGATES = ("sum", "count", "count_distinct", "avg", "min", "max")
@@ -57,6 +59,7 @@ JOIN_TYPES = ("left", "inner")
 GRANT_EXAMPLES = {
     "mysql": "CREATE USER 'cep_reader'@'%' IDENTIFIED BY '…';\nGRANT SELECT ON your_db.* TO 'cep_reader'@'%';",
     "postgresql": "CREATE ROLE cep_reader LOGIN PASSWORD '…';\nGRANT CONNECT ON DATABASE your_db TO cep_reader;\nGRANT USAGE ON SCHEMA public TO cep_reader;\nGRANT SELECT ON ALL TABLES IN SCHEMA public TO cep_reader;",
+    "clickhouse": "CREATE USER cep_reader IDENTIFIED BY '…' SETTINGS readonly = 2;\nGRANT SELECT ON your_db.* TO cep_reader;",
 }
 CONNECTION_COLUMNS = "id::text, name, engine, host, port, database_name, schema_name, username, password_enc, ssl_mode, status, last_tested_at, last_test_ok, last_test_error, read_only, server_version, server_timezone, created_at, updated_at, row_version"
 
@@ -116,7 +119,7 @@ def custom_datasets(tenant_id) -> list[dict]:
         data.append({"key": row["key"], "label": row["label"], "description": row["description"], "component": {"key": row["component_key"], "name": "Engagement"},
                      "primary_key": row["primary_key"], "time_field": row["time_field"], "freshness": "LIVE", "source": f"{schema}.{row['source_name']}",
                      "joins": [{**j, "table": f"{schema}.{j['table']}"} for j in joins], **({"query": query, "kind": "query"} if query else {"kind": "table"}),
-                     "workspace_field": None, "engine": "postgresql" if external.is_pg(conn) else "mysql", "external": True, "fields": fields,
+                     "workspace_field": None, "engine": external.dialect_of(conn), "external": True, "fields": fields,
                      "database": {"id": conn["id"], "name": conn["name"], "engine": conn["engine"], "engine_name": external.ENGINES.get(conn["engine"], conn["engine"])},
                      "connection": conn})
     cache.set(key, data, catalog.TTL)
@@ -154,7 +157,7 @@ def _connection_body(body: dict, current: dict | None) -> dict:
         errors["name"] = "Give the database a name of up to 100 characters."
     engine = str(body.get("engine") or (current or {}).get("engine") or "mysql80")
     if engine not in ENGINES:
-        errors["engine"] = "MySQL 5.7, MySQL 8.0 or PostgreSQL."
+        errors["engine"] = "MySQL 5.7, MySQL 8.0, PostgreSQL or ClickHouse."
     host = str(body.get("host") or (current or {}).get("host") or "").strip()
     if not host or len(host) > 200 or any(ch.isspace() for ch in host):
         errors["host"] = "The server's host name or address."
@@ -177,6 +180,8 @@ def _connection_body(body: dict, current: dict | None) -> dict:
     ssl_mode = str(body.get("ssl") or body.get("ssl_mode") or (current or {}).get("ssl_mode") or "REQUIRED").upper()
     if ssl_mode not in SSL_MODES:
         errors["ssl"] = "Required, Preferred or Off."
+    elif engine == "clickhouse" and ssl_mode == "PREFERRED":
+        errors["ssl"] = "ClickHouse is read over HTTPS or, on a private network, plain HTTP: Required or Off."
     password = str(body.get("password") or "")
     if not password and not (current or {}).get("password_enc"):
         errors["password"] = "Give the account's password."
@@ -216,7 +221,7 @@ def _unique_key(tenant_id, label: str, keep: str | None) -> str:
     return key
 
 
-def _dataset_body(body: dict, current: dict | None) -> dict:
+def _dataset_body(body: dict, current: dict | None, engine: str | None = None) -> dict:
     errors = {}
     label = " ".join(str(body.get("label") or (current or {}).get("label") or "").split())
     if not label or len(label) > 100:
@@ -225,7 +230,7 @@ def _dataset_body(body: dict, current: dict | None) -> dict:
     query_sql = None
     if "sql" in body or (current or {}).get("query_sql"):
         try:
-            query_sql = external.check_sql(str(body.get("sql") if "sql" in body else (current or {}).get("query_sql") or ""))
+            query_sql = external.check_sql(str(body.get("sql") if "sql" in body else (current or {}).get("query_sql") or ""), engine)
         except external.ExternalError as exc:
             errors["sql"] = str(exc)
     source = "query" if query_sql or "sql" in body else str(body.get("source") or (current or {}).get("source_name") or "").strip()
@@ -383,7 +388,10 @@ def _joins_body(raw, errors: dict) -> list[dict]:
 
 # ---------------------------------------------------------------------------------------------------- the API
 class DatabasesView(APIView):
-    permission_classes = ADMIN
+    """GET the list (Settings, administrators); POST a new connection (administrators, and report authors from New Report)."""
+
+    def get_permissions(self):
+        return [p() for p in (BUILDER if self.request.method == "POST" else ADMIN)]
 
     @extend_schema(responses={200: None})
     def get(self, request, version=None):
@@ -414,7 +422,7 @@ class DatabasesView(APIView):
 
 class DatabaseTestView(APIView):
     """An unsaved connection tested (the dialog, before Save), or a saved one by id."""
-    permission_classes = ADMIN
+    permission_classes = BUILDER
 
     @extend_schema(request=None, responses={200: None})
     def post(self, request, version=None, connection_id=None):
@@ -627,7 +635,7 @@ class QueryDatasetView(APIView):
             body["fields"] = _fields_from_columns(out["columns"])
             if not body["fields"]:
                 raise ValidationError({"sql": "The query gives no column that can be a field: name each column with letters, digits and underscores (AS total_sales)."})
-        data = _dataset_body({**body, "sql": str(body.get("sql") or "")}, None)
+        data = _dataset_body({**body, "sql": str(body.get("sql") or "")}, None, row["engine"])
         dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
         with session.tx():
             _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
@@ -666,14 +674,35 @@ class JoinCheckView(APIView):
 
 
 class DatasetsView(APIView):
-    permission_classes = ADMIN
+    """A dataset mapped from a table or view. With {source} and no fields (New Report's Connect a Database), every readable column is
+    a field labelled from its name, the first date the time field and the primary key the row key."""
+    permission_classes = BUILDER
 
     @extend_schema(request=None, responses={201: None})
     def post(self, request, version=None, connection_id=None):
         tenant = _tenant()
         row = connection(tenant.pk, connection_id)
         _usable(row)
-        data = _dataset_body(request.data if isinstance(request.data, dict) else {}, None)
+        body = dict(request.data) if isinstance(request.data, dict) else {}
+        whole = not body.get("fields") and not body.get("sql") and bool(str(body.get("source") or "").strip())
+        if whole:
+            already = next((d for d in datasets(tenant.pk, connection_id) if d["source_name"] == str(body["source"]).strip() and not d.get("joins") and not d.get("query_sql")
+                            and d["status"] == "ACTIVE"), None)
+            if already:                                                            # the table is mapped already: its dataset, not a second copy
+                return Response(serialize_dataset(already), status=status.HTTP_200_OK)
+            try:
+                columns = external.columns(row, str(body["source"]).strip())
+            except external.ExternalError as exc:
+                raise ValidationError({"source": str(exc)}) from None
+            body["fields"] = _fields_from_columns(columns)[:MAX_FIELDS]
+            body.setdefault("label", " ".join(part.capitalize() for part in re.split(r"[_\s]+", str(body["source"]).strip()) if part))
+            if not body["fields"]:
+                raise ValidationError({"source": "No column of this table can be a field: name columns with letters, digits and underscores."})
+        data = _dataset_body(body, None, row["engine"])
+        if whole:
+            keyed = dict(zip((f["column"] for f in body["fields"]), data["fields"]))
+            data["time_field"] = data["time_field"] or next((f["key"] for f in data["fields"] if f["type"] in ("date", "datetime")), None)
+            data["primary_key"] = data["primary_key"] or next((keyed[c["column"]]["key"] for c in columns if c.get("key") and c["column"] in keyed), None)
         dataset_id, key = str(uuid.uuid4()), _unique_key(tenant.pk, data["label"], None)
         with session.tx():
             _q("""INSERT INTO report_dataset_custom (id, tenant_id, connection_id, key, label, description, source_name, primary_key, time_field, fields, joins, query_sql, created_by, updated_by)
@@ -705,7 +734,7 @@ class DatasetView(APIView):
         body = request.data if isinstance(request.data, dict) else {}
         if body.get("row_version") is not None and int(body["row_version"]) != current["row_version"]:
             raise Conflict("The dataset changed since you opened it. Reload and try again.")
-        data = _dataset_body(body, current)
+        data = _dataset_body(body, current, connection(tenant.pk, current["connection_id"])["engine"])
         with session.tx():
             _q("""UPDATE report_dataset_custom SET label = %s, description = %s, source_name = %s, primary_key = %s, time_field = %s, fields = %s, joins = %s, query_sql = %s, updated_by = %s, updated_at = now(),
                          row_version = row_version + 1 WHERE tenant_id = %s AND id = %s""",
