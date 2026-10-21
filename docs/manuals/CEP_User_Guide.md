@@ -84,9 +84,10 @@ For everyone who signs in to a workspace. Built from `docs/manuals/user-guide`; 
   - What this page is for
   - Who can use it
   - The fields and controls
-  - How to
+  - Step by step
   - What happens behind the scenes
   - Things to know
+  - When something does not work
 - Users
   - What this page is for
   - Who can use it
@@ -1431,13 +1432,62 @@ Never tagged, whatever the settings: links to other sites, `mailto:` and `tel:` 
 
 These choices are saved on their own, as you change them.
 
-## How to
+## Step by step
 
-**Switch tagging on.** Settings → UTM Tracking → switch on Email Campaigns, Text Campaigns or both → add your sites (e.g. `northwindapparel.com`) → check the Example → Save.
+**1. Switch UTM tracking on for your workspace** (needs Sending Engines · Edit)
 
-**Tell two links apart.** On the campaign's Content step, under Link Tracking, give each link a clear label (`hero-image`, `hero-cta`, `footer-shop`). In Google Analytics, the clicks show under Session manual ad content.
+1. Open **Settings → Sending → UTM Tracking**.
+2. Switch on **Email Campaigns**, **Text Campaigns**, or both.
+3. Under **Your Sites**, type each domain your links lead to (for example `northwindapparel.com`) and press **Add** or Enter. Subdomains such as `shop.northwindapparel.com` are included. If you paste a full address, only its domain is kept.
+4. Leave **Links That Already Have Tags** on **Keep their tags** unless every link must carry this workspace's values.
+5. Check the **Example** at the bottom: it shows a hero button's address as it would go out.
+6. Press **Save**. The message *UTM tracking saved* confirms it. Campaigns sent from now on carry the tags.
 
-**Check that it works.** Send a test from the campaign, open a link and look at the address bar: it ends with the tags. In Google Analytics, open Reports → Realtime: the visit shows source `c360`, medium `email` or `sms`, and the campaign. After a real send, Reports → Acquisition → Traffic acquisition, filtered by Session campaign or Session campaign ID.
+**2. Change a value (optional)**
+
+1. In **Parameters**, open the **Value** list of the parameter.
+2. Choose **Fixed Text** and type the value, choose a campaign field (Campaign Name, Campaign Code, Campaign Type, Channel, Link Label, Link Label and A/B Variant), or choose **Not Sent**.
+3. The **Sent As** column shows the result for the example link. Values are sent lowercase with dashes.
+4. Press **Save**. **Reset to Recommended** puts the recommended values back before you save.
+
+`utm_source` cannot be Not Sent, and `utm_medium` and `utm_creative_format` always follow the campaign's channel.
+
+**3. Label the links of an email campaign**
+
+1. Open the campaign and go to its **Content** step (Edit → Content).
+2. Choose the template. The **Link Tracking** card appears under the template and the preview, listing every link of the message.
+3. For each **Tagged** link, check its **Label**: it starts as the link's text (an image link: its alt text). Type a clearer label where two links would read the same, for example `hero-image`, `hero-cta`, `footer-shop`, then click outside the field. It is saved at once.
+4. Look at **Tagging**: **Own Tags Kept** means the link already had tags; **Not Your Site** and **Never Tagged** go out as written.
+5. To use another campaign value in Google Analytics (for example the same name for a series), type it under **Campaign (utm_campaign)**. To file the campaign under a different tactic, choose one under **Tactic**.
+
+You don't press Save for these: each change is kept as you make it.
+
+**4. Send a text campaign with short links**
+
+1. Make sure **Text Campaigns** is switched on (step 1).
+2. Write the message with the full address of your page, for example `https://shop.northwindapparel.com/weekend`. The editor's counter already counts it as a short link, and says *links to your sites counted as short links*.
+3. On the campaign's Content step, the Link Tracking card shows the link as a **Short link** and, after sending, how many times it was opened.
+4. Each recipient receives a short link such as `https://…/api/v1/l/NWA/k7Pq2Xs/`. Opening it counts a click and goes on to the tagged page.
+
+**5. Test before you publish**
+
+1. On the campaign, send a test to yourself.
+2. Open a link in the test message and look at the browser's address bar: it ends with `utm_source=c360&utm_medium=email…` (for a text, the short link first opens, then the tagged address).
+3. If Google Analytics 4 runs on your site, open **Reports → Realtime** in Google Analytics: the visit shows source `c360`, medium `email` or `sms`, and your campaign.
+
+**6. Read the results in Google Analytics 4**
+
+1. Open **Reports → Acquisition → Traffic acquisition**.
+2. Change the table's first column to **Session campaign** (or **Session campaign ID**, which matches the campaign code and survives a rename).
+3. Add **Session manual ad content** as a second dimension to see each link label, and the A/B variant (`hero-cta-a`, `hero-cta-b`).
+4. GA4 files the visits under its **Email** and **SMS** channels in Reports → Acquisition → Traffic acquisition (Session default channel group).
+
+**7. Send one campaign's links as written**
+
+1. On the campaign's Content step, switch off **Tag Links in This Campaign** in the Link Tracking card.
+2. Its links go out exactly as in the template. Switch it on again at any time before sending.
+
+To stop tagging everywhere, switch off the channel on Settings → UTM Tracking and press Save.
 
 ## What happens behind the scenes
 
@@ -1452,6 +1502,18 @@ These choices are saved on their own, as you change them.
 - Test sends are tagged too, and clicks on a test text's short link are counted.
 - Text clicks are counted per link, not per person.
 - Values are always lowercase with dashes, because Google Analytics treats `Email` and `email` as different sources.
+
+## When something does not work
+
+| What you see | What it means |
+|---|---|
+| The card says *UTM tracking is off for email campaigns* (or text) | The channel is switched off on Settings → UTM Tracking. Switch it on and save. |
+| The card says *Link tagging is not switched on here yet* | This server does not have the link tracking update yet; links go out as written. |
+| A link shows **Not Your Site** | Its domain is not under Your Sites. Add the domain and save. |
+| A link shows **Never Tagged** | It is a mailto:, tel:, unsubscribe or preference link: these are never tagged. |
+| Save says *Add at least one of your sites* | A channel is switched on without any site. Add one. |
+| Google Analytics shows the visit as Direct or Referral | Check the link opened from a message sent after you saved, and that the address ended with the tags. A link to another site (not Your Sites) is not tagged. |
+| A short link says *This link is not available* | The address was mistyped or cut off when it was copied. |
 
 ---
 
