@@ -38,7 +38,7 @@ test('sign-in with a second factor: the password alone stores no token; a wrong 
 
   await fillLogin(user, 'needs-a-code')
   const code = await screen.findByLabelText('Authentication Code')
-  expect(window.localStorage.getItem('cep.access')).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 
   await user.type(code, '000000')
   await user.click(screen.getByRole('button', { name: 'Verify' }))
@@ -48,10 +48,22 @@ test('sign-in with a second factor: the password alone stores no token; a wrong 
   await user.type(code, MFA_CODE)
   await user.click(screen.getByRole('button', { name: 'Verify' }))
   expect(await screen.findByRole('navigation', { name: 'Main' })).toBeTruthy()
-  expect(window.localStorage.getItem('cep.access')).toBe('access-1')
+  expect(window.localStorage.getItem('cep.access.NWA')).toBe('access-1')
   const verify = calls.filter((call) => call.url.endsWith('/auth/mfa/verify/')).at(-1)
   expect(verify?.body).toEqual({ mfa_token: 'mfa-token-1', code: MFA_CODE })
   expect(verify?.headers.Authorization).toBeUndefined()
+})
+
+test('a tab signed in to a workspace the API does not know goes back to the login page, which says the workspace was not found', async () => {
+  installMockApi()
+  const mocked = globalThis.fetch
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input).includes('/auth/options/') ? mocked(input, init) : Promise.resolve(problem(404, { title: 'Unknown tenant' })))
+  await renderAppAt('/campaigns')
+
+  expect((await screen.findByText('Workspace not found. Check the workspace code and log in again.')).textContent).toBeTruthy()
+  expect(window.location.pathname).toBe('/login')
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
 test('a workspace with single sign-on shows its button; when it is required the password form is tucked away for administrators', async () => {
@@ -83,7 +95,7 @@ test('the single sign-on landing page takes the code out of the address bar and 
   expect(await screen.findByRole('heading', { name: 'Campaigns' })).toBeTruthy()
   expect(window.location.pathname).toBe('/campaigns')
   expect(window.location.hash).toBe('')
-  expect(window.localStorage.getItem('cep.refresh')).toBe('refresh-1')
+  expect(window.localStorage.getItem('cep.refresh.NWA')).toBe('refresh-1')
 })
 
 test('an outside address in `next` is ignored', async () => {
@@ -97,16 +109,16 @@ test('an outside address in `next` is ignored', async () => {
 test('a support session forgets any earlier refresh token, shows who is acting and why it is limited, hides Settings, and ends on request', async () => {
   const calls = installMockApi({ me: { support_session: { by: 'Pat Support', mode: 'READ', expires_at: '2026-09-18T12:30:00Z' } } })
   const user = userEvent.setup()
-  window.localStorage.setItem('cep.refresh', 'someone-elses-refresh')
+  window.localStorage.setItem('cep.refresh.NWA', 'someone-elses-refresh')
   await renderAppAt('/support-session#token=access-1&tenant=NWA', false)
 
   const banner = await screen.findByText(/Support session: Pat Support is acting as this user · read-only/)
-  expect(window.localStorage.getItem('cep.refresh')).toBeNull()
+  expect(window.localStorage.getItem('cep.refresh.NWA')).toBeNull()
   expect(within(screen.getByRole('navigation', { name: 'Apps' })).queryByText('Settings')).toBeNull()
   await user.click(within(banner.parentElement as HTMLElement).getByRole('button', { name: 'End session' }))
   expect(await screen.findByLabelText('Password')).toBeTruthy()
   expect(calls.some((call) => call.url.endsWith('/auth/support-session/end/') && call.method === 'POST')).toBe(true)
-  expect(window.localStorage.getItem('cep.access')).toBeNull()
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull()
 })
 
 test('features switched off for the workspace disappear from navigation, settings and channel choices', async () => {

@@ -59,7 +59,7 @@ test('idle warning: appears after the configured idle time, counts down, and "St
 
   fireEvent.click(screen.getByRole('button', { name: 'Stay Signed In' }))
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
-  expect(window.localStorage.getItem('cep.access')).toBe('access-1') // still signed in
+  expect(window.localStorage.getItem('cep.access.NWA')).toBe('access-1') // still signed in
 
   // and the clock was genuinely reset, not just the dialog hidden: another 59s must not bring it back
   await tick(59_000)
@@ -76,7 +76,7 @@ test('idle warning: no response before it runs out signs the person out and the 
 
   expect(screen.getByRole('heading', { name: 'Log In to C360' })).toBeTruthy()
   expect(screen.getByRole('status').textContent).toContain('signed out after some time without activity')
-  expect(window.localStorage.getItem('cep.access')).toBeNull() // the token is really gone, not just the screen changed
+  expect(window.localStorage.getItem('cep.access.NWA')).toBeNull() // the token is really gone, not just the screen changed
 })
 
 test('idle warning: "Sign out now" ends the session immediately, without waiting out the countdown', async () => {
@@ -96,8 +96,8 @@ test('idle warning: activity recorded in another tab (the shared timestamp) stan
 
   // a real cross-tab "storage" event never fires on the tab that wrote it, so this fakes the OTHER tab's write reaching this one
   const at = String(Date.now())
-  window.localStorage.setItem('cep.lastActivity', at)
-  window.dispatchEvent(new StorageEvent('storage', { key: 'cep.lastActivity', newValue: at }))
+  window.localStorage.setItem('cep.lastActivity.NWA', at)
+  window.dispatchEvent(new StorageEvent('storage', { key: 'cep.lastActivity.NWA', newValue: at }))
   await tick(0) // the resulting state update is not routed through testing-library, so it needs an explicit flush
   expect(screen.queryByRole('dialog', { name: 'Still there?' })).toBeNull()
 })

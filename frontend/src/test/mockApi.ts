@@ -2377,9 +2377,10 @@ export function installMockApi(options: MockOptions = {}) {
 }
 
 export function signIn(path = '/') {
-  window.localStorage.setItem('cep.access', 'access-1')
-  window.localStorage.setItem('cep.refresh', 'refresh-1')
+  window.localStorage.setItem('cep.access.NWA', 'access-1')
+  window.localStorage.setItem('cep.refresh.NWA', 'refresh-1')
   window.localStorage.setItem('cep.tenant', 'NWA')
+  window.sessionStorage.setItem('cep.tenant', 'NWA')
   window.history.pushState({}, '', path)
 }
 

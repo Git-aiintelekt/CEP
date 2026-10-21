@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { api, session, UNAUTHORIZED_EVENT } from '@/lib/api'
+import { api, session, UNAUTHORIZED_EVENT, type SignedOutReason } from '@/lib/api'
 
 import { SIGNED_OUT_REASON_KEY } from './signedOut'
 import type { Feature, Me, PermissionCode } from '@/lib/types'
@@ -42,11 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
   }, [queryClient])
 
-  // The API client raises this when a refresh fails: drop to the login screen from anywhere, and let it say why
+  // The API client raises this when a refresh fails or the workspace is unknown: drop to the login screen from anywhere, and let it say why
   useEffect(() => {
-    const ended = () => {
+    const ended = (event: Event) => {
+      const reason: SignedOutReason = (event as CustomEvent<SignedOutReason | undefined>).detail ?? 'expired'
       try {
-        if (!window.sessionStorage.getItem(SIGNED_OUT_REASON_KEY)) window.sessionStorage.setItem(SIGNED_OUT_REASON_KEY, 'expired')
+        if (!window.sessionStorage.getItem(SIGNED_OUT_REASON_KEY)) window.sessionStorage.setItem(SIGNED_OUT_REASON_KEY, reason)
       } catch {
         // storage blocked: the login screen simply has no notice
       }
