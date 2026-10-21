@@ -1242,7 +1242,7 @@ Platform staff see the page. Run Checks Now and Run Daily Check need a platform 
 | Receipts | Texts of the last two hours still without a receipt after `engine_health.receipt_wait_minutes` (15). | **Attention** above `engine_health.missing_receipt_pct` (1%) of them. |
 | Daily Check | The engine's last Check. | **Failing** when it failed. |
 
-A rate is judged only from `engine_health.min_sample` (50) messages or calls in its window; fewer is **Quiet**, as is an engine that sent nothing in a day. All the lines are Global Parameters (category *Engine health*) and take effect within a minute.
+A rate is judged only from `engine_health.min_sample` (50) messages or calls in its window; fewer is **Quiet** and shows the counts (*1 of 1*) instead of a share, as an engine's own Check probe would otherwise read *100%*. An engine that sent nothing in a day is Quiet overall. All the lines are Global Parameters (category *Engine health*) and take effect within a minute.
 
 **Digivize, said plainly.** Digivize accepts texts but has never posted a delivery receipt from its sandbox. A text engine that has never called back is therefore not judged on Callbacks or Receipts: it shows **No Receipts Yet**, one standing warning. Its alert opens acknowledged, is emailed once and is not repeated. The first receipt that arrives switches the real checks on by themselves.
 
