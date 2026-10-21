@@ -71,16 +71,15 @@ def test_attribution(check):
                 _, errors = attribution.clean({"order_id": "F-1", "amount": 1, "ordered_at": (timezone.now() + timedelta(days=3)).isoformat()}, currency="USD")
                 check("an order in the future is refused", "ordered_at" in errors)
 
-                # ---- fixtures: a campaign that sent, its people, their touches
-                campaign_id, code = q("SELECT id::text, code FROM campaign WHERE tenant_id = %s AND campaign_type = 'REGULAR_MARKETING' ORDER BY created_at LIMIT 1", [T])[0]
-                other_id, other_code = q("SELECT id::text, code FROM campaign WHERE tenant_id = %s AND id::text <> %s AND campaign_type <> 'E_RECEIPT' ORDER BY created_at DESC LIMIT 1",
-                                         [T, campaign_id])[0]
-                run_id = q("SELECT id::text FROM campaign_run WHERE campaign_id = %s ORDER BY created_at LIMIT 1", [campaign_id])
-                if not run_id:
-                    run_id = q("""INSERT INTO campaign_run (campaign_id, tenant_id, run_number, run_type, status, started_at) VALUES (%s, %s, 99, 'ONE_TIME', 'COMPLETED', now() - interval '3 days')
-                              RETURNING id::text""", [campaign_id, T])
-                run_id = run_id[0][0]
-                q("UPDATE campaign_run SET started_at = coalesce(started_at, now() - interval '3 days') WHERE id = %s", [run_id])
+                # ---- fixtures: two campaigns of the test's own (no orders credited yet), one that sent, its people, their touches
+                def campaign(name):
+                    return q("""INSERT INTO campaign (tenant_id, name, campaign_type, channel, code, status, send_type) VALUES (%s, %s, 'REGULAR_MARKETING', 'EMAIL', %s, 'COMPLETED', 'IMMEDIATE')
+                             RETURNING id::text, code""", [T, name, f"ZA-{secrets.token_hex(4).upper()}"])[0]
+
+                campaign_id, code = campaign("Attribution test")
+                other_id, other_code = campaign("Attribution test, the other")
+                run_id = q("""INSERT INTO campaign_run (campaign_id, tenant_id, run_number, run_type, status, started_at) VALUES (%s, %s, 99, 'ONE_TIME', 'COMPLETED', now() - interval '3 days')
+                           RETURNING id::text""", [campaign_id, T])[0][0]
                 now = timezone.now()
 
                 def send(party, email, at):
@@ -175,6 +174,7 @@ def test_attribution(check):
                 check("a refund whose original is still waiting waits too", status == "PENDING", status)
 
                 # ---- the point of sale
+                stores_before = attribution.summary(T)["store_orders"]
                 read = {"transaction": {"id": "9001", "category": "Sale", "employee_sale": False, "at": (now - timedelta(hours=1)).isoformat(), "store_number": "12", "currency": "USD", "original_id": ""},
                         "totals": {"grand_total": 108.0, "tax_total": 8.0, "shipping_total": None}, "recipient": {"customer_id": "TP-CLICK", "email": "", "phone": ""},
                         "discounts": [{"code": "SAVE10"}], "items": [{"promo_codes": ["SAVE10", "FALL"]}]}
@@ -193,7 +193,7 @@ def test_attribution(check):
                 # ---- summary and list
                 s = attribution.summary(T)
                 check("the summary counts orders, credited revenue and the share by touch", s["orders"] >= 10 and s["attributed_orders"] >= 6 and s["by_touch"]["CLICK"]["orders"] >= 3
-                      and s["store_orders"] == 2, json.dumps({k: s[k] for k in ("orders", "attributed_orders", "attributed_share", "pending", "unattributed")}))
+                      and s["store_orders"] == stores_before + 2, json.dumps({k: s[k] for k in ("orders", "attributed_orders", "attributed_share", "pending", "unattributed", "store_orders")}))
                 rows = attribution.recent(T, status="UNATTRIBUTED", q="T-")
                 check("the list filters by state and search, and says why an order earned nothing", rows and all(r["status"] == "UNATTRIBUTED" and r["note"] for r in rows))
 

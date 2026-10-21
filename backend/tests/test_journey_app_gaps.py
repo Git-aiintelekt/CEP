@@ -75,6 +75,8 @@ def test_reason_filter_customer_page_and_journeys_report(check, admin_email, fre
         if digits:
             check("and by mobile number digits", any(row["party_id"] == p1 for row in profile.search(T, q=digits[-7:])["results"]))
         check("and by id", profile.search(T, q=p1)["results"][0]["party_id"] == p1)
+        full_name = f"{found['customer']['first_name'] or ''} {found['customer']['last_name'] or ''}".strip()
+        check("and by name, which has no digits to match a mobile number by", any(row["party_id"] == p1 for row in profile.search(T, q=full_name, page_size=200)["results"]), full_name)
         page = web.get("/api/v1/customers/", {"q": e1}, HTTP_X_TENANT="NWA")
         one = web.get(f"/api/v1/customers/{p1}/", HTTP_X_TENANT="NWA")
         missing = web.get(f"/api/v1/customers/nobody-{tag}/", HTTP_X_TENANT="NWA")

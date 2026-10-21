@@ -4,11 +4,14 @@ are on, the events received for them, their orders, their messages and every jou
 
 Everything is read from the tenant's own tables under RLS; nothing is written.
 """
+import re
+
 from apps.delivery.engine import session
 from apps.journeys import events as journey_events
 from apps.journeys.timeline import _json, _step_words
 
 PAGE_SIZE = 25
+PHONE_LIKE = re.compile(r"[0-9+()./ -]+")
 EVENTS, ORDERS, MESSAGES = 50, 20, 30
 
 SEARCH_SQL = """
@@ -67,8 +70,8 @@ def search(tenant_id, q: str = "", page: int = 1, page_size: int = PAGE_SIZE) ->
     page_size = max(1, min(int(page_size or PAGE_SIZE), 200))
     page = max(1, int(page or 1))
     q = (q or "").strip()[:120]
-    digits = "".join(ch for ch in q if ch.isdigit())
-    args = {"tenant": str(tenant_id), "q": q, "like": f"%{q}%", "lower_like": f"%{q.lower()}%", "digits_like": f"%{digits}%" if digits else "\x00",
+    digits = "".join(ch for ch in q if ch.isdigit()) if PHONE_LIKE.fullmatch(q) else ""
+    args = {"tenant": str(tenant_id), "q": q, "like": f"%{q}%", "lower_like": f"%{q.lower()}%", "digits_like": f"%{digits}%" if digits else None,
             "limit": page_size, "offset": (page - 1) * page_size}
     with session.tx(), session.connection().cursor() as cursor:
         cursor.execute(SEARCH_SQL, args)
