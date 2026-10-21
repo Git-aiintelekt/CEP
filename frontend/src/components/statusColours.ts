@@ -33,6 +33,7 @@ const STATUS_COLOUR: Record<string, TagColour> = {
   PRODUCTION: 'production-published', // contact list type
   TEST: 'test-published', // contact list type
   APPROVED: 'scheduled', // journey status: approved and live now or at scheduled_activate_at — the "Scheduled" tag colour
+  PASSES: 'active', // a check that passes (Settings → Sending Domains): Active's green, never the live dot
 }
 
 /** The background and text (and Archived's dashed border) for a status, for anything else coloured by status. */

@@ -37,6 +37,7 @@ JOBS = {
     "send-weekly-reports": ("Emails the weekly report to workspaces that asked for one", 3 * 3600),
     "probe-uptime": ("Calls the uptime targets and alerts when one goes down or comes back", 10 * 60),
     "check-security": ("Looks up this server's packages in OSV.dev and checks its settings and headers (back-office Security)", 49 * 3600),
+    "check-sending-domains": ("Looks up SPF, DMARC and DKIM of every workspace's sending domains (Settings → Delivery)", 49 * 3600),
     "prune-observability": ("Removes errors, request figures and uptime probes past their retention", 49 * 3600),
     "attribute-orders": ("Credits received orders to campaigns and writes each campaign's revenue and ROI", 30 * 60),
     "enroll-journey-customers": ("Enrolls customers who meet a live journey's entry rules", 10 * 60),
