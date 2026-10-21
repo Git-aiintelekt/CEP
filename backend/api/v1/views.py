@@ -384,6 +384,8 @@ class MediaAssetViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets
         try:                                                          # trust the bytes, not the file name or Content-Type
             Image.open(io.BytesIO(data)).verify()
             image = Image.open(io.BytesIO(data))
+        except Image.DecompressionBombError:
+            raise ValidationError({"file": "This image has too many pixels to use in an email."}) from None
         except (UnidentifiedImageError, OSError, SyntaxError, ValueError):
             raise ValidationError({"file": "This file is not a valid image."}) from None
         if image.format not in self.FORMATS:
