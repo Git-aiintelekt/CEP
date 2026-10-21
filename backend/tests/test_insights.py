@@ -586,7 +586,7 @@ def test_api(check, world):
 
     cat = world.api("get", "/api/v1/insights/catalog/")
     body = cat.json() if cat.status_code == 200 else {}
-    keys = [d["key"] for d in body.get("datasets", [])]
+    keys = [d["key"] for d in body.get("datasets", []) if "kind" not in d]          # the platform's; the workspace's own (uploads, its databases) carry a kind
     check("the catalogue lists the first datasets with their fields and the engine", cat.status_code == 200 and keys == ["messages", "attributed_orders", "contacts", "journey_enrollments"]
           and body["engine"]["engine"] == "postgresql" and body["engine"]["limits"]["preview_rows"] > 0, f"{cat.status_code} {keys}")
     messages = next(d for d in body["datasets"] if d["key"] == "messages")
@@ -638,11 +638,13 @@ def test_api(check, world):
     csv_cmp = world.api("get", f"/api/v1/insights/reports/{mid}/export.csv")
     check("the CSV export carries the comparison columns", csv_cmp.status_code == 200 and "Sent Count, Change vs Last Year" in b"".join(csv_cmp.streaming_content).decode(), str(csv_cmp.status_code))
     # drill-through through the API: a detail report taking Channel, listed for the field, opened filtered to a value
+    listed_before = {r["id"] for r in world.api("get", "/api/v1/insights/reports/?dataset=messages&detail_for=channel").json()["reports"]}
     detail_r = world.api("post", "/api/v1/insights/reports/", {"name": "Campaigns for a channel", "dataset": "messages", "definition": {
         "columns": [{"field": "campaign_name"}, {"field": "sent", "aggregate": "sum"}], "drillthrough": ["channel"]}})
     did_r = detail_r.json().get("id") if detail_r.status_code == 201 else None
     listed_dt = world.api("get", "/api/v1/insights/reports/?dataset=messages&detail_for=channel").json()["reports"]
-    check("the detail reports for a field are listed for it, and only those", detail_r.status_code == 201 and [r["id"] for r in listed_dt] == [did_r], str([r["name"] for r in listed_dt]))
+    check("the detail reports for a field are listed for it, and only those", detail_r.status_code == 201 and {r["id"] for r in listed_dt} == listed_before | {did_r}
+          and mid not in listed_before, str([r["name"] for r in listed_dt]))
     through = world.api("post", f"/api/v1/insights/reports/{did_r}/run/", {"through": [{"field": "channel", "value": "EMAIL"}]})
     check("opened from another report, the detail report runs filtered to the value and says so", through.status_code == 200
           and through.json()["through"] == [{"field": "channel", "label": "Channel", "value": "EMAIL"}], through.content[:300])

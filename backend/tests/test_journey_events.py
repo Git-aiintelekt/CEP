@@ -46,6 +46,14 @@ def customers(n=3):
                    WHERE tenant_id = %s AND jsonb_array_length(emails) > 0 ORDER BY party_id LIMIT %s""", [T, n])
 
 
+def new_customer() -> str:
+    """A customer of the test's own, with no orders or events, so their first order is the first one they ever made."""
+    party = f"ZJ-{uuid.uuid4().hex[:8]}"
+    sql("INSERT INTO customer_master (party_id, tenant_id, first_name, last_name, emails) VALUES (%s, %s, 'Buyer', 'Test', %s::jsonb)",
+        [party, T, json.dumps([{"address": f"{party.lower()}@zj.example", "is_primary": True}])], fetch=False)
+    return party
+
+
 def make_journey(name, *, entry, nodes=None, population="EVENT_TRIGGERED", status="ACTIVE", published_ago=timedelta(minutes=5)) -> Journey:
     """A journey whose version 1 is live (or in the given status): Start -> the nodes -> Exit, with one entry rule."""
     body_nodes = [{"key": "start", "type": "START", "config": {}, "position": {"x": 0, "y": 0}}]
@@ -98,16 +106,15 @@ def test_journey_events(check, admin_email):
 
         # ---- purchases from orders
         attribution.save_settings(tenant, {"enabled": True})
-        order = attribution.clean({"order_id": f"ZJ-{uuid.uuid4().hex[:6]}", "amount": 50, "party_id": p3}, currency="USD")[0]
-        sql("DELETE FROM journey_event WHERE tenant_id = %s AND party_id = %s AND event_type IN ('PURCHASE', 'FIRST_PURCHASE') AND external_id <> 'dup-1'", [T, p3], fetch=False)
-        sql("DELETE FROM journey_event WHERE tenant_id = %s AND party_id = %s AND external_id = 'dup-1'", [T, p3], fetch=False)
+        buyer = new_customer()
+        order = attribution.clean({"order_id": f"ZJ-{uuid.uuid4().hex[:6]}", "amount": 50, "party_id": buyer}, currency="USD")[0]
         attribution.ingest(T, [order])
-        kinds = sorted(row[0] for row in sql("SELECT event_type FROM journey_event WHERE tenant_id = %s AND party_id = %s AND external_id LIKE 'order:%%'", [T, p3]))
+        kinds = sorted(row[0] for row in sql("SELECT event_type FROM journey_event WHERE tenant_id = %s AND party_id = %s AND external_id LIKE 'order:%%'", [T, buyer]))
         check("an order is a PURCHASE event, and the customer's first one is also FIRST_PURCHASE", kinds == ["FIRST_PURCHASE", "PURCHASE"], str(kinds))
-        later = attribution.clean({"order_id": f"ZJ-{uuid.uuid4().hex[:6]}", "amount": 20, "party_id": p3, "ordered_at": (timezone.now() + timedelta(minutes=1)).isoformat()},
+        later = attribution.clean({"order_id": f"ZJ-{uuid.uuid4().hex[:6]}", "amount": 20, "party_id": buyer, "ordered_at": (timezone.now() + timedelta(minutes=1)).isoformat()},
                                   currency="USD")[0]
         attribution.ingest(T, [later])
-        kinds = sorted(row[0] for row in sql("SELECT event_type FROM journey_event WHERE tenant_id = %s AND party_id = %s AND external_id LIKE 'order:%%'", [T, p3]))
+        kinds = sorted(row[0] for row in sql("SELECT event_type FROM journey_event WHERE tenant_id = %s AND party_id = %s AND external_id LIKE 'order:%%'", [T, buyer]))
         check("a second order is only a PURCHASE", kinds == ["FIRST_PURCHASE", "PURCHASE", "PURCHASE"], str(kinds))
 
         # ---- enrollment from events
