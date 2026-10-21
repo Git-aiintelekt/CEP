@@ -16,7 +16,7 @@ from apps.templates import design
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import Outcome, ProviderError, SmsMessage, registry
-from . import content as run_content, session
+from . import content as run_content, linktags, session
 from .dispatch import MAX_ATTEMPTS, RetryBatch, _as_dict
 from .render import Renderer
 
@@ -78,6 +78,8 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
         return {"skipped": len(execution_ids), "reason": f"run is {run.status}"}
     provider_row = campaign.sender_profile.delivery_provider
     renderer = Renderer(campaign=campaign, run=run, content=text_content(content), tags=tags)
+    with session.tx():
+        tagger = linktags.Tagger(campaign, "SMS", session.connection().alias, renderer)
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0, "parts": 0}
     retry_ids, retry_reason = [], ""
 
@@ -105,6 +107,9 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                         found = cursor.fetchone()
                 rendered = renderer.render(customer=customer, member={"custom_value_pairs": _as_dict(found[0]) if found else {}}, system={"phone": phone})
                 text = rendered["text"].strip()
+                if tagger.on:
+                    with session.tx():
+                        text = tagger.sms(text)                 # short links count, not the tagged addresses
                 metrics = design.sms_metrics(text)
                 if not text or len(text) > design.MAX_MESSAGE_CHARS:
                     _record(tenant_id, execution_id, member_id, status="FAILED", text=text or None, segments=metrics["segments"], used=renderer.used,
@@ -178,7 +183,9 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, prefix: str = "[
         provider_row = sender.delivery_provider
         media = design.message_media_url(template) if template.channel == "MMS" else None
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
-    rendered = Renderer(campaign=campaign, run=None, content=text_content(content), tags=[]).render(customer={}, member={"custom_value_pairs": samples}, system={})
+    renderer = Renderer(campaign=campaign, run=None, content=text_content(content), tags=[])
+    rendered = renderer.render(customer={}, member={"custom_value_pairs": samples}, system={})
+    rendered["text"] = linktags.Tagger(campaign, "SMS", session.connection().alias, renderer).sms(rendered["text"])
     results = []
     with registry.for_provider(provider_row) as provider:
         for number in to:

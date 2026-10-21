@@ -25,7 +25,7 @@ def _lookup(key: str, value: str):
     return result
 
 
-PUBLIC_LINK_PREFIXES = ("/api/v1/public/unsubscribe/", "/api/v1/public/preferences/")
+PUBLIC_LINK_PREFIXES = ("/api/v1/public/unsubscribe/", "/api/v1/public/preferences/", "/api/v1/l/")
 
 
 def resolve_tenant(request):
@@ -37,6 +37,9 @@ def resolve_tenant(request):
     if request.path.startswith("/api/v1/webhooks/delivery/"):  # a provider's callback: the workspace code is part of the address
         parts = request.path.split("/")
         return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None
+    if request.path.startswith("/api/v1/l/"):                 # a text campaign's short link: /api/v1/l/<workspace>/<code>/
+        parts = request.path.split("/")
+        return _lookup("code", parts[4]) if len(parts) > 4 and parts[4] else None
     if request.path.startswith("/api/v1/public/embed/"):      # an Insights embed: the workspace code is part of the address
         parts = request.path.split("/")
         return _lookup("code", parts[5]) if len(parts) > 5 and parts[5] else None

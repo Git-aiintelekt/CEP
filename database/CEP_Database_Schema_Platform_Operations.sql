@@ -2929,6 +2929,40 @@ INSERT INTO platform_setting (key, value, value_type, category, description) VAL
     ('engine_health.min_sample',               '50',   'INTEGER', 'Engine health', 'A rate is judged only from this many messages or calls in its window')
 ON CONFLICT (key) DO NOTHING;
 
+-- ---- UTM tracking (patch 0070): the links of email and text campaigns carry UTM tags (apps/delivery/utm.py). The workspace's
+-- settings live in tenant.settings.utm; a campaign's own choices (tagging on or off, its campaign name and tactic as sent, its
+-- link labels) in campaign_link_tracking, saved on their own so the campaign's row_version is not touched. A text's links
+-- become short links (tracking_link, one per campaign and address) that open the tagged page and count clicks.
+CREATE TABLE IF NOT EXISTS campaign_link_tracking (
+    campaign_id         UUID PRIMARY KEY REFERENCES campaign(id) ON DELETE CASCADE,
+    tenant_id           UUID NOT NULL REFERENCES tenant(id),
+    enabled             BOOLEAN NOT NULL DEFAULT TRUE,                     -- FALSE: this campaign's links go out as written
+    overrides           JSONB NOT NULL DEFAULT '{}',                       -- {utm_campaign, utm_marketing_tactic}: this campaign's own values
+    labels              JSONB NOT NULL DEFAULT '{}',                       -- {"position|address as written": label}: utm_content per link
+    updated_by          UUID REFERENCES app_user(id) ON DELETE SET NULL,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_campaign_link_tracking_objects CHECK (jsonb_typeof(overrides) = 'object' AND jsonb_typeof(labels) = 'object')
+);
+COMMENT ON TABLE campaign_link_tracking IS 'A campaign''s own link tracking choices; no row = the workspace''s UTM settings as they are';
+DO $$ DECLARE t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY['campaign_link_tracking'] LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS rls_%I_tenant ON %I', t, t);
+        EXECUTE format('CREATE POLICY rls_%I_tenant ON %I USING (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid) '
+                       'WITH CHECK (tenant_id = NULLIF(current_setting(''app.current_tenant'', true), '''')::uuid)', t, t);
+    END LOOP;
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON campaign_link_tracking TO cep_app;
+GRANT ALL ON campaign_link_tracking TO cep_admin;
+ALTER TABLE tracking_link ADD COLUMN IF NOT EXISTS clicks INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tracking_link ADD COLUMN IF NOT EXISTS last_clicked_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_tracking_link_campaign_target ON tracking_link(tenant_id, campaign_id, md5(target_url)) WHERE campaign_id IS NOT NULL;
+INSERT INTO platform_setting (key, value, value_type, category, description) VALUES
+    ('links.short_base_url', '""', 'STRING', 'Platform', 'Where text campaigns'' short links point, e.g. https://go.example.com (served by the API under /api/v1/l/); empty: the public API address')
+ON CONFLICT (key) DO NOTHING;
+
 -- Partitions are reached only through their parent, so row-level security on the parent cannot be side-stepped by naming a
 -- tenant's partition. An earlier layer's GRANT ... ON ALL TABLES, or a partition made outside fn_provision_tenant (the sample
 -- data's history months), would give the application role direct access again; this layer runs last and with every patch.

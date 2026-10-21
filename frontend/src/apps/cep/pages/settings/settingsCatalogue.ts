@@ -1,5 +1,5 @@
 /** The Settings menu: its groups and pages, who sees which, and the three things the panel remembers per viewer. */
-import { Bell, Braces, CalendarRange, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Sparkles, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
+import { Bell, Braces, CalendarRange, CheckCircle2, CircleDollarSign, ClipboardCheck, Database, Key, Layers, Link2, ListChecks, Lock, Mail, Plug, Receipt, Send, ShieldCheck, SlidersHorizontal, Sparkles, Target, UserX, Users, Zap, type LucideIcon } from 'lucide-react'
 
 import type { Feature } from '@/lib/types'
 
@@ -34,6 +34,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   { key: 'sending', label: 'Sending', icon: Send, pages: [
     { to: '/settings/delivery', label: 'Sending Engines', icon: Send },
     { to: '/settings/email', label: 'Email Server', icon: Mail },
+    { to: '/settings/utm-tracking', label: 'UTM Tracking', icon: Link2 },
     { to: '/settings/notifications', label: 'Notifications', icon: Bell },
   ] },
   { key: 'audience', label: 'Audience', icon: ShieldCheck, pages: [

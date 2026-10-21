@@ -14,7 +14,7 @@ from apps.governance import preferences
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import TRAFFIC_BULK, TRAFFIC_TRANSACTIONAL, EmailMessage, Outcome, ProviderError, registry
-from . import content as run_content, session, unsubscribe
+from . import content as run_content, linktags, session, unsubscribe
 from .render import Renderer
 
 log = logging.getLogger("cep.delivery")
@@ -80,6 +80,8 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
     sender = campaign.sender_profile
     provider_row = sender.delivery_provider
     renderer = Renderer(campaign=campaign, run=run, content=content, tags=tags, inner_templates=inner, step=step)
+    with session.tx():
+        tagger = linktags.Tagger(campaign, "EMAIL", session.connection().alias, renderer)
     marketing = campaign.solicitation_type == "MARKETING"
     counts = {"submitted": 0, "failed": 0, "retry": 0, "skipped": 0}
     retry_ids, retry_reason = [], ""
@@ -112,6 +114,7 @@ def send_batch(tenant_id, run_id, execution_ids: list[int]) -> dict:
                 token = unsubscribe.token_for(tenant_code=tenant_code, party_id=party_id, email=email, campaign_id=campaign.pk, run_id=run.pk)
                 rendered = renderer.render(customer=customer, member=member, system={"unsubscribe_url": unsubscribe.url_for(token), "preference_url": preferences.link_for(campaign.tenant, token), "email": email},
                                            subject=own_subject if variant_key else None)
+                rendered = tagger.email(rendered, variant_key)
                 message = EmailMessage(to_email=email, to_name=" ".join(filter(None, [customer.get("first_name"), customer.get("last_name")])),
                                        from_email=sender.from_address, from_name=sender.display_name, reply_to=sender.reply_to_address or None,
                                        subject=rendered["subject"], html=rendered["html"], text=rendered["text"], idempotency_key=idempotency_key,
@@ -204,6 +207,7 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, label: dict | No
         tenant_code = campaign.tenant.code
     samples = {tag.tag_key.strip("{} "): tag.sample_value for tag in tags if tag.sample_value}
     renderer = Renderer(campaign=campaign, run=None, content=content, tags=[], step=step)
+    tagger = linktags.Tagger(campaign, "EMAIL", session.connection().alias, renderer)
     # with a subject line test, each address gets both: [TEST A] with the template's subject and [TEST B] with the second one
     from . import abtest
     from .render import with_banner
@@ -217,6 +221,7 @@ def send_test(tenant_id, campaign, to: list[str], *, step=None, label: dict | No
                 rendered = renderer.render(customer={}, member={"custom_value_pairs": samples},
                                            system={"unsubscribe_url": unsubscribe.url_for(token), "preference_url": preferences.link_for(campaign.tenant, token), "email": address},
                                            subject=own_subject)
+                rendered = tagger.email(rendered, variant)
                 if label:
                     words = label["subject"]
                     mark = (words[:-1] + f" · {variant}] " if variant else words + " ")
