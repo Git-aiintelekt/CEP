@@ -237,6 +237,50 @@ export interface DeliverySender extends SenderProfile {
   delivery_provider: string
 }
 
+/** Settings → UTM Tracking and the campaign's Link Tracking (apps/delivery/utm.py) */
+export type UtmRule = { kind: 'text' | 'field' | 'none'; value: string }
+
+export interface UtmSettings {
+  email: boolean
+  sms: boolean
+  /** every parameter except utm_medium and utm_creative_format, which follow the channel */
+  params: Record<string, UtmRule>
+  domains: string[]
+  keep_existing: boolean
+  /** false until the server's database has patch 0070: settings save, nothing is tagged yet */
+  ready: boolean
+  short_base: string
+  fields: { key: string; label: string }[]
+  by_channel: Record<string, Record<'EMAIL' | 'SMS', string>>
+  parameters: string[]
+}
+
+export type LinkVerdict = 'TAGGED' | 'OWN_TAGS' | 'NOT_YOUR_SITE' | 'NEVER'
+
+export interface LinkTrackingChoices {
+  enabled: boolean
+  overrides: { utm_campaign?: string; utm_marketing_tactic?: string }
+  /** "position|address as written" -> label */
+  labels: Record<string, string>
+}
+
+export interface UtmPreview {
+  channel: 'EMAIL' | 'SMS'
+  workspace_on: boolean
+  ready: boolean
+  enabled: boolean
+  values: Record<string, string>
+  defaults: Record<string, string>
+  links: { key: string; position: number; url: string; text: string; default_label: string; label: string; verdict: LinkVerdict; opens: string; short: boolean }[]
+  short_base: string
+  has_content: boolean
+}
+
+export interface CampaignLinkTracking extends LinkTrackingChoices {
+  ready: boolean
+  clicks: { token: string; target_url: string; label: string; clicks: number; last_clicked_at: string | null }[]
+}
+
 /** Settings → Delivery → Sending Domains (apps/delivery/domain_health.py) */
 export type DnsStatus = 'PASS' | 'MISSING' | 'MULTIPLE' | 'ANY' | 'MONITOR' | 'NOT_CHECKED'
 

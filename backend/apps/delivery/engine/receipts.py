@@ -21,7 +21,7 @@ from apps.campaigns.models import Campaign, CampaignRun
 from apps.templates.models import PersonalizationTag, RenderedTemplateContent
 
 from ..providers import TRAFFIC_TRANSACTIONAL, Attachment, EmailMessage, Outcome, ProviderError, registry
-from . import receipt_layout, session
+from . import linktags, receipt_layout, session
 from .render import Renderer
 
 log = logging.getLogger(__name__)
@@ -160,6 +160,7 @@ def send(tenant_id, *, campaign_ref: str, to: str, receipt: dict, store: dict | 
     rendered = renderer.render(
         customer=customer, member={"custom_value_pairs": coupon_values(receipt)}, system={"email": to},
         sources={"RECEIPT": {"receipt": shown}, "STORE": store or {}, **(extra_sources or {})}, html_blocks={"receipt_body": items_html(receipt.get("items") or [], currency)})
+    rendered = linktags.Tagger(campaign, "EMAIL", session.connection().alias, renderer).email(rendered)
     if rendered["codes_left_out"]:
         log.info("receipt %s went without its code block (%s): no usable value", number, ", ".join(sorted(set(rendered["codes_left_out"]))))
 

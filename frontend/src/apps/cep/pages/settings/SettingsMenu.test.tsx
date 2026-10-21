@@ -28,7 +28,7 @@ test('the menu: every group with its pages, the current page selected, the trail
   await renderAppAt('/settings/delivery')
   await screen.findByRole('table', { name: 'Sending Engines' })
   for (const name of ['Workspace', 'Sending', 'Audience', 'Integrations']) expect(within(menu()).getByRole('button', { name })).toBeTruthy()
-  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'AI Assistant', 'Report Databases', 'Report Access', 'Fiscal Year', 'Plan & Usage', 'Sending Engines', 'Email Server', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts', 'Attribution', 'Events'])
+  expect(links()).toEqual(['Set-Up', 'Users', 'Roles', 'Tags', 'Security', 'Approvals', 'AI Assistant', 'Report Databases', 'Report Access', 'Fiscal Year', 'Plan & Usage', 'Sending Engines', 'Email Server', 'UTM Tracking', 'Notifications', 'Suppressions', 'Preference Centre', 'Consent Policy', 'Integrations', 'API Keys', 'POS Receipts', 'Attribution', 'Events'])
   expect(within(menu()).queryByRole('region', { name: 'Recent' })).toBeNull()                            // nothing visited before this page
   const current = within(menu()).getAllByRole('link', { name: 'Sending Engines' }).at(-1)!
   expect(current.getAttribute('aria-current')).toBe('page')
@@ -45,7 +45,7 @@ test('Find a Setting narrows the menu to the matching pages, by page or group; E
   const box = within(menu()).getByRole('searchbox', { name: 'Find a setting' })
   await user.type(box, 'send')
   expect(within(menu()).getByRole('list', { name: 'Matching settings' })).toBeTruthy()
-  expect(links()).toEqual(['Sending Engines', 'Email Server', 'Notifications'])                          // the Sending group's pages, by group name
+  expect(links()).toEqual(['Sending Engines', 'Email Server', 'UTM Tracking', 'Notifications'])                          // the Sending group's pages, by group name
   await user.clear(box)
   await user.type(box, 'xyz')
   expect(within(menu()).getByText(/Nothing matches/)).toBeTruthy()

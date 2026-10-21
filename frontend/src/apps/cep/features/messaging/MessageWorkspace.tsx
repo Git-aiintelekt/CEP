@@ -17,6 +17,8 @@ import { ApiError } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import type { DesignVersion, MediaAsset, Message, MessageSaveInput, PersonalizationTag } from '@/lib/types'
 
+import { useUtmSettings, withShortLinks } from '@/apps/cep/pages/settings/utm'
+
 import { BUBBLE, PhoneFrame } from './PhoneFrame'
 import { canBePlain, describeCharacter, isEmoji, OPT_OUT_PATTERN, plainPunctuation, plainSegments, renderWithSamples, smsMetrics } from './sms'
 
@@ -83,8 +85,11 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
   const tagGroups = useMemo(() => groupTags(tags, channel), [tags, channel])
   const used = useMemo(() => extractTags(body), [body])
   const unknown = useMemo(() => unknownTags(used, tags), [used, tags])
+  const utm = useUtmSettings()
   const sample = useMemo(() => renderWithSamples(body, tags), [body, tags])
-  const metrics = useMemo(() => smsMetrics(sample), [sample])
+  const counted = useMemo(() => withShortLinks(sample, utm.data), [sample, utm.data])
+  const shortened = counted !== sample
+  const metrics = useMemo(() => smsMetrics(counted), [counted])
   const tooLong = body.trim().length > MAX_CHARS
   const usableImages = assets.filter((asset) => MMS_TYPES.includes(asset.mime_type) && asset.byte_size <= MMS_MAX_BYTES)
 
@@ -309,6 +314,7 @@ export function MessageWorkspace({ templateName, channel, status, message, tags,
               <span className="tabular-nums text-ink-800">{metrics.remaining} left in this part</span>
               <span className="rounded-md bg-fill-subtle px-1.5 py-0.5 text-xs font-medium text-ink-800">{metrics.encoding}</span>
               {used.length > 0 && <span className="text-xs text-ink-800">estimated with sample values; real lengths vary per recipient</span>}
+              {shortened && <span className="text-xs text-ink-800">links to your sites counted as short links</span>}
             </div>
             {tooLong && <p className="mt-1 text-xs font-medium text-danger-text">A message can be at most {MAX_CHARS} characters (10 parts).</p>}
             {fieldErrors.sms_body && <p className="mt-1 text-xs font-medium text-danger-text">{fieldErrors.sms_body}</p>}

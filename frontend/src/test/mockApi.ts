@@ -10,7 +10,7 @@ import { defaultSectionsFor } from '@/apps/cep/features/receipt/receiptPresets'
 import { RECEIPT_STARTER_MJML } from '@/apps/cep/features/receipt/receiptStarter'
 
 import { SAMPLE_SETUP_READY } from '@/apps/cep/features/setup/sampleSetup'
-import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
+import type { AttributedOrder, DripStep, AttributionSettings, EventsSettings, JourneyEventRow, WorkspaceSetup, CampaignRunVariant, ApiKey, Audience, AuthOptions, Campaign, CampaignActivity, CampaignAudience, CampaignMetrics, ContactList, DeliverabilityService, DeliverabilityTest, FieldRule, FieldRules, InspectClient, Design, GovernanceLine, Integration, IntegrationLogDetail, ListImport, ListMember, UploadSummary, DeliveryProvider, DeliverySender, EngineHealth, SendingDomains, UtmSettings, UtmPreview, LinkTrackingChoices, Invoice, MailServerSettings, Me, MediaAsset, Message, PersonalizationTag, ProviderType, ReceiptLayout, Role, RunResults, Journey, JourneyActivityEntry, JourneyAudience, JourneyGeneratedCampaignRow, JourneyGraph, JourneyMetrics, JourneyReadiness, JourneyAttentionRow, JourneyStarter, JourneySuppression, JourneyTemplate, CustomerRecord, CustomerSearchRow, JourneyTestResult, JourneyTrendWeek, JourneyVersion, JourneyVersionDetail,
               RunRecipient, RunSkippedPerson, SecuritySettings, SenderProfile, SettingsUser, SmsReply, SupportAccess, Template, TemplateStarter, Usage, Workspace } from '@/lib/types'
 
 export interface Call {
@@ -781,6 +781,10 @@ function json(body: unknown, status = 200) {
 }
 
 interface MockOptions {
+  /** GET /workspace/utm/; default: both channels off, the recommended values */
+  utm?: Partial<UtmSettings>
+  /** POST /utm/preview/ links; default: a hero image, a shop button, Instagram and the unsubscribe link */
+  utmLinks?: UtmPreview['links']
   /** GET /sending-domains/; default: the sender's example domain, not looked up */
   sendingDomains?: SendingDomains
   /** the journey the Build page opens (GET /journeys/{id}/); default: a FIXED-population DRAFT journey, "j1" */
@@ -994,6 +998,24 @@ export function installMockApi(options: MockOptions = {}) {
     { domain: 'northwind.example', senders: [{ id: 'snd-email', display_name: 'Northwind Rewards', from_address: 'rewards@northwind.example' }], dkim_selector: null,
       result: { lookup: 'EXAMPLE', spf: { status: null, found: [] }, dmarc: { status: null, found: [] }, dkim: { status: 'NOT_CHECKED', found: [] }, changes: 0 }, checked_at: '2026-10-21T06:00:00Z' }] }
   let domainChecks = 0
+  let utmNow: UtmSettings = { email: false, sms: false, domains: [], keep_existing: true, ready: true, short_base: 'https://cepdev.example/api/v1/l/NWA',
+    params: { utm_source: { kind: 'text', value: 'c360' }, utm_campaign: { kind: 'field', value: 'campaign_name' }, utm_id: { kind: 'field', value: 'campaign_code' },
+      utm_content: { kind: 'field', value: 'link_label_variant' }, utm_term: { kind: 'none', value: '' }, utm_source_platform: { kind: 'text', value: 'c360' },
+      utm_marketing_tactic: { kind: 'field', value: 'campaign_category' } },
+    fields: [{ key: 'campaign_name', label: 'Campaign Name' }, { key: 'campaign_code', label: 'Campaign Code' }, { key: 'campaign_category', label: 'Campaign Type' },
+      { key: 'channel', label: 'Channel' }, { key: 'link_label', label: 'Link Label' }, { key: 'link_label_variant', label: 'Link Label and A/B Variant' }],
+    by_channel: { utm_medium: { EMAIL: 'email', SMS: 'sms' }, utm_creative_format: { EMAIL: 'email', SMS: 'text' } },
+    parameters: ['utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_content', 'utm_term', 'utm_source_platform', 'utm_creative_format', 'utm_marketing_tactic'],
+    ...options.utm }
+  let linkTrackingNow: LinkTrackingChoices = { enabled: true, overrides: {}, labels: {} }
+  const utmLinks: UtmPreview['links'] = options.utmLinks ?? [
+    { key: '1|https://shop.northwind.example/fall', position: 1, url: 'https://shop.northwind.example/fall', text: 'Hero image', default_label: 'hero-image', label: 'hero-image', verdict: 'TAGGED',
+      opens: 'https://shop.northwind.example/fall?utm_source=c360&utm_medium=email&utm_content=hero-image', short: false },
+    { key: '2|https://shop.northwind.example/fall', position: 2, url: 'https://shop.northwind.example/fall', text: 'Shop the Collection', default_label: 'shop-the-collection',
+      label: 'shop-the-collection', verdict: 'TAGGED', opens: 'https://shop.northwind.example/fall?utm_source=c360&utm_medium=email&utm_content=shop-the-collection', short: false },
+    { key: '3|https://instagram.com/northwind', position: 3, url: 'https://instagram.com/northwind', text: 'Instagram', default_label: 'instagram', label: 'instagram', verdict: 'NOT_YOUR_SITE', opens: 'https://instagram.com/northwind', short: false },
+    { key: '4|{{unsubscribe_url}}', position: 4, url: '{{unsubscribe_url}}', text: 'Unsubscribe', default_label: 'unsubscribe', label: 'unsubscribe', verdict: 'NEVER', opens: '{{unsubscribe_url}}', short: false },
+  ]
   let deliverabilityServiceNow: DeliverabilityService = { configured: false, provider: 'MAILGUN_INSPECT', region: 'US', username: '', has_api_key: false, default_clients: [], image_blocking: false,
                                                            is_active: false, last_checked_at: null, last_check_ok: null, last_check_error: null, ...options.deliverabilityService }
   if (options.deliverabilityService?.has_api_key) deliverabilityServiceNow = { ...deliverabilityServiceNow, configured: true, is_active: true }
@@ -1108,6 +1130,25 @@ export function installMockApi(options: MockOptions = {}) {
         .map((item) => options.engineHealth ? { ...item, health: engineHealth[item.id] ?? null } : item))
     }
     if (path.endsWith('/sms-inbound/')) return json(options.texts ? smsReplies : [])
+    if (path.endsWith('/workspace/utm/') && method === 'PUT') {
+      const next = body as unknown as UtmSettings
+      if ((next.email || next.sms) && next.domains.length === 0) return json({ type: 'about:blank', title: 'Invalid', status: 400, errors: { domains: ['Add at least one of your sites: only links to them are tagged.'] } }, 400)
+      utmNow = { ...utmNow, ...next }
+      return json(utmNow)
+    }
+    if (path.endsWith('/workspace/utm/')) return json(utmNow)
+    if (path.endsWith('/utm/preview/') && method === 'POST') {
+      const tracking = (body?.tracking ?? linkTrackingNow) as LinkTrackingChoices
+      const channel = body?.channel === 'SMS' || body?.channel === 'MMS' ? 'SMS' : 'EMAIL'
+      return json({ channel, workspace_on: channel === 'SMS' ? utmNow.sms : utmNow.email, ready: utmNow.ready, enabled: tracking.enabled,
+        values: { utm_campaign: tracking.overrides.utm_campaign ?? 'spring-sale' }, defaults: { utm_campaign: 'spring-sale', utm_marketing_tactic: 'promotional' },
+        links: utmLinks.map((row) => ({ ...row, label: tracking.labels[row.key] ?? row.default_label, short: channel === 'SMS' && row.verdict === 'TAGGED' })),
+        short_base: utmNow.short_base, has_content: true } satisfies UtmPreview)
+    }
+    if (/\/campaigns\/[^/]+\/link-tracking\/$/.test(path)) {
+      if (method === 'PUT') linkTrackingNow = body as unknown as LinkTrackingChoices
+      return json({ ...linkTrackingNow, ready: utmNow.ready, clicks: [] })
+    }
     if (path.endsWith('/sending-domains/check/') && method === 'POST') {
       domainChecks += 1
       if (domainChecks > 1) return json({ type: 'about:blank', title: 'Throttled', status: 429, detail: 'The domains were looked up less than a minute ago. Try again shortly.' }, 429)
